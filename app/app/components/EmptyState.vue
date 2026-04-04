@@ -1,6 +1,17 @@
 <script setup lang="ts">
+/**
+ * Empty state component per QA-012 / UI Spec Screen 5.
+ *
+ * Two variants:
+ * - No data: calendar icon + "Schedule coming soon"
+ * - Filter empty: "{Style} workshops on {Day}" + "Show all styles" link
+ */
 defineProps<{
   hasFilters: boolean
+  /** Optional: the name of the active style filter for the filter-empty message */
+  activeStyleName?: string
+  /** Optional: the label of the active day filter for the filter-empty message */
+  activeDayLabel?: string
 }>()
 
 defineEmits<{
@@ -9,40 +20,75 @@ defineEmits<{
 </script>
 
 <template>
-  <div class="flex flex-col items-center justify-center py-16 text-center">
-    <svg
-      class="mb-4 h-16 w-16 text-gray-300"
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-    >
-      <path
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        stroke-width="1.5"
-        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-      />
-    </svg>
+  <div class="flex flex-col items-center justify-center text-center" style="padding: 64px 16px;">
     <template v-if="hasFilters">
-      <p class="text-lg font-medium text-gray-600">
-        No workshops match your filters
-      </p>
-      <p class="mt-1 text-sm text-gray-400">
-        Try adjusting your selection or clear the filters.
+      <!-- Filter empty state -->
+      <p style="font-size: 14px; line-height: 1.5; color: var(--color-text-secondary, #4A4A4A);">
+        <template v-if="activeStyleName && activeDayLabel">
+          No {{ activeStyleName }} workshops on {{ activeDayLabel }}.
+        </template>
+        <template v-else-if="activeStyleName">
+          No {{ activeStyleName }} workshops found.
+        </template>
+        <template v-else>
+          No workshops match your filters.
+        </template>
       </p>
       <button
-        class="mt-4 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-700"
+        class="mt-4 font-semibold"
+        style="
+          font-size: 14px;
+          color: var(--color-interactive, #E8453C);
+          background: none;
+          border: none;
+          cursor: pointer;
+          text-decoration: none;
+        "
+        @mouseenter="($event.target as HTMLElement).style.textDecoration = 'underline'"
+        @mouseleave="($event.target as HTMLElement).style.textDecoration = 'none'"
         @click="$emit('clear')"
       >
-        Clear filters
+        Show all styles
       </button>
     </template>
     <template v-else>
-      <p class="text-lg font-medium text-gray-600">
-        No schedule available yet
+      <!-- No data state -->
+      <!-- Calendar icon (Lucide calendar approximation) -->
+      <svg
+        class="mb-4"
+        width="40"
+        height="40"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="#7A7A7A"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
+        <line x1="16" x2="16" y1="2" y2="6" />
+        <line x1="8" x2="8" y1="2" y2="6" />
+        <line x1="3" x2="21" y1="10" y2="10" />
+      </svg>
+
+      <p
+        class="font-bold"
+        style="font-size: 18px; line-height: 1.3; color: var(--color-text-primary, #1A1A1A);"
+      >
+        Schedule coming soon
       </p>
-      <p class="mt-1 text-sm text-gray-400">
-        Check back later for the workshop schedule.
+
+      <p
+        class="mt-2"
+        style="
+          font-size: 14px;
+          line-height: 1.5;
+          color: var(--color-text-secondary, #4A4A4A);
+          max-width: 280px;
+          text-align: center;
+        "
+      >
+        We're preparing the workshop schedule for this festival.
       </p>
     </template>
   </div>

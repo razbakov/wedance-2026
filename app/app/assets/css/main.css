@@ -1,0 +1,88 @@
+/**
+ * Design System Tokens
+ *
+ * CSS custom properties implementing the Design System Brief (003)
+ * and Festival Theming Guide (004).
+ *
+ * Festival-specific overrides (--festival-*) are injected via useHead()
+ * in the page component. The values here are defaults.
+ */
+
+:root {
+  /* Brand palette */
+  --color-brand-primary: #E8453C;
+  --color-brand-primary-dark: #C23028;
+  --color-brand-primary-light: #FEF2F1;
+
+  /* Core UI palette */
+  --color-bg: #FFFFFF;
+  --color-bg-page: #F7F7F8;
+  --color-bg-overlay: rgba(0, 0, 0, 0.4);
+  --color-text-primary: #1A1A1A;
+  --color-text-secondary: #4A4A4A;
+  --color-text-tertiary: #7A7A7A;
+  --color-text-inverse: #FFFFFF;
+  --color-border: #E2E2E4;
+  --color-interactive: #E8453C;
+  --color-interactive-hover: #C23028;
+  --color-error: #DC2626;
+  --color-success: #16A34A;
+  --color-skeleton: #E5E5E5;
+  --color-skeleton-shine: #F0F0F0;
+
+  /* Dance style colors */
+  --color-style-salsa: #DC2626;
+  --color-style-bachata: #7C3AED;
+  --color-style-kizomba: #0E7490;
+  --color-style-cuban: #C2410C;
+  --color-style-semba: #15803D;
+  --color-style-afro: #92400E;
+  --color-style-zouk: #BE185D;
+  --color-style-reggaeton: #4338CA;
+  --color-style-default: #6B7280;
+
+  /* Festival theming defaults (overridden per festival) */
+  --festival-accent: #E8453C;
+  --festival-accent-hover: #C23028;
+  --festival-header-bg: #FFFFFF;
+  --festival-header-text: #1A1A1A;
+
+  /* Animation tokens */
+  --duration-fast: 100ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+  --easing-default: ease-out;
+}
+
+/* QA-019: Respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Skeleton shimmer animation for loading state (QA-010) */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--color-skeleton) 25%,
+    var(--color-skeleton-shine) 50%,
+    var(--color-skeleton) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}

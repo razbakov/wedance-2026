@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { DanceStyle, FestivalDay } from '~/types/schedule'
+import { getStyleColor, getStyleDisplayName } from '~/utils/styleColors'
 
 const props = defineProps<{
   days: FestivalDay[]
@@ -13,80 +14,131 @@ const emit = defineEmits<{
   'update:style': [value: DanceStyle | null]
 }>()
 
-function toggleDay(date: string) {
+function selectDay(date: string) {
   emit('update:day', props.activeDay === date ? null : date)
 }
 
-function toggleStyle(style: DanceStyle) {
-  emit('update:style', props.activeStyle === style ? null : style)
-}
-
-/** Human-readable display name for kebab-case dance styles. */
-const styleDisplayMap: Record<string, string> = {
-  'salsa-cubana': 'Salsa Cubana',
-  'salsa-linear': 'Salsa Linear',
-  'bachata': 'Bachata',
-  'kizomba': 'Kizomba',
-  'zouk': 'Zouk',
-  'afro-cuban': 'Afro-Cuban',
-  'reggaeton': 'Reggaeton',
-  'semba': 'Semba',
-  'cha-cha-cha': 'Cha Cha Cha',
-  'son': 'Son',
-  'rumba': 'Rumba',
-  'lady-styling': 'Lady Styling',
-  'man-styling': 'Man Styling',
-  'musicality': 'Musicality',
-  'body-movement': 'Body Movement',
-  'other': 'Other',
-}
-
-function displayStyle(style: DanceStyle): string {
-  return styleDisplayMap[style] ?? style
+function selectStyle(style: DanceStyle | null) {
+  emit('update:style', style)
 }
 </script>
 
 <template>
-  <div class="space-y-4">
-    <!-- Day filter -->
-    <div>
-      <h3 class="mb-2 text-sm font-medium text-gray-700">Day</h3>
-      <div class="flex flex-wrap gap-2">
-        <button
-          v-for="day in days"
-          :key="day.date"
-          :class="[
-            'rounded-full px-4 py-1.5 text-sm font-medium transition-colors',
-            activeDay === day.date
-              ? 'festival-accent-bg text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
-          ]"
-          :style="activeDay === day.date ? { backgroundColor: 'var(--festival-accent, #E8453C)' } : undefined"
-          @click="toggleDay(day.date)"
-        >
-          {{ day.label }}
-        </button>
-      </div>
+  <!-- DayTabs: sticky below TopBar (QA-008) -->
+  <div
+    class="sticky z-20"
+    style="
+      top: 56px;
+      background: var(--color-bg, #FFFFFF);
+      border-bottom: 1px solid var(--color-border, #E2E2E4);
+      padding: 12px 16px;
+    "
+  >
+    <div class="flex gap-2 overflow-x-auto" style="-ms-overflow-style: none; scrollbar-width: none;">
+      <button
+        v-for="day in days"
+        :key="day.date"
+        :style="
+          activeDay === day.date
+            ? {
+                backgroundColor: 'var(--festival-accent, #E8453C)',
+                color: '#FFFFFF',
+                border: 'none',
+              }
+            : {
+                backgroundColor: 'transparent',
+                color: 'var(--color-text-secondary, #4A4A4A)',
+                border: '1px solid var(--color-border, #E2E2E4)',
+              }
+        "
+        style="
+          padding: 8px 16px;
+          border-radius: 8px;
+          font-size: 14px;
+          font-weight: 600;
+          white-space: nowrap;
+          transition: all 100ms ease-out;
+          cursor: pointer;
+          line-height: 1;
+        "
+        @click="selectDay(day.date)"
+      >
+        {{ day.label }}
+      </button>
     </div>
+  </div>
 
-    <!-- Dance style filter -->
-    <div>
-      <h3 class="mb-2 text-sm font-medium text-gray-700">Dance Style</h3>
-      <div class="flex flex-wrap gap-2">
-        <button
-          v-for="style in styles"
-          :key="style"
-          :class="[
-            'rounded-full px-3 py-1.5 text-sm font-medium transition-colors',
-            activeStyle === style
-              ? 'bg-gray-900 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
-          ]"
-          @click="toggleStyle(style)"
-        >
-          {{ displayStyle(style) }}
-        </button>
-      </div>
+  <!-- StyleChipRow: sticky below DayTabs (QA-009) -->
+  <div
+    class="sticky z-20"
+    style="
+      top: 108px;
+      background: var(--color-bg-page, #F7F7F8);
+      padding: 12px 16px 4px;
+    "
+  >
+    <div class="flex gap-2 overflow-x-auto" style="-ms-overflow-style: none; scrollbar-width: none;">
+      <!-- "All" chip (QA-009) -->
+      <button
+        :style="
+          activeStyle === null
+            ? {
+                backgroundColor: 'var(--color-interactive, #E8453C)',
+                color: '#FFFFFF',
+                border: '1px solid var(--color-interactive, #E8453C)',
+              }
+            : {
+                backgroundColor: 'var(--color-bg, #FFFFFF)',
+                color: 'var(--color-text-secondary, #4A4A4A)',
+                border: '1px solid var(--color-border, #E2E2E4)',
+              }
+        "
+        style="
+          padding: 4px 12px;
+          border-radius: 16px;
+          font-size: 13px;
+          font-weight: 600;
+          white-space: nowrap;
+          transition: all 100ms ease-out;
+          cursor: pointer;
+          line-height: 1.5;
+        "
+        @click="selectStyle(null)"
+      >
+        All
+      </button>
+
+      <!-- Style chips -->
+      <button
+        v-for="style in styles"
+        :key="style"
+        :style="
+          activeStyle === style
+            ? {
+                backgroundColor: getStyleColor(style),
+                color: '#FFFFFF',
+                border: `1px solid ${getStyleColor(style)}`,
+              }
+            : {
+                backgroundColor: 'var(--color-bg, #FFFFFF)',
+                color: 'var(--color-text-secondary, #4A4A4A)',
+                border: '1px solid var(--color-border, #E2E2E4)',
+              }
+        "
+        style="
+          padding: 4px 12px;
+          border-radius: 16px;
+          font-size: 13px;
+          font-weight: 600;
+          white-space: nowrap;
+          transition: all 100ms ease-out;
+          cursor: pointer;
+          line-height: 1.5;
+        "
+        @click="selectStyle(style)"
+      >
+        {{ getStyleDisplayName(style) }}
+      </button>
     </div>
   </div>
 </template>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { getActiveFestival } from '~/data/festivals'
+import { getStyleDisplayName } from '~/utils/styleColors'
 
 const festivalConfig = getActiveFestival()
 const festival = festivalConfig.schedule
@@ -44,26 +45,61 @@ const hasActiveFilters = computed(
   () => filters.day !== null || filters.danceStyle !== null
 )
 
-// Festival display info
-const festivalTitle = computed(() => {
-  const city = festival.festival.city
-  const year = festival.festival.startDate.slice(0, 4)
-  return city
-    ? `${festival.festival.name} — ${city} ${year}`
-    : festival.festival.name
+// --- Loading & error state simulation (QA-010, QA-011) ---
+// Data is synchronous (mock) right now, but architecture for async loading is in place.
+const isLoading = ref(false)
+const hasError = ref(false)
+
+function handleRetry() {
+  hasError.value = false
+  isLoading.value = true
+  // In a real async scenario, re-fetch data here
+  setTimeout(() => {
+    isLoading.value = false
+  }, 500)
+}
+
+// --- Festival display info ---
+const festivalSubtitle = computed(() => {
+  const parts: string[] = []
+  if (festival.festival.city) {
+    parts.push(festival.festival.city)
+  }
+  if (festival.festival.startDate) {
+    const startStr = new Date(festival.festival.startDate + 'T00:00:00').toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })
+    const endStr = new Date(festival.festival.endDate + 'T00:00:00').toLocaleDateString('en-GB', { month: 'short', day: 'numeric', year: 'numeric' })
+    parts.push(`${startStr} - ${endStr}`)
+  }
+  return parts.join(', ')
+})
+
+// --- OG meta tags (QA-017) ---
+const ogTitle = computed(() => {
+  const dayPart = filters.day
+    ? ` - ${new Date(filters.day + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long' })}`
+    : ''
+  return `${festival.festival.name}${dayPart} Schedule`
+})
+
+const ogDescription = computed(() => {
+  const count = festival.workshops.length
+  const styleNames = availableStyles.value.map(s => getStyleDisplayName(s)).slice(0, 3).join(', ')
+  return `${count} workshops: ${styleNames}`
 })
 
 useHead({
-  title: `${festivalTitle.value} - Schedule`,
+  title: ogTitle.value,
   meta: [
-    {
-      name: 'description',
-      content: `Interactive workshop schedule for ${festivalTitle.value}`,
-    },
+    { name: 'description', content: `Interactive workshop schedule for ${festival.festival.name}` },
+    { property: 'og:title', content: ogTitle.value },
+    { property: 'og:description', content: ogDescription.value },
+    { property: 'og:url', content: typeof window !== 'undefined' ? window.location.href : '' },
+    { property: 'og:image', content: festivalConfig.theme.bannerUrl || '' },
+    { property: 'og:type', content: 'website' },
   ],
 })
 
-// --- Apply festival theme CSS variables ---
+// --- Apply festival theme CSS variables (QA-020) ---
 useHead({
   style: [
     {
@@ -84,12 +120,22 @@ const urlFilters = getInitialFilters()
 if (urlFilters.day) {
   setDay(urlFilters.day)
 } else if (defaultDay.value) {
-  // Apply default day based on festival state (current day if live, first day if before)
   setDay(defaultDay.value)
 }
 if (urlFilters.style) {
   setDanceStyle(urlFilters.style)
 }
+
+// --- Active style display name for EmptyState (QA-012) ---
+const activeStyleName = computed(() =>
+  filters.danceStyle ? getStyleDisplayName(filters.danceStyle) : undefined
+)
+
+const activeDayLabel = computed(() => {
+  if (!filters.day) return undefined
+  const day = days.value.find(d => d.date === filters.day)
+  return day?.label
+})
 
 // --- Analytics instrumentation ---
 setFestivalContext(festival.festival)
@@ -101,11 +147,9 @@ onMounted(() => {
   const cleanupScroll = trackScrollDepth()
   onUnmounted(() => cleanupScroll?.())
 
-  // Start the "now" clock for live indicator
   startClock()
   onUnmounted(() => stopClock())
 
-  // Auto-scroll to "happening now" workshop if festival is live
   if (isFestivalLive.value) {
     scrollToNow()
   }
@@ -142,79 +186,73 @@ function handleStyleChange(style: typeof filters.danceStyle) {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50">
-    <!-- Header (themed per festival) -->
+  <div class="min-h-screen" style="background-color: var(--color-bg-page, #F7F7F8);">
+    <!-- TopBar: 56px sticky header (QA-007) -->
     <header
-      class="shadow-sm"
-      :style="{
-        backgroundColor: 'var(--festival-header-bg, #FFFFFF)',
-        color: 'var(--festival-header-text, #1A1A1A)',
-      }"
+      class="sticky top-0 z-30 flex items-center justify-between"
+      style="
+        height: 56px;
+        padding: 0 16px;
+        background-color: var(--festival-header-bg, #FFFFFF);
+        border-bottom: 1px solid var(--color-border, #E2E2E4);
+        color: var(--festival-header-text, #1A1A1A);
+      "
     >
-      <div class="mx-auto max-w-4xl px-4 py-6 sm:px-6">
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <h1 class="text-2xl font-bold sm:text-3xl">
-              {{ festival.festival.name }}
-            </h1>
-            <p class="mt-1 text-sm opacity-70">
-              {{ festival.festival.venue }}<template v-if="festival.festival.city">, {{ festival.festival.city }}</template>
-              <template v-if="festival.festival.startDate">
-                &middot;
-                {{ new Date(festival.festival.startDate + 'T00:00:00').toLocaleDateString('en-GB', { month: 'short', day: 'numeric' }) }}
-                &ndash;
-                {{ new Date(festival.festival.endDate + 'T00:00:00').toLocaleDateString('en-GB', { month: 'short', day: 'numeric', year: 'numeric' }) }}
-              </template>
-            </p>
-          </div>
-          <ShareButton
-            :festival-slug="festivalConfig.slug"
-            :festival-name="festival.festival.name"
-            :city="festival.festival.city"
-            :current-day="filters.day"
-            :current-style="filters.danceStyle"
-          />
-        </div>
+      <div class="min-w-0 flex-1">
+        <h1
+          class="truncate font-bold"
+          style="font-size: 20px; line-height: 1.3;"
+        >
+          {{ festival.festival.name }}
+        </h1>
+        <p
+          v-if="festivalSubtitle"
+          class="truncate"
+          style="font-size: 12px; line-height: 1.3; color: var(--color-text-tertiary, #7A7A7A);"
+        >
+          {{ festivalSubtitle }}
+        </p>
       </div>
+      <ShareButton
+        :festival-slug="festivalConfig.slug"
+        :festival-name="festival.festival.name"
+        :city="festival.festival.city"
+        :current-day="filters.day"
+        :current-style="filters.danceStyle"
+      />
     </header>
 
-    <main class="mx-auto max-w-4xl px-4 py-6 sm:px-6">
-      <!-- Filters -->
-      <section class="mb-6 rounded-lg bg-white p-4 shadow-sm">
-        <ScheduleFilters
-          :days="days"
-          :styles="availableStyles"
-          :active-day="filters.day"
-          :active-style="filters.danceStyle"
-          @update:day="handleDayChange"
-          @update:style="handleStyleChange"
-        />
-      </section>
+    <!-- Filters: DayTabs + StyleChips (QA-008, QA-009) -->
+    <ScheduleFilters
+      :days="days"
+      :styles="availableStyles"
+      :active-day="filters.day"
+      :active-style="filters.danceStyle"
+      @update:day="handleDayChange"
+      @update:style="handleStyleChange"
+    />
 
-      <!-- Active filter indicator -->
-      <div
-        v-if="hasActiveFilters"
-        class="mb-4 flex items-center justify-between"
-      >
-        <p class="text-sm text-gray-500">
-          Showing filtered results
-        </p>
-        <button
-          class="text-sm font-medium text-gray-700 underline hover:text-gray-900"
-          @click="clearFilters"
-        >
-          Clear all filters
-        </button>
+    <main class="mx-auto max-w-4xl px-4 py-6 sm:px-6">
+      <!-- Loading state with skeleton cards (QA-010) -->
+      <div v-if="isLoading" class="space-y-6">
+        <div v-for="row in 2" :key="row" class="flex gap-3 overflow-hidden">
+          <SkeletonCard v-for="card in 3" :key="card" />
+        </div>
       </div>
 
-      <!-- Empty state -->
+      <!-- Error state (QA-011) -->
+      <ErrorState v-else-if="hasError" @retry="handleRetry" />
+
+      <!-- Empty state (QA-012) -->
       <EmptyState
-        v-if="isEmpty"
+        v-else-if="isEmpty"
         :has-filters="hasActiveFilters"
+        :active-style-name="activeStyleName"
+        :active-day-label="activeDayLabel"
         @clear="clearFilters"
       />
 
-      <!-- Schedule by day -->
+      <!-- Schedule by day (QA-018: grouped by time slot within each day) -->
       <div v-else class="space-y-8">
         <section
           v-for="{ day, workshops } in workshopsByDay"
@@ -222,10 +260,14 @@ function handleStyleChange(style: typeof filters.danceStyle) {
         >
           <template v-if="workshops.length > 0">
             <h2
-              class="mb-4 border-b border-gray-200 pb-2 text-lg font-semibold text-gray-900"
+              class="mb-4 border-b pb-2 text-lg font-semibold"
+              style="color: var(--color-text-primary, #1A1A1A); border-color: var(--color-border, #E2E2E4);"
             >
               {{ day.label }}
-              <span class="ml-2 text-sm font-normal text-gray-400">
+              <span
+                class="ml-2 text-sm font-normal"
+                style="color: var(--color-text-tertiary, #7A7A7A);"
+              >
                 {{ new Date(day.date + 'T00:00:00').toLocaleDateString('en-GB', {
                   weekday: 'long',
                   day: 'numeric',
@@ -247,9 +289,20 @@ function handleStyleChange(style: typeof filters.danceStyle) {
       </div>
     </main>
 
-    <!-- Footer: "Powered by WeDance" (always present, WeDance coral) -->
-    <footer class="mt-12 border-t border-gray-200 bg-white py-6 text-center">
-      <span class="text-sm" style="color: #E8453C;">Powered by WeDance</span>
+    <!-- Footer: "Powered by WeDance" (QA-013) -->
+    <footer
+      class="text-center"
+      style="padding: 24px 16px; background: transparent;"
+    >
+      <span style="font-size: 11px; line-height: 1.3; color: var(--color-text-tertiary, #7A7A7A);">
+        Powered by
+      </span>
+      <span
+        class="font-semibold"
+        style="font-size: 11px; line-height: 1.3; color: var(--color-brand-primary, #E8453C);"
+      >
+        WeDance
+      </span>
     </footer>
   </div>
 </template>
