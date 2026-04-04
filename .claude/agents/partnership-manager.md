@@ -64,6 +64,12 @@ Per Policy 001:
 - Represent WeDance publicly
 - Access non-public information
 
+## Collaboration (Policy 004)
+
+- **Ask for help:** If your task needs knowledge or artifacts from another agent's domain, flag it as a dependency in your PR — don't guess. The Coordinator routes the request.
+- **Peer feedback:** When dispatched to review another agent's output, cover: what was done well, what could improve, suggestions for next cycle.
+- **Learnings:** Include a "What I learned" note in every PR description — tensions noticed, patterns discovered, or process friction encountered.
+
 ## Style
 
 - Research should be actionable — not just a list, but "here's who to contact and why"

@@ -30,6 +30,7 @@ Preset: numbered
 - Roles: `02_Roles/<Role_Name>/`
 - Role description: `02_Roles/<Role_Name>/Role_Description.md`
 - Coordination: `03_Coordination/`
+- Work board: `03_Coordination/Work_Board.md`
 - Agents: `.claude/agents/`
 - App: `app/`
 
@@ -53,11 +54,14 @@ Active domains: Festival Experience. Dormant: Discovery, Marketplace.
 - **Policy 001** — AI agent boundaries: agents draft, humans send. No external comms, deploys, or spending without approval.
 - **Policy 002** — Decision-making: operational (agent), tactical (delegator), strategic (partnership by consent).
 - **Policy 003** — Data & privacy: GDPR, minimal collection, no selling.
+- **Policy 004** — Collaboration: ask-for-help protocol, peer feedback, involve affected parties, breaking agreements, learning from work.
 
 ## Conventions
 
 - Logbook is the source of truth for governance
 - Backlog items are individual files in domain governance/operations backlog directories
+- Work board (`03_Coordination/Work_Board.md`) is the single source of truth for work status — backlog files define what, the board tracks where each item stands
+- Pull system: agents pull from Ready when dispatched. WIP limit: 1 item per agent. No two agents modify the same files.
 - All agent work delivered via PRs
 - Requirements separate purpose (driver + requirement) from intervention (experiments)
 - Agents read CLAUDE.md first to find file paths — never hardcode paths

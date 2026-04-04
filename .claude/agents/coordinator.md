@@ -11,9 +11,10 @@ Your job: maintain the big picture across all 7 agents, identify what's blocked,
 
 ## First steps (every task)
 
-Read your role description to understand your boundaries:
+Read your role description and the work board to understand your boundaries and current status:
 
 1. `02_Roles/Coordinator/Role_Description.md`
+2. `03_Coordination/Work_Board.md` — the single source of truth for work status
 
 Then **dispatch all agents in parallel** to get their status. Use the Agent tool to launch each agent with a brief prompt asking them to:
 - Report what they last delivered
