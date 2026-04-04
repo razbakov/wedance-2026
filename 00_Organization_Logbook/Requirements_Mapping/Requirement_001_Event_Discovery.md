@@ -3,8 +3,16 @@
 **Actor:** Dancers, Newcomers
 **Domain:** Discovery
 
-## Need
-Dancers need to find events, classes, and festivals in their city from a single source so that they can participate without relying on scattered channels. Newcomers need a guided entry point so that they don't give up before finding their community.
+## Purpose
+
+### Driver
+Dance event information is scattered across Facebook groups, WhatsApp chats, Instagram stories, and physical flyers. Dancers — especially newcomers — struggle to discover events and classes in their city, leading to lower attendance and a fragmented community. Newcomers who lack insider connections often give up before finding their first class or social.
+
+### Requirements
+
+**Dancers** need to find events, classes, and festivals in their city from a single source so that they can participate without relying on scattered channels.
+
+**Newcomers** need a guided entry point into the local dance scene so that they don't give up before finding their community.
 
 ## Priority
 High

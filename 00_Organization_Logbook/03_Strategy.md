@@ -32,9 +32,11 @@ Once validated, layer on Meetup Planner features (social coordination: rides, ro
 
 | Who | What |
 |-----|------|
-| TBD | Pick pilot festival and convert schedule |
-| TBD | Share with festival community and collect feedback |
-| TBD | Measure adoption and decide pivot/persevere |
+| Partnership Manager + Kirill | Research and select pilot festival (organizer relationship, timing, size) |
+| Operations Manager | Convert the pilot festival's static schedule into structured data |
+| Marketing Lead + Partnership Manager | Distribute the schedule link to the festival community and collect feedback |
+| Analyst | Measure adoption metrics (opens, return visits, shares, organizer interest) |
+| Partnership (Alex + Kirill) | Review metrics and decide pivot/persevere |
 
 ## Metrics and Monitoring
 

@@ -3,8 +3,14 @@
 **Actor:** Dance schools/studios
 **Domain:** Discovery
 
-## Need
-Dance schools and studios need to promote their regular classes to local dancers so that they maintain steady attendance.
+## Purpose
+
+### Driver
+Dance schools and studios promote their regular classes through word of mouth, local flyers, and social media posts that quickly disappear from feeds. Their reach rarely extends beyond existing students, making it hard to attract new dancers — especially newcomers who don't yet follow the right accounts or groups.
+
+### Requirement
+
+**Dance schools and studios** need a channel to promote their regular classes to local dancers so that they maintain steady attendance and attract newcomers beyond their existing network.
 
 ## Priority
 Low — not in current validation scope
