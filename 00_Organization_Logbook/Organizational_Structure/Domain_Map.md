@@ -40,6 +40,7 @@
 
 | Role | Keeper | Reports to | Domain(s) |
 |------|--------|-----------|-----------|
+| Autopilot | AI Agent | Alex | All (dispatch orchestration) |
 | Co-Founder: Engineering & Platform | Alex | Partnership | All (governance) |
 | Co-Founder: Product & Growth | Kirill | Partnership | All (governance) |
 | Product Lead | AI Agent | Alex | Festival Experience |

@@ -11,6 +11,9 @@ Agents move fast on routine work without bottlenecking on founders, while strate
 
 ## Policy Details
 
+### Autopilot agent — special authority:
+The Autopilot agent can dispatch other agents for items in the Ready column of the work board. This is the only agent authorized to dispatch others. It cannot move items to Ready (founders control that), merge PRs, or make strategic decisions. See `02_Roles/Autopilot/Role_Description.md`.
+
 ### Agents CAN do autonomously:
 - Draft content, specs, reports, outreach messages
 - Analyze data and generate insights

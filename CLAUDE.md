@@ -41,6 +41,7 @@ Active domains: Festival Experience. Dormant: Discovery, Marketplace.
 
 | Agent | Reports to | Focus |
 |-------|-----------|-------|
+| Autopilot | Alex | Autonomous dispatch loop — dispatches agents for Ready items, updates board, reports to founders |
 | Coordinator | Alex | Cross-agent status, blockers, dispatch recommendations |
 | Product Lead | Alex | Specs, stories, backlog, experiment design |
 | Engineer | Alex | Code, features, tests, PRs |

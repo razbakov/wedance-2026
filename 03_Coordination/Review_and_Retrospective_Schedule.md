@@ -94,6 +94,7 @@ Evaluation results are recorded in `02_Roles/<Role_Name>/` as `YYYY-MM-DD_Evalua
 | Partnership Manager | Kirill | 2026-07-04 |
 | Marketing Lead | Kirill | 2026-07-04 |
 | Analyst | Partnership | 2026-07-04 |
+| Autopilot | Alex | 2026-07-04 |
 | Coordinator | Alex | 2026-07-04 |
 
 ---
