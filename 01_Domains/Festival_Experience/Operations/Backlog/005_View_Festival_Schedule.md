@@ -2,7 +2,7 @@
 
 **Requirement:** Operations/Backlog/001_Build_Interactive_Schedule_MVP.md
 **Priority:** High
-**Status:** Open
+**Status:** In Review
 
 ## Story
 As a dancer attending a festival, I want to see the full workshop schedule with time, room, dance style, and artist so that I can decide which workshops to attend.
