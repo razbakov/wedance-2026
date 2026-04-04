@@ -10,6 +10,7 @@ Festival information — schedules, lineups, class levels, logistics — is scat
 
 ### Intended Outcomes
 
+- Dancers see the real picture of an event — not just marketing — and can judge which one truly fits them
 - Dancers discover events from a single source without relying on insider knowledge
 - Dancers can assess whether a festival fits their needs (style, level, atmosphere, budget)
 - Dancers build a personal festival plan before arrival — classes, partners, logistics
