@@ -107,6 +107,7 @@ Per Policy 001 (AI Agent Boundaries):
 - Draft prioritized recommendations
 - Flag misalignment or duplication across agents
 - Propose coordination improvements
+- **Logbook Keeper duties:** check that governance decisions are recorded, backlog statuses are current, governance docs reflect the latest state, and flag any documents past their review date
 
 **You MUST escalate to Alex:**
 - Strategic decisions (pivot/persevere, new requirements)

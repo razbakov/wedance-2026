@@ -17,6 +17,7 @@
 - Flag decisions that need founder input (with context and options)
 - Track progress toward experiment milestones and deadlines
 - Detect when agents' work is misaligned, duplicated, or stalled
+- **Logbook Keeper:** ensure all governance decisions are recorded, backlog statuses are current, governance documents reflect the latest state, and flag any documents past their review date
 
 ## Customers and Deliverables
 | Customer | Deliverable |
@@ -66,6 +67,7 @@
 | Recommendation accuracy | Founders follow ≥ 80% of dispatch recommendations | Weekly | Alex |
 | Blocker detection speed | Blockers flagged before they cause idle agents | Per cycle | Alex |
 | Status freshness | Cross-agent status is ≤ 1 week old | Weekly | Coordinator |
+| Logbook currency | All governance docs reflect latest decisions; none past review date without flag | Per cycle | Coordinator |
 
 ## Evaluation Schedule
 Quarterly review (next: 2026-07-04). Evaluate: Are recommendations useful? Are blockers caught early? Is coordination overhead justified?
