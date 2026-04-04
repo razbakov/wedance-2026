@@ -2,7 +2,7 @@
 
 **Requirement:** Operations/Backlog/001_Build_Interactive_Schedule_MVP.md
 **Priority:** High
-**Status:** In Review
+**Status:** Done
 
 ## Story
 As a dancer attending a festival, I want to see the full workshop schedule with time, room, dance style, and artist so that I can decide which workshops to attend.
@@ -37,3 +37,11 @@ As a dancer attending a festival, I want to see the full workshop schedule with 
 - The data model should support the fields needed for filtering (style, day) even if filters are built separately.
 - Consider a timetable/grid layout (rooms as columns, time as rows) vs. a list layout. Both should be evaluated against the "better than a photo of the schedule" bar.
 - ⚠️ ASSUMPTION: Schedule data will be manually entered or imported before launch — no self-serve upload for MVP. Needs Alex's confirmation on data format.
+
+## Delivered (2026-04-04)
+- Schedule view implemented in `app/pages/index.vue`
+- Workshops grouped by day with chronological sorting
+- Workshop cards show name, artist, time, room, and dance style (`WorkshopCard.vue`)
+- Multi-day support with day sections and date labels
+- Mock Rovinj data loaded (30 workshops across 4 days)
+- Deployed to https://app-wedance.vercel.app

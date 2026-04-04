@@ -2,7 +2,7 @@
 
 **Requirement:** Operations/Backlog/001_Build_Interactive_Schedule_MVP.md
 **Priority:** High
-**Status:** Open
+**Status:** Done
 
 ## Story
 As a dancer attending a multi-style festival, I want to filter the workshop schedule by dance style so that I can quickly find workshops in the styles I dance and ignore the rest.
@@ -36,3 +36,11 @@ As a dancer attending a multi-style festival, I want to filter the workshop sche
 - Common dance styles at target festivals: Salsa (On1, On2, Cuban), Bachata (Sensual, Moderna, Dominicana), Kizomba, Zouk, Semba, Urban Kiz, Cha Cha Cha, Afro, Reggaeton, Lady Styling, Body Movement.
 - Some festivals tag workshops with multiple styles (e.g., "Salsa/Cha Cha Cha combo"). The filter should match if ANY of the workshop's styles match the selected filter.
 - The style filter is the highest-value filter because multi-style festivals are the norm and dancers typically focus on 1-2 styles. This is the primary differentiator over a static image schedule.
+
+## Delivered (2026-04-04)
+- Dance style filter implemented in `ScheduleFilters.vue`
+- Style labels derived from schedule data (not hardcoded)
+- Toggle selection with visual highlight (active state: dark pill)
+- Filter state used in `useSchedule` composable to filter workshops
+- Analytics tracking on filter usage via `trackFilterUsed('style', value)`
+- Note: currently single-select (toggle one style at a time). Multi-select per acceptance criteria may need follow-up.
