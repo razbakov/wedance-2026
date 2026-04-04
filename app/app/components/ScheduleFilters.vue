@@ -58,9 +58,10 @@ function displayStyle(style: DanceStyle): string {
           :class="[
             'rounded-full px-4 py-1.5 text-sm font-medium transition-colors',
             activeDay === day.date
-              ? 'bg-gray-900 text-white'
+              ? 'festival-accent-bg text-white'
               : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
           ]"
+          :style="activeDay === day.date ? { backgroundColor: 'var(--festival-accent, #E8453C)' } : undefined"
           @click="toggleDay(day.date)"
         >
           {{ day.label }}

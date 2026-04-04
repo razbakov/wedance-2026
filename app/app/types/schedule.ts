@@ -90,3 +90,26 @@ export interface WorkshopWithId extends Workshop {
   id: string
   roomName: string // resolved from Room.id
 }
+
+/**
+ * Festival theme configuration.
+ * CSS custom properties applied per-festival, following the theming guide at:
+ *   01_Domains/Festival_Experience/Operations/Design/004_Festival_Theming.md
+ */
+export interface FestivalTheme {
+  accent: string // Hex color, e.g. "#0891B2"
+  accentHover: string // Hex color for hover state
+  headerBg: string // Header background color
+  headerText: string // Header text color
+  bannerUrl?: string | null // Optional banner image URL
+}
+
+/**
+ * Full festival configuration including schedule data and theme.
+ * Used by the data loader to provide everything the app needs for a festival.
+ */
+export interface FestivalConfig {
+  slug: string // URL-safe identifier, e.g. "rovinj-summer-bachata-2026"
+  schedule: FestivalSchedule
+  theme: FestivalTheme
+}

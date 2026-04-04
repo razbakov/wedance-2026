@@ -3,6 +3,8 @@ import type { WorkshopWithId } from '~/types/schedule'
 
 const props = defineProps<{
   workshop: WorkshopWithId
+  isNow?: boolean
+  isPast?: boolean
 }>()
 
 const { trackWorkshopTapped } = useAnalytics()
@@ -84,14 +86,26 @@ const levelLabel = computed(() => {
 
 <template>
   <div
-    class="cursor-pointer rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
+    :class="[
+      'cursor-pointer rounded-lg border p-4 shadow-sm transition-shadow hover:shadow-md',
+      isNow
+        ? 'border-2 bg-white ring-1'
+        : isPast
+          ? 'border-gray-200 bg-gray-50 opacity-60'
+          : 'border-gray-200 bg-white',
+    ]"
+    :style="isNow ? { borderColor: 'var(--festival-accent, #E8453C)', '--tw-ring-color': 'var(--festival-accent, #E8453C)', '--tw-ring-opacity': '0.2' } : undefined"
+    :data-now="isNow || undefined"
     @click="handleTap"
   >
     <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
       <div class="min-w-0 flex-1">
-        <h3 class="text-base font-semibold text-gray-900">
-          {{ workshop.name }}
-        </h3>
+        <div class="flex items-center gap-2">
+          <h3 class="text-base font-semibold text-gray-900">
+            {{ workshop.name }}
+          </h3>
+          <NowBadge v-if="isNow" />
+        </div>
         <p v-if="workshop.artist" class="mt-0.5 text-sm text-gray-600">
           {{ workshop.artist }}
         </p>

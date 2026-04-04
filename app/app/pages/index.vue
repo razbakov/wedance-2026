@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { mockFestival } from '~/data/mock-festival'
+import { getActiveFestival } from '~/data/festivals'
 
-const festival = mockFestival
+const festivalConfig = getActiveFestival()
+const festival = festivalConfig.schedule
+
 const {
   filters,
   days,
@@ -22,38 +24,104 @@ const {
   trackScrollDepth,
 } = useAnalytics()
 
+const { getInitialFilters, syncToUrl } = useUrlFilters()
+
+const {
+  isFestivalLive,
+  defaultDay,
+  isNow,
+  isPast,
+  startClock,
+  stopClock,
+  scrollToNow,
+} = useNowIndicator({
+  startDate: festival.festival.startDate,
+  endDate: festival.festival.endDate,
+  timezone: festival.festival.timezone,
+})
+
 const hasActiveFilters = computed(
   () => filters.day !== null || filters.danceStyle !== null
 )
 
+// Festival display info
+const festivalTitle = computed(() => {
+  const city = festival.festival.city
+  const year = festival.festival.startDate.slice(0, 4)
+  return city
+    ? `${festival.festival.name} — ${city} ${year}`
+    : festival.festival.name
+})
+
 useHead({
-  title: `${festival.festival.name} - Schedule`,
+  title: `${festivalTitle.value} - Schedule`,
   meta: [
     {
       name: 'description',
-      content: `Interactive workshop schedule for ${festival.festival.name}`,
+      content: `Interactive workshop schedule for ${festivalTitle.value}`,
     },
   ],
 })
 
-// --- Analytics instrumentation ---
+// --- Apply festival theme CSS variables ---
+useHead({
+  style: [
+    {
+      innerHTML: `
+        :root {
+          --festival-accent: ${festivalConfig.theme.accent};
+          --festival-accent-hover: ${festivalConfig.theme.accentHover};
+          --festival-header-bg: ${festivalConfig.theme.headerBg};
+          --festival-header-text: ${festivalConfig.theme.headerText};
+        }
+      `,
+    },
+  ],
+})
 
-// Set festival context for all events
+// --- Initialize filters from URL (for shared links) ---
+const urlFilters = getInitialFilters()
+if (urlFilters.day) {
+  setDay(urlFilters.day)
+} else if (defaultDay.value) {
+  // Apply default day based on festival state (current day if live, first day if before)
+  setDay(defaultDay.value)
+}
+if (urlFilters.style) {
+  setDanceStyle(urlFilters.style)
+}
+
+// --- Analytics instrumentation ---
 setFestivalContext(festival.festival)
 
 onMounted(() => {
-  // Track schedule_open after data renders successfully
   trackScheduleOpen(days.value.length, festival.workshops.length)
-
-  // Track page load performance
   trackPagePerformance()
 
-  // Set up scroll depth tracking
   const cleanupScroll = trackScrollDepth()
   onUnmounted(() => cleanupScroll?.())
+
+  // Start the "now" clock for live indicator
+  startClock()
+  onUnmounted(() => stopClock())
+
+  // Auto-scroll to "happening now" workshop if festival is live
+  if (isFestivalLive.value) {
+    scrollToNow()
+  }
 })
 
-// Wrap filter setters to include analytics tracking
+// Sync filters to URL whenever they change
+watch(
+  () => ({ day: filters.day, style: filters.danceStyle }),
+  (newFilters) => {
+    syncToUrl(newFilters.day, newFilters.style)
+  },
+  { deep: true }
+)
+
+// --- Event handlers ---
+
 function handleDayChange(date: string | null) {
   const previousDay = filters.day
   setDay(date)
@@ -75,15 +143,38 @@ function handleStyleChange(style: typeof filters.danceStyle) {
 
 <template>
   <div class="min-h-screen bg-gray-50">
-    <!-- Header -->
-    <header class="bg-white shadow-sm">
+    <!-- Header (themed per festival) -->
+    <header
+      class="shadow-sm"
+      :style="{
+        backgroundColor: 'var(--festival-header-bg, #FFFFFF)',
+        color: 'var(--festival-header-text, #1A1A1A)',
+      }"
+    >
       <div class="mx-auto max-w-4xl px-4 py-6 sm:px-6">
-        <h1 class="text-2xl font-bold text-gray-900 sm:text-3xl">
-          {{ festival.festival.name }}
-        </h1>
-        <p class="mt-1 text-sm text-gray-500">
-          {{ festival.festival.venue }}<template v-if="festival.festival.city">, {{ festival.festival.city }}</template>
-        </p>
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h1 class="text-2xl font-bold sm:text-3xl">
+              {{ festival.festival.name }}
+            </h1>
+            <p class="mt-1 text-sm opacity-70">
+              {{ festival.festival.venue }}<template v-if="festival.festival.city">, {{ festival.festival.city }}</template>
+              <template v-if="festival.festival.startDate">
+                &middot;
+                {{ new Date(festival.festival.startDate + 'T00:00:00').toLocaleDateString('en-GB', { month: 'short', day: 'numeric' }) }}
+                &ndash;
+                {{ new Date(festival.festival.endDate + 'T00:00:00').toLocaleDateString('en-GB', { month: 'short', day: 'numeric', year: 'numeric' }) }}
+              </template>
+            </p>
+          </div>
+          <ShareButton
+            :festival-slug="festivalConfig.slug"
+            :festival-name="festival.festival.name"
+            :city="festival.festival.city"
+            :current-day="filters.day"
+            :current-style="filters.danceStyle"
+          />
+        </div>
       </div>
     </header>
 
@@ -147,6 +238,8 @@ function handleStyleChange(style: typeof filters.danceStyle) {
                 v-for="workshop in workshops"
                 :key="workshop.id"
                 :workshop="workshop"
+                :is-now="isNow(workshop.day, workshop.startTime, workshop.endTime)"
+                :is-past="isPast(workshop.day, workshop.endTime)"
               />
             </div>
           </template>
@@ -154,9 +247,9 @@ function handleStyleChange(style: typeof filters.danceStyle) {
       </div>
     </main>
 
-    <!-- Footer -->
-    <footer class="mt-12 border-t border-gray-200 bg-white py-6 text-center text-sm text-gray-400">
-      Powered by WeDance
+    <!-- Footer: "Powered by WeDance" (always present, WeDance coral) -->
+    <footer class="mt-12 border-t border-gray-200 bg-white py-6 text-center">
+      <span class="text-sm" style="color: #E8453C;">Powered by WeDance</span>
     </footer>
   </div>
 </template>
