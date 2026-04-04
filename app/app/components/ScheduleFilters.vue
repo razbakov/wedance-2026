@@ -20,6 +20,30 @@ function toggleDay(date: string) {
 function toggleStyle(style: DanceStyle) {
   emit('update:style', props.activeStyle === style ? null : style)
 }
+
+/** Human-readable display name for kebab-case dance styles. */
+const styleDisplayMap: Record<string, string> = {
+  'salsa-cubana': 'Salsa Cubana',
+  'salsa-linear': 'Salsa Linear',
+  'bachata': 'Bachata',
+  'kizomba': 'Kizomba',
+  'zouk': 'Zouk',
+  'afro-cuban': 'Afro-Cuban',
+  'reggaeton': 'Reggaeton',
+  'semba': 'Semba',
+  'cha-cha-cha': 'Cha Cha Cha',
+  'son': 'Son',
+  'rumba': 'Rumba',
+  'lady-styling': 'Lady Styling',
+  'man-styling': 'Man Styling',
+  'musicality': 'Musicality',
+  'body-movement': 'Body Movement',
+  'other': 'Other',
+}
+
+function displayStyle(style: DanceStyle): string {
+  return styleDisplayMap[style] ?? style
+}
 </script>
 
 <template>
@@ -59,7 +83,7 @@ function toggleStyle(style: DanceStyle) {
           ]"
           @click="toggleStyle(style)"
         >
-          {{ style }}
+          {{ displayStyle(style) }}
         </button>
       </div>
     </div>

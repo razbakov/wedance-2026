@@ -1,49 +1,92 @@
 /**
  * Festival Schedule data model.
  *
- * Designed to support the acceptance criteria in story 005:
- * - workshops grouped by day, sorted by time
- * - filterable by dance style, day, room, level
- * - each entry shows name, artist, time, room, dance style
+ * Aligned with the canonical JSON schema at:
+ *   01_Domains/Festival_Experience/Operations/schedule_schema.json
+ *
+ * Key differences from the v1 scaffold types:
+ *   - DanceStyle uses kebab-case enum values from the schema's controlled vocabulary
+ *   - Level uses kebab-case enum values
+ *   - Workshop references rooms by `roomId` (string ID) instead of inline room name
+ *   - Workshop uses `day` (ISO date) + `startTime`/`endTime` (HH:MM) instead of full ISO timestamps
+ *   - Festival has structured metadata (timezone, venue, city, country, etc.)
+ *   - Rooms are first-class objects with id, name, and optional capacity
+ *   - Workshop has optional `notes` field (operational, not shown to users)
+ *   - Workshop has optional `tags` array
  */
 
 export type DanceStyle =
-  | 'Salsa'
-  | 'Bachata'
-  | 'Kizomba'
-  | 'Zouk'
-  | 'Afro'
-  | 'Reggaeton'
-  | 'Semba'
-  | 'Cha Cha'
-  | 'Ladies Styling'
-  | 'Mens Styling'
-  | 'Musicality'
+  | 'salsa-cubana'
+  | 'salsa-linear'
+  | 'bachata'
+  | 'kizomba'
+  | 'zouk'
+  | 'semba'
+  | 'cha-cha-cha'
+  | 'son'
+  | 'rumba'
+  | 'afro-cuban'
+  | 'reggaeton'
+  | 'lady-styling'
+  | 'man-styling'
+  | 'musicality'
+  | 'body-movement'
+  | 'other'
 
-export type Level = 'All Levels' | 'Beginner' | 'Intermediate' | 'Advanced'
+export type Level = 'beginner' | 'intermediate' | 'advanced' | 'all-levels'
 
-export interface Workshop {
+export interface Room {
   id: string
   name: string
-  artist: string
-  startTime: string // ISO 8601, e.g. "2026-06-12T10:00:00"
-  endTime: string   // ISO 8601, e.g. "2026-06-12T11:30:00"
-  room: string
-  danceStyle: DanceStyle
-  level: Level
-  description?: string
+  capacity?: number
 }
 
+export interface Workshop {
+  name: string
+  artist?: string
+  day: string // ISO date, e.g. "2026-06-12"
+  startTime: string // HH:MM 24-hour in festival timezone, e.g. "14:00"
+  endTime: string // HH:MM 24-hour in festival timezone, e.g. "15:00"
+  roomId: string // references Room.id
+  danceStyle?: DanceStyle
+  level?: Level
+  description?: string
+  tags?: string[]
+  notes?: string // operational notes, not shown to end users
+}
+
+export interface FestivalMetadata {
+  name: string
+  startDate: string // ISO date, e.g. "2026-06-12"
+  endDate: string // ISO date, e.g. "2026-06-14"
+  timezone: string // IANA timezone, e.g. "Europe/Berlin"
+  venue?: string
+  city?: string
+  country?: string // ISO 3166-1 alpha-2, e.g. "DE"
+  website?: string
+  sourceUrl?: string
+}
+
+export interface FestivalSchedule {
+  festival: FestivalMetadata
+  rooms: Room[]
+  workshops: Workshop[]
+}
+
+/**
+ * Derived types used by the UI layer.
+ */
 export interface FestivalDay {
   date: string // ISO date, e.g. "2026-06-12"
   label: string // e.g. "Friday", "Day 1"
 }
 
-export interface Festival {
+/**
+ * A workshop enriched with a generated ID and resolved room name for display.
+ * The schema does not mandate IDs on workshops (they come from the source data),
+ * so we generate a stable ID from day + time + roomId for keying in the UI.
+ */
+export interface WorkshopWithId extends Workshop {
   id: string
-  name: string
-  location: string
-  days: FestivalDay[]
-  rooms: string[]
-  workshops: Workshop[]
+  roomName: string // resolved from Room.id
 }
