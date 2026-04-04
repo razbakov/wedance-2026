@@ -2,7 +2,7 @@
 
 ## Primary Driver
 
-Festival information — schedules, lineups, class levels, logistics — is scattered across Instagram stories, WhatsApp groups, Facebook events, and organizer websites. Dancers piece this together manually and still can't see who else is going or whether the program fits their level. Organizers have no early visibility into who is actually coming, what those people need, or whether their offer matches demand. As a result, decisions, planning, and attendance all happen too blindly until the event itself.
+Festival information — schedules, lineups, class levels, logistics — is scattered across Instagram stories, WhatsApp groups, Facebook events, and organizer websites. Dancers piece this together manually across multiple channels before each event. Organizers have no early visibility into who is actually coming, what those people need, or whether their offer matches demand. As a result, decisions, planning, and attendance all happen too blindly until the event itself.
 
 ---
 

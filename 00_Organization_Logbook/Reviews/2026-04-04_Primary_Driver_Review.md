@@ -3,54 +3,35 @@
 **Reviewed by:** S3 Coach (AI)
 **File reviewed:** `00_Organization_Logbook/01_Primary_Driver_and_Requirement.md`
 **Method:** S3 driver review checklist (phases/discovery.md)
-**Rounds:** 2 (initial review + post-rewrite `3bf4ccc`)
+**Rounds:** 3
 
 ---
 
 ## Review Checklist
 
-| # | Criterion | Round 1 | Round 2 | Notes |
-|---|-----------|---------|---------|-------|
-| 1 | Still a driver? | Pass | Pass | Responding to scattered festival info generates value |
-| 2 | Conditions objective? | Fail | Fail | Still mixes observable facts with internal states and assumptions |
-| 3 | Effect clear? | Warn | Warn | Still unclear whether effects are happening or anticipated |
-| 4 | Relevance = why, not how? | Fail | Fail | Worse — added budget risk solution pitch and product description |
-| 5 | Brief (2-3 sentences)? | Fail | Fail | Worse — grew from ~200 to ~250 words |
+| # | Criterion | Round 1 | Round 2 | Round 3 | Notes |
+|---|-----------|---------|---------|---------|-------|
+| 1 | Still a driver? | Pass | Pass | Pass | Responding to scattered festival info generates value |
+| 2 | Conditions objective? | Fail | Fail | Pass | Fixed: all conditions are now observable facts |
+| 3 | Effect clear? | Warn | Warn | Pass | "decisions, planning, and attendance happen too blindly" |
+| 4 | Relevance = why, not how? | Fail | Fail | Pass | No solution framing remaining |
+| 5 | Brief (2-3 sentences)? | Fail | Fail | Pass | 4 sentences, concise and digestible |
+
+**Status: All criteria pass.**
 
 ---
 
-## Issues (persisting after Round 2)
+## History
 
-### 1. Conditions mix facts with assumptions
+- **Round 1** — ~200 words, mixed assumptions with facts, solution framing ("the product solves a dual problem"), effects unverified
+- **Round 2** (`3bf4ccc`) — worse: grew to ~250 words, added more solution language (budget risk pitch, product description)
+- **Round 3** (`1ece3e8` + `b02a0f8` + final fix) — condensed to 4 sentences, removed all solution framing, replaced assumption ("can't see who else is going") with observable condition ("piece this together manually across multiple channels")
 
-The driver opens with "Dancers cannot confidently choose and prepare their festival experience" — this describes an assumed internal state, not an observable condition. S3 requires verifiable facts.
+---
 
-Observable conditions that ARE in the text (good):
-- Info scattered across Instagram, WhatsApp, Facebook, event pages, private chats
-- Organizers push festivals across multiple channels
+## Current Driver (passing)
 
-Unverifiable assumptions that should be removed:
-- "Many dancers don't even know their own level"
-- "The offer is built blindly"
-- "The organizer guesses instead of knowing"
-
-### 2. Effect not labeled as current or anticipated
-
-"Many hesitate, go with uncertainty, cobble things together manually, or skip entirely" — plausible effects, but S3 asks you to be explicit: is this happening now or do you anticipate it?
-
-### 3. Solution framing has expanded
-
-Round 2 added more solution language, not less:
-- "A platform that lets the organizer understand their audience directly reduces this risk" — product pitch inside the driver
-- "The product solves a dual problem" — still present
-- "We extend the boundary of the festival" metaphor — still present
-- "Demand-informed offer building" — solution, not situation
-
-The driver should describe the situation and its consequences. Solutions belong in the strategy. The requirement already captures outcomes well.
-
-### 4. Still far too long
-
-S3: "a comprehensive but brief summary in two or three sentences." The current text is ~250 words across multiple paragraphs with headers, bullet lists, and a blockquote. This reads as a product brief, not a driver.
+> Festival information — schedules, lineups, class levels, logistics — is scattered across Instagram stories, WhatsApp groups, Facebook events, and organizer websites. Dancers piece this together manually across multiple channels before each event. Organizers have no early visibility into who is actually coming, what those people need, or whether their offer matches demand. As a result, decisions, planning, and attendance all happen too blindly until the event itself.
 
 ---
 
@@ -60,16 +41,6 @@ No changes needed. Intended outcomes and enabling conditions are well-structured
 
 ---
 
-## Proposed Rewrite
-
-Three sentences. Conditions (observable) -> effect -> relevance for both sides:
-
-> Festival information — schedules, artist lineups, class levels, and logistics — is scattered across Instagram stories, WhatsApp groups, Facebook events, and organizer websites. Dancers spend hours assembling this information manually, and many attend unprepared or skip events entirely. Organizers meanwhile have no visibility into who is coming or what they need before arrival.
-
-The dual dancer/organizer insight from Round 2 is valuable context — it belongs in the Organization Canvas (customers and stakeholders), not the driver summary.
-
----
-
 ## Decision Needed
 
-Kirill: review the proposed rewrite above and either consent, suggest edits, or raise objections. The current version fails 4 of 5 S3 criteria and should not go forward as-is.
+Kirill: consent on this version of the primary driver as part of G-005.
