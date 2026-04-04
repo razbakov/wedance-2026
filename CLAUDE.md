@@ -31,6 +31,7 @@ Preset: numbered
 - Role description: `02_Roles/<Role_Name>/Role_Description.md`
 - Coordination: `03_Coordination/`
 - Work board: `03_Coordination/Work_Board.md`
+- Review schedule: `03_Coordination/Review_and_Retrospective_Schedule.md`
 - Agents: `.claude/agents/`
 - App: `app/`
 
@@ -66,3 +67,4 @@ Active domains: Festival Experience. Dormant: Discovery, Marketplace.
 - Requirements separate purpose (driver + requirement) from intervention (experiments)
 - Agents read CLAUDE.md first to find file paths — never hardcode paths
 - Review dates are quarterly (next: 2026-07-04)
+- Retrospectives run after each milestone or every 2-3 dispatch cycles — see review schedule

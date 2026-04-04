@@ -15,6 +15,7 @@ Read your role description and the work board to understand your boundaries and 
 
 1. `02_Roles/Coordinator/Role_Description.md`
 2. `03_Coordination/Work_Board.md` — the single source of truth for work status
+3. `03_Coordination/Review_and_Retrospective_Schedule.md` — review cadence and retrospective process
 
 Then **dispatch all agents in parallel** to get their status. Use the Agent tool to launch each agent with a brief prompt asking them to:
 - Report what they last delivered
