@@ -1,0 +1,177 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wedance.vip/schemas/festival-schedule/v1",
+  "title": "Festival Schedule",
+  "description": "Schema for a festival's complete workshop/event schedule. Each festival is represented as a top-level object containing metadata and an array of workshop entries.",
+  "type": "object",
+  "required": ["festival", "workshops"],
+  "properties": {
+    "festival": {
+      "type": "object",
+      "description": "Festival metadata.",
+      "required": ["name", "startDate", "endDate", "timezone"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Full name of the festival.",
+          "examples": ["Munich Salsa Congress 2026"]
+        },
+        "startDate": {
+          "type": "string",
+          "format": "date",
+          "description": "First day of the festival (ISO 8601 date: YYYY-MM-DD).",
+          "examples": ["2026-06-12"]
+        },
+        "endDate": {
+          "type": "string",
+          "format": "date",
+          "description": "Last day of the festival (ISO 8601 date: YYYY-MM-DD).",
+          "examples": ["2026-06-14"]
+        },
+        "timezone": {
+          "type": "string",
+          "description": "IANA timezone identifier. All workshop times are in this timezone.",
+          "examples": ["Europe/Berlin"]
+        },
+        "venue": {
+          "type": "string",
+          "description": "Primary venue name.",
+          "examples": ["Kulturzentrum Gasteig"]
+        },
+        "city": {
+          "type": "string",
+          "examples": ["Munich"]
+        },
+        "country": {
+          "type": "string",
+          "description": "ISO 3166-1 alpha-2 country code.",
+          "examples": ["DE"]
+        },
+        "website": {
+          "type": "string",
+          "format": "uri",
+          "description": "Festival website URL."
+        },
+        "sourceUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL where the original schedule was obtained, if applicable."
+        }
+      }
+    },
+    "rooms": {
+      "type": "array",
+      "description": "List of rooms/stages at the venue. Referenced by workshop entries.",
+      "items": {
+        "type": "object",
+        "required": ["id", "name"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Short identifier for the room, used in workshop entries.",
+            "examples": ["main-hall"]
+          },
+          "name": {
+            "type": "string",
+            "description": "Display name of the room.",
+            "examples": ["Main Hall"]
+          },
+          "capacity": {
+            "type": "integer",
+            "description": "Maximum number of participants, if known."
+          }
+        }
+      }
+    },
+    "workshops": {
+      "type": "array",
+      "description": "All workshops/classes/events in the schedule.",
+      "items": {
+        "$ref": "#/$defs/workshop"
+      }
+    }
+  },
+  "$defs": {
+    "workshop": {
+      "type": "object",
+      "required": ["name", "day", "startTime", "endTime", "roomId"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Workshop title as shown in the schedule.",
+          "examples": ["Cuban Salsa Partnerwork Intermediate"]
+        },
+        "artist": {
+          "type": "string",
+          "description": "Name of the instructor or artist. Use 'TBA' if not yet announced.",
+          "examples": ["Yoel Marrero & Diana Rodriguez"]
+        },
+        "day": {
+          "type": "string",
+          "format": "date",
+          "description": "Date of the workshop (ISO 8601: YYYY-MM-DD). Must fall within the festival date range.",
+          "examples": ["2026-06-12"]
+        },
+        "startTime": {
+          "type": "string",
+          "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+          "description": "Start time in HH:MM (24-hour format) in the festival timezone.",
+          "examples": ["14:00"]
+        },
+        "endTime": {
+          "type": "string",
+          "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+          "description": "End time in HH:MM (24-hour format) in the festival timezone.",
+          "examples": ["15:00"]
+        },
+        "roomId": {
+          "type": "string",
+          "description": "Reference to a room ID defined in the rooms array.",
+          "examples": ["main-hall"]
+        },
+        "danceStyle": {
+          "type": "string",
+          "description": "Primary dance style. Use consistent values from the controlled vocabulary below.",
+          "enum": [
+            "salsa-cubana",
+            "salsa-linear",
+            "bachata",
+            "kizomba",
+            "zouk",
+            "semba",
+            "cha-cha-cha",
+            "son",
+            "rumba",
+            "afro-cuban",
+            "reggaeton",
+            "lady-styling",
+            "man-styling",
+            "musicality",
+            "body-movement",
+            "other"
+          ]
+        },
+        "level": {
+          "type": "string",
+          "description": "Skill level required.",
+          "enum": ["beginner", "intermediate", "advanced", "all-levels"]
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional longer description of the workshop content."
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Optional tags for additional categorization (e.g., 'partnerwork', 'solo', 'footwork', 'performance')."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Operational notes (e.g., 'UNCERTAIN: time unclear in source, assumed 14:00'). Not shown to end users."
+        }
+      }
+    }
+  }
+}
