@@ -1,4 +1,4 @@
-# Founders Collaboration Memo
+# Founders Collaboration Memo (v1)
 
 Early-stage working agreement for two founders before company formation
 
