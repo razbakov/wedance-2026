@@ -21,6 +21,7 @@ Prioritized items not yet ready to start (dependencies unmet or not yet approved
 
 | # | Item | Domain | Type | Assigned to | Blocked by |
 |---|------|--------|------|-------------|------------|
+| G-004 | Review & sign Founders Collaboration Memo v2 | Organization | Governance | Kirill | — |
 | G-002 | Select pilot festival | Festival Exp. | Governance | Partnership Manager + Kirill | Partnership decision needed |
 | G-003 | Create privacy policy | Festival Exp. | Governance | Alex + Kirill | Pilot festival selection (scope depends on data collected) |
 | O-001 | Build interactive schedule MVP | Festival Exp. | Operations | Engineer | Product Lead specs + Designer wireframes + pilot festival selected |
