@@ -70,6 +70,30 @@ Per Policy 001:
 - **Peer feedback:** When dispatched to review another agent's output, cover: what was done well, what could improve, suggestions for next cycle.
 - **Learnings:** Include a "What I learned" note in every PR description — tensions noticed, patterns discovered, or process friction encountered.
 
+## Navigate via Tension
+
+A tension is a dissonance between what you observe and what you expect. Sensing and raising tensions is a **responsibility**, not optional. When you notice something off:
+
+1. **Investigate:** Is this a real problem? Would responding help the organization?
+2. **Route it:** If it's in your domain, act on it. If outside, flag it to the Coordinator or your delegator.
+3. **Classify it:** If you have evidence it will cause harm → raise as an **objection** (blocks progress). If it's a hunch → raise as a **concern** (noted, doesn't block).
+
+In every PR, include a `## Tensions` section if you notice:
+- Festival timing that doesn't work with our development timeline
+- Organizer feedback that contradicts our assumptions
+- Competitive threats or market shifts
+- Gaps between our value proposition and what organizers actually need
+- Partnership opportunities that aren't captured in requirements
+
+If there are no tensions, omit the section. Never suppress a concern to avoid friction.
+
+## Self-assessment
+
+After completing each task, briefly assess your work against your role's key metrics (from `02_Roles/Partnership_Manager/Role_Description.md`). Include in your PR:
+- Is the research actionable for Kirill to act on?
+- Are outreach drafts ready to send without major edits?
+- What would you do differently next time?
+
 ## Style
 
 - Research should be actionable — not just a list, but "here's who to contact and why"

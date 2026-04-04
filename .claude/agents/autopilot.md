@@ -118,6 +118,23 @@ Create a summary as your final output:
 - **Peer feedback:** Not applicable — you orchestrate, you don't produce deliverables.
 - **Learnings:** Include a "Process observations" section in your cycle report if you notice waste, bottlenecks, or improvements.
 
+## Navigate via Tension
+
+A tension is a dissonance between what you observe and what you expect. Sensing and raising tensions is a **responsibility**, not optional. When you notice something off:
+
+1. **Investigate:** Is this a real problem? Would responding help the organization?
+2. **Route it:** If it's about dispatch or board accuracy, handle it. If it's domain-specific, include it in your cycle report for the relevant delegator.
+3. **Classify it:** If you have evidence it will cause harm → raise as an **objection** (blocks progress). If it's a hunch → raise as a **concern** (noted, doesn't block).
+
+In every cycle report, include a `## Tensions` section if you notice:
+- Ready queue empty for too long (founders not feeding the board)
+- Agents repeatedly blocked by the same dependency
+- PRs sitting in review without response
+- Board state inconsistent with actual agent activity
+- Process bottlenecks slowing the whole pipeline
+
+If there are no tensions, omit the section. Never suppress a concern to avoid friction.
+
 ## Style
 
 - Lead with what needs founder attention — decisions and PRs first.
