@@ -3,33 +3,69 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Festival Schedule - WeDance Wireframe Prototype</title>
+<title>Bavarian Bachata Congress - Schedule | Powered by WeDance</title>
+
+<!-- Open Graph meta for link previews -->
+<meta property="og:title" content="Bavarian Bachata Congress - Saturday Schedule">
+<meta property="og:description" content="15 workshops: Bachata, Salsa, Kizomba, Zouk, Semba, Cuban">
+<meta property="og:url" content="https://wedance.vip/f/bavarian-bachata-2026">
+<meta property="og:type" content="website">
+
 <style>
   /* ============================================
-     WeDance Festival Schedule - Lo-Fi Prototype
-     This is a WIREFRAME -- not final visual design.
-     Open in a mobile browser or use DevTools
-     responsive mode at 375px width.
+     WeDance Festival Schedule — High-Fidelity Prototype
+
+     Brand decisions applied:
+     - WeDance coral (#E8453C) as primary brand color
+     - System font stack (Inter / system fallback)
+     - "Powered by WeDance" footer
+     - Festival theming via CSS custom properties
+     - Light theme only (no dark mode for MVP)
+
+     Open in a mobile browser or DevTools at 375px.
      ============================================ */
 
+  /* === Festival Theme (override per festival) === */
   :root {
+    /* Festival-customizable tokens */
+    --festival-accent: #7C3AED;          /* Bavarian Bachata Congress — purple */
+    --festival-accent-hover: #6D28D9;
+    --festival-header-bg: #FFFFFF;
+    --festival-header-text: #1A1A1A;
+
+    /* WeDance brand (fixed) */
+    --color-brand-primary: #E8453C;
+    --color-brand-primary-dark: #C23028;
+    --color-brand-primary-light: #FEF2F1;
+
+    /* Core palette (fixed) */
     --color-bg: #FFFFFF;
-    --color-bg-page: #F5F5F5;
+    --color-bg-page: #F7F7F8;
     --color-bg-overlay: rgba(0,0,0,0.4);
     --color-text-primary: #1A1A1A;
     --color-text-secondary: #4A4A4A;
     --color-text-tertiary: #7A7A7A;
     --color-text-inverse: #FFFFFF;
-    --color-border: #E0E0E0;
-    --color-interactive: #2563EB;
-    --color-interactive-hover: #1D4ED8;
+    --color-border: #E2E2E4;
+    --color-interactive: var(--color-brand-primary);
+    --color-interactive-hover: var(--color-brand-primary-dark);
+    --color-error: #DC2626;
+    --color-success: #16A34A;
+    --color-skeleton: #E5E5E5;
+    --color-skeleton-shine: #F0F0F0;
+
+    /* Dance style colors (fixed, universal) */
     --color-style-salsa: #DC2626;
     --color-style-bachata: #7C3AED;
-    --color-style-kizomba: #0891B2;
-    --color-style-cuban: #EA580C;
+    --color-style-kizomba: #0E7490;
+    --color-style-cuban: #C2410C;
     --color-style-semba: #15803D;
+    --color-style-afro: #92400E;
     --color-style-zouk: #BE185D;
+    --color-style-reggaeton: #4338CA;
+    --color-style-default: #6B7280;
 
+    /* Spacing */
     --space-1: 4px;
     --space-2: 8px;
     --space-3: 12px;
@@ -38,6 +74,7 @@
     --space-6: 24px;
     --space-8: 32px;
 
+    /* Animation */
     --duration-fast: 100ms;
     --duration-normal: 200ms;
   }
@@ -53,7 +90,7 @@
   }
 
   body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     background: var(--color-bg-page);
     color: var(--color-text-primary);
     -webkit-font-smoothing: antialiased;
@@ -62,27 +99,57 @@
     min-height: 100vh;
   }
 
+  /* -- Festival Banner (optional) -- */
+  .festival-banner {
+    width: 100%;
+    height: 120px;
+    object-fit: cover;
+    display: block;
+    background: var(--festival-header-bg);
+  }
+  .festival-banner-placeholder {
+    width: 100%;
+    height: 120px;
+    background: linear-gradient(135deg, var(--festival-accent), var(--festival-accent-hover));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-inverse);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    opacity: 0.9;
+  }
+
   /* -- Top Bar -- */
   .top-bar {
     position: sticky;
     top: 0;
     z-index: 30;
-    background: var(--color-bg);
-    padding: var(--space-4);
+    background: var(--festival-header-bg);
+    padding: var(--space-3) var(--space-4);
     display: flex;
     justify-content: space-between;
     align-items: center;
     border-bottom: 1px solid var(--color-border);
+    min-height: 56px;
+  }
+  .top-bar-info {
+    flex: 1;
+    min-width: 0;
   }
   .top-bar h1 {
     font-size: 20px;
     font-weight: 700;
     line-height: 1.3;
+    color: var(--festival-header-text);
   }
   .top-bar .subtitle {
     font-size: 12px;
     color: var(--color-text-tertiary);
     font-weight: 400;
+    line-height: 1.3;
   }
   .share-btn {
     background: none;
@@ -90,17 +157,30 @@
     border-radius: 8px;
     padding: var(--space-2) var(--space-3);
     font-size: 14px;
+    font-weight: 600;
     color: var(--color-interactive);
     cursor: pointer;
     white-space: nowrap;
     transition: background var(--duration-fast);
+    flex-shrink: 0;
+    margin-left: var(--space-3);
   }
-  .share-btn:hover { background: #EFF6FF; }
+  .share-btn:hover { background: var(--color-brand-primary-light); }
+  .share-btn:active { transform: scale(0.97); }
+
+  /* Share button icon (inline SVG for Lucide share-2) */
+  .share-icon {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    vertical-align: -2px;
+    margin-right: 4px;
+  }
 
   /* -- Day Tabs -- */
   .day-tabs {
     position: sticky;
-    top: 65px;
+    top: 56px;
     z-index: 20;
     background: var(--color-bg);
     display: flex;
@@ -122,22 +202,24 @@
     cursor: pointer;
     white-space: nowrap;
     transition: all var(--duration-fast);
+    font-family: inherit;
   }
+  .day-tab:hover:not(.active) { background: var(--color-bg-page); }
   .day-tab.active {
-    background: var(--color-interactive);
+    background: var(--festival-accent);
     color: var(--color-text-inverse);
-    border-color: var(--color-interactive);
+    border-color: var(--festival-accent);
   }
 
   /* -- Style Chips -- */
   .style-chips {
     position: sticky;
-    top: 117px;
+    top: 108px;
     z-index: 20;
     background: var(--color-bg-page);
     display: flex;
     gap: var(--space-2);
-    padding: var(--space-3) var(--space-4);
+    padding: var(--space-3) var(--space-4) var(--space-1);
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
@@ -153,7 +235,9 @@
     cursor: pointer;
     white-space: nowrap;
     transition: all var(--duration-fast);
+    font-family: inherit;
   }
+  .style-chip:hover:not(.active) { background: var(--color-bg-page); }
   .style-chip.active {
     background: var(--color-interactive);
     color: var(--color-text-inverse);
@@ -181,9 +265,10 @@
     color: var(--color-text-primary);
     padding: var(--space-2) 0;
     position: sticky;
-    top: 165px;
+    top: 156px;
     background: var(--color-bg-page);
     z-index: 10;
+    line-height: 1.4;
   }
 
   /* -- Card Row (horizontal scroll for concurrent workshops) -- */
@@ -204,7 +289,7 @@
     background: var(--color-bg);
     border-radius: 8px;
     padding: var(--space-2) var(--space-3) var(--space-3);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
     border-left: 3px solid var(--color-border);
     cursor: pointer;
     transition: transform var(--duration-fast), box-shadow var(--duration-fast);
@@ -212,6 +297,9 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-1);
+  }
+  .workshop-card:hover {
+    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
   }
   .workshop-card:active {
     transform: scale(0.97);
@@ -260,7 +348,7 @@
     font-size: 11px;
     font-weight: 600;
     color: var(--color-text-inverse);
-    background: var(--color-border);
+    background: var(--color-style-default);
     width: fit-content;
   }
   .card-badge[data-style="salsa"] { background: var(--color-style-salsa); }
@@ -296,6 +384,57 @@
     background: var(--color-border);
   }
   .scroll-dot.active { background: var(--color-text-secondary); }
+
+  /* -- Empty States -- */
+  .empty-state {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 64px var(--space-4);
+    gap: var(--space-3);
+  }
+  .empty-state.visible { display: flex; }
+  .empty-state-icon {
+    width: 40px;
+    height: 40px;
+    color: var(--color-text-tertiary);
+  }
+  .empty-state h3 {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--color-text-primary);
+  }
+  .empty-state p {
+    font-size: 14px;
+    color: var(--color-text-secondary);
+    max-width: 280px;
+    line-height: 1.5;
+  }
+  .empty-state-btn {
+    background: var(--color-interactive);
+    color: var(--color-text-inverse);
+    border: none;
+    border-radius: 8px;
+    padding: var(--space-3) var(--space-6);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background var(--duration-fast);
+  }
+  .empty-state-btn:hover { background: var(--color-interactive-hover); }
+  .empty-state-link {
+    background: none;
+    border: none;
+    color: var(--color-interactive);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    text-decoration: none;
+  }
+  .empty-state-link:hover { text-decoration: underline; }
 
   /* -- Bottom Sheet Overlay -- */
   .sheet-overlay {
@@ -340,11 +479,13 @@
     font-size: 18px;
     font-weight: 700;
     margin-bottom: var(--space-2);
+    color: var(--color-text-primary);
   }
   .sheet-content .detail-row {
     font-size: 14px;
     color: var(--color-text-secondary);
     padding: var(--space-1) 0;
+    line-height: 1.5;
   }
   .sheet-content .detail-row strong {
     color: var(--color-text-primary);
@@ -361,16 +502,47 @@
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
+    font-family: inherit;
     transition: background var(--duration-fast);
   }
-  .sheet-share-btn:hover { background: #EFF6FF; }
+  .sheet-share-btn:hover { background: var(--color-brand-primary-light); }
+  .sheet-share-btn:active { transform: scale(0.97); }
+
+  /* -- Share Toast -- */
+  .share-toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(16px);
+    background: var(--color-text-primary);
+    color: var(--color-text-inverse);
+    font-size: 14px;
+    font-weight: 600;
+    padding: var(--space-3) var(--space-4);
+    border-radius: 8px;
+    z-index: 200;
+    opacity: 0;
+    transition: opacity var(--duration-normal), transform var(--duration-normal);
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  .share-toast.visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
 
   /* -- Footer -- */
   .footer {
     text-align: center;
     padding: var(--space-6) var(--space-4);
-    color: var(--color-text-tertiary);
     font-size: 11px;
+    font-weight: 400;
+    color: var(--color-text-tertiary);
+    line-height: 1.3;
+  }
+  .footer-brand {
+    font-weight: 600;
+    color: var(--color-brand-primary);
   }
 
   /* -- Responsive: larger cards on wider screens -- */
@@ -384,58 +556,115 @@
       overflow-x: visible;
     }
     .workshop-card { flex: 0 0 calc(33% - var(--space-3)); }
+    .scroll-dots { display: none; }
+  }
+
+  /* -- Skeleton Loading Animation -- */
+  @keyframes shimmer {
+    0% { background-position: -200px 0; }
+    100% { background-position: 200px 0; }
+  }
+  .skeleton {
+    background: linear-gradient(90deg, var(--color-skeleton) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton) 75%);
+    background-size: 400px 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 4px;
+  }
+  .skeleton-card {
+    flex: 0 0 140px;
+    min-height: 120px;
+    background: var(--color-bg);
+    border-radius: 8px;
+    padding: var(--space-2) var(--space-3) var(--space-3);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .skeleton-line {
+    height: 12px;
+    border-radius: 4px;
+    background: linear-gradient(90deg, var(--color-skeleton) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton) 75%);
+    background-size: 400px 100%;
+    animation: shimmer 1.5s infinite;
+  }
+  .skeleton-line.short { width: 60%; }
+  .skeleton-line.medium { width: 80%; }
+  .skeleton-line.long { width: 100%; }
+  .skeleton-badge {
+    width: 48px;
+    height: 18px;
+    border-radius: 10px;
+    margin-top: auto;
+    background: linear-gradient(90deg, var(--color-skeleton) 25%, var(--color-skeleton-shine) 50%, var(--color-skeleton) 75%);
+    background-size: 400px 100%;
+    animation: shimmer 1.5s infinite;
   }
 </style>
 </head>
 <body>
 
+<!-- ===== FESTIVAL BANNER (placeholder — replace with real festival image) ===== -->
+<div class="festival-banner-placeholder" aria-label="Festival banner placeholder">
+  Bavarian Bachata Congress
+</div>
+
 <!-- ===== TOP BAR ===== -->
 <header class="top-bar">
-  <div>
-    <h1>Munich Salsa Festival</h1>
-    <span class="subtitle">Munich, Apr 17-19</span>
+  <div class="top-bar-info">
+    <h1>Bavarian Bachata Congress</h1>
+    <span class="subtitle">Munich, Oct 23-25</span>
   </div>
-  <button class="share-btn" onclick="shareSchedule()">Share</button>
+  <button class="share-btn" onclick="shareSchedule()" aria-label="Share schedule">
+    <svg class="share-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+    Share
+  </button>
 </header>
 
 <!-- ===== DAY TABS ===== -->
-<nav class="day-tabs">
-  <button class="day-tab" onclick="switchDay(this)">Fri 17</button>
-  <button class="day-tab active" onclick="switchDay(this)">Sat 18</button>
-  <button class="day-tab" onclick="switchDay(this)">Sun 19</button>
+<nav class="day-tabs" aria-label="Festival days">
+  <button class="day-tab" onclick="switchDay(this)" aria-label="Friday October 23">Fri 23</button>
+  <button class="day-tab active" onclick="switchDay(this)" aria-label="Saturday October 24">Sat 24</button>
+  <button class="day-tab" onclick="switchDay(this)" aria-label="Sunday October 25">Sun 25</button>
 </nav>
 
 <!-- ===== STYLE CHIPS ===== -->
-<div class="style-chips">
-  <button class="style-chip active" onclick="filterStyle(this)" data-style="all">All</button>
-  <button class="style-chip" onclick="filterStyle(this)" data-style="salsa">Salsa</button>
-  <button class="style-chip" onclick="filterStyle(this)" data-style="bachata">Bachata</button>
-  <button class="style-chip" onclick="filterStyle(this)" data-style="kizomba">Kizomba</button>
-  <button class="style-chip" onclick="filterStyle(this)" data-style="cuban">Cuban</button>
-  <button class="style-chip" onclick="filterStyle(this)" data-style="semba">Semba</button>
-  <button class="style-chip" onclick="filterStyle(this)" data-style="zouk">Zouk</button>
+<div class="style-chips" role="radiogroup" aria-label="Filter by dance style">
+  <button class="style-chip active" onclick="filterStyle(this)" data-style="all" role="radio" aria-checked="true">All</button>
+  <button class="style-chip" onclick="filterStyle(this)" data-style="bachata" role="radio" aria-checked="false">Bachata</button>
+  <button class="style-chip" onclick="filterStyle(this)" data-style="salsa" role="radio" aria-checked="false">Salsa</button>
+  <button class="style-chip" onclick="filterStyle(this)" data-style="kizomba" role="radio" aria-checked="false">Kizomba</button>
+  <button class="style-chip" onclick="filterStyle(this)" data-style="cuban" role="radio" aria-checked="false">Cuban</button>
+  <button class="style-chip" onclick="filterStyle(this)" data-style="semba" role="radio" aria-checked="false">Semba</button>
+  <button class="style-chip" onclick="filterStyle(this)" data-style="zouk" role="radio" aria-checked="false">Zouk</button>
 </div>
 
 <!-- ===== SCHEDULE ===== -->
-<main class="schedule">
+<main class="schedule" id="scheduleContent">
+
+  <!-- Filter empty state (hidden by default) -->
+  <div class="empty-state" id="filterEmpty">
+    <p id="filterEmptyText">No workshops match this filter on Saturday.</p>
+    <button class="empty-state-link" onclick="clearFilter()">Show all styles</button>
+  </div>
 
   <!-- 10:00 Slot -->
-  <section class="time-slot">
+  <section class="time-slot" data-time="1000">
     <div class="time-header">10:00</div>
     <div class="card-row">
-      <div class="workshop-card" data-style="salsa" onclick="openDetail('Lady Styling','Ana Garcia','10:00 - 11:30','Room A','Salsa','Intermediate','Technique and expression for solo movement in salsa.')">
+      <div class="workshop-card" data-style="bachata" onclick="openDetail('Bachata Sensual Basics','Marco &amp; Lisa','10:00 - 11:30','Room A','Bachata','All Levels','Connection-focused bachata sensual for all experience levels.')">
         <span class="card-room">Room A</span>
+        <span class="card-name">Bachata Sensual Basics</span>
+        <span class="card-artist">Marco &amp; Lisa</span>
+        <span class="card-time">10:00 - 11:30</span>
+        <span class="card-badge" data-style="bachata">Bachata</span>
+      </div>
+      <div class="workshop-card" data-style="salsa" onclick="openDetail('Lady Styling','Ana Garcia','10:00 - 11:30','Room B','Salsa','Intermediate','Technique and expression for solo movement in salsa.')">
+        <span class="card-room">Room B</span>
         <span class="card-name">Lady Styling</span>
         <span class="card-artist">Ana Garcia</span>
         <span class="card-time">10:00 - 11:30</span>
         <span class="card-badge" data-style="salsa">Salsa</span>
-      </div>
-      <div class="workshop-card" data-style="bachata" onclick="openDetail('Bachata Sensual','Marco &amp; Lisa','10:00 - 11:30','Room B','Bachata','All Levels','')">
-        <span class="card-room">Room B</span>
-        <span class="card-name">Bachata Sensual</span>
-        <span class="card-artist">Marco &amp; Lisa</span>
-        <span class="card-time">10:00 - 11:30</span>
-        <span class="card-badge" data-style="bachata">Bachata</span>
       </div>
       <div class="workshop-card" data-style="kizomba" onclick="openDetail('Kizomba Fusion','Yoko &amp; Davi','10:00 - 11:30','Room C','Kizomba','Intermediate','Blending traditional kizomba with modern urban movement.')">
         <span class="card-room">Room C</span>
@@ -461,22 +690,22 @@
   </section>
 
   <!-- 11:45 Slot -->
-  <section class="time-slot">
+  <section class="time-slot" data-time="1145">
     <div class="time-header">11:45</div>
     <div class="card-row">
-      <div class="workshop-card" data-style="salsa" onclick="openDetail('Partnerwork Fundamentals','Juan &amp; Maria','11:45 - 13:15','Room A','Salsa','Beginner','')">
+      <div class="workshop-card" data-style="bachata" onclick="openDetail('Bachata Footwork','Lisa Torres','11:45 - 13:15','Room A','Bachata','Intermediate','')">
         <span class="card-room">Room A</span>
-        <span class="card-name">Partnerwork Fundamentals</span>
-        <span class="card-artist">Juan &amp; Maria</span>
-        <span class="card-time">11:45 - 13:15</span>
-        <span class="card-badge" data-style="salsa">Salsa</span>
-      </div>
-      <div class="workshop-card" data-style="bachata" onclick="openDetail('Bachata Footwork','Lisa Torres','11:45 - 13:15','Room B','Bachata','Intermediate','')">
-        <span class="card-room">Room B</span>
         <span class="card-name">Bachata Footwork</span>
         <span class="card-artist">Lisa Torres</span>
         <span class="card-time">11:45 - 13:15</span>
         <span class="card-badge" data-style="bachata">Bachata</span>
+      </div>
+      <div class="workshop-card" data-style="salsa" onclick="openDetail('Partnerwork Fundamentals','Juan &amp; Maria','11:45 - 13:15','Room B','Salsa','Beginner','')">
+        <span class="card-room">Room B</span>
+        <span class="card-name">Partnerwork Fundamentals</span>
+        <span class="card-artist">Juan &amp; Maria</span>
+        <span class="card-time">11:45 - 13:15</span>
+        <span class="card-badge" data-style="salsa">Salsa</span>
       </div>
       <div class="workshop-card" data-style="semba" onclick="openDetail('Semba Roots','Paulo &amp; Sara','11:45 - 13:15','Room C','Semba','All Levels','')">
         <span class="card-room">Room C</span>
@@ -497,15 +726,15 @@
   <div class="break-card">Lunch Break -- 13:15 - 14:30</div>
 
   <!-- 14:30 Slot -->
-  <section class="time-slot">
+  <section class="time-slot" data-time="1430">
     <div class="time-header">14:30</div>
     <div class="card-row">
-      <div class="workshop-card" data-style="salsa" onclick="openDetail('Body Movement','Ana Garcia','14:30 - 16:00','Room A','Salsa','Advanced','')">
+      <div class="workshop-card" data-style="bachata" onclick="openDetail('Bachata Dominicana','Pedro Suarez','14:30 - 16:00','Room A','Bachata','All Levels','')">
         <span class="card-room">Room A</span>
-        <span class="card-name">Body Movement</span>
-        <span class="card-artist">Ana Garcia</span>
+        <span class="card-name">Bachata Dominicana</span>
+        <span class="card-artist">Pedro Suarez</span>
         <span class="card-time">14:30 - 16:00</span>
-        <span class="card-badge" data-style="salsa">Salsa</span>
+        <span class="card-badge" data-style="bachata">Bachata</span>
       </div>
       <div class="workshop-card" data-style="zouk" onclick="openDetail('Zouk Flow','Nina &amp; Alex','14:30 - 16:00','Room B','Zouk','Intermediate','')">
         <span class="card-room">Room B</span>
@@ -530,22 +759,22 @@
   </section>
 
   <!-- 16:15 Slot -->
-  <section class="time-slot">
+  <section class="time-slot" data-time="1615">
     <div class="time-header">16:15</div>
     <div class="card-row">
-      <div class="workshop-card" data-style="bachata" onclick="openDetail('Bachata Dominicana','Pedro Suarez','16:15 - 17:45','Room A','Bachata','All Levels','')">
+      <div class="workshop-card" data-style="salsa" onclick="openDetail('Body Movement','Ana Garcia','16:15 - 17:45','Room A','Salsa','Advanced','')">
         <span class="card-room">Room A</span>
-        <span class="card-name">Bachata Dominicana</span>
-        <span class="card-artist">Pedro Suarez</span>
-        <span class="card-time">16:15 - 17:45</span>
-        <span class="card-badge" data-style="bachata">Bachata</span>
-      </div>
-      <div class="workshop-card" data-style="salsa" onclick="openDetail('Salsa Shines','Juan &amp; Maria','16:15 - 17:45','Room B','Salsa','Intermediate','')">
-        <span class="card-room">Room B</span>
-        <span class="card-name">Salsa Shines</span>
-        <span class="card-artist">Juan &amp; Maria</span>
+        <span class="card-name">Body Movement</span>
+        <span class="card-artist">Ana Garcia</span>
         <span class="card-time">16:15 - 17:45</span>
         <span class="card-badge" data-style="salsa">Salsa</span>
+      </div>
+      <div class="workshop-card" data-style="bachata" onclick="openDetail('Musicality in Bachata','Marco &amp; Lisa','16:15 - 17:45','Room B','Bachata','Intermediate','')">
+        <span class="card-room">Room B</span>
+        <span class="card-name">Musicality in Bachata</span>
+        <span class="card-artist">Marco &amp; Lisa</span>
+        <span class="card-time">16:15 - 17:45</span>
+        <span class="card-badge" data-style="bachata">Bachata</span>
       </div>
     </div>
   </section>
@@ -554,8 +783,11 @@
 
 <!-- ===== FOOTER ===== -->
 <footer class="footer">
-  WeDance v0.1 -- Festival Schedule Prototype
+  Powered by <span class="footer-brand">WeDance</span>
 </footer>
+
+<!-- ===== SHARE TOAST ===== -->
+<div class="share-toast" id="shareToast">Link copied!</div>
 
 <!-- ===== BOTTOM SHEET (Workshop Detail) ===== -->
 <div class="sheet-overlay" id="sheetOverlay" onclick="closeDetail(event)">
@@ -569,38 +801,74 @@
       <div class="detail-row"><span class="card-badge" id="detailBadge"></span></div>
       <div class="detail-row" id="detailLevel"></div>
       <div class="detail-row" id="detailDesc" style="margin-top: 8px; line-height: 1.5;"></div>
-      <button class="sheet-share-btn" onclick="shareWorkshop()">Share this workshop</button>
+      <button class="sheet-share-btn" onclick="shareWorkshop()">
+        <svg style="display:inline-block;width:16px;height:16px;vertical-align:-2px;margin-right:4px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+        Share this workshop
+      </button>
     </div>
   </div>
 </div>
 
 <script>
+  // =========================================
+  // Festival Schedule Prototype - Interactions
+  // =========================================
+
   // Day tab switching
   function switchDay(tab) {
-    document.querySelectorAll('.day-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.day-tab').forEach(function(t) {
+      t.classList.remove('active');
+      t.setAttribute('aria-selected', 'false');
+    });
     tab.classList.add('active');
+    tab.setAttribute('aria-selected', 'true');
     // In real app: re-render schedule for selected day
+    // Scroll back to top of schedule
+    document.querySelector('.schedule').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   // Style filtering
   function filterStyle(chip) {
-    document.querySelectorAll('.style-chip').forEach(c => c.classList.remove('active'));
+    document.querySelectorAll('.style-chip').forEach(function(c) {
+      c.classList.remove('active');
+      c.setAttribute('aria-checked', 'false');
+    });
     chip.classList.add('active');
+    chip.setAttribute('aria-checked', 'true');
 
-    const style = chip.dataset.style;
-    document.querySelectorAll('.workshop-card').forEach(card => {
+    var style = chip.dataset.style;
+    var visibleCount = 0;
+
+    document.querySelectorAll('.workshop-card').forEach(function(card) {
       if (style === 'all' || card.dataset.style === style) {
         card.style.display = '';
+        visibleCount++;
       } else {
         card.style.display = 'none';
       }
     });
 
     // Hide time slots with no visible cards
-    document.querySelectorAll('.time-slot').forEach(slot => {
-      const visibleCards = slot.querySelectorAll('.workshop-card:not([style*="display: none"])');
+    document.querySelectorAll('.time-slot').forEach(function(slot) {
+      var visibleCards = slot.querySelectorAll('.workshop-card:not([style*="display: none"])');
       slot.style.display = visibleCards.length ? '' : 'none';
     });
+
+    // Show/hide filter empty state
+    var filterEmpty = document.getElementById('filterEmpty');
+    if (visibleCount === 0 && style !== 'all') {
+      var styleName = chip.textContent;
+      document.getElementById('filterEmptyText').textContent = 'No ' + styleName + ' workshops on Saturday.';
+      filterEmpty.classList.add('visible');
+    } else {
+      filterEmpty.classList.remove('visible');
+    }
+  }
+
+  // Clear filter
+  function clearFilter() {
+    var allChip = document.querySelector('.style-chip[data-style="all"]');
+    if (allChip) filterStyle(allChip);
   }
 
   // Workshop detail bottom sheet
@@ -610,50 +878,72 @@
     document.getElementById('detailTime').textContent = time;
     document.getElementById('detailRoom').textContent = room;
 
-    const badge = document.getElementById('detailBadge');
+    var badge = document.getElementById('detailBadge');
     badge.textContent = style;
-    badge.dataset.style = style.toLowerCase();
     badge.setAttribute('data-style', style.toLowerCase());
-    // Re-apply badge color
-    badge.className = 'card-badge';
-    badge.style.background = getComputedStyle(document.documentElement).getPropertyValue('--color-style-' + style.toLowerCase()) || '#6B7280';
-    badge.style.color = '#fff';
 
-    const levelEl = document.getElementById('detailLevel');
+    var levelEl = document.getElementById('detailLevel');
     levelEl.textContent = level ? 'Level: ' + level : '';
     levelEl.style.display = level ? '' : 'none';
 
-    const descEl = document.getElementById('detailDesc');
+    var descEl = document.getElementById('detailDesc');
     descEl.textContent = desc;
     descEl.style.display = desc ? '' : 'none';
 
     document.getElementById('sheetOverlay').classList.add('visible');
+    document.body.style.overflow = 'hidden';
   }
 
   function closeDetail(event) {
     if (event.target === document.getElementById('sheetOverlay')) {
       document.getElementById('sheetOverlay').classList.remove('visible');
+      document.body.style.overflow = '';
     }
   }
 
-  // Share (native or fallback)
+  // Close sheet with Escape key
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      var overlay = document.getElementById('sheetOverlay');
+      if (overlay.classList.contains('visible')) {
+        overlay.classList.remove('visible');
+        document.body.style.overflow = '';
+      }
+    }
+  });
+
+  // Share (native or fallback with toast)
   function shareSchedule() {
-    const url = window.location.href;
+    var url = window.location.href.split('?')[0] + '?day=sat&utm_source=share&utm_medium=social';
     if (navigator.share) {
-      navigator.share({ title: 'Munich Salsa Festival - Schedule', url: url });
+      navigator.share({ title: 'Bavarian Bachata Congress - Saturday Schedule', url: url });
     } else {
-      navigator.clipboard.writeText(url).then(() => alert('Link copied!'));
+      copyAndToast(url);
     }
   }
 
   function shareWorkshop() {
-    const name = document.getElementById('detailName').textContent;
-    const url = window.location.href + '?ws=' + encodeURIComponent(name);
+    var name = document.getElementById('detailName').textContent;
+    var slug = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    var url = window.location.href.split('?')[0] + '?day=sat&ws=' + slug + '&utm_source=share&utm_medium=social';
     if (navigator.share) {
-      navigator.share({ title: name + ' - Munich Salsa Festival', url: url });
+      navigator.share({ title: name + ' - Bavarian Bachata Congress', url: url });
     } else {
-      navigator.clipboard.writeText(url).then(() => alert('Link copied!'));
+      copyAndToast(url);
     }
+  }
+
+  function copyAndToast(url) {
+    navigator.clipboard.writeText(url).then(function() {
+      var toast = document.getElementById('shareToast');
+      toast.classList.add('visible');
+      setTimeout(function() {
+        toast.classList.remove('visible');
+      }, 3000);
+    }).catch(function() {
+      // Fallback for older browsers
+      prompt('Copy this link:', url);
+    });
   }
 </script>
 
