@@ -34,7 +34,7 @@ Preset: numbered
 - Review schedule: `03_Coordination/Review_and_Retrospective_Schedule.md`
 - Agents: `.claude/agents/`
 - Skills: `.claude/skills/`
-- S3 Coach: `.claude/skills/s3-coach/` — use `/s3-coach` when creating or reviewing drivers, requirements, domains, roles, policies, or any S3 governance artifact. If not installed: `claude skill add --source https://github.com/razbakov/skills/tree/main/skills/s3-coach`
+- S3 Coach: use `/s3-coach` when creating or reviewing drivers, requirements, domains, roles, policies, or any S3 governance artifact. Install: `claude install-skill https://github.com/razbakov/skills/tree/main/skills/s3-coach`
 - App: `app/`
 
 Active domains: Festival Experience. Dormant: Discovery, Marketplace.
