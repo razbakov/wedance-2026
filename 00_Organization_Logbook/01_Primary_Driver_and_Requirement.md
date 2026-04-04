@@ -2,18 +2,16 @@
 
 ## Primary Driver
 
-A dancer struggles not only to find a festival, but to understand whether it's right for them, who else is going, what to do there, and how to assemble the trip in advance — without loneliness and chaos.
+Dancers cannot confidently choose and prepare their festival experience, and organizers cannot see in advance who is actually coming and what that audience truly needs. As a result, both sides move blindly until the event itself.
 
-Today, dancers can usually learn that a festival exists, but they still cannot confidently assess whether it fits them or how to prepare. Information is scattered across Instagram, WhatsApp, Facebook, event pages, and private chats. Even when someone finds a festival, they still don't know: who's going, whether the program and class levels match them, which track or pass to choose, and how to coordinate housing, travel, and social plans in advance. Many dancers don't even know their own level and have no tool to help them figure it out.
+**For the dancer:** information is scattered across Instagram, WhatsApp, Facebook, event pages, and private chats. Even when someone finds a festival, they still don't know: who's going, whether the program and class levels match them, which track or pass to choose, and how to coordinate housing, travel, and social plans in advance. Many dancers don't even know their own level and have no tool to help them figure it out. As a result, many hesitate, go with a feeling of uncertainty, cobble everything together manually — or skip the event entirely.
 
-As a result, many hesitate for a long time, go with a feeling of uncertainty, cobble everything together manually and chaotically — or skip the event entirely.
-
-On the organizer side, promoters push the festival across multiple channels but have almost no visibility into their audience's intent, needs, or level of engagement before arrival. They have no way to activate dancers before the event or strengthen their commitment ahead of time.
+**For the organizer:** promoters push the festival across multiple channels but until the event have almost no visibility into who is actually coming, how real their intent is, what level the audience is, and what they actually need. The offer — the mix of artists, classes, and tracks — is built blindly, often by repeating what seemed to work last year or elsewhere. The organizer guesses instead of knowing, and has no way to validate demand before committing to a program. This means budget risk: money is spent on artists, venues, and logistics without confidence that the offer matches what the audience actually wants. A platform that lets the organizer understand their audience — who signed up, what they need, what level they are — directly reduces this risk.
 
 The product solves a dual problem:
 
 - **For the dancer:** confidence in choosing + personal planning + coordination with others
-- **For the organizer:** pre-event activation of attendees + stronger commitment before arrival
+- **For the organizer:** demand-informed offer building + pre-event activation + stronger commitment before arrival
 
 > Metaphorically, we extend the boundary of the festival — it begins not on arrival day, but from the moment a dancer interacts with our platform.
 
