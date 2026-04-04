@@ -36,6 +36,7 @@ Dependencies met, approved by delegator, waiting for an agent to be dispatched.
 
 | # | Item | Domain | Type | Assigned to | Approved by |
 |---|------|--------|------|-------------|-------------|
+| G-005 | Review & consent on governance structure, G-001, and G-002 | Organization | Governance | Kirill | Alex proposes — see [Founder Sync Agenda](../Meeting_Records/2026-04-04_Founder_Sync_Agenda.md) |
 | G-001 | Define agent deployment plan | Festival Exp. | Governance | Alex | Approved 2026-04-04 (Kirill consent pending) |
 
 ## In Progress
