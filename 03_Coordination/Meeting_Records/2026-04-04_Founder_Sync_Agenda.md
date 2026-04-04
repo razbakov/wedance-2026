@@ -9,9 +9,20 @@
 
 **"We set up WeDance governance using Sociocracy 3.0."**
 
-### 1. Primary Driver
+### 1. Primary Driver ⚠️ needs review
 
-Dance event information is scattered across Facebook groups, WhatsApp chats, Instagram stories, and physical flyers. Dancers struggle to discover events; organizers waste effort promoting across scattered channels.
+The current primary driver was recently rewritten but has S3 compliance issues flagged by review. Full review: [Primary Driver Review](../../00_Organization_Logbook/Reviews/2026-04-04_Primary_Driver_Review.md)
+
+- **Too long** — ~200 words instead of the S3-recommended 2-3 sentences
+- **Mixes assumptions with observable conditions** — e.g., "dancers don't know their own level" is unverifiable
+- **Includes solution framing** — "the product solves a dual problem" belongs in strategy, not the driver
+- **Effects stated as facts without evidence** — unclear whether already happening or anticipated
+
+**Proposed rewrite (for Kirill to review):**
+
+> Festival information — schedules, artist lineups, class levels, and logistics — is scattered across Instagram stories, WhatsApp groups, Facebook events, and organizer websites. Dancers spend hours assembling this information manually, and many attend unprepared or skip events entirely. Organizers meanwhile have no visibility into who is coming or what they need before arrival.
+
+**Kirill:** Does this capture the situation as you see it? Suggest edits or consent.
 
 ### 2. Strategy: "Test Festival Schedule first, at one real festival"
 
@@ -115,6 +126,7 @@ Once Kirill consents:
 
 | # | Decision | Outcome | Notes |
 |---|----------|---------|-------|
+| 0 | Primary driver rewrite — consent on proposed 3-sentence version | | |
 | 1 | Governance structure | | |
 | 2 | Agent deployment (G-001) | | |
 | 3 | Pilot festival (G-002) | | |

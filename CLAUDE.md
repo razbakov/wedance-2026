@@ -21,6 +21,7 @@ Preset: numbered
 - Values: `00_Organization_Logbook/04_Values.md`
 - Policies: `00_Organization_Logbook/Org_Wide_Policies/`
 - Requirements: `00_Organization_Logbook/Requirements_Mapping/`
+- Reviews: `00_Organization_Logbook/Reviews/`
 - Domain map: `00_Organization_Logbook/Organizational_Structure/Domain_Map.md`
 - Domains: `01_Domains/<Domain_Name>/`
 - Domain description: `01_Domains/<Domain_Name>/Domain_Description.md`
