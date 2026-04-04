@@ -16,12 +16,13 @@ Test Festival Schedule first at one pilot festival. Validate that dancers will u
 - `01_Domains/` — Festival Experience (active), Discovery (dormant), Marketplace (dormant)
 - `02_Roles/` — founder + agent role descriptions
 - `03_Coordination/` — meeting records
-- `.claude/agents/` — AI agent definitions (7 agents)
+- `.claude/agents/` — AI agent definitions (8 agents)
 
 ## Agents
 
 | Agent | Reports to | Focus |
 |-------|-----------|-------|
+| Coordinator | Alex | Cross-agent status, blockers, dispatch recommendations |
 | Product Lead | Alex | Specs, stories, backlog, experiment design |
 | Engineer | Alex | Code, features, tests, PRs |
 | Operations Manager | Alex | Schedule conversion, data, platform ops |
