@@ -1,0 +1,22 @@
+title: "See festival name, dates, location, and hero image"
+story: 1.1
+epic: Festival landing page
+persona: Festival Dancer
+release: MVP
+estimate: 1
+
+description: >
+  As a Festival Dancer, I want to see the festival name, dates, location,
+  and hero image, so I can confirm I'm looking at the right festival.
+
+factors:
+  complexity: Low
+  uncertainty: Low
+  effort: Low
+  risk: Low
+  dependencies: Low
+
+rationale: >
+  FestivalHero.vue and festivals/[slug].vue already exist with mock data
+  for Meneate Viena. Only needs seed data verification and minor tweaks
+  if any fields are missing.

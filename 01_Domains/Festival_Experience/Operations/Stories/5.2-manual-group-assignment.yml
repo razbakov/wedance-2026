@@ -1,0 +1,22 @@
+title: "Get assigned to a dinner group of 4-6 people"
+story: 5.2
+epic: Group Dinner
+persona: Festival Dancer
+release: MVP
+estimate: 1
+
+description: >
+  As a Festival Dancer, I want to get assigned to a dinner group of 4-6 people
+  (manual), so I can have a concrete dinner plan without organizing it myself.
+
+factors:
+  complexity: Low
+  uncertainty: Low
+  effort: Low
+  risk: Low
+  dependencies: Low
+
+rationale: >
+  Fully implemented. admin.assignGroups procedure exists with balanced
+  chunking (4-6 per group), round-robin distribution, and stable ordering.
+  Admin UI has the "Assign Groups" button. Done.

@@ -1,0 +1,22 @@
+title: "See how many free spots are left"
+story: 2.2
+epic: Dancer sign-up
+persona: Festival Dancer
+release: MVP
+estimate: 1
+
+description: >
+  As a Festival Dancer, I want to see how many free spots are left (out of 10),
+  so I can feel urgency to claim mine before they're gone.
+
+factors:
+  complexity: Low
+  uncertainty: Low
+  effort: Low
+  risk: Low
+  dependencies: Low
+
+rationale: >
+  Backend dinner.list already returns joined and maxSize. This is a small
+  UI change to display "N of 10 spots left" prominently on the activity
+  card. Depends on 1.2 (wiring to tRPC) being done first.

@@ -1,0 +1,23 @@
+title: "Sign up for a group dinner on a specific evening"
+story: 5.1
+epic: Group Dinner
+persona: Festival Dancer
+release: MVP
+estimate: 2
+
+description: >
+  As a Festival Dancer, I want to sign up for a group dinner on a specific
+  evening, so I can meet new people in a relaxed setting instead of eating alone.
+
+factors:
+  complexity: Low
+  uncertainty: Low
+  effort: Low
+  risk: Low
+  dependencies: Low
+
+rationale: >
+  Backend dinner.join procedure exists with validation (max size, duplicates).
+  Frontend joinDinner() exists but uses mock data. Main work is wiring
+  useDinners() composable to tRPC and ensuring auth token is passed.
+  Closely coupled with 1.2 (same wiring effort).
