@@ -2,7 +2,7 @@
 
 **Requirement:** Operations/Backlog/001_Build_Interactive_Schedule_MVP.md
 **Priority:** High
-**Status:** Open
+**Status:** Open (not yet started)
 
 ## Story
 As a dancer who found the interactive schedule useful, I want to share a link to it with my friends so that they can also use it, and the WeDance team can measure how the schedule spreads organically.
@@ -41,3 +41,10 @@ As a dancer who found the interactive schedule useful, I want to share a link to
 - Filter state in URL is important: a bachata dancer shares the link filtered to bachata workshops, and the recipient sees exactly that. This makes the shared link more relevant.
 - Consider adding a short text suggestion when sharing (e.g., "Check out the Munich Salsa Festival schedule!") that pre-fills in the share sheet. Keep it simple and editable.
 - Open Graph tags (preview image + description when sharing on WhatsApp/Facebook) are out of scope for this story but strongly recommended as a fast follow-up. Without them, the shared link looks generic. Flag this to the Engineer.
+
+## Progress (2026-04-04)
+- Analytics hooks ready: `trackShareInitiated`, `trackLinkCopied`, `trackShareCompleted` implemented in useAnalytics composable
+- Share UI component: not yet built
+- UTM parameter generation: not yet implemented
+- Filter state in URL: not yet implemented
+- This is a critical story for the B2C experiment -- organic sharing is a key success metric
