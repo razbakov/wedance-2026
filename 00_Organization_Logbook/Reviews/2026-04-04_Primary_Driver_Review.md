@@ -3,59 +3,73 @@
 **Reviewed by:** S3 Coach (AI)
 **File reviewed:** `00_Organization_Logbook/01_Primary_Driver_and_Requirement.md`
 **Method:** S3 driver review checklist (phases/discovery.md)
+**Rounds:** 2 (initial review + post-rewrite `3bf4ccc`)
 
 ---
 
 ## Review Checklist
 
-| # | Criterion | Status | Notes |
-|---|-----------|--------|-------|
-| 1 | Still a driver? | Pass | Responding to scattered festival info generates value |
-| 2 | Conditions are objective? | Fail | Mixes observable facts with assumptions about dancers' internal states |
-| 3 | Effect is clear? | Warn | Plausible but unclear whether already happening or anticipated |
-| 4 | Relevance = why, not how? | Fail | Includes solution framing ("the product solves a dual problem") |
-| 5 | Brief (2-3 sentences)? | Fail | ~200 words across multiple paragraphs |
+| # | Criterion | Round 1 | Round 2 | Notes |
+|---|-----------|---------|---------|-------|
+| 1 | Still a driver? | Pass | Pass | Responding to scattered festival info generates value |
+| 2 | Conditions objective? | Fail | Fail | Still mixes observable facts with internal states and assumptions |
+| 3 | Effect clear? | Warn | Warn | Still unclear whether effects are happening or anticipated |
+| 4 | Relevance = why, not how? | Fail | Fail | Worse — added budget risk solution pitch and product description |
+| 5 | Brief (2-3 sentences)? | Fail | Fail | Worse — grew from ~200 to ~250 words |
 
 ---
 
-## Issues
+## Issues (persisting after Round 2)
 
-### Conditions mix facts with assumptions
+### 1. Conditions mix facts with assumptions
 
-The driver opens with "A dancer struggles not only to find a festival, but to understand whether it's right for them" — this is a generalized claim about a dancer's internal state, not an observable condition.
+The driver opens with "Dancers cannot confidently choose and prepare their festival experience" — this describes an assumed internal state, not an observable condition. S3 requires verifiable facts.
 
-The second paragraph is stronger — info scattered across Instagram, WhatsApp, Facebook, etc. — but then adds unverifiable assumptions:
-- "they still don't know: who's going, whether the program and class levels match them"
+Observable conditions that ARE in the text (good):
+- Info scattered across Instagram, WhatsApp, Facebook, event pages, private chats
+- Organizers push festivals across multiple channels
+
+Unverifiable assumptions that should be removed:
 - "Many dancers don't even know their own level"
+- "The offer is built blindly"
+- "The organizer guesses instead of knowing"
 
-S3 requires conditions to be concise, specific, objective, and verifiable.
+### 2. Effect not labeled as current or anticipated
 
-### Effect not labeled as current or anticipated
+"Many hesitate, go with uncertainty, cobble things together manually, or skip entirely" — plausible effects, but S3 asks you to be explicit: is this happening now or do you anticipate it?
 
-"Many hesitate, go with uncertainty, cobble things together manually, or skip entirely" — plausible, but S3 asks you to be explicit about whether effects are happening already or anticipated.
+### 3. Solution framing has expanded
 
-### Solution framing in the driver
+Round 2 added more solution language, not less:
+- "A platform that lets the organizer understand their audience directly reduces this risk" — product pitch inside the driver
+- "The product solves a dual problem" — still present
+- "We extend the boundary of the festival" metaphor — still present
+- "Demand-informed offer building" — solution, not situation
 
-"The product solves a dual problem" and the metaphor about extending the festival boundary are solution framing. The driver should describe the situation and its consequences — solutions belong in the strategy or requirement.
+The driver should describe the situation and its consequences. Solutions belong in the strategy. The requirement already captures outcomes well.
 
-### Too long
+### 4. Still far too long
 
-S3 calls for "a comprehensive but brief summary in two or three sentences." The current driver is a multi-paragraph product pitch.
+S3: "a comprehensive but brief summary in two or three sentences." The current text is ~250 words across multiple paragraphs with headers, bullet lists, and a blockquote. This reads as a product brief, not a driver.
 
 ---
 
 ## Requirement Section
 
-The requirement (intended outcomes + enabling conditions) is well-structured and clear. No changes needed.
+No changes needed. Intended outcomes and enabling conditions are well-structured and clear.
 
 ---
 
 ## Proposed Rewrite
 
+Three sentences. Conditions (observable) -> effect -> relevance for both sides:
+
 > Festival information — schedules, artist lineups, class levels, and logistics — is scattered across Instagram stories, WhatsApp groups, Facebook events, and organizer websites. Dancers spend hours assembling this information manually, and many attend unprepared or skip events entirely. Organizers meanwhile have no visibility into who is coming or what they need before arrival.
+
+The dual dancer/organizer insight from Round 2 is valuable context — it belongs in the Organization Canvas (customers and stakeholders), not the driver summary.
 
 ---
 
 ## Decision Needed
 
-Kirill to review this proposed rewrite and either consent, suggest edits, or raise objections.
+Kirill: review the proposed rewrite above and either consent, suggest edits, or raise objections. The current version fails 4 of 5 S3 criteria and should not go forward as-is.
