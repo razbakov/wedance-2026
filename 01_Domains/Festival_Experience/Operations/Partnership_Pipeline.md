@@ -2,7 +2,7 @@
 
 **Owner:** Partnership Manager (AI Agent)
 **Delegator:** Kirill Korshikov
-**Last updated:** 2026-04-04 (outreach drafted for Bavarian Bachata Congress)
+**Last updated:** 2026-04-04 (outreach drafted for Dance Casa Festival)
 **Review cadence:** Weekly (or after each pipeline event)
 
 ---
@@ -27,7 +27,6 @@
 
 | Festival | Location | Dates | Fit Score | Organizer | Contact | Status | Notes | Next Action |
 |----------|----------|-------|-----------|-----------|---------|--------|-------|-------------|
-| Dance Casa Festival | Budapest, HU | Aug 28-30 | 8/10 | Nino | info@dancecasa.com | Researched | 4-style, 35+ hrs workshops, strong scheduling pain | Kirill: confirm if you know Nino |
 | Summer Bachata Festival | Rovinj, HR | Jun 5-8 | 7/10 | SBF team | via summerbachatafestival.com | Researched | 1st edition, most open to partnerships; tight timeline | Consider for B2C experiment (no organizer needed) |
 | BCN Dance Life Congress | Santa Susanna, ES | Oct 2-5 | 7/10 | Frank Santos | WhatsApp +34 600 852 452 | Researched | 70+ hrs workshops, 6 months lead time | Kirill: confirm if you know Frank Santos |
 | Bachaturo Festival | Katowice, PL | Aug 14-16 | 6/10 | Artur Zabłotny | artur.zablotny@wp.pl | Researched | 10 rooms, 120 hrs, massive complexity; very large | Consider for B2B after smaller pilot |
@@ -42,11 +41,17 @@
 | Festival | Location | Dates | Fit Score | Organizer | Contact | Status | Notes | Next Action |
 |----------|----------|-------|-----------|-----------|---------|--------|-------|-------------|
 | Bavarian Bachata Congress | Munich, DE | Oct 23-25 | 9/10 | Anna Milite | bavarianbachatacongress@gmail.com, +49 176 833 665 52 | Outreach drafted | Top priority per Coordinator Decision 1. WhatsApp + email drafts ready. One-pager pitch attached. | **Kirill: review drafts in `Outreach/` folder and send WhatsApp message** |
+| Dance Casa Festival | Budapest, HU | Aug 28-30 | 8/10 | Nino (Najim Aldeen Salah) | info@dancecasa.com, IG @dancecasafest / @nino_bachata | Outreach drafted | Fallback per Coordinator Decision 1. 4 styles (zouk new in 2026), 35+ hrs workshops, 46 countries, ~400-800 attendees. Instagram DM + email drafts ready. Customized one-pager attached. | **Kirill: review drafts and send if Anna Milite does not respond, or send in parallel** |
 
-Outreach materials:
+Outreach materials -- Bavarian Bachata Congress:
 - WhatsApp/DM draft: `Outreach/2026-04-04_Bavarian_Bachata_Congress_Anna_Milite.md` (Draft 1)
 - Email follow-up: same file (Draft 2)
 - One-pager pitch: `Outreach/WeDance_Festival_Schedule_One_Pager.md`
+
+Outreach materials -- Dance Casa Festival:
+- Instagram DM draft: `Outreach/2026-04-04_Dance_Casa_Festival_Nino.md` (Draft 1)
+- Email follow-up: same file (Draft 2)
+- Customized one-pager: `Outreach/WeDance_One_Pager_Dance_Casa_Festival.md`
 
 ### Contacted
 
@@ -112,3 +117,4 @@ Key timing considerations:
 |------|--------|----|
 | 2026-04-04 | Pipeline created with 10 researched festivals | Partnership Manager |
 | 2026-04-04 | Bavarian Bachata Congress moved to "Outreach drafted"; WhatsApp/email drafts and one-pager created | Partnership Manager |
+| 2026-04-04 | Dance Casa Festival moved to "Outreach drafted"; Instagram DM/email drafts and customized one-pager created | Partnership Manager |
