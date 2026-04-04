@@ -12,11 +12,28 @@ Test Festival Schedule first at one pilot festival. Validate that dancers will u
 
 ## Structure
 
-- `00_Organization_Logbook/` — governance: driver, canvas, strategy, values, policies, requirements
-- `01_Domains/` — Festival Experience (active), Discovery (dormant), Marketplace (dormant)
-- `02_Roles/` — founder + agent role descriptions
-- `03_Coordination/` — meeting records
-- `.claude/agents/` — AI agent definitions (8 agents)
+Preset: numbered
+
+- Logbook: `00_Organization_Logbook/`
+- Primary driver: `00_Organization_Logbook/01_Primary_Driver_and_Requirement.md`
+- Organization canvas: `00_Organization_Logbook/02_Organization_Canvas.md`
+- Strategy: `00_Organization_Logbook/03_Strategy.md`
+- Values: `00_Organization_Logbook/04_Values.md`
+- Policies: `00_Organization_Logbook/Org_Wide_Policies/`
+- Requirements: `00_Organization_Logbook/Requirements_Mapping/`
+- Domain map: `00_Organization_Logbook/Organizational_Structure/Domain_Map.md`
+- Domains: `01_Domains/<Domain_Name>/`
+- Domain description: `01_Domains/<Domain_Name>/Domain_Description.md`
+- Domain governance backlog: `01_Domains/<Domain_Name>/Governance/Backlog/`
+- Domain operations backlog: `01_Domains/<Domain_Name>/Operations/Backlog/`
+- Domain metrics: `01_Domains/<Domain_Name>/Metrics/`
+- Roles: `02_Roles/<Role_Name>/`
+- Role description: `02_Roles/<Role_Name>/Role_Description.md`
+- Coordination: `03_Coordination/`
+- Agents: `.claude/agents/`
+- App: `app/`
+
+Active domains: Festival Experience. Dormant: Discovery, Marketplace.
 
 ## Agents
 
@@ -33,7 +50,6 @@ Test Festival Schedule first at one pilot festival. Validate that dancers will u
 
 ## Policies
 
-All agents follow `00_Organization_Logbook/Org_Wide_Policies/`:
 - **Policy 001** — AI agent boundaries: agents draft, humans send. No external comms, deploys, or spending without approval.
 - **Policy 002** — Decision-making: operational (agent), tactical (delegator), strategic (partnership by consent).
 - **Policy 003** — Data & privacy: GDPR, minimal collection, no selling.
@@ -41,7 +57,8 @@ All agents follow `00_Organization_Logbook/Org_Wide_Policies/`:
 ## Conventions
 
 - Logbook is the source of truth for governance
-- Backlog items are individual files in `Governance/Backlog/` or `Operations/Backlog/`
+- Backlog items are individual files in domain governance/operations backlog directories
 - All agent work delivered via PRs
 - Requirements separate purpose (driver + requirement) from intervention (experiments)
+- Agents read CLAUDE.md first to find file paths — never hardcode paths
 - Review dates are quarterly (next: 2026-07-04)
