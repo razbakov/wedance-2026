@@ -3,4 +3,9 @@ export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
   modules: ['@nuxtjs/tailwindcss'],
+  runtimeConfig: {
+    public: {
+      posthogKey: '', // Override via NUXT_PUBLIC_POSTHOG_KEY env var
+    },
+  },
 })

@@ -4,6 +4,7 @@ import { mockFestival } from '~/data/mock-festival'
 const festival = mockFestival
 const {
   filters,
+  days,
   availableStyles,
   workshopsByDay,
   isEmpty,
@@ -12,19 +13,64 @@ const {
   clearFilters,
 } = useSchedule(festival)
 
+const {
+  setFestivalContext,
+  trackScheduleOpen,
+  trackFilterUsed,
+  trackDaySwitched,
+  trackPagePerformance,
+  trackScrollDepth,
+} = useAnalytics()
+
 const hasActiveFilters = computed(
   () => filters.day !== null || filters.danceStyle !== null
 )
 
 useHead({
-  title: `${festival.name} - Schedule`,
+  title: `${festival.festival.name} - Schedule`,
   meta: [
     {
       name: 'description',
-      content: `Interactive workshop schedule for ${festival.name} in ${festival.location}`,
+      content: `Interactive workshop schedule for ${festival.festival.name}`,
     },
   ],
 })
+
+// --- Analytics instrumentation ---
+
+// Set festival context for all events
+setFestivalContext(festival.festival)
+
+onMounted(() => {
+  // Track schedule_open after data renders successfully
+  trackScheduleOpen(days.value.length, festival.workshops.length)
+
+  // Track page load performance
+  trackPagePerformance()
+
+  // Set up scroll depth tracking
+  const cleanupScroll = trackScrollDepth()
+  onUnmounted(() => cleanupScroll?.())
+})
+
+// Wrap filter setters to include analytics tracking
+function handleDayChange(date: string | null) {
+  const previousDay = filters.day
+  setDay(date)
+  if (date !== previousDay) {
+    if (date) {
+      trackFilterUsed('day', date)
+    }
+    trackDaySwitched(previousDay, date)
+  }
+}
+
+function handleStyleChange(style: typeof filters.danceStyle) {
+  setDanceStyle(style)
+  if (style) {
+    trackFilterUsed('style', style)
+  }
+}
 </script>
 
 <template>
@@ -33,10 +79,10 @@ useHead({
     <header class="bg-white shadow-sm">
       <div class="mx-auto max-w-4xl px-4 py-6 sm:px-6">
         <h1 class="text-2xl font-bold text-gray-900 sm:text-3xl">
-          {{ festival.name }}
+          {{ festival.festival.name }}
         </h1>
         <p class="mt-1 text-sm text-gray-500">
-          {{ festival.location }}
+          {{ festival.festival.venue }}<template v-if="festival.festival.city">, {{ festival.festival.city }}</template>
         </p>
       </div>
     </header>
@@ -45,12 +91,12 @@ useHead({
       <!-- Filters -->
       <section class="mb-6 rounded-lg bg-white p-4 shadow-sm">
         <ScheduleFilters
-          :days="festival.days"
+          :days="days"
           :styles="availableStyles"
           :active-day="filters.day"
           :active-style="filters.danceStyle"
-          @update:day="setDay"
-          @update:style="setDanceStyle"
+          @update:day="handleDayChange"
+          @update:style="handleStyleChange"
         />
       </section>
 
