@@ -45,7 +45,8 @@ Actively being worked on. Max 1 item per agent.
 
 | # | Item | Domain | Type | Agent | Started | Delegator |
 |---|------|--------|------|-------|---------|-----------|
-| — | — | — | — | — | — | — |
+| O-006 | Import Nuxt app code from festival-schedule repo into `app/` | Festival Exp. | Operations | Engineer | 2026-04-04 | Alex |
+| O-007 | Import design assets & docs from festival-schedule repo | Festival Exp. | Operations | Designer + Ops Manager | 2026-04-04 | Alex |
 
 ## In Review
 
