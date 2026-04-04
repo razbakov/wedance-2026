@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Festival Schedule - WeDance Wireframe Prototype</title>
+<style>
+  /* ============================================
+     WeDance Festival Schedule - Lo-Fi Prototype
+     This is a WIREFRAME -- not final visual design.
+     Open in a mobile browser or use DevTools
+     responsive mode at 375px width.
+     ============================================ */
+
+  :root {
+    --color-bg: #FFFFFF;
+    --color-bg-page: #F5F5F5;
+    --color-bg-overlay: rgba(0,0,0,0.4);
+    --color-text-primary: #1A1A1A;
+    --color-text-secondary: #4A4A4A;
+    --color-text-tertiary: #7A7A7A;
+    --color-text-inverse: #FFFFFF;
+    --color-border: #E0E0E0;
+    --color-interactive: #2563EB;
+    --color-interactive-hover: #1D4ED8;
+    --color-style-salsa: #DC2626;
+    --color-style-bachata: #7C3AED;
+    --color-style-kizomba: #0891B2;
+    --color-style-cuban: #EA580C;
+    --color-style-semba: #15803D;
+    --color-style-zouk: #BE185D;
+
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 20px;
+    --space-6: 24px;
+    --space-8: 32px;
+
+    --duration-fast: 100ms;
+    --duration-normal: 200ms;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: var(--color-bg-page);
+    color: var(--color-text-primary);
+    -webkit-font-smoothing: antialiased;
+    max-width: 428px;
+    margin: 0 auto;
+    min-height: 100vh;
+  }
+
+  /* -- Top Bar -- */
+  .top-bar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    background: var(--color-bg);
+    padding: var(--space-4);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .top-bar h1 {
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+  .top-bar .subtitle {
+    font-size: 12px;
+    color: var(--color-text-tertiary);
+    font-weight: 400;
+  }
+  .share-btn {
+    background: none;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: var(--space-2) var(--space-3);
+    font-size: 14px;
+    color: var(--color-interactive);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background var(--duration-fast);
+  }
+  .share-btn:hover { background: #EFF6FF; }
+
+  /* -- Day Tabs -- */
+  .day-tabs {
+    position: sticky;
+    top: 65px;
+    z-index: 20;
+    background: var(--color-bg);
+    display: flex;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--color-border);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .day-tabs::-webkit-scrollbar { display: none; }
+  .day-tab {
+    padding: var(--space-2) var(--space-4);
+    border-radius: 8px;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all var(--duration-fast);
+  }
+  .day-tab.active {
+    background: var(--color-interactive);
+    color: var(--color-text-inverse);
+    border-color: var(--color-interactive);
+  }
+
+  /* -- Style Chips -- */
+  .style-chips {
+    position: sticky;
+    top: 117px;
+    z-index: 20;
+    background: var(--color-bg-page);
+    display: flex;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .style-chips::-webkit-scrollbar { display: none; }
+  .style-chip {
+    padding: var(--space-1) var(--space-3);
+    border-radius: 16px;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all var(--duration-fast);
+  }
+  .style-chip.active {
+    background: var(--color-interactive);
+    color: var(--color-text-inverse);
+    border-color: var(--color-interactive);
+  }
+  .style-chip[data-style="salsa"].active { background: var(--color-style-salsa); border-color: var(--color-style-salsa); }
+  .style-chip[data-style="bachata"].active { background: var(--color-style-bachata); border-color: var(--color-style-bachata); }
+  .style-chip[data-style="kizomba"].active { background: var(--color-style-kizomba); border-color: var(--color-style-kizomba); }
+  .style-chip[data-style="cuban"].active { background: var(--color-style-cuban); border-color: var(--color-style-cuban); }
+  .style-chip[data-style="semba"].active { background: var(--color-style-semba); border-color: var(--color-style-semba); }
+  .style-chip[data-style="zouk"].active { background: var(--color-style-zouk); border-color: var(--color-style-zouk); }
+
+  /* -- Schedule Content -- */
+  .schedule {
+    padding: 0 var(--space-4) var(--space-8);
+  }
+
+  /* -- Time Slot -- */
+  .time-slot {
+    margin-top: var(--space-5);
+  }
+  .time-header {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    padding: var(--space-2) 0;
+    position: sticky;
+    top: 165px;
+    background: var(--color-bg-page);
+    z-index: 10;
+  }
+
+  /* -- Card Row (horizontal scroll for concurrent workshops) -- */
+  .card-row {
+    display: flex;
+    gap: var(--space-3);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: var(--space-2);
+    scroll-snap-type: x proximity;
+  }
+  .card-row::-webkit-scrollbar { display: none; }
+
+  /* -- Workshop Card -- */
+  .workshop-card {
+    flex: 0 0 140px;
+    min-height: 120px;
+    background: var(--color-bg);
+    border-radius: 8px;
+    padding: var(--space-2) var(--space-3) var(--space-3);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    border-left: 3px solid var(--color-border);
+    cursor: pointer;
+    transition: transform var(--duration-fast), box-shadow var(--duration-fast);
+    scroll-snap-align: start;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+  .workshop-card:active {
+    transform: scale(0.97);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  }
+  .workshop-card[data-style="salsa"] { border-left-color: var(--color-style-salsa); }
+  .workshop-card[data-style="bachata"] { border-left-color: var(--color-style-bachata); }
+  .workshop-card[data-style="kizomba"] { border-left-color: var(--color-style-kizomba); }
+  .workshop-card[data-style="cuban"] { border-left-color: var(--color-style-cuban); }
+  .workshop-card[data-style="semba"] { border-left-color: var(--color-style-semba); }
+  .workshop-card[data-style="zouk"] { border-left-color: var(--color-style-zouk); }
+
+  .card-room {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--color-text-tertiary);
+  }
+  .card-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .card-artist {
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .card-time {
+    font-size: 13px;
+    color: var(--color-text-secondary);
+  }
+  .card-badge {
+    display: inline-block;
+    margin-top: auto;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-text-inverse);
+    background: var(--color-border);
+    width: fit-content;
+  }
+  .card-badge[data-style="salsa"] { background: var(--color-style-salsa); }
+  .card-badge[data-style="bachata"] { background: var(--color-style-bachata); }
+  .card-badge[data-style="kizomba"] { background: var(--color-style-kizomba); }
+  .card-badge[data-style="cuban"] { background: var(--color-style-cuban); }
+  .card-badge[data-style="semba"] { background: var(--color-style-semba); }
+  .card-badge[data-style="zouk"] { background: var(--color-style-zouk); }
+
+  /* -- Break Card -- */
+  .break-card {
+    background: transparent;
+    border: 1px dashed var(--color-border);
+    border-radius: 8px;
+    padding: var(--space-4);
+    text-align: center;
+    color: var(--color-text-tertiary);
+    font-size: 14px;
+    margin-top: var(--space-3);
+  }
+
+  /* -- Scroll Dots -- */
+  .scroll-dots {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    padding: var(--space-2) 0;
+  }
+  .scroll-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-border);
+  }
+  .scroll-dot.active { background: var(--color-text-secondary); }
+
+  /* -- Bottom Sheet Overlay -- */
+  .sheet-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: var(--color-bg-overlay);
+    z-index: 100;
+    opacity: 0;
+    transition: opacity var(--duration-normal);
+  }
+  .sheet-overlay.visible { display: block; opacity: 1; }
+
+  .bottom-sheet {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%) translateY(100%);
+    width: 100%;
+    max-width: 428px;
+    max-height: 70vh;
+    background: var(--color-bg);
+    border-radius: 16px 16px 0 0;
+    z-index: 110;
+    transition: transform var(--duration-normal) ease-out;
+    overflow-y: auto;
+  }
+  .sheet-overlay.visible .bottom-sheet {
+    transform: translateX(-50%) translateY(0);
+  }
+  .sheet-handle {
+    width: 32px;
+    height: 4px;
+    background: var(--color-border);
+    border-radius: 2px;
+    margin: var(--space-3) auto var(--space-4);
+  }
+  .sheet-content {
+    padding: 0 var(--space-6) var(--space-8);
+  }
+  .sheet-content h2 {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: var(--space-2);
+  }
+  .sheet-content .detail-row {
+    font-size: 14px;
+    color: var(--color-text-secondary);
+    padding: var(--space-1) 0;
+  }
+  .sheet-content .detail-row strong {
+    color: var(--color-text-primary);
+  }
+  .sheet-share-btn {
+    display: block;
+    width: 100%;
+    margin-top: var(--space-5);
+    padding: var(--space-3);
+    background: none;
+    border: 1px solid var(--color-interactive);
+    color: var(--color-interactive);
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background var(--duration-fast);
+  }
+  .sheet-share-btn:hover { background: #EFF6FF; }
+
+  /* -- Footer -- */
+  .footer {
+    text-align: center;
+    padding: var(--space-6) var(--space-4);
+    color: var(--color-text-tertiary);
+    font-size: 11px;
+  }
+
+  /* -- Responsive: larger cards on wider screens -- */
+  @media (min-width: 429px) {
+    .workshop-card { flex: 0 0 180px; }
+  }
+  @media (min-width: 769px) {
+    body { max-width: 768px; }
+    .card-row {
+      flex-wrap: wrap;
+      overflow-x: visible;
+    }
+    .workshop-card { flex: 0 0 calc(33% - var(--space-3)); }
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== TOP BAR ===== -->
+<header class="top-bar">
+  <div>
+    <h1>Munich Salsa Festival</h1>
+    <span class="subtitle">Munich, Apr 17-19</span>
+  </div>
+  <button class="share-btn" onclick="shareSchedule()">Share</button>
+</header>
+
+<!-- ===== DAY TABS ===== -->
+<nav class="day-tabs">
+  <button class="day-tab" onclick="switchDay(this)">Fri 17</button>
+  <button class="day-tab active" onclick="switchDay(this)">Sat 18</button>
+  <button class="day-tab" onclick="switchDay(this)">Sun 19</button>
+</nav>
+
+<!-- ===== STYLE CHIPS ===== -->
+<div class="style-chips">
+  <button class="style-chip active" onclick="filterStyle(this)" data-style="all">All</button>
+  <button class="style-chip" onclick="filterStyle(this)" data-style="salsa">Salsa</button>
+  <button class="style-chip" onclick="filterStyle(this)" data-style="bachata">Bachata</button>
+  <button class="style-chip" onclick="filterStyle(this)" data-style="kizomba">Kizomba</button>
+  <button class="style-chip" onclick="filterStyle(this)" data-style="cuban">Cuban</button>
+  <button class="style-chip" onclick="filterStyle(this)" data-style="semba">Semba</button>
+  <button class="style-chip" onclick="filterStyle(this)" data-style="zouk">Zouk</button>
+</div>
+
+<!-- ===== SCHEDULE ===== -->
+<main class="schedule">
+
+  <!-- 10:00 Slot -->
+  <section class="time-slot">
+    <div class="time-header">10:00</div>
+    <div class="card-row">
+      <div class="workshop-card" data-style="salsa" onclick="openDetail('Lady Styling','Ana Garcia','10:00 - 11:30','Room A','Salsa','Intermediate','Technique and expression for solo movement in salsa.')">
+        <span class="card-room">Room A</span>
+        <span class="card-name">Lady Styling</span>
+        <span class="card-artist">Ana Garcia</span>
+        <span class="card-time">10:00 - 11:30</span>
+        <span class="card-badge" data-style="salsa">Salsa</span>
+      </div>
+      <div class="workshop-card" data-style="bachata" onclick="openDetail('Bachata Sensual','Marco &amp; Lisa','10:00 - 11:30','Room B','Bachata','All Levels','')">
+        <span class="card-room">Room B</span>
+        <span class="card-name">Bachata Sensual</span>
+        <span class="card-artist">Marco &amp; Lisa</span>
+        <span class="card-time">10:00 - 11:30</span>
+        <span class="card-badge" data-style="bachata">Bachata</span>
+      </div>
+      <div class="workshop-card" data-style="kizomba" onclick="openDetail('Kizomba Fusion','Yoko &amp; Davi','10:00 - 11:30','Room C','Kizomba','Intermediate','Blending traditional kizomba with modern urban movement.')">
+        <span class="card-room">Room C</span>
+        <span class="card-name">Kizomba Fusion</span>
+        <span class="card-artist">Yoko &amp; Davi</span>
+        <span class="card-time">10:00 - 11:30</span>
+        <span class="card-badge" data-style="kizomba">Kizomba</span>
+      </div>
+      <div class="workshop-card" data-style="cuban" onclick="openDetail('Casino Rueda','Juan Carlos','10:00 - 11:30','Room D','Cuban','Beginner','Group circle dance with called figures.')">
+        <span class="card-room">Room D</span>
+        <span class="card-name">Casino Rueda</span>
+        <span class="card-artist">Juan Carlos</span>
+        <span class="card-time">10:00 - 11:30</span>
+        <span class="card-badge" data-style="cuban">Cuban</span>
+      </div>
+    </div>
+    <div class="scroll-dots">
+      <span class="scroll-dot active"></span>
+      <span class="scroll-dot active"></span>
+      <span class="scroll-dot"></span>
+      <span class="scroll-dot"></span>
+    </div>
+  </section>
+
+  <!-- 11:45 Slot -->
+  <section class="time-slot">
+    <div class="time-header">11:45</div>
+    <div class="card-row">
+      <div class="workshop-card" data-style="salsa" onclick="openDetail('Partnerwork Fundamentals','Juan &amp; Maria','11:45 - 13:15','Room A','Salsa','Beginner','')">
+        <span class="card-room">Room A</span>
+        <span class="card-name">Partnerwork Fundamentals</span>
+        <span class="card-artist">Juan &amp; Maria</span>
+        <span class="card-time">11:45 - 13:15</span>
+        <span class="card-badge" data-style="salsa">Salsa</span>
+      </div>
+      <div class="workshop-card" data-style="bachata" onclick="openDetail('Bachata Footwork','Lisa Torres','11:45 - 13:15','Room B','Bachata','Intermediate','')">
+        <span class="card-room">Room B</span>
+        <span class="card-name">Bachata Footwork</span>
+        <span class="card-artist">Lisa Torres</span>
+        <span class="card-time">11:45 - 13:15</span>
+        <span class="card-badge" data-style="bachata">Bachata</span>
+      </div>
+      <div class="workshop-card" data-style="semba" onclick="openDetail('Semba Roots','Paulo &amp; Sara','11:45 - 13:15','Room C','Semba','All Levels','')">
+        <span class="card-room">Room C</span>
+        <span class="card-name">Semba Roots</span>
+        <span class="card-artist">Paulo &amp; Sara</span>
+        <span class="card-time">11:45 - 13:15</span>
+        <span class="card-badge" data-style="semba">Semba</span>
+      </div>
+    </div>
+    <div class="scroll-dots">
+      <span class="scroll-dot active"></span>
+      <span class="scroll-dot active"></span>
+      <span class="scroll-dot"></span>
+    </div>
+  </section>
+
+  <!-- Break -->
+  <div class="break-card">Lunch Break -- 13:15 - 14:30</div>
+
+  <!-- 14:30 Slot -->
+  <section class="time-slot">
+    <div class="time-header">14:30</div>
+    <div class="card-row">
+      <div class="workshop-card" data-style="salsa" onclick="openDetail('Body Movement','Ana Garcia','14:30 - 16:00','Room A','Salsa','Advanced','')">
+        <span class="card-room">Room A</span>
+        <span class="card-name">Body Movement</span>
+        <span class="card-artist">Ana Garcia</span>
+        <span class="card-time">14:30 - 16:00</span>
+        <span class="card-badge" data-style="salsa">Salsa</span>
+      </div>
+      <div class="workshop-card" data-style="zouk" onclick="openDetail('Zouk Flow','Nina &amp; Alex','14:30 - 16:00','Room B','Zouk','Intermediate','')">
+        <span class="card-room">Room B</span>
+        <span class="card-name">Zouk Flow</span>
+        <span class="card-artist">Nina &amp; Alex</span>
+        <span class="card-time">14:30 - 16:00</span>
+        <span class="card-badge" data-style="zouk">Zouk</span>
+      </div>
+      <div class="workshop-card" data-style="kizomba" onclick="openDetail('Urban Kiz Basics','Davi Santos','14:30 - 16:00','Room C','Kizomba','Beginner','')">
+        <span class="card-room">Room C</span>
+        <span class="card-name">Urban Kiz Basics</span>
+        <span class="card-artist">Davi Santos</span>
+        <span class="card-time">14:30 - 16:00</span>
+        <span class="card-badge" data-style="kizomba">Kizomba</span>
+      </div>
+    </div>
+    <div class="scroll-dots">
+      <span class="scroll-dot active"></span>
+      <span class="scroll-dot active"></span>
+      <span class="scroll-dot"></span>
+    </div>
+  </section>
+
+  <!-- 16:15 Slot -->
+  <section class="time-slot">
+    <div class="time-header">16:15</div>
+    <div class="card-row">
+      <div class="workshop-card" data-style="bachata" onclick="openDetail('Bachata Dominicana','Pedro Suarez','16:15 - 17:45','Room A','Bachata','All Levels','')">
+        <span class="card-room">Room A</span>
+        <span class="card-name">Bachata Dominicana</span>
+        <span class="card-artist">Pedro Suarez</span>
+        <span class="card-time">16:15 - 17:45</span>
+        <span class="card-badge" data-style="bachata">Bachata</span>
+      </div>
+      <div class="workshop-card" data-style="salsa" onclick="openDetail('Salsa Shines','Juan &amp; Maria','16:15 - 17:45','Room B','Salsa','Intermediate','')">
+        <span class="card-room">Room B</span>
+        <span class="card-name">Salsa Shines</span>
+        <span class="card-artist">Juan &amp; Maria</span>
+        <span class="card-time">16:15 - 17:45</span>
+        <span class="card-badge" data-style="salsa">Salsa</span>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ===== FOOTER ===== -->
+<footer class="footer">
+  WeDance v0.1 -- Festival Schedule Prototype
+</footer>
+
+<!-- ===== BOTTOM SHEET (Workshop Detail) ===== -->
+<div class="sheet-overlay" id="sheetOverlay" onclick="closeDetail(event)">
+  <div class="bottom-sheet" id="detailSheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-content">
+      <h2 id="detailName"></h2>
+      <div class="detail-row" id="detailArtist"></div>
+      <div class="detail-row"><strong id="detailDay">SAT</strong> <span id="detailTime"></span></div>
+      <div class="detail-row" id="detailRoom"></div>
+      <div class="detail-row"><span class="card-badge" id="detailBadge"></span></div>
+      <div class="detail-row" id="detailLevel"></div>
+      <div class="detail-row" id="detailDesc" style="margin-top: 8px; line-height: 1.5;"></div>
+      <button class="sheet-share-btn" onclick="shareWorkshop()">Share this workshop</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Day tab switching
+  function switchDay(tab) {
+    document.querySelectorAll('.day-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    // In real app: re-render schedule for selected day
+  }
+
+  // Style filtering
+  function filterStyle(chip) {
+    document.querySelectorAll('.style-chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+
+    const style = chip.dataset.style;
+    document.querySelectorAll('.workshop-card').forEach(card => {
+      if (style === 'all' || card.dataset.style === style) {
+        card.style.display = '';
+      } else {
+        card.style.display = 'none';
+      }
+    });
+
+    // Hide time slots with no visible cards
+    document.querySelectorAll('.time-slot').forEach(slot => {
+      const visibleCards = slot.querySelectorAll('.workshop-card:not([style*="display: none"])');
+      slot.style.display = visibleCards.length ? '' : 'none';
+    });
+  }
+
+  // Workshop detail bottom sheet
+  function openDetail(name, artist, time, room, style, level, desc) {
+    document.getElementById('detailName').textContent = name;
+    document.getElementById('detailArtist').textContent = 'with ' + artist;
+    document.getElementById('detailTime').textContent = time;
+    document.getElementById('detailRoom').textContent = room;
+
+    const badge = document.getElementById('detailBadge');
+    badge.textContent = style;
+    badge.dataset.style = style.toLowerCase();
+    badge.setAttribute('data-style', style.toLowerCase());
+    // Re-apply badge color
+    badge.className = 'card-badge';
+    badge.style.background = getComputedStyle(document.documentElement).getPropertyValue('--color-style-' + style.toLowerCase()) || '#6B7280';
+    badge.style.color = '#fff';
+
+    const levelEl = document.getElementById('detailLevel');
+    levelEl.textContent = level ? 'Level: ' + level : '';
+    levelEl.style.display = level ? '' : 'none';
+
+    const descEl = document.getElementById('detailDesc');
+    descEl.textContent = desc;
+    descEl.style.display = desc ? '' : 'none';
+
+    document.getElementById('sheetOverlay').classList.add('visible');
+  }
+
+  function closeDetail(event) {
+    if (event.target === document.getElementById('sheetOverlay')) {
+      document.getElementById('sheetOverlay').classList.remove('visible');
+    }
+  }
+
+  // Share (native or fallback)
+  function shareSchedule() {
+    const url = window.location.href;
+    if (navigator.share) {
+      navigator.share({ title: 'Munich Salsa Festival - Schedule', url: url });
+    } else {
+      navigator.clipboard.writeText(url).then(() => alert('Link copied!'));
+    }
+  }
+
+  function shareWorkshop() {
+    const name = document.getElementById('detailName').textContent;
+    const url = window.location.href + '?ws=' + encodeURIComponent(name);
+    if (navigator.share) {
+      navigator.share({ title: name + ' - Munich Salsa Festival', url: url });
+    } else {
+      navigator.clipboard.writeText(url).then(() => alert('Link copied!'));
+    }
+  }
+</script>
+
+</body>
+</html>
