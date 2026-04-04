@@ -2,13 +2,16 @@
 
 **Date:** 2026-04-04
 **Type:** Proposal
-**Status:** Open
+**Status:** Approved (2026-04-04)
 
 ## Description
 Seven AI agent roles are defined but none are deployed yet. The partnership needs to decide: which agents to deploy first, what infrastructure they need, and how to validate they're working before the pilot festival.
 
-## Proposed approach
-Deploy Product Lead and Operations Manager first — they produce the inputs (specs) and outputs (schedules) needed for the pilot. Engineer and Analyst follow. Designer, Partnership Manager, and Marketing Lead can wait until closer to launch.
+## Approved approach
 
-## Decision needed from
-Partnership (Alex + Kirill)
+**Wave 1 (now):** Product Lead, Operations Manager
+**Wave 2 (before pilot):** Engineer, Analyst
+**Wave 3 (closer to launch):** Designer, Partnership Manager, Marketing Lead
+
+## Decision
+Approved by Alex (2026-04-04). Kirill consent pending.
