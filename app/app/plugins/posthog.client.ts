@@ -5,11 +5,17 @@
  * Captures UTM parameters from the URL on first visit.
  * Provides the PostHog instance via Nuxt's `$posthog` injection.
  *
+ * GDPR compliance:
+ * - PostHog only initializes when the user has accepted cookie consent.
+ * - If the browser's Do Not Track signal is active, PostHog does not load.
+ * - Consent is managed by the useCookieConsent composable.
+ *
  * Environment variable: NUXT_PUBLIC_POSTHOG_KEY
  * - Set in .env for local dev, in Vercel for production.
  * - If empty/missing, PostHog is not initialized (safe for dev).
  */
 import posthog from 'posthog-js'
+import { isAnalyticsAllowed } from '~/composables/useCookieConsent'
 
 export default defineNuxtPlugin({
   name: 'posthog',
@@ -20,7 +26,12 @@ export default defineNuxtPlugin({
 
     // Do not initialize if the key is not configured
     if (!posthogKey) {
-      console.warn('[posthog] NUXT_PUBLIC_POSTHOG_KEY not set — analytics disabled')
+      console.warn('[posthog] NUXT_PUBLIC_POSTHOG_KEY not set -- analytics disabled')
+      return
+    }
+
+    // Do not initialize if the user has not given consent
+    if (!isAnalyticsAllowed()) {
       return
     }
 

@@ -250,6 +250,13 @@ function handleStyleChange(style: typeof filters.danceStyle) {
     <!-- Footer: "Powered by WeDance" (always present, WeDance coral) -->
     <footer class="mt-12 border-t border-gray-200 bg-white py-6 text-center">
       <span class="text-sm" style="color: #E8453C;">Powered by WeDance</span>
+      <span class="mx-1 text-sm text-gray-300">&middot;</span>
+      <NuxtLink to="/privacy" class="text-sm text-gray-400 hover:text-gray-600">
+        Privacy
+      </NuxtLink>
     </footer>
+
+    <!-- Cookie consent banner -->
+    <CookieConsent />
   </div>
 </template>
