@@ -1,0 +1,25 @@
+title: "Sign up with name, email, dance styles, role, and city"
+story: 2.1
+epic: Dancer sign-up
+persona: Festival Dancer
+release: MVP
+estimate: 3
+
+description: >
+  As a Festival Dancer, I want to sign up with name, email, dance styles,
+  role, and city in under 60 seconds, so I can start browsing activities
+  immediately.
+
+factors:
+  complexity: Medium
+  uncertainty: Medium
+  effort: Medium
+  risk: Low
+  dependencies: Low
+
+rationale: >
+  SignUpModal.vue exists but is mock. Dancers table needs new columns
+  (danceStyles, role, city) requiring a schema migration. Need a new tRPC
+  procedure to create/upsert a dancer record and return an auth token.
+  Auth context already validates email tokens, so the flow is clear but
+  touches schema + form + API + auth.
