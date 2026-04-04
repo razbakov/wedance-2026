@@ -120,6 +120,41 @@ export function useSchedule(festival: FestivalSchedule) {
     }
   )
 
+  /**
+   * Workshops grouped by (day, startTime) pairs for horizontal card row layout.
+   * Each time slot contains all concurrent workshops, sorted by room name.
+   */
+  const workshopsByTimeSlot = computed<
+    { day: FestivalDay; timeSlots: { time: string; workshops: WorkshopWithId[] }[] }[]
+  >(() => {
+    const activeDays = filters.day
+      ? days.value.filter((d) => d.date === filters.day)
+      : days.value
+
+    return activeDays.map((day) => {
+      const dayWorkshops = filteredWorkshops.value.filter((w) => w.day === day.date)
+
+      // Group by startTime, preserving chronological order
+      const timeMap = new Map<string, WorkshopWithId[]>()
+      for (const w of dayWorkshops) {
+        if (!timeMap.has(w.startTime)) {
+          timeMap.set(w.startTime, [])
+        }
+        timeMap.get(w.startTime)!.push(w)
+      }
+
+      // Sort each time slot's workshops by room name
+      const timeSlots = [...timeMap.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([time, workshops]) => ({
+          time,
+          workshops: workshops.sort((a, b) => a.roomName.localeCompare(b.roomName)),
+        }))
+
+      return { day, timeSlots }
+    })
+  })
+
   /** True when filters produce zero results. */
   const isEmpty = computed(() => filteredWorkshops.value.length === 0)
 
@@ -142,6 +177,7 @@ export function useSchedule(festival: FestivalSchedule) {
     availableStyles,
     filteredWorkshops,
     workshopsByDay,
+    workshopsByTimeSlot,
     isEmpty,
     setDay,
     setDanceStyle,

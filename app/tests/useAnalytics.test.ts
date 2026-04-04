@@ -126,8 +126,11 @@ describe('useAnalytics with PostHog mock', () => {
     }))
 
     // Should also fire return_visit since session_count > 1
+    // Per tracking spec, return_visit must include festival_phase and days_since_first_visit
     expect(mockCapture).toHaveBeenCalledWith('return_visit', expect.objectContaining({
       session_number: 2,
+      festival_phase: expect.stringMatching(/^(pre|during|post)$/),
+      days_since_first_visit: expect.any(Number),
     }))
 
     mockCapture.mockClear()

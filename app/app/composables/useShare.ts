@@ -4,7 +4,8 @@
  * Implements the share flow per story 008:
  * - Web Share API on supported browsers (mobile)
  * - Clipboard fallback with toast confirmation
- * - UTM parameters (utm_source=app, utm_medium=share, utm_campaign={festival_slug})
+ * - Organic UTM parameters for dancer-to-dancer shares
+ *   (utm_source=dancer_share, utm_medium=referral, utm_campaign=organic)
  * - Filter state encoded in the URL so shared links preserve the view
  */
 import type { DanceStyle } from '~/types/schedule'
@@ -15,12 +16,16 @@ export interface ShareOptions {
   city?: string
   currentDay: string | null
   currentStyle: DanceStyle | null
+  /** Optional workshop ID for workshop-specific shares */
+  workshopId?: string
 }
 
 /**
- * Build a shareable URL with UTM parameters and filter state.
- * UTM params are appended for analytics tracking.
- * Filter state is encoded as query params so the recipient sees the same view.
+ * Build a shareable URL with organic UTM parameters and filter state.
+ *
+ * Per Analytics Tracking Spec Section 5.3, dancer-initiated shares use:
+ *   utm_source=dancer_share, utm_medium=referral, utm_campaign=organic
+ *   utm_content={workshop_id} (when sharing a specific workshop)
  */
 export function buildShareUrl(options: ShareOptions): string {
   if (typeof window === 'undefined') return ''
@@ -35,10 +40,13 @@ export function buildShareUrl(options: ShareOptions): string {
     url.searchParams.set('style', options.currentStyle)
   }
 
-  // Append UTM parameters
-  url.searchParams.set('utm_source', 'app')
-  url.searchParams.set('utm_medium', 'share')
-  url.searchParams.set('utm_campaign', options.festivalSlug)
+  // Append organic share UTM parameters (per tracking spec)
+  url.searchParams.set('utm_source', 'dancer_share')
+  url.searchParams.set('utm_medium', 'referral')
+  url.searchParams.set('utm_campaign', 'organic')
+  if (options.workshopId) {
+    url.searchParams.set('utm_content', options.workshopId)
+  }
 
   return url.toString()
 }
@@ -82,7 +90,7 @@ export function useShare() {
   /**
    * Show a toast notification that auto-hides after a delay.
    */
-  function showToast(message: string, duration = 2500) {
+  function showToast(message: string, duration = 3000) {
     toastMessage.value = message
     toastVisible.value = true
     setTimeout(() => {
@@ -141,6 +149,7 @@ export function useShare() {
     toastVisible,
     toastMessage,
     share,
+    showToast,
     buildShareUrl,
     buildDisplayUrl,
   }

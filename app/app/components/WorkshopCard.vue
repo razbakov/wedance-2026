@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { WorkshopWithId } from '~/types/schedule'
+import { getStyleColor, getStyleDisplayName, getLevelDisplayName } from '~/utils/styleColors'
 
 const props = defineProps<{
   workshop: WorkshopWithId
@@ -7,174 +8,151 @@ const props = defineProps<{
   isPast?: boolean
 }>()
 
+const emit = defineEmits<{
+  tap: [workshop: WorkshopWithId]
+}>()
+
 const { trackWorkshopTapped } = useAnalytics()
 
 function handleTap() {
   trackWorkshopTapped(props.workshop)
+  emit('tap', props.workshop)
 }
 
 const timeRange = computed(
   () => `${props.workshop.startTime} - ${props.workshop.endTime}`
 )
 
-/**
- * Map dance styles to color classes for visual distinction.
- * Uses kebab-case keys matching the schema's controlled vocabulary.
- */
-const styleColorMap: Record<string, string> = {
-  'salsa-cubana': 'bg-red-100 text-red-800',
-  'salsa-linear': 'bg-red-100 text-red-800',
-  'bachata': 'bg-purple-100 text-purple-800',
-  'kizomba': 'bg-blue-100 text-blue-800',
-  'zouk': 'bg-teal-100 text-teal-800',
-  'afro-cuban': 'bg-yellow-100 text-yellow-800',
-  'reggaeton': 'bg-orange-100 text-orange-800',
-  'semba': 'bg-indigo-100 text-indigo-800',
-  'cha-cha-cha': 'bg-pink-100 text-pink-800',
-  'son': 'bg-amber-100 text-amber-800',
-  'rumba': 'bg-lime-100 text-lime-800',
-  'lady-styling': 'bg-rose-100 text-rose-800',
-  'man-styling': 'bg-sky-100 text-sky-800',
-  'musicality': 'bg-emerald-100 text-emerald-800',
-  'body-movement': 'bg-cyan-100 text-cyan-800',
-  'other': 'bg-gray-100 text-gray-800',
-}
+const borderColor = computed(() => getStyleColor(props.workshop.danceStyle))
 
-const badgeClass = computed(
-  () =>
-    (props.workshop.danceStyle && styleColorMap[props.workshop.danceStyle]) ||
-    'bg-gray-100 text-gray-800'
-)
+const styleLabel = computed(() => getStyleDisplayName(props.workshop.danceStyle))
 
-/** Human-readable display name for the dance style. */
-const styleDisplayMap: Record<string, string> = {
-  'salsa-cubana': 'Salsa Cubana',
-  'salsa-linear': 'Salsa Linear',
-  'bachata': 'Bachata',
-  'kizomba': 'Kizomba',
-  'zouk': 'Zouk',
-  'afro-cuban': 'Afro-Cuban',
-  'reggaeton': 'Reggaeton',
-  'semba': 'Semba',
-  'cha-cha-cha': 'Cha Cha Cha',
-  'son': 'Son',
-  'rumba': 'Rumba',
-  'lady-styling': 'Lady Styling',
-  'man-styling': 'Man Styling',
-  'musicality': 'Musicality',
-  'body-movement': 'Body Movement',
-  'other': 'Other',
-}
-
-const styleLabel = computed(() =>
-  props.workshop.danceStyle
-    ? styleDisplayMap[props.workshop.danceStyle] ?? props.workshop.danceStyle
-    : null
-)
-
-const levelLabel = computed(() => {
-  if (!props.workshop.level) return null
-  const map: Record<string, string> = {
-    'beginner': 'Beginner',
-    'intermediate': 'Intermediate',
-    'advanced': 'Advanced',
-    'all-levels': 'All Levels',
-  }
-  return map[props.workshop.level] ?? props.workshop.level
-})
+const levelLabel = computed(() => getLevelDisplayName(props.workshop.level))
 </script>
 
 <template>
   <div
     :class="[
-      'cursor-pointer rounded-lg border p-4 shadow-sm transition-shadow hover:shadow-md',
-      isNow
-        ? 'border-2 bg-white ring-1'
-        : isPast
-          ? 'border-gray-200 bg-gray-50 opacity-60'
-          : 'border-gray-200 bg-white',
+      'workshop-card cursor-pointer flex flex-col',
+      'transition-all',
+      isPast ? 'opacity-60' : '',
     ]"
-    :style="isNow ? { borderColor: 'var(--festival-accent, #E8453C)', '--tw-ring-color': 'var(--festival-accent, #E8453C)', '--tw-ring-opacity': '0.2' } : undefined"
+    :style="{
+      width: 'var(--card-width, 140px)',
+      minWidth: 'var(--card-width, 140px)',
+      minHeight: 'var(--card-min-height, 120px)',
+      backgroundColor: 'var(--color-bg, #FFFFFF)',
+      borderRadius: 'var(--card-border-radius, 8px)',
+      borderLeft: `4px solid ${borderColor}`,
+      boxShadow: isNow
+        ? `0 2px 6px rgba(0,0,0,0.15), 0 0 0 2px var(--festival-accent, #E8453C)`
+        : '0 1px 3px rgba(0,0,0,0.08)',
+      padding: '8px 12px 12px',
+      scrollSnapAlign: 'start',
+    }"
     :data-now="isNow || undefined"
     @click="handleTap"
   >
-    <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-      <div class="min-w-0 flex-1">
-        <div class="flex items-center gap-2">
-          <h3 class="text-base font-semibold text-gray-900">
-            {{ workshop.name }}
-          </h3>
-          <NowBadge v-if="isNow" />
-        </div>
-        <p v-if="workshop.artist" class="mt-0.5 text-sm text-gray-600">
-          {{ workshop.artist }}
-        </p>
-      </div>
+    <!-- Room label -->
+    <span
+      class="font-semibold uppercase"
+      style="
+        font-size: 11px;
+        letter-spacing: 0.5px;
+        line-height: 1.3;
+        color: var(--color-text-tertiary, #7A7A7A);
+      "
+    >
+      {{ workshop.roomName }}
+    </span>
+
+    <!-- Workshop name -->
+    <h3
+      class="mt-1 font-semibold leading-tight"
+      style="
+        font-size: 15px;
+        line-height: 1.3;
+        color: var(--color-text-primary, #1A1A1A);
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      "
+    >
+      {{ workshop.name }}
+    </h3>
+
+    <!-- Artist -->
+    <p
+      v-if="workshop.artist"
+      class="mt-1 truncate"
+      style="
+        font-size: 13px;
+        line-height: 1.3;
+        color: var(--color-text-secondary, #4A4A4A);
+      "
+    >
+      {{ workshop.artist }}
+    </p>
+
+    <!-- Time -->
+    <p
+      class="mt-1"
+      style="
+        font-size: 13px;
+        color: var(--color-text-secondary, #4A4A4A);
+      "
+    >
+      {{ timeRange }}
+    </p>
+
+    <!-- Badges row: pushed to bottom via mt-auto -->
+    <div class="mt-auto flex flex-wrap items-center gap-1 pt-1">
+      <!-- NOW badge -->
+      <NowBadge v-if="isNow" />
+
+      <!-- Style badge -->
       <span
         v-if="styleLabel"
-        :class="badgeClass"
-        class="inline-flex w-fit shrink-0 items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
+        class="inline-block font-semibold"
+        :style="{
+          fontSize: '11px',
+          lineHeight: '1.3',
+          backgroundColor: borderColor,
+          color: '#FFFFFF',
+          borderRadius: '10px',
+          padding: '2px 8px',
+        }"
       >
         {{ styleLabel }}
       </span>
-    </div>
 
-    <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500">
-      <span class="inline-flex items-center gap-1">
-        <svg
-          class="h-4 w-4"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-          />
-        </svg>
-        {{ timeRange }}
-      </span>
-      <span class="inline-flex items-center gap-1">
-        <svg
-          class="h-4 w-4"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-          />
-        </svg>
-        {{ workshop.roomName }}
-      </span>
-      <span v-if="levelLabel" class="inline-flex items-center gap-1">
-        <svg
-          class="h-4 w-4"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M13 10V3L4 14h7v7l9-11h-7z"
-          />
-        </svg>
+      <!-- Level badge -->
+      <span
+        v-if="levelLabel"
+        class="inline-block font-semibold"
+        style="
+          font-size: 11px;
+          line-height: 1.3;
+          background-color: var(--color-bg-page, #F7F7F8);
+          color: var(--color-text-secondary, #4A4A4A);
+          border-radius: 10px;
+          padding: 2px 8px;
+        "
+      >
         {{ levelLabel }}
       </span>
     </div>
-
-    <p
-      v-if="workshop.description"
-      class="mt-2 text-sm text-gray-500 line-clamp-2"
-    >
-      {{ workshop.description }}
-    </p>
   </div>
 </template>
+
+<style scoped>
+.workshop-card:hover {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+.workshop-card:active {
+  transform: scale(0.97);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transition: all 100ms ease-out;
+}
+</style>

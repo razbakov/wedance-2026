@@ -27,9 +27,50 @@ function getPostHog(): PostHog | null {
  * Call setFestivalContext() once when the schedule data loads.
  */
 let festivalContext: Record<string, unknown> = {}
+let festivalDates: { startDate: string; endDate: string } | null = null
+
+/** Key used to persist the first-visit timestamp in localStorage. */
+const FIRST_VISIT_KEY = 'wedance_first_visit_ts'
 
 function withContext(props: Record<string, unknown> = {}): Record<string, unknown> {
   return { ...festivalContext, ...props }
+}
+
+/**
+ * Compute the festival phase based on current date vs festival dates.
+ * Returns 'pre', 'during', or 'post'.
+ */
+function getFestivalPhase(startDate: string, endDate: string): 'pre' | 'during' | 'post' {
+  const now = new Date()
+  const todayStr = now.toISOString().slice(0, 10)
+  if (todayStr < startDate) return 'pre'
+  if (todayStr > endDate) return 'post'
+  return 'during'
+}
+
+/**
+ * Compute days since the user's first visit.
+ * Stores the first-visit timestamp in localStorage on first call.
+ */
+function getDaysSinceFirstVisit(): number {
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return 0
+
+  const stored = localStorage.getItem(FIRST_VISIT_KEY)
+  const now = Date.now()
+
+  if (!stored) {
+    localStorage.setItem(FIRST_VISIT_KEY, String(now))
+    return 0
+  }
+
+  const firstVisitTs = parseInt(stored, 10)
+  if (isNaN(firstVisitTs)) {
+    localStorage.setItem(FIRST_VISIT_KEY, String(now))
+    return 0
+  }
+
+  const diffMs = now - firstVisitTs
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24))
 }
 
 export function useAnalytics() {
@@ -41,6 +82,10 @@ export function useAnalytics() {
     festivalContext = {
       festival_id: `${festival.city?.toLowerCase() ?? 'unknown'}-${festival.startDate}`,
       festival_name: festival.name,
+    }
+    festivalDates = {
+      startDate: festival.startDate,
+      endDate: festival.endDate,
     }
   }
 
@@ -63,9 +108,19 @@ export function useAnalytics() {
 
     // Fire return_visit if this is not the first session (Section 4.4)
     if (sessionNumber > 1) {
-      ph.capture('return_visit', withContext({
+      const returnProps: Record<string, unknown> = {
         session_number: sessionNumber,
-      }))
+        days_since_first_visit: getDaysSinceFirstVisit(),
+      }
+
+      if (festivalDates) {
+        returnProps.festival_phase = getFestivalPhase(
+          festivalDates.startDate,
+          festivalDates.endDate
+        )
+      }
+
+      ph.capture('return_visit', withContext(returnProps))
     }
   }
 

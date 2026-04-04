@@ -91,7 +91,36 @@ function createSchedule(festival: FestivalSchedule) {
 
   const isEmpty = computed(() => filteredWorkshops.value.length === 0)
 
-  return { filters, days, availableStyles, filteredWorkshops, workshopsByDay, isEmpty }
+  /**
+   * Workshops grouped by (day, startTime) pairs for horizontal card row layout.
+   */
+  const workshopsByTimeSlot = computed<
+    { day: FestivalDay; timeSlots: { time: string; workshops: WorkshopWithId[] }[] }[]
+  >(() => {
+    const activeDays = filters.day
+      ? days.value.filter((d) => d.date === filters.day)
+      : days.value
+
+    return activeDays.map((day) => {
+      const dayWorkshops = filteredWorkshops.value.filter((w) => w.day === day.date)
+      const timeMap = new Map<string, WorkshopWithId[]>()
+      for (const w of dayWorkshops) {
+        if (!timeMap.has(w.startTime)) {
+          timeMap.set(w.startTime, [])
+        }
+        timeMap.get(w.startTime)!.push(w)
+      }
+      const timeSlots = [...timeMap.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([time, workshops]) => ({
+          time,
+          workshops: workshops.sort((a, b) => a.roomName.localeCompare(b.roomName)),
+        }))
+      return { day, timeSlots }
+    })
+  })
+
+  return { filters, days, availableStyles, filteredWorkshops, workshopsByDay, workshopsByTimeSlot, isEmpty }
 }
 
 const rovinjSchedule = rovinjFestival.schedule
@@ -178,6 +207,46 @@ describe('useSchedule with Rovinj data', () => {
     expect(days.value.length).toBe(4)
     expect(days.value[0].date).toBe('2026-06-05')
     expect(days.value[3].date).toBe('2026-06-08')
+  })
+
+  it('groups workshops by time slot within each day', () => {
+    const { filters, workshopsByTimeSlot } = createSchedule(rovinjSchedule)
+    filters.day = '2026-06-05'
+    const result = workshopsByTimeSlot.value
+    expect(result.length).toBe(1) // only Thursday
+    const thursdaySlots = result[0].timeSlots
+    // Thursday has 3 time slots: 14:00, 15:15, 16:30
+    expect(thursdaySlots.length).toBe(3)
+    expect(thursdaySlots[0].time).toBe('14:00')
+    expect(thursdaySlots[1].time).toBe('15:15')
+    expect(thursdaySlots[2].time).toBe('16:30')
+  })
+
+  it('places concurrent workshops in the same time slot', () => {
+    const { filters, workshopsByTimeSlot } = createSchedule(rovinjSchedule)
+    filters.day = '2026-06-05'
+    const thursdaySlots = workshopsByTimeSlot.value[0].timeSlots
+    // 14:00 slot has 3 concurrent workshops (main-hall, hall-2, studio)
+    expect(thursdaySlots[0].workshops.length).toBe(3)
+  })
+
+  it('sorts workshops within a time slot by room name', () => {
+    const { filters, workshopsByTimeSlot } = createSchedule(rovinjSchedule)
+    filters.day = '2026-06-05'
+    const slot14 = workshopsByTimeSlot.value[0].timeSlots[0]
+    const roomNames = slot14.workshops.map((w) => w.roomName)
+    for (let i = 1; i < roomNames.length; i++) {
+      expect(roomNames[i].localeCompare(roomNames[i - 1])).toBeGreaterThanOrEqual(0)
+    }
+  })
+
+  it('time slots are sorted chronologically', () => {
+    const { workshopsByTimeSlot } = createSchedule(rovinjSchedule)
+    for (const dayGroup of workshopsByTimeSlot.value) {
+      for (let i = 1; i < dayGroup.timeSlots.length; i++) {
+        expect(dayGroup.timeSlots[i].time.localeCompare(dayGroup.timeSlots[i - 1].time)).toBeGreaterThan(0)
+      }
+    }
   })
 })
 
