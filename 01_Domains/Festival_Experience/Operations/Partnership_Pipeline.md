@@ -2,7 +2,7 @@
 
 **Owner:** Partnership Manager (AI Agent)
 **Delegator:** Kirill Korshikov
-**Last updated:** 2026-04-04
+**Last updated:** 2026-04-04 (outreach drafted for Bavarian Bachata Congress)
 **Review cadence:** Weekly (or after each pipeline event)
 
 ---
@@ -23,11 +23,10 @@
 
 ## Current Pipeline
 
-### Researched (awaiting Kirill's network check and outreach direction)
+### Researched
 
 | Festival | Location | Dates | Fit Score | Organizer | Contact | Status | Notes | Next Action |
 |----------|----------|-------|-----------|-----------|---------|--------|-------|-------------|
-| Bavarian Bachata Congress | Munich, DE | Oct 23-25 | 9/10 | Anna Milite | bavarianbachatacongress@gmail.com | Researched | Home base advantage; top priority if Kirill has connection | Kirill: confirm if you know Anna Milite |
 | Dance Casa Festival | Budapest, HU | Aug 28-30 | 8/10 | Nino | info@dancecasa.com | Researched | 4-style, 35+ hrs workshops, strong scheduling pain | Kirill: confirm if you know Nino |
 | Summer Bachata Festival | Rovinj, HR | Jun 5-8 | 7/10 | SBF team | via summerbachatafestival.com | Researched | 1st edition, most open to partnerships; tight timeline | Consider for B2C experiment (no organizer needed) |
 | BCN Dance Life Congress | Santa Susanna, ES | Oct 2-5 | 7/10 | Frank Santos | WhatsApp +34 600 852 452 | Researched | 70+ hrs workshops, 6 months lead time | Kirill: confirm if you know Frank Santos |
@@ -40,11 +39,18 @@
 
 ### Outreach Drafted
 
-(none yet -- awaiting Kirill's direction)
+| Festival | Location | Dates | Fit Score | Organizer | Contact | Status | Notes | Next Action |
+|----------|----------|-------|-----------|-----------|---------|--------|-------|-------------|
+| Bavarian Bachata Congress | Munich, DE | Oct 23-25 | 9/10 | Anna Milite | bavarianbachatacongress@gmail.com, +49 176 833 665 52 | Outreach drafted | Top priority per Coordinator Decision 1. WhatsApp + email drafts ready. One-pager pitch attached. | **Kirill: review drafts in `Outreach/` folder and send WhatsApp message** |
+
+Outreach materials:
+- WhatsApp/DM draft: `Outreach/2026-04-04_Bavarian_Bachata_Congress_Anna_Milite.md` (Draft 1)
+- Email follow-up: same file (Draft 2)
+- One-pager pitch: `Outreach/WeDance_Festival_Schedule_One_Pager.md`
 
 ### Contacted
 
-(none yet)
+(Move Bavarian Bachata Congress here once Kirill sends the message)
 
 ### Pitched
 
@@ -105,3 +111,4 @@ Key timing considerations:
 | Date | Change | By |
 |------|--------|----|
 | 2026-04-04 | Pipeline created with 10 researched festivals | Partnership Manager |
+| 2026-04-04 | Bavarian Bachata Congress moved to "Outreach drafted"; WhatsApp/email drafts and one-pager created | Partnership Manager |
