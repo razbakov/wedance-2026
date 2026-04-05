@@ -53,11 +53,18 @@ Direct agent access: address by name (e.g., "Viktor, review this PR")
 - Agent memory lives in `.claude/agent-memory/<name>/`
 - Agents can recommend but owner always decides
 
-### Daily Review
-- Morning: Maya runs `/daily-review` — inbox, calendar, daily plan
-- During day: dispatch tasks to agents as needed
-- Evening: `/scrum` — agent status reports
-- Saturday: `/weekly-review` — OKR check, retro, next week
+### Tool Stack
+- **Monday** = operational center (deals, execution, follow-ups, delivery, tracking)
+- **Notion** = knowledge layer (structure, playbooks, context, client knowledge) — NOT task management
+- Monday is the source of truth for all execution. Notion supports clarity.
+
+### Daily Rhythm
+- **Morning:** daily review — check-in, calendar, top 3, open loops, one "want"
+- **During day:** dispatch tasks to agents as needed
+- **Evening:** scrum — done, stuck, tomorrow, state check
+- **Saturday:** weekly review — wins/misses, OKR check, next week priorities
+- Templates in `ops/templates/`
+- Keep it lean. The system helps act, not creates admin.
 
 ### Contacts
 - New contacts go to `contacts/` as individual markdown files
