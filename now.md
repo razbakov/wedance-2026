@@ -2,16 +2,30 @@
 
 ## Current Focus
 
-_What matters most right now._
+Снизить фоновое напряжение, стать устойчивее в отношениях и перестроить ритм жизни так, чтобы в нём было больше внутренней свободы, а не только функции.
 
 ## OKRs This Quarter
 
-_To be defined after strategy session with Marco._
+_To be defined in strategy session with Marco._
+
+## Quarterly Directions (from GROW — 2026-04-05)
+
+### B. Работа с тревожным фоном
+Снижение напряжения на уровне тела. Возвращение ощущения безопасности изнутри.
+
+### C. Эксперимент в отношениях
+Замечать момент "дистанция = угроза", делать паузу, оставаться устойчивым.
+
+### D. Пересмотр ритма
+Заменить "должен" на "хочу". Создать пространство для лёгкости.
+
+### (поддержка) A. Мягкое присутствие
+Не дисциплина — а напоминание, что не нужно всегда что-то делать.
 
 ## Morning Routine
 
-_To be defined during coaching with Sage._
+_To be defined._
 
 ## Health Plan
 
-_To be defined during coaching with Sage._
+_To be defined._

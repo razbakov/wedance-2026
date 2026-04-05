@@ -2,16 +2,21 @@
 
 ## Personality & Values
 
-_To be filled during coaching with Sage._
+- Высокоэффективный, инициативный, ответственный
+- Глубоко чувствующий, сенситивный к качеству связи с людьми
+- Ценит глубину, подлинность, осознанность
+- Склонен брать на себя роль эмоционального лидера в отношениях
 
 ## Motivation Patterns
 
-_What drives you, what drains you._
+- **Что даёт энергию:** движение, создание, развитие, влияние, результат
+- **Что забирает энергию:** хроническое внутреннее напряжение, асимметрия вовлечённости в отношениях, невозможность расслабиться
+- **Риск:** привычка к режиму "функционирования" вместо "проживания" — потеря контакта с внутренним состоянием
 
 ## Communication Style
 
-_How you prefer to receive information and feedback._
+_To be refined._
 
 ## Coaching Preferences
 
-_What works for you in coaching sessions._
+_To be refined._
