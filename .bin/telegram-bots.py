@@ -1,39 +1,27 @@
 #!/usr/bin/env python3
 """
-Telegram Bot Runner for Ikigai Team.
+Telegram Bot Runner for Ikigai Team (Windows-compatible, no tmux).
 
-Runs 6 Telegram bots (Maya, Viktor, Luna, Marco, Sage, Kai) in a single process.
-Each bot receives messages from Кирилл, processes them through Claude Code with the
-agent's persona and full tool access, and sends the response back.
+Runs Telegram bots for agents. Each incoming message is processed by
+calling `claude` CLI as a subprocess (stateless per message).
 
 Usage:
-  # Activate venv first:
-  source ~/.config/telegram/venv/bin/activate  # Linux/Mac
-  # or: ~/.config/telegram/venv/Scripts/activate  # Windows
-
-  python3 telegram-bots.py              # Run all bots with tokens in .env
-  python3 telegram-bots.py --dry-run    # Print config without starting bots
-  python3 telegram-bots.py --agent maya # Run only Maya's bot
+  python telegram-bots.py              # Run all bots with tokens in .env
+  python telegram-bots.py --dry-run    # Print config without starting bots
+  python telegram-bots.py --agent maya # Run only Maya's bot
 
 Tokens stored in ~/.config/telegram/.env:
   MAYA_BOT_TOKEN=...
-  VIKTOR_BOT_TOKEN=...
-  etc.
   OWNER_TELEGRAM_ID=...
 """
 import asyncio
-import json
 import logging
 import os
-import re
-import shlex
 import subprocess
 import sys
-import time
 from pathlib import Path
 
 ENV_FILE = Path.home() / ".config" / "telegram" / ".env"
-# CUSTOMIZE: Set to the user's org path
 PROJECT_DIR = Path.home() / "Orgs" / "ikigai"
 
 
@@ -55,10 +43,6 @@ logging.basicConfig(
     level=logging.INFO,
 )
 log = logging.getLogger("agent-bots")
-
-# ---------------------------------------------------------------------------
-# Agent definitions
-# ---------------------------------------------------------------------------
 
 AGENTS = {
     "maya": {
@@ -99,193 +83,44 @@ AGENTS = {
     },
 }
 
-# ---------------------------------------------------------------------------
-# Persistent tmux sessions per agent
-# ---------------------------------------------------------------------------
 
-ANSI = re.compile(r'\x1b(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
-TMUX_SESSION = "agent-bots"
-SESSION_TTL_SECONDS = 4 * 3600
-RESPONSE_TIMEOUT_SECONDS = 120
+async def call_claude(agent_key: str, message: str) -> str:
+    """Call claude CLI with the agent persona and return the response."""
+    cmd = [
+        "claude",
+        "--agent", agent_key,
+        "--dangerously-skip-permissions",
+        "--output-format", "text",
+        "-p", message,
+    ]
+    log.info(f"[{agent_key}] Running claude CLI ({len(message)} chars)")
 
+    proc = await asyncio.create_subprocess_exec(
+        *cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        cwd=str(PROJECT_DIR),
+    )
+    stdout, stderr = await asyncio.wait_for(
+        proc.communicate(),
+        timeout=300,  # 5 min max per message
+    )
 
-def build_telegram_instructions(key: str) -> str:
-    """Build Telegram reply protocol instructions."""
-    send_base = f"python3 {PROJECT_DIR}/.bin/telegram-send.py --agent {key}"
-    return f"""IMPORTANT — Telegram Reply Instructions:
-You are running inside a Telegram bot. When you want to reply, you MUST use the Bash tool. Printing text to stdout does NOT reach the user.
+    response = stdout.decode("utf-8", errors="replace").strip()
+    if proc.returncode != 0:
+        err = stderr.decode("utf-8", errors="replace").strip()
+        log.error(f"[{agent_key}] claude error (rc={proc.returncode}): {err[:200]}")
+        if not response:
+            response = f"Error processing message. Please try again."
 
-Messages you receive start with [chat_id:NUMBER,msg_id:NUMBER]. Use those IDs for reactions and replies.
-Always include --chat <chat_id> so your reply goes to the same chat (DM or group).
+    log.info(f"[{agent_key}] Response: {len(response)} chars")
+    return response
 
-Step 1 — React to show your intent:
-{send_base} --chat <chat_id> --react <msg_id> 🫡    # You will take action
-{send_base} --chat <chat_id> --react <msg_id> 👌    # Conversational reply only
-
-Step 2 — Send your reply:
-{send_base} --chat <chat_id> "Your reply here"
-
-For longer replies, write to a file first:
-cat > /tmp/agent-{key}-reply.txt << 'REPLY'
-Your multi-line reply here.
-REPLY
-{send_base} --chat <chat_id> --file /tmp/agent-{key}-reply.txt
-
-Rules:
-- ALWAYS include --chat <chat_id> from the message tag.
-- ALWAYS react first, then reply.
-- ALWAYS reply via this command. Text you print to stdout does NOT reach Кирилл.
-- Use plain text only. No markdown headers, no bullet markers, no code fences.
-- Do not sign messages with your name.
-- If a task will take time, react with 🫡 immediately, then send updates as you go."""
-
-
-class AgentSession:
-    """Persistent Claude interactive session running in a dedicated tmux window."""
-
-    def __init__(self, key: str):
-        self.key = key
-        self.agent = AGENTS[key]
-        self.window = f"agent-{key}"
-        self.target = f"{TMUX_SESSION}:{self.window}"
-        self._lock = asyncio.Lock()
-        self._started = False
-        self._started_at: float = 0.0
-        self._watchdog_task: asyncio.Task | None = None
-
-    def _run(self, *cmd) -> subprocess.CompletedProcess:
-        return subprocess.run(cmd, capture_output=True, text=True)
-
-    def _pane(self) -> str:
-        r = self._run("tmux", "capture-pane", "-t", self.target, "-p", "-S", "-3000")
-        return ANSI.sub("", r.stdout)
-
-    def _ready(self) -> bool:
-        for line in reversed(self._pane().splitlines()[-30:]):
-            s = line.strip().strip("\xa0")
-            if s == "❯" or s.startswith("❯ ") or s.startswith("❯\xa0"):
-                return True
-        return False
-
-    def _window_exists(self) -> bool:
-        r = self._run("tmux", "list-windows", "-t", TMUX_SESSION, "-F", "#{window_name}")
-        return self.window in r.stdout.splitlines()
-
-    def _session_age(self) -> float:
-        if self._started_at == 0:
-            return 0
-        return time.time() - self._started_at
-
-    def _needs_ttl_restart(self) -> bool:
-        return self._started_at > 0 and self._session_age() > SESSION_TTL_SECONDS
-
-    def start(self) -> None:
-        if self._window_exists():
-            log.info(f"[{self.key}] Window {self.window} already exists, reusing")
-            self._started = True
-            if self._started_at == 0:
-                self._started_at = time.time()
-            return
-
-        claude_cmd = (
-            f"claude --dangerously-skip-permissions "
-            f"--agent {self.key} "
-            f"--append-system-prompt {shlex.quote(build_telegram_instructions(self.key))}"
-        )
-        subprocess.run([
-            "tmux", "new-window",
-            "-t", TMUX_SESSION,
-            "-n", self.window,
-            "-c", str(PROJECT_DIR),
-            claude_cmd,
-        ])
-        self._started = True
-        self._started_at = time.time()
-        log.info(f"[{self.key}] Launched in window {self.window}")
-
-    def stop(self) -> None:
-        if self._window_exists():
-            self._run("tmux", "kill-window", "-t", self.target)
-        self._started = False
-
-    def restart(self) -> None:
-        age = self._session_age()
-        log.info(f"[{self.key}] Restarting (session age: {age/3600:.1f}h)")
-        self.stop()
-        self.start()
-
-    async def _watchdog(self, message: str) -> None:
-        try:
-            await asyncio.sleep(RESPONSE_TIMEOUT_SECONDS)
-            if self._ready():
-                log.warning(f"[{self.key}] Agent unresponsive — restarting")
-                loop = asyncio.get_event_loop()
-                await loop.run_in_executor(None, self.restart)
-                for _ in range(60):
-                    await asyncio.sleep(1)
-                    if self._ready():
-                        break
-                tmp = Path(f"/tmp/agent-{self.key}-msg.txt")
-                tmp.write_text(message + "\n")
-                self._run("tmux", "load-buffer", "-b", f"agent-{self.key}", str(tmp))
-                self._run("tmux", "paste-buffer", "-b", f"agent-{self.key}", "-t", self.target)
-                log.info(f"[{self.key}] Re-sent message after watchdog restart")
-        except asyncio.CancelledError:
-            pass
-
-    async def send(self, message: str) -> None:
-        async with self._lock:
-            if not self._started:
-                loop = asyncio.get_event_loop()
-                await loop.run_in_executor(None, self.start)
-
-            if self._needs_ttl_restart():
-                log.info(f"[{self.key}] Session TTL exceeded — auto-restarting")
-                loop = asyncio.get_event_loop()
-                await loop.run_in_executor(None, self.restart)
-                await asyncio.sleep(5)
-
-            if not self._ready():
-                log.info(f"[{self.key}] Waiting for Claude to initialize...")
-                for _ in range(120):
-                    await asyncio.sleep(1)
-                    if self._ready():
-                        break
-                else:
-                    log.warning(f"[{self.key}] Claude not ready after 120s — restarting")
-                    loop = asyncio.get_event_loop()
-                    await loop.run_in_executor(None, self.restart)
-                    for _ in range(120):
-                        await asyncio.sleep(1)
-                        if self._ready():
-                            break
-                    else:
-                        log.error(f"[{self.key}] Still not ready — sending anyway")
-
-            if self._watchdog_task and not self._watchdog_task.done():
-                self._watchdog_task.cancel()
-
-            tmp = Path(f"/tmp/agent-{self.key}-msg.txt")
-            tmp.write_text(message + "\n")
-            self._run("tmux", "load-buffer", "-b", f"agent-{self.key}", str(tmp))
-            self._run("tmux", "paste-buffer", "-b", f"agent-{self.key}", "-t", self.target)
-            log.info(f"[{self.key}] Sent message ({len(message)} chars)")
-
-            self._watchdog_task = asyncio.create_task(self._watchdog(message))
-
-
-SESSIONS: dict = {}
-
-
-# ---------------------------------------------------------------------------
-# Telegram handlers
-# ---------------------------------------------------------------------------
 
 def make_handlers(agent_key: str):
     agent = AGENTS[agent_key]
 
     async def start(update, context):
-        from telegram import Update
         if update.effective_user.id != OWNER_TELEGRAM_ID:
             await update.message.reply_text("This bot is private.")
             return
@@ -293,6 +128,7 @@ def make_handlers(agent_key: str):
 
     async def handle_message(update, context):
         from telegram import ReactionTypeEmoji
+
         if update.effective_user.id != OWNER_TELEGRAM_ID:
             await update.message.reply_text("This bot is private.")
             return
@@ -302,14 +138,13 @@ def make_handlers(agent_key: str):
             await update.message.reply_text("I can only process text messages for now.")
             return
 
-        if agent_key not in SESSIONS:
-            await update.message.reply_text("Bot not fully initialized yet. Try again in a moment.")
-            return
+        # Show "processing" reaction
+        try:
+            await update.message.set_reaction(ReactionTypeEmoji("👀"))
+        except Exception:
+            pass
 
-        await update.message.set_reaction(ReactionTypeEmoji("👀"))
-        chat_id = update.message.chat_id
-        msg_id = update.message.message_id
-
+        # Add context from quoted message if any
         quoted = ""
         reply = update.message.reply_to_message
         if reply:
@@ -320,25 +155,31 @@ def make_handlers(agent_key: str):
             if reply_text:
                 quoted = f"\n[quoted message from {reply_from}]: {reply_text}\n"
 
-        tagged_text = f"[chat_id:{chat_id},msg_id:{msg_id}] {text}{quoted}"
-        await SESSIONS[agent_key].send(tagged_text)
+        full_message = f"{text}{quoted}"
 
-    async def reset(update, context):
-        if update.effective_user.id != OWNER_TELEGRAM_ID:
-            return
-        if agent_key not in SESSIONS:
-            return
-        await update.message.reply_text(f"Restarting {agent['name']}...")
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, SESSIONS[agent_key].restart)
-        await update.message.reply_text(f"{agent['name']}: Context reset. Fresh conversation started.")
+        try:
+            response = await call_claude(agent_key, full_message)
 
-    return start, handle_message, reset
+            # Send response in chunks (Telegram limit is 4096)
+            chunks = [response[i:i+4000] for i in range(0, len(response), 4000)]
+            for chunk in chunks:
+                await update.message.reply_text(chunk)
 
+            # Mark as done
+            try:
+                await update.message.set_reaction(ReactionTypeEmoji("👌"))
+            except Exception:
+                pass
 
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
+        except asyncio.TimeoutError:
+            await update.message.reply_text("Request timed out. Try a simpler message.")
+            log.error(f"[{agent_key}] Timeout processing message")
+        except Exception as e:
+            await update.message.reply_text(f"Something went wrong: {str(e)[:200]}")
+            log.error(f"[{agent_key}] Error: {e}")
+
+    return start, handle_message
+
 
 async def run_bot(agent_key: str):
     from telegram.ext import Application, CommandHandler, MessageHandler, filters
@@ -347,10 +188,9 @@ async def run_bot(agent_key: str):
     token = os.environ.get(agent["token_env"])
 
     app = Application.builder().token(token).build()
-    start, handle_message, reset = make_handlers(agent_key)
+    start, handle_message = make_handlers(agent_key)
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("reset", reset))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     log.info(f"[{agent_key}] Bot started: {agent['name']} ({agent['role']})")
@@ -367,7 +207,6 @@ async def main():
         print("Agent Bot Configuration:")
         print(f"  OWNER_TELEGRAM_ID: {OWNER_TELEGRAM_ID}")
         print(f"  PROJECT_DIR: {PROJECT_DIR}")
-        print(f"  TMUX_SESSION: {TMUX_SESSION}")
         for key, agent in AGENTS.items():
             if only_agent and key != only_agent:
                 continue
@@ -377,32 +216,22 @@ async def main():
         return
 
     if OWNER_TELEGRAM_ID == 0:
-        log.error("OWNER_TELEGRAM_ID not set in .env — bots won't respond to anyone")
+        log.error("OWNER_TELEGRAM_ID not set in .env")
         sys.exit(1)
-
-    r = subprocess.run(["tmux", "has-session", "-t", TMUX_SESSION], capture_output=True)
-    if r.returncode != 0:
-        subprocess.run(["tmux", "new-session", "-d", "-s", TMUX_SESSION, "-c", str(PROJECT_DIR)])
-        log.info(f"Created tmux session: {TMUX_SESSION}")
-    else:
-        log.info(f"Tmux session {TMUX_SESSION} already exists")
 
     agents_to_run = [only_agent] if only_agent else list(AGENTS.keys())
     apps = []
     for key in agents_to_run:
         token = os.environ.get(AGENTS[key]["token_env"])
         if not token:
-            log.warning(f"[{key}] No token found ({AGENTS[key]['token_env']}), skipping")
+            log.warning(f"[{key}] No token ({AGENTS[key]['token_env']}), skipping")
             continue
-        session = AgentSession(key)
-        session.start()
-        SESSIONS[key] = session
         app = await run_bot(key)
         if app:
             apps.append(app)
 
     if not apps:
-        log.error("No bots started — check your .env tokens")
+        log.error("No bots started — check .env tokens")
         sys.exit(1)
 
     log.info(f"Starting {len(apps)} bot(s)...")
