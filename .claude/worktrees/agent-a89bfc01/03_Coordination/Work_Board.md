@@ -1,6 +1,6 @@
 # WeDance — Work Board
 
-**Last updated:** 2026-04-04 23:23
+**Last updated:** 2026-04-04
 **Maintained by:** Coordinator (Logbook Keeper)
 
 > This board is the single source of truth for work status. Backlog files define *what* needs doing; this board tracks *where* each item stands.
@@ -61,8 +61,7 @@ Merged, deployed, or decision recorded.
 
 | # | Item | Domain | Type | Completed | Notes |
 |---|------|--------|------|-----------|-------|
-| O-006 | Import Nuxt app code | Festival Exp. | Operations | 2026-04-04 | PR #23 merged |
-| O-007 | Import design assets & docs | Festival Exp. | Operations | 2026-04-04 | PR #22 merged |
+| — | — | — | — | — | — |
 
 ---
 

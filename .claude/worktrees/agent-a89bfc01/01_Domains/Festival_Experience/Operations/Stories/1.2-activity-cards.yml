@@ -1,0 +1,23 @@
+title: "See activity cards with participant counts and availability"
+story: 1.2
+epic: Festival landing page
+persona: Festival Dancer
+release: MVP
+estimate: 2
+
+description: >
+  As a Festival Dancer, I want to see activity cards with participant counts
+  and availability, so I can tell at a glance what's happening and how popular it is.
+
+factors:
+  complexity: Medium
+  uncertainty: Low
+  effort: Low
+  risk: Low
+  dependencies: Low
+
+rationale: >
+  ActivitiesTab.vue exists but useDinners() composable uses mock data.
+  Backend dinner.list already returns joined count and maxSize. Main work
+  is wiring the composable to tRPC calls — both sides exist, just need
+  connection.
