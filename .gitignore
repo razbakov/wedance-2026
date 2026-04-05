@@ -23,3 +23,6 @@ playwright-report/
 .idea/
 *.swp
 *.swo
+
+.claude/worktrees
+
