@@ -8,7 +8,8 @@
 
 | Project | Path | Status |
 |---------|------|--------|
-| _No projects registered yet_ | | |
+| Social Dance TV | _path TBD_ | Active — primary business |
+| Ikigai Team (ops) | ~/Orgs/ikigai | Active — personal OS |
 
 ## Agent Team
 
@@ -88,6 +89,10 @@ Direct agent access: address by name (e.g., "Viktor, review this PR")
 - **Daily review:** Maya leads, saves to `ops/sessions/`
 - **Weekly review:** Maya leads, saves to `ops/reviews/`
 
-## Current OKRs
+## Current OKRs (Q2 2026)
 
-_To be defined after coaching and strategy sessions._
+See `strategy/okrs-q2-2026.md` for full details.
+
+- **O1:** Бизнес на системе, а не на мне
+- **O2:** Внутренняя устойчивость
+- **O3:** Стратегический фокус и защищённое личное пространство
