@@ -21,6 +21,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from telegram_format import format_for_telegram, chunk_message
+
 ENV_FILE = Path.home() / ".config" / "telegram" / ".env"
 PROJECT_DIR = Path.home() / "Orgs" / "ikigai"
 
@@ -86,8 +88,14 @@ AGENTS = {
 
 async def call_claude(agent_key: str, message: str) -> str:
     """Call claude CLI with the agent persona and return the response."""
+    # Use full path to claude.cmd on Windows
+    if sys.platform == "win32":
+        claude_bin = str(Path.home() / "AppData" / "Roaming" / "npm" / "claude.cmd")
+    else:
+        claude_bin = "claude"
+
     cmd = [
-        "claude",
+        claude_bin,
         "--agent", agent_key,
         "--dangerously-skip-permissions",
         "--output-format", "text",
@@ -160,10 +168,15 @@ def make_handlers(agent_key: str):
         try:
             response = await call_claude(agent_key, full_message)
 
-            # Send response in chunks (Telegram limit is 4096)
-            chunks = [response[i:i+4000] for i in range(0, len(response), 4000)]
+            # Format for Telegram and send in chunks
+            formatted = format_for_telegram(response)
+            chunks = chunk_message(formatted)
             for chunk in chunks:
-                await update.message.reply_text(chunk)
+                try:
+                    await update.message.reply_text(chunk, parse_mode="HTML")
+                except Exception:
+                    # Fallback to plain text if HTML parsing fails
+                    await update.message.reply_text(chunk)
 
             # Mark as done
             try:

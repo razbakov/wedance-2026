@@ -15,6 +15,8 @@ import re
 import sys
 from pathlib import Path
 
+from telegram_format import format_for_telegram, chunk_message
+
 ENV_FILE = Path.home() / ".config" / "telegram" / ".env"
 
 AGENT_TOKEN_MAP = {
@@ -81,13 +83,13 @@ def strip_markdown_escapes(text: str) -> str:
 async def send_message(agent: str, chat_id: int, text: str):
     bot = get_bot(agent)
     text = strip_markdown_escapes(text)
-    has_html = bool(re.search(r'<[a-z]+[ />]', text, re.IGNORECASE))
-    parse_mode = "HTML" if has_html else None
-    chunks = [text[i:i+4000] for i in range(0, len(text), 4000)]
+    formatted = format_for_telegram(text)
+    chunks = chunk_message(formatted)
     for chunk in chunks:
         try:
-            await bot.send_message(chat_id=chat_id, text=chunk, parse_mode=parse_mode)
+            await bot.send_message(chat_id=chat_id, text=chunk, parse_mode="HTML")
         except Exception:
+            # Fallback to plain text if HTML parsing fails
             await bot.send_message(chat_id=chat_id, text=chunk)
     print(f"Sent via {agent}: {text[:80]}...")
 
