@@ -20,18 +20,15 @@ public/               # Static assets
 
 ## Commands
 
-- `cd app && bun install` — install deps
-- `cd app && bun run dev` — dev server
-- `cd app && bun run build` — production build
-- `cd app && bun run test` — unit tests (vitest)
-- `cd app && bun run test:e2e` — e2e tests (playwright)
+- `bun install` — install deps
+- `bun run dev` — dev server
+- `bun run build` — production build
+- `bun run test` — unit tests (vitest)
+- `bun run test:e2e` — e2e tests (playwright)
 
 ## Deployment
 
-Vercel with prebuilt output:
-```
-cd app && bun install && cd .. && npx vercel build --prod && npx vercel deploy --prebuilt --prod --scope wedance --archive=tgz
-```
+Auto-deploys on push to `main` via Vercel + GitHub integration.
 
 ## Conventions
 

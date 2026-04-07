@@ -1,1 +1,16 @@
-{"projectId":"prj_ygVkKQi6xu2JNLOZRZc8LbnzPaZj","orgId":"team_nBPQDtskA6i6eJok5fCGTWdd","projectName":"app"}
+{
+  "projectId": "prj_BSJCT7bnD0qlnKg25fiXihUShtIU",
+  "orgId": "team_nBPQDtskA6i6eJok5fCGTWdd",
+  "projectName": "wedance-2026",
+  "settings": {
+    "createdAt": 1775515814944,
+    "framework": "nuxtjs",
+    "devCommand": null,
+    "installCommand": "cd app && bun install",
+    "buildCommand": "cd app && bun run build",
+    "outputDirectory": "app/.vercel/output",
+    "rootDirectory": null,
+    "directoryListing": false,
+    "nodeVersion": "24.x"
+  }
+}
