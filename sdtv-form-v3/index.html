@@ -499,14 +499,11 @@ if ('serviceWorker' in navigator) {
         
         <!-- Known email: just confirm -->
         <div class="email-confirmed" id="archiveEmailConfirmed" style="display:none;">
-          <div class="email-confirmed-left">
+          <div class="email-confirmed-text">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--sdtv-green)" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-            <span class="email-confirmed-label">We'll send your video to</span>
+            We'll send your video to <strong id="archiveKnownEmail">email</strong>
           </div>
-          <div class="email-confirmed-right">
-            <span class="email-confirmed-address" id="archiveKnownEmail">email</span>
-            <button class="email-change-link" onclick="showArchiveEmailField()">Change</button>
-          </div>
+          <button class="email-change-link" onclick="showArchiveEmailField()">Change</button>
         </div>
         <!-- Unknown email: ask -->
         <div class="form-group" id="archiveEmailGroup">
