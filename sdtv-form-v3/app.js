@@ -3014,20 +3014,40 @@ function updateCheckoutTotal(flow) {
       discountRow.remove();
     }
   } else if (flow === 'unlock') {
-    const base = 10000;
+    const isEarlyBird = state.isEarlyBird ||
+      (state.activeCapture && ['Captured', 'Processing', 'Waitlisted'].includes(state.activeCapture?.status));
+    const base = isEarlyBird ? 8000 : 10000;
     const discount = state.promo ? state.promo.discount : 0;
-    const total = base - discount;
+    const total = Math.max(0, base - discount);
+
     const totalEl = document.getElementById('unlockTotal');
     if (totalEl) totalEl.textContent = '€' + (total / 100);
 
     const payAmount = document.getElementById('unlockPayAmount');
     if (payAmount) payAmount.textContent = '€' + (total / 100);
 
+    // Update unlock button text
+    const unlockPayLabel = document.getElementById('unlockPayLabel');
+    const unlockPayAmt = document.getElementById('unlockPayAmount');
+    if (total === 0) {
+      if (unlockPayLabel) unlockPayLabel.textContent = 'Complete Order';
+      if (unlockPayAmt) unlockPayAmt.textContent = '';
+    } else {
+      if (unlockPayLabel) unlockPayLabel.textContent = 'Unlock My Video';
+      if (unlockPayAmt) unlockPayAmt.textContent = '€' + (total / 100);
+    }
+
+    // Hide card when total is 0
+    const cardEl = document.getElementById('unlockCardElement')?.closest('.form-group');
+    if (cardEl) cardEl.style.display = total === 0 ? 'none' : '';
+    if (unlockBtn && total === 0) unlockBtn.disabled = false;
+
     // Discount line in summary
     const discountRow = document.getElementById('unlockDiscountRow');
-    if (discount > 0 && discountRow) {
+    if (discount > 0 && state.promo && discountRow) {
       discountRow.className = 'price-row price-discount';
-      discountRow.innerHTML = `<span>${esc(state.promo.code)}</span><span>-€${(discount/100)}</span>`;
+      const promoDiscount = Math.min(discount, base);
+      discountRow.innerHTML = `<span>${esc(state.promo.code)}</span><span>-€${(promoDiscount/100)}</span>`;
     } else if (discountRow) {
       discountRow.className = '';
       discountRow.innerHTML = '';
