@@ -863,6 +863,14 @@ async function searchArchive() {
       // All clips still in editing — show not-ready screen
       const festName = document.getElementById('notreadyFestival');
       if (festName) festName.textContent = state.selectedFestival?.name || 'the festival';
+      // Pre-fill notify form with known data
+      const notifyEmail = document.getElementById('notifyEmail');
+      const notifyIg = document.getElementById('notifyInstagram');
+      const knownEmail = state.collectedEmail || state.knownEmail || localStorage.getItem('sdtv_email') || '';
+      const knownIg = state.dancerIdentity || '';
+      if (notifyEmail && knownEmail) { notifyEmail.value = knownEmail; }
+      if (notifyIg && knownIg) { notifyIg.value = knownIg.startsWith('@') ? knownIg : '@' + knownIg; }
+      if (knownEmail) validateNotifyForm();
       showScreen('archive-notready');
     } else {
       showScreen('archive-empty');
