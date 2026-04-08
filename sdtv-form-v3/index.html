@@ -53,14 +53,9 @@ if ('serviceWorker' in navigator) {
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>
 
-    <!-- LOGO BADGE — centered at top -->
-    <div class="logo-badge" style="text-align:center;padding:20px 0 4px;">
-      <svg width="56" height="56" viewBox="0 0 56 56" fill="none" style="display:inline-block;">
-        <circle cx="28" cy="28" r="27" fill="#B33A2B" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
-        <text x="28" y="18" text-anchor="middle" fill="white" font-family="Georgia, serif" font-size="10" font-weight="700" letter-spacing="0.5">SOCIAL</text>
-        <text x="28" y="30" text-anchor="middle" fill="white" font-family="Georgia, serif" font-size="12" font-weight="700" letter-spacing="0.3">DANCE</text>
-        <text x="28" y="43" text-anchor="middle" fill="white" font-family="Georgia, serif" font-size="13" font-weight="700" font-style="italic">TV</text>
-      </svg>
+    <!-- LOGO WORDMARK — centered at top -->
+    <div class="logo-badge" style="text-align:center;padding:18px 0 0;">
+      <img src="logo.png" alt="Social Dance TV" width="80" height="80" style="display:inline-block;opacity:0.9;">
     </div>
 
     <!-- PROGRESS BAR -->
@@ -586,16 +581,18 @@ if ('serviceWorker' in navigator) {
         
         <!-- Upsell: Feature on SDTV -->
         <div class="upsell-card" id="archiveUpsell">
-          <div class="upsell-badge">WHILE YOU'RE HERE…</div>
-          <h3 class="upsell-title">✨ Feature Your Dance on SDTV</h3>
-          <p class="upsell-desc">Get your video published to our <strong>509K+ followers</strong> as an Instagram Collab post. Average 50K+ views per post.</p>
+          <div class="upsell-badge">MAKE IT STRONGER</div>
+          <h3 class="upsell-title">Turn your dance into an SDTV Feature</h3>
+          <p class="upsell-desc">We take your clip, select the strongest moment, shape it for social media, write the caption, and publish it as a polished feature that represents you better as a dancer.</p>
           <div class="upsell-features">
-            <span class="upsell-feat">✓ Published on @socialdancetv</span>
-            <span class="upsell-feat">✓ Collab post — appears on your profile too</span>
-            <span class="upsell-feat">✓ You get tagged & credited</span>
+            <span class="upsell-feat">Strongest moment selected from your dance</span>
+            <span class="upsell-feat">Edited and cropped for social impact</span>
+            <span class="upsell-feat">Caption and posting angle prepared by SDTV</span>
+            <span class="upsell-feat">Featured through SDTV with collab format</span>
+            <span class="upsell-feat">You get tagged and credited</span>
           </div>
           <div class="upsell-price">+€100</div>
-          
+
           <!-- Upsell states -->
           <div id="upsellCheckout" class="upsell-checkout">
             <div class="form-group" style="margin-bottom:12px;">
@@ -603,11 +600,11 @@ if ('serviceWorker' in navigator) {
               <div id="upsellCardErrors" class="stripe-error"></div>
             </div>
             <button class="btn-primary btn-sm" id="upsellPayBtn" onclick="processUpsellPayment()" disabled style="width:100%;">
-              Pay €100 · Feature My Dance
+              Pay €100 · Add SDTV Feature
             </button>
           </div>
           <div id="upsellActions" class="upsell-actions">
-            <button class="btn-primary btn-sm" onclick="showUpsellCheckout()">Feature My Dance</button>
+            <button class="btn-primary btn-sm" onclick="showUpsellCheckout()">Add SDTV Feature · €100</button>
             <button class="btn-ghost btn-sm" onclick="declineArchiveUpsell()">No thanks</button>
           </div>
           
