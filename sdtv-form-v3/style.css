@@ -3356,74 +3356,52 @@ footer a:hover {
 }
 
 /* ========== EMAIL CONFIRMED (known user) ========== */
-/* Email delivery card — premium checkout component */
-.delivery-card {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  background: var(--sdtv-surface);
-  border: 1px solid var(--sdtv-border-light);
-  border-radius: var(--radius-md);
-  padding: 16px;
-  margin-bottom: 16px;
-}
-.delivery-card-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: rgba(76, 175, 80, 0.08);
-  border: 1px solid rgba(76, 175, 80, 0.12);
+/* Email delivery pill — premium compact display */
+.email-pill {
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 10px;
+  background: var(--sdtv-surface-2);
+  border: 1px solid rgba(76, 175, 80, 0.12);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  cursor: pointer;
+  transition: border-color 200ms, background 200ms;
+}
+.email-pill:hover {
+  border-color: rgba(76, 175, 80, 0.25);
+  background: var(--sdtv-surface-3);
+}
+.email-pill-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   flex-shrink: 0;
 }
-.delivery-card-body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-.delivery-card-label {
+.email-pill-label {
   font-size: var(--text-xs);
-  font-weight: 500;
-  color: var(--sdtv-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+  color: var(--sdtv-text-faint);
+  white-space: nowrap;
 }
-.delivery-card-email {
+.email-pill-address {
+  flex: 1;
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--sdtv-ivory);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  line-height: 1.4;
+  min-width: 0;
 }
-.delivery-card-hint {
-  font-size: var(--text-xs);
-  color: var(--sdtv-text-faint);
-  line-height: 1.4;
-  margin-top: 2px;
-}
-.delivery-card-change {
-  background: none;
-  border: 1px solid var(--sdtv-border-light);
-  color: var(--sdtv-text-muted);
-  font-size: var(--text-xs);
-  font-weight: 500;
-  padding: 5px 12px;
-  border-radius: var(--radius-full);
-  cursor: pointer;
+.email-pill-edit {
   flex-shrink: 0;
-  align-self: center;
-  transition: border-color 200ms, color 200ms, background 200ms;
+  color: var(--sdtv-text-faint);
+  opacity: 0;
+  transition: opacity 200ms;
 }
-.delivery-card-change:hover {
-  border-color: var(--sdtv-ivory);
-  color: var(--sdtv-ivory);
-  background: rgba(255, 255, 255, 0.04);
+.email-pill:hover .email-pill-edit {
+  opacity: 1;
 }
 
 /* ========== UNLOCK: COMPACT PREVIEW ========== */
@@ -3782,8 +3760,8 @@ footer a:hover {
 .unlock-screen .video-preview-protected {
   margin-bottom: 10px;
 }
-.unlock-screen .delivery-card {
-  padding: 14px;
+.unlock-screen .email-pill {
+  padding: 10px 14px;
   margin-bottom: 10px;
 }
 .unlock-screen #unlockEmailGroup {
