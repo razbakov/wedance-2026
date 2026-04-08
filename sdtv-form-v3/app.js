@@ -2544,10 +2544,28 @@ function submitMondayNotify() {
 // ==========================================
 function checkURLParams() {
   const params = new URLSearchParams(window.location.search);
-  const mode = params.get('mode');
-  const festival = params.get('festival');
+  const flow = params.get('flow') || params.get('mode');
+  const festival = params.get('festival') || params.get('fest');
+  const ig = params.get('ig');
+  const email = params.get('email');
+  const source = params.get('source') || params.get('utm_source') || '';
 
-  if (mode === 'walkup') {
+  // Pre-fill identity from URL
+  if (ig) {
+    const handle = ig.startsWith('@') ? ig : '@' + ig;
+    state.dancerIdentity = handle;
+    const igField = document.getElementById('dancerIdentity');
+    if (igField) igField.value = handle;
+  }
+  if (email) {
+    state.collectedEmail = email;
+    state.knownEmail = email;
+    try { localStorage.setItem('sdtv_email', email); } catch {}
+  }
+  if (source) state.urlSource = source;
+
+  // Route to flow
+  if (flow === 'walkup') {
     state.currentFlow = 'walkup';
     initWalkup();
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active', 'slide-back'));
@@ -2558,7 +2576,7 @@ function checkURLParams() {
     return 'walkup';
   }
 
-  if (mode === 'monday' || festival) {
+  if (flow === 'monday' || (festival && !flow)) {
     const festivalKey = festival || 'benidorm-2026';
     state.currentFlow = 'monday';
     initMondayMorning(festivalKey);
@@ -2568,6 +2586,35 @@ function checkURLParams() {
     state.history = [];
     updateProgressBar();
     return 'monday';
+  }
+
+  if (flow === 'archive') {
+    state.currentFlow = 'archive';
+    // Pre-select festival if specified
+    if (festival) {
+      const match = [...liveFestivals, ...festivals].find(f =>
+        f.name.toLowerCase().includes(festival.toLowerCase()) ||
+        (f.slug && f.slug.toLowerCase() === festival.toLowerCase())
+      );
+      if (match) state.selectedFestival = match;
+    }
+    // If IG is known, skip to identity screen with pre-fill
+    if (ig && state.selectedFestival) {
+      showScreen('archive-identity');
+      return 'archive';
+    }
+    selectIntent('archive');
+    return 'archive';
+  }
+
+  if (flow === 'preorder') {
+    selectIntent('preorder');
+    return 'preorder';
+  }
+
+  if (flow === 'visibility') {
+    selectIntent('visibility');
+    return 'visibility';
   }
 
   return false;
@@ -2585,29 +2632,9 @@ window.addEventListener('DOMContentLoaded', function() {
   // Auto-open popup after a brief delay for demo effect
   setTimeout(() => openPopup(), urlMode ? 200 : 600);
 
-  // Re-apply URL mode after openPopup's resetForm
-  if (urlMode === 'walkup') {
-    setTimeout(() => {
-      state.currentFlow = 'walkup';
-      initWalkup();
-      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active', 'slide-back'));
-      document.getElementById('screen-walkup').classList.add('active');
-      state.currentScreen = 'walkup';
-      state.history = [];
-      updateProgressBar();
-    }, 250);
-  } else if (urlMode === 'monday') {
-    setTimeout(() => {
-      const params = new URLSearchParams(window.location.search);
-      const festivalKey = params.get('festival') || 'benidorm-2026';
-      state.currentFlow = 'monday';
-      initMondayMorning(festivalKey);
-      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active', 'slide-back'));
-      document.getElementById('screen-monday-morning').classList.add('active');
-      state.currentScreen = 'monday-morning';
-      state.history = [];
-      updateProgressBar();
-    }, 250);
+  // Re-apply URL flow after openPopup's resetForm
+  if (urlMode) {
+    setTimeout(() => checkURLParams(), 250);
   }
 });
 
