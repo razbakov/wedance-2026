@@ -3356,35 +3356,36 @@ footer a:hover {
 }
 
 /* ========== EMAIL CONFIRMED (known user) ========== */
-.email-confirmed {
+/* Email delivery pill — premium compact display */
+.email-pill {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   background: var(--sdtv-surface-2);
-  border: 1px solid rgba(76, 175, 80, 0.15);
+  border: 1px solid rgba(76, 175, 80, 0.12);
   border-radius: var(--radius-md);
-  padding: 14px 16px;
+  padding: 12px 16px;
   margin-bottom: 16px;
+  cursor: pointer;
+  transition: border-color 200ms, background 200ms;
 }
-.email-confirmed-left {
+.email-pill:hover {
+  border-color: rgba(76, 175, 80, 0.25);
+  background: var(--sdtv-surface-3);
+}
+.email-pill-left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-shrink: 0;
 }
-.email-confirmed-label {
+.email-pill-label {
   font-size: var(--text-xs);
-  color: var(--sdtv-text-muted);
+  color: var(--sdtv-text-faint);
   white-space: nowrap;
 }
-.email-confirmed-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-.email-confirmed-address {
+.email-pill-address {
+  flex: 1;
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--sdtv-ivory);
@@ -3393,18 +3394,15 @@ footer a:hover {
   white-space: nowrap;
   min-width: 0;
 }
-.email-change-link {
-  background: none;
-  border: none;
-  color: var(--sdtv-text-faint);
-  font-size: var(--text-xs);
+.email-pill-edit {
   flex-shrink: 0;
-  cursor: pointer;
-  padding: 2px 6px;
-  border-radius: 4px;
-  transition: background 150ms;
+  color: var(--sdtv-text-faint);
+  opacity: 0;
+  transition: opacity 200ms;
 }
-.email-change-link:hover { color: var(--sdtv-text-muted); background: rgba(255,255,255,0.04); }
+.email-pill:hover .email-pill-edit {
+  opacity: 1;
+}
 
 /* ========== UNLOCK: COMPACT PREVIEW ========== */
 .unlock-preview-compact {
@@ -3762,7 +3760,7 @@ footer a:hover {
 .unlock-screen .video-preview-protected {
   margin-bottom: 10px;
 }
-.unlock-screen .email-confirmed {
+.unlock-screen .email-pill {
   padding: 10px 14px;
   margin-bottom: 10px;
 }

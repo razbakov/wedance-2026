@@ -320,12 +320,13 @@ if ('serviceWorker' in navigator) {
         <div id="unlockClipsList"></div>
 
         <!-- Email: confirmed or ask -->
-        <div class="email-confirmed" id="unlockEmailConfirmed" style="display:none;">
-          <div class="email-confirmed-text">
+        <div class="email-pill" id="unlockEmailConfirmed" style="display:none;" onclick="showUnlockEmailField()">
+          <div class="email-pill-left">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--sdtv-green)" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-            Delivery to <strong id="unlockKnownEmail">email</strong>
+            <span class="email-pill-label">Deliver to</span>
           </div>
-          <button class="email-change-link" onclick="showUnlockEmailField()">Change</button>
+          <span class="email-pill-address" id="unlockKnownEmail">email</span>
+          <svg class="email-pill-edit" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
         </div>
         <div class="form-group" id="unlockEmailGroup">
           <label class="form-label">Email for delivery</label>
@@ -498,15 +499,13 @@ if ('serviceWorker' in navigator) {
         <h2 class="screen-title">Checkout</h2>
         
         <!-- Known email: just confirm -->
-        <div class="email-confirmed" id="archiveEmailConfirmed" style="display:none;">
-          <div class="email-confirmed-left">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--sdtv-green)" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-            <span class="email-confirmed-label">We'll send your video to</span>
+        <div class="email-pill" id="archiveEmailConfirmed" style="display:none;" onclick="showArchiveEmailField()">
+          <div class="email-pill-left">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--sdtv-green)" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            <span class="email-pill-label">Deliver to</span>
           </div>
-          <div class="email-confirmed-right">
-            <span class="email-confirmed-address" id="archiveKnownEmail">email</span>
-            <button class="email-change-link" onclick="showArchiveEmailField()">Change</button>
-          </div>
+          <span class="email-pill-address" id="archiveKnownEmail">email</span>
+          <svg class="email-pill-edit" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
         </div>
         <!-- Unknown email: ask -->
         <div class="form-group" id="archiveEmailGroup">
