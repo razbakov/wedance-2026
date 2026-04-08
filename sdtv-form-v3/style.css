@@ -3360,24 +3360,38 @@ footer a:hover {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  background: var(--sdtv-surface);
-  border: 1px solid var(--sdtv-border);
-  border-radius: var(--radius-sm);
-  padding: 12px 14px;
+  gap: 12px;
+  background: var(--sdtv-surface-2);
+  border: 1px solid rgba(76, 175, 80, 0.15);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
   margin-bottom: 16px;
 }
-.email-confirmed-text {
+.email-confirmed-left {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: var(--text-sm);
-  color: var(--sdtv-text);
+  flex-shrink: 0;
+}
+.email-confirmed-label {
+  font-size: var(--text-xs);
+  color: var(--sdtv-text-muted);
+  white-space: nowrap;
+}
+.email-confirmed-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   min-width: 0;
 }
-.email-confirmed-text strong {
+.email-confirmed-address {
+  font-size: var(--text-sm);
+  font-weight: 600;
   color: var(--sdtv-ivory);
-  word-break: break-all;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 .email-change-link {
   background: none;
@@ -3386,10 +3400,11 @@ footer a:hover {
   font-size: var(--text-xs);
   flex-shrink: 0;
   cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 150ms;
 }
-.email-change-link:hover { color: var(--sdtv-text-muted); }
+.email-change-link:hover { color: var(--sdtv-text-muted); background: rgba(255,255,255,0.04); }
 
 /* ========== UNLOCK: COMPACT PREVIEW ========== */
 .unlock-preview-compact {

@@ -1299,23 +1299,7 @@ function goToArchiveCheckout() {
 }
 
 function updateArchiveCheckoutPrice() {
-  const cap = state.activeCapture;
-  const isEarlyBird = state.isEarlyBird ||
-    (cap && ['Captured', 'Processing', 'Waitlisted'].includes(cap.status));
-  const base = isEarlyBird ? 80 : 100;
-
-  const itemPrice = document.getElementById('archiveItemPrice');
-  const earlybirdRow = document.getElementById('archiveEarlybirdRow');
-  const totalEl = document.getElementById('archiveTotal');
-  const payLabel = document.getElementById('archivePayLabel');
-
-  if (itemPrice) itemPrice.textContent = '€100';
-  if (earlybirdRow) earlybirdRow.style.display = isEarlyBird ? '' : 'none';
-
-  const discount = state.promo ? state.promo.discount / 100 : 0;
-  const total = base - discount;
-  if (totalEl) totalEl.textContent = '€' + total;
-  if (payLabel) payLabel.textContent = 'Pay €' + total;
+  updateCheckoutTotal('archive');
 }
 
 /* (removed: dead showNoMatch) */
@@ -2893,7 +2877,8 @@ async function applyPromo(flow) {
 
   if (!code) { errorEl.textContent = 'Enter a code'; return; }
 
-  const baseAmount = (flow === 'archive' || flow === 'unlock') ? 10000 : (state.selectedPackage.price + (state.collabAddon ? 100 : 0)) * 100;
+  const isEarlyBird = state.isEarlyBird || (state.activeCapture && ['Captured', 'Processing', 'Waitlisted'].includes(state.activeCapture?.status));
+  const baseAmount = (flow === 'archive' || flow === 'unlock') ? (isEarlyBird ? 8000 : 10000) : (state.selectedPackage.price + (state.collabAddon ? 100 : 0)) * 100;
 
   try {
     const res = await fetch(`${API}/api/validate-promo?code=${encodeURIComponent(code)}&amount=${baseAmount}`);
@@ -2918,7 +2903,8 @@ async function applyPromo(flow) {
 async function autoApplyPromo(flow) {
   if (!state.pendingPromo) return;
   const code = state.pendingPromo;
-  const baseAmount = (flow === 'archive' || flow === 'unlock') ? 10000 : (state.selectedPackage.price + (state.collabAddon ? 100 : 0)) * 100;
+  const isEB = state.isEarlyBird || (state.activeCapture && ['Captured', 'Processing', 'Waitlisted'].includes(state.activeCapture?.status));
+  const baseAmount = (flow === 'archive' || flow === 'unlock') ? (isEB ? 8000 : 10000) : (state.selectedPackage.price + (state.collabAddon ? 100 : 0)) * 100;
 
   try {
     const res = await fetch(`${API}/api/validate-promo?code=${encodeURIComponent(code)}&amount=${baseAmount}`);
@@ -2955,23 +2941,26 @@ function removePromo(flow) {
 
 function updateCheckoutTotal(flow) {
   if (flow === 'archive') {
-    const base = 10000; // €100 in cents
+    // Early-bird base is €80, otherwise €100
+    const isEarlyBird = state.isEarlyBird ||
+      (state.activeCapture && ['Captured', 'Processing', 'Waitlisted'].includes(state.activeCapture.status));
+    const base = isEarlyBird ? 8000 : 10000;
     const discount = state.promo ? state.promo.discount : 0;
-    const total = base - discount;
+    const total = Math.max(0, base - discount);
+
     const totalEl = document.getElementById('archiveTotal');
     if (totalEl) totalEl.textContent = '€' + (total / 100);
 
-    const btn = document.getElementById('archiveCheckoutBtn');
-    if (btn) {
-      const btnText = btn.querySelector('span') || btn;
-      // Update button text with new total
-      btn.childNodes[0].textContent = 'Pay €' + (total / 100) + ' ';
-    }
+    const payLabel = document.getElementById('archivePayLabel');
+    if (payLabel) payLabel.textContent = 'Pay €' + (total / 100);
 
-    // Add/remove discount line in order summary
+    const earlybirdRow = document.getElementById('archiveEarlybirdRow');
+    if (earlybirdRow) earlybirdRow.style.display = isEarlyBird ? '' : 'none';
+
+    // Add/remove promo discount line in order summary
     let discountRow = document.getElementById('archiveDiscountRow');
     const summaryMini = document.querySelector('#screen-archive-checkout .order-summary-mini');
-    if (discount > 0 && summaryMini) {
+    if (discount > 0 && state.promo && summaryMini) {
       if (!discountRow) {
         discountRow = document.createElement('div');
         discountRow.id = 'archiveDiscountRow';
