@@ -645,6 +645,132 @@ app.get('/api/preview/:captureId', async (req, res) => {
   }
 });
 
+// ── GET /delivery?id=recXXX ────────────────────────
+// Branded delivery page — post-purchase video access
+app.get('/delivery', async (req, res) => {
+  const id = (req.query.id || '').trim();
+  if (!id || !id.startsWith('rec')) {
+    return res.status(400).send('Invalid delivery link');
+  }
+
+  try {
+    const data = await airtableFetch(`${TABLES.captures}/${id}`);
+    const f = data.fields || {};
+    const title = f['Video Title'] || 'Your Dance Video';
+    const festival = f['Festival'] || '';
+    const session = f['Session'] || '';
+    const style = f['Dance Style'] || '';
+    const status = f['Status'] || 'Captured';
+    const previewUrl = f['Preview URL'] || '';
+    const partner1 = f['Partner 1 Name'] || f['Partner 1 IG'] || '';
+    const partner2 = f['Partner 2 Name'] || f['Partner 2 IG'] || '';
+    const dancers = [partner1, partner2].filter(Boolean).join(' & ') || title;
+    const details = [style, session, festival].filter(Boolean).join(' · ');
+    const isReady = status === 'Ready' || status === 'Delivered' || status === 'Notified';
+
+    const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(dancers)} — Social Dance TV</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --bg: #0c0c0e; --surface: #161618; --surface-2: #1e1e21; --border: rgba(255,255,255,0.08); --ivory: #f4f1ec; --muted: #8a8580; --faint: #5a5650; --red: #c1453b; --green: #4caf50; --gold: #fbc02d; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--ivory); font-family: 'Inter', sans-serif; min-height: 100dvh; display: flex; justify-content: center; padding: 24px 16px; }
+  .container { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 20px; }
+  .header { text-align: center; padding: 20px 0 8px; }
+  .header img { width: 56px; height: 56px; opacity: 0.85; margin-bottom: 8px; }
+  .header h1 { font-size: 1.25rem; font-weight: 700; margin-bottom: 4px; }
+  .header p { font-size: 0.8125rem; color: var(--muted); }
+  .video-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+  .video-wrap { position: relative; width: 100%; aspect-ratio: 16/9; background: #000; }
+  .video-wrap video { width: 100%; height: 100%; object-fit: contain; }
+  .video-info { padding: 16px; display: flex; flex-direction: column; gap: 6px; }
+  .video-info .dancers { font-size: 1rem; font-weight: 600; }
+  .video-info .details { font-size: 0.75rem; color: var(--muted); }
+  .video-info .status { display: inline-flex; align-items: center; gap: 6px; font-size: 0.6875rem; font-weight: 600; padding: 4px 10px; border-radius: 20px; width: fit-content; }
+  .status-ready { background: rgba(76,175,80,0.1); color: var(--green); }
+  .status-pending { background: rgba(251,192,45,0.1); color: var(--gold); }
+  .actions { display: flex; flex-direction: column; gap: 10px; }
+  .btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 16px; border: none; border-radius: 14px; font-size: 0.9375rem; font-weight: 600; cursor: pointer; transition: transform 150ms, opacity 150ms; font-family: inherit; }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { background: var(--red); color: white; }
+  .btn-secondary { background: var(--surface-2); color: var(--ivory); border: 1px solid var(--border); }
+  .upsell { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+  .upsell-badge { font-size: 0.6875rem; font-weight: 700; color: var(--gold); text-transform: uppercase; letter-spacing: 0.05em; }
+  .upsell h3 { font-size: 1rem; font-weight: 700; }
+  .upsell p { font-size: 0.8125rem; color: var(--muted); line-height: 1.5; }
+  .upsell-feats { display: flex; flex-direction: column; gap: 4px; font-size: 0.75rem; color: var(--muted); }
+  .footer { text-align: center; font-size: 0.6875rem; color: var(--faint); padding: 16px 0; }
+  .footer a { color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <img src="/logo.png" alt="SDTV">
+    <h1>${esc(dancers)}</h1>
+    <p>${esc(details)}</p>
+  </div>
+
+  <div class="video-card">
+    <div class="video-wrap">
+      ${previewUrl
+        ? `<video src="${esc(previewUrl)}" controls playsinline preload="metadata"></video>`
+        : `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--faint);">Video preview loading...</div>`
+      }
+    </div>
+    <div class="video-info">
+      <span class="dancers">${esc(dancers)}</span>
+      <span class="details">${esc(details)}</span>
+      <span class="status ${isReady ? 'status-ready' : 'status-pending'}">${isReady ? '&#10003; Ready to download' : '&#9711; Still being edited'}</span>
+    </div>
+  </div>
+
+  ${isReady && previewUrl ? `
+  <div class="actions">
+    <a href="${esc(previewUrl)}" download class="btn btn-primary">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Download HD Video
+    </a>
+  </div>` : `
+  <div class="actions">
+    <div class="btn btn-secondary" style="cursor:default;opacity:0.6;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      We'll email you when it's ready
+    </div>
+  </div>`}
+
+  <div class="upsell">
+    <span class="upsell-badge">MAKE IT STRONGER</span>
+    <h3>Turn your dance into an SDTV Feature</h3>
+    <p>We select the strongest moment, edit it for social media, write the caption, and publish it through SDTV channels.</p>
+    <div class="upsell-feats">
+      <span>Best moment selected from your dance</span>
+      <span>Edited and cropped for social impact</span>
+      <span>Featured through SDTV with collab format</span>
+    </div>
+    <a href="/?flow=visibility" class="btn btn-secondary">Add SDTV Feature · €100</a>
+  </div>
+
+  <div class="footer">
+    <p>Social Dance TV · <a href="https://instagram.com/socialdancetv" target="_blank">@socialdancetv</a></p>
+  </div>
+</div>
+</body>
+</html>`);
+  } catch (e) {
+    console.error('Delivery page error:', e.message);
+    res.status(404).send('Video not found. Check your link or contact us on Instagram @socialdancetv');
+  }
+});
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`SDTV Client Form server running on port ${PORT}`);
 });
