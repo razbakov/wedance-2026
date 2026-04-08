@@ -2695,6 +2695,35 @@ async function processArchivePayment() {
   btn.innerHTML = '<span class="searching-spinner" style="width:20px;height:20px;border-width:2px;display:inline-block;"></span> Processing...';
   btn.disabled = true;
 
+  // Check if total is €0 (fully discounted) — skip payment
+  const isEarlyBird = state.isEarlyBird || (state.activeCapture && ['Captured', 'Processing', 'Waitlisted'].includes(state.activeCapture?.status));
+  const baseAmount = isEarlyBird ? 8000 : 10000;
+  const promoDiscount = state.promo ? state.promo.discount : 0;
+  const finalTotal = Math.max(0, baseAmount - promoDiscount);
+
+  if (finalTotal === 0) {
+    // Free checkout — save to Airtable and go to confirmation
+    try {
+      await fetch(`${API}/api/people/upsert`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ig: state.dancerIdentity || '', email, source: 'Free Promo Checkout' })
+      });
+      await fetch(`${API}/api/notifications`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ig: state.dancerIdentity || '', email,
+          festival: state.selectedFestival?.name || '',
+          channel: 'Email', template: 'Free unlock - ' + (state.promo?.code || 'promo')
+        })
+      });
+    } catch (e) { console.error('Free checkout save error:', e); }
+    btn.innerHTML = originalText; btn.disabled = false;
+    showScreen('archive-confirmation');
+    return;
+  }
+
   try {
     // 1. Create PaymentIntent on backend
     const piRes = await fetch(`${API}/api/create-payment-intent`, {
@@ -2952,10 +2981,20 @@ function updateCheckoutTotal(flow) {
     if (totalEl) totalEl.textContent = '€' + (total / 100);
 
     const payLabel = document.getElementById('archivePayLabel');
-    if (payLabel) payLabel.textContent = 'Pay €' + (total / 100);
+    if (payLabel) payLabel.textContent = total === 0 ? 'Complete Order' : 'Pay €' + (total / 100);
 
     const earlybirdRow = document.getElementById('archiveEarlybirdRow');
     if (earlybirdRow) earlybirdRow.style.display = isEarlyBird ? '' : 'none';
+
+    // Hide card details when total is 0 (fully discounted)
+    const cardGroup = document.getElementById('archiveCardElement')?.closest('.form-group');
+    if (cardGroup) cardGroup.style.display = total === 0 ? 'none' : '';
+
+    // Enable pay button when total is 0 (no card needed)
+    const payBtn = document.getElementById('archiveCheckoutBtn');
+    if (payBtn && total === 0) {
+      payBtn.disabled = false;
+    }
 
     // Add/remove promo discount line in order summary
     let discountRow = document.getElementById('archiveDiscountRow');
@@ -2968,7 +3007,9 @@ function updateCheckoutTotal(flow) {
         const divider = summaryMini.querySelector('.price-divider');
         summaryMini.insertBefore(discountRow, divider);
       }
-      discountRow.innerHTML = `<span>${esc(state.promo.code)}</span><span>-€${(discount/100)}</span>`;
+      // Show discount relative to early-bird base, not full price
+      const promoDiscount = Math.min(discount, base);
+      discountRow.innerHTML = `<span>${esc(state.promo.code)}</span><span>-€${(promoDiscount/100)}</span>`;
     } else if (discountRow) {
       discountRow.remove();
     }
