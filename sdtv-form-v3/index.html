@@ -1,0 +1,1613 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<!--
+   ______                            __
+  / ____/___  ____ ___  ____  __  __/ /____  _____
+ / /   / __ \/ __ `__ \/ __ \/ / / / __/ _ \/ ___/
+/ /___/ /_/ / / / / / / /_/ / /_/ / /_/  __/ /
+\____/\____/_/ /_/ /_/ .___/\__,_/\__/\___/_/
+                    /_/
+        SDTV Form v3 — All Flows + New Features
+        Created with Perplexity Computer
+        https://www.perplexity.ai/computer
+-->
+<meta name="generator" content="Perplexity Computer">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Social Dance TV — Your Dance. Your Video.</title>
+<meta name="description" content="Find your dance video from 120+ festivals. Preview, purchase, and download your HD dance footage instantly.">
+<meta name="theme-color" content="#111111">
+<meta property="og:title" content="Social Dance TV — Your Dance. Your Video.">
+<meta property="og:description" content="509K+ followers · 120+ festivals · Find your dance video instantly.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://socialdancetv.com/og-preview.jpg">
+<meta property="og:url" content="https://socialdancetv.com">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
+<link rel="stylesheet" href="style.css">
+<script src="https://js.stripe.com/v3/"></script>
+<script>
+if ('serviceWorker' in navigator) {
+  // Unregister old SW, then register fresh
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    return Promise.all(regs.map(r => r.unregister()));
+  }).then(() => {
+    return caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))));
+  }).then(() => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
+</script>
+</head>
+<body>
+<!-- POPUP OVERLAY -->
+<div class="popup-overlay" id="popupOverlay">
+  <div class="popup-container" id="popupContainer">
+    
+    <!-- CLOSE BUTTON -->
+    <button class="popup-close" id="closeBtn" aria-label="Close">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+
+    <!-- PROGRESS BAR -->
+    <div class="progress-bar">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- ROUTING SCREEN -->
+    <!-- ============================================ -->
+    <div class="screen active" id="screen-routing">
+      <div class="screen-content">
+        <div class="screen-header">
+          <div class="brand-mark">
+            <span class="brand-icon">🎬</span>
+            <span class="brand-name">Social Dance TV</span>
+          </div>
+          <h1 class="screen-title">What can we do for you?</h1>
+          <p class="screen-subtitle">509K+ followers · 50+ festivals · 20M+ monthly views</p>
+        </div>
+        
+        <div class="intent-cards">
+          <button class="intent-card" onclick="selectIntent('archive')">
+            <span class="intent-icon">🔍</span>
+            <div class="intent-text">
+              <span class="intent-label">Find My Dance</span>
+              <span class="intent-desc">Search our archive of 50+ festivals</span>
+            </div>
+            <svg class="intent-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+          
+          <button class="intent-card" onclick="selectIntent('preorder')">
+            <span class="intent-icon">🎥</span>
+            <div class="intent-text">
+              <span class="intent-label">Reserve Filming</span>
+              <span class="intent-desc">Book your spot at an upcoming event</span>
+            </div>
+            <svg class="intent-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+          
+          <button class="intent-card" onclick="selectIntent('visibility')">
+            <span class="intent-icon">✨</span>
+            <div class="intent-text">
+              <span class="intent-label">Grow My Visibility</span>
+              <span class="intent-desc">Get featured on SDTV channels</span>
+            </div>
+            <svg class="intent-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+          
+          <button class="intent-card intent-card--subtle" onclick="selectIntent('notsure')">
+            <span class="intent-icon">💬</span>
+            <div class="intent-text">
+              <span class="intent-label">Not sure yet</span>
+              <span class="intent-desc">We'll help you figure it out</span>
+            </div>
+            <svg class="intent-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+        
+        <div class="trust-bar">
+          <span class="trust-item">🔒 Secure payments</span>
+          <span class="trust-divider">·</span>
+          <span class="trust-item">Money-back guarantee</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- ARCHIVE: FESTIVAL FINDER -->
+    <!-- ============================================ -->
+    <div class="screen" id="screen-archive-festival">
+      <div class="screen-content">
+        <button class="back-btn" onclick="goBack()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          Back
+        </button>
+        <div class="step-indicator">STEP 1 OF 3</div>
+        <h2 class="screen-title">Where did you dance?</h2>
+        
+        <div class="search-box">
+          <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="festivalSearch" placeholder="Search festivals..." oninput="filterFestivals()">
+        </div>
+        
+        <div class="year-pills" id="yearPills">
+          <button class="pill active" data-year="2026" onclick="filterYear(this)">2026</button>
+          <button class="pill" data-year="2025" onclick="filterYear(this)">2025</button>
+          <button class="pill" data-year="2024" onclick="filterYear(this)">2024</button>
+          <button class="pill" data-year="older" onclick="filterYear(this)">Older</button>
+        </div>
+        
+        <div class="festival-list" id="festivalList"></div>
+        
+        <div class="sticky-cta">
+          <button class="btn-primary disabled" id="archiveFestivalNext" disabled onclick="goToArchiveIdentity()">
+            Continue
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- ARCHIVE: IDENTITY -->
+    <!-- ============================================ -->
+    <div class="screen" id="screen-archive-identity">
+      <div class="screen-content">
+        <button class="back-btn" onclick="goBack()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          Back
+        </button>
+        <div class="step-indicator">STEP 2 OF 4</div>
+        <h2 class="screen-title" id="identityTitle">Let's find your dance</h2>
+        <p class="screen-subtitle" id="identitySubtitle">Drop your IG — that's how we find you in the footage</p>
+        
+        <div class="form-group">
+          <label class="form-label">Instagram handle</label>
+          <div style="position:relative;">
+            <input type="text" id="dancerIdentity" class="form-input" placeholder="@yourusername" oninput="validateIdentity(); onIdentityInput()" autocomplete="off" autocapitalize="none">
+            <span id="igMatchCheck" class="ig-match-check" style="display:none;">✓</span>
+            <div id="igAutocompleteDropdown" class="ig-ac-dropdown" style="display:none;"></div>
+          </div>
+          <span class="form-hint">This is how we find you in the footage</span>
+        </div>
+        
+        <div class="identity-toggle">
+          <button class="toggle-more" id="identityToggle" onclick="toggleIdentityFields()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            No Instagram? Add other details
+          </button>
+        </div>
+
+        <div class="identity-extra" id="identityExtra" style="display:none;">
+          <div class="form-group">
+            <label class="form-label">Your name or couple name</label>
+            <input type="text" id="archiveIdentityName" class="form-input" placeholder="e.g. Maria & Carlos" oninput="validateIdentity()">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Visual reference <span class="form-optional">(optional)</span></label>
+            <input type="text" id="archiveReference" class="form-input" placeholder="e.g. red dress, tall guy with hat">
+            <span class="form-hint">Helps our team match your clip faster</span>
+          </div>
+        </div>
+        
+        <div class="sticky-cta">
+          <button class="btn-primary disabled" id="archiveIdentityNext" disabled onclick="searchArchive()">
+            Find My Clip
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+      </div>
+      
+      <!-- Search overlay -->
+      <div class="searching-overlay" id="searchingOverlay">
+        <div class="searching-content">
+          <div class="searching-spinner"></div>
+          <h3>Searching <span id="searchingClipCount">247</span> clips...</h3>
+          <p class="searching-sub" id="searchingFestival"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- NO RESULTS — EMPTY STATE -->
+    <!-- ============================================ -->
+    <div class="screen" id="screen-archive-empty">
+      <div class="screen-content empty-screen">
+        <button class="back-btn" onclick="goBack()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          Back
+        </button>
+
+        <div class="empty-hero">
+          <div class="empty-icon-ring">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--sdtv-ivory)" stroke-width="1.5" stroke-linecap="round">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg>
+          </div>
+          <h2 class="screen-title">Your video isn't ready yet</h2>
+          <p class="screen-subtitle">It may still be in editing, or the festival hasn't been processed yet. We'll let you know the moment it's available.</p>
+        </div>
+
+        <div class="empty-notify-card">
+          <div class="empty-notify-header">
+            <div class="empty-notify-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--sdtv-gold)" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            </div>
+            <div class="empty-notify-header-text">
+              <span class="empty-notify-title">Get notified when it's ready</span>
+            </div>
+          </div>
+          <div class="empty-notify-form" id="emptyNotifyFormWrap">
+            <div class="empty-notify-known" id="emptyNotifyKnown" style="display:none;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--sdtv-gold)" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 4 10 8 10-8"/></svg>
+              <span id="emptyNotifyKnownEmail"></span>
+              <button type="button" class="empty-notify-change" onclick="changeEmptyNotifyEmail()">Change</button>
+            </div>
+            <label class="empty-notify-label" id="emptyNotifyLabel">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 4 10 8 10-8"/></svg>
+              <input type="email" id="emptyNotifyEmail" class="empty-notify-input" placeholder="your@email.com" oninput="validateEmptyNotify()" autocomplete="email">
+            </label>
+          </div>
+          <span class="empty-notify-note">Free · No spam · Just one email when your video drops</span>
+          <button class="btn-primary empty-notify-btn" id="emptyNotifyBtn" disabled onclick="submitEmptyNotify()">
+            Notify Me
+          </button>
+        </div>
+
+        <button class="btn-ghost empty-retry" onclick="goBack()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6" transform="rotate(180 12 12)"/></svg>
+          Try a different search
+        </button>
+
+        <p class="empty-support">Need help? <a href="https://instagram.com/socialdancetv" target="_blank" rel="noopener">DM us on Instagram</a> — we reply fast</p>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- STATE B: WE FOUND YOUR DANCE -->
+    <!-- ============================================ -->
+    <div class="screen" id="screen-archive-preview">
+      <div class="screen-content">
+        <button class="back-btn" onclick="goBack()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          Back
+        </button>
+        <div class="step-indicator">STEP 3 OF 4</div>
+
+        <div class="found-hero">
+          <div class="found-emoji-burst">&#x1F389;</div>
+          <h2 class="screen-title" id="foundTitle">We found your dance</h2>
+        </div>
+
+        <!-- Video cards — populated by JS, original style -->
+        <div class="clip-list" id="clipList"></div>
+
+        <div class="preview-social-proof">
+          <span class="proof-dot"></span>
+          <span id="previewProofText"></span>
+        </div>
+      </div>
+
+      <!-- Sticky CTA -->
+      <div class="clip-sticky-bar" id="clipStickyBar">
+        <button class="btn-primary disabled" id="clipContinueBtn" disabled onclick="confirmSelectedClips()">
+          <span id="clipContinueLabel">Select your dances</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- STATE C: MATCH CONFIRMED — EMAIL + UNLOCK -->
+    <!-- Email collected HERE (value exchange moment)  -->
+    <!-- ============================================ -->
+    <div class="screen" id="screen-archive-unlock">
+      <div class="screen-content unlock-screen">
+        <button class="back-btn" onclick="goBack()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          Back
+        </button>
+
+        <h2 class="screen-title" id="unlockTitle" style="margin-bottom:4px;">Your dance is ready</h2>
+        <p class="screen-subtitle" style="margin-bottom:16px;">Full HD · Instant delivery · No watermark</p>
+        
+        <!-- Selected clips with video previews — populated by confirmArchiveMatch() -->
+        <div id="unlockClipsList"></div>
+
+        <!-- Email: confirmed or ask -->
+        <div class="email-confirmed" id="unlockEmailConfirmed" style="display:none;">
+          <div class="email-confirmed-text">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--sdtv-green)" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            Delivery to <strong id="unlockKnownEmail">email</strong>
+          </div>
+          <button class="email-change-link" onclick="showUnlockEmailField()">Change</button>
+        </div>
+        <div class="form-group" id="unlockEmailGroup">
+          <label class="form-label">Email for delivery</label>
+          <input type="email" id="unlockEmail" class="form-input" placeholder="your@email.com" oninput="validateUnlockForm()">
+        </div>
+
+        <!-- Order summary — dynamic, populated by JS -->
+        <div class="order-summary-mini" id="unlockOrderSummary">
+          <!-- Line items injected by populateUnlockScreen() -->
+        </div>
+
+        <!-- Promo -->
+        <div class="promo-applied" id="unlockPromoBanner" style="display:none;">
+          <div class="promo-applied-left">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--sdtv-green)" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            <span id="unlockPromoText">Discount applied</span>
+          </div>
+          <button class="promo-remove" onclick="removePromo('unlock')">&times;</button>
+        </div>
+        <div class="promo-link-wrap" id="unlockPromoLink">
+          <button class="promo-link" onclick="togglePromoInput('unlock')">Have a promo code?</button>
+        </div>
+        <div class="promo-input-wrap" id="unlockPromoInput" style="display:none;">
+          <input type="text" id="unlockPromoCode" class="form-input form-input--sm" placeholder="Enter code" autocapitalize="characters">
+          <button class="btn-sm btn-outline" onclick="applyPromo('unlock')">Apply</button>
+        </div>
+        <div id="unlockPromoError" class="stripe-error"></div>
+
+        <!-- Spacer for sticky bar -->
+        <div class="sticky-spacer-lg"></div>
+      </div>
+
+      <!-- Sticky bottom checkout bar with card -->
+      <div class="sticky-checkout-bar sticky-checkout-bar--with-card" id="unlockStickyBar">
+        <div class="sticky-checkout-inner">
+          <!-- Apple Pay / Google Pay -->
+          <div id="unlockPaymentRequest" style="margin-bottom:8px;"></div>
+          
+          <!-- Card (hidden when total = 0) -->
+          <div id="unlockCardGroup" style="margin-bottom:10px;">
+            <div id="unlockCardElement" class="stripe-card-element"></div>
+            <div id="unlockCardErrors" class="stripe-error"></div>
+          </div>
+
+          <button class="btn-primary sticky-checkout-btn" id="unlockPayBtn" onclick="processUnlockPayment()" disabled>
+            <span id="unlockPayLabel">Unlock My Video</span>
+            <span class="sticky-checkout-divider">—</span>
+            <span id="unlockPayAmount">€100</span>
+          </button>
+          <div class="sticky-checkout-trust">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            Secured by Stripe · Money-back guarantee
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- ============================================ -->
+    <!-- STATE A: FILMED BUT NOT READY — NOTIFY ME -->
+    <!-- ============================================ -->
+    <div class="screen" id="screen-archive-notready">
+      <div class="screen-content">
+        <button class="back-btn" onclick="goBack()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          Back
+        </button>
+        
+        <div class="notready-hero">
+          <div class="notready-icon-wrap">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--sdtv-gold)" stroke-width="1.5">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg>
+          </div>
+          <h2 class="screen-title">Your footage is being edited</h2>
+          <p class="screen-subtitle">We have footage from <strong id="notreadyFestival">the festival</strong> matching your search. Our team is editing it now.</p>
+        </div>
+        
+        <div class="editing-progress">
+          <div class="editing-bar">
+            <div class="editing-fill" style="width:40%"></div>
+          </div>
+          <p class="editing-label">Editing in progress · typically 3–5 days</p>
+        </div>
+        
+        <div class="notify-options">
+          <!-- Option A: Notify Me -->
+          <div class="notify-card notify-card--primary">
+            <div class="notify-badge">Most popular</div>
+            <h3 class="notify-title">🔔 Notify Me When Ready</h3>
+            <p class="notify-desc">We'll email you the moment your video is ready to preview and purchase.</p>
+            <div class="notify-form">
+              <input type="email" id="notifyEmail" class="form-input" placeholder="your@email.com" oninput="validateNotifyForm()">
+              <input type="text" id="notifyInstagram" class="form-input" placeholder="@instagram (optional)" style="margin-top:8px;">
+              <button class="btn-primary" id="notifyBtn" disabled onclick="submitNotifyMe()" style="margin-top:12px; width:100%;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                Notify Me
+              </button>
+            </div>
+          </div>
+          
+          <!-- Option B: Reserve at Pre-Edit Price -->
+          <div class="notify-card">
+            <div class="notify-save-badge">Save €20</div>
+            <h3 class="notify-title">⚡ Reserve Now — €80</h3>
+            <p class="notify-desc">Lock in a pre-edit price. We'll deliver automatically when ready. Full refund if you're not happy.</p>
+            <button class="btn-secondary" onclick="reservePreEdit()" style="width:100%; margin-top:12px;">
+              Reserve for €80
+            </button>
+            <p class="notify-terms">Money-back guarantee · Auto-delivered when ready</p>
+          </div>
+        </div>
+        
+        <button class="btn-ghost" onclick="closePopup()" style="margin-top:16px; width:100%; text-align:center;">
+          I'll check back later
+        </button>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- NEW: NOTIFY CONFIRMATION -->
+    <!-- ============================================ -->
+    <div class="screen" id="screen-archive-notify-confirm">
+      <div class="screen-content">
+        <div class="confirmation-hero">
+          <div class="confirm-check">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--sdtv-green)" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </div>
+          <h2 class="screen-title">You're on the list</h2>
+          <p class="screen-subtitle">We'll email you at <strong id="notifyConfirmEmail">your@email.com</strong> the moment your video is ready.</p>
+        </div>
+        
+        <div class="timeline-card">
+          <div class="timeline-step done">
+            <div class="timeline-dot"></div>
+            <span>Footage found & confirmed</span>
+          </div>
+          <div class="timeline-step active">
+            <div class="timeline-dot"></div>
+            <span>Editing in progress</span>
+          </div>
+          <div class="timeline-step">
+            <div class="timeline-dot"></div>
+            <span>Video ready — we'll email you</span>
+          </div>
+          <div class="timeline-step">
+            <div class="timeline-dot"></div>
+            <span>Preview & purchase with one click</span>
+          </div>
+        </div>
+        
+        <div class="share-card" onclick="shareSDTV()">
+          <span>🎁 Share SDTV with a friend — you both get €10 off</span>
+        </div>
+        
+        <button class="btn-primary" onclick="closePopup()" style="width:100%; margin-top:16px;">
+          Done
+        </button>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- ARCHIVE: CHECKOUT -->
+    <!-- ============================================ -->
+    <div class="screen" id="screen-archive-checkout">
+      <div class="screen-content">
+        <button class="back-btn" onclick="goBack()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          Back
+        </button>
+        <h2 class="screen-title">Checkout</h2>
+        
+        <!-- Known email: just confirm -->
+        <div class="email-confirmed" id="archiveEmailConfirmed" style="display:none;">
+          <div class="email-confirmed-text">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--sdtv-green)" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            We'll send your video to <strong id="archiveKnownEmail">email</strong>
+          </div>
+          <button class="email-change-link" onclick="showArchiveEmailField()">Change</button>
+        </div>
+        <!-- Unknown email: ask -->
+        <div class="form-group" id="archiveEmailGroup">
+          <label class="form-label">Where should we send your video?</label>
+          <input type="email" id="archiveCheckoutEmail" class="form-input" placeholder="your@email.com" oninput="validateArchiveCheckout()">
+        </div>
+        
+        <div class="order-summary-mini" id="archiveOrderSummary">
+          <div class="price-row">
+            <span>HD Dance Video</span>
+            <span id="archiveItemPrice">€100</span>
+          </div>
+          <div id="archiveEarlybirdRow" style="display:none;" class="price-row price-discount">
+            <span>Early Bird Discount</span>
+            <span>-€20</span>
+          </div>
+          <div id="archiveDiscountRow"></div>
+          <div class="price-divider"></div>
+          <div class="price-row price-total">
+            <span>Total</span>
+            <span id="archiveTotal">€100</span>
+          </div>
+        </div>
+
+        <!-- Promo discount banner (hidden by default) -->
+        <div class="promo-applied" id="archivePromoBanner" style="display:none;">
+          <div class="promo-applied-left">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--sdtv-green)" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            <span id="archivePromoText">Discount applied</span>
+          </div>
+          <button class="promo-remove" onclick="removePromo('archive')">&times;</button>
+        </div>
+
+        <!-- Hidden promo code link -->
+        <div class="promo-link-wrap" id="archivePromoLink">
+          <button class="promo-link" onclick="togglePromoInput('archive')">Have a promo code?</button>
+        </div>
+        <div class="promo-input-wrap" id="archivePromoInput" style="display:none;">
+          <input type="text" id="archivePromoCode" class="form-input form-input--sm" placeholder="Enter code" autocapitalize="characters">
+          <button class="btn-sm btn-outline" onclick="applyPromo('archive')">Apply</button>
+        </div>
+        <div id="archivePromoError" class="stripe-error"></div>
+
+        <div class="form-group">
+          <label class="form-label">Card details</label>
+          <div id="archiveCardElement" class="stripe-card-element"></div>
+          <div id="archiveCardErrors" class="stripe-error"></div>
+        </div>
+        
+        <button class="btn-primary" id="archiveCheckoutBtn" onclick="processArchivePayment()" style="width:100%;" disabled>
+          <span id="archivePayLabel">Pay €100</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+        <p class="checkout-terms">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Secured by Stripe · Money-back guarantee
+        </p>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- ARCHIVE: CONFIRMATION -->
+    <!-- ============================================ -->
+    <div class="screen" id="screen-archive-confirmation">
+      <div class="screen-content">
+        <div class="confirmation-hero">
+          <div class="confirm-check">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--sdtv-green)" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </div>
+          <h2 class="screen-title">Your video is on its way</h2>
+          <p class="screen-subtitle">Check your email for the HD download link.</p>
+        </div>
+        
+        <!-- Upsell: Feature on SDTV -->
+        <div class="upsell-card" id="archiveUpsell">
+          <div class="upsell-badge">WHILE YOU'RE HERE…</div>
+          <h3 class="upsell-title">✨ Feature Your Dance on SDTV</h3>
+          <p class="upsell-desc">Get your video published to our <strong>509K+ followers</strong> as an Instagram Collab post. Average 50K+ views per post.</p>
+          <div class="upsell-features">
+            <span class="upsell-feat">✓ Published on @socialdancetv</span>
+            <span class="upsell-feat">✓ Collab post — appears on your profile too</span>
+            <span class="upsell-feat">✓ You get tagged & credited</span>
+          </div>
+          <div class="upsell-price">+€100</div>
+          
+          <!-- Upsell states -->
+          <div id="upsellCheckout" class="upsell-checkout">
+            <div class="form-group" style="margin-bottom:12px;">
+              <div id="upsellCardElement" class="stripe-card-element"></div>
+              <div id="upsellCardErrors" class="stripe-error"></div>
+            </div>
+            <button class="btn-primary btn-sm" id="upsellPayBtn" onclick="processUpsellPayment()" disabled style="width:100%;">
+              Pay €100 · Feature My Dance
+            </button>
+          </div>
+          <div id="upsellActions" class="upsell-actions">
+            <button class="btn-primary btn-sm" onclick="showUpsellCheckout()">Feature My Dance</button>
+            <button class="btn-ghost btn-sm" onclick="declineArchiveUpsell()">No thanks</button>
+          </div>
+          
+          <!-- Success state (shown after payment) -->
+          <div id="upsellSuccess" style="display:none;">
+            <div style="display:flex;align-items:center;gap:8px;color:var(--sdtv-green);font-weight:600;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+              Feature added — €100
+            </div>
+            <p style="font-size:var(--text-sm);color:var(--sdtv-text-muted);margin-top:4px;">We'll feature your dance on @socialdancetv as a Collab post.</p>
+          </div>
+        </div>
+        
+        <div class="partner-share partner-share--confirm" id="confirmPartnerShare" style="display:none;">
+          <button class="partner-share-btn" onclick="shareWithPartner()">
+            <span class="partner-share-text" id="confirmPartnerText">Share with your dance partner</span>
+            <span class="partner-share-sub">They might want their clip too</span>
+          </button>
+        </div>
+        
+        <button class="btn-ghost" onclick="closePopup()" style="width:100%; margin-top:12px;">Close</button>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- PREORDER: FESTIVAL SELECTION -->
+    <!-- ============================================ -->
+    <div class="screen" id="screen-preorder-festival">
+      <div class="screen-content">
+        <button class="back-btn" onclick="goBack()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          Back
+        </button>
+        <div class="step-indicator">STEP 1 OF 4</div>
+        <h2 class="screen-title">Choose your event</h2>
+        <p class="screen-subtitle">Only upcoming events where SDTV is filming</p>
+        
+        <div class="upcoming-list" id="upcomingFestivals"></div>
+        
+        <div class="sticky-cta">
+          <button class="btn-primary disabled" id="preorderFestivalNext" disabled onclick="goToPreorderPackage()">
+            Continue
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- PREORDER: PACKAGE SELECTION -->
+    <!-- ============================================ -->
+    <div class="screen" id="screen-preorder-package">
+      <div class="screen-content">
+        <button class="back-btn" onclick="goBack()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          Back
+        </button>
+        <div class="step-indicator">STEP 2 OF 4</div>
+        <h2 class="screen-title">Choose your coverage</h2>
+        
+        <div class="package-grid">
+          <div class="package-card selected" onclick="selectPackage(this, 'social', 100)">
+            <span class="package-emoji">💃</span>
+            <h3 class="package-name">Social Dance Video</h3>
+            <p class="package-desc">Your social dances, professionally filmed and edited into a personal highlight.</p>
+            <ul class="package-features">
+              <li>✓ Professional filming</li>
+              <li>✓ Expert editing</li>
+              <li>✓ HD delivery by email</li>
+            </ul>
+            <div class="package-price">€100</div>
+          </div>
+          
+          <div class="package-card" onclick="selectPackage(this, 'show', 100)">
+            <span class="package-emoji">🎭</span>
+            <h3 class="package-name">Show Video</h3>
+            <p class="package-desc">Your stage performance captured with multi-angle filming and professional editing.</p>
+            <ul class="package-features">
+              <li>✓ Multi-angle capture</li>
+              <li>✓ Performance editing</li>
+              <li>✓ HD delivery by email</li>
+            </ul>
+            <div class="package-price">€100</div>
+          </div>
+        </div>
+        
+        <!-- REDESIGNED: Feature on SDTV Channel (was "Add Promo Reel") -->
+        <div class="collab-card" id="collabCard">
+          <div class="collab-header">
+            <div class="collab-info">
+              <h4 class="collab-title">✨ Feature on SDTV Channel</h4>
+              <p class="collab-subtitle">Published to <strong>509K+ followers</strong></p>
+            </div>
+            <div class="collab-toggle-wrap">
+              <span class="collab-price">+€100</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="collabToggle" onchange="updateTotal()">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+          <div class="collab-details" id="collabDetails">
+            <div class="collab-features">
+              <span>✓ Instagram Collab post — appears on your profile too</span>
+              <span>✓ You get tagged & credited</span>
+              <span>✓ Avg. 50K+ views per post</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="total-bar">
+          <span class="total-label">Total</span>
+          <span class="total-price" id="totalPrice">€100</span>
+        </div>
+        
+        <div class="sticky-cta">
+          <button class="btn-primary" onclick="goToPreorderSlot()">
+            Choose Filming Day
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- NEW: PREORDER — SLOT BOOKING -->
+    <!-- ============================================ -->
+    <div class="screen" id="screen-preorder-slot">
+      <div class="screen-content">
+        <button class="back-btn" onclick="goBack()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          Back
+        </button>
+        <div class="step-indicator">STEP 3 OF 4</div>
+        <h2 class="screen-title">Choose your filming day</h2>
+        <p class="screen-subtitle" id="slotFestivalName">Festival Name · Dates</p>
+        
+        <div class="day-selector" id="daySelector">
+          <!-- Days populated by JS -->
+        </div>
+        
+        <div class="time-slots" id="timeSlots" style="display:none;">
+          <h3 class="slots-heading">Pick your time</h3>
+          <div class="slots-list" id="slotsList">
+            <!-- Slots populated by JS -->
+          </div>
+        </div>
+        
+        <div class="slot-selection-summary" id="slotSummary" style="display:none;">
+          <div class="slot-confirm-card">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--sdtv-green)" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            <div>
+              <div class="slot-confirm-day" id="slotConfirmDay">Saturday, Jun 15</div>
+              <div class="slot-confirm-time" id="slotConfirmTime">Late Night Party · 23:00–01:00</div>
+            </div>
+          </div>
+          <p class="slot-confirm-note">Free rescheduling until 24h before the event</p>
+        </div>
+        
+        <div class="slot-skip" id="slotSkipWrap">
+          <button class="btn-ghost btn-sm" onclick="skipSlotBooking()">
+            I'll pick later — send me a link
+          </button>
+        </div>
+        
+        <div class="sticky-cta">
+          <button class="btn-primary disabled" id="slotNextBtn" disabled onclick="goToPreorderCheckout()">
+            Continue to Checkout
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- PREORDER: CHECKOUT -->
+    <!-- ============================================ -->
+    <div class="screen" id="screen-preorder-checkout">
+      <div class="screen-content">
+        <button class="back-btn" onclick="goBack()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          Back
+        </button>
+        <div class="step-indicator">STEP 4 OF 4</div>
+        <h2 class="screen-title">Complete your booking</h2>
+        
+        <!-- Order Summary -->
+        <div class="order-summary">
+          <div class="summary-row">
+            <span class="summary-label" id="summaryFestivalName">Festival</span>
+          </div>
+          <div class="price-divider"></div>
+          <div class="summary-row">
+            <span id="summaryPackageName">Social Dance Video</span>
+            <span id="summaryPackagePrice">€100</span>
+          </div>
+          <div class="summary-row" id="summaryCollab" style="display:none;">
+            <span>Feature on SDTV Channel</span>
+            <span>€100</span>
+          </div>
+          <div class="summary-row" id="summarySlot">
+            <span class="summary-slot-text" id="summarySlotText">Filming: TBD</span>
+          </div>
+          <div class="price-divider"></div>
+          <div class="summary-row price-total">
+            <span>Total</span>
+            <span id="summaryTotal">€100</span>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Your name</label>
+          <input type="text" id="preorderName" class="form-input" placeholder="Full name" oninput="validatePreorderCheckout()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input type="email" id="preorderEmail" class="form-input" placeholder="your@email.com" oninput="validatePreorderCheckout()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Instagram <span class="form-optional" id="igRequiredLabel">(optional)</span></label>
+          <input type="text" id="preorderInstagram" class="form-input" placeholder="@yourusername" oninput="validatePreorderCheckout()">
+        </div>
+        
+        <!-- Collab confirmation -->
+        <div class="collab-confirm" id="collabConfirm" style="display:none;">
+          <label class="checkbox-wrap">
+            <input type="checkbox" id="collabConfirmCheck">
+            <span class="checkbox-mark"></span>
+            <span>I confirm my Instagram handle is correct for the SDTV Collab post</span>
+          </label>
+        </div>
+
+        <!-- Promo discount banner -->
+        <div class="promo-applied" id="preorderPromoBanner" style="display:none;">
+          <div class="promo-applied-left">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--sdtv-green)" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            <span id="preorderPromoText">Discount applied</span>
+          </div>
+          <button class="promo-remove" onclick="removePromo('preorder')">&times;</button>
+        </div>
+        <div class="promo-link-wrap" id="preorderPromoLink">
+          <button class="promo-link" onclick="togglePromoInput('preorder')">Have a promo code?</button>
+        </div>
+        <div class="promo-input-wrap" id="preorderPromoInput" style="display:none;">
+          <input type="text" id="preorderPromoCode" class="form-input form-input--sm" placeholder="Enter code" autocapitalize="characters">
+          <button class="btn-sm btn-outline" onclick="applyPromo('preorder')">Apply</button>
+        </div>
+        <div id="preorderPromoError" class="stripe-error"></div>
+
+        <div class="form-group">
+          <label class="form-label">Card details</label>
+          <div id="preorderCardElement" class="stripe-card-element"></div>
+          <div id="preorderCardErrors" class="stripe-error"></div>
+        </div>
+        
+        <button class="btn-primary disabled" id="preorderCheckoutBtn" disabled onclick="processPreorderPayment()" style="width:100%;margin-top:12px;">
+          Reserve My Spot · <span id="checkoutTotal">€100</span>
+        </button>
+        <p class="checkout-terms">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Secured by Stripe · Free rescheduling · Money-back guarantee
+        </p>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- PREORDER: CONFIRMATION -->
+    <!-- ============================================ -->
+    <div class="screen" id="screen-preorder-confirmation">
+      <div class="screen-content">
+        <div class="confirmation-hero">
+          <div class="confirm-check">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--sdtv-green)" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </div>
+          <h2 class="screen-title">You're booked</h2>
+          <p class="screen-subtitle">See you at <strong id="confirmFestivalName">the festival</strong></p>
+        </div>
+        
+        <!-- Digital Filming Pass -->
+        <div class="filming-pass" id="filmingPass">
+          <div class="pass-header">
+            <span class="pass-badge">🎬 FILMING PASS</span>
+          </div>
+          <div class="pass-body">
+            <div class="pass-festival" id="passEventName">Festival Name</div>
+            <div class="pass-detail" id="passDate">Date</div>
+            <div class="pass-detail" id="passSlot">Time Slot</div>
+            <div class="pass-divider"></div>
+            <div class="pass-instruction">Show this to our filming team at the event</div>
+            <div class="pass-qr">
+              <div class="qr-placeholder">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--sdtv-text-muted)" stroke-width="1"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="3" height="3"/><rect x="18" y="18" width="3" height="3"/></svg>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="timeline-card">
+          <div class="timeline-step done">
+            <div class="timeline-dot"></div>
+            <span>Payment confirmed</span>
+          </div>
+          <div class="timeline-step active">
+            <div class="timeline-dot"></div>
+            <span>You're on the filming list</span>
+          </div>
+          <div class="timeline-step">
+            <div class="timeline-dot"></div>
+            <span>Get filmed at the event</span>
+          </div>
+          <div class="timeline-step">
+            <div class="timeline-dot"></div>
+            <span>Receive HD video by email (3–7 days)</span>
+          </div>
+        </div>
+        
+        <!-- Visibility Upsell (expandable) -->
+        <div class="expandable-module" id="visibilityUpsell">
+          <button class="expandable-header" onclick="toggleExpandable('visibilityUpsell')">
+            <div class="expandable-header-text">
+              <span class="expandable-icon">✨</span>
+              <span>Want consistent visibility on SDTV?</span>
+            </div>
+            <svg class="expandable-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="expandable-body">
+            <p>Get featured weekly on our 509K+ channel. Build recognition with consistent visibility.</p>
+            <div class="expandable-price">From €349/mo · Cancel anytime</div>
+            <button class="btn-secondary btn-sm" onclick="goToVisibilityFromUpsell()">Explore Monthly Plan →</button>
+          </div>
+        </div>
+        
+        <div class="share-card" onclick="shareSDTV()">
+          <span>🎁 Share SDTV with a friend — you both get €10 off</span>
+        </div>
+        
+        <button class="btn-ghost" onclick="closePopup()" style="width:100%; margin-top:12px;">Close</button>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- VISIBILITY: INTRO (Outcome Selection) -->
+    <!-- ============================================ -->
+    <div class="screen" id="screen-visibility-intro">
+      <div class="screen-content">
+        <button class="back-btn" onclick="goBack()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          Back
+        </button>
+        <div class="step-indicator">STEP 1 OF 3</div>
+        <h2 class="screen-title">What's your goal?</h2>
+        <p class="screen-subtitle">For dancers, artists, and couples who want more visibility through SDTV</p>
+        
+        <div class="outcome-cards">
+          <button class="outcome-card" onclick="selectVisibilityOutcome('recognition')">
+            <span class="outcome-emoji">🌟</span>
+            <div class="outcome-text">
+              <h3 class="outcome-label">Build Recognition</h3>
+              <p class="outcome-desc">Grow your audience and become known in the dance community</p>
+            </div>
+          </button>
+          
+          <button class="outcome-card" onclick="selectVisibilityOutcome('event')">
+            <span class="outcome-emoji">📢</span>
+            <div class="outcome-text">
+              <h3 class="outcome-label">Promote an Event</h3>
+              <p class="outcome-desc">Get visibility for your workshop, show, or dance event</p>
+            </div>
+          </button>
+          
+          <button class="outcome-card" onclick="selectVisibilityOutcome('custom')">
+            <span class="outcome-emoji">🎯</span>
+            <div class="outcome-text">
+              <h3 class="outcome-label">Something Else</h3>
+              <p class="outcome-desc">Custom visibility needs — we'll build a plan together</p>
+            </div>
+          </button>
+        </div>
+        
+        <div class="trust-bar">
+          <span class="trust-item">Trusted across 50+ festivals</span>
+          <span class="trust-divider">·</span>
+          <span class="trust-item">509K+ followers</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- VISIBILITY: PACKAGES (Value Ladder) -->
+    <!-- ============================================ -->
+    <div class="screen" id="screen-visibility-packages">
+      <div class="screen-content">
+        <button class="back-btn" onclick="goBack()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          Back
+        </button>
+        <div class="step-indicator">STEP 2 OF 3</div>
+        <h2 class="screen-title">Choose your visibility plan</h2>
+        
+        <!-- Monthly Plan — FIRST & RECOMMENDED -->
+        <button class="vis-plan-card vis-plan-card--recommended" onclick="selectVisibilityPlan('monthly')">
+          <div class="vis-plan-badge">Recommended</div>
+          <div class="vis-plan-header">
+            <h3 class="vis-plan-name">Monthly Visibility</h3>
+            <div class="vis-plan-price">€349<span class="vis-plan-period">/mo</span></div>
+          </div>
+          <p class="vis-plan-desc">Consistent weekly presence on SDTV's channels. Best for dancers building long-term recognition.</p>
+          <ul class="vis-plan-features">
+            <li>✓ 1 post per week on @socialdancetv</li>
+            <li>✓ Curated editing & hashtag optimization</li>
+            <li>✓ Instagram Collab — appears on your profile</li>
+            <li>✓ Avg. 50K+ views per post</li>
+            <li>✓ Cancel anytime</li>
+          </ul>
+          <div class="vis-plan-cta">Start Monthly Plan →</div>
+        </button>
+        
+        <!-- Feature Boost — SECONDARY -->
+        <button class="vis-plan-card" onclick="selectVisibilityPlan('feature')">
+          <div class="vis-plan-header">
+            <h3 class="vis-plan-name">Feature Boost</h3>
+            <div class="vis-plan-price">€150</div>
+          </div>
+          <p class="vis-plan-desc">One-time featured placement on SDTV channels. Great for a specific moment or event.</p>
+          <ul class="vis-plan-features">
+            <li>✓ Priority featured placement</li>
+            <li>✓ Professional editing included</li>
+            <li>✓ Published within 5 days</li>
+          </ul>
+          <div class="vis-plan-cta">Request Feature Boost →</div>
+        </button>
+        
+        <!-- Single Post — HIDDEN -->
+        <div class="single-post-link">
+          <button class="btn-link" onclick="contactForSinglePost()">Looking for a single post? Contact us</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- VISIBILITY: CHECKOUT -->
+    <!-- ============================================ -->
+    <div class="screen" id="screen-visibility-checkout">
+      <div class="screen-content">
+        <button class="back-btn" onclick="goBack()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          Back
+        </button>
+        <div class="step-indicator">STEP 3 OF 3</div>
+        <h2 class="screen-title" id="visCheckoutTitle">Start Your Monthly Plan</h2>
+        
+        <div class="order-summary">
+          <div class="summary-row">
+            <span id="visOrderName">Monthly Visibility</span>
+            <span id="visOrderPrice">€349/mo</span>
+          </div>
+          <div class="price-divider"></div>
+          <div class="summary-row price-total">
+            <span>Total</span>
+            <span id="visOrderTotal">€349</span>
+          </div>
+        </div>
+        
+        <div class="apple-pay-btn" onclick="simulateVisibilityPayment()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.53 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
+          Pay · <span id="visApplePayTotal">€349</span>
+        </div>
+        
+        <div class="divider-or">
+          <span>or pay with card</span>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Your name</label>
+          <input type="text" id="visName" class="form-input" placeholder="Full name" oninput="validateVisCheckout()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input type="email" id="visEmail" class="form-input" placeholder="your@email.com" oninput="validateVisCheckout()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Instagram handle</label>
+          <input type="text" id="visInstagram" class="form-input" placeholder="@yourusername" oninput="validateVisCheckout()">
+        </div>
+        
+        <button class="btn-primary disabled" id="visCheckoutBtn" disabled onclick="simulateVisibilityPayment()" style="width:100%;margin-top:12px;">
+          <span id="visCheckoutBtnText">Start Monthly Plan — €349</span>
+        </button>
+        <p class="checkout-terms" id="visCheckoutTerms">€349/month · Cancel anytime · First post within 5 days</p>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- VISIBILITY: CONFIRMATION -->
+    <!-- ============================================ -->
+    <div class="screen" id="screen-visibility-confirmation">
+      <div class="screen-content">
+        <div class="confirmation-hero">
+          <div class="confirm-check">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--sdtv-green)" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </div>
+          <h2 class="screen-title" id="visConfirmTitle">Your Visibility Plan is Active</h2>
+          <p class="screen-subtitle" id="visConfirmSubtitle">Welcome aboard! Here's what happens next.</p>
+        </div>
+        
+        <div class="timeline-card" id="visConfirmTimeline">
+          <div class="timeline-step done">
+            <div class="timeline-dot"></div>
+            <span>Payment confirmed</span>
+          </div>
+          <div class="timeline-step active">
+            <div class="timeline-dot"></div>
+            <span>Onboarding — we'll reach out within 24h</span>
+          </div>
+          <div class="timeline-step">
+            <div class="timeline-dot"></div>
+            <span>First post within 5 days</span>
+          </div>
+          <div class="timeline-step">
+            <div class="timeline-dot"></div>
+            <span>Weekly posting schedule begins</span>
+          </div>
+        </div>
+        
+        <div class="share-card" onclick="shareSDTV()">
+          <span>🎁 Share SDTV with a friend — you both get €10 off</span>
+        </div>
+        
+        <button class="btn-ghost" onclick="closePopup()" style="width:100%; margin-top:12px;">Close</button>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- NOT SURE: QUIZ -->
+    <!-- ============================================ -->
+    <div class="screen" id="screen-notsure">
+      <div class="screen-content">
+        <button class="back-btn" onclick="goBack()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          Back
+        </button>
+        <h2 class="screen-title">What happened?</h2>
+        <p class="screen-subtitle">Pick one — we'll take it from there</p>
+        
+        <div class="quiz-options">
+          <button class="quiz-option" onclick="quizAnswer('archive')">
+            <span class="quiz-emoji">📹</span>
+            <span>"I was filmed at a festival"</span>
+            <span class="quiz-sub">Find, review, or wait for your video</span>
+          </button>
+          <button class="quiz-option" onclick="quizAnswer('preorder')">
+            <span class="quiz-emoji">📅</span>
+            <span>"I have an event coming up"</span>
+            <span class="quiz-sub">Reserve filming at an upcoming festival</span>
+          </button>
+          <button class="quiz-option" onclick="quizAnswer('visibility')">
+            <span class="quiz-emoji">✨</span>
+            <span>"I want to grow on SDTV"</span>
+            <span class="quiz-sub">Get featured on 509K+ follower channels</span>
+          </button>
+          <button class="quiz-option quiz-option--ghost" onclick="quizAnswer('contact')">
+            <span class="quiz-emoji">💬</span>
+            <span>Something else</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- NEW: WALK-UP / QUICK BOOKING -->
+    <!-- ============================================ -->
+    <div class="screen" id="screen-walkup">
+      <div class="screen-content">
+        <div class="walkup-hero">
+          <div class="walkup-badge">🎬 QUICK BOOKING</div>
+          <h2 class="screen-title">Let's film you tonight</h2>
+          <p class="screen-subtitle">30 seconds and you're booked</p>
+        </div>
+        
+        <div class="walkup-counter">
+          <span id="walkupCounter">47</span> dancers already booked tonight
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Your Instagram</label>
+          <input type="text" id="walkupInstagram" class="form-input" placeholder="@yourusername" oninput="validateWalkup()">
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">What do you want filmed?</label>
+          <div class="walkup-type-pills">
+            <button class="pill-sm active" data-type="social" onclick="selectWalkupType(this)">Social dance</button>
+            <button class="pill-sm" data-type="show" onclick="selectWalkupType(this)">Show / Performance</button>
+            <button class="pill-sm" data-type="both" onclick="selectWalkupType(this)">Both</button>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Email for delivery</label>
+          <input type="email" id="walkupEmail" class="form-input" placeholder="your@email.com" oninput="validateWalkup()">
+        </div>
+        
+        <div class="walkup-pricing">
+          <div class="walkup-price-option walkup-price-option--selected" onclick="selectWalkupPayment('later')">
+            <div class="walkup-radio"></div>
+            <div>
+              <div class="walkup-price-label">Reserve now, pay later</div>
+              <div class="walkup-price-desc">We'll send a payment link when your video is ready</div>
+            </div>
+          </div>
+          <div class="walkup-price-option" onclick="selectWalkupPayment('now')">
+            <div class="walkup-radio"></div>
+            <div>
+              <div class="walkup-price-label">Pay now — €100</div>
+              <div class="walkup-price-desc">Lock in your booking + priority filming</div>
+            </div>
+          </div>
+        </div>
+        
+        <button class="btn-primary disabled" id="walkupBtn" disabled onclick="submitWalkup()" style="width:100%;margin-top:16px;">
+          Book My Filming
+        </button>
+        <p class="checkout-terms">Your spot is secured · Video delivered by email</p>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- NEW: WALK-UP CONFIRMATION -->
+    <!-- ============================================ -->
+    <div class="screen" id="screen-walkup-confirmation">
+      <div class="screen-content">
+        <div class="confirmation-hero">
+          <div class="confirm-check">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--sdtv-green)" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </div>
+          <h2 class="screen-title">You're booked</h2>
+          <p class="screen-subtitle">Our team will find you on the dance floor</p>
+        </div>
+        
+        <!-- Shareable Story Card -->
+        <div class="story-card" id="storyCard">
+          <div class="story-card-bg">
+            <div class="story-card-content">
+              <span class="story-card-emoji">🎬</span>
+              <h3>I'm getting filmed by</h3>
+              <div class="story-card-brand">@socialdancetv</div>
+              <p class="story-card-sub">tonight 🔥</p>
+            </div>
+          </div>
+          <button class="btn-secondary btn-sm" onclick="shareStoryCard()" style="width:100%;margin-top:8px;">
+            Share to Instagram Story
+          </button>
+        </div>
+        
+        <div class="timeline-card">
+          <div class="timeline-step done">
+            <div class="timeline-dot"></div>
+            <span>Booking confirmed</span>
+          </div>
+          <div class="timeline-step active">
+            <div class="timeline-dot"></div>
+            <span>Find our team at the event</span>
+          </div>
+          <div class="timeline-step">
+            <div class="timeline-dot"></div>
+            <span>Get filmed</span>
+          </div>
+          <div class="timeline-step">
+            <div class="timeline-dot"></div>
+            <span>Video delivered by email (3–7 days)</span>
+          </div>
+        </div>
+        
+        <!-- Collab upsell -->
+        <div class="upsell-card" id="walkupUpsell">
+          <div class="upsell-badge">Boost your reach</div>
+          <h3 class="upsell-title">✨ Feature on SDTV Channel</h3>
+          <p class="upsell-desc">Get your video published to <strong>509K+ followers</strong>. Instagram Collab — appears on your profile too.</p>
+          <div class="upsell-price">+€100</div>
+          <div class="upsell-actions">
+            <button class="btn-primary btn-sm" onclick="acceptWalkupUpsell()">Add — €100</button>
+            <button class="btn-ghost btn-sm" onclick="declineWalkupUpsell()">Maybe later</button>
+          </div>
+        </div>
+        
+        <button class="btn-ghost" onclick="closePopup()" style="width:100%; margin-top:12px;">Close</button>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- NEW: MONDAY MORNING — Festival Just Filmed -->
+    <!-- ============================================ -->
+    <div class="screen" id="screen-monday-morning">
+      <div class="screen-content">
+        <button class="back-btn" onclick="goBack()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          Back
+        </button>
+        
+        <div class="monday-hero">
+          <div class="monday-badge-wrap">
+            <span class="monday-badge">🎬 Just Filmed</span>
+          </div>
+          <h2 class="screen-title" id="mondayFestivalTitle">Benidorm Beach Festival</h2>
+          <p class="screen-subtitle" id="mondayFestivalMeta">Jun 2026 · Spain</p>
+          <div class="monday-status-pill">
+            <span class="monday-pulse"></span>
+            Content is being processed
+          </div>
+        </div>
+
+        <!-- Confirmed dancers list -->
+        <div class="monday-dancers-section">
+          <h3 class="monday-section-title">Confirmed dancers we filmed</h3>
+          <p class="monday-section-desc">Check if you're on the list. If not — add yourself below.</p>
+          
+          <div class="monday-search">
+            <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="mondayDancerSearch" class="form-input" placeholder="Search by name or @instagram..." oninput="filterMondayDancers()">
+          </div>
+
+          <div class="monday-dancer-list" id="mondayDancerList">
+            <!-- Populated by JS -->
+          </div>
+
+          <div class="monday-match-result" id="mondayMatchResult" style="display:none;">
+            <div class="monday-match-card monday-match-card--found" id="mondayMatchFound" style="display:none;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--sdtv-green)" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              <div>
+                <h4 class="monday-match-title">You're confirmed</h4>
+                <p class="monday-match-desc">We have footage of you. Leave your email and we'll notify you the moment it's ready.</p>
+              </div>
+            </div>
+            <div class="monday-match-card monday-match-card--notfound" id="mondayMatchNotFound" style="display:none;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--sdtv-gold)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <div>
+                <h4 class="monday-match-title">Not on the list yet?</h4>
+                <p class="monday-match-desc">No worries — add your details below and we'll check our footage manually.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Notify form -->
+        <div class="monday-notify-section">
+          <h3 class="monday-section-title" id="mondayNotifyTitle">Get notified when your video is ready</h3>
+          
+          <div class="form-group">
+            <label class="form-label">Your Instagram</label>
+            <input type="text" id="mondayInstagram" class="form-input" placeholder="@yourusername" oninput="validateMondayForm()">
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Email for notification <span style="color:var(--sdtv-red);">*</span></label>
+            <input type="email" id="mondayEmail" class="form-input" placeholder="your@email.com" oninput="validateMondayForm()">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Your name or couple name <span class="form-optional">(optional)</span></label>
+            <input type="text" id="mondayName" class="form-input" placeholder="e.g. Maria & Carlos">
+          </div>
+          
+          <button class="btn-primary disabled" id="mondayNotifyBtn" disabled onclick="submitMondayNotify()" style="width:100%;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            Notify Me When Ready
+          </button>
+          <p class="checkout-terms">Free · No payment required · We'll email you when your video is ready to preview</p>
+        </div>
+
+        <!-- Social proof -->
+        <div class="monday-social-proof">
+          <div class="monday-proof-avatars">
+            <span class="monday-avatar">💃</span>
+            <span class="monday-avatar">🕺</span>
+            <span class="monday-avatar">💃</span>
+          </div>
+          <span class="monday-proof-text" id="mondayProofText">47 dancers already signed up for notifications</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- NEW: MONDAY MORNING — Confirmation -->
+    <!-- ============================================ -->
+    <div class="screen" id="screen-monday-confirm">
+      <div class="screen-content">
+        <div class="confirmation-hero">
+          <div class="confirm-check">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--sdtv-green)" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </div>
+          <h2 class="screen-title">You're on the list</h2>
+          <p class="screen-subtitle">We'll email you at <strong id="mondayConfirmEmail">your@email.com</strong> the moment your video is ready.</p>
+        </div>
+        
+        <div class="timeline-card">
+          <div class="timeline-step done">
+            <div class="timeline-dot"></div>
+            <span>Festival filmed</span>
+          </div>
+          <div class="timeline-step done">
+            <div class="timeline-dot"></div>
+            <span>You're registered for notifications</span>
+          </div>
+          <div class="timeline-step active">
+            <div class="timeline-dot"></div>
+            <span>Team is editing — typically 3–7 days</span>
+          </div>
+          <div class="timeline-step">
+            <div class="timeline-dot"></div>
+            <span>You get an email with preview + buy link</span>
+          </div>
+        </div>
+
+        <div class="monday-confirm-card">
+          <h4>What happens next?</h4>
+          <p>Our team will process and edit the footage. Once your specific clip is ready, you'll receive an email with a preview and a link to purchase your HD video. No payment is taken until you've seen your dance.</p>
+        </div>
+        
+        <div class="share-card" onclick="shareSDTV()">
+          <span>🎁 Share SDTV with your dance partner — they can sign up too</span>
+        </div>
+        
+        <button class="btn-ghost" onclick="closePopup()" style="width:100%; margin-top:12px;">Close</button>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- NEW: CHECK STATUS (for returning dancers) -->
+    <!-- ============================================ -->
+    <div class="screen" id="screen-check-status">
+      <div class="screen-content">
+        <button class="back-btn" onclick="goBack()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          Back
+        </button>
+        <h2 class="screen-title">Check your video status</h2>
+        <p class="screen-subtitle">Enter your email to see where your video is</p>
+        
+        <div class="form-group">
+          <input type="email" id="statusEmail" class="form-input" placeholder="your@email.com" oninput="validateStatusCheck()">
+        </div>
+        
+        <button class="btn-primary disabled" id="statusCheckBtn" disabled onclick="checkVideoStatus()" style="width:100%;margin-top:12px;">
+          Check Status
+        </button>
+        
+        <!-- Status result (shown after check) -->
+        <div class="status-result" id="statusResult" style="display:none;">
+
+          <!-- State A card: Editing -->
+          <div class="status-card status-card--editing">
+            <div class="status-icon">⏳</div>
+            <div class="status-info">
+              <h3 class="status-title">Editing in progress</h3>
+              <p class="status-event">Benidorm Beach Festival · Jun 2026</p>
+              <div class="editing-progress">
+                <div class="editing-bar"><div class="editing-fill" style="width:60%"></div></div>
+                <p class="editing-label">Estimated: 2–3 more days</p>
+              </div>
+            </div>
+          </div>
+          
+          <!-- State B+C card: Video ready with preview -->
+          <div class="status-card status-card--ready" style="margin-top:12px;">
+            <div class="status-icon">✅</div>
+            <div class="status-info">
+              <h3 class="status-title">Video ready</h3>
+              <p class="status-event">Warsaw Bachata Festival · May 2026</p>
+            </div>
+            <div class="status-preview-thumb" onclick="goToArchiveCheckoutFromStatus()">
+              <div class="status-preview-play">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21"/></svg>
+              </div>
+              <div class="status-preview-label">0:52</div>
+            </div>
+            <button class="btn-primary btn-sm" onclick="goToArchiveCheckoutFromStatus()" style="margin-top:10px;width:100%;">Review & Unlock — €100</button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /popup-container -->
+</div><!-- /popup-overlay -->
+
+<script src="app.js"></script>
+<script data-pplx-inline-edit>
+(function(){
+  if(window===window.top)return;
+  function inlineAll(orig,clone){
+    if(orig.nodeType!==1)return;
+    try{
+      var cs=getComputedStyle(orig);
+      var t='';
+      for(var i=0;i<cs.length;i++){t+=cs[i]+':'+cs.getPropertyValue(cs[i])+';';}
+      clone.style.cssText=t;
+    }catch(e){}
+    var oc=orig.children,cc=clone.children;
+    for(var j=0;j<oc.length&&j<cc.length;j++){inlineAll(oc[j],cc[j]);}
+  }
+  function stripExternal(clone){
+    var imgs=clone.querySelectorAll('img');
+    for(var i=0;i<imgs.length;i++){
+      var s=imgs[i].getAttribute('src');
+      if(s&&!s.startsWith('data:'))imgs[i].removeAttribute('src');
+    }
+    var all=clone.querySelectorAll('*');
+    for(var i=0;i<all.length;i++){
+      var st=all[i].style.cssText;
+      if(st&&st.indexOf('url(')>=0){
+        all[i].style.cssText=st.replace(/url\(["']?(?!data:)[^)"']*["']?\)/gi,'none');
+      }
+    }
+  }
+  window.addEventListener('message',function(e){
+    if(!e.data||e.data.type!=='INLINE_EDIT_CAPTURE_REQUEST')return;
+    var scrollX=window.scrollX||window.pageXOffset||0;
+    var scrollY=window.scrollY||window.pageYOffset||0;
+    var w=window.innerWidth,h=window.innerHeight;
+    try{
+      var clone=document.documentElement.cloneNode(true);
+      var rm=clone.querySelectorAll('script,link[rel="stylesheet"],style');
+      for(var i=0;i<rm.length;i++){rm[i].remove();}
+      inlineAll(document.documentElement,clone);
+      stripExternal(clone);
+      var html=new XMLSerializer().serializeToString(clone);
+      var svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'">'
+        +'<foreignObject width="100%" height="100%">'
+        +'<div xmlns="http://www.w3.org/1999/xhtml" style="width:'+w+'px;height:'+h+'px;overflow:hidden">'
+        +'<div style="transform:translate(-'+scrollX+'px,-'+scrollY+'px);transform-origin:top left">'
+        +html+'</div></div></foreignObject></svg>';
+      var svgUrl='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+      var img=new Image();
+      img.onload=function(){
+        var c=document.createElement('canvas');c.width=w;c.height=h;
+        c.getContext('2d').drawImage(img,0,0);
+        window.parent.postMessage({type:'INLINE_EDIT_SCREENSHOT_RESULT',dataUrl:c.toDataURL('image/png'),scrollX:scrollX,scrollY:scrollY},'*');
+      };
+      img.onerror=function(){
+        window.parent.postMessage({type:'INLINE_EDIT_SCREENSHOT_RESULT',dataUrl:null,scrollX:scrollX,scrollY:scrollY},'*');
+      };
+      img.src=svgUrl;
+    }catch(err){
+      window.parent.postMessage({type:'INLINE_EDIT_SCREENSHOT_RESULT',dataUrl:null,scrollX:scrollX,scrollY:scrollY},'*');
+    }
+  });
+})();
+</script><script data-pplx-inline-edit>
+(function(){
+  if(window===window.top)return;
+  function inlineAll(orig,clone){
+    if(orig.nodeType!==1)return;
+    try{
+      var cs=getComputedStyle(orig);
+      var t='';
+      for(var i=0;i<cs.length;i++){t+=cs[i]+':'+cs.getPropertyValue(cs[i])+';';}
+      clone.style.cssText=t;
+    }catch(e){}
+    var oc=orig.children,cc=clone.children;
+    for(var j=0;j<oc.length&&j<cc.length;j++){inlineAll(oc[j],cc[j]);}
+  }
+  function stripExternal(clone){
+    var imgs=clone.querySelectorAll('img');
+    for(var i=0;i<imgs.length;i++){
+      var s=imgs[i].getAttribute('src');
+      if(s&&!s.startsWith('data:'))imgs[i].removeAttribute('src');
+    }
+    var all=clone.querySelectorAll('*');
+    for(var i=0;i<all.length;i++){
+      var st=all[i].style.cssText;
+      if(st&&st.indexOf('url(')>=0){
+        all[i].style.cssText=st.replace(/url\(["']?(?!data:)[^)"']*["']?\)/gi,'none');
+      }
+    }
+  }
+  window.addEventListener('message',function(e){
+    if(!e.data||e.data.type!=='INLINE_EDIT_CAPTURE_REQUEST')return;
+    var scrollX=window.scrollX||window.pageXOffset||0;
+    var scrollY=window.scrollY||window.pageYOffset||0;
+    var w=window.innerWidth,h=window.innerHeight;
+    try{
+      var clone=document.documentElement.cloneNode(true);
+      var rm=clone.querySelectorAll('script,link[rel="stylesheet"],style');
+      for(var i=0;i<rm.length;i++){rm[i].remove();}
+      inlineAll(document.documentElement,clone);
+      stripExternal(clone);
+      var html=new XMLSerializer().serializeToString(clone);
+      var svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'">'
+        +'<foreignObject width="100%" height="100%">'
+        +'<div xmlns="http://www.w3.org/1999/xhtml" style="width:'+w+'px;height:'+h+'px;overflow:hidden">'
+        +'<div style="transform:translate(-'+scrollX+'px,-'+scrollY+'px);transform-origin:top left">'
+        +html+'</div></div></foreignObject></svg>';
+      var svgUrl='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+      var img=new Image();
+      img.onload=function(){
+        var c=document.createElement('canvas');c.width=w;c.height=h;
+        c.getContext('2d').drawImage(img,0,0);
+        window.parent.postMessage({type:'INLINE_EDIT_SCREENSHOT_RESULT',dataUrl:c.toDataURL('image/png'),scrollX:scrollX,scrollY:scrollY},'*');
+      };
+      img.onerror=function(){
+        window.parent.postMessage({type:'INLINE_EDIT_SCREENSHOT_RESULT',dataUrl:null,scrollX:scrollX,scrollY:scrollY},'*');
+      };
+      img.src=svgUrl;
+    }catch(err){
+      window.parent.postMessage({type:'INLINE_EDIT_SCREENSHOT_RESULT',dataUrl:null,scrollX:scrollX,scrollY:scrollY},'*');
+    }
+  });
+})();
+</script></body>
+</html>
