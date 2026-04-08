@@ -141,6 +141,20 @@ body {
   }
 }
 
+/* ========== LOGO BADGE ========== */
+.logo-badge {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding-top: 20px;
+  padding-bottom: 4px;
+  pointer-events: none;
+  flex-shrink: 0;
+}
+.logo-badge svg {
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3));
+}
+
 /* ========== CLOSE & PROGRESS ========== */
 .popup-close {
   position: absolute;
