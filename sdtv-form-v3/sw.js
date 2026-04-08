@@ -1,5 +1,5 @@
-// SDTV Form Service Worker — offline cache for form shell
-const CACHE_NAME = 'sdtv-form-v3.2';
+// SDTV Form Service Worker — network-first with offline fallback
+const CACHE_NAME = 'sdtv-form-v4';
 const SHELL = ['/', '/index.html', '/style.css', '/app.js'];
 
 self.addEventListener('install', (e) => {
@@ -24,18 +24,14 @@ self.addEventListener('fetch', (e) => {
   // API calls + video previews — network only (never cache)
   if (url.pathname.startsWith('/api/')) return;
 
-  // Form shell — cache first, network fallback
+  // Network-first: always serve fresh, cache only for offline
   e.respondWith(
-    caches.match(e.request).then(cached => {
-      const networkFetch = fetch(e.request).then(response => {
-        // Update cache in background
-        if (response.ok) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
-        }
-        return response;
-      }).catch(() => cached); // Offline → serve cached
-      return cached || networkFetch;
-    })
+    fetch(e.request).then(response => {
+      if (response.ok) {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
+      }
+      return response;
+    }).catch(() => caches.match(e.request))
   );
 });
