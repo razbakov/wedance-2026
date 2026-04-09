@@ -958,8 +958,10 @@ app.get('/delivery', async (req, res) => {
     const session = f['Session'] || '';
     const style = f['Dance Style'] || '';
     const status = f['Status'] || 'Captured';
-    const previewUrl = f['Preview URL'] || '';
+    const rawPreviewUrl = f['Preview URL'] || '';
     const finalUrl = f['Final URL'] || '';
+    // Convert Dropbox share URLs to direct playback URLs
+    const previewUrl = rawPreviewUrl.includes('dropbox.com') ? rawPreviewUrl.replace(/dl=0/, 'raw=1').replace(/\&amp;/g, '&') : rawPreviewUrl;
     const downloadUrl = finalUrl || previewUrl;
     const partner1 = f['Partner 1 Name'] || f['Partner 1 IG'] || '';
     const partner2 = f['Partner 2 Name'] || f['Partner 2 IG'] || '';
