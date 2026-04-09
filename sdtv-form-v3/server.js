@@ -234,8 +234,8 @@ app.post('/api/people/upsert', async (req, res) => {
       const f = existing.fields;
       const upd = { 'Last Seen': now, 'Capture Count': (f['Capture Count'] || 0) + 1 };
       if (ig) { const n = ig.startsWith('@') ? ig : '@' + ig; if (n !== f.Instagram) upd.Instagram = n; }
-      // paid=true (from checkout) → set primary Email; otherwise → Delivery Email only
-      if (email && paid && email.toLowerCase() !== (f.Email || '').toLowerCase()) {
+      // paid=true (from checkout) → set primary Email only if empty
+      if (email && paid && !f.Email) {
         upd.Email = email;
       }
       if (email && email.toLowerCase() !== (f['Delivery Email'] || '').toLowerCase()) {
