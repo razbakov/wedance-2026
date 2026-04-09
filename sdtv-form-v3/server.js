@@ -30,6 +30,105 @@ if (!AIRTABLE_TOKEN) {
   process.exit(1);
 }
 
+// ── EMAIL (Gmail SMTP via nodemailer) ───────────────
+const nodemailer = require('nodemailer');
+const GMAIL_USER = process.env.GMAIL_USER;     // e.g. socialdancetv@gmail.com
+const GMAIL_PASS = process.env.GMAIL_PASS;     // App Password from Google Account
+let emailTransport = null;
+if (GMAIL_USER && GMAIL_PASS) {
+  emailTransport = nodemailer.createTransport({
+    service: 'gmail',
+    auth: { user: GMAIL_USER, pass: GMAIL_PASS },
+  });
+  console.log('Email initialized:', GMAIL_USER);
+} else {
+  console.warn('GMAIL_USER/GMAIL_PASS not set — email disabled');
+}
+
+async function sendDeliveryEmail({ to, dancerName, festival, deliveryUrl }) {
+  if (!emailTransport) { console.warn('Email not configured, skipping'); return; }
+
+  const html = `
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>
+<body style="margin:0;padding:0;background:#0c0c0e;font-family:'Helvetica Neue',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#0c0c0e;padding:40px 20px;">
+<tr><td align="center">
+<table width="100%" style="max-width:480px;background:#161618;border-radius:16px;border:1px solid rgba(255,255,255,0.08);overflow:hidden;">
+  <tr><td style="padding:32px 24px 16px;text-align:center;">
+    <div style="font-size:13px;font-weight:700;letter-spacing:0.15em;color:#c1453b;text-transform:uppercase;">Social Dance TV</div>
+    <h1 style="margin:12px 0 8px;font-size:22px;color:#f4f1ec;">Your video is ready!</h1>
+    <p style="margin:0;font-size:14px;color:#8a8580;line-height:1.5;">${dancerName ? `Hey ${dancerName},` : 'Hey,'} your dance video${festival ? ' from <strong style="color:#f4f1ec;">' + festival + '</strong>' : ''} is ready to watch and download.</p>
+  </td></tr>
+  <tr><td style="padding:0 24px 24px;">
+    <a href="${deliveryUrl}" style="display:block;text-align:center;background:#c1453b;color:white;padding:16px 24px;border-radius:12px;font-size:16px;font-weight:600;text-decoration:none;">Watch & Download Your Video</a>
+  </td></tr>
+  <tr><td style="padding:0 24px 24px;">
+    <div style="background:#1e1e21;border-radius:12px;padding:16px;">
+      <div style="font-size:11px;font-weight:700;color:#fbc02d;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">MAKE IT STRONGER</div>
+      <div style="font-size:14px;color:#f4f1ec;font-weight:600;margin-bottom:4px;">Turn your dance into an SDTV Feature</div>
+      <div style="font-size:12px;color:#8a8580;line-height:1.4;margin-bottom:12px;">We select the strongest moment, edit for social media, and publish through SDTV channels.</div>
+      <a href="${deliveryUrl}" style="font-size:13px;color:#c1453b;font-weight:600;text-decoration:none;">Learn more &rarr;</a>
+    </div>
+  </td></tr>
+  <tr><td style="padding:0 24px 20px;text-align:center;">
+    <p style="margin:0;font-size:11px;color:#5a5650;">Social Dance TV &middot; <a href="https://instagram.com/socialdancetv" style="color:#8a8580;">@socialdancetv</a></p>
+  </td></tr>
+</table>
+</td></tr></table>
+</body></html>`;
+
+  try {
+    await emailTransport.sendMail({
+      from: `"Social Dance TV" <${GMAIL_USER}>`,
+      to,
+      subject: `Your dance video is ready${festival ? ' — ' + festival : ''} 🎬`,
+      html,
+    });
+    console.log('Delivery email sent to', to);
+  } catch (e) {
+    console.error('Email send error:', e.message);
+  }
+}
+
+async function sendNotifyConfirmEmail({ to, dancerName, festival }) {
+  if (!emailTransport) return;
+
+  const html = `
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>
+<body style="margin:0;padding:0;background:#0c0c0e;font-family:'Helvetica Neue',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#0c0c0e;padding:40px 20px;">
+<tr><td align="center">
+<table width="100%" style="max-width:480px;background:#161618;border-radius:16px;border:1px solid rgba(255,255,255,0.08);overflow:hidden;">
+  <tr><td style="padding:32px 24px 16px;text-align:center;">
+    <div style="font-size:13px;font-weight:700;letter-spacing:0.15em;color:#c1453b;text-transform:uppercase;">Social Dance TV</div>
+    <h1 style="margin:12px 0 8px;font-size:22px;color:#f4f1ec;">You're on the list!</h1>
+    <p style="margin:0;font-size:14px;color:#8a8580;line-height:1.5;">${dancerName ? `Hey ${dancerName},` : 'Hey,'} we'll email you the moment your video${festival ? ' from <strong style="color:#f4f1ec;">' + festival + '</strong>' : ''} is ready to preview and purchase.</p>
+  </td></tr>
+  <tr><td style="padding:16px 24px 24px;text-align:center;">
+    <p style="margin:0;font-size:12px;color:#5a5650;">No spam. Just one email when your video drops.</p>
+  </td></tr>
+  <tr><td style="padding:0 24px 20px;text-align:center;">
+    <p style="margin:0;font-size:11px;color:#5a5650;">Social Dance TV &middot; <a href="https://instagram.com/socialdancetv" style="color:#8a8580;">@socialdancetv</a></p>
+  </td></tr>
+</table>
+</td></tr></table>
+</body></html>`;
+
+  try {
+    await emailTransport.sendMail({
+      from: `"Social Dance TV" <${GMAIL_USER}>`,
+      to,
+      subject: `We'll notify you when your video is ready${festival ? ' — ' + festival : ''} 🔔`,
+      html,
+    });
+    console.log('Notify confirmation email sent to', to);
+  } catch (e) {
+    console.error('Notify email error:', e.message);
+  }
+}
+
 // ── STRIPE ──────────────────────────────────────────
 const STRIPE_SECRET = process.env.STRIPE_SECRET;
 let stripe = null;
@@ -288,10 +387,49 @@ app.post('/api/notifications', async (req, res) => {
     await airtableFetch(TABLES.notifications, {
       method: 'POST', body: JSON.stringify({ records: [{ fields }], typecast: true })
     });
+
+    // Send confirmation email if this is a notify-me request
+    if (email && template && template.includes('Video ready')) {
+      sendNotifyConfirmEmail({ to: email, dancerName: ig || '', festival: festival || '' });
+    }
+
     res.json({ ok: true, ref });
   } catch (e) {
     console.error('Notification error:', e);
     res.status(500).json({ error: 'Failed to create notification' });
+  }
+});
+
+// ── POST /api/send-delivery-email ──────────────────
+// Send branded delivery email after payment
+app.post('/api/send-delivery-email', async (req, res) => {
+  try {
+    const { email, captureId, ig, festival } = req.body || {};
+    if (!email || !captureId) {
+      return res.status(400).json({ error: 'Email and captureId required' });
+    }
+
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const deliveryUrl = `${baseUrl}/delivery?id=${encodeURIComponent(captureId)}`;
+
+    // Get dancer name from capture
+    let dancerName = ig || '';
+    try {
+      const cap = await airtableFetch(`${TABLES.captures}/${captureId}`);
+      dancerName = cap.fields?.['Video Title'] || cap.fields?.['Partner 1 Name'] || ig || '';
+    } catch {}
+
+    await sendDeliveryEmail({
+      to: email,
+      dancerName,
+      festival: festival || '',
+      deliveryUrl,
+    });
+
+    res.json({ ok: true, deliveryUrl });
+  } catch (e) {
+    console.error('Delivery email error:', e.message);
+    res.status(500).json({ error: 'Failed to send email' });
   }
 });
 

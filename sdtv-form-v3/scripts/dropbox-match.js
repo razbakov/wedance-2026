@@ -42,9 +42,11 @@ try { FFMPEG = require('ffmpeg-static'); } catch {
 }
 
 // ── CONFIG ────────────────────────────────────────────
-const AIRTABLE_TOKEN = 'patXSYqX4Fj24rT3f.4bef825436211ed79cdeffeaa4ffc01968192929f29f4599238379fa156482ef';
-const AIRTABLE_BASE_ID = 'appsgtrfnVi2IccFb';
-const CAPTURES_TABLE = 'tblgiQssV0qnosiUl';
+// Token from env var (never hardcode in source)
+const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN;
+if (!AIRTABLE_TOKEN) { console.error('Missing AIRTABLE_TOKEN env var'); process.exit(1); }
+const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID || 'appsgtrfnVi2IccFb';
+const CAPTURES_TABLE = process.env.CAPTURES_TABLE || 'tblgiQssV0qnosiUl';
 const AIRTABLE_BASE_URL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}`;
 const PREVIEW_SERVER = 'http://localhost:8001';
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.MP4', '.MOV']);

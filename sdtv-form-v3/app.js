@@ -2820,6 +2820,14 @@ async function processArchivePayment() {
         })
       });
     } catch (e) { console.error('Free checkout save error:', e); }
+    // Send delivery email for free promo too
+    try {
+      await fetch(`${API}/api/send-delivery-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, captureId: state.activeCapture?.id || '', ig: state.dancerIdentity || '', festival: state.selectedFestival?.name || '' })
+      });
+    } catch {}
     btn.innerHTML = originalText; btn.disabled = false;
     showScreen('archive-confirmation');
     return;
@@ -2881,6 +2889,20 @@ async function processArchivePayment() {
           })
         });
       } catch (e) { console.error('Airtable save error:', e); }
+
+      // 4. Send delivery email
+      try {
+        await fetch(`${API}/api/send-delivery-email`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email,
+            captureId: state.activeCapture?.id || '',
+            ig: state.dancerIdentity || '',
+            festival: state.selectedFestival?.name || ''
+          })
+        });
+      } catch (e) { console.error('Delivery email error:', e); }
 
       btn.innerHTML = originalText;
       btn.disabled = false;

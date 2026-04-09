@@ -239,6 +239,9 @@ body {
   flex-direction: column;
   gap: var(--space-5);
 }
+#screen-routing .screen-content {
+  padding-top: 8px;
+}
 
 /* ========== BACK BUTTON — same row as X ========== */
 .back-btn {
@@ -390,9 +393,32 @@ body {
   transition-duration: 100ms;
 }
 
+.intent-card--hero {
+  border-color: rgba(180, 140, 100, 0.3);
+  background: linear-gradient(135deg, rgba(180, 140, 100, 0.07) 0%, var(--sdtv-surface) 70%);
+  box-shadow: var(--shadow-md), 0 0 20px rgba(180, 140, 100, 0.06);
+}
+.intent-card--hero .intent-icon {
+  background: linear-gradient(135deg, #a0785a 0%, #c49470 100%);
+  color: white;
+  font-size: 1.25rem;
+}
+.intent-card--hero .intent-label { font-size: 1.05rem; }
+.intent-card--hero:hover {
+  border-color: rgba(180, 140, 100, 0.5);
+  box-shadow: var(--shadow-md), 0 0 24px rgba(180, 140, 100, 0.12);
+}
+
 .intent-card--subtle {
   border-style: dashed;
-  opacity: 0.8;
+  opacity: 0.65;
+  padding: var(--space-3) var(--space-5);
+}
+.intent-card--subtle .intent-icon {
+  width: 36px;
+  height: 36px;
+  font-size: 1rem;
+  background: transparent;
 }
 
 .intent-card--subtle:hover { opacity: 1; }
@@ -442,19 +468,19 @@ body {
   gap: var(--space-2);
   padding: var(--space-4) 0 var(--space-2);
   flex-wrap: wrap;
-  opacity: 0.6;
+  opacity: 0.8;
 }
 
 .trust-item {
-  font-size: var(--text-xs);
-  color: var(--sdtv-text-faint);
+  font-size: var(--text-sm);
+  color: var(--sdtv-text-muted);
   white-space: nowrap;
   letter-spacing: 0.01em;
 }
 
 .trust-divider {
-  color: var(--sdtv-border);
-  font-size: var(--text-xs);
+  color: var(--sdtv-text-faint);
+  font-size: var(--text-sm);
 }
 
 /* ========== FORM ELEMENTS ========== */
