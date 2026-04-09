@@ -52,7 +52,9 @@ async function sendDeliveryEmail({ to, dancers, festival, style, session, delive
   const name = dancers || '';
   const hasName = !!name;
   const meta = [style, session].filter(Boolean).join(' · ');
-  const hasThumb = !!previewThumb;
+  // Only use as thumbnail if it's an image URL, not a video
+  const isImageUrl = previewThumb && /\.(jpg|jpeg|png|gif|webp)/i.test(previewThumb.split('?')[0]);
+  const hasThumb = isImageUrl;
   const hasFestival = !!festival;
 
   // Subject: personal when possible
