@@ -250,6 +250,29 @@ const state = {
 // ==========================================
 let liveFestivals = []; // populated from API on load
 
+// Generate day labels ("Friday Jun 12") from Start Date + End Date
+function generateFestivalDays(startStr, endStr) {
+  const weekdays = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  if (!startStr) return ['Day 1', 'Day 2', 'Day 3'];
+  const start = new Date(startStr + 'T00:00:00');
+  if (isNaN(start)) return ['Day 1', 'Day 2', 'Day 3'];
+  let numDays = 3;
+  if (endStr) {
+    const end = new Date(endStr + 'T00:00:00');
+    if (!isNaN(end) && end >= start) numDays = Math.round((end - start) / 86400000) + 1;
+  }
+  if (numDays < 1) numDays = 1;
+  if (numDays > 14) numDays = 14;
+  const days = [];
+  for (let i = 0; i < numDays; i++) {
+    const d = new Date(start);
+    d.setDate(d.getDate() + i);
+    days.push(`${weekdays[d.getDay()]} ${months[d.getMonth()]} ${d.getDate()}`);
+  }
+  return days;
+}
+
 // Load real festivals from Airtable on startup
 (async function loadLiveFestivals() {
   try {
@@ -263,6 +286,8 @@ let liveFestivals = []; // populated from API on load
       const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
       const month = date ? monthNames[parseInt(date.substring(5, 7), 10) - 1] : '';
       const star = f['Status'] === 'Active' ? ' ★' : '';
+      // Generate days array from Start Date + End Date (or default 3 days)
+      const days = generateFestivalDays(f['Start Date'], f['End Date']);
       return {
         name: name + star,
         location: f['City'] || f['Country'] || '',
@@ -271,7 +296,8 @@ let liveFestivals = []; // populated from API on load
         emoji: '🎬',
         airtableId: r.id,
         isLive: true,
-        status: f['Status'] || ''
+        status: f['Status'] || '',
+        days
       };
     });
     // Populate upcoming festivals for Reserve Filming flow
@@ -1666,7 +1692,7 @@ function renderDaySelector() {
 
   // Get days for selected festival
   const festival = upcomingFestivals.find(f => f.name === state.selectedUpcomingFestival?.name);
-  const days = festival ? festival.days : ['Day 1', 'Day 2', 'Day 3'];
+  const days = festival?.days || ['Day 1', 'Day 2', 'Day 3'];
 
   container.innerHTML = days.map((day, i) => {
     const parts = day.split(' ');
@@ -1777,7 +1803,8 @@ function goToPreorderCheckout() {
   const total = state.selectedPackage.price + (state.collabAddon ? 100 : 0);
   document.getElementById('summaryTotal').textContent = '€' + total;
   document.getElementById('checkoutTotal').textContent = '€' + total;
-  document.getElementById('applePayTotal').textContent = '€' + total;
+  const applePayTotal = document.getElementById('applePayTotal');
+  if (applePayTotal) applePayTotal.textContent = '€' + total;
 
   // Show/hide collab confirm checkbox
   const collabConfirm = document.getElementById('collabConfirm');
@@ -2288,13 +2315,11 @@ function validateStatusCheck() {
   }
 }
 
-function checkVideoStatus() {
+async function checkVideoStatus() {
   const email = document.getElementById('statusEmail').value.trim();
   if (!isValidEmail(email)) {
     const el = document.getElementById('statusEmail');
-    el.focus();
-    el.classList.add('error');
-    shakeElement(el);
+    el.focus(); el.classList.add('error'); shakeElement(el);
     return;
   }
 
@@ -2303,23 +2328,61 @@ function checkVideoStatus() {
   btn.innerHTML = '<span class="searching-spinner" style="width:20px;height:20px;border-width:2px;display:inline-block;"></span> Checking...';
   btn.disabled = true;
 
-  setTimeout(() => {
-    btn.innerHTML = originalText;
-    btn.disabled = false;
+  try {
+    // Search by email via people autocomplete, then search captures by IG
+    const peopleRes = await fetch(`${API}/api/people/autocomplete?q=${encodeURIComponent(email)}`);
+    const peopleData = await peopleRes.json();
+    const person = (peopleData.results || []).find(p => p.email?.toLowerCase() === email.toLowerCase());
 
     const statusResult = document.getElementById('statusResult');
-    if (statusResult) statusResult.style.display = '';
-  }, 1500);
-}
+    if (!person || !person.ig) {
+      if (statusResult) {
+        statusResult.style.display = '';
+        statusResult.innerHTML = '<p style="color:var(--sdtv-text-muted);text-align:center;">No videos found for this email. Try searching by Instagram handle instead.</p><button class="btn-primary" onclick="selectIntent(\'archive\')" style="width:100%;margin-top:12px;">Find My Dance</button>';
+      }
+      btn.innerHTML = originalText; btn.disabled = false;
+      return;
+    }
 
-function goToArchiveCheckoutFromStatus() {
-  state.currentFlow = 'archive';
-  // Set a mock festival for the checkout
-  state.selectedFestival = { name: 'Warsaw Bachata Festival', year: '2026', date: 'May 2026', location: 'Poland' };
-  // Go to State C (Unlock) so user sees the preview + confirm before checkout
-  const festEl = document.getElementById('unlockFestival');
-  if (festEl) festEl.textContent = state.selectedFestival.name;
-  confirmArchiveMatch();
+    // Found person — search their captures
+    const capRes = await fetch(`${API}/api/captures/search?ig=${encodeURIComponent(person.ig)}`);
+    const capData = await capRes.json();
+    const results = capData.results || [];
+
+    if (results.length === 0) {
+      if (statusResult) {
+        statusResult.style.display = '';
+        statusResult.innerHTML = '<p style="color:var(--sdtv-text-muted);text-align:center;">No videos found for ' + esc(person.ig) + '. Your footage may not have been processed yet.</p>';
+      }
+      btn.innerHTML = originalText; btn.disabled = false;
+      return;
+    }
+
+    // Route to archive flow with results
+    state.dancerIdentity = person.ig;
+    state.searchResults = results;
+    state.currentFlow = 'archive';
+
+    const ready = results.filter(r => r.status === 'Ready' || r.status === 'Delivered' || r.status === 'Notified' || r.previewUrl);
+    const notReady = results.filter(r => r.status === 'Captured' || r.status === 'Processing' || r.status === 'Waitlisted');
+
+    if (ready.length > 0) {
+      state.selectedClips = [];
+      populateClipList([...ready, ...notReady], person.ig.replace('@', ''));
+      showScreen('archive-preview');
+    } else if (notReady.length > 0) {
+      const festName = document.getElementById('notreadyFestival');
+      if (festName) festName.textContent = state.selectedFestival?.name || 'the festival';
+      const notifyEmail = document.getElementById('notifyEmail');
+      if (notifyEmail) notifyEmail.value = email;
+      validateNotifyForm();
+      showScreen('archive-notready');
+    }
+  } catch (e) {
+    console.error('Status check error:', e);
+    showToast('Could not check status. Please try again.');
+  }
+  btn.innerHTML = originalText; btn.disabled = false;
 }
 
 // ==========================================
@@ -3655,14 +3718,21 @@ function guessPronoun(name) {
 }
 
 function shareWithPartner() {
-  const url = window.location.href.split('?')[0];
+  // Build deep link with context so partner lands in the right flow
+  const base = window.location.href.split('?')[0];
+  const params = new URLSearchParams();
+  params.set('flow', 'archive');
+  if (state.selectedFestival?.name) params.set('fest', state.selectedFestival.name);
+  if (state.partnerIg) params.set('ig', state.partnerIg);
+  params.set('source', 'partner-share');
+  const url = base + '?' + params.toString();
+
   const partnerName = state.partnerName || 'your dance partner';
   const text = `Hey ${partnerName}! We were filmed by Social Dance TV — you can find and get your video here:`;
 
   if (navigator.share) {
     navigator.share({ title: 'Your dance video', text, url }).catch(() => {});
   } else {
-    // Fallback: copy link
     navigator.clipboard.writeText(`${text} ${url}`).then(() => {
       showToast('Link copied — send it to ' + partnerName);
     }).catch(() => {

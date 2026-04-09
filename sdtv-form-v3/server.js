@@ -283,6 +283,7 @@ app.post('/api/notifications', async (req, res) => {
     if (ig) fields['Recipient IG'] = ig.startsWith('@') ? ig : '@' + ig;
     if (email) fields['Recipient Email'] = email;
     if (template) fields['Template'] = template;
+    if (festival) fields['Notes'] = `Festival: ${festival}`;
 
     await airtableFetch(TABLES.notifications, {
       method: 'POST', body: JSON.stringify({ records: [{ fields }], typecast: true })
@@ -669,6 +670,8 @@ app.get('/delivery', async (req, res) => {
     const style = f['Dance Style'] || '';
     const status = f['Status'] || 'Captured';
     const previewUrl = f['Preview URL'] || '';
+    const finalUrl = f['Final URL'] || '';
+    const downloadUrl = finalUrl || previewUrl;
     const partner1 = f['Partner 1 Name'] || f['Partner 1 IG'] || '';
     const partner2 = f['Partner 2 Name'] || f['Partner 2 IG'] || '';
     const dancers = [partner1, partner2].filter(Boolean).join(' & ') || title;
@@ -740,11 +743,11 @@ app.get('/delivery', async (req, res) => {
     </div>
   </div>
 
-  ${isReady && previewUrl ? `
+  ${isReady && downloadUrl ? `
   <div class="actions">
-    <a href="${esc(previewUrl)}" download class="btn btn-primary">
+    <a href="${esc(downloadUrl)}" download class="btn btn-primary">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      Download HD Video
+      ${finalUrl ? 'Download HD Video' : 'Download Video'}
     </a>
   </div>` : `
   <div class="actions">
@@ -763,7 +766,7 @@ app.get('/delivery', async (req, res) => {
       <span>Edited and cropped for social impact</span>
       <span>Featured through SDTV with collab format</span>
     </div>
-    <a href="/?flow=visibility" class="btn btn-secondary">Add SDTV Feature · €100</a>
+    <a href="/?flow=visibility&source=delivery${festival ? '&fest=' + encodeURIComponent(festival) : ''}${f['Partner 1 IG'] ? '&ig=' + encodeURIComponent(f['Partner 1 IG']) : ''}" class="btn btn-secondary">Add SDTV Feature · €100</a>
   </div>
 
   <div class="footer">
