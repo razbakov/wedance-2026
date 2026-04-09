@@ -109,22 +109,17 @@ async function sendDeliveryEmail({ to, dancers, festival, style, session, delive
   <!-- PREVIEW IMAGE -->
   <tr><td style="padding:22px 20px 0;">
     <a href="${e(deliveryUrl)}" style="display:block;text-decoration:none;">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-radius:12px;overflow:hidden;background-color:#0a0a0d;">
-        <tr><td style="position:relative;text-align:center;${hasThumb ? '' : 'padding:0;'}">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#0a0a0d;border-radius:12px;">
+        <tr><td align="center" style="padding:${hasThumb ? '0' : '48px 0'};text-align:center;">
           ${hasThumb
-            ? `<img src="${e(previewThumb)}" alt="${e(name || 'Your dance')} — tap to watch" width="400" style="display:block;width:100%;height:auto;" />`
-            : `<!--[if !mso]><!--><div style="width:100%;padding-top:56.25%;position:relative;background:linear-gradient(160deg,#16161a 0%,#0a0a0d 60%);">
-                <div style="position:absolute;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;">
-                  <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-                    <td align="center" style="width:56px;height:56px;background-color:${c.red};border-radius:50%;">
-                      <span style="color:white;font-size:22px;line-height:56px;padding-left:4px;">&#9654;</span>
-                    </td>
-                  </tr></table>
-                </div>
-              </div><!--<![endif]-->
-              <!--[if mso]><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:40px 0;background-color:#0a0a0d;">
-                <span style="font-family:${sans};font-size:14px;color:${c.muted};">&#9654; Tap to watch your video</span>
-              </td></tr></table><![endif]-->`
+            ? `<img src="${e(previewThumb)}" alt="${e(name || 'Your dance')} — tap to watch" width="400" style="display:block;width:100%;height:auto;border-radius:12px;" />`
+            : `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+                <td align="center" valign="middle" width="56" height="56" style="width:56px;height:56px;background-color:${c.red};border-radius:28px;text-align:center;vertical-align:middle;">
+                  <a href="${e(deliveryUrl)}" style="display:block;width:56px;height:56px;line-height:56px;font-size:22px;color:white;text-decoration:none;text-align:center;">&#9654;</a>
+                </td>
+              </tr><tr>
+                <td align="center" style="padding-top:10px;font-family:${sans};font-size:12px;color:${c.faint};">Tap to watch your video</td>
+              </tr></table>`
           }
         </td></tr>
       </table>
