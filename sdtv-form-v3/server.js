@@ -45,44 +45,136 @@ if (GMAIL_USER && GMAIL_PASS) {
   console.warn('GMAIL_USER/GMAIL_PASS not set — email disabled');
 }
 
-async function sendDeliveryEmail({ to, dancerName, festival, deliveryUrl }) {
+async function sendDeliveryEmail({ to, dancers, festival, style, session, deliveryUrl, previewThumb }) {
   if (!emailTransport) { console.warn('Email not configured, skipping'); return; }
 
-  const html = `
-<!DOCTYPE html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>
-<body style="margin:0;padding:0;background:#0c0c0e;font-family:'Helvetica Neue',Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#0c0c0e;padding:40px 20px;">
-<tr><td align="center">
-<table width="100%" style="max-width:480px;background:#161618;border-radius:16px;border:1px solid rgba(255,255,255,0.08);overflow:hidden;">
-  <tr><td style="padding:32px 24px 16px;text-align:center;">
-    <div style="font-size:13px;font-weight:700;letter-spacing:0.15em;color:#c1453b;text-transform:uppercase;">Social Dance TV</div>
-    <h1 style="margin:12px 0 8px;font-size:22px;color:#f4f1ec;">Your video is ready!</h1>
-    <p style="margin:0;font-size:14px;color:#8a8580;line-height:1.5;">${dancerName ? `Hey ${dancerName},` : 'Hey,'} your dance video${festival ? ' from <strong style="color:#f4f1ec;">' + festival + '</strong>' : ''} is ready to watch and download.</p>
-  </td></tr>
-  <tr><td style="padding:0 24px 24px;">
-    <a href="${deliveryUrl}" style="display:block;text-align:center;background:#c1453b;color:white;padding:16px 24px;border-radius:12px;font-size:16px;font-weight:600;text-decoration:none;">Watch & Download Your Video</a>
-  </td></tr>
-  <tr><td style="padding:0 24px 24px;">
-    <div style="background:#1e1e21;border-radius:12px;padding:16px;">
-      <div style="font-size:11px;font-weight:700;color:#fbc02d;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">MAKE IT STRONGER</div>
-      <div style="font-size:14px;color:#f4f1ec;font-weight:600;margin-bottom:4px;">Turn your dance into an SDTV Feature</div>
-      <div style="font-size:12px;color:#8a8580;line-height:1.4;margin-bottom:12px;">We select the strongest moment, edit for social media, and publish through SDTV channels.</div>
-      <a href="${deliveryUrl}" style="font-size:13px;color:#c1453b;font-weight:600;text-decoration:none;">Learn more &rarr;</a>
+  const e = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const name = dancers || 'there';
+  const details = [style, session, festival].filter(Boolean).join(' · ');
+  const hasThumb = !!previewThumb;
+
+  const subject = dancers
+    ? `${dancers}, your dance video is ready`
+    : `Your dance video is ready${festival ? ' — ' + festival : ''}`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${e(subject)}</title></head>
+<body style="margin:0;padding:0;background-color:#08080a;-webkit-text-size-adjust:100%;">
+
+<!--[if mso]><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><![endif]-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#08080a;">
+<tr><td align="center" style="padding:32px 16px 40px;">
+
+<!-- MAIN CARD -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:440px;background-color:#111113;border-radius:20px;overflow:hidden;">
+
+  <!-- BRAND HEADER -->
+  <tr><td style="padding:28px 28px 0;text-align:center;">
+    <div style="font-family:Georgia,'Times New Roman',serif;font-size:16px;font-weight:700;color:#f4f1ec;letter-spacing:0.02em;">
+      <span style="display:block;font-size:11px;letter-spacing:0.18em;color:#c1453b;font-family:'Helvetica Neue',Arial,sans-serif;text-transform:uppercase;margin-bottom:2px;">Social Dance TV</span>
     </div>
   </td></tr>
-  <tr><td style="padding:0 24px 20px;text-align:center;">
-    <p style="margin:0;font-size:11px;color:#5a5650;">Social Dance TV &middot; <a href="https://instagram.com/socialdancetv" style="color:#8a8580;">@socialdancetv</a></p>
+
+  <!-- DIVIDER -->
+  <tr><td style="padding:16px 28px 0;"><div style="height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.06),transparent);"></div></td></tr>
+
+  <!-- HEADLINE -->
+  <tr><td style="padding:24px 28px 0;text-align:center;">
+    <h1 style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:26px;font-weight:700;color:#f4f1ec;line-height:1.2;">Your video is ready</h1>
   </td></tr>
+
+  <!-- DANCER NAMES + CONTEXT -->
+  <tr><td style="padding:12px 28px 0;text-align:center;">
+    <p style="margin:0;font-family:'Helvetica Neue',Arial,sans-serif;font-size:15px;font-weight:600;color:#f4f1ec;">${e(name)}</p>
+    ${details ? `<p style="margin:4px 0 0;font-family:'Helvetica Neue',Arial,sans-serif;font-size:12px;color:#6b6560;letter-spacing:0.02em;">${e(details)}</p>` : ''}
+  </td></tr>
+
+  <!-- VIDEO PREVIEW THUMBNAIL -->
+  <tr><td style="padding:24px 28px 0;">
+    <a href="${e(deliveryUrl)}" style="display:block;text-decoration:none;">
+      <div style="position:relative;border-radius:14px;overflow:hidden;background:#0c0c0e;">
+        ${hasThumb
+          ? `<img src="${e(previewThumb)}" alt="Dance video preview" width="384" style="display:block;width:100%;height:auto;border-radius:14px;" />`
+          : `<div style="width:100%;padding-top:56.25%;background:linear-gradient(135deg,#1a1a1d 0%,#0c0c0e 100%);position:relative;">
+              <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">
+                <div style="width:48px;height:48px;border-radius:50%;background:rgba(193,69,59,0.9);display:inline-block;line-height:48px;text-align:center;">
+                  <span style="color:white;font-size:20px;margin-left:3px;">&#9654;</span>
+                </div>
+                <div style="margin-top:8px;font-family:'Helvetica Neue',Arial,sans-serif;font-size:11px;color:#6b6560;">Tap to watch</div>
+              </div>
+            </div>`
+        }
+      </div>
+    </a>
+  </td></tr>
+
+  <!-- TRUST BADGES -->
+  <tr><td style="padding:16px 28px 0;text-align:center;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
+      <tr>
+        <td style="padding:0 10px;font-family:'Helvetica Neue',Arial,sans-serif;font-size:11px;color:#5a5650;">&#10003; Full HD</td>
+        <td style="padding:0 10px;font-family:'Helvetica Neue',Arial,sans-serif;font-size:11px;color:#5a5650;">&#10003; No watermark</td>
+        <td style="padding:0 10px;font-family:'Helvetica Neue',Arial,sans-serif;font-size:11px;color:#5a5650;">&#10003; Yours forever</td>
+      </tr>
+    </table>
+  </td></tr>
+
+  <!-- PRIMARY CTA -->
+  <tr><td style="padding:24px 28px 0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr><td align="center" style="background-color:#c1453b;border-radius:14px;">
+        <a href="${e(deliveryUrl)}" style="display:block;padding:18px 32px;font-family:'Helvetica Neue',Arial,sans-serif;font-size:16px;font-weight:700;color:#ffffff;text-decoration:none;text-align:center;">Download My Video</a>
+      </td></tr>
+    </table>
+  </td></tr>
+
+  <!-- SECONDARY CTA -->
+  <tr><td style="padding:12px 28px 0;text-align:center;">
+    <a href="${e(deliveryUrl)}" style="font-family:'Helvetica Neue',Arial,sans-serif;font-size:13px;color:#8a8580;text-decoration:underline;text-underline-offset:3px;">or watch preview online</a>
+  </td></tr>
+
+  <!-- SPACER -->
+  <tr><td style="padding:20px 28px 0;"><div style="height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.04),transparent);"></div></td></tr>
+
+  <!-- UPSELL BLOCK -->
+  <tr><td style="padding:20px 28px 0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#161618;border-radius:14px;border:1px solid rgba(255,255,255,0.04);">
+      <tr><td style="padding:20px;">
+        <div style="font-family:'Helvetica Neue',Arial,sans-serif;font-size:10px;font-weight:700;color:#fbc02d;text-transform:uppercase;letter-spacing:0.08em;">Make it stronger</div>
+        <div style="margin-top:8px;font-family:'Helvetica Neue',Arial,sans-serif;font-size:15px;font-weight:700;color:#f4f1ec;line-height:1.3;">Get your dance featured on SDTV</div>
+        <div style="margin-top:6px;font-family:'Helvetica Neue',Arial,sans-serif;font-size:12px;color:#6b6560;line-height:1.5;">We select the best moment, shape it for social, and publish it through our 509K+ channel as a collab post.</div>
+        <div style="margin-top:14px;"><a href="${e(deliveryUrl)}" style="font-family:'Helvetica Neue',Arial,sans-serif;font-size:13px;font-weight:600;color:#c1453b;text-decoration:none;">Explore SDTV Feature &rarr;</a></div>
+      </td></tr>
+    </table>
+  </td></tr>
+
+  <!-- SHARE -->
+  <tr><td style="padding:20px 28px 0;text-align:center;">
+    <p style="margin:0;font-family:'Helvetica Neue',Arial,sans-serif;font-size:12px;color:#5a5650;">Dance with a partner? <a href="${e(deliveryUrl)}" style="color:#8a8580;text-decoration:underline;text-underline-offset:2px;">Send them the link</a> — they might want their clip too.</p>
+  </td></tr>
+
+  <!-- FOOTER -->
+  <tr><td style="padding:24px 28px 28px;text-align:center;">
+    <p style="margin:0;font-family:'Helvetica Neue',Arial,sans-serif;font-size:10px;color:#3a3835;line-height:1.6;">
+      Social Dance TV &middot; <a href="https://instagram.com/socialdancetv" style="color:#5a5650;text-decoration:none;">@socialdancetv</a><br>
+      You received this because you purchased a video from SDTV.
+    </p>
+  </td></tr>
+
 </table>
-</td></tr></table>
+<!-- /MAIN CARD -->
+
+</td></tr>
+</table>
+<!--[if mso]></td></tr></table><![endif]-->
+
 </body></html>`;
 
   try {
     await emailTransport.sendMail({
       from: `"Social Dance TV" <${GMAIL_USER}>`,
       to,
-      subject: `Your dance video is ready${festival ? ' — ' + festival : ''} 🎬`,
+      subject: `${subject} 🎬`,
       html,
     });
     console.log('Delivery email sent to', to);
@@ -94,24 +186,42 @@ async function sendDeliveryEmail({ to, dancerName, festival, deliveryUrl }) {
 async function sendNotifyConfirmEmail({ to, dancerName, festival }) {
   if (!emailTransport) return;
 
-  const html = `
-<!DOCTYPE html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>
-<body style="margin:0;padding:0;background:#0c0c0e;font-family:'Helvetica Neue',Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#0c0c0e;padding:40px 20px;">
-<tr><td align="center">
-<table width="100%" style="max-width:480px;background:#161618;border-radius:16px;border:1px solid rgba(255,255,255,0.08);overflow:hidden;">
-  <tr><td style="padding:32px 24px 16px;text-align:center;">
-    <div style="font-size:13px;font-weight:700;letter-spacing:0.15em;color:#c1453b;text-transform:uppercase;">Social Dance TV</div>
-    <h1 style="margin:12px 0 8px;font-size:22px;color:#f4f1ec;">You're on the list!</h1>
-    <p style="margin:0;font-size:14px;color:#8a8580;line-height:1.5;">${dancerName ? `Hey ${dancerName},` : 'Hey,'} we'll email you the moment your video${festival ? ' from <strong style="color:#f4f1ec;">' + festival + '</strong>' : ''} is ready to preview and purchase.</p>
+  const e = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const name = dancerName || 'there';
+
+  const html = `<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background-color:#08080a;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#08080a;">
+<tr><td align="center" style="padding:32px 16px 40px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:440px;background-color:#111113;border-radius:20px;overflow:hidden;">
+
+  <tr><td style="padding:28px 28px 0;text-align:center;">
+    <span style="font-family:'Helvetica Neue',Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.18em;color:#c1453b;text-transform:uppercase;">Social Dance TV</span>
   </td></tr>
-  <tr><td style="padding:16px 24px 24px;text-align:center;">
-    <p style="margin:0;font-size:12px;color:#5a5650;">No spam. Just one email when your video drops.</p>
+
+  <tr><td style="padding:16px 28px 0;"><div style="height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.06),transparent);"></div></td></tr>
+
+  <tr><td style="padding:24px 28px 0;text-align:center;">
+    <h1 style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:24px;font-weight:700;color:#f4f1ec;line-height:1.2;">We're on it</h1>
   </td></tr>
-  <tr><td style="padding:0 24px 20px;text-align:center;">
-    <p style="margin:0;font-size:11px;color:#5a5650;">Social Dance TV &middot; <a href="https://instagram.com/socialdancetv" style="color:#8a8580;">@socialdancetv</a></p>
+
+  <tr><td style="padding:14px 28px 0;text-align:center;">
+    <p style="margin:0;font-family:'Helvetica Neue',Arial,sans-serif;font-size:14px;color:#8a8580;line-height:1.6;">Hey ${e(name)}, your dance${festival ? ' from <strong style="color:#f4f1ec;">' + e(festival) + '</strong>' : ''} is being edited. We'll send you one email the moment it's ready to watch and download.</p>
   </td></tr>
+
+  <tr><td style="padding:24px 28px 0;text-align:center;">
+    <div style="display:inline-block;background-color:#161618;border:1px solid rgba(255,255,255,0.04);border-radius:12px;padding:14px 24px;">
+      <span style="font-family:'Helvetica Neue',Arial,sans-serif;font-size:12px;color:#6b6560;">No spam &middot; Just one email when your video drops</span>
+    </div>
+  </td></tr>
+
+  <tr><td style="padding:28px 28px 28px;text-align:center;">
+    <p style="margin:0;font-family:'Helvetica Neue',Arial,sans-serif;font-size:10px;color:#3a3835;line-height:1.6;">
+      Social Dance TV &middot; <a href="https://instagram.com/socialdancetv" style="color:#5a5650;text-decoration:none;">@socialdancetv</a>
+    </p>
+  </td></tr>
+
 </table>
 </td></tr></table>
 </body></html>`;
@@ -120,7 +230,7 @@ async function sendNotifyConfirmEmail({ to, dancerName, festival }) {
     await emailTransport.sendMail({
       from: `"Social Dance TV" <${GMAIL_USER}>`,
       to,
-      subject: `We'll notify you when your video is ready${festival ? ' — ' + festival : ''} 🔔`,
+      subject: festival ? `We're editing your dance — ${festival}` : `We're editing your dance video`,
       html,
     });
     console.log('Notify confirmation email sent to', to);
@@ -412,18 +522,30 @@ app.post('/api/send-delivery-email', async (req, res) => {
     const baseUrl = `${req.protocol}://${req.get('host')}`;
     const deliveryUrl = `${baseUrl}/delivery?id=${encodeURIComponent(captureId)}`;
 
-    // Get dancer name from capture
-    let dancerName = ig || '';
+    // Fetch capture details for rich email
+    let dancers = ig || '';
+    let style = '';
+    let session = '';
+    let previewThumb = '';
     try {
       const cap = await airtableFetch(`${TABLES.captures}/${captureId}`);
-      dancerName = cap.fields?.['Video Title'] || cap.fields?.['Partner 1 Name'] || ig || '';
+      const f = cap.fields || {};
+      const p1 = f['Partner 1 Name'] || '';
+      const p2 = f['Partner 2 Name'] || '';
+      dancers = f['Video Title'] || [p1, p2].filter(Boolean).join(' & ') || ig || '';
+      style = f['Dance Style'] || '';
+      session = f['Session'] || '';
+      previewThumb = f['Preview URL'] || '';
     } catch {}
 
     await sendDeliveryEmail({
       to: email,
-      dancerName,
+      dancers,
       festival: festival || '',
+      style,
+      session,
       deliveryUrl,
+      previewThumb,
     });
 
     res.json({ ok: true, deliveryUrl });
