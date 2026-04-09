@@ -95,7 +95,7 @@ async function sendDeliveryEmail({ to, dancers, festival, style, session, delive
 
   <!-- HEADLINE -->
   <tr><td style="padding:22px 28px 0;text-align:center;">
-    <h1 style="margin:0;font-family:${serif};font-size:28px;font-weight:700;color:${c.ivory};line-height:1.15;letter-spacing:-0.01em;">Your moment is ready</h1>
+    <h1 style="margin:0;font-family:${serif};font-size:28px;font-weight:700;color:${c.ivory};line-height:1.15;letter-spacing:-0.01em;">Your video is ready</h1>
   </td></tr>
 
   <!-- NAMES + META -->
