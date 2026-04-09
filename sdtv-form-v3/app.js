@@ -1359,7 +1359,8 @@ async function simulateArchivePayment() {
       body: JSON.stringify({
         ig: state.dancerIdentity || '',
         email: email,
-        source: 'Archive Purchase'
+        source: 'Archive Purchase',
+        paid: true
       })
     });
     // Create notification for delivery tracking
@@ -2744,7 +2745,7 @@ async function processArchivePayment() {
       await fetch(`${API}/api/people/upsert`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ig: state.dancerIdentity || '', email, source: 'Free Promo Checkout' })
+        body: JSON.stringify({ ig: state.dancerIdentity || '', email, source: 'Free Promo Checkout', paid: true })
       });
       await fetch(`${API}/api/notifications`, {
         method: 'POST',
@@ -2805,7 +2806,7 @@ async function processArchivePayment() {
         await fetch(`${API}/api/people/upsert`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ig: state.dancerIdentity || '', email, source: 'Archive Purchase' })
+          body: JSON.stringify({ ig: state.dancerIdentity || '', email, source: 'Archive Purchase', paid: true })
         });
         await fetch(`${API}/api/notifications`, {
           method: 'POST',
@@ -3376,7 +3377,7 @@ function mountPaymentRequest() {
           await fetch(`${API}/api/people/upsert`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ig: state.dancerIdentity || '', email, source: 'Archive Purchase' })
+            body: JSON.stringify({ ig: state.dancerIdentity || '', email, source: 'Archive Purchase', paid: true })
           });
         } catch (e) {}
         showScreen('archive-confirmation');
@@ -3464,7 +3465,7 @@ async function processUnlockPayment() {
         await fetch(`${API}/api/people/upsert`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ig: state.dancerIdentity || '', email, source: 'Archive Purchase' })
+          body: JSON.stringify({ ig: state.dancerIdentity || '', email, source: 'Archive Purchase', paid: true })
         });
         await fetch(`${API}/api/notifications`, {
           method: 'POST',

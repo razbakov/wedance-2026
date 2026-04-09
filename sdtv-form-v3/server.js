@@ -201,7 +201,7 @@ app.get('/api/captures/search', async (req, res) => {
 // Same logic as capture form server
 app.post('/api/people/upsert', async (req, res) => {
   try {
-    const { ig, email, name, source } = req.body || {};
+    const { ig, email, name, source, paid } = req.body || {};
     if (!ig && !email && !name) {
       return res.status(400).json({ error: 'Need at least ig, email, or name' });
     }
@@ -234,11 +234,12 @@ app.post('/api/people/upsert', async (req, res) => {
       const f = existing.fields;
       const upd = { 'Last Seen': now, 'Capture Count': (f['Capture Count'] || 0) + 1 };
       if (ig) { const n = ig.startsWith('@') ? ig : '@' + ig; if (n !== f.Instagram) upd.Instagram = n; }
-      // Email: fill if empty, or store as delivery email if different from primary
-      if (email && !f.Email) {
+      // paid=true (from checkout) → set primary Email; otherwise → Delivery Email only
+      if (email && paid && email.toLowerCase() !== (f.Email || '').toLowerCase()) {
         upd.Email = email;
-      } else if (email && f.Email && email.toLowerCase() !== f.Email.toLowerCase()) {
-        upd.Notes = (f.Notes ? f.Notes + '\n' : '') + `Delivery email: ${email} (${now.split('T')[0]})`;
+      }
+      if (email && email.toLowerCase() !== (f['Delivery Email'] || '').toLowerCase()) {
+        upd['Delivery Email'] = email;
       }
       if (capName && !f.Name) upd.Name = capName;
       if (source) upd['Last Source'] = source;
@@ -250,7 +251,8 @@ app.post('/api/people/upsert', async (req, res) => {
     } else {
       const fields = { 'First Seen': now, 'Last Seen': now, 'Capture Count': 1 };
       if (ig) fields.Instagram = ig.startsWith('@') ? ig : '@' + ig;
-      if (email) fields.Email = email;
+      if (email && paid) fields.Email = email;
+      if (email) fields['Delivery Email'] = email;
       if (capName) fields.Name = capName;
       fields.Source = source || 'Client form';
       if (source) fields['Last Source'] = source;
