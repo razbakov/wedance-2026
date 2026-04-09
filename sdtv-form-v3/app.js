@@ -866,7 +866,8 @@ async function searchArchive() {
       // Pre-fill notify form with known data
       const notifyEmail = document.getElementById('notifyEmail');
       const notifyIg = document.getElementById('notifyInstagram');
-      const knownEmail = state.collectedEmail || state.knownEmail || localStorage.getItem('sdtv_email') || '';
+      // Only pre-fill from current session or URL param
+      const knownEmail = state.collectedEmail || state.knownEmail || '';
       const knownIg = state.dancerIdentity || '';
       if (notifyEmail && knownEmail) { notifyEmail.value = knownEmail; }
       if (notifyIg && knownIg) { notifyIg.value = knownIg.startsWith('@') ? knownIg : '@' + knownIg; }
@@ -1470,7 +1471,8 @@ async function submitNotifyMe() {
 
 // ── Empty state: notify me when video is ready ──
 function initEmptyNotify() {
-  const knownEmail = state.collectedEmail || localStorage.getItem('sdtv_email') || '';
+  // Only pre-fill from current session or URL param — not localStorage (may be someone else's)
+  const knownEmail = state.collectedEmail || '';
   const knownWrap = document.getElementById('emptyNotifyKnown');
   const knownLabel = document.getElementById('emptyNotifyKnownEmail');
   const labelWrap = document.getElementById('emptyNotifyLabel');

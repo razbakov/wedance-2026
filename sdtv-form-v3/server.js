@@ -234,8 +234,13 @@ app.post('/api/people/upsert', async (req, res) => {
       const f = existing.fields;
       const upd = { 'Last Seen': now, 'Capture Count': (f['Capture Count'] || 0) + 1 };
       if (ig) { const n = ig.startsWith('@') ? ig : '@' + ig; if (n !== f.Instagram) upd.Instagram = n; }
-      if (email && email !== f.Email) upd.Email = email;
-      if (capName && capName !== f.Name) upd.Name = capName;
+      // Email: fill if empty, or store as delivery email if different from primary
+      if (email && !f.Email) {
+        upd.Email = email;
+      } else if (email && f.Email && email.toLowerCase() !== f.Email.toLowerCase()) {
+        upd.Notes = (f.Notes ? f.Notes + '\n' : '') + `Delivery email: ${email} (${now.split('T')[0]})`;
+      }
+      if (capName && !f.Name) upd.Name = capName;
       if (source) upd['Last Source'] = source;
 
       await airtableFetch(`${TABLES.people}/${existing.id}`, {
