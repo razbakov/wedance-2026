@@ -1,2 +1,5 @@
 .claude/settings.local.json
+.claude/launch.json
 .env
+.playwright-mcp/
+tmp_docx_text.txt
