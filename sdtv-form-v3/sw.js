@@ -1,5 +1,5 @@
 // SDTV Form Service Worker — network-first with offline fallback
-const CACHE_NAME = 'sdtv-form-v4';
+const CACHE_NAME = 'sdtv-form-v5';
 const SHELL = ['/', '/index.html', '/style.css', '/app.js'];
 
 self.addEventListener('install', (e) => {

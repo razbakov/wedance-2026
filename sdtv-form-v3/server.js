@@ -109,20 +109,15 @@ async function sendDeliveryEmail({ to, dancers, festival, style, session, delive
   <!-- PREVIEW IMAGE -->
   <tr><td style="padding:22px 20px 0;">
     <a href="${e(deliveryUrl)}" style="display:block;text-decoration:none;">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#0a0a0d;border-radius:12px;">
-        <tr><td align="center" style="padding:${hasThumb ? '0' : '48px 0'};text-align:center;">
-          ${hasThumb
-            ? `<img src="${e(previewThumb)}" alt="${e(name || 'Your dance')} — tap to watch" width="400" style="display:block;width:100%;height:auto;border-radius:12px;" />`
-            : `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-                <td align="center" valign="middle" width="56" height="56" style="width:56px;height:56px;background-color:${c.red};border-radius:28px;text-align:center;vertical-align:middle;">
-                  <a href="${e(deliveryUrl)}" style="display:block;width:56px;height:56px;line-height:56px;font-size:22px;color:white;text-decoration:none;text-align:center;">&#9654;</a>
-                </td>
-              </tr><tr>
-                <td align="center" style="padding-top:10px;font-family:${sans};font-size:12px;color:${c.faint};">Tap to watch your video</td>
-              </tr></table>`
-          }
-        </td></tr>
-      </table>
+      ${hasThumb
+        ? `<img src="${e(previewThumb)}" alt="${e(name || 'Your dance')} — tap to watch" width="400" style="display:block;width:100%;height:auto;border-radius:12px;" />`
+        : `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#0a0a0d" style="background-color:#0a0a0d;border-radius:12px;">
+            <tr><td align="center" height="180" style="text-align:center;vertical-align:middle;font-size:0;">
+              <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/YouTube_play_button_icon_%282013%E2%80%932017%29.svg/64px-YouTube_play_button_icon_%282013%E2%80%932017%29.svg.png" alt="Play" width="48" height="34" style="display:inline-block;border:0;outline:none;" />
+            </td></tr>
+            <tr><td align="center" style="padding:0 0 20px;font-family:${sans};font-size:12px;color:${c.faint};text-align:center;">Tap to watch your video</td></tr>
+          </table>`
+      }
     </a>
   </td></tr>
 
