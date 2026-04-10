@@ -16,11 +16,11 @@ const path = require('path');
 
 const app = express();
 /** @type {number} */
-const PORT = 8001;
+const PORT = parseInt(process.env.PORT || '8001', 10);
 
-// ffmpeg for preview generation (bundled binary via ffmpeg-static)
+// ffmpeg for preview generation — prefer ffmpeg-static, fall back to system ffmpeg
 /** @type {string} */
-const FFMPEG = require('ffmpeg-static');
+const FFMPEG = (() => { try { return require('ffmpeg-static'); } catch { return 'ffmpeg'; } })();
 const PREVIEW_DIR = path.join(__dirname, '.preview-cache');
 if (!existsSync(PREVIEW_DIR)) mkdirSync(PREVIEW_DIR, { recursive: true });
 
