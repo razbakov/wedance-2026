@@ -1018,7 +1018,7 @@ app.get('/delivery', async (req, res) => {
   <div class="video-card">
     <div class="video-wrap">
       ${previewUrl
-        ? `<video src="${esc(previewUrl)}" controls playsinline preload="metadata"></video>`
+        ? `<video src="/api/preview/${esc(id)}" controls playsinline preload="metadata"></video>`
         : `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--faint);">Video preview loading...</div>`
       }
     </div>
