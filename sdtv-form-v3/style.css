@@ -2090,13 +2090,13 @@ body {
 .day-card {
   flex: 1;
   min-width: 90px;
-  padding: var(--space-4) var(--space-3);
+  padding: var(--space-4) var(--space-3) var(--space-3);
   background: var(--sdtv-surface);
   border: 1.5px solid var(--sdtv-border);
   border-radius: var(--radius-md);
   cursor: pointer;
   text-align: center;
-  transition: all var(--transition-fast);
+  transition: all var(--transition-med);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2106,11 +2106,13 @@ body {
 
 .day-card:hover {
   border-color: var(--sdtv-text-faint);
+  transform: translateY(-1px);
 }
 
 .day-card.selected {
   border-color: var(--sdtv-red);
   background: var(--sdtv-red-glow);
+  box-shadow: 0 0 20px rgba(211, 47, 47, 0.15);
 }
 
 .day-card-weekday {
@@ -2137,6 +2139,40 @@ body {
   color: var(--sdtv-ivory);
 }
 
+/* Day availability badges */
+.day-card-avail {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 4px;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+}
+
+.day-avail-available {
+  color: var(--sdtv-green);
+}
+
+.day-avail-popular {
+  color: var(--sdtv-gold);
+  background: rgba(255, 193, 7, 0.1);
+}
+
+.day-avail-few-spots {
+  color: #ff9800;
+  background: rgba(255, 152, 0, 0.1);
+}
+
+.day-avail-sold-out {
+  color: var(--sdtv-text-faint);
+}
+
+.day-card.selected .day-card-avail {
+  color: var(--sdtv-ivory);
+  background: rgba(255, 255, 255, 0.1);
+}
+
 /* ========== TIME SLOTS ========== */
 .time-slots {
   display: flex;
@@ -2151,37 +2187,73 @@ body {
 }
 
 .slots-list {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: var(--space-2);
 }
 
-.slot-pill {
-  padding: var(--space-2) var(--space-4);
+.slot-card {
+  padding: var(--space-3) var(--space-3);
   background: var(--sdtv-surface);
   border: 1.5px solid var(--sdtv-border);
-  border-radius: var(--radius-full);
-  font-size: var(--text-xs);
-  font-weight: 500;
-  color: var(--sdtv-text-muted);
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: all var(--transition-med);
   font-family: var(--font-body);
-  white-space: nowrap;
-  min-height: 36px;
-  display: inline-flex;
-  align-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
 }
 
-.slot-pill:hover {
+.slot-card:hover {
   border-color: var(--sdtv-text-faint);
-  color: var(--sdtv-text);
+  transform: translateY(-1px);
 }
 
-.slot-pill.selected {
-  background: var(--sdtv-red);
+.slot-card.selected {
+  background: var(--sdtv-red-glow);
   border-color: var(--sdtv-red);
+  box-shadow: 0 0 16px rgba(211, 47, 47, 0.12);
+}
+
+.slot-card-label {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--sdtv-ivory);
+}
+
+.slot-card-time {
+  font-size: 11px;
+  color: var(--sdtv-text-muted);
+  font-weight: 500;
+}
+
+.slot-card-desc {
+  font-size: 10px;
+  color: var(--sdtv-text-faint);
+  margin-top: 2px;
+}
+
+.slot-card.selected .slot-card-label {
   color: white;
+}
+
+.slot-card.selected .slot-card-time {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.slot-card.selected .slot-card-desc {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* ========== SLOT EXPLAINER ========== */
+.slot-explainer {
+  font-size: var(--text-xs);
+  color: var(--sdtv-text-faint);
+  margin-top: -4px;
+  line-height: 1.4;
 }
 
 /* ========== SLOT SELECTION SUMMARY ========== */
@@ -2189,6 +2261,14 @@ body {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+}
+
+.slot-confirm-heading {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--sdtv-text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .slot-confirm-card {
@@ -2216,6 +2296,23 @@ body {
   font-size: var(--text-xs);
   color: var(--sdtv-text-faint);
   text-align: center;
+}
+
+.slot-confirm-next {
+  font-size: var(--text-xs);
+  color: var(--sdtv-text-muted);
+  text-align: center;
+  font-weight: 500;
+}
+
+/* Summary entrance animation */
+.slot-summary-enter {
+  animation: slotSummaryIn var(--transition-med) ease-out;
+}
+
+@keyframes slotSummaryIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 /* ========== SLOT SKIP ========== */
@@ -2881,6 +2978,10 @@ footer a:hover {
   
   .day-card {
     min-width: 80px;
+  }
+
+  .slots-list {
+    grid-template-columns: 1fr;
   }
 }
 

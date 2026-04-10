@@ -335,6 +335,8 @@ When a task has a human final owner, agents:
 - Notifications in Russian by default
 - Files over conversations — save everything to disk
 - No jargon without explanation
+- **One change = one branch.** Every distinct change (feature, fix, refactor) gets its own git branch. Do not mix unrelated changes in a single branch. Name branches descriptively (e.g., `fix/email-crash`, `feat/premium-redesign`). One commit per change is ideal — no more than 3 commits per branch.
+- **Done = pull request.** When a change is complete, create a PR to `main`. Do not leave finished work on a branch without a PR.
 
 ## Current OKRs (Q2 2026)
 

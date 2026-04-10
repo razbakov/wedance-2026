@@ -733,6 +733,7 @@ if ('serviceWorker' in navigator) {
         <div class="step-indicator">STEP 3 OF 4</div>
         <h2 class="screen-title">Choose your filming day</h2>
         <p class="screen-subtitle" id="slotFestivalName">Festival Name · Dates</p>
+        <p class="slot-explainer">Book your filming window — we'll capture your dance during this session</p>
         
         <div class="day-selector" id="daySelector">
           <!-- Days populated by JS -->
@@ -746,6 +747,7 @@ if ('serviceWorker' in navigator) {
         </div>
         
         <div class="slot-selection-summary" id="slotSummary" style="display:none;">
+          <div class="slot-confirm-heading">Your selection</div>
           <div class="slot-confirm-card">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--sdtv-green)" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
             <div>
@@ -754,17 +756,18 @@ if ('serviceWorker' in navigator) {
             </div>
           </div>
           <p class="slot-confirm-note">Free rescheduling until 24h before the event</p>
+          <p class="slot-confirm-next">Next: review your booking details</p>
         </div>
         
         <div class="slot-skip" id="slotSkipWrap">
           <button class="btn-ghost btn-sm" onclick="skipSlotBooking()">
-            I'll pick later — send me a link
+            Not sure yet? Send me a booking link
           </button>
         </div>
         
         <div class="sticky-cta">
           <button class="btn-primary disabled" id="slotNextBtn" disabled onclick="goToPreorderCheckout()">
-            Continue to Checkout
+            <span id="slotCtaText">Select a slot to continue</span>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
           </button>
         </div>

@@ -318,11 +318,18 @@ const festivals = [];
 let upcomingFestivals = []; // populated from liveFestivals (Upcoming status)
 
 const timeSlots = [
-  { label: 'Afternoon Social', time: '14:00–17:00' },
-  { label: 'Evening Party', time: '20:00–23:00' },
-  { label: 'Late Night Party', time: '23:00–01:00' },
-  { label: 'Pool Party', time: '12:00–15:00' },
+  { label: 'Afternoon Social', time: '14:00–17:00', desc: 'Best for daytime socials' },
+  { label: 'Evening Party', time: '20:00–23:00', desc: 'Most requested' },
+  { label: 'Late Night Party', time: '23:00–01:00', desc: 'Peak energy hours' },
+  { label: 'Pool Party', time: '12:00–15:00', desc: 'Relaxed poolside vibes' },
 ];
+
+// Availability labels for day cards (can be overridden per-festival from Airtable)
+const dayAvailabilityDefaults = ['Available', 'Popular', 'Available', 'Few spots', 'Available', 'Popular', 'Few spots'];
+function getDayAvailability(dayIndex, total) {
+  // Festivals can override via day.availability; this is the fallback
+  return dayAvailabilityDefaults[dayIndex % dayAvailabilityDefaults.length];
+}
 
 // ==========================================
 // POPUP OPEN / CLOSE
@@ -1700,12 +1707,15 @@ function renderDaySelector() {
     const month = parts[1] || '';
     const date = parts[2] || (i + 1);
     const isSelected = state.selectedDay === day;
+    const avail = getDayAvailability(i, days.length);
+    const availClass = avail.toLowerCase().replace(/\s+/g, '-');
 
     return `
       <button class="day-card ${isSelected ? 'selected' : ''}" onclick="selectDay('${day}')">
         <span class="day-card-weekday">${weekday}</span>
         <span class="day-card-date">${date}</span>
         <span class="day-card-month">${month}</span>
+        <span class="day-card-avail day-avail-${availClass}">${avail}</span>
       </button>
     `;
   }).join('');
@@ -1725,13 +1735,15 @@ function selectDay(day) {
   const slotSummary = document.getElementById('slotSummary');
   if (slotSummary) slotSummary.style.display = 'none';
 
-  // Render time slot pills
+  // Render time slot cards
   const slotsList = document.getElementById('slotsList');
   if (slotsList) {
     slotsList.innerHTML = timeSlots.map(s => {
       return `
-        <button class="slot-pill" onclick="selectTimeSlot(this, '${s.label}', '${s.time}')">
-          ${s.label} · ${s.time}
+        <button class="slot-card" onclick="selectTimeSlot(this, '${s.label}', '${s.time}')">
+          <span class="slot-card-label">${s.label}</span>
+          <span class="slot-card-time">${s.time}</span>
+          <span class="slot-card-desc">${s.desc}</span>
         </button>
       `;
     }).join('');
@@ -1740,21 +1752,34 @@ function selectDay(day) {
   // Disable next button until slot is selected
   const slotNextBtn = document.getElementById('slotNextBtn');
   if (slotNextBtn) { slotNextBtn.disabled = true; slotNextBtn.classList.add('disabled'); }
+
+  // Reset CTA text
+  const ctaText = document.getElementById('slotCtaText');
+  if (ctaText) ctaText.textContent = 'Select a slot to continue';
 }
 
 function selectTimeSlot(el, label, time) {
   state.selectedSlot = { label, time };
 
-  // Update pill selection
-  document.querySelectorAll('.slot-pill').forEach(p => p.classList.remove('selected'));
+  // Update card selection
+  document.querySelectorAll('.slot-card').forEach(p => p.classList.remove('selected'));
   el.classList.add('selected');
 
-  // Show summary
+  // Show summary with animation
   const slotSummary = document.getElementById('slotSummary');
-  if (slotSummary) slotSummary.style.display = '';
+  if (slotSummary) {
+    slotSummary.style.display = '';
+    slotSummary.classList.remove('slot-summary-enter');
+    void slotSummary.offsetWidth; // trigger reflow
+    slotSummary.classList.add('slot-summary-enter');
+  }
 
   document.getElementById('slotConfirmDay').textContent = state.selectedDay;
   document.getElementById('slotConfirmTime').textContent = label + ' · ' + time;
+
+  // Update CTA text
+  const ctaText = document.getElementById('slotCtaText');
+  if (ctaText) ctaText.textContent = 'Continue with This Slot';
 
   // Enable next button
   const slotNextBtn = document.getElementById('slotNextBtn');
