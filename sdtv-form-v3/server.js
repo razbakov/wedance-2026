@@ -281,6 +281,7 @@ const TABLES = {
   captures:      'tblgiQssV0qnosiUl',
   notifications: 'tblWdNvW7mYibjddz',
   reservations:  'tblIon4g1QQdkUkpk',
+  sessions:      'tblmI2kd2d9D8Pb1W',
 };
 
 // ── SECURITY HEADERS ────────────────────────────────
@@ -363,6 +364,100 @@ app.get('/api/festivals', async (req, res) => {
     res.json(data);
   } catch (e) {
     res.status(500).json({ error: 'Failed to load festivals' });
+  }
+});
+
+// ── GET /api/sessions?festivalId=recXXX ─────────
+// Returns filming sessions for a festival, with real availability
+const sessionCache = {};
+app.get('/api/sessions', async (req, res) => {
+  try {
+    const festivalId = (req.query.festivalId || '').trim();
+    if (!festivalId || !festivalId.startsWith('rec')) {
+      return res.status(400).json({ error: 'festivalId required' });
+    }
+
+    const fresh = req.query.fresh === '1';
+    const cacheKey = festivalId;
+    const now = Date.now();
+    if (!fresh && sessionCache[cacheKey] && now - sessionCache[cacheKey].ts < 90 * 1000) {
+      return res.json(sessionCache[cacheKey].data);
+    }
+
+    // Fetch all non-hidden sessions, then filter by festival link in JS
+    // (Airtable formula can't reliably filter by linked record IDs)
+    const formula = encodeURIComponent(`Status != "Hidden"`);
+    const sort = `sort%5B0%5D%5Bfield%5D=Day&sort%5B0%5D%5Bdirection%5D=asc&sort%5B1%5D%5Bfield%5D=Sort%20Order&sort%5B1%5D%5Bdirection%5D=asc`;
+    const data = await airtableFetch(`${TABLES.sessions}?filterByFormula=${formula}&${sort}`);
+    const sessions = (data.records || []).filter(s => {
+      const linked = s.fields.Festival;
+      return Array.isArray(linked) && linked.includes(festivalId);
+    });
+
+    // Count confirmed reservations per session
+    const sessionIds = new Set(sessions.map(s => s.id));
+    const bookedMap = {};
+    if (sessionIds.size > 0) {
+      try {
+        const resFormula = encodeURIComponent(`{Booking Status} = "Confirmed"`);
+        const resFields = `fields%5B%5D=${encodeURIComponent('Session')}`;
+        const resData = await airtableFetch(`${TABLES.reservations}?filterByFormula=${resFormula}&${resFields}`);
+        for (const r of (resData.records || [])) {
+          const linked = r.fields.Session;
+          if (Array.isArray(linked)) {
+            for (const sid of linked) {
+              if (sessionIds.has(sid)) {
+                bookedMap[sid] = (bookedMap[sid] || 0) + 1;
+              }
+            }
+          }
+        }
+      } catch (e) {
+        // If reservation counting fails, default to 0 — don't block session listing
+      }
+    }
+
+    // Build response
+    const weekdays = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+    const result = sessions.map(s => {
+      const f = s.fields;
+      const capacity = f.Capacity || 0;
+      const booked = bookedMap[s.id] || 0;
+      const spotsLeft = Math.max(0, capacity - booked);
+      const status = f.Status || 'Open';
+      const isBookable = (status === 'Open' || status === 'Few Spots') && spotsLeft > 0;
+
+      // Build day label from date
+      const d = f.Day ? new Date(f.Day + 'T12:00:00') : null;
+      const dayLabel = d
+        ? `${weekdays[d.getDay()]} ${months[d.getMonth()]} ${d.getDate()}`
+        : f.Day || '';
+
+      return {
+        id: s.id,
+        festivalId,
+        label: f['Session Name'] || '',
+        day: f.Day || '',
+        dayLabel,
+        timeStart: f['Time Start'] || '',
+        timeEnd: f['Time End'] || '',
+        desc: f.Description || '',
+        status,
+        capacity,
+        booked,
+        spotsLeft,
+        isBookable,
+        sortOrder: f['Sort Order'] || 0,
+      };
+    });
+
+    const response = { sessions: result };
+    sessionCache[cacheKey] = { data: response, ts: now };
+    res.json(response);
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to load sessions' });
   }
 });
 
@@ -583,18 +678,52 @@ app.post('/api/send-delivery-email', async (req, res) => {
 // Book a filming slot at a festival
 app.post('/api/reservations', async (req, res) => {
   try {
-    const { festival, day, style, ig, email, name, package: pkg, notes } = req.body || {};
+    const { festival, festivalId, sessionId, day, style, ig, email, name, package: pkg, notes } = req.body || {};
     if (!festival || !ig && !email) {
       return res.status(400).json({ error: 'Festival and contact info required' });
     }
+
+    // Server-side session validation (if sessionId provided)
+    if (sessionId) {
+      try {
+        const sessionData = await airtableFetch(`${TABLES.sessions}/${sessionId}`);
+        const sf = sessionData.fields || {};
+        const sessionStatus = sf.Status || '';
+        if (sessionStatus === 'Hidden' || sessionStatus === 'Closed') {
+          return res.status(409).json({ error: 'This session is no longer available' });
+        }
+        // Check capacity
+        const capacity = sf.Capacity || 0;
+        if (capacity > 0) {
+          const formula = encodeURIComponent(
+            `AND({Booking Status} = "Confirmed", FIND("${sessionId}", ARRAYJOIN(RECORD_ID(Session))))`
+          );
+          const resData = await airtableFetch(`${TABLES.reservations}?filterByFormula=${formula}&fields%5B%5D=Session`);
+          const booked = (resData.records || []).length;
+          if (booked >= capacity) {
+            return res.status(409).json({ error: 'This session is fully booked' });
+          }
+        }
+        // Verify session belongs to festival
+        const linkedFest = sf.Festival;
+        if (festivalId && Array.isArray(linkedFest) && !linkedFest.includes(festivalId)) {
+          return res.status(409).json({ error: 'Session does not match selected festival' });
+        }
+      } catch (e) {
+        return res.status(409).json({ error: 'Session not found' });
+      }
+    }
+
     const ref = `RSV-${Date.now().toString(36).toUpperCase()}`;
     const capName = name ? name.replace(/\b\w/g, c => c.toUpperCase()) : '';
     const fields = {
       'Reservation ID': ref,
       'Festival': festival,
       'Status': 'Reserved',
+      'Booking Status': 'Pending',
       'Created At': new Date().toISOString(),
     };
+    if (sessionId) fields['Session'] = [sessionId];
     if (day) fields['Day'] = day;
     if (style) fields['Dance Style'] = style;
     if (ig) fields['Instagram'] = ig.startsWith('@') ? ig : '@' + ig;
@@ -607,6 +736,9 @@ app.post('/api/reservations', async (req, res) => {
       method: 'POST',
       body: JSON.stringify({ records: [{ fields }], typecast: true })
     });
+
+    // Invalidate session cache for this festival
+    if (festivalId) delete sessionCache[festivalId];
 
     // Also upsert into People table
     if (ig || email) {
@@ -981,7 +1113,7 @@ app.get('/delivery', async (req, res) => {
   body { background: var(--bg); color: var(--ivory); font-family: 'Inter', sans-serif; min-height: 100dvh; display: flex; justify-content: center; padding: 24px 16px; }
   .container { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 20px; }
   .header { text-align: center; padding: 20px 0 8px; }
-  .header img { width: 56px; height: 56px; opacity: 0.85; margin-bottom: 8px; }
+  .header img { width: 72px; height: 72px; border-radius: 14px; margin-bottom: 10px; }
   .header h1 { font-size: 1.25rem; font-weight: 700; margin-bottom: 4px; }
   .header p { font-size: 0.8125rem; color: var(--muted); }
   .video-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
@@ -1018,7 +1150,7 @@ app.get('/delivery', async (req, res) => {
   <div class="video-card">
     <div class="video-wrap">
       ${previewUrl
-        ? `<video src="/api/preview/${esc(id)}" controls playsinline preload="metadata"></video>`
+        ? `<video src="/api/preview/${esc(id)}" controls playsinline preload="auto"></video>`
         : `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--faint);">Video preview loading...</div>`
       }
     </div>

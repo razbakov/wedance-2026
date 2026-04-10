@@ -733,16 +733,18 @@ if ('serviceWorker' in navigator) {
         <div class="step-indicator">STEP 3 OF 4</div>
         <h2 class="screen-title">Choose your filming day</h2>
         <p class="screen-subtitle" id="slotFestivalName">Festival Name · Dates</p>
-        <p class="slot-explainer">Book your filming window — we'll capture your dance during this session</p>
+        <p class="slot-explainer">Pick a session and we'll prioritize filming your dance during that window</p>
         
         <div class="day-selector" id="daySelector">
           <!-- Days populated by JS -->
         </div>
         
-        <div class="time-slots" id="timeSlots" style="display:none;">
-          <h3 class="slots-heading">Pick your time</h3>
-          <div class="slots-list" id="slotsList">
-            <!-- Slots populated by JS -->
+        <div class="time-slots" id="timeSlots">
+          <div class="time-slots-inner">
+            <h3 class="slots-heading">Pick your time</h3>
+            <div class="slots-list" id="slotsList">
+              <!-- Slots populated by JS -->
+            </div>
           </div>
         </div>
         
@@ -756,20 +758,22 @@ if ('serviceWorker' in navigator) {
             </div>
           </div>
           <p class="slot-confirm-note">Free rescheduling until 24h before the event</p>
-          <p class="slot-confirm-next">Next: review your booking details</p>
         </div>
-        
-        <div class="slot-skip" id="slotSkipWrap">
-          <button class="btn-ghost btn-sm" onclick="skipSlotBooking()">
-            Not sure yet? Send me a booking link
-          </button>
-        </div>
-        
-        <div class="sticky-cta">
-          <button class="btn-primary disabled" id="slotNextBtn" disabled onclick="goToPreorderCheckout()">
-            <span id="slotCtaText">Select a slot to continue</span>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-          </button>
+
+        <div class="slot-bottom-block">
+          <div class="slot-skip" id="slotSkipWrap">
+            <button class="btn-ghost btn-sm" onclick="skipSlotBooking()">
+              Not sure yet? Send me a booking link
+            </button>
+          </div>
+
+          <div class="sticky-cta">
+            <p class="slot-cta-hint" id="slotCtaHint" style="display:none;">1 filming slot selected</p>
+            <button class="btn-primary disabled" id="slotNextBtn" disabled onclick="goToPreorderCheckout()">
+              <span id="slotCtaText">Select a slot to continue</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          </div>
         </div>
       </div>
     </div>

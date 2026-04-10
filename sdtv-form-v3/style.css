@@ -660,6 +660,24 @@ body {
   font-size: 1rem;
   flex-shrink: 0;
 }
+
+.festival-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--sdtv-surface-3);
+}
+
+.festival-logo-sm {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+  vertical-align: middle;
+  margin-right: 2px;
+}
 .festival-info { flex: 1; min-width: 0; }
 
 .festival-name {
@@ -2168,13 +2186,39 @@ body {
   color: var(--sdtv-text-faint);
 }
 
+.day-card.sold-out {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Selected day: "Selected" badge */
+.day-avail-selected {
+  color: var(--sdtv-ivory);
+  background: rgba(255, 255, 255, 0.12);
+}
+
 .day-card.selected .day-card-avail {
   color: var(--sdtv-ivory);
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 /* ========== TIME SLOTS ========== */
 .time-slots {
+  display: none;
+}
+
+.time-slots.visible {
+  display: block;
+  animation: slotsReveal 0.3s ease-out both;
+}
+
+@keyframes slotsReveal {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.time-slots-inner {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -2207,15 +2251,21 @@ body {
   text-align: left;
 }
 
-.slot-card:hover {
+.slot-card:hover:not(.disabled) {
   border-color: var(--sdtv-text-faint);
   transform: translateY(-1px);
 }
 
+.slot-card.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 .slot-card.selected {
-  background: var(--sdtv-red-glow);
-  border-color: var(--sdtv-red);
-  box-shadow: 0 0 16px rgba(211, 47, 47, 0.12);
+  background: rgba(244, 241, 236, 0.07);
+  border-color: var(--sdtv-ivory);
+  box-shadow: 0 0 0 1px rgba(244, 241, 236, 0.15), 0 2px 12px rgba(0, 0, 0, 0.3);
 }
 
 .slot-card-label {
@@ -2236,24 +2286,59 @@ body {
   margin-top: 2px;
 }
 
+.slot-card-avail {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--sdtv-text-faint);
+  margin-top: 3px;
+}
+
+.slot-card-avail.slot-avail-popular {
+  color: var(--sdtv-gold);
+}
+
 .slot-card.selected .slot-card-label {
-  color: white;
+  color: var(--sdtv-ivory);
 }
 
 .slot-card.selected .slot-card-time {
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(244, 241, 236, 0.7);
 }
 
 .slot-card.selected .slot-card-desc {
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(244, 241, 236, 0.5);
+}
+
+.slot-card.selected .slot-card-avail {
+  color: rgba(244, 241, 236, 0.5);
+}
+
+.slot-avail-sold-out {
+  color: var(--sdtv-text-faint);
+}
+
+.slot-avail-few-spots {
+  color: #ff9800;
+}
+
+/* Tighter layout for slot booking screen */
+#screen-preorder-slot .screen-content {
+  gap: var(--space-4);
+}
+
+#screen-preorder-slot .screen-title {
+  margin-bottom: -4px;
 }
 
 /* ========== SLOT EXPLAINER ========== */
 .slot-explainer {
   font-size: var(--text-xs);
   color: var(--sdtv-text-faint);
-  margin-top: -4px;
+  margin-top: -8px;
   line-height: 1.4;
+  text-align: center;
 }
 
 /* ========== SLOT SELECTION SUMMARY ========== */
@@ -2298,7 +2383,15 @@ body {
   text-align: center;
 }
 
-.slot-confirm-next {
+/* Bottom block: skip + CTA grouped tightly */
+.slot-bottom-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: auto;
+}
+
+.slot-cta-hint {
   font-size: var(--text-xs);
   color: var(--sdtv-text-muted);
   text-align: center;

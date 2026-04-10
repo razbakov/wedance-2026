@@ -228,6 +228,8 @@ const state = {
   collabAddon: false,
 
   // Slot booking
+  sessions: [],       // real sessions from Airtable
+  sessionsByDay: {},  // grouped by day string
   selectedDay: null,
   selectedSlot: null,
   slotSkipped: false,
@@ -288,12 +290,18 @@ function generateFestivalDays(startStr, endStr) {
       const star = f['Status'] === 'Active' ? ' ★' : '';
       // Generate days array from Start Date + End Date (or default 3 days)
       const days = generateFestivalDays(f['Start Date'], f['End Date']);
+      // Logo from Airtable attachment field (use small thumbnail for perf)
+      const logoAttach = Array.isArray(f['Logo']) && f['Logo'][0];
+      const logo = logoAttach
+        ? (logoAttach.thumbnails?.small?.url || logoAttach.url || '')
+        : '';
       return {
         name: name + star,
         location: f['City'] || f['Country'] || '',
         date: month ? `${month} ${year}` : year,
         year: year,
         emoji: '🎬',
+        logo,
         airtableId: r.id,
         isLive: true,
         status: f['Status'] || '',
@@ -317,18 +325,24 @@ function generateFestivalDays(startStr, endStr) {
 const festivals = [];
 let upcomingFestivals = []; // populated from liveFestivals (Upcoming status)
 
-const timeSlots = [
-  { label: 'Afternoon Social', time: '14:00–17:00', desc: 'Best for daytime socials' },
-  { label: 'Evening Party', time: '20:00–23:00', desc: 'Most requested' },
-  { label: 'Late Night Party', time: '23:00–01:00', desc: 'Peak energy hours' },
-  { label: 'Pool Party', time: '12:00–15:00', desc: 'Relaxed poolside vibes' },
-];
+// Derive day availability from real session data
+function getDayAvailabilityFromSessions(daySessions) {
+  if (!daySessions || daySessions.length === 0) return { label: 'Available', bookable: true };
+  const hasOpen = daySessions.some(s => s.status === 'Open' && s.isBookable);
+  const hasFewSpots = daySessions.some(s => s.status === 'Few Spots');
+  const allClosed = daySessions.every(s => !s.isBookable);
+  if (allClosed) return { label: 'Sold Out', bookable: false };
+  if (hasFewSpots && !hasOpen) return { label: 'Few Spots', bookable: true };
+  if (hasFewSpots) return { label: 'Few Spots', bookable: true };
+  return { label: 'Available', bookable: true };
+}
 
-// Availability labels for day cards (can be overridden per-festival from Airtable)
-const dayAvailabilityDefaults = ['Available', 'Popular', 'Available', 'Few spots', 'Available', 'Popular', 'Few spots'];
-function getDayAvailability(dayIndex, total) {
-  // Festivals can override via day.availability; this is the fallback
-  return dayAvailabilityDefaults[dayIndex % dayAvailabilityDefaults.length];
+// Derive UI badge for a session card (presentation only)
+function getSessionBadge(session) {
+  if (!session.isBookable) return { text: 'Sold Out', cls: 'sold-out' };
+  if (session.spotsLeft <= 5 && session.capacity > 0) return { text: `${session.spotsLeft} spots left`, cls: 'few-spots' };
+  if (session.capacity > 0 && session.booked / session.capacity > 0.6) return { text: 'Popular', cls: 'popular' };
+  return { text: '', cls: '' };
 }
 
 // ==========================================
@@ -577,7 +591,7 @@ function resetForm() {
 
   // Hide slot elements
   const timeSlotEl = document.getElementById('timeSlots');
-  if (timeSlotEl) timeSlotEl.style.display = 'none';
+  if (timeSlotEl) timeSlotEl.classList.remove('visible');
   const slotSummary = document.getElementById('slotSummary');
   if (slotSummary) slotSummary.style.display = 'none';
 
@@ -748,7 +762,9 @@ function renderFestivals() {
     return `
       <div class="festival-item ${isSelected ? 'selected' : ''}"
            onclick="selectFestival('${f.name.replace(/'/g, "\\'")}', '${f.year}', '${f.date}', '${f.location}')">
-        <span class="festival-emoji">${f.emoji}</span>
+        ${f.logo
+          ? `<img class="festival-logo" src="${f.logo}" alt="" loading="lazy">`
+          : `<span class="festival-emoji">${f.emoji}</span>`}
         <div class="festival-info">
           <div class="festival-name">${f.name}</div>
           <div class="festival-meta">${f.location} · ${f.date}</div>
@@ -1609,7 +1625,7 @@ function renderUpcomingFestivals() {
       <button class="festival-card-visual ${isSelected ? 'selected' : ''}"
               onclick="selectUpcomingFestival('${f.name.replace(/'/g, "\\'")}', '${f.location.replace(/'/g, "\\'")}', '${f.date}', ${f.spots})">
         <div class="festival-card-left">
-          <div class="festival-card-name">${f.emoji} ${f.name}</div>
+          <div class="festival-card-name">${f.logo ? `<img class="festival-logo-sm" src="${f.logo}" alt="" loading="lazy">` : ''} ${f.name}</div>
           <div class="festival-card-detail">${f.location} · ${f.date}</div>
           <div class="festival-card-spots" style="color:${urgencyColor}">${urgencyText}</div>
         </div>
@@ -1668,8 +1684,7 @@ function updateTotal() {
 // ==========================================
 // PRE-ORDER FLOW — SLOT BOOKING
 // ==========================================
-function goToPreorderSlot() {
-  // Set festival name in slot screen
+async function goToPreorderSlot() {
   const slotFestivalName = document.getElementById('slotFestivalName');
   if (slotFestivalName && state.selectedUpcomingFestival) {
     slotFestivalName.textContent = state.selectedUpcomingFestival.name + ' · ' + state.selectedUpcomingFestival.date;
@@ -1678,110 +1693,176 @@ function goToPreorderSlot() {
   state.selectedDay = null;
   state.selectedSlot = null;
   state.slotSkipped = false;
+  state.sessions = [];
+  state.sessionsByDay = {};
 
   // Hide time slots and summary
   const timeSlotsEl = document.getElementById('timeSlots');
-  if (timeSlotsEl) timeSlotsEl.style.display = 'none';
+  if (timeSlotsEl) timeSlotsEl.classList.remove('visible');
   const slotSummary = document.getElementById('slotSummary');
   if (slotSummary) slotSummary.style.display = 'none';
 
-  // Reset slot next button
   const slotNextBtn = document.getElementById('slotNextBtn');
   if (slotNextBtn) { slotNextBtn.disabled = true; slotNextBtn.classList.add('disabled'); }
 
-  renderDaySelector();
   showScreen('preorder-slot');
+
+  // Fetch real sessions from Airtable
+  const festivalId = state.selectedUpcomingFestival?.airtableId;
+  if (festivalId) {
+    try {
+      const res = await fetch(`${API}/api/sessions?festivalId=${festivalId}`);
+      const data = await res.json();
+      state.sessions = data.sessions || [];
+      // Group by dayLabel
+      state.sessionsByDay = {};
+      for (const s of state.sessions) {
+        if (!state.sessionsByDay[s.dayLabel]) state.sessionsByDay[s.dayLabel] = [];
+        state.sessionsByDay[s.dayLabel].push(s);
+      }
+    } catch (e) {
+      state.sessions = [];
+      state.sessionsByDay = {};
+    }
+  }
+
+  renderDaySelector();
 }
 
 function renderDaySelector() {
   const container = document.getElementById('daySelector');
   if (!container) return;
 
-  // Get days for selected festival
-  const festival = upcomingFestivals.find(f => f.name === state.selectedUpcomingFestival?.name);
-  const days = festival?.days || ['Day 1', 'Day 2', 'Day 3'];
+  const dayLabels = Object.keys(state.sessionsByDay);
+  if (dayLabels.length === 0) {
+    // Fallback to festival days if no sessions loaded
+    const festival = upcomingFestivals.find(f => f.name === state.selectedUpcomingFestival?.name);
+    const days = festival?.days || [];
+    container.innerHTML = days.map((day, i) => `
+      <button class="day-card" data-day="${day}" onclick="selectDay('${day}')">
+        <span class="day-card-weekday">${day.split(' ')[0]}</span>
+        <span class="day-card-date">${day.split(' ')[2] || (i+1)}</span>
+        <span class="day-card-month">${day.split(' ')[1]}</span>
+      </button>
+    `).join('');
+    return;
+  }
 
-  container.innerHTML = days.map((day, i) => {
-    const parts = day.split(' ');
+  container.innerHTML = dayLabels.map(dayLabel => {
+    const parts = dayLabel.split(' ');
     const weekday = parts[0] || '';
     const month = parts[1] || '';
-    const date = parts[2] || (i + 1);
-    const isSelected = state.selectedDay === day;
-    const avail = getDayAvailability(i, days.length);
-    const availClass = avail.toLowerCase().replace(/\s+/g, '-');
+    const date = parts[2] || '';
+    const isSelected = state.selectedDay === dayLabel;
+    const daySessions = state.sessionsByDay[dayLabel] || [];
+    const dayAvail = getDayAvailabilityFromSessions(daySessions);
+    const isSoldOut = !dayAvail.bookable;
+
+    const availText = isSelected ? 'Selected' : dayAvail.label;
+    const availClass = isSelected ? 'selected'
+      : dayAvail.label.toLowerCase().replace(/\s+/g, '-');
 
     return `
-      <button class="day-card ${isSelected ? 'selected' : ''}" onclick="selectDay('${day}')">
+      <button class="day-card ${isSelected ? 'selected' : ''} ${isSoldOut ? 'sold-out' : ''}"
+              data-day="${dayLabel}" data-avail="${dayAvail.label}" data-avail-class="${dayAvail.label.toLowerCase().replace(/\s+/g, '-')}"
+              onclick="${isSoldOut ? '' : `selectDay('${dayLabel}')`}">
         <span class="day-card-weekday">${weekday}</span>
         <span class="day-card-date">${date}</span>
         <span class="day-card-month">${month}</span>
-        <span class="day-card-avail day-avail-${availClass}">${avail}</span>
+        <span class="day-card-avail day-avail-${availClass}">${availText}</span>
       </button>
     `;
   }).join('');
 }
 
-function selectDay(day) {
-  state.selectedDay = day;
+function selectDay(dayLabel) {
+  state.selectedDay = dayLabel;
   state.selectedSlot = null;
 
-  renderDaySelector();
+  // Update day cards in-place (no innerHTML rebuild = no layout jump)
+  document.querySelectorAll('#daySelector .day-card').forEach(card => {
+    const isSelected = card.dataset.day === dayLabel;
+    card.classList.toggle('selected', isSelected);
+    const badge = card.querySelector('.day-card-avail');
+    if (badge) {
+      if (isSelected) {
+        badge.textContent = 'Selected';
+        badge.className = 'day-card-avail day-avail-selected';
+      } else {
+        badge.textContent = card.dataset.avail || '';
+        badge.className = 'day-card-avail day-avail-' + (card.dataset.availClass || '');
+      }
+    }
+  });
 
-  // Show time slots
+  // Show time slots with smooth animation
   const timeSlotsEl = document.getElementById('timeSlots');
-  if (timeSlotsEl) timeSlotsEl.style.display = '';
+  if (timeSlotsEl) timeSlotsEl.classList.add('visible');
 
-  // Hide summary until slot is picked
+  // Hide summary
   const slotSummary = document.getElementById('slotSummary');
   if (slotSummary) slotSummary.style.display = 'none';
 
-  // Render time slot cards
+  // Render real session cards for this day
+  const daySessions = state.sessionsByDay[dayLabel] || [];
   const slotsList = document.getElementById('slotsList');
   if (slotsList) {
-    slotsList.innerHTML = timeSlots.map(s => {
+    slotsList.innerHTML = daySessions.map(s => {
+      const badge = getSessionBadge(s);
+      const disabled = !s.isBookable;
       return `
-        <button class="slot-card" onclick="selectTimeSlot(this, '${s.label}', '${s.time}')">
+        <button class="slot-card ${disabled ? 'disabled' : ''}"
+                ${disabled ? 'disabled' : `onclick="selectSession('${s.id}')"`}>
           <span class="slot-card-label">${s.label}</span>
-          <span class="slot-card-time">${s.time}</span>
+          <span class="slot-card-time">${s.timeStart}–${s.timeEnd}</span>
           <span class="slot-card-desc">${s.desc}</span>
+          ${badge.text ? `<span class="slot-card-avail slot-avail-${badge.cls}">${badge.text}</span>` : ''}
         </button>
       `;
     }).join('');
   }
 
-  // Disable next button until slot is selected
+  // Disable next button
   const slotNextBtn = document.getElementById('slotNextBtn');
   if (slotNextBtn) { slotNextBtn.disabled = true; slotNextBtn.classList.add('disabled'); }
 
-  // Reset CTA text
   const ctaText = document.getElementById('slotCtaText');
   if (ctaText) ctaText.textContent = 'Select a slot to continue';
+  const ctaHint = document.getElementById('slotCtaHint');
+  if (ctaHint) ctaHint.style.display = 'none';
 }
 
-function selectTimeSlot(el, label, time) {
-  state.selectedSlot = { label, time };
+function selectSession(sessionId) {
+  const session = state.sessions.find(s => s.id === sessionId);
+  if (!session || !session.isBookable) return;
+
+  state.selectedSlot = session;
 
   // Update card selection
   document.querySelectorAll('.slot-card').forEach(p => p.classList.remove('selected'));
-  el.classList.add('selected');
+  const cards = document.querySelectorAll('.slot-card');
+  const daySessions = state.sessionsByDay[state.selectedDay] || [];
+  const idx = daySessions.findIndex(s => s.id === sessionId);
+  if (idx >= 0 && cards[idx]) cards[idx].classList.add('selected');
 
-  // Show summary with animation
+  // Show summary
   const slotSummary = document.getElementById('slotSummary');
   if (slotSummary) {
     slotSummary.style.display = '';
     slotSummary.classList.remove('slot-summary-enter');
-    void slotSummary.offsetWidth; // trigger reflow
+    void slotSummary.offsetWidth;
     slotSummary.classList.add('slot-summary-enter');
   }
 
   document.getElementById('slotConfirmDay').textContent = state.selectedDay;
-  document.getElementById('slotConfirmTime').textContent = label + ' · ' + time;
+  document.getElementById('slotConfirmTime').textContent = session.label + ' · ' + session.timeStart + '–' + session.timeEnd;
 
-  // Update CTA text
+  // Update CTA
   const ctaText = document.getElementById('slotCtaText');
   if (ctaText) ctaText.textContent = 'Continue with This Slot';
+  const ctaHint = document.getElementById('slotCtaHint');
+  if (ctaHint) ctaHint.style.display = '';
 
-  // Enable next button
   const slotNextBtn = document.getElementById('slotNextBtn');
   if (slotNextBtn) { slotNextBtn.disabled = false; slotNextBtn.classList.remove('disabled'); }
 }
@@ -1911,21 +1992,32 @@ async function simulatePreorderPayment() {
   btn.disabled = true;
 
   try {
-    // Save reservation to Airtable
-    await fetch(`${API}/api/reservations`, {
+    // Save reservation to Airtable (with session validation)
+    const resBody = {
+      festival: state.selectedUpcomingFestival?.name || '',
+      festivalId: state.selectedUpcomingFestival?.airtableId || '',
+      day: state.selectedDay || '',
+      style: '',
+      ig: instagram,
+      email: email,
+      name: name,
+      package: state.selectedPackage?.type === 'pro' ? 'Pro Package' : 'Social Dance',
+      notes: state.slotSkipped ? 'Flexible timing' : '',
+    };
+    if (state.selectedSlot?.id) resBody.sessionId = state.selectedSlot.id;
+
+    const resResp = await fetch(`${API}/api/reservations`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        festival: state.selectedUpcomingFestival?.name || '',
-        day: state.selectedDay || '',
-        style: '',
-        ig: instagram,
-        email: email,
-        name: name,
-        package: state.selectedPackage?.type === 'pro' ? 'Pro Package' : 'Social Dance',
-        notes: state.selectedSlot ? `Slot: ${state.selectedSlot}` : (state.slotSkipped ? 'Flexible timing' : ''),
-      })
+      body: JSON.stringify(resBody)
     });
+    if (resResp.status === 409) {
+      const err = await resResp.json();
+      showToast(err.error || 'Session no longer available. Please pick another slot.');
+      btn.innerHTML = originalText;
+      btn.disabled = false;
+      return;
+    }
   } catch (e) {
     console.error('Reservation save error:', e);
   }
@@ -1955,8 +2047,8 @@ function populateFilmingPass() {
     passDate.textContent = state.selectedUpcomingFestival.date;
   }
   if (passSlot) {
-    if (state.selectedSlot && state.selectedDay) {
-      passSlot.textContent = state.selectedDay + ' · ' + state.selectedSlot.label + ' (' + state.selectedSlot.time + ')';
+    if (state.selectedSlot?.label && state.selectedDay) {
+      passSlot.textContent = state.selectedDay + ' · ' + state.selectedSlot.label + ' (' + state.selectedSlot.timeStart + '–' + state.selectedSlot.timeEnd + ')';
     } else {
       passSlot.textContent = 'Filming slot: TBD';
     }
