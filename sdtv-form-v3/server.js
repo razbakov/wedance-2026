@@ -263,6 +263,285 @@ async function sendNotifyConfirmEmail({ to, dancerName, festival }) {
   }
 }
 
+// ── Booking Confirmation Email ──────────────────────
+async function sendBookingConfirmEmail({ to, name, festival, pkg, day, slot, amount }) {
+  if (!emailTransport) return;
+  const e = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const sans = "'Helvetica Neue',Helvetica,Arial,sans-serif";
+  const serif = "Georgia,'Times New Roman',Times,serif";
+  const c = { bg:'#08080a', card:'#111113', surface:'#161618', ivory:'#f4f1ec', muted:'#8a8580', faint:'#555350', dim:'#3a3835', red:'#c1453b', border:'rgba(255,255,255,0.05)' };
+  const displayName = name || 'there';
+  const subject = `Booking confirmed — ${festival || 'your filming slot'}`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background-color:${c.bg};">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${c.bg};">
+<tr><td align="center" style="padding:32px 16px 40px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:440px;background-color:${c.card};border-radius:20px;overflow:hidden;">
+
+  <tr><td style="padding:28px 28px 0;text-align:center;">
+    <span style="font-family:${sans};font-size:10px;font-weight:700;letter-spacing:0.2em;color:${c.red};text-transform:uppercase;">Social Dance TV</span>
+  </td></tr>
+  <tr><td style="padding:16px 32px 0;"><div style="height:1px;background:${c.border};"></div></td></tr>
+
+  <tr><td style="padding:24px 28px 0;text-align:center;">
+    <h1 style="margin:0;font-family:${serif};font-size:26px;font-weight:700;color:${c.ivory};line-height:1.2;">Booking confirmed</h1>
+  </td></tr>
+
+  <tr><td style="padding:14px 28px 0;text-align:center;">
+    <p style="margin:0;font-family:${sans};font-size:14px;color:${c.muted};line-height:1.6;">Hey ${e(displayName)}, you're all set for${festival ? ' <strong style="color:'+c.ivory+';">'+e(festival)+'</strong>' : ' the festival'}. Here are your filming details.</p>
+  </td></tr>
+
+  <tr><td style="padding:20px 24px 0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${c.surface};border-radius:12px;">
+      <tr><td style="padding:16px 18px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          ${festival ? `<tr><td style="font-family:${sans};font-size:11px;color:${c.faint};padding-bottom:6px;">Festival</td><td align="right" style="font-family:${sans};font-size:12px;color:${c.ivory};font-weight:600;padding-bottom:6px;">${e(festival)}</td></tr>` : ''}
+          ${pkg ? `<tr><td style="font-family:${sans};font-size:11px;color:${c.faint};padding-bottom:6px;">Package</td><td align="right" style="font-family:${sans};font-size:12px;color:${c.ivory};padding-bottom:6px;">${e(pkg)}</td></tr>` : ''}
+          ${day ? `<tr><td style="font-family:${sans};font-size:11px;color:${c.faint};padding-bottom:6px;">Day</td><td align="right" style="font-family:${sans};font-size:12px;color:${c.ivory};padding-bottom:6px;">${e(day)}</td></tr>` : ''}
+          ${slot ? `<tr><td style="font-family:${sans};font-size:11px;color:${c.faint};padding-bottom:6px;">Slot</td><td align="right" style="font-family:${sans};font-size:12px;color:${c.ivory};padding-bottom:6px;">${e(slot)}</td></tr>` : ''}
+          ${amount ? `<tr><td style="font-family:${sans};font-size:11px;color:${c.faint};">Amount</td><td align="right" style="font-family:${sans};font-size:13px;color:${c.ivory};font-weight:700;">€${amount}</td></tr>` : ''}
+        </table>
+      </td></tr>
+    </table>
+  </td></tr>
+
+  <tr><td style="padding:22px 28px 0;text-align:center;">
+    <p style="margin:0 0 6px;font-family:${sans};font-size:12px;font-weight:700;color:${c.ivory};text-transform:uppercase;letter-spacing:0.08em;">What happens next</p>
+    <p style="margin:0;font-family:${sans};font-size:13px;color:${c.muted};line-height:1.8;">
+      1. Show up at your filming slot<br>
+      2. We film your dance (2–3 takes)<br>
+      3. HD video arrives by email within 7 days
+    </p>
+  </td></tr>
+
+  <tr><td style="padding:22px 28px 0;text-align:center;">
+    <div style="display:inline-block;background-color:${c.surface};border:1px solid rgba(255,255,255,0.04);border-radius:12px;padding:14px 24px;">
+      <span style="font-family:${sans};font-size:12px;color:#6b6560;">No spam &middot; Just one email when your video drops</span>
+    </div>
+  </td></tr>
+
+  <tr><td style="padding:28px 28px 28px;text-align:center;">
+    <p style="margin:0;font-family:${sans};font-size:10px;color:${c.dim};line-height:1.6;">
+      Social Dance TV &middot; <a href="https://instagram.com/socialdancetv" style="color:${c.faint};text-decoration:none;">@socialdancetv</a>
+    </p>
+  </td></tr>
+
+</table>
+</td></tr></table>
+</body></html>`;
+
+  try {
+    await emailTransport.sendMail({ from: `"Social Dance TV" <${GMAIL_USER}>`, to, subject, html });
+    console.log('Booking confirmation email sent to', to);
+  } catch (err) { console.error('Booking email error:', err.message); }
+}
+
+// ── Payment Receipt Email ───────────────────────────
+async function sendPaymentReceiptEmail({ to, amount, currency, description, paymentId, date }) {
+  if (!emailTransport) return;
+  const e = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const sans = "'Helvetica Neue',Helvetica,Arial,sans-serif";
+  const serif = "Georgia,'Times New Roman',Times,serif";
+  const c = { bg:'#08080a', card:'#111113', surface:'#161618', ivory:'#f4f1ec', muted:'#8a8580', faint:'#555350', dim:'#3a3835', red:'#c1453b', border:'rgba(255,255,255,0.05)' };
+  const cur = (currency || 'EUR').toUpperCase();
+  const amountDisplay = typeof amount === 'number' ? `${cur === 'EUR' ? '€' : cur + ' '}${(amount / 100).toFixed(2)}` : String(amount);
+  const dateDisplay = date ? new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  const subject = `Payment receipt — ${amountDisplay} — Social Dance TV`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background-color:${c.bg};">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${c.bg};">
+<tr><td align="center" style="padding:32px 16px 40px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:440px;background-color:${c.card};border-radius:20px;overflow:hidden;">
+
+  <tr><td style="padding:28px 28px 0;text-align:center;">
+    <span style="font-family:${sans};font-size:10px;font-weight:700;letter-spacing:0.2em;color:${c.red};text-transform:uppercase;">Social Dance TV</span>
+  </td></tr>
+  <tr><td style="padding:16px 32px 0;"><div style="height:1px;background:${c.border};"></div></td></tr>
+
+  <tr><td style="padding:24px 28px 0;text-align:center;">
+    <h1 style="margin:0;font-family:${serif};font-size:24px;font-weight:700;color:${c.ivory};line-height:1.2;">Payment receipt</h1>
+  </td></tr>
+
+  <tr><td style="padding:14px 28px 0;text-align:center;">
+    <p style="margin:0;font-family:${sans};font-size:14px;color:${c.muted};line-height:1.6;">Thank you for your purchase. Here's your receipt.</p>
+  </td></tr>
+
+  <tr><td style="padding:20px 24px 0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${c.surface};border-radius:12px;">
+      <tr><td style="padding:16px 18px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr><td style="font-family:${sans};font-size:11px;color:${c.faint};padding-bottom:6px;">Description</td><td align="right" style="font-family:${sans};font-size:12px;color:${c.ivory};font-weight:600;padding-bottom:6px;">${e(description || 'SDTV Purchase')}</td></tr>
+          <tr><td style="font-family:${sans};font-size:11px;color:${c.faint};padding-bottom:6px;">Amount</td><td align="right" style="font-family:${sans};font-size:14px;color:${c.ivory};font-weight:700;padding-bottom:6px;">${e(amountDisplay)}</td></tr>
+          <tr><td style="font-family:${sans};font-size:11px;color:${c.faint};padding-bottom:6px;">Date</td><td align="right" style="font-family:${sans};font-size:12px;color:${c.ivory};padding-bottom:6px;">${e(dateDisplay)}</td></tr>
+          ${paymentId ? `<tr><td style="font-family:${sans};font-size:11px;color:${c.faint};">Payment ID</td><td align="right" style="font-family:'Courier New',monospace;font-size:10px;color:${c.faint};">${e(paymentId.slice(0, 24))}</td></tr>` : ''}
+        </table>
+      </td></tr>
+    </table>
+  </td></tr>
+
+  <tr><td style="padding:18px 28px 0;text-align:center;">
+    <p style="margin:0;font-family:${sans};font-size:11px;color:${c.faint};line-height:1.5;">This is your official receipt. If you need an invoice, reply to this email.</p>
+  </td></tr>
+
+  <tr><td style="padding:28px 28px 28px;text-align:center;">
+    <p style="margin:0;font-family:${sans};font-size:10px;color:${c.dim};line-height:1.6;">
+      Social Dance TV &middot; <a href="https://instagram.com/socialdancetv" style="color:${c.faint};text-decoration:none;">@socialdancetv</a>
+    </p>
+  </td></tr>
+
+</table>
+</td></tr></table>
+</body></html>`;
+
+  try {
+    await emailTransport.sendMail({ from: `"Social Dance TV" <${GMAIL_USER}>`, to, subject, html });
+    console.log('Receipt email sent to', to);
+  } catch (err) { console.error('Receipt email error:', err.message); }
+}
+
+// ── Visibility Welcome Email ────────────────────────
+async function sendVisibilityWelcomeEmail({ to, name, plan, instagram }) {
+  if (!emailTransport) return;
+  const e = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const sans = "'Helvetica Neue',Helvetica,Arial,sans-serif";
+  const serif = "Georgia,'Times New Roman',Times,serif";
+  const c = { bg:'#08080a', card:'#111113', surface:'#161618', ivory:'#f4f1ec', muted:'#8a8580', faint:'#555350', dim:'#3a3835', red:'#c1453b', gold:'#e8b634', border:'rgba(255,255,255,0.05)' };
+  const displayName = name || 'there';
+  const ig = instagram ? (instagram.startsWith('@') ? instagram : '@' + instagram) : '';
+  const subject = `Welcome to SDTV Visibility — your plan is active`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background-color:${c.bg};">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${c.bg};">
+<tr><td align="center" style="padding:32px 16px 40px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:440px;background-color:${c.card};border-radius:20px;overflow:hidden;">
+
+  <tr><td style="padding:28px 28px 0;text-align:center;">
+    <span style="font-family:${sans};font-size:10px;font-weight:700;letter-spacing:0.2em;color:${c.red};text-transform:uppercase;">Social Dance TV</span>
+  </td></tr>
+  <tr><td style="padding:16px 32px 0;"><div style="height:1px;background:${c.border};"></div></td></tr>
+
+  <tr><td style="padding:24px 28px 0;text-align:center;">
+    <h1 style="margin:0;font-family:${serif};font-size:26px;font-weight:700;color:${c.ivory};line-height:1.2;">Welcome to SDTV Visibility</h1>
+  </td></tr>
+
+  <tr><td style="padding:14px 28px 0;text-align:center;">
+    <p style="margin:0;font-family:${sans};font-size:14px;color:${c.muted};line-height:1.6;">Hey ${e(displayName)}, your monthly visibility plan is now active. Here's what to expect.</p>
+  </td></tr>
+
+  <tr><td style="padding:20px 24px 0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${c.surface};border-radius:12px;">
+      <tr><td style="padding:18px 20px;">
+        <p style="margin:0 0 10px;font-family:${sans};font-size:11px;font-weight:700;color:${c.gold};text-transform:uppercase;letter-spacing:0.08em;">Your plan includes</p>
+        <p style="margin:0;font-family:${sans};font-size:13px;color:${c.muted};line-height:2;">
+          &#10003;&nbsp; Best moment selected from your dance<br>
+          &#10003;&nbsp; Professional editing for social media<br>
+          &#10003;&nbsp; Collab post on @socialdancetv (509K+)<br>
+          &#10003;&nbsp; Appears on your profile too<br>
+          &#10003;&nbsp; Repeat every month
+        </p>
+      </td></tr>
+    </table>
+  </td></tr>
+
+  <tr><td style="padding:22px 28px 0;text-align:center;">
+    <p style="margin:0 0 6px;font-family:${sans};font-size:12px;font-weight:700;color:${c.ivory};text-transform:uppercase;letter-spacing:0.08em;">What happens next</p>
+    <p style="margin:0;font-family:${sans};font-size:13px;color:${c.muted};line-height:1.8;">
+      1. We'll DM you${ig ? ' at <strong style="color:'+c.ivory+';">'+e(ig)+'</strong>' : ''} within 24h<br>
+      2. First post within 5 days<br>
+      3. Weekly posting schedule begins
+    </p>
+  </td></tr>
+
+  <tr><td style="padding:28px 28px 28px;text-align:center;">
+    <p style="margin:0;font-family:${sans};font-size:10px;color:${c.dim};line-height:1.6;">
+      Social Dance TV &middot; <a href="https://instagram.com/socialdancetv" style="color:${c.faint};text-decoration:none;">@socialdancetv</a>
+    </p>
+  </td></tr>
+
+</table>
+</td></tr></table>
+</body></html>`;
+
+  try {
+    await emailTransport.sendMail({ from: `"Social Dance TV" <${GMAIL_USER}>`, to, subject, html });
+    console.log('Visibility welcome email sent to', to);
+  } catch (err) { console.error('Visibility welcome email error:', err.message); }
+}
+
+// ── Video Ready Alert Email ─────────────────────────
+async function sendVideoReadyEmail({ to, dancerName, festival, deliveryUrl }) {
+  if (!emailTransport) return;
+  const e = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const sans = "'Helvetica Neue',Helvetica,Arial,sans-serif";
+  const serif = "Georgia,'Times New Roman',Times,serif";
+  const c = { bg:'#08080a', card:'#111113', surface:'#161618', ivory:'#f4f1ec', muted:'#8a8580', faint:'#555350', dim:'#3a3835', red:'#c1453b', border:'rgba(255,255,255,0.05)' };
+  const name = dancerName || 'there';
+  const subject = dancerName ? `${dancerName} — your dance video is ready!` : `Your dance video is ready${festival ? ' — ' + festival : ''}!`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background-color:${c.bg};">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${c.bg};">
+<tr><td align="center" style="padding:32px 16px 40px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:440px;background-color:${c.card};border-radius:20px;overflow:hidden;">
+
+  <tr><td style="padding:28px 28px 0;text-align:center;">
+    <span style="font-family:${sans};font-size:10px;font-weight:700;letter-spacing:0.2em;color:${c.red};text-transform:uppercase;">Social Dance TV</span>
+  </td></tr>
+  <tr><td style="padding:16px 32px 0;"><div style="height:1px;background:${c.border};"></div></td></tr>
+
+  <tr><td style="padding:24px 28px 0;text-align:center;">
+    <h1 style="margin:0;font-family:${serif};font-size:28px;font-weight:700;color:${c.ivory};line-height:1.2;">Your video is ready!</h1>
+  </td></tr>
+
+  <tr><td style="padding:14px 28px 0;text-align:center;">
+    <p style="margin:0;font-family:${sans};font-size:14px;color:${c.muted};line-height:1.6;">Hey ${e(name)}, great news — your dance video${festival ? ' from <strong style="color:'+c.ivory+';">'+e(festival)+'</strong>' : ''} has been edited and is ready to watch and download.</p>
+  </td></tr>
+
+  <tr><td style="padding:14px 28px 0;text-align:center;">
+    <p style="margin:0;font-family:${sans};font-size:11px;color:${c.faint};letter-spacing:0.04em;">Full HD &nbsp;·&nbsp; No watermark &nbsp;·&nbsp; Yours forever</p>
+  </td></tr>
+
+  <tr><td style="padding:22px 24px 0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr><td align="center" style="background-color:${c.red};border-radius:14px;">
+        <a href="${e(deliveryUrl)}" style="display:block;padding:17px 32px;font-family:${sans};font-size:16px;font-weight:700;color:#ffffff;text-decoration:none;text-align:center;line-height:1.2;">Watch & Download</a>
+      </td></tr>
+    </table>
+  </td></tr>
+
+  <tr><td style="padding:14px 28px 0;text-align:center;">
+    <a href="${e(deliveryUrl)}" style="font-family:${sans};font-size:13px;font-weight:500;color:${c.muted};text-decoration:none;border-bottom:1px solid ${c.dim};">View delivery page</a>
+  </td></tr>
+
+  <tr><td style="padding:22px 28px 0;text-align:center;">
+    <div style="display:inline-block;background-color:${c.surface};border:1px solid rgba(255,255,255,0.04);border-radius:12px;padding:14px 24px;">
+      <span style="font-family:${sans};font-size:12px;color:#6b6560;">Your video stays available at this link. Bookmark it or download now.</span>
+    </div>
+  </td></tr>
+
+  <tr><td style="padding:28px 28px 28px;text-align:center;">
+    <p style="margin:0;font-family:${sans};font-size:10px;color:${c.dim};line-height:1.6;">
+      Social Dance TV &middot; <a href="https://instagram.com/socialdancetv" style="color:${c.faint};text-decoration:none;">@socialdancetv</a>
+    </p>
+  </td></tr>
+
+</table>
+</td></tr></table>
+</body></html>`;
+
+  try {
+    await emailTransport.sendMail({ from: `"Social Dance TV" <${GMAIL_USER}>`, to, subject, html });
+    console.log('Video ready email sent to', to);
+  } catch (err) { console.error('Video ready email error:', err.message); }
+}
+
 // ── STRIPE ──────────────────────────────────────────
 const STRIPE_SECRET = process.env.STRIPE_SECRET;
 let stripe = null;
@@ -670,6 +949,64 @@ app.post('/api/send-delivery-email', async (req, res) => {
     res.json({ ok: true, deliveryUrl });
   } catch (e) {
     console.error('Delivery email error:', e.message);
+    res.status(500).json({ error: 'Failed to send email' });
+  }
+});
+
+// ── POST /api/send-booking-email ─────────────────────
+app.post('/api/send-booking-email', async (req, res) => {
+  try {
+    const { email, name, festival, pkg, day, slot, amount } = req.body || {};
+    if (!email) return res.status(400).json({ error: 'Email required' });
+    await sendBookingConfirmEmail({ to: email, name, festival, pkg, day, slot, amount });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Booking email error:', e.message);
+    res.status(500).json({ error: 'Failed to send email' });
+  }
+});
+
+// ── POST /api/send-receipt-email ─────────────────────
+app.post('/api/send-receipt-email', async (req, res) => {
+  try {
+    const { email, amount, currency, description, paymentId } = req.body || {};
+    if (!email) return res.status(400).json({ error: 'Email required' });
+    await sendPaymentReceiptEmail({
+      to: email, amount, currency: currency || 'EUR',
+      description: description || 'SDTV Purchase',
+      paymentId: paymentId || '', date: new Date().toISOString()
+    });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Receipt email error:', e.message);
+    res.status(500).json({ error: 'Failed to send email' });
+  }
+});
+
+// ── POST /api/send-visibility-welcome ────────────────
+app.post('/api/send-visibility-welcome', async (req, res) => {
+  try {
+    const { email, name, plan, instagram } = req.body || {};
+    if (!email) return res.status(400).json({ error: 'Email required' });
+    await sendVisibilityWelcomeEmail({ to: email, name, plan: plan || 'monthly', instagram });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Visibility welcome error:', e.message);
+    res.status(500).json({ error: 'Failed to send email' });
+  }
+});
+
+// ── POST /api/send-video-ready-alert ─────────────────
+app.post('/api/send-video-ready-alert', async (req, res) => {
+  try {
+    const { email, dancerName, festival, captureId } = req.body || {};
+    if (!email || !captureId) return res.status(400).json({ error: 'Email and captureId required' });
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const deliveryUrl = `${baseUrl}/delivery?id=${encodeURIComponent(captureId)}`;
+    await sendVideoReadyEmail({ to: email, dancerName: dancerName || '', festival: festival || '', deliveryUrl });
+    res.json({ ok: true, deliveryUrl });
+  } catch (e) {
+    console.error('Video ready alert error:', e.message);
     res.status(500).json({ error: 'Failed to send email' });
   }
 });

@@ -2228,6 +2228,16 @@ async function simulateVisibilityPayment() {
       `;
     }
 
+    // Send visibility welcome email (monthly plan only)
+    if (state.visibilityPlan === 'monthly') {
+      try {
+        await fetch(`${API}/api/send-visibility-welcome`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, name, plan: 'monthly', instagram })
+        });
+      } catch (e) { console.error('Visibility welcome email error:', e); }
+    }
+
     showScreen('visibility-confirmation');
   }
 }
@@ -3007,7 +3017,7 @@ async function processArchivePayment() {
         });
       } catch (e) { console.error('Airtable save error:', e); }
 
-      // 4. Send delivery email
+      // 4. Send delivery email + receipt
       try {
         await fetch(`${API}/api/send-delivery-email`, {
           method: 'POST',
@@ -3020,6 +3030,12 @@ async function processArchivePayment() {
           })
         });
       } catch (e) { console.error('Delivery email error:', e); }
+      try {
+        await fetch(`${API}/api/send-receipt-email`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, amount: piData.amount, description: `Dance Video — ${state.selectedFestival?.name || 'SDTV'}`, paymentId: paymentIntent.id })
+        });
+      } catch (e) { console.error('Receipt email error:', e); }
 
       btn.innerHTML = originalText;
       btn.disabled = false;
@@ -3097,6 +3113,23 @@ async function processPreorderPayment() {
           })
         });
       } catch (e) { console.error('Reservation save error:', e); }
+
+      // Send booking confirmation + receipt emails
+      const festName = state.selectedUpcomingFestival?.name || '';
+      const pkgName = state.selectedPackage?.type === 'pro' ? 'Couple Package' : 'Solo Package';
+      const slotLabel = state.selectedSlot ? `${state.selectedSlot.label} (${state.selectedSlot.timeStart}–${state.selectedSlot.timeEnd})` : '';
+      try {
+        await fetch(`${API}/api/send-booking-email`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, name, festival: festName, pkg: pkgName, day: state.selectedDay || '', slot: slotLabel, amount: (total / 100).toFixed(0) })
+        });
+      } catch (e) { console.error('Booking email error:', e); }
+      try {
+        await fetch(`${API}/api/send-receipt-email`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, amount: total, description: `Preorder — ${pkgName} — ${festName}`, paymentId: paymentIntent.id })
+        });
+      } catch (e) { console.error('Receipt email error:', e); }
 
       btn.innerHTML = originalText; btn.disabled = false;
       if (state.selectedUpcomingFestival) {
@@ -3391,6 +3424,12 @@ async function processUpsellPayment() {
           })
         });
       } catch (e) { console.error('Upsell notification error:', e); }
+      try {
+        await fetch(`${API}/api/send-receipt-email`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, amount: 10000, description: 'SDTV Feature — Collab Post', paymentId: paymentIntent.id })
+        });
+      } catch (e) { console.error('Receipt email error:', e); }
 
       // Show success
       document.getElementById('upsellCheckout').style.display = 'none';
@@ -3582,6 +3621,19 @@ function mountPaymentRequest() {
             body: JSON.stringify({ ig: state.dancerIdentity || '', email, source: 'Archive Purchase', paid: true })
           });
         } catch (e) {}
+        // Send delivery + receipt
+        try {
+          await fetch(`${API}/api/send-delivery-email`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, captureId: state.activeCapture?.id || '', ig: state.dancerIdentity || '', festival: state.selectedFestival?.name || '' })
+          });
+        } catch (e) {}
+        try {
+          await fetch(`${API}/api/send-receipt-email`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, amount: piData.amount, description: `Dance Video — ${state.selectedFestival?.name || 'SDTV'}`, paymentId: paymentIntent.id })
+          });
+        } catch (e) {}
         showScreen('archive-confirmation');
       }
     } catch (e) {
@@ -3679,6 +3731,20 @@ async function processUnlockPayment() {
           })
         });
       } catch (e) {}
+
+      // Send delivery + receipt emails
+      try {
+        await fetch(`${API}/api/send-delivery-email`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, captureId: state.activeCapture?.id || '', ig: state.dancerIdentity || '', festival: state.selectedFestival?.name || '' })
+        });
+      } catch (e) { console.error('Delivery email error:', e); }
+      try {
+        await fetch(`${API}/api/send-receipt-email`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, amount: piData.amount, description: `Dance Video — ${state.selectedFestival?.name || 'SDTV'}`, paymentId: paymentIntent.id })
+        });
+      } catch (e) { console.error('Receipt email error:', e); }
 
       btn.innerHTML = originalText; btn.disabled = false;
       showScreen('archive-confirmation');
