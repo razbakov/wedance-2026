@@ -1623,7 +1623,7 @@ function renderUpcomingFestivals() {
 
     return `
       <button class="festival-card-visual ${isSelected ? 'selected' : ''}"
-              onclick="selectUpcomingFestival('${f.name.replace(/'/g, "\\'")}', '${f.location.replace(/'/g, "\\'")}', '${f.date}', ${f.spots})">
+              onclick="selectUpcomingFestival('${f.name.replace(/'/g, "\\'")}', '${f.location.replace(/'/g, "\\'")}', '${f.date}', ${f.spots}, '${f.airtableId || ''}')">
         <div class="festival-card-left">
           <div class="festival-card-name">${f.logo ? `<img class="festival-logo-sm" src="${f.logo}" alt="" loading="lazy">` : ''} ${f.name}</div>
           <div class="festival-card-detail">${f.location} · ${f.date}</div>
@@ -1637,8 +1637,8 @@ function renderUpcomingFestivals() {
   }).join('');
 }
 
-function selectUpcomingFestival(name, location, date, spots) {
-  state.selectedUpcomingFestival = { name, location, date, spots };
+function selectUpcomingFestival(name, location, date, spots, airtableId) {
+  state.selectedUpcomingFestival = { name, location, date, spots, airtableId };
   renderUpcomingFestivals();
 
   const btn = document.getElementById('preorderFestivalNext');
