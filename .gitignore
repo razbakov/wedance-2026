@@ -25,5 +25,7 @@ playwright-report/
 *.swo
 
 .claude/worktrees
+.claude/projects/
+.claude/settings.local.json
 
 .vercel
