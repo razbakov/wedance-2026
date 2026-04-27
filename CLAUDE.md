@@ -1,5 +1,11 @@
 # WeDance 2026 — Code Repository
 
+## Framework
+
+@/Users/razbakov/Projects/ikigai-team/CLAUDE.md
+
+---
+
 Dance community platform. Nuxt 4 + tRPC + Drizzle ORM + Neon (PostgreSQL).
 
 ## Links
