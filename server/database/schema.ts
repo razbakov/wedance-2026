@@ -31,14 +31,24 @@ export const festivals = pgTable('festivals', {
   endDate: date('end_date'),
   maxFreeSpots: integer('max_free_spots').notNull().default(10),
   stripePaymentLink: text('stripe_payment_link'),
+  ticketUrl: text('ticket_url'),
 })
 
 export const festivalSignups = pgTable('festival_signups', {
   id: uuid('id').primaryKey().defaultRandom(),
   festivalId: uuid('festival_id').notNull().references(() => festivals.id),
-  dancerId: uuid('dancer_id').notNull().references(() => dancers.id),
+  // dancerId nullable so we can stub a verified ticket holder before they sign in.
+  // PR 4 (claim flow) links the dancer once the buyer authenticates via magic link.
+  dancerId: uuid('dancer_id').references(() => dancers.id),
   paidAmount: integer('paid_amount').notNull().default(0),
   stripeSessionId: text('stripe_session_id'),
+  // TicketTailor verification fields. A row with verified_ticket_holder = true
+  // means an external paid-ticket purchase was confirmed via webhook; this is
+  // the load-bearing field for the public attendee roster.
+  verifiedTicketHolder: boolean('verified_ticket_holder').notNull().default(false),
+  tickettailorOrderId: text('tickettailor_order_id').unique(),
+  tickettailorBuyerEmail: text('tickettailor_buyer_email'),
+  verifiedAt: timestamp('verified_at'),
   createdAt: timestamp('created_at').defaultNow(),
 }, (t) => [
   unique('festival_dancer_unique').on(t.festivalId, t.dancerId),

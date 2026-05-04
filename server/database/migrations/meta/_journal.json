@@ -8,6 +8,13 @@
       "when": 1774145741769,
       "tag": "0000_fat_marten_broadcloak",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1777902077828,
+      "tag": "0001_o008_tickettailor_verification",
+      "breakpoints": true
     }
   ]
 }

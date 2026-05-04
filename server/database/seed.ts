@@ -9,10 +9,14 @@ const sql = neon(DATABASE_URL)
 const db = drizzle(sql, { schema })
 
 const festivalData = [
-  { slug: 'salsa-open-berlin-2026', name: 'Salsa Open Berlin 2026', startDate: '2026-06-11', endDate: '2026-06-14', maxFreeSpots: 10, stripePaymentLink: 'https://buy.stripe.com/test_placeholder' },
-  { slug: 'meneate-viena-2026', name: '¡Menéate Viena! 2026', startDate: '2026-03-26', endDate: '2026-03-29', maxFreeSpots: 10, stripePaymentLink: 'https://buy.stripe.com/test_placeholder' },
-  { slug: 'cuban-fire-munich-2026', name: 'Cuban Fire in Munich', startDate: '2026-03-14', endDate: '2026-03-15', maxFreeSpots: 10, stripePaymentLink: 'https://buy.stripe.com/test_placeholder' },
-  { slug: 'caribbean-urban-fire-munich-2026', name: 'Caribbean Urban Fire', startDate: '2026-03-21', endDate: '2026-03-22', maxFreeSpots: 10, stripePaymentLink: 'https://buy.stripe.com/test_placeholder' },
+  { slug: 'salsa-open-berlin-2026', name: 'Salsa Open Berlin 2026', startDate: '2026-06-11', endDate: '2026-06-14', maxFreeSpots: 10, stripePaymentLink: 'https://buy.stripe.com/test_placeholder', ticketUrl: null as string | null },
+  { slug: 'meneate-viena-2026', name: '¡Menéate Viena! 2026', startDate: '2026-03-26', endDate: '2026-03-29', maxFreeSpots: 10, stripePaymentLink: 'https://buy.stripe.com/test_placeholder', ticketUrl: null },
+  { slug: 'cuban-fire-munich-2026', name: 'Cuban Fire in Munich', startDate: '2026-03-14', endDate: '2026-03-15', maxFreeSpots: 10, stripePaymentLink: 'https://buy.stripe.com/test_placeholder', ticketUrl: null },
+  { slug: 'caribbean-urban-fire-munich-2026', name: 'Caribbean Urban Fire', startDate: '2026-03-21', endDate: '2026-03-22', maxFreeSpots: 10, stripePaymentLink: 'https://buy.stripe.com/test_placeholder', ticketUrl: null },
+  // O-008 PR 1: Charanga Habanera Munich (single-night concert at La Rumba).
+  // TicketTailor event ev_8158745 — buyers verified via /api/webhooks/tickettailor.
+  // Concert shape: maxFreeSpots stays 0 (no free roster), tickets handled by TicketTailor (no Stripe link).
+  { slug: 'charanga-habanera-munich-2026', name: 'David Calzado & Charanga Habanera in Munich', startDate: '2026-05-23', endDate: '2026-05-23', maxFreeSpots: 0, stripePaymentLink: null, ticketUrl: 'https://www.tickettailor.com/events/montunoclub/2183096' },
 ]
 
 async function seed() {
@@ -25,7 +29,10 @@ async function seed() {
     const festivalId = festival?.id || (await db.select().from(schema.festivals).where(eq(schema.festivals.slug, f.slug)))[0]?.id
     if (!festivalId) { console.warn(`Skipping festival ${f.slug}`); continue }
     console.log(`Festival ${f.slug}: ${festivalId}`)
-    await seedDinners(festivalId, f.startDate, f.endDate)
+    // Concert-shaped events (maxFreeSpots === 0) get no dinners.
+    if (f.maxFreeSpots > 0) {
+      await seedDinners(festivalId, f.startDate, f.endDate)
+    }
   }
 
   await seedDancers()

@@ -23,5 +23,6 @@ export default defineNuxtConfig({
     siteUrl: process.env.SITE_URL || 'http://localhost:3000',
     stripeSecretKey: process.env.STRIPE_SECRET_KEY || '',
     stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
+    tickettailorWebhookSecret: process.env.TICKETTAILOR_WEBHOOK_SECRET || '',
   },
 })
