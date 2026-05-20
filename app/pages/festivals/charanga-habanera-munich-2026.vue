@@ -39,7 +39,7 @@ const STATIC_FALLBACK: FestivalData = {
   name: 'David Calzado & Charanga Habanera in Munich',
   startDate: '2026-05-23',
   endDate: '2026-05-23',
-  ticketUrl: 'https://www.tickettailor.com/events/montunoclub/2183096',
+  ticketUrl: 'https://www.tickettailor.com/checkout/view-event/id/8158745/chk/f2b9/?modal_widget=true&widget=true',
   maxFreeSpots: 0,
 }
 
