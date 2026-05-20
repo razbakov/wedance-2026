@@ -15,7 +15,8 @@
  * Roster placeholder: PR 2 ships the real `<AttendeeRoster />` component with
  * privacy toggles. For now we render copy that points buyers at `/charanga/claim`.
  */
-import { Ticket, MapPin, Calendar, ArrowRight, Users } from 'lucide-vue-next'
+import { Ticket, MapPin, Calendar, Users } from 'lucide-vue-next'
+import AttendeeRoster from '~/components/AttendeeRoster.vue'
 
 const { $trpc } = useNuxtApp()
 
@@ -243,24 +244,13 @@ function openTickets() {
         </Button>
       </section>
 
-      <!-- Who's going (placeholder — PR 2 replaces this with <AttendeeRoster />) -->
+      <!-- Who's going — verified roster (PR 2 of O-008) -->
       <section>
         <div class="flex items-center gap-2 mb-3">
           <Users class="size-5 text-muted-foreground" />
           <h2 class="text-lg font-semibold">Verified attendees</h2>
         </div>
-        <div class="rounded-lg border border-dashed bg-card/40 p-5 text-center space-y-3">
-          <p class="text-sm text-muted-foreground">
-            The roster of verified ticket holders shows up here as people connect.
-          </p>
-          <NuxtLink
-            to="/charanga/claim"
-            class="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
-          >
-            Connect after buying your ticket to claim your spot
-            <ArrowRight class="size-4" />
-          </NuxtLink>
-        </div>
+        <AttendeeRoster :festival-slug="SLUG" />
       </section>
 
       <!-- Venue -->

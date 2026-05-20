@@ -49,6 +49,11 @@ export const festivalSignups = pgTable('festival_signups', {
   tickettailorOrderId: text('tickettailor_order_id').unique(),
   tickettailorBuyerEmail: text('tickettailor_buyer_email'),
   verifiedAt: timestamp('verified_at'),
+  // Per-event privacy opt-in for the public attendee roster.
+  // 'public_full'    — name + city + photo
+  // 'public_minimal' — name + city only (default; privacy-conservative)
+  // 'hidden'         — not listed individually; counted in `unclaimed`-style aggregates only
+  rosterVisibility: text('roster_visibility').notNull().default('public_minimal').$type<'public_full' | 'public_minimal' | 'hidden'>(),
   createdAt: timestamp('created_at').defaultNow(),
 }, (t) => [
   unique('festival_dancer_unique').on(t.festivalId, t.dancerId),

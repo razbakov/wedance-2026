@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { eq, and, sql } from 'drizzle-orm'
 import Stripe from 'stripe'
+import { TRPCError } from '@trpc/server'
 import { router, publicProcedure, protectedProcedure } from '../trpc'
 import { festivals, festivalSignups, dancers } from '../../database/schema'
 
@@ -8,6 +9,11 @@ function getStripe() {
   const config = useRuntimeConfig()
   return new Stripe(config.stripeSecretKey)
 }
+
+// Roster visibility levels for the public attendee roster.
+// See migration 0002_o008_roster_visibility.sql for the full doc.
+const visibilityLevel = z.enum(['public_full', 'public_minimal', 'hidden'])
+export type RosterVisibility = z.infer<typeof visibilityLevel>
 
 
 export const festivalSignupRouter = router({
@@ -154,5 +160,149 @@ export const festivalSignupRouter = router({
       })
 
       return { checkoutUrl: session.url }
+    }),
+
+  // Public verified-attendee roster for a festival.
+  //
+  // Filters to verified ticket holders only and respects each row's
+  // `roster_visibility` setting. Stub rows (`dancer_id IS NULL`, created by
+  // the TicketTailor webhook before the buyer signs in) have no display
+  // identity yet, so they are NOT listed individually — they are surfaced
+  // as a single `unclaimed` count alongside the array of attendees.
+  publicRoster: publicProcedure
+    .input(z.object({ festivalSlug: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const [festival] = await ctx.db
+        .select({ id: festivals.id })
+        .from(festivals)
+        .where(eq(festivals.slug, input.festivalSlug))
+
+      if (!festival) {
+        return { attendees: [], unclaimed: 0 }
+      }
+
+      // Pull every verified row for the festival (claimed + stubs). We
+      // post-process in JS — the row count for a single festival is small
+      // (hundreds at most) and this keeps the SQL simple while letting us
+      // shape the response per visibility level.
+      const rows = await ctx.db
+        .select({
+          id: festivalSignups.id,
+          dancerId: festivalSignups.dancerId,
+          rosterVisibility: festivalSignups.rosterVisibility,
+          dancerName: dancers.name,
+          dancerCity: dancers.city,
+          dancerPhoto: dancers.photo,
+        })
+        .from(festivalSignups)
+        .leftJoin(dancers, eq(festivalSignups.dancerId, dancers.id))
+        .where(and(
+          eq(festivalSignups.festivalId, festival.id),
+          eq(festivalSignups.verifiedTicketHolder, true),
+        ))
+
+      let unclaimed = 0
+      const attendees: Array<{
+        id: string
+        dancerId: string | null
+        displayName: string | null
+        city: string | null
+        photoUrl: string | null
+        verifiedTicketHolder: true
+      }> = []
+
+      for (const row of rows) {
+        // Stub rows: webhook-created, buyer hasn't signed in yet. They have
+        // no display name, so we only count them.
+        if (!row.dancerId) {
+          unclaimed += 1
+          continue
+        }
+
+        // Hidden rows: buyer opted out of the public roster.
+        if (row.rosterVisibility === 'hidden') {
+          continue
+        }
+
+        const isFull = row.rosterVisibility === 'public_full'
+        attendees.push({
+          id: row.id,
+          dancerId: row.dancerId,
+          displayName: row.dancerName ?? null,
+          city: row.dancerCity ?? null,
+          photoUrl: isFull ? (row.dancerPhoto ?? null) : null,
+          verifiedTicketHolder: true,
+        })
+      }
+
+      return { attendees, unclaimed }
+    }),
+
+  // Update the caller's own roster visibility for one festival.
+  // Errors if the caller does not have a signup row for `festivalSlug`
+  // (you can't set visibility for a festival you haven't joined).
+  setMyVisibility: protectedProcedure
+    .input(z.object({
+      festivalSlug: z.string(),
+      level: visibilityLevel,
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const [festival] = await ctx.db
+        .select({ id: festivals.id })
+        .from(festivals)
+        .where(eq(festivals.slug, input.festivalSlug))
+
+      if (!festival) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Festival not found' })
+      }
+
+      const [existing] = await ctx.db
+        .select({ id: festivalSignups.id })
+        .from(festivalSignups)
+        .where(and(
+          eq(festivalSignups.festivalId, festival.id),
+          eq(festivalSignups.dancerId, ctx.dancerId),
+        ))
+
+      if (!existing) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'You have no signup for this festival yet.',
+        })
+      }
+
+      await ctx.db
+        .update(festivalSignups)
+        .set({ rosterVisibility: input.level })
+        .where(and(
+          eq(festivalSignups.festivalId, festival.id),
+          eq(festivalSignups.dancerId, ctx.dancerId),
+        ))
+
+      return { level: input.level }
+    }),
+
+  // Read the caller's current visibility for a festival. Returns the
+  // configured level, or `null` if the caller has no signup row yet
+  // (so the UI can fall back to a sensible default before the user joins).
+  getMyVisibility: protectedProcedure
+    .input(z.object({ festivalSlug: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const [festival] = await ctx.db
+        .select({ id: festivals.id })
+        .from(festivals)
+        .where(eq(festivals.slug, input.festivalSlug))
+
+      if (!festival) return { level: null as RosterVisibility | null }
+
+      const [row] = await ctx.db
+        .select({ level: festivalSignups.rosterVisibility })
+        .from(festivalSignups)
+        .where(and(
+          eq(festivalSignups.festivalId, festival.id),
+          eq(festivalSignups.dancerId, ctx.dancerId),
+        ))
+
+      return { level: (row?.level ?? null) as RosterVisibility | null }
     }),
 })

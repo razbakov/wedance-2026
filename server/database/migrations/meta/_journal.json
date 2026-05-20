@@ -15,6 +15,13 @@
       "when": 1777902077828,
       "tag": "0001_o008_tickettailor_verification",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1777965655637,
+      "tag": "0002_o008_roster_visibility",
+      "breakpoints": true
     }
   ]
 }
