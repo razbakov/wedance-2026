@@ -21,23 +21,56 @@ const { $trpc } = useNuxtApp()
 
 const SLUG = 'charanga-habanera-munich-2026'
 
-const { data: festival, error } = await useAsyncData(`festival-${SLUG}`, async () => {
-  const result = await $trpc.festival.bySlug.query({ slug: SLUG })
-  if (!result) {
-    throw createError({ statusCode: 404, statusMessage: 'Festival not found', fatal: true })
-  }
-  return result
-})
-
-// Re-throw a fatal 404 so Nuxt renders the error page instead of an empty template
-if (error.value) {
-  throw error.value
+// Static fallback used for first render (SSR + initial hydration). The DB
+// values are the source of truth and overwrite this once the client fetch
+// resolves. We keep the static values aligned with the seed so the SSR HTML
+// and the post-hydration DOM match — no layout flash on hydration.
+type FestivalData = {
+  id?: string
+  slug: string
+  name: string
+  startDate: string
+  endDate: string
+  ticketUrl: string
+  maxFreeSpots: number
 }
+const STATIC_FALLBACK: FestivalData = {
+  slug: SLUG,
+  name: 'David Calzado & Charanga Habanera in Munich',
+  startDate: '2026-05-23',
+  endDate: '2026-05-23',
+  ticketUrl: 'https://www.tickettailor.com/events/montunoclub/2183096',
+  maxFreeSpots: 0,
+}
+
+const festival = ref<FestivalData>(STATIC_FALLBACK)
+const notFound = ref(false)
+
+// tRPC client uses a relative URL ('/api/trpc') which only resolves in the
+// browser — calling it during SSR throws "Failed to parse URL". Fetch on the
+// client only; SSR renders the static fallback, the DB value swaps in on
+// hydration. The page works without JS at all (the fallback is correct for
+// the live seed).
+onMounted(async () => {
+  try {
+    const result = await $trpc.festival.bySlug.query({ slug: SLUG })
+    if (!result) {
+      notFound.value = true
+      return
+    }
+    festival.value = result as FestivalData
+  } catch (e) {
+    // DB hiccup — keep showing the static fallback. The ticket CTA still
+    // works because ticketUrl is the load-bearing field and it's in the
+    // fallback.
+    console.warn('festival.bySlug failed, using static fallback:', e)
+  }
+})
 
 // Date formatting — Charanga is a single-night concert, so we render the
 // start date in long form with the door time.
 const eventDateLabel = computed(() => {
-  if (!festival.value?.startDate) return ''
+  if (!festival.value.startDate) return ''
   const d = new Date(festival.value.startDate + 'T00:00:00')
   const weekday = d.toLocaleDateString('en-US', { weekday: 'short' })
   const month = d.toLocaleDateString('en-US', { month: 'short' })
@@ -61,30 +94,37 @@ const VENUE_NAME = 'La Rumba Latin Club'
 const VENUE_CITY = 'Munich'
 
 useHead(() => ({
-  title: festival.value
-    ? `${festival.value.name} · ${VENUE_CITY} · ${festival.value.startDate}`
-    : 'Charanga Habanera Munich',
+  title: `${festival.value.name} · ${VENUE_CITY} · ${festival.value.startDate}`,
   meta: [
     {
       name: 'description',
-      content: festival.value
-        ? `${festival.value.name} live at ${VENUE_NAME}, ${VENUE_CITY} — ${eventDateLabel.value}. Tickets via TicketTailor.`
-        : 'David Calzado & Charanga Habanera live in Munich.',
+      content: `${festival.value.name} live at ${VENUE_NAME}, ${VENUE_CITY} — ${eventDateLabel.value}. Tickets via TicketTailor.`,
     },
-    { property: 'og:title', content: festival.value?.name ?? 'Charanga Habanera Munich' },
+    { property: 'og:title', content: festival.value.name },
     { property: 'og:type', content: 'event' },
   ],
 }))
 
 function openTickets() {
-  if (festival.value?.ticketUrl) {
+  if (festival.value.ticketUrl) {
     window.open(festival.value.ticketUrl, '_blank', 'noopener,noreferrer')
   }
 }
 </script>
 
 <template>
-  <div v-if="festival" class="min-h-screen bg-background">
+  <div v-if="notFound" class="min-h-screen bg-background flex items-center justify-center px-4">
+    <div class="max-w-md text-center space-y-4">
+      <h1 class="text-2xl font-semibold">Festival not found</h1>
+      <p class="text-sm text-muted-foreground">
+        We couldn't find this event. It may have been moved or removed.
+      </p>
+      <NuxtLink to="/" class="inline-block text-sm font-medium text-primary hover:text-primary/80">
+        Back to WeDance
+      </NuxtLink>
+    </div>
+  </div>
+  <div v-else class="min-h-screen bg-background">
     <!-- Hero -->
     <section
       class="relative overflow-hidden border-b"
