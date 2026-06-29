@@ -5,7 +5,6 @@
       "name": "dev",
       "runtimeExecutable": "bun",
       "runtimeArgs": ["run", "dev"],
-      "cwd": "app",
       "port": 3000
     }
   ]
