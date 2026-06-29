@@ -47,18 +47,38 @@ useHead({
 // Style filter
 const selectedStyle = ref('')
 
-// People tabs
-type PeopleTab = 'teachers' | 'djs' | 'organisers'
+// People tabs (now also includes Venues — same Lineup shape with auto-generated avatars)
+type PeopleTab = 'teachers' | 'djs' | 'organisers' | 'venues'
 const activeTab = ref<PeopleTab>('teachers')
 
 const peopleTabs: { key: PeopleTab; label: string }[] = [
   { key: 'teachers', label: 'Teachers' },
   { key: 'djs', label: 'DJs' },
   { key: 'organisers', label: 'Organisers' },
+  { key: 'venues', label: 'Venues' },
 ]
 
-// All people combined (teachers + djs + organisers) for lookup
-const allPeople = computed(() => [...teachers, ...djs, ...organisers])
+// Venues derived from events. Slug = venue name, photo = auto-avatar.
+// Sorted by event count so the most-used venues lead the lineup.
+const venues = computed<Teacher[]>(() => {
+  const counts = new Map<string, number>()
+  for (const e of events) {
+    if (!e.venue) continue
+    counts.set(e.venue, (counts.get(e.venue) ?? 0) + 1)
+  }
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, count]) => ({
+      id: `venue:${name}`,
+      name,
+      photo: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&size=80&background=ec4899&color=fff&bold=true&rounded=true`,
+      bio: `${count} weekly event${count !== 1 ? 's' : ''}`,
+      styles: [],
+    } as unknown as Teacher))
+})
+
+// All people combined (teachers + djs + organisers + venues) for lookup
+const allPeople = computed(() => [...teachers, ...djs, ...organisers, ...venues.value])
 
 // Selected person across all tabs
 const selectedPersonId = ref<string | null>(null)
@@ -71,7 +91,13 @@ const selectedPerson = computed(() =>
 const filterLabel = computed(() => {
   if (!selectedPerson.value) return null
   const tab = activeTab.value
-  const role = tab === 'teachers' ? 'teacher' : tab === 'djs' ? 'DJ' : 'organiser'
+  const role = tab === 'teachers'
+    ? 'teacher'
+    : tab === 'djs'
+      ? 'DJ'
+      : tab === 'organisers'
+        ? 'organiser'
+        : 'venue'
   return { name: selectedPerson.value.name, role }
 })
 
@@ -92,7 +118,8 @@ function switchTab(tab: PeopleTab) {
 const currentLineup = computed(() => {
   if (activeTab.value === 'teachers') return teachers
   if (activeTab.value === 'djs') return djs
-  return organisers
+  if (activeTab.value === 'organisers') return organisers
+  return venues.value
 })
 
 // Filtered events
@@ -107,8 +134,12 @@ const filteredEvents = computed(() => {
       result = result.filter(e => e.teacherId === id)
     } else if (activeTab.value === 'djs') {
       result = result.filter(e => e.djId === id)
-    } else {
+    } else if (activeTab.value === 'organisers') {
       result = result.filter(e => e.organizerId === id)
+    } else {
+      // venues: id format is "venue:<name>"
+      const venueName = id.replace(/^venue:/, '')
+      result = result.filter(e => e.venue === venueName)
     }
   }
   return result
