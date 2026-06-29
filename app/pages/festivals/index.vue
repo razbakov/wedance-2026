@@ -391,13 +391,11 @@ const stats = [
 
     <!-- Desktop year sidebar (fixed, full height) -->
     <aside class="hidden lg:flex fixed right-0 top-12 bottom-0 w-80 border-l bg-background z-30">
-      <YearDrawer
+      <YearCanvas
         :festivals="allFestivals"
         :year-plan-ids="yearPlanIds"
         class="w-full"
         @remove="removeFestival"
-        @share="() => {}"
-        @sign-in="() => {}"
         @close="closeDrawer()"
       />
     </aside>
@@ -430,12 +428,10 @@ const stats = [
           v-if="yearDrawerOpen"
           class="lg:hidden fixed right-0 top-12 bottom-0 z-50 w-80 max-w-[85vw] shadow-xl"
         >
-          <YearDrawer
+          <YearCanvas
             :festivals="allFestivals"
             :year-plan-ids="yearPlanIds"
             @remove="removeFestival"
-            @share="() => {}"
-            @sign-in="() => {}"
             @close="closeDrawer()"
           />
         </div>
