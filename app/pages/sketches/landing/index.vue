@@ -405,7 +405,7 @@ function go(href: string) {
         <span class="text-stone-500 pr-1">Compare</span>
         <NuxtLink to="/sketches/landing/v1" class="px-2 py-0.5 rounded-full text-stone-600 hover:text-stone-900">V1 · Editorial</NuxtLink>
         <NuxtLink to="/sketches/landing/v2" class="px-2 py-0.5 rounded-full text-stone-600 hover:text-stone-900">V2 · Manifesto</NuxtLink>
-        <NuxtLink to="/sketches/landing/v3" class="px-2 py-0.5 rounded-full text-stone-600 hover:text-stone-900">V3 · Tropical</NuxtLink>
+        <NuxtLink to="/" class="px-2 py-0.5 rounded-full text-stone-600 hover:text-stone-900">V3 · Tropical</NuxtLink>
         <NuxtLink to="/sketches/landing/v4" class="px-2 py-0.5 rounded-full text-stone-600 hover:text-stone-900">V4 · After Dark</NuxtLink>
         <NuxtLink to="/sketches/landing" class="px-2 py-0.5 rounded-full bg-stone-900 text-white">Current</NuxtLink>
       </div>

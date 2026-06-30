@@ -240,7 +240,7 @@ const loop = [
         <span class="text-stone-500 pr-1">Compare</span>
         <NuxtLink to="/sketches/landing/v1" class="px-2 py-0.5 rounded-full bg-orange-700 text-white">V1 · Editorial</NuxtLink>
         <NuxtLink to="/sketches/landing/v2" class="px-2 py-0.5 rounded-full text-stone-600 hover:text-stone-900">V2</NuxtLink>
-        <NuxtLink to="/sketches/landing/v3" class="px-2 py-0.5 rounded-full text-stone-600 hover:text-stone-900">V3</NuxtLink>
+        <NuxtLink to="/" class="px-2 py-0.5 rounded-full text-stone-600 hover:text-stone-900">V3</NuxtLink>
         <NuxtLink to="/sketches/landing/v4" class="px-2 py-0.5 rounded-full text-stone-600 hover:text-stone-900">V4</NuxtLink>
         <NuxtLink to="/sketches/landing" class="px-2 py-0.5 rounded-full text-stone-600 hover:text-stone-900">Current</NuxtLink>
       </div>

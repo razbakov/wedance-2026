@@ -370,7 +370,7 @@ const stages = [
         <span class="pr-1" style="color: #5b4830;">Compare</span>
         <NuxtLink to="/sketches/landing/v1" class="px-2 py-0.5 hover:text-stone-900" style="color: #5b4830;">V1</NuxtLink>
         <NuxtLink to="/sketches/landing/v2" class="px-2 py-0.5 hover:text-stone-900" style="color: #5b4830;">V2</NuxtLink>
-        <NuxtLink to="/sketches/landing/v3" class="px-2 py-0.5 hover:text-stone-900" style="color: #5b4830;">V3</NuxtLink>
+        <NuxtLink to="/" class="px-2 py-0.5 hover:text-stone-900" style="color: #5b4830;">V3</NuxtLink>
         <NuxtLink to="/sketches/landing/v4" class="px-2 py-0.5 hover:text-stone-900" style="color: #5b4830;">V4</NuxtLink>
         <NuxtLink to="/sketches/landing/v7" class="px-2 py-0.5 hover:text-stone-900" style="color: #5b4830;">V7</NuxtLink>
         <NuxtLink to="/sketches/landing/v9" class="px-2 py-0.5 hover:text-stone-900" style="color: #5b4830;">V9</NuxtLink>

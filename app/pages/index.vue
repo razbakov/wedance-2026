@@ -1,410 +1,437 @@
 <script setup lang="ts">
-import {
-  ArrowRight,
-  CalendarPlus,
-  Check,
-  Circle,
-  Heart,
-  Users,
-  ChevronDown,
-  Car,
-  UtensilsCrossed,
-  Sparkles,
-  Video,
-  Handshake,
-  PartyPopper,
-} from 'lucide-vue-next'
+/**
+ * Homepage — promoted from /sketches/landing/v3 on 2026-06-30.
+ *
+ * Direction: V3 Tropical — Buena Vista Social Club album art, Havana
+ * street murals, 1950s travel posters, hand-painted danzón flyers.
+ * Mood: warm, sensual, communal — the page IS the venue.
+ *
+ * Type: serif display (Playfair Display) + handwritten script (Caveat).
+ * Palette: cream paper bg, warm rose / gold / coral / palm green accents.
+ * Language: English-first; i18n layer (DE/ES/RU/UK) will follow.
+ * Decorative: curved SVG dividers, sun rays, washi tape, dashed-border
+ * passport stamps, red drop-shadow border on the hero photo.
+ *
+ * Previous homepage archived at /sketches/legacy (the kitchen-sink
+ * version with swipe cards + checklist + features grid + fake friends).
+ * Other visual directions explored at /sketches/landing/{v1, v2, v4,
+ * v7, v9, v12} + the early baseline at /sketches/landing.
+ */
+import { ArrowRight, MapPin, Calendar } from 'lucide-vue-next'
+
+definePageMeta({ layout: false })
 
 useHead({
-  title: 'WeDance — Meet Dancers at Festivals',
-  meta: [
-    { name: 'description', content: 'Swipe to connect with dancers, join group dinners, share rides, and discover activities around your next dance festival.' },
+  title: 'WeDance — Welcome to the dance',
+  link: [
+    { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+    { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
+    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Caveat:wght@400;700&display=swap' },
   ],
 })
 
-const router = useRouter()
+const stages = [
+  { label: 'Curious',    title: 'Find your first dance', detail: 'Salsa · Bachata · Kizomba · Timba · 60 more', emoji: '✨' },
+  { label: 'Beginner',   title: 'Find a teacher',         detail: '12 in Munich · 8 in Berlin',                  emoji: '🎓' },
+  { label: 'Weekly',     title: 'Know your city',         detail: 'Practicas, socials, taster classes',          emoji: '🌃' },
+  { label: 'Traveling',  title: 'Plan your year',         detail: '7 events · 5 cities · 2026',                  emoji: '✈️' },
+  { label: 'Reviewer',   title: 'Tell the truth',         detail: 'Honest reviews — coming soon',                emoji: '⭐' },
+]
 
-// Intersection Observer for scroll-triggered animations
-function useScrollReveal() {
-  const refs = new Map<string, Ref<boolean>>()
-
-  function createSection(id: string) {
-    const visible = ref(false)
-    refs.set(id, visible)
-    return visible
-  }
-
-  onMounted(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const id = (entry.target as HTMLElement).dataset.section
-            if (id && refs.has(id)) {
-              refs.get(id)!.value = true
-            }
-            observer.unobserve(entry.target)
-          }
-        })
-      },
-      { threshold: 0.3 },
-    )
-
-    document.querySelectorAll('[data-section]').forEach((el) => {
-      observer.observe(el)
-    })
-  })
-
-  return { createSection }
-}
-
-const { createSection } = useScrollReveal()
-
-const swipeVisible = createSection('swipe')
-const checklistVisible = createSection('checklist')
-const featuresVisible = createSection('features')
-const friendsVisible = createSection('friends')
-
-// Checklist animation: items check themselves sequentially
-const checklistItems = ref([
-  { label: 'Save the dates', extra: 'Mar 26–29', checked: false },
-  { label: 'Get tickets', extra: '', checked: false },
-  { label: 'Share a ride', extra: '', checked: false },
-  { label: 'Share a meal', extra: '', checked: false },
-  { label: 'Extra activities', extra: '', checked: false },
-])
-
-let checkInterval: ReturnType<typeof setInterval> | null = null
-
-watch(checklistVisible, (visible) => {
-  if (!visible) return
-  let i = 0
-  checkInterval = setInterval(() => {
-    if (i < checklistItems.value.length) {
-      checklistItems.value[i].checked = true
-      i++
-    }
-    else {
-      clearInterval(checkInterval!)
-    }
-  }, 600)
-})
-
-// Friends: appear one by one
-const friendsList = ref([
-  { initials: 'A', name: 'Anna K.', city: 'Berlin', bgClass: 'bg-pink-100', textClass: 'text-pink-600', visible: false },
-  { initials: 'M', name: 'Marco R.', city: 'Munich', bgClass: 'bg-blue-100', textClass: 'text-blue-600', visible: false },
-  { initials: 'S', name: 'Sofia M.', city: 'Vienna', bgClass: 'bg-green-100', textClass: 'text-green-600', visible: false },
-])
-
-const friendsCountVisible = ref(false)
-
-watch(friendsVisible, (visible) => {
-  if (!visible) return
-  friendsList.value.forEach((f, i) => {
-    setTimeout(() => { f.visible = true }, (i + 1) * 400)
-  })
-  setTimeout(() => { friendsCountVisible.value = true }, 1800)
-})
-
-// Feature grid items
-const features = [
-  { icon: Handshake, title: 'Meet dancers', description: 'Swipe to match with people at your festival' },
-  { icon: Car, title: 'Share a ride', description: 'Find or offer rides, split costs' },
-  { icon: UtensilsCrossed, title: 'Group dinners', description: 'Curated meals with fellow dancers' },
-  { icon: Sparkles, title: 'Taxi dancers', description: 'Book a pro partner for any workshop' },
-  { icon: Video, title: 'Videographer', description: 'Capture your best moves on the floor' },
-  { icon: PartyPopper, title: 'Extra activities', description: 'City tours, flashmobs, beach socials' },
+const attendees = [
+  { n: 'Maxine', c: 'Vienna', col: '#dc2626' },
+  { n: 'Dayron', c: 'Madrid', col: '#0891b2' },
+  { n: 'Sofia',  c: 'Munich', col: '#16a34a' },
+  { n: 'Mark',   c: 'Berlin', col: '#f59e0b' },
 ]
 </script>
 
 <template>
-  <div>
-    <!-- Hero -->
-    <section class="relative border-b">
-      <div class="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent" />
-      <div class="relative max-w-2xl mx-auto px-4 pt-20 pb-16 text-center">
-        <p class="text-sm text-muted-foreground mb-6">For dancers who go to festivals</p>
-        <h1 class="text-3xl sm:text-5xl font-bold tracking-tight leading-tight">
-          Don't just attend.<br />
-          <em class="not-italic text-primary">Connect.</em>
-        </h1>
-        <p class="mt-4 text-muted-foreground text-base sm:text-lg max-w-md mx-auto">
-          Meet dancers. Join group dinners. Find ride shares.<br />
-          Book a taxi dancer. All around your next festival.
-        </p>
-        <div class="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
-          <Button size="lg" class="gap-2" @click="router.push('/festivals')">
-            Browse festivals <ArrowRight class="w-4 h-4" />
-          </Button>
-          <span class="inline-flex items-center gap-1.5 bg-green-100 text-green-700 text-xs font-medium px-3 py-1 rounded-full">
-            Free for the first 10 dancers per festival
-          </span>
+  <div
+    class="min-h-screen relative overflow-x-hidden"
+    style="
+      background:
+        radial-gradient(ellipse at 20% 0%, rgba(251, 146, 60, 0.18), transparent 50%),
+        radial-gradient(ellipse at 90% 30%, rgba(220, 38, 38, 0.10), transparent 50%),
+        radial-gradient(ellipse at 50% 100%, rgba(22, 163, 74, 0.08), transparent 50%),
+        #fbf5ea;
+      color:#3b1f0d;
+      font-family: 'Inter', system-ui, sans-serif;
+    "
+  >
+    <!-- Subtle paper texture overlay -->
+    <div
+      class="pointer-events-none fixed inset-0 opacity-[0.18]"
+      style="background-image: url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22120%22 height=%22120%22><filter id=%22n%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.8%22 numOctaves=%222%22/></filter><rect width=%22120%22 height=%22120%22 filter=%22url(%23n)%22 opacity=%220.6%22/></svg>'); mix-blend-mode: multiply; z-index: 1;"
+    />
+
+    <div class="relative z-10">
+      <!-- Header — old-fashioned travel poster strip -->
+      <header class="border-b" style="border-color:#3b1f0d33;">
+        <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+          <NuxtLink to="/" class="flex items-baseline gap-2">
+            <span class="font-bold text-lg" style="font-family:'Playfair Display', serif;">WeDance</span>
+            <span class="text-[10px] uppercase tracking-[0.25em]" style="color:#9a5614;">Summer Edition · 2026</span>
+          </NuxtLink>
+          <nav class="flex items-center gap-5 text-sm" style="font-family:'Playfair Display', serif;">
+            <NuxtLink to="/festivals" class="italic hover:underline">Festivals</NuxtLink>
+            <NuxtLink to="/cities" class="italic hover:underline">Cities</NuxtLink>
+            <NuxtLink to="/organizers" class="italic hover:underline hidden sm:inline">For organizers</NuxtLink>
+          </nav>
         </div>
-        <div class="mt-12 animate-bounce text-muted-foreground/40">
-          <ChevronDown class="w-5 h-5 mx-auto" />
-        </div>
-      </div>
-    </section>
+      </header>
 
-    <!-- Shall we dance: Swipe Card -->
-    <section class="border-b" data-section="swipe">
-      <div class="max-w-2xl mx-auto px-4 py-16 sm:py-20">
-        <p class="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">Meet people</p>
-        <h2 class="text-2xl sm:text-3xl font-bold tracking-tight">
-          Swipe right to connect.
-        </h2>
-        <p class="mt-2 text-muted-foreground text-sm max-w-md">
-          Find dancers, group dinners, and activities — all in one feed.
-        </p>
-
-        <!-- Mock cards: dancer, dinner, activity -->
-        <Transition
-          enter-active-class="transition duration-500 ease-out"
-          enter-from-class="opacity-0 translate-y-4"
-          enter-to-class="opacity-100 translate-y-0"
-        >
-          <div v-if="swipeVisible" class="mt-10 flex flex-row gap-4 overflow-x-auto pb-4 -mx-4 px-4 snap-x snap-mandatory sm:overflow-visible sm:mx-0 sm:px-0 sm:pb-0 sm:gap-6">
-            <!-- Dancer card -->
-            <div class="w-[200px] sm:w-[220px] shrink-0 snap-start">
-              <div class="rounded-xl border-2 border-border overflow-hidden bg-background shadow-lg transform sm:rotate-[-2deg]">
-                <div class="relative aspect-[3/4] bg-muted">
-                  <img
-                    src="https://i.pravatar.cc/400?u=isabella"
-                    alt="Isabella Ruiz"
-                    class="w-full h-full object-cover"
-                  />
-                  <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                  <div class="absolute bottom-0 left-0 right-0 p-3 text-white">
-                    <div class="flex items-center gap-1.5">
-                      <h4 class="text-sm font-semibold">Isabella Ruiz</h4>
-                      <span class="bg-white/20 text-white border border-white/30 text-[10px] px-1.5 py-0 rounded-full">Follow</span>
-                    </div>
-                    <p class="text-[11px] text-white/80 mt-0.5">Love social dancing! 3rd festival.</p>
-                    <div class="flex gap-1 mt-1.5">
-                      <span class="bg-white/20 text-white border border-white/30 text-[10px] px-1.5 py-0.5 rounded-full">Salsa</span>
-                      <span class="bg-white/20 text-white border border-white/30 text-[10px] px-1.5 py-0.5 rounded-full">Bachata</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <p class="text-center text-[11px] text-muted-foreground mt-2">Swipe right to connect</p>
+      <!-- HERO -->
+      <section class="relative">
+        <div class="max-w-6xl mx-auto px-4 pt-14 pb-20 grid md:grid-cols-12 gap-10 items-center">
+          <div class="md:col-span-7 text-center md:text-left">
+            <div class="text-sm tracking-widest uppercase mb-3" style="color:#9a5614;">
+              · Welcome to the dance ·
             </div>
-
-            <!-- Dinner card -->
-            <div class="w-[200px] sm:w-[220px] shrink-0 snap-start">
-              <div class="rounded-xl border-2 border-border overflow-hidden bg-background shadow-lg transform sm:rotate-[1deg]">
-                <div class="aspect-[3/4] bg-gradient-to-br from-orange-50 to-amber-100 flex flex-col items-center justify-center p-5 text-center space-y-3">
-                  <div class="w-12 h-12 rounded-full bg-orange-100 border-2 border-orange-200 flex items-center justify-center">
-                    <UtensilsCrossed class="w-6 h-6 text-orange-500" />
-                  </div>
-                  <div>
-                    <h4 class="text-sm font-semibold">Friday dinner</h4>
-                    <p class="text-[11px] text-muted-foreground">19:00 · La Piazza</p>
-                  </div>
-                  <div class="w-full max-w-[140px] space-y-1">
-                    <div class="flex items-center justify-between text-[11px]">
-                      <span class="text-muted-foreground">Spots</span>
-                      <span class="font-medium text-orange-600">4/6</span>
-                    </div>
-                    <div class="w-full bg-orange-200/50 rounded-full h-1.5">
-                      <div class="bg-orange-400 rounded-full h-1.5 w-2/3" />
-                    </div>
-                  </div>
-                  <span class="bg-orange-500 text-white text-[10px] font-medium px-2.5 py-1 rounded-full">Swipe right to join</span>
-                </div>
-              </div>
-              <p class="text-center text-[11px] text-muted-foreground mt-2">Meet new friends over dinner</p>
-            </div>
-
-            <!-- Activity card -->
-            <div class="w-[200px] sm:w-[220px] shrink-0 snap-start">
-              <div class="rounded-xl border-2 border-border overflow-hidden bg-background shadow-lg transform sm:rotate-[3deg]">
-                <div class="aspect-[3/4] bg-gradient-to-br from-emerald-50 to-teal-100 flex flex-col items-center justify-center p-5 text-center space-y-3">
-                  <div class="w-12 h-12 rounded-full bg-emerald-100 border-2 border-emerald-200 flex items-center justify-center">
-                    <PartyPopper class="w-6 h-6 text-emerald-500" />
-                  </div>
-                  <div>
-                    <h4 class="text-sm font-semibold">Beach social dance</h4>
-                    <p class="text-[11px] text-muted-foreground">Saturday · 16:00</p>
-                  </div>
-                  <p class="text-[11px] text-muted-foreground max-w-[160px]">Open-air dancing at the beach — bring your shoes!</p>
-                  <span class="text-[11px] font-medium text-emerald-600">12 joined</span>
-                  <span class="bg-emerald-500 text-white text-[10px] font-medium px-2.5 py-1 rounded-full">Swipe right to join</span>
-                </div>
-              </div>
-              <p class="text-center text-[11px] text-muted-foreground mt-2">Explore beyond workshops</p>
-            </div>
-          </div>
-        </Transition>
-      </div>
-    </section>
-
-    <!-- Checklist -->
-    <section class="border-b bg-muted/20" data-section="checklist">
-      <div class="max-w-2xl mx-auto px-4 py-16 sm:py-20">
-        <p class="text-sm font-medium text-primary uppercase tracking-wider mb-4">Your plan</p>
-        <h2 class="text-2xl sm:text-3xl font-bold tracking-tight">
-          One checklist.<br />
-          <span class="text-muted-foreground">Nothing falls through the cracks.</span>
-        </h2>
-
-        <!-- Mock: checklist items check themselves -->
-        <div class="mt-10 max-w-xs">
-          <div class="rounded-lg border bg-background shadow-sm overflow-hidden">
-            <div class="px-4 py-3 bg-foreground text-background text-sm font-semibold">
-              My Plan
-            </div>
-            <div class="divide-y">
-              <div
-                v-for="(item, i) in checklistItems"
-                :key="i"
-                class="px-4 py-2.5 flex items-center gap-3 transition-all duration-500"
-                :class="item.checked ? 'bg-primary/5' : ''"
+            <h1 class="text-5xl sm:text-7xl leading-[0.95]" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+              From your<br>
+              first <em class="italic" style="color:#dc2626;">salsa</em><br>
+              to your
+              <span class="inline-block relative">
+                <span style="color:#dc2626;">tenth</span>
+                <svg class="absolute left-0 right-0 -bottom-2 w-full h-3" viewBox="0 0 100 10" preserveAspectRatio="none">
+                  <path d="M0,8 Q25,2 50,7 T100,4" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+              </span>
+              <span class="italic" style="font-family:'Caveat', cursive; color:#16a34a;"> festival.</span>
+            </h1>
+            <p class="mt-6 text-base sm:text-lg leading-relaxed max-w-md mx-auto md:mx-0" style="color:#5b3a1d;">
+              We map every dance event, every teacher, every venue, every city — and tell you who is going before you book.
+            </p>
+            <div class="mt-8 flex items-center justify-center md:justify-start gap-5">
+              <NuxtLink
+                to="/festivals"
+                class="fiesta-cta group inline-flex items-center gap-2 px-6 py-3 rounded-full text-white text-sm font-bold uppercase tracking-wider"
               >
-                <!-- Animated checkbox -->
-                <Transition
-                  enter-active-class="transition duration-300 ease-out"
-                  enter-from-class="scale-0"
-                  enter-to-class="scale-100"
-                  mode="out-in"
-                >
-                  <div
-                    v-if="item.checked"
-                    :key="'checked'"
-                    class="w-5 h-5 rounded-full border-2 border-primary bg-primary/10 flex items-center justify-center"
-                  >
-                    <Check class="w-3 h-3 text-primary" />
-                  </div>
-                  <Circle
-                    v-else
-                    :key="'unchecked'"
-                    class="w-5 h-5 text-muted-foreground/30 shrink-0"
-                  />
-                </Transition>
-                <span
-                  class="text-sm transition-colors duration-300"
-                  :class="item.checked ? 'font-medium text-foreground' : 'text-muted-foreground'"
-                >{{ item.label }}</span>
-                <span v-if="item.extra" class="ml-auto text-xs text-muted-foreground">{{ item.extra }}</span>
+                <span class="relative z-10">Find your next festival</span>
+                <ArrowRight class="w-4 h-4 relative z-10 transition-transform duration-200 ease-out group-hover:translate-x-1 group-active:translate-x-0" />
+              </NuxtLink>
+              <span class="text-xs italic" style="color:#9a5614; font-family:'Caveat', cursive; font-size:18px;">
+                — see who's going before you book
+              </span>
+            </div>
+          </div>
+          <!-- Photo with decorative frame -->
+          <div class="md:col-span-5 relative">
+            <!-- Sun rays behind photo -->
+            <svg class="absolute -top-8 -right-8 w-40 h-40 opacity-30" viewBox="0 0 100 100">
+              <g stroke="#f97316" stroke-width="1.5" fill="none">
+                <line v-for="i in 24" :key="i" x1="50" y1="50"
+                  :x2="50 + 48 * Math.cos(2 * Math.PI * i / 24)"
+                  :y2="50 + 48 * Math.sin(2 * Math.PI * i / 24)" />
+              </g>
+            </svg>
+            <div class="relative rounded-2xl overflow-hidden shadow-2xl border-4" style="border-color:#fbf5ea; box-shadow: 12px 14px 0 -2px #dc2626;">
+              <img src="/alosha-charanga.jpg" alt="Alösha on stage at the end of the Charanga Habanera Munich concert he hosted" class="w-full aspect-[4/5] object-cover" style="object-position: center 30%;">
+              <div class="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 via-black/40 to-transparent text-white">
+                <div class="text-[10px] uppercase tracking-[0.3em] opacity-90">Your host · the night he brought the band</div>
+                <div class="text-xl mt-1" style="font-family:'Caveat', cursive;">— Alösha · Charanga Habanera, München</div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-    </section>
 
-    <!-- Feature Grid -->
-    <section class="border-b" data-section="features">
-      <div class="max-w-2xl mx-auto px-4 py-16 sm:py-20">
-        <p class="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">What's included</p>
-        <h2 class="text-2xl sm:text-3xl font-bold tracking-tight">
-          More than workshops and parties.
-        </h2>
+        <!-- Wave divider -->
+        <svg class="block w-full h-12" viewBox="0 0 1440 60" preserveAspectRatio="none">
+          <path d="M0,40 Q360,0 720,30 T1440,20 V60 H0 Z" fill="#3b1f0d" opacity="0.1"/>
+        </svg>
+      </section>
 
-        <div class="mt-10 grid grid-cols-2 sm:grid-cols-3 gap-4">
-          <Transition
-            v-for="(feature, i) in features"
-            :key="feature.title"
-            enter-active-class="transition duration-500 ease-out"
-            enter-from-class="opacity-0 translate-y-4"
-            enter-to-class="opacity-100 translate-y-0"
-          >
-            <div
-              v-if="featuresVisible"
-              class="rounded-lg border bg-background p-4 space-y-2"
-              :style="{ transitionDelay: `${i * 100}ms` }"
+      <!-- STAGES — passport stamps -->
+      <section class="border-y" style="border-color:#3b1f0d22; background:rgba(251, 245, 234, 0.5);">
+        <div class="max-w-6xl mx-auto px-4 py-16">
+          <div class="text-center mb-10">
+            <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">Wherever you are in dance</div>
+            <h2 class="mt-3 text-3xl sm:text-5xl" style="font-family:'Playfair Display', serif;">
+              <em class="italic">Pick your door.</em>
+            </h2>
+          </div>
+          <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <NuxtLink
+              v-for="(s, i) in stages"
+              :key="s.label"
+              to="/festivals"
+              class="block rounded-2xl px-4 py-5 text-center hover:-translate-y-1 transition-transform"
+              :style="{
+                background: 'rgba(255,255,255,0.7)',
+                border: '2px dashed ' + ['#dc2626', '#0891b2', '#16a34a', '#f59e0b', '#a855f7'][i],
+                boxShadow: '0 4px 0 -1px ' + ['#dc2626', '#0891b2', '#16a34a', '#f59e0b', '#a855f7'][i] + '33',
+              }"
             >
-              <component :is="feature.icon" class="w-5 h-5 text-primary" />
-              <h3 class="text-sm font-semibold">{{ feature.title }}</h3>
-              <p class="text-xs text-muted-foreground leading-relaxed">{{ feature.description }}</p>
-            </div>
-          </Transition>
+              <div class="text-3xl">{{ s.emoji }}</div>
+              <div class="mt-2 text-[10px] uppercase tracking-widest font-bold" :style="{color: ['#dc2626', '#0891b2', '#16a34a', '#f59e0b', '#a855f7'][i]}">{{ s.label }}</div>
+              <div class="mt-1 text-base font-bold" style="font-family:'Playfair Display', serif;">{{ s.title }}</div>
+              <div class="mt-1 text-[11px]" style="color:#5b3a1d;">{{ s.detail }}</div>
+            </NuxtLink>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- Friends -->
-    <section class="border-b bg-muted/20" data-section="friends">
-      <div class="max-w-2xl mx-auto px-4 py-16 sm:py-20">
-        <p class="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">Stop guessing</p>
-        <h2 class="text-2xl sm:text-3xl font-bold tracking-tight">
-          Know who's going.<br />
-          <span class="text-muted-foreground">Before you book.</span>
-        </h2>
+      <!-- PROOF -->
+      <section class="py-16">
+        <div class="max-w-3xl mx-auto px-4 text-center">
+          <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">This is the product</div>
+          <h2 class="mt-3 text-4xl sm:text-5xl" style="font-family:'Playfair Display', serif;">
+            <em class="italic">See who else is</em> <span style="color:#dc2626;">going</span>.
+          </h2>
+          <p class="mt-4 text-sm sm:text-base leading-relaxed max-w-xl mx-auto" style="color:#5b3a1d;">
+            Every ticket sold turns into a face on the event page. <span class="italic" style="font-family:'Caveat', cursive; font-size:20px;">No fake friends.</span>
+          </p>
 
-        <!-- Mock: friends appear one by one -->
-        <div class="mt-10 max-w-sm">
-          <div class="rounded-lg border bg-background p-4 shadow-sm">
-            <div class="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Going to Meneate Viena</div>
-            <div class="space-y-3">
-              <template v-for="(friend, i) in friendsList" :key="i">
-                <Transition
-                  enter-active-class="transition duration-400 ease-out"
-                  enter-from-class="opacity-0 translate-y-2"
-                  enter-to-class="opacity-100 translate-y-0"
-                >
-                  <div v-if="friend.visible" class="flex items-center gap-3">
-                    <div
-                      class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
-                      :class="[friend.bgClass, friend.textClass]"
-                    >{{ friend.initials }}</div>
-                    <div class="flex-1">
-                      <div class="text-sm font-medium">{{ friend.name }}</div>
-                      <div class="text-xs text-muted-foreground">{{ friend.city }}</div>
+          <!-- Event card as concert poster -->
+          <div class="mt-10 mx-auto max-w-md text-left relative">
+            <!-- Tape strips -->
+            <div class="absolute -top-3 left-6 w-20 h-4 bg-yellow-200/80 rotate-[-4deg] shadow"/>
+            <div class="absolute -top-3 right-6 w-20 h-4 bg-yellow-200/80 rotate-[3deg] shadow"/>
+
+            <div class="rounded-lg overflow-hidden shadow-2xl bg-white border" style="border-color:#3b1f0d22;">
+              <div class="p-6" style="background:linear-gradient(135deg,#7c3aed 0%, #c026d3 50%, #f43f5e 100%);">
+                <div class="text-[10px] uppercase tracking-[0.3em] text-white/90 font-bold">In 3 days · Barcelona</div>
+                <h3 class="mt-2 text-3xl text-white leading-tight" style="font-family:'Playfair Display', serif;">
+                  Bachata Stars<br>Barcelona
+                </h3>
+                <div class="mt-2 text-xs text-white/80 flex flex-wrap gap-3">
+                  <span class="inline-flex items-center gap-1"><Calendar class="w-3 h-3" /> Jul 3–6, 2026</span>
+                  <span class="inline-flex items-center gap-1"><MapPin class="w-3 h-3" /> Sala Apolo</span>
+                </div>
+              </div>
+              <div class="p-5">
+                <div class="text-[10px] uppercase tracking-[0.25em] font-bold mb-3 flex items-center justify-between" style="color:#9a5614;">
+                  <span>Who's coming</span>
+                  <span class="px-1.5 py-0.5 rounded text-[9px]" style="background:#fef3c7; color:#92400e;">Sample</span>
+                </div>
+                <ul class="grid grid-cols-2 gap-2">
+                  <li v-for="a in attendees" :key="a.n" class="flex items-center gap-2 p-1">
+                    <div class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white shadow" :style="{background: a.col}">{{ a.n.charAt(0) }}</div>
+                    <div class="min-w-0">
+                      <div class="text-sm font-bold truncate">{{ a.n }}</div>
+                      <div class="text-[10px]" style="color:#9a5614;">{{ a.c }}</div>
                     </div>
-                    <span class="text-xs text-primary font-medium flex items-center gap-1">
-                      <Heart class="w-3 h-3" /> Friend
-                    </span>
-                  </div>
-                </Transition>
-              </template>
-            </div>
-            <Transition
-              enter-active-class="transition duration-400 ease-out"
-              enter-from-class="opacity-0"
-              enter-to-class="opacity-100"
-            >
-              <div v-if="friendsCountVisible" class="mt-3 pt-3 border-t flex items-center gap-1 text-xs text-muted-foreground">
-                <Users class="w-3.5 h-3.5" />
-                <span>+ 197 other dancers</span>
+                  </li>
+                </ul>
+                <NuxtLink
+                  to="/festivals/bachata-stars-barcelona-2026"
+                  class="mt-4 block text-center w-full py-3 rounded-full text-white text-xs font-bold uppercase tracking-widest"
+                  style="background:linear-gradient(135deg,#dc2626,#f97316); box-shadow: 0 4px 0 -1px #b91c1c;"
+                >
+                  Get tickets ✨
+                </NuxtLink>
               </div>
-            </Transition>
+            </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- CTA -->
-    <section class="bg-foreground text-background">
-      <div class="max-w-2xl mx-auto px-4 py-16 sm:py-20 text-center">
-        <h2 class="text-2xl sm:text-3xl font-bold tracking-tight">
-          Your festival starts<br />
-          before the first workshop.
-        </h2>
-        <p class="mt-3 text-background/60 text-base max-w-md mx-auto">
-          Stop being a stranger.<br />
-          Start connecting with dancers before you arrive.
-        </p>
-        <div class="mt-8">
-          <Button size="lg" variant="secondary" class="gap-2" @click="router.push('/festivals')">
+      <!-- LOOP — 5 steps as numbered banderitas -->
+      <section class="py-16" style="background:rgba(251, 245, 234, 0.5);">
+        <div class="max-w-3xl mx-auto px-4">
+          <div class="text-center mb-12">
+            <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">How it works</div>
+            <h2 class="mt-3 text-3xl sm:text-4xl" style="font-family:'Playfair Display', serif;">
+              <em class="italic">Five steps.</em> No surprises.
+            </h2>
+          </div>
+          <ol class="space-y-4">
+            <li v-for="(s, i) in [
+              { t: 'Pick your festival',         b: 'From every dance event we map across Europe.' },
+              { t: 'Buy your ticket in one tap', b: 'Secure checkout, instant confirmation.' },
+              { t: 'See who else is going',      b: 'Opt-in only. No strangers, no fake friends.' },
+              { t: 'Plan the trip together',     b: 'Dinners, ride-shares, first-night partner.' },
+              { t: 'Arrive with friends',        b: 'Skip the wall. The floor is waiting.' },
+            ]" :key="s.t" class="flex items-start gap-4 bg-white/70 rounded-xl p-4 border" style="border-color:#3b1f0d22;">
+              <div
+                class="w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold text-white shrink-0 shadow"
+                :style="{ background: ['#dc2626', '#f97316', '#16a34a', '#0891b2', '#a855f7'][i] }"
+              >{{ i + 1 }}</div>
+              <div>
+                <div class="text-base font-bold" style="font-family:'Playfair Display', serif;">{{ s.t }}</div>
+                <div class="text-sm mt-0.5" style="color:#5b3a1d;">{{ s.b }}</div>
+              </div>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <!-- FOUNDER — handwritten letter -->
+      <section class="py-16">
+        <div class="max-w-2xl mx-auto px-4">
+          <div class="bg-white/80 rounded-2xl p-8 shadow-xl border-2 border-dashed" style="border-color:#dc262644;">
+            <div class="text-[10px] uppercase tracking-[0.3em] mb-4" style="color:#9a5614;">A letter from the founder</div>
+            <p class="text-2xl leading-relaxed" style="font-family:'Caveat', cursive; color:#3b1f0d;">
+              Dear dancer —<br><br>
+              The first time I flew to a festival alone, I spent half the first night by the wall. I built WeDance so the next dancer does not have to.<br><br>
+              See you on the floor.
+            </p>
+            <div class="mt-6 flex items-center gap-3 border-t pt-4" style="border-color:#3b1f0d22;">
+              <img src="/alosha-dj.jpg" alt="Alösha" class="w-12 h-12 rounded-full object-cover">
+              <div>
+                <div class="text-lg" style="font-family:'Caveat', cursive;">— Alösha</div>
+                <div class="text-[11px]" style="color:#9a5614;">Munich · 2026</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SUPPLY — vintage classified strip -->
+      <section style="background:linear-gradient(135deg,#3b1f0d 0%, #5b3a1d 100%); color:#fbf5ea;" class="py-16">
+        <div class="max-w-6xl mx-auto px-4">
+          <div class="text-center mb-10">
+            <div class="text-xs uppercase tracking-[0.3em]" style="color:#fbbf24;">On the other side of the floor</div>
+            <h2 class="mt-3 text-3xl sm:text-4xl" style="font-family:'Playfair Display', serif;">
+              <em class="italic">Run a festival, teach, or own a venue?</em>
+            </h2>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <NuxtLink
+              v-for="c in [
+                { t: 'Organize a festival', d: 'Sell tickets · reach the audience · see who is coming' },
+                { t: 'Teach or DJ',          d: 'Get on the city map · get bookings', soon: true },
+                { t: 'Own a venue',          d: 'List your floor · fill quiet nights', soon: true },
+              ]"
+              :key="c.t"
+              to="/organizers"
+              class="rounded-xl p-5 border hover:-translate-y-1 transition-transform"
+              style="background:rgba(251, 245, 234, 0.06); border-color:rgba(251, 245, 234, 0.18);"
+            >
+              <div class="text-base font-bold flex items-center gap-2" style="font-family:'Playfair Display', serif;">
+                {{ c.t }}
+                <span v-if="c.soon" class="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded" style="background:rgba(252, 211, 77, 0.15); color:#fbbf24;">Soon</span>
+              </div>
+              <div class="mt-2 text-xs" style="color:rgba(251, 245, 234, 0.7);">{{ c.d }}</div>
+            </NuxtLink>
+          </div>
+        </div>
+      </section>
+
+      <!-- FINAL -->
+      <section class="py-20">
+        <div class="max-w-2xl mx-auto px-4 text-center">
+          <h2 class="text-4xl sm:text-5xl" style="font-family:'Playfair Display', serif;">
+            <em class="italic">Your next dance</em><br>
+            is closer than you <span style="color:#dc2626;">think.</span>
+          </h2>
+          <NuxtLink
+            to="/festivals"
+            class="mt-8 inline-flex items-center gap-2 px-8 py-4 rounded-full text-white text-base font-bold uppercase tracking-wider shadow-lg"
+            style="background:linear-gradient(135deg,#dc2626,#f97316); box-shadow: 0 6px 0 -2px #b91c1c, 0 10px 22px rgba(220, 38, 38, 0.35);"
+          >
             Find your festival <ArrowRight class="w-4 h-4" />
-          </Button>
+          </NuxtLink>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- Organizer CTA -->
-    <section class="max-w-2xl mx-auto px-4 py-12">
-      <div class="flex items-center justify-between rounded-lg border p-4 bg-background">
-        <div>
-          <h3 class="text-sm font-semibold">Organize a dance festival?</h3>
-          <p class="text-xs text-muted-foreground mt-0.5">List your event for free and reach thousands of dancers.</p>
-        </div>
-        <Button variant="outline" size="sm" class="gap-1 shrink-0" @click="router.push('/organizers')">
-          Learn more <ArrowRight class="w-3.5 h-3.5" />
-        </Button>
-      </div>
-    </section>
+      <footer class="border-t py-6 text-center text-xs" style="border-color:#3b1f0d22; color:#9a5614; font-family:'Caveat', cursive; font-size:18px;">
+        With love · Munich · 2026
+      </footer>
+    </div>
+
   </div>
 </template>
+
+<style scoped>
+/* Hero CTA — warm host-voice button with hover lift + press feedback */
+.fiesta-cta {
+  background: linear-gradient(135deg, #dc2626, #f97316);
+  background-size: 200% 200%;
+  background-position: 0% 50%;
+  box-shadow:
+    0 6px 0 -2px #b91c1c,
+    0 8px 18px rgba(220, 38, 38, 0.35);
+  transition:
+    transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 220ms ease-out,
+    background-position 800ms ease-out;
+  will-change: transform, box-shadow;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Slow gradient drift — the button breathes warm tones */
+.fiesta-cta {
+  animation: fiestaBreathe 6s ease-in-out infinite;
+}
+
+@keyframes fiestaBreathe {
+  0%, 100% { background-position: 0% 50%; }
+  50%      { background-position: 100% 50%; }
+}
+
+/* Shimmer sweep (subtle, infinite) */
+.fiesta-cta::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -120%;
+  width: 80%;
+  height: 100%;
+  background: linear-gradient(
+    115deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.16) 45%,
+    rgba(255, 255, 255, 0.28) 50%,
+    rgba(255, 255, 255, 0.16) 55%,
+    transparent 100%
+  );
+  transform: skewX(-18deg);
+  pointer-events: none;
+  animation: fiestaShimmer 4.5s ease-in-out infinite;
+  animation-delay: 1.2s;
+}
+
+@keyframes fiestaShimmer {
+  0%   { left: -120%; }
+  40%  { left: 130%; }
+  100% { left: 130%; }
+}
+
+/* Hover — lift + bloom */
+.fiesta-cta:hover {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow:
+    0 9px 0 -2px #b91c1c,
+    0 16px 32px rgba(220, 38, 38, 0.5),
+    0 0 0 4px rgba(249, 115, 22, 0.18);
+}
+
+/* Active — press down */
+.fiesta-cta:active {
+  transform: translateY(2px) scale(0.99);
+  box-shadow:
+    0 2px 0 -1px #b91c1c,
+    0 4px 8px rgba(220, 38, 38, 0.35);
+  transition-duration: 80ms;
+}
+
+/* Brief outward ripple on click — single pulse on each press */
+.fiesta-cta:active::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.35);
+  animation: fiestaRipple 380ms ease-out forwards;
+  pointer-events: none;
+}
+
+@keyframes fiestaRipple {
+  0%   { opacity: 0.5; transform: scale(0.92); }
+  100% { opacity: 0;   transform: scale(1.18); }
+}
+
+/* Respect reduced-motion users */
+@media (prefers-reduced-motion: reduce) {
+  .fiesta-cta,
+  .fiesta-cta::before {
+    animation: none !important;
+  }
+  .fiesta-cta {
+    transition: box-shadow 150ms ease, transform 150ms ease;
+  }
+}
+</style>

@@ -264,7 +264,7 @@ const principles = [
         <span class="text-white/50 pr-1">COMPARE</span>
         <NuxtLink to="/sketches/landing/v1" class="px-2 py-0.5 text-white hover:text-yellow-300">V1</NuxtLink>
         <NuxtLink to="/sketches/landing/v2" class="px-2 py-0.5 bg-yellow-300 text-black">V2/MANIFESTO</NuxtLink>
-        <NuxtLink to="/sketches/landing/v3" class="px-2 py-0.5 text-white hover:text-yellow-300">V3</NuxtLink>
+        <NuxtLink to="/" class="px-2 py-0.5 text-white hover:text-yellow-300">V3</NuxtLink>
         <NuxtLink to="/sketches/landing/v4" class="px-2 py-0.5 text-white hover:text-yellow-300">V4</NuxtLink>
         <NuxtLink to="/sketches/landing" class="px-2 py-0.5 text-white/60 hover:text-yellow-300">CURRENT</NuxtLink>
       </div>
