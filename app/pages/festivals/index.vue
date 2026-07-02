@@ -14,7 +14,6 @@ import {
   Users,
   ArrowRight,
   Heart,
-  CalendarDays,
 } from 'lucide-vue-next'
 import * as salsaOpen from '~/data/mock-festival'
 import * as meneate from '~/data/mock-meneate'
@@ -38,7 +37,9 @@ useHead({
 const router = useRouter()
 
 // Year plan state (unchanged)
-const { yearPlanIds, yearDrawerOpen, toggleFestival, removeFestival, closeDrawer, toggleDrawer: toggleYearDrawer, yearCount } = useYearPlan()
+// Year plan — sidebar retired; picks now surface via the floating
+// nudge pill and the full view lives on /my-plan.
+const { yearPlanIds, toggleFestival, yearCount } = useYearPlan()
 
 // Search
 const searchQuery = ref('')
@@ -189,7 +190,7 @@ const styleChips = ['Salsa', 'Bachata', 'Timba', 'Kizomba', 'Son']
 </script>
 
 <template>
-  <div class="min-h-screen lg:mr-80" style="background:#fbf5ea; color:#3b1f0d; font-family:'Playfair Display', serif;">
+  <div class="min-h-screen" style="background:#fbf5ea; color:#3b1f0d; font-family:'Playfair Display', serif;">
     <!-- V3 header — same as / and /organizers -->
     <header class="border-b" style="border-color:#3b1f0d33;">
       <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
@@ -202,22 +203,6 @@ const styleChips = ['Salsa', 'Bachata', 'Timba', 'Kizomba', 'Son']
           <NuxtLink to="/cities" class="italic hover:underline">Cities</NuxtLink>
           <NuxtLink to="/for-events" class="italic hover:underline hidden sm:inline">For events</NuxtLink>
           <NuxtLink to="/organizers" class="italic hover:underline hidden sm:inline">For organizers</NuxtLink>
-
-          <!-- Mobile-only: open the year plan drawer -->
-          <button
-            type="button"
-            class="relative lg:hidden flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-bold"
-            style="background:#dc262618; color:#dc2626;"
-            @click="toggleYearDrawer"
-          >
-            <CalendarDays class="w-4 h-4" />
-            <span class="hidden xs:inline">My Year</span>
-            <span
-              v-if="yearCount > 0"
-              class="min-w-[16px] h-4 rounded-full text-[10px] font-bold flex items-center justify-center px-1"
-              style="background:#dc2626; color:white;"
-            >{{ yearCount }}</span>
-          </button>
         </nav>
       </div>
     </header>
@@ -437,52 +422,32 @@ const styleChips = ['Salsa', 'Bachata', 'Timba', 'Kizomba', 'Son']
       <NuxtLink to="/organizers" class="underline">for organizers</NuxtLink>
     </footer>
 
-    <!-- Desktop year sidebar (fixed, full height) -->
-    <aside class="hidden lg:flex fixed right-0 top-16 bottom-0 w-80 border-l bg-white z-30" style="border-color:#3b1f0d22;">
-      <YearCanvas
-        :festivals="allFestivals"
-        :year-plan-ids="yearPlanIds"
-        class="w-full"
-        @remove="removeFestival"
-        @close="closeDrawer()"
-      />
-    </aside>
-
-    <!-- Mobile year drawer overlay -->
+    <!-- Soft year-plan nudge — appears only when the user has picks.
+         Same pattern as the /festivals/[slug] plan nudge. YearCanvas
+         sidebar + mobile drawer retired; full year view lives on /my-plan. -->
     <Teleport to="body">
       <Transition
         enter-active-class="transition duration-200 ease-out"
-        enter-from-class="opacity-0"
-        enter-to-class="opacity-100"
+        enter-from-class="opacity-0 translate-y-2"
+        enter-to-class="opacity-100 translate-y-0"
         leave-active-class="transition duration-150 ease-in"
-        leave-from-class="opacity-100"
-        leave-to-class="opacity-0"
+        leave-from-class="opacity-100 translate-y-0"
+        leave-to-class="opacity-0 translate-y-2"
       >
-        <div
-          v-if="yearDrawerOpen"
-          class="lg:hidden fixed inset-0 z-40 bg-black/50"
-          @click="closeDrawer()"
-        />
-      </Transition>
-      <Transition
-        enter-active-class="transition duration-200 ease-out"
-        enter-from-class="translate-x-full"
-        enter-to-class="translate-x-0"
-        leave-active-class="transition duration-150 ease-in"
-        leave-from-class="translate-x-0"
-        leave-to-class="translate-x-full"
-      >
-        <div
-          v-if="yearDrawerOpen"
-          class="lg:hidden fixed right-0 top-16 bottom-0 z-50 w-80 max-w-[85vw] shadow-xl bg-white"
+        <NuxtLink
+          v-if="yearCount > 0"
+          to="/my-plan"
+          class="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 pl-3 pr-4 py-2.5 rounded-full text-white text-sm font-bold shadow-lg hover:shadow-xl transition-all"
+          style="background:#dc2626; box-shadow: 0 6px 20px rgba(0,0,0,0.18), 0 3px 0 -1px rgba(0,0,0,0.15);"
         >
-          <YearCanvas
-            :festivals="allFestivals"
-            :year-plan-ids="yearPlanIds"
-            @remove="removeFestival"
-            @close="closeDrawer()"
-          />
-        </div>
+          <span
+            class="inline-flex items-center justify-center w-6 h-6 rounded-full text-[11px] font-black bg-white"
+            style="color:#dc2626;"
+          >{{ yearCount }}</span>
+          <span style="font-family:'Playfair Display', serif; letter-spacing:0.01em;">in your year</span>
+          <span style="font-family:'Caveat', cursive; font-size:16px; opacity:0.85;">— see dashboard</span>
+          <ArrowRight class="w-4 h-4" />
+        </NuxtLink>
       </Transition>
     </Teleport>
   </div>

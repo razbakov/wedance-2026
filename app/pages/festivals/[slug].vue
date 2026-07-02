@@ -592,8 +592,10 @@ function onShare() {
   }
 }
 
-// Cart state
-const { setCartCount, cartOpen, closeCart } = useCart()
+// Cart state — badge count only. The desktop sidebar + mobile drawer
+// were retired in favor of /my-plan; this keeps any global count badge
+// (e.g. a future nav pill) in sync.
+const { setCartCount } = useCart()
 watch(() => plan.value.size, (n) => setCartCount(n), { immediate: true })
 
 // Navigation
@@ -619,8 +621,6 @@ function scrollTo(id: string) {
 // SharedPlanView, modals) still carry shadcn styling — those get
 // restyled in a follow-up pass.
 definePageMeta({ layout: false })
-
-const { cartCount, toggleCart } = useCart()
 
 useHead({
   title: `${festival.name} | WeDance`,
@@ -651,7 +651,7 @@ useHead({
   />
 
   <!-- Normal festival page -->
-  <div v-else class="min-h-screen lg:mr-80" style="background:#fbf5ea; color:#3b1f0d; font-family:'Playfair Display', serif;">
+  <div v-else class="min-h-screen" style="background:#fbf5ea; color:#3b1f0d; font-family:'Playfair Display', serif;">
     <!-- V3 header — same as /, /festivals, /organizers -->
     <header class="border-b" style="border-color:#3b1f0d33; background:#fbf5ea;">
       <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
@@ -664,21 +664,6 @@ useHead({
           <NuxtLink to="/cities" class="italic hover:underline">Cities</NuxtLink>
           <NuxtLink to="/for-events" class="italic hover:underline hidden sm:inline">For events</NuxtLink>
           <NuxtLink to="/organizers" class="italic hover:underline hidden sm:inline">For organizers</NuxtLink>
-
-          <!-- Mobile-only: open the plan drawer -->
-          <button
-            type="button"
-            class="relative lg:hidden flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-bold"
-            style="background:#dc262618; color:#dc2626;"
-            @click="toggleCart"
-          >
-            My Plan
-            <span
-              v-if="cartCount > 0"
-              class="min-w-[16px] h-4 rounded-full text-[10px] font-bold flex items-center justify-center px-1"
-              style="background:#dc2626; color:white;"
-            >{{ cartCount }}</span>
-          </button>
         </nav>
       </div>
     </header>
@@ -811,118 +796,32 @@ useHead({
         </section>
     </div>
 
-    <!-- Desktop cart sidebar (fixed, full height) -->
-    <aside class="hidden lg:flex fixed right-0 top-16 bottom-0 w-80 border-l bg-white z-30" style="border-color:#3b1f0d22;">
-      <CartDrawer
-        :workshops="workshops"
-        :teachers="teachers"
-        :plan-ids="planIds"
-        :plan="plan"
-        :partners="partners"
-        :tickets="festival.tickets"
-        :ticket-url="festival.ticketUrl"
-        :is-signed-in="isSignedIn"
-        :organizer-name="festival.name"
-        :friends="friends"
-        :partner-matches="partnerMatches"
-        :discover-dancers="discoverDancers"
-        :festival-name="festival.name"
-        :start-date="festival.startDate"
-        :end-date="festival.endDate"
-        :venue-name="festival.venue.name"
-        :venue-address="festival.venue.address"
-        :city="festival.venue.address.split(',').slice(-2, -1)[0]?.trim() || festival.venue.address.split(',').pop()?.trim()"
-        :ride-shares="rideShares"
-        :group-dinners="groupDinners"
-        :extra-activities="extraActivities"
-        :looking-for-roommate="lookingForRoommate"
-        :freemium-state="freemiumState"
-        class="w-full"
-        @remove="removeFromPlan"
-        @save="onSave"
-        @share="onShare"
-        @sign-in="onSignIn"
-        @scroll-schedule="scrollTo('schedule')"
-        @subscribe="onSignIn"
-        @invite-friends="onShare"
-        @find-partner="scrollTo('my-plan')"
-        @discover-dancers="scrollTo('discover')"
-        @close="closeCart()"
-        @join-dinner="joinDinner"
-        @join-activity="joinActivity"
-        @post-ride="postRide"
-        @toggle-roommate="toggleRoommate"
-      />
-    </aside>
-
-    <!-- Mobile cart drawer overlay (< lg only) -->
+    <!-- Soft dashboard nudge — only when the user has picks in this
+         festival. Replaces the old desktop sidebar + mobile drawer.
+         Everything else moved to /my-plan. -->
     <Teleport to="body">
       <Transition
         enter-active-class="transition duration-200 ease-out"
-        enter-from-class="opacity-0"
-        enter-to-class="opacity-100"
+        enter-from-class="opacity-0 translate-y-2"
+        enter-to-class="opacity-100 translate-y-0"
         leave-active-class="transition duration-150 ease-in"
-        leave-from-class="opacity-100"
-        leave-to-class="opacity-0"
+        leave-from-class="opacity-100 translate-y-0"
+        leave-to-class="opacity-0 translate-y-2"
       >
-        <div
-          v-if="cartOpen"
-          class="lg:hidden fixed inset-0 z-40 bg-black/50"
-          @click="closeCart()"
-        />
-      </Transition>
-      <Transition
-        enter-active-class="transition duration-200 ease-out"
-        enter-from-class="translate-x-full"
-        enter-to-class="translate-x-0"
-        leave-active-class="transition duration-150 ease-in"
-        leave-from-class="translate-x-0"
-        leave-to-class="translate-x-full"
-      >
-        <div
-          v-if="cartOpen"
-          class="lg:hidden fixed right-0 top-16 bottom-0 z-50 w-80 max-w-[85vw] shadow-xl bg-white"
+        <NuxtLink
+          v-if="planIds.size > 0"
+          to="/my-plan"
+          class="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 pl-3 pr-4 py-2.5 rounded-full text-white text-sm font-bold shadow-lg hover:shadow-xl transition-all"
+          :style="{ background: festival.accentColor, boxShadow: '0 6px 20px rgba(0,0,0,0.18), 0 3px 0 -1px rgba(0,0,0,0.15)' }"
         >
-          <CartDrawer
-            :workshops="workshops"
-            :teachers="teachers"
-            :plan-ids="planIds"
-            :plan="plan"
-            :partners="partners"
-            :tickets="festival.tickets"
-            :ticket-url="festival.ticketUrl"
-            :is-signed-in="isSignedIn"
-            :organizer-name="festival.name"
-            :friends="friends"
-            :partner-matches="partnerMatches"
-            :discover-dancers="discoverDancers"
-            :festival-name="festival.name"
-            :start-date="festival.startDate"
-            :end-date="festival.endDate"
-            :venue-name="festival.venue.name"
-            :venue-address="festival.venue.address"
-            :city="festival.venue.address.split(',').slice(-2, -1)[0]?.trim() || festival.venue.address.split(',').pop()?.trim()"
-            :ride-shares="rideShares"
-            :group-dinners="groupDinners"
-            :extra-activities="extraActivities"
-            :looking-for-roommate="lookingForRoommate"
-            :freemium-state="freemiumState"
-            @remove="removeFromPlan"
-            @save="onSave"
-            @share="onShare"
-            @sign-in="onSignIn"
-            @scroll-schedule="scrollTo('schedule'); closeCart()"
-            @subscribe="onSignIn"
-            @invite-friends="onShare"
-            @find-partner="scrollTo('my-plan'); closeCart()"
-            @discover-dancers="scrollTo('discover'); closeCart()"
-            @close="closeCart()"
-            @join-dinner="joinDinner"
-            @join-activity="joinActivity"
-            @post-ride="postRide"
-            @toggle-roommate="toggleRoommate"
-          />
-        </div>
+          <span
+            class="inline-flex items-center justify-center w-6 h-6 rounded-full text-[11px] font-black bg-white"
+            :style="{ color: festival.accentColor }"
+          >{{ planIds.size }}</span>
+          <span style="font-family:'Playfair Display', serif; letter-spacing:0.01em;">in your plan</span>
+          <span style="font-family:'Caveat', cursive; font-size:16px; opacity:0.85;">— see dashboard</span>
+          <ArrowRight class="w-4 h-4" />
+        </NuxtLink>
       </Transition>
     </Teleport>
 

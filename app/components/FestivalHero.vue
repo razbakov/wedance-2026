@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Festival } from '~/types/festival'
-import { Instagram, Globe, Facebook } from 'lucide-vue-next'
+import { Instagram, Globe, Facebook, Users } from 'lucide-vue-next'
 
 const props = defineProps<{
   festival: Festival
@@ -17,42 +17,130 @@ const platformIcon: Record<string, any> = {
   facebook: Facebook,
   website: Globe,
 }
+
+const daysUntil = computed(() => {
+  const now = new Date()
+  const target = new Date(props.festival.startDate)
+  const diff = Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+  if (diff < 0) return 'Happening now'
+  if (diff === 0) return 'Today'
+  if (diff === 1) return 'Tomorrow'
+  if (diff <= 30) return `In ${diff} days`
+  if (diff <= 60) return `In ${Math.ceil(diff / 7)} weeks`
+  return `In ${Math.ceil(diff / 30)} months`
+})
 </script>
 
 <template>
-  <div class="border-b">
-    <div class="max-w-3xl mx-auto px-4 py-6 flex items-center gap-4">
-      <img
-        v-if="festival.logo"
-        :src="festival.logo"
-        :alt="festival.name"
-        class="w-16 h-16 rounded-full shrink-0"
-      />
-      <div>
-        <h1 class="text-xl md:text-2xl font-bold">{{ festival.name }}</h1>
-        <p class="text-sm text-muted-foreground mt-0.5">{{ dateRange }} · {{ festival.venue.name }}</p>
-        <div class="flex items-center gap-3 mt-0.5">
-          <p class="text-xs text-muted-foreground">{{ festival.attendeeCount }} dancers planning</p>
-          <div v-if="festival.socialLinks.length" class="flex gap-2">
-            <a
-              v-for="link in festival.socialLinks"
-              :key="link.platform"
-              :href="link.url"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="text-muted-foreground hover:text-foreground transition-colors"
-              :title="link.platform"
+  <section class="relative overflow-hidden" style="background:#fbf5ea;">
+    <!-- Sun rays behind the whole hero, tinted by festival accent -->
+    <svg
+      class="absolute -top-16 -right-16 w-72 h-72 opacity-20 pointer-events-none"
+      viewBox="0 0 100 100"
+    >
+      <g :stroke="festival.accentColor" stroke-width="1.5" fill="none">
+        <line
+          v-for="i in 24"
+          :key="i"
+          x1="50"
+          y1="50"
+          :x2="50 + 48 * Math.cos(2 * Math.PI * i / 24)"
+          :y2="50 + 48 * Math.sin(2 * Math.PI * i / 24)"
+        />
+      </g>
+    </svg>
+
+    <div class="relative max-w-4xl mx-auto px-4 pt-10 pb-12">
+      <div class="flex items-start gap-5">
+        <!-- Logo with V3 red drop-shadow border -->
+        <div class="shrink-0 relative">
+          <img
+            v-if="festival.logo"
+            :src="festival.logo"
+            :alt="festival.name"
+            class="w-20 h-20 rounded-full border-4"
+            :style="{ borderColor: '#fbf5ea', boxShadow: '4px 5px 0 -1px ' + festival.accentColor }"
+          >
+          <div
+            v-else
+            class="w-20 h-20 rounded-full flex items-center justify-center text-3xl font-bold text-white border-4"
+            :style="{ background: festival.accentColor, borderColor: '#fbf5ea', boxShadow: '4px 5px 0 -1px ' + festival.accentColor }"
+          >
+            {{ festival.name.charAt(0) }}
+          </div>
+        </div>
+
+        <div class="flex-1 min-w-0">
+          <!-- Eyebrow: days-until in Caveat, colored -->
+          <div
+            class="text-lg leading-none mb-2"
+            :style="{ fontFamily: 'Caveat, cursive', color: festival.accentColor }"
+          >
+            — {{ daysUntil }}
+          </div>
+
+          <!-- Festival name in Playfair -->
+          <h1
+            class="text-3xl sm:text-5xl leading-[0.98] tracking-tight"
+            style="font-family:'Playfair Display', serif; color:#3b1f0d;"
+          >
+            {{ festival.name }}
+          </h1>
+
+          <!-- Date + venue -->
+          <p
+            class="mt-2 text-sm sm:text-base italic"
+            style="color:#5b3a1d; font-family:'Playfair Display', serif;"
+          >
+            {{ dateRange }} <span style="color:#9a5614;">·</span> {{ festival.venue.name }}
+          </p>
+
+          <!-- Meta: attendees + socials -->
+          <div class="mt-3 flex flex-wrap items-center gap-3 text-xs">
+            <span
+              class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-bold"
+              :style="{ background: festival.accentColor + '18', color: festival.accentColor, fontFamily: 'system-ui, sans-serif' }"
             >
-              <component
-                :is="platformIcon[link.platform]"
-                v-if="platformIcon[link.platform]"
-                class="w-4 h-4"
-              />
-              <span v-else class="text-xs capitalize">{{ link.platform }}</span>
-            </a>
+              <Users class="w-3 h-3" />
+              {{ festival.attendeeCount }} planning
+            </span>
+            <div v-if="festival.socialLinks.length" class="flex items-center gap-2">
+              <a
+                v-for="link in festival.socialLinks"
+                :key="link.platform"
+                :href="link.url"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="transition-colors"
+                :title="link.platform"
+                style="color:#9a5614;"
+                @mouseover="(e) => (e.currentTarget as HTMLElement).style.color = '#dc2626'"
+                @mouseleave="(e) => (e.currentTarget as HTMLElement).style.color = '#9a5614'"
+              >
+                <component
+                  :is="platformIcon[link.platform]"
+                  v-if="platformIcon[link.platform]"
+                  class="w-4 h-4"
+                />
+                <span v-else class="text-xs capitalize italic">{{ link.platform }}</span>
+              </a>
+            </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
+
+    <!-- Wave divider, matching the homepage -->
+    <svg
+      class="block w-full h-10 -mb-px"
+      viewBox="0 0 1440 60"
+      preserveAspectRatio="none"
+    >
+      <path
+        d="M0,40 Q360,0 720,30 T1440,20 V60 H0 Z"
+        fill="#3b1f0d"
+        opacity="0.08"
+      />
+    </svg>
+  </section>
 </template>
