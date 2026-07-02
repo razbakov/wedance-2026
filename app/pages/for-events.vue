@@ -35,6 +35,7 @@ const occasions = ['Weddings', 'Birthdays', 'Corporate', 'Brand launches', 'Team
         <nav class="flex items-center gap-5 text-sm">
           <NuxtLink to="/festivals" class="italic hover:underline">Festivals</NuxtLink>
           <NuxtLink to="/cities" class="italic hover:underline">Cities</NuxtLink>
+          <NuxtLink to="/for-events" class="italic hover:underline hidden sm:inline">For events</NuxtLink>
           <NuxtLink to="/organizers" class="italic hover:underline hidden sm:inline">For organizers</NuxtLink>
         </nav>
       </div>

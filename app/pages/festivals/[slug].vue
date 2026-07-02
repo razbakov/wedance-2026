@@ -611,10 +611,26 @@ function scrollTo(id: string) {
   document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
 }
 
+// V3 tropical direction — layout:false + inline header so we can wrap
+// the whole page in the cream + Playfair aesthetic without touching
+// the default layout (which other pages still depend on). The shared
+// components inside (FestivalHero, AboutTab, DiscoverDancers,
+// ActivitiesTab, MySpace, Lineup, ScheduleTab, VenueTab, CartDrawer,
+// SharedPlanView, modals) still carry shadcn styling — those get
+// restyled in a follow-up pass.
+definePageMeta({ layout: false })
+
+const { cartCount, toggleCart } = useCart()
+
 useHead({
   title: `${festival.name} | WeDance`,
   meta: [
     { name: 'description', content: festival.description },
+  ],
+  link: [
+    { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+    { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
+    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Caveat:wght@400;700&display=swap' },
   ],
 })
 </script>
@@ -635,15 +651,49 @@ useHead({
   />
 
   <!-- Normal festival page -->
-  <div v-else class="min-h-screen bg-background lg:mr-80">
+  <div v-else class="min-h-screen lg:mr-80" style="background:#fbf5ea; color:#3b1f0d; font-family:'Playfair Display', serif;">
+    <!-- V3 header — same as /, /festivals, /organizers -->
+    <header class="border-b" style="border-color:#3b1f0d33; background:#fbf5ea;">
+      <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+        <NuxtLink to="/" class="flex items-baseline gap-2">
+          <span class="font-bold text-lg">WeDance</span>
+          <span class="text-[10px] uppercase tracking-[0.25em]" style="color:#9a5614;">Summer Edition · 2026</span>
+        </NuxtLink>
+        <nav class="flex items-center gap-4 text-sm">
+          <NuxtLink to="/festivals" class="italic hover:underline">Festivals</NuxtLink>
+          <NuxtLink to="/cities" class="italic hover:underline">Cities</NuxtLink>
+          <NuxtLink to="/for-events" class="italic hover:underline hidden sm:inline">For events</NuxtLink>
+          <NuxtLink to="/organizers" class="italic hover:underline hidden sm:inline">For organizers</NuxtLink>
+
+          <!-- Mobile-only: open the plan drawer -->
+          <button
+            type="button"
+            class="relative lg:hidden flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-bold"
+            style="background:#dc262618; color:#dc2626;"
+            @click="toggleCart"
+          >
+            My Plan
+            <span
+              v-if="cartCount > 0"
+              class="min-w-[16px] h-4 rounded-full text-[10px] font-bold flex items-center justify-center px-1"
+              style="background:#dc2626; color:white;"
+            >{{ cartCount }}</span>
+          </button>
+        </nav>
+      </div>
+    </header>
+
     <FestivalHero :festival="festival" />
 
-    <nav class="sticky top-0 z-20 bg-background border-b overflow-x-auto">
-      <div class="max-w-3xl mx-auto flex gap-0 px-4 min-w-0">
+    <!-- Section anchor nav — V3 restyled -->
+    <nav class="sticky top-0 z-20 border-b overflow-x-auto" style="background:rgba(251, 245, 234, 0.95); backdrop-filter: blur(8px); border-color:#3b1f0d22;">
+      <div class="max-w-4xl mx-auto flex gap-0 px-4 min-w-0">
         <button
           v-for="section in sections"
           :key="section"
-          class="px-4 py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap"
+          type="button"
+          class="px-4 py-3 text-sm italic whitespace-nowrap transition-all"
+          style="color:#5b3a1d; font-family:'Playfair Display', serif;"
           @click="scrollTo(section)"
         >
           {{ sectionLabels[section] }}
@@ -651,22 +701,22 @@ useHead({
       </div>
     </nav>
 
-    <div class="max-w-3xl mx-auto px-4 space-y-12 pt-6 pb-20">
+    <div class="max-w-3xl mx-auto px-4 space-y-14 pt-8 pb-20">
         <section id="about" class="scroll-mt-12">
           <AboutTab :festival="festival" />
         </section>
 
-        <section id="discover" class="scroll-mt-12">
-          <div class="flex items-center gap-2 mb-0.5">
-            <h2 class="text-lg font-semibold">Shall we dance?</h2>
-            <span v-if="!isSignedIn && freeSpotsLeft > 0" class="inline-flex items-center gap-1 bg-green-100 text-green-700 text-xs font-medium px-2 py-0.5 rounded-full">
+        <section id="discover" class="scroll-mt-16">
+          <div class="flex items-center gap-2 mb-1">
+            <h2 class="text-2xl font-black leading-tight" style="color:#3b1f0d;">Shall we <em class="italic" style="color:#dc2626;">dance?</em></h2>
+            <span v-if="!isSignedIn && freeSpotsLeft > 0" class="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full" style="background:#16a34a18; color:#16a34a;">
               {{ freeSpotsLeft }} free {{ freeSpotsLeft === 1 ? 'spot' : 'spots' }} left
             </span>
-            <span v-else-if="!isSignedIn" class="inline-flex items-center gap-1 bg-amber-100 text-amber-700 text-xs font-medium px-2 py-0.5 rounded-full">
+            <span v-else-if="!isSignedIn" class="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full" style="background:#f59e0b18; color:#f59e0b;">
               From &euro;1
             </span>
           </div>
-          <p class="text-xs text-muted-foreground mb-4">Swipe to discover dancers, group dinners, and activities happening around the festival.</p>
+          <p class="text-sm mb-4" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Swipe to discover dancers, group dinners, and activities happening around the festival.</p>
           <DiscoverDancers
             :dancers="discoverDancers"
             :cards="swipeCards"
@@ -682,9 +732,9 @@ useHead({
           />
         </section>
 
-        <section id="activities" class="scroll-mt-12">
-          <h2 class="text-lg font-semibold mb-0.5">Activities</h2>
-          <p class="text-xs text-muted-foreground mb-4">Rides, rooms, dinners and more — connect with fellow dancers.</p>
+        <section id="activities" class="scroll-mt-16">
+          <h2 class="text-2xl font-black leading-tight mb-1" style="color:#3b1f0d;">Activities</h2>
+          <p class="text-sm mb-4" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Rides, rooms, dinners and more — connect with fellow dancers.</p>
           <ActivitiesTab
             :ride-shares="rideShares"
             :group-dinners="groupDinners"
@@ -699,7 +749,7 @@ useHead({
           />
         </section>
 
-        <section v-if="isSignedIn" id="my-plan" class="scroll-mt-12">
+        <section v-if="isSignedIn" id="my-plan" class="scroll-mt-16">
           <MySpace
             :workshops="workshops"
             :plan-ids="planIds"
@@ -713,9 +763,9 @@ useHead({
           />
         </section>
 
-        <section id="lineup" class="scroll-mt-12">
-          <h2 class="text-lg font-semibold mb-0.5">Lineup</h2>
-          <p class="text-xs text-muted-foreground mb-2">Tap an artist to see their profile and filter the schedule</p>
+        <section id="lineup" class="scroll-mt-16">
+          <h2 class="text-2xl font-black leading-tight mb-1" style="color:#3b1f0d;">Lineup</h2>
+          <p class="text-sm mb-3" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Tap an artist to see their profile and filter the schedule.</p>
           <Lineup
             :teachers="teachers"
             :selected-id="selectedTeacherId"
@@ -729,16 +779,18 @@ useHead({
           />
         </section>
 
-        <section id="schedule" class="scroll-mt-12">
+        <section id="schedule" class="scroll-mt-16">
           <div class="flex items-center justify-between mb-4">
-            <h2 class="text-lg font-semibold">Schedule</h2>
+            <h2 class="text-2xl font-black leading-tight" style="color:#3b1f0d;">Schedule</h2>
             <button
               v-if="selectedTeacherId"
-              class="text-xs text-primary hover:text-primary/80 flex items-center gap-1 transition-colors"
+              type="button"
+              class="text-xs font-bold flex items-center gap-1"
+              style="color:#dc2626; font-family: system-ui, sans-serif;"
               @click="selectedTeacherId = null"
             >
               Filtering by {{ selectedTeacher?.name }}
-              <span class="text-muted-foreground">✕</span>
+              <span style="color:#9a5614;">✕</span>
             </button>
           </div>
           <ScheduleTab
@@ -753,14 +805,14 @@ useHead({
           />
         </section>
 
-        <section id="venue" class="scroll-mt-12">
-          <h2 class="text-lg font-semibold mb-4">Venue</h2>
+        <section id="venue" class="scroll-mt-16">
+          <h2 class="text-2xl font-black leading-tight mb-4" style="color:#3b1f0d;">Venue</h2>
           <VenueTab :venue="festival.venue" />
         </section>
     </div>
 
     <!-- Desktop cart sidebar (fixed, full height) -->
-    <aside class="hidden lg:flex fixed right-0 top-12 bottom-0 w-80 border-l bg-background z-30">
+    <aside class="hidden lg:flex fixed right-0 top-16 bottom-0 w-80 border-l bg-white z-30" style="border-color:#3b1f0d22;">
       <CartDrawer
         :workshops="workshops"
         :teachers="teachers"
@@ -829,7 +881,7 @@ useHead({
       >
         <div
           v-if="cartOpen"
-          class="lg:hidden fixed right-0 top-12 bottom-0 z-50 w-80 max-w-[85vw] shadow-xl"
+          class="lg:hidden fixed right-0 top-16 bottom-0 z-50 w-80 max-w-[85vw] shadow-xl bg-white"
         >
           <CartDrawer
             :workshops="workshops"

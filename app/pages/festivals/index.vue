@@ -1,37 +1,48 @@
 <script setup lang="ts">
+/**
+ * /festivals — the listing.
+ * Restyled 2026-07-02 to match V3 tropical direction on /.
+ * `layout: false` + inline V3 header so other pages that still use
+ * the default layout are unaffected. YearCanvas sidebar + mobile
+ * year drawer preserved. Fake stats bar (12k+ dancers / 180+ / 35)
+ * removed — same "no fake friends" rule the homepage runs.
+ */
 import {
   Search,
   MapPin,
   Calendar,
   Users,
   ArrowRight,
-  ChevronRight,
-  Flame,
-  Globe,
   Heart,
+  CalendarDays,
 } from 'lucide-vue-next'
 import * as salsaOpen from '~/data/mock-festival'
 import * as meneate from '~/data/mock-meneate'
 import * as cubanFire from '~/data/mock-cuban-fire'
 import * as caribbeanUrbanFire from '~/data/mock-caribbean-urban-fire'
 
+definePageMeta({ layout: false })
+
 useHead({
-  title: 'Festivals — WeDance',
+  title: 'WeDance — Festivals',
   meta: [
-    { name: 'description', content: 'Discover dance festivals, plan your workshops, find partners, and connect with dancers worldwide.' },
+    { name: 'description', content: 'Every dance festival mapped. See who is going before you book.' },
+  ],
+  link: [
+    { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+    { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
+    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Caveat:wght@400;700&display=swap' },
   ],
 })
 
 const router = useRouter()
 
-// Year plan state
-const { yearPlanIds, yearDrawerOpen, toggleFestival, removeFestival, closeDrawer } = useYearPlan()
+// Year plan state (unchanged)
+const { yearPlanIds, yearDrawerOpen, toggleFestival, removeFestival, closeDrawer, toggleDrawer: toggleYearDrawer, yearCount } = useYearPlan()
 
 // Search
 const searchQuery = ref('')
-const searchFocused = ref(false)
 
-// Mock: all festivals as discovery cards
 const allFestivals = [
   {
     slug: meneate.mockFestival.slug,
@@ -174,184 +185,214 @@ const filteredFestivals = computed(() => {
   )
 })
 
-// Mock signed in state
-const isSignedIn = ref(false)
-
-// Mock year plan (signed in users)
-const myPlanFestivals = computed(() =>
-  isSignedIn.value ? allFestivals.slice(0, 3) : []
-)
-
-const stats = [
-  { value: '12,000+', label: 'Dancers' },
-  { value: '180+', label: 'Festivals' },
-  { value: '35', label: 'Countries' },
-]
+const styleChips = ['Salsa', 'Bachata', 'Timba', 'Kizomba', 'Son']
 </script>
 
 <template>
-  <div class="lg:mr-80">
-    <!-- Hero -->
-    <section class="relative border-b">
-      <div class="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent" />
-      <div class="relative max-w-3xl mx-auto px-4 pt-6 pb-6 text-center">
-        <p class="text-muted-foreground text-sm mb-4">Find your next dance festival</p>
+  <div class="min-h-screen lg:mr-80" style="background:#fbf5ea; color:#3b1f0d; font-family:'Playfair Display', serif;">
+    <!-- V3 header — same as / and /organizers -->
+    <header class="border-b" style="border-color:#3b1f0d33;">
+      <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+        <NuxtLink to="/" class="flex items-baseline gap-2">
+          <span class="font-bold text-lg">WeDance</span>
+          <span class="text-[10px] uppercase tracking-[0.25em]" style="color:#9a5614;">Summer Edition · 2026</span>
+        </NuxtLink>
+        <nav class="flex items-center gap-4 text-sm">
+          <NuxtLink to="/festivals" class="italic hover:underline">Festivals</NuxtLink>
+          <NuxtLink to="/cities" class="italic hover:underline">Cities</NuxtLink>
+          <NuxtLink to="/for-events" class="italic hover:underline hidden sm:inline">For events</NuxtLink>
+          <NuxtLink to="/organizers" class="italic hover:underline hidden sm:inline">For organizers</NuxtLink>
 
-        <!-- Search bar -->
-        <div class="relative max-w-md mx-auto">
-          <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <input
-            v-model="searchQuery"
-            type="text"
-            placeholder="Search by city, style, or festival name..."
-            class="flex h-11 w-full rounded-full border border-input bg-background pl-10 pr-4 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            @focus="searchFocused = true"
-            @blur="searchFocused = false"
-          />
-        </div>
-
-        <!-- Quick style filters -->
-        <div class="flex flex-wrap items-center justify-center gap-2 mt-4">
+          <!-- Mobile-only: open the year plan drawer -->
           <button
-            v-for="style in ['Salsa', 'Bachata', 'Timba', 'Kizomba', 'Son']"
-            :key="style"
-            class="px-3 py-1 rounded-full text-xs font-medium border transition-colors"
-            :class="searchQuery === style ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-muted-foreground border-input hover:border-foreground/30'"
-            @click="searchQuery = searchQuery === style ? '' : style"
+            type="button"
+            class="relative lg:hidden flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-bold"
+            style="background:#dc262618; color:#dc2626;"
+            @click="toggleYearDrawer"
           >
-            {{ style }}
+            <CalendarDays class="w-4 h-4" />
+            <span class="hidden xs:inline">My Year</span>
+            <span
+              v-if="yearCount > 0"
+              class="min-w-[16px] h-4 rounded-full text-[10px] font-bold flex items-center justify-center px-1"
+              style="background:#dc2626; color:white;"
+            >{{ yearCount }}</span>
           </button>
-        </div>
+        </nav>
       </div>
-    </section>
+    </header>
 
-    <!-- Your plan strip (signed in) -->
-    <section v-if="isSignedIn && myPlanFestivals.length" class="border-b bg-muted/30">
-      <div class="max-w-3xl mx-auto px-4 py-4">
-        <div class="flex items-center justify-between mb-3">
-          <h2 class="text-sm font-semibold">Your 2026</h2>
-          <NuxtLink to="/my-year" class="text-xs text-primary hover:text-primary/80 flex items-center gap-0.5">
-            Full plan <ChevronRight class="w-3 h-3" />
-          </NuxtLink>
+    <!-- HERO -->
+    <section class="relative">
+      <div class="max-w-4xl mx-auto px-4 pt-12 pb-8 text-center">
+        <div class="text-sm tracking-widest uppercase mb-3" style="color:#9a5614;">
+          The festival year
         </div>
-        <div class="flex gap-3 overflow-x-auto pb-1">
-          <NuxtLink
-            v-for="f in myPlanFestivals"
-            :key="f.slug"
-            :to="`/festivals/${f.slug}`"
-            class="flex items-center gap-2.5 px-3 py-2 rounded-lg border bg-background hover:shadow-sm transition-shadow shrink-0"
-          >
-            <img
-              v-if="f.logo"
-              :src="f.logo"
-              :alt="f.name"
-              class="w-8 h-8 rounded-full shrink-0"
-            />
-            <div
-              v-else
-              class="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-xs font-bold text-white"
-              :style="{ backgroundColor: f.accentColor }"
+        <h1 class="text-5xl sm:text-6xl leading-[0.98]" style="color:#3b1f0d;">
+          Pick your <em class="italic" style="color:#dc2626;">next one.</em>
+          <span style="font-family:'Caveat', cursive; color:#16a34a; font-size:0.9em;"> Plan the year.</span>
+        </h1>
+        <p class="mt-5 text-base sm:text-lg leading-relaxed max-w-xl mx-auto" style="color:#5b3a1d;">
+          Every festival mapped. See who is going before you book.
+        </p>
+
+        <!-- Search + chips -->
+        <div class="mt-8 max-w-lg mx-auto">
+          <div class="relative">
+            <Search class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4" style="color:#9a5614;" />
+            <input
+              v-model="searchQuery"
+              type="text"
+              placeholder="Search by city, style, or festival"
+              class="w-full h-12 rounded-full pl-11 pr-4 text-sm outline-none transition-all"
+              style="background:white; border:1px solid #3b1f0d33; color:#3b1f0d; font-family: system-ui, sans-serif; box-shadow: 0 1px 0 #3b1f0d0a, 0 6px 16px rgba(59, 31, 18, 0.04);"
             >
-              {{ f.name.charAt(0) }}
-            </div>
-            <div class="min-w-0">
-              <div class="text-xs font-medium truncate max-w-[140px]">{{ f.name }}</div>
-              <div class="text-[10px] text-muted-foreground">{{ formatDateRange(f.startDate, f.endDate) }}</div>
-            </div>
-          </NuxtLink>
+          </div>
+          <div class="flex flex-wrap items-center justify-center gap-2 mt-4">
+            <button
+              v-for="(style, i) in styleChips"
+              :key="style"
+              type="button"
+              class="px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all"
+              :style="searchQuery === style
+                ? { background: ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b'][i], color: 'white', boxShadow: '0 2px 0 -1px ' + ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b'][i] }
+                : { background: 'white', color: ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b'][i], border: '1px solid ' + ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b'][i] + '55' }"
+              @click="searchQuery = searchQuery === style ? '' : style"
+            >
+              {{ style }}
+            </button>
+          </div>
         </div>
       </div>
+
+      <!-- Wave divider -->
+      <svg class="block w-full h-10" viewBox="0 0 1440 60" preserveAspectRatio="none">
+        <path d="M0,40 Q360,0 720,30 T1440,20 V60 H0 Z" fill="#3b1f0d" opacity="0.08"/>
+      </svg>
     </section>
 
     <!-- Festival grid -->
-    <section class="max-w-3xl mx-auto px-4 py-6">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-semibold">
-          {{ searchQuery ? 'Results' : 'Upcoming Festivals' }}
+    <section class="max-w-4xl mx-auto px-4 pb-12">
+      <div class="flex items-baseline justify-between mb-6">
+        <h2 class="text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+          {{ searchQuery ? 'Results' : 'Upcoming festivals' }}
         </h2>
-        <span class="text-xs text-muted-foreground">{{ filteredFestivals.length }} events</span>
+        <span class="text-xs" style="color:#9a5614; font-family:'Caveat', cursive; font-size:18px;">
+          — {{ filteredFestivals.length }} event{{ filteredFestivals.length === 1 ? '' : 's' }}
+        </span>
       </div>
 
-      <div v-if="!filteredFestivals.length" class="text-center py-12 border rounded-lg border-dashed">
-        <Search class="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-        <p class="text-sm text-muted-foreground">No festivals match "{{ searchQuery }}"</p>
-        <button class="text-xs text-primary mt-2" @click="searchQuery = ''">Clear search</button>
+      <div
+        v-if="!filteredFestivals.length"
+        class="text-center py-14 rounded-2xl border-2 border-dashed"
+        style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);"
+      >
+        <Search class="w-8 h-8 mx-auto mb-3" style="color:#9a5614;" />
+        <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Nothing matches "{{ searchQuery }}"</p>
+        <button
+          type="button"
+          class="text-xs font-bold mt-2 underline"
+          style="color:#dc2626; font-family: system-ui, sans-serif;"
+          @click="searchQuery = ''"
+        >
+          Clear search
+        </button>
       </div>
 
-      <div class="grid gap-4">
+      <div v-else class="grid gap-4">
         <NuxtLink
           v-for="f in filteredFestivals"
           :key="f.slug"
           :to="`/festivals/${f.slug}`"
-          class="group block border rounded-lg overflow-hidden hover:shadow-md transition-shadow bg-background"
+          class="group block rounded-2xl overflow-hidden bg-white border transition-all hover:-translate-y-1"
+          :style="{ borderColor: f.accentColor + '55', boxShadow: '0 1px 0 ' + f.accentColor + '22, 0 8px 22px rgba(59,31,18,0.05)' }"
         >
           <!-- Color accent bar -->
-          <div class="h-1" :style="{ backgroundColor: f.accentColor }" />
+          <div class="h-1.5" :style="{ background: f.accentColor }" />
 
-          <div class="p-4">
-            <div class="flex items-start gap-3">
+          <div class="p-5">
+            <div class="flex items-start gap-4">
               <!-- Logo -->
               <img
                 v-if="f.logo"
                 :src="f.logo"
                 :alt="f.name"
-                class="w-12 h-12 rounded-full shrink-0"
+                class="w-14 h-14 rounded-full shrink-0 shadow-sm"
               />
               <div
                 v-else
-                class="w-12 h-12 rounded-full shrink-0 flex items-center justify-center text-lg font-bold text-white"
-                :style="{ backgroundColor: f.accentColor }"
+                class="w-14 h-14 rounded-full shrink-0 flex items-center justify-center text-xl font-bold text-white shadow-sm"
+                :style="{ background: f.accentColor }"
               >
                 {{ f.name.charAt(0) }}
               </div>
 
-              <!-- Info -->
               <div class="flex-1 min-w-0">
                 <div class="flex items-start justify-between gap-2">
-                  <h3 class="font-semibold text-sm group-hover:text-primary transition-colors">{{ f.name }}</h3>
-                  <span class="text-[10px] text-muted-foreground whitespace-nowrap shrink-0 mt-0.5">{{ daysUntil(f.startDate) }}</span>
+                  <h3 class="font-bold text-lg leading-tight" style="color:#3b1f0d;">
+                    {{ f.name }}
+                  </h3>
+                  <span
+                    class="text-[10px] uppercase tracking-widest font-bold shrink-0 mt-1"
+                    style="font-family:'Caveat', cursive; font-size:15px; text-transform:none; letter-spacing:normal;"
+                    :style="{ color: f.accentColor }"
+                  >
+                    {{ daysUntil(f.startDate) }}
+                  </span>
                 </div>
 
-                <div class="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
+                <div class="flex items-center gap-4 mt-1 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
                   <span class="flex items-center gap-1">
-                    <Calendar class="w-3 h-3" />
+                    <Calendar class="w-3 h-3" style="color:#9a5614;" />
                     {{ formatDateRange(f.startDate, f.endDate) }}
                   </span>
                   <span class="flex items-center gap-1">
-                    <MapPin class="w-3 h-3" />
+                    <MapPin class="w-3 h-3" style="color:#9a5614;" />
                     {{ f.location }}
                   </span>
                 </div>
 
                 <!-- Styles -->
-                <div class="flex flex-wrap gap-1 mt-2">
+                <div class="flex flex-wrap gap-1.5 mt-3">
                   <span
                     v-for="style in f.styles.slice(0, 4)"
                     :key="style"
-                    class="px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground"
+                    class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
+                    :style="{ background: f.accentColor + '18', color: f.accentColor }"
                   >
                     {{ style }}
                   </span>
-                  <span v-if="f.styles.length > 4" class="px-1.5 py-0.5 rounded text-[10px] text-muted-foreground">
+                  <span
+                    v-if="f.styles.length > 4"
+                    class="px-2 py-0.5 rounded-full text-[10px]"
+                    style="color:#9a5614;"
+                  >
                     +{{ f.styles.length - 4 }}
                   </span>
                 </div>
 
                 <!-- Stats row -->
-                <div class="flex items-center gap-4 mt-2 text-[11px] text-muted-foreground">
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
                   <span class="flex items-center gap-1">
-                    <Users class="w-3 h-3" />
+                    <Users class="w-3 h-3" style="color:#9a5614;" />
                     {{ f.attendeeCount }} planning
                   </span>
                   <span>{{ f.workshopCount }} workshops</span>
                   <span v-if="f.partyCount">{{ f.partyCount }} {{ f.partyCount === 1 ? 'party' : 'parties' }}</span>
-                  <span v-if="f.friendsGoing" class="flex items-center gap-1 text-primary font-medium">
+                  <span
+                    v-if="f.friendsGoing"
+                    class="flex items-center gap-1 font-bold"
+                    :style="{ color: f.accentColor }"
+                  >
                     <Heart class="w-3 h-3" />
-                    {{ f.friendsGoing }} friends going
+                    {{ f.friendsGoing }} friend{{ f.friendsGoing === 1 ? '' : 's' }} going
                   </span>
                   <button
-                    class="ml-auto text-xs font-medium px-2.5 py-1 rounded-md border transition-colors"
-                    :class="yearPlanIds.has(f.slug) ? 'bg-primary/10 text-primary border-primary/30' : 'text-muted-foreground hover:text-foreground hover:border-foreground/30'"
+                    type="button"
+                    class="ml-auto text-xs font-bold px-3 py-1.5 rounded-full transition-all"
+                    :style="yearPlanIds.has(f.slug)
+                      ? { background: f.accentColor, color: 'white' }
+                      : { background: 'white', color: f.accentColor, border: '1.5px solid ' + f.accentColor + '55' }"
                     @click.prevent="toggleFestival(f.slug)"
                   >
                     {{ yearPlanIds.has(f.slug) ? '✓ Picked' : 'Pick' }}
@@ -364,33 +405,40 @@ const stats = [
       </div>
     </section>
 
-    <!-- Social proof bar -->
-    <section class="border-y bg-muted/30">
-      <div class="max-w-3xl mx-auto px-4 py-6">
-        <div class="grid grid-cols-3 gap-6 max-w-sm mx-auto">
-          <div v-for="stat in stats" :key="stat.label" class="text-center">
-            <div class="text-xl font-bold">{{ stat.value }}</div>
-            <div class="text-xs text-muted-foreground">{{ stat.label }}</div>
-          </div>
+    <!-- Organizer CTA -->
+    <section class="max-w-4xl mx-auto px-4 py-10">
+      <div
+        class="rounded-2xl p-5 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+        style="background:white; border:1px solid #0891b255; box-shadow: 0 1px 0 #0891b222, 0 8px 22px rgba(59,31,18,0.05);"
+      >
+        <div>
+          <div class="text-[10px] uppercase tracking-[0.3em] font-bold mb-1" style="color:#0891b2;">For organizers</div>
+          <h3 class="text-lg font-bold" style="color:#3b1f0d;">Organize a dance festival?</h3>
+          <p class="text-sm mt-1" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+            List your event for free. Ticket it on us.
+          </p>
         </div>
+        <button
+          type="button"
+          class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-white text-sm font-bold uppercase tracking-wider shrink-0"
+          style="background:#0891b2; box-shadow: 0 3px 0 -1px #0e7490;"
+          @click="router.push('/organizers')"
+        >
+          Learn more <ArrowRight class="w-4 h-4" />
+        </button>
       </div>
     </section>
 
-    <!-- Organizer CTA -->
-    <section class="max-w-3xl mx-auto px-4 py-8">
-      <div class="flex items-center justify-between rounded-lg border p-4 bg-background">
-        <div>
-          <h3 class="text-sm font-semibold">Organize a dance festival?</h3>
-          <p class="text-xs text-muted-foreground mt-0.5">List your event for free and reach thousands of dancers.</p>
-        </div>
-        <Button variant="outline" size="sm" class="gap-1 shrink-0" @click="router.push('/organizers')">
-          Learn more <ArrowRight class="w-3.5 h-3.5" />
-        </Button>
-      </div>
-    </section>
+    <footer class="border-t py-6 text-center text-xs" style="border-color:#3b1f0d22; color:#9a5614; font-family:'Caveat', cursive; font-size:18px;">
+      WeDance ·
+      <NuxtLink to="/" class="underline">home</NuxtLink> ·
+      <NuxtLink to="/cities" class="underline">cities</NuxtLink> ·
+      <NuxtLink to="/for-events" class="underline">for events</NuxtLink> ·
+      <NuxtLink to="/organizers" class="underline">for organizers</NuxtLink>
+    </footer>
 
     <!-- Desktop year sidebar (fixed, full height) -->
-    <aside class="hidden lg:flex fixed right-0 top-12 bottom-0 w-80 border-l bg-background z-30">
+    <aside class="hidden lg:flex fixed right-0 top-16 bottom-0 w-80 border-l bg-white z-30" style="border-color:#3b1f0d22;">
       <YearCanvas
         :festivals="allFestivals"
         :year-plan-ids="yearPlanIds"
@@ -400,7 +448,7 @@ const stats = [
       />
     </aside>
 
-    <!-- Mobile year drawer overlay (< lg only) -->
+    <!-- Mobile year drawer overlay -->
     <Teleport to="body">
       <Transition
         enter-active-class="transition duration-200 ease-out"
@@ -426,7 +474,7 @@ const stats = [
       >
         <div
           v-if="yearDrawerOpen"
-          class="lg:hidden fixed right-0 top-12 bottom-0 z-50 w-80 max-w-[85vw] shadow-xl"
+          class="lg:hidden fixed right-0 top-16 bottom-0 z-50 w-80 max-w-[85vw] shadow-xl bg-white"
         >
           <YearCanvas
             :festivals="allFestivals"
