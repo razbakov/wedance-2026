@@ -17,7 +17,7 @@
  * Other visual directions explored at /sketches/landing/{v1, v2, v4,
  * v7, v9, v12} + the early baseline at /sketches/landing.
  */
-import { ArrowRight, MapPin, Calendar } from 'lucide-vue-next'
+import { ArrowRight, MapPin, Calendar, Compass, GraduationCap, Users, Plane, Mic, PartyPopper, Ticket } from 'lucide-vue-next'
 
 definePageMeta({ layout: false })
 
@@ -30,12 +30,51 @@ useHead({
   ],
 })
 
+// The 5-stage dancer journey — each card maps to a real product surface
+// and a real time horizon. Stage 5 (Business) absorbs the old supply-side
+// pitch (organize / teach / DJ / venue) by treating it as the natural
+// endpoint of the demand journey, not a separate audience.
 const stages = [
-  { label: 'Curious',    title: 'Find your first dance', detail: 'Salsa · Bachata · Kizomba · Timba · 60 more', emoji: '✨' },
-  { label: 'Beginner',   title: 'Find a teacher',         detail: '12 in Munich · 8 in Berlin',                  emoji: '🎓' },
-  { label: 'Weekly',     title: 'Know your city',         detail: 'Practicas, socials, taster classes',          emoji: '🌃' },
-  { label: 'Traveling',  title: 'Plan your year',         detail: '7 events · 5 cities · 2026',                  emoji: '✈️' },
-  { label: 'Reviewer',   title: 'Tell the truth',         detail: 'Honest reviews — coming soon',                emoji: '⭐' },
+  {
+    label: 'Seeker',
+    title: 'Find your dance',
+    detail: 'Free taster classes. Pick by feeling, not guessing.',
+    icon: Compass,
+    horizon: 'first night',
+    href: '/cities',
+  },
+  {
+    label: 'Student',
+    title: 'Find your teacher',
+    detail: 'Real profiles. Styles, languages, schools.',
+    icon: GraduationCap,
+    horizon: 'plan your month',
+    href: '/cities/munich',
+  },
+  {
+    label: 'Regular',
+    title: 'Find your floor',
+    detail: 'Weekly socials and practicas. Go with friends.',
+    icon: Users,
+    horizon: 'plan your week',
+    href: '/cities/munich',
+  },
+  {
+    label: 'Traveler',
+    title: 'Find your festival',
+    detail: 'Every festival mapped. See who is going.',
+    icon: Plane,
+    horizon: 'plan your year',
+    href: '/festivals',
+  },
+  {
+    label: 'Business',
+    title: 'Take the stage',
+    detail: 'Teach, DJ, host, open a venue.',
+    icon: Mic,
+    horizon: 'the rest of your life',
+    href: '/organizers',
+  },
 ]
 
 const attendees = [
@@ -76,6 +115,7 @@ const attendees = [
           <nav class="flex items-center gap-5 text-sm" style="font-family:'Playfair Display', serif;">
             <NuxtLink to="/festivals" class="italic hover:underline">Festivals</NuxtLink>
             <NuxtLink to="/cities" class="italic hover:underline">Cities</NuxtLink>
+            <NuxtLink to="/for-events" class="italic hover:underline hidden sm:inline">For events</NuxtLink>
             <NuxtLink to="/organizers" class="italic hover:underline hidden sm:inline">For organizers</NuxtLink>
           </nav>
         </div>
@@ -86,22 +126,23 @@ const attendees = [
         <div class="max-w-6xl mx-auto px-4 pt-14 pb-20 grid md:grid-cols-12 gap-10 items-center">
           <div class="md:col-span-7 text-center md:text-left">
             <div class="text-sm tracking-widest uppercase mb-3" style="color:#9a5614;">
-              · Welcome to the dance ·
+              Welcome to the dance
             </div>
             <h1 class="text-5xl sm:text-7xl leading-[0.95]" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
               From your<br>
-              first <em class="italic" style="color:#dc2626;">salsa</em><br>
+              first <em class="italic" style="color:#dc2626;">night</em><br>
               to your
               <span class="inline-block relative">
-                <span style="color:#dc2626;">tenth</span>
+                <span style="color:#dc2626;">best</span>
                 <svg class="absolute left-0 right-0 -bottom-2 w-full h-3" viewBox="0 0 100 10" preserveAspectRatio="none">
                   <path d="M0,8 Q25,2 50,7 T100,4" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round"/>
                 </svg>
               </span>
-              <span class="italic" style="font-family:'Caveat', cursive; color:#16a34a;"> festival.</span>
+              <span class="italic" style="font-family:'Caveat', cursive; color:#16a34a;"> year.</span>
             </h1>
             <p class="mt-6 text-base sm:text-lg leading-relaxed max-w-md mx-auto md:mx-0" style="color:#5b3a1d;">
-              We map every dance event, every teacher, every venue, every city — and tell you who is going before you book.
+              Every dance. Every teacher. Every city.
+              <span style="color:#3b1f0d;">Every face — real.</span>
             </p>
             <div class="mt-8 flex items-center justify-center md:justify-start gap-5">
               <NuxtLink
@@ -142,32 +183,121 @@ const attendees = [
         </svg>
       </section>
 
-      <!-- STAGES — passport stamps -->
-      <section class="border-y" style="border-color:#3b1f0d22; background:rgba(251, 245, 234, 0.5);">
+      <!-- JOURNEY — a hand-drawn travel map with 5 stops along a winding path -->
+      <section class="border-y overflow-hidden" style="border-color:#3b1f0d22; background:rgba(251, 245, 234, 0.5);">
         <div class="max-w-6xl mx-auto px-4 py-16">
-          <div class="text-center mb-10">
-            <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">Wherever you are in dance</div>
-            <h2 class="mt-3 text-3xl sm:text-5xl" style="font-family:'Playfair Display', serif;">
-              <em class="italic">Pick your door.</em>
+          <div class="text-center mb-12">
+            <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">The journey · 5 stops</div>
+            <h2 class="mt-3 text-3xl sm:text-5xl leading-tight" style="font-family:'Playfair Display', serif;">
+              From your first move to <em class="italic" style="color:#dc2626;">your own stage.</em>
             </h2>
+            <p class="mt-4 text-sm sm:text-base max-w-xl mx-auto leading-relaxed" style="color:#5b3a1d;">
+              Whatever the dance.
+              <span style="font-family:'Caveat', cursive; color:#16a34a; font-size:20px;">Whichever step you're on.</span>
+            </p>
           </div>
-          <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <NuxtLink
-              v-for="(s, i) in stages"
-              :key="s.label"
-              to="/festivals"
-              class="block rounded-2xl px-4 py-5 text-center hover:-translate-y-1 transition-transform"
-              :style="{
-                background: 'rgba(255,255,255,0.7)',
-                border: '2px dashed ' + ['#dc2626', '#0891b2', '#16a34a', '#f59e0b', '#a855f7'][i],
-                boxShadow: '0 4px 0 -1px ' + ['#dc2626', '#0891b2', '#16a34a', '#f59e0b', '#a855f7'][i] + '33',
-              }"
-            >
-              <div class="text-3xl">{{ s.emoji }}</div>
-              <div class="mt-2 text-[10px] uppercase tracking-widest font-bold" :style="{color: ['#dc2626', '#0891b2', '#16a34a', '#f59e0b', '#a855f7'][i]}">{{ s.label }}</div>
-              <div class="mt-1 text-base font-bold" style="font-family:'Playfair Display', serif;">{{ s.title }}</div>
-              <div class="mt-1 text-[11px]" style="color:#5b3a1d;">{{ s.detail }}</div>
-            </NuxtLink>
+
+          <!-- Desktop: clean horizontal timeline with numbered stages -->
+          <div class="hidden lg:block">
+            <div class="relative grid grid-cols-5 gap-6 items-stretch">
+              <NuxtLink
+                v-for="(s, i) in stages"
+                :key="s.label"
+                :to="s.href"
+                class="group relative rounded-2xl bg-white/95 px-5 py-6 flex flex-col hover:-translate-y-1 transition-all"
+                :style="{
+                  border: '1px solid ' + ['#dc2626', '#0891b2', '#16a34a', '#f59e0b', '#a855f7'][i] + '55',
+                  boxShadow: '0 1px 0 ' + ['#dc2626', '#0891b2', '#16a34a', '#f59e0b', '#a855f7'][i] + '22, 0 12px 28px rgba(59, 31, 18, 0.06)',
+                }"
+              >
+                <!-- Step number + monochrome line icon at top -->
+                <div class="flex items-center justify-between mb-4">
+                  <span class="text-2xl leading-none" style="font-family:'Playfair Display', serif; color:#9a5614;">{{ String(i + 1).padStart(2, '0') }}</span>
+                  <component :is="s.icon" class="w-6 h-6" :style="{color: ['#dc2626', '#0891b2', '#16a34a', '#f59e0b', '#a855f7'][i], 'stroke-width': 1.5}" />
+                </div>
+                <div
+                  class="h-[3px] w-10 rounded-full mb-3"
+                  :style="{ background: ['#dc2626', '#0891b2', '#16a34a', '#f59e0b', '#a855f7'][i] }"
+                />
+                <div class="text-[10px] uppercase tracking-[0.2em] font-bold" :style="{color: ['#dc2626', '#0891b2', '#16a34a', '#f59e0b', '#a855f7'][i]}">
+                  {{ s.label }}
+                </div>
+                <div class="mt-1 text-lg font-bold leading-tight" style="font-family:'Playfair Display', serif;">{{ s.title }}</div>
+                <div class="mt-2 text-xs leading-relaxed" style="color:#5b3a1d;">{{ s.detail }}</div>
+                <div class="mt-auto pt-4 text-lg leading-none" style="font-family:'Caveat', cursive; color:#9a5614;">
+                  {{ s.horizon }}
+                </div>
+              </NuxtLink>
+            </div>
+
+            <!-- Timeline arrow underneath: continuous, directional, honest -->
+            <div class="relative mt-8 max-w-[calc(100%-2rem)] mx-auto">
+              <div class="relative h-[2px]" style="background: linear-gradient(to right, #dc2626, #0891b2, #16a34a, #f59e0b, #a855f7); opacity: 0.5;">
+                <!-- 5 tick marks aligned with the 5 columns -->
+                <div
+                  v-for="i in 5"
+                  :key="'tick-' + i"
+                  class="absolute top-1/2 w-2 h-2 rounded-full"
+                  :style="{
+                    left: `${(i - 1) * 25}%`,
+                    transform: 'translate(-50%, -50%)',
+                    background: ['#dc2626', '#0891b2', '#16a34a', '#f59e0b', '#a855f7'][i - 1],
+                  }"
+                />
+                <!-- Arrow tip -->
+                <div class="absolute top-1/2 right-0 w-0 h-0" style="transform: translate(4px, -50%); border-left: 8px solid #a855f7; border-top: 5px solid transparent; border-bottom: 5px solid transparent; opacity: 0.7;"/>
+              </div>
+              <div class="flex justify-between mt-3 text-[10px] uppercase tracking-[0.2em]" style="color:#9a5614;">
+                <span>Night one</span>
+                <span class="hidden xl:inline">The whole life ahead</span>
+                <span class="xl:hidden">The rest of your life →</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mobile/tablet: vertical stack with vertical dashed line -->
+          <div class="lg:hidden relative">
+            <!-- Vertical dashed line -->
+            <div class="absolute left-6 top-6 bottom-6 w-px" style="background-image: linear-gradient(to bottom, #9a5614 0, #9a5614 4px, transparent 4px, transparent 10px); background-size: 100% 10px; opacity: 0.5;"/>
+            <div class="text-[10px] uppercase tracking-widest ml-12 mb-4" style="font-family:'Caveat', cursive; font-size: 15px; color:#9a5614;">
+              you are here ↓
+            </div>
+            <div class="space-y-4">
+              <NuxtLink
+                v-for="(s, i) in stages"
+                :key="s.label"
+                :to="s.href"
+                class="relative flex gap-4 items-start rounded-xl px-4 py-4 ml-12 hover:-translate-y-0.5 transition-transform"
+                :style="{
+                  background: 'rgba(255,255,255,0.85)',
+                  border: '2px dashed ' + ['#dc2626', '#0891b2', '#16a34a', '#f59e0b', '#a855f7'][i],
+                  boxShadow: '3px 4px 0 -1px ' + ['#dc2626', '#0891b2', '#16a34a', '#f59e0b', '#a855f7'][i] + '2e',
+                }"
+              >
+                <!-- pin connecting to the vertical line -->
+                <div
+                  class="absolute w-3 h-3 rounded-full"
+                  :style="{
+                    left: '-2rem',
+                    top: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    background: ['#dc2626', '#0891b2', '#16a34a', '#f59e0b', '#a855f7'][i],
+                    boxShadow: '0 0 0 3px rgba(251, 245, 234, 0.9)',
+                  }"
+                />
+                <component :is="s.icon" class="w-6 h-6 shrink-0" :style="{color: ['#dc2626', '#0891b2', '#16a34a', '#f59e0b', '#a855f7'][i], 'stroke-width': 1.5}" />
+                <div class="flex-1 min-w-0">
+                  <div class="text-[10px] uppercase tracking-widest font-bold" :style="{color: ['#dc2626', '#0891b2', '#16a34a', '#f59e0b', '#a855f7'][i]}">
+                    {{ s.label }} · <span style="font-family:'Caveat', cursive; font-size:14px; color:#9a5614; text-transform:none; letter-spacing:normal;">{{ s.horizon }}</span>
+                  </div>
+                  <div class="mt-0.5 text-base font-bold leading-tight" style="font-family:'Playfair Display', serif;">{{ s.title }}</div>
+                  <div class="mt-1 text-xs leading-snug" style="color:#5b3a1d;">{{ s.detail }}</div>
+                </div>
+              </NuxtLink>
+            </div>
+            <div class="text-[10px] uppercase tracking-widest ml-12 mt-4" style="font-family:'Caveat', cursive; font-size: 15px; color:#9a5614;">
+              → the rest of your life
+            </div>
           </div>
         </div>
       </section>
@@ -227,6 +357,59 @@ const attendees = [
         </div>
       </section>
 
+      <!-- B2B ROUTING — private events + festival organizers.
+           Mid-page routing signal for the wrong-audience visitor
+           (bride, corporate planner, festival org) who scrolled this far.
+           NOT hero-level — dancer funnel stays primary. -->
+      <section class="py-16 border-y" style="border-color:#3b1f0d22; background:#3b1f0d08;">
+        <div class="max-w-5xl mx-auto px-4">
+          <div class="text-center mb-10">
+            <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">Hosting the night, not dancing at it?</div>
+            <h2 class="mt-3 text-3xl sm:text-4xl leading-tight" style="font-family:'Playfair Display', serif;">
+              We help you <em class="italic" style="color:#dc2626;">throw it</em> too.
+            </h2>
+          </div>
+
+          <div class="grid md:grid-cols-2 gap-6">
+            <!-- Private events -->
+            <NuxtLink to="/for-events" class="group rounded-2xl bg-white p-6 sm:p-7 border transition-all hover:-translate-y-1"
+              :style="{ borderColor: '#f59e0b55', boxShadow: '0 1px 0 #f59e0b22, 0 12px 28px rgba(59, 31, 18, 0.06)' }">
+              <div class="flex items-center justify-between mb-3">
+                <div class="text-[10px] uppercase tracking-[0.3em] font-bold" style="color:#f59e0b;">Private events</div>
+                <PartyPopper class="w-5 h-5" style="color:#f59e0b; stroke-width:1.5;" />
+              </div>
+              <div class="text-xl sm:text-2xl font-bold leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+                Weddings, birthdays, corporate.
+              </div>
+              <div class="mt-3 text-sm leading-relaxed" style="color:#5b3a1d;">
+                We supply the whole night — venue, MC, DJ, dancers, show.
+              </div>
+              <div class="mt-5 inline-flex items-center gap-2 text-sm font-bold" style="color:#dc2626;">
+                Book us for your event <ArrowRight class="w-4 h-4 transition-transform group-hover:translate-x-1" />
+              </div>
+            </NuxtLink>
+
+            <!-- Festival organizers -->
+            <NuxtLink to="/organizers" class="group rounded-2xl bg-white p-6 sm:p-7 border transition-all hover:-translate-y-1"
+              :style="{ borderColor: '#0891b255', boxShadow: '0 1px 0 #0891b222, 0 12px 28px rgba(59, 31, 18, 0.06)' }">
+              <div class="flex items-center justify-between mb-3">
+                <div class="text-[10px] uppercase tracking-[0.3em] font-bold" style="color:#0891b2;">Festival organizers</div>
+                <Ticket class="w-5 h-5" style="color:#0891b2; stroke-width:1.5;" />
+              </div>
+              <div class="text-xl sm:text-2xl font-bold leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+                Ticket your festival on us.
+              </div>
+              <div class="mt-3 text-sm leading-relaxed" style="color:#5b3a1d;">
+                Ticketing + promo + real faces on your event page.
+              </div>
+              <div class="mt-5 inline-flex items-center gap-2 text-sm font-bold" style="color:#0891b2;">
+                Ticket with us <ArrowRight class="w-4 h-4 transition-transform group-hover:translate-x-1" />
+              </div>
+            </NuxtLink>
+          </div>
+        </div>
+      </section>
+
       <!-- LOOP — 5 steps as numbered banderitas -->
       <section class="py-16" style="background:rgba(251, 245, 234, 0.5);">
         <div class="max-w-3xl mx-auto px-4">
@@ -278,36 +461,9 @@ const attendees = [
         </div>
       </section>
 
-      <!-- SUPPLY — vintage classified strip -->
-      <section style="background:linear-gradient(135deg,#3b1f0d 0%, #5b3a1d 100%); color:#fbf5ea;" class="py-16">
-        <div class="max-w-6xl mx-auto px-4">
-          <div class="text-center mb-10">
-            <div class="text-xs uppercase tracking-[0.3em]" style="color:#fbbf24;">On the other side of the floor</div>
-            <h2 class="mt-3 text-3xl sm:text-4xl" style="font-family:'Playfair Display', serif;">
-              <em class="italic">Run a festival, teach, or own a venue?</em>
-            </h2>
-          </div>
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <NuxtLink
-              v-for="c in [
-                { t: 'Organize a festival', d: 'Sell tickets · reach the audience · see who is coming' },
-                { t: 'Teach or DJ',          d: 'Get on the city map · get bookings', soon: true },
-                { t: 'Own a venue',          d: 'List your floor · fill quiet nights', soon: true },
-              ]"
-              :key="c.t"
-              to="/organizers"
-              class="rounded-xl p-5 border hover:-translate-y-1 transition-transform"
-              style="background:rgba(251, 245, 234, 0.06); border-color:rgba(251, 245, 234, 0.18);"
-            >
-              <div class="text-base font-bold flex items-center gap-2" style="font-family:'Playfair Display', serif;">
-                {{ c.t }}
-                <span v-if="c.soon" class="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded" style="background:rgba(252, 211, 77, 0.15); color:#fbbf24;">Soon</span>
-              </div>
-              <div class="mt-2 text-xs" style="color:rgba(251, 245, 234, 0.7);">{{ c.d }}</div>
-            </NuxtLink>
-          </div>
-        </div>
-      </section>
+      <!-- (Supply strip removed — stage 5 "Take the stage" in the
+           journey section above absorbs the organize/teach/DJ/venue
+           pitch as the natural endpoint of the dancer's arc.) -->
 
       <!-- FINAL -->
       <section class="py-20">
