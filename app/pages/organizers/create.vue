@@ -19,8 +19,15 @@ import {
   Image,
 } from 'lucide-vue-next'
 
+definePageMeta({ layout: false })
+
 useHead({
-  title: 'Create Festival | WeDance',
+  title: 'WeDance — Create festival',
+  link: [
+    { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+    { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
+    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Caveat:wght@400;700&display=swap' },
+  ],
 })
 
 const router = useRouter()
@@ -245,63 +252,89 @@ async function publish() {
   isPublished.value = true
 }
 
-// Input class shared across the form
-const inputClass = 'flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
-const textareaClass = 'flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring min-h-[80px] resize-y'
-const selectClass = 'flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring appearance-none'
-const labelClass = 'text-sm font-medium mb-1.5 block'
+// V3 shared field styles. Kept as class strings so field usage
+// throughout the template doesn't need to change — every input
+// inherits the tropical palette + Playfair labels from these.
+const inputClass = 'block h-11 w-full rounded-xl border border-[#3b1f0d33] bg-white px-4 text-sm text-[#3b1f0d] outline-none transition-all placeholder:text-[#9a5614]/60 focus:border-[#dc2626] focus:shadow-[0_0_0_3px_rgba(220,38,38,0.15)] font-sans'
+const textareaClass = 'block w-full rounded-xl border border-[#3b1f0d33] bg-white px-4 py-3 text-sm text-[#3b1f0d] outline-none transition-all placeholder:text-[#9a5614]/60 focus:border-[#dc2626] focus:shadow-[0_0_0_3px_rgba(220,38,38,0.15)] min-h-[96px] resize-y font-sans'
+const selectClass = 'block h-11 w-full rounded-xl border border-[#3b1f0d33] bg-white px-4 text-sm text-[#3b1f0d] outline-none transition-all focus:border-[#dc2626] focus:shadow-[0_0_0_3px_rgba(220,38,38,0.15)] appearance-none font-sans'
+const labelClass = 'text-[10px] uppercase tracking-[0.25em] font-bold mb-2 block text-[#9a5614]'
 </script>
 
 <template>
-  <div class="min-h-screen bg-background">
-    <!-- Header -->
-    <header class="sticky top-0 z-20 bg-background border-b">
-      <div class="max-w-3xl mx-auto px-4 flex items-center justify-between h-14">
-        <button class="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors" @click="router.push('/organizers')">
-          <ArrowLeft class="w-4 h-4" />
-          Back
-        </button>
-        <h1 class="text-sm font-semibold">Create Festival</h1>
-        <Button v-if="currentStep === 'preview'" size="sm" :disabled="isPublishing || isPublished" @click="publish">
-          {{ isPublished ? 'Published!' : isPublishing ? 'Publishing...' : 'Publish' }}
-        </Button>
-        <div v-else class="w-16" />
+  <div class="min-h-screen" style="background:#fbf5ea; color:#3b1f0d; font-family:'Playfair Display', serif;">
+    <!-- V3 site header — same as / , /festivals, /organizers, etc. -->
+    <header class="border-b" style="border-color:#3b1f0d33;">
+      <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+        <NuxtLink to="/" class="flex items-baseline gap-2">
+          <span class="font-bold text-lg">WeDance</span>
+        </NuxtLink>
+        <nav class="flex items-center gap-4 text-sm">
+          <NuxtLink to="/festivals" class="italic hover:underline">Festivals</NuxtLink>
+          <NuxtLink to="/cities" class="italic hover:underline">Cities</NuxtLink>
+          <NuxtLink to="/for-events" class="italic hover:underline hidden sm:inline">Private events</NuxtLink>
+          <NuxtLink to="/organizers" class="italic hover:underline hidden sm:inline">For organizers</NuxtLink>
+        </nav>
       </div>
     </header>
 
-    <!-- Step indicator -->
-    <nav class="border-b overflow-x-auto">
-      <div class="max-w-3xl mx-auto px-4 flex gap-0">
+    <!-- Create-flow action bar (sticky) -->
+    <div class="sticky top-0 z-20 border-b backdrop-blur-sm" style="background:rgba(251, 245, 234, 0.95); border-color:#3b1f0d22;">
+      <div class="max-w-4xl mx-auto px-4 flex items-center justify-between h-14 gap-3">
         <button
-          v-for="(step, i) in steps"
-          :key="step.id"
-          class="flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium whitespace-nowrap transition-colors border-b-2"
-          :class="[
-            step.id === currentStep
-              ? 'border-primary text-foreground'
-              : i < currentStepIndex
-                ? 'border-transparent text-muted-foreground hover:text-foreground'
-                : 'border-transparent text-muted-foreground/50',
-          ]"
-          @click="goToStep(step.id)"
+          type="button"
+          class="inline-flex items-center gap-2 text-sm italic hover:underline"
+          style="color:#5b3a1d; font-family:'Playfair Display', serif;"
+          @click="router.push('/organizers')"
         >
-          <div
-            class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
-            :class="[
-              i < currentStepIndex
-                ? 'bg-primary text-primary-foreground'
-                : step.id === currentStep
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted text-muted-foreground',
-            ]"
-          >
-            <Check v-if="i < currentStepIndex" class="w-3 h-3" />
-            <span v-else>{{ i + 1 }}</span>
-          </div>
-          {{ step.label }}
+          <ArrowLeft class="w-4 h-4" />
+          Back
         </button>
+        <div class="text-xs uppercase tracking-[0.3em] font-bold" style="color:#9a5614;">
+          Create festival
+        </div>
+        <button
+          v-if="currentStep === 'preview'"
+          type="button"
+          class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-white text-xs font-bold uppercase tracking-wider"
+          :disabled="isPublishing || isPublished"
+          style="background:linear-gradient(135deg, #dc2626, #f97316); box-shadow: 0 3px 0 -1px #b91c1c;"
+          @click="publish"
+        >
+          {{ isPublished ? 'Published!' : isPublishing ? 'Publishing…' : 'Publish' }}
+        </button>
+        <div v-else class="w-14" />
       </div>
-    </nav>
+
+      <!-- Step indicator -->
+      <nav class="overflow-x-auto border-t" style="border-color:#3b1f0d0d;">
+        <div class="max-w-4xl mx-auto px-4 flex">
+          <button
+            v-for="(step, i) in steps"
+            :key="step.id"
+            type="button"
+            class="flex items-center gap-2 px-4 py-3 text-xs italic whitespace-nowrap transition-all border-b-2"
+            :style="step.id === currentStep
+              ? { borderColor: '#dc2626', color: '#dc2626', fontFamily: 'Playfair Display, serif', fontWeight: 700 }
+              : { borderColor: 'transparent', color: i < currentStepIndex ? '#3b1f0d' : '#9a5614', fontFamily: 'Playfair Display, serif' }"
+            @click="goToStep(step.id)"
+          >
+            <div
+              class="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black shrink-0"
+              :style="i < currentStepIndex
+                ? { background: '#16a34a', color: 'white' }
+                : step.id === currentStep
+                  ? { background: '#dc2626', color: 'white' }
+                  : { background: 'white', color: '#9a5614', border: '1.5px solid #3b1f0d22' }"
+            >
+              <Check v-if="i < currentStepIndex" class="w-3 h-3" style="stroke-width:2.5;" />
+              <span v-else style="font-family: system-ui, sans-serif;">{{ i + 1 }}</span>
+            </div>
+            {{ step.label }}
+          </button>
+        </div>
+      </nav>
+    </div>
 
     <!-- Form content -->
     <div class="max-w-3xl mx-auto px-4 py-8 pb-32">
@@ -309,8 +342,8 @@ const labelClass = 'text-sm font-medium mb-1.5 block'
       <!-- Step 1: Basics -->
       <div v-if="currentStep === 'basics'" class="space-y-6">
         <div>
-          <h2 class="text-lg font-semibold mb-1">Festival Details</h2>
-          <p class="text-sm text-muted-foreground">Start with the essentials — name, dates, and description.</p>
+          <h2 class="text-2xl leading-tight font-black mb-1" style="font-family:'Playfair Display', serif; color:#3b1f0d;">Festival Details</h2>
+          <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Start with the essentials — name, dates, and description.</p>
         </div>
 
         <div class="space-y-4">
@@ -322,7 +355,10 @@ const labelClass = 'text-sm font-medium mb-1.5 block'
           <div>
             <label :class="labelClass">URL slug</label>
             <div class="flex items-center gap-0">
-              <span class="text-xs text-muted-foreground bg-muted px-2 h-9 flex items-center rounded-l-md border border-r-0 border-input">wedance.vip/festivals/</span>
+              <span
+                class="text-xs px-3 h-11 flex items-center rounded-l-xl border border-r-0"
+                style="color:#5b3a1d; background:#3b1f0d0a; border-color:#3b1f0d33; font-family: system-ui, sans-serif;"
+              >wedance.vip/festivals/</span>
               <input v-model="festival.slug" :class="[inputClass, 'rounded-l-none']" type="text" placeholder="salsa-open-berlin-2026" />
             </div>
           </div>
@@ -346,7 +382,7 @@ const labelClass = 'text-sm font-medium mb-1.5 block'
           <div>
             <label :class="labelClass">Logo URL</label>
             <input v-model="festival.logo" :class="inputClass" type="url" placeholder="https://..." />
-            <p class="text-xs text-muted-foreground mt-1">Square image recommended (200x200px or larger)</p>
+            <p style="color:#9a5614; font-family: system-ui, sans-serif;" class="text-xs mt-1">Square image recommended (200x200px or larger)</p>
           </div>
 
           <div>
@@ -362,7 +398,7 @@ const labelClass = 'text-sm font-medium mb-1.5 block'
         <div>
           <div class="flex items-center justify-between mb-3">
             <label :class="labelClass" class="mb-0">Social links</label>
-            <button class="text-xs text-primary hover:text-primary/80 flex items-center gap-1" @click="addSocialLink">
+            <button class="inline-flex items-center gap-1 text-xs italic hover:underline" style="color:#dc2626; font-family:'Playfair Display', serif;" @click="addSocialLink">
               <Plus class="w-3 h-3" /> Add link
             </button>
           </div>
@@ -372,11 +408,11 @@ const labelClass = 'text-sm font-medium mb-1.5 block'
                 <option v-for="p in socialPlatforms" :key="p.value" :value="p.value">{{ p.label }}</option>
               </select>
               <input v-model="link.url" :class="inputClass" type="url" placeholder="https://..." />
-              <button class="text-muted-foreground hover:text-destructive shrink-0 p-1" @click="removeSocialLink(i)">
+              <button style="color:#9a5614;" class="hover:!text-[#dc2626] shrink-0 p-1" @click="removeSocialLink(i)">
                 <Trash2 class="w-4 h-4" />
               </button>
             </div>
-            <p v-if="!festival.socialLinks.length" class="text-xs text-muted-foreground">No social links yet.</p>
+            <p v-if="!festival.socialLinks.length" style="color:#9a5614; font-family: system-ui, sans-serif;" class="text-xs">No social links yet.</p>
           </div>
         </div>
       </div>
@@ -384,8 +420,8 @@ const labelClass = 'text-sm font-medium mb-1.5 block'
       <!-- Step 2: Venue -->
       <div v-if="currentStep === 'venue'" class="space-y-6">
         <div>
-          <h2 class="text-lg font-semibold mb-1">Venue</h2>
-          <p class="text-sm text-muted-foreground">Where is the festival happening?</p>
+          <h2 class="text-2xl leading-tight font-black mb-1" style="font-family:'Playfair Display', serif; color:#3b1f0d;">Venue</h2>
+          <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Where is the festival happening?</p>
         </div>
 
         <div class="space-y-4">
@@ -404,15 +440,15 @@ const labelClass = 'text-sm font-medium mb-1.5 block'
         <div>
           <div class="flex items-center justify-between mb-3">
             <label :class="labelClass" class="mb-0">Rooms</label>
-            <button class="text-xs text-primary hover:text-primary/80 flex items-center gap-1" @click="addRoom">
+            <button class="inline-flex items-center gap-1 text-xs italic hover:underline" style="color:#dc2626; font-family:'Playfair Display', serif;" @click="addRoom">
               <Plus class="w-3 h-3" /> Add room
             </button>
           </div>
-          <p class="text-xs text-muted-foreground mb-2">List the rooms/halls where workshops take place. These will appear as options in the schedule.</p>
+          <p style="color:#9a5614; font-family: system-ui, sans-serif;" class="text-xs mb-2">List the rooms/halls where workshops take place. These will appear as options in the schedule.</p>
           <div class="space-y-2">
             <div v-for="(_, i) in venue.rooms" :key="i" class="flex items-center gap-2">
               <input v-model="venue.rooms[i]" :class="inputClass" type="text" placeholder="e.g. Main Hall" />
-              <button class="text-muted-foreground hover:text-destructive shrink-0 p-1" @click="removeRoom(i)">
+              <button style="color:#9a5614;" class="hover:!text-[#dc2626] shrink-0 p-1" @click="removeRoom(i)">
                 <Trash2 class="w-4 h-4" />
               </button>
             </div>
@@ -423,14 +459,14 @@ const labelClass = 'text-sm font-medium mb-1.5 block'
         <div>
           <div class="flex items-center justify-between mb-3">
             <label :class="labelClass" class="mb-0">Practical info</label>
-            <button class="text-xs text-primary hover:text-primary/80 flex items-center gap-1" @click="addPracticalInfo">
+            <button class="inline-flex items-center gap-1 text-xs italic hover:underline" style="color:#dc2626; font-family:'Playfair Display', serif;" @click="addPracticalInfo">
               <Plus class="w-3 h-3" /> Add item
             </button>
           </div>
           <div class="space-y-2">
             <div v-for="(_, i) in venue.practicalInfo" :key="i" class="flex items-center gap-2">
               <input v-model="venue.practicalInfo[i]" :class="inputClass" type="text" placeholder="e.g. Nearest metro: U2 Klosterstrasse" />
-              <button class="text-muted-foreground hover:text-destructive shrink-0 p-1" @click="removePracticalInfo(i)">
+              <button style="color:#9a5614;" class="hover:!text-[#dc2626] shrink-0 p-1" @click="removePracticalInfo(i)">
                 <Trash2 class="w-4 h-4" />
               </button>
             </div>
@@ -442,8 +478,8 @@ const labelClass = 'text-sm font-medium mb-1.5 block'
       <div v-if="currentStep === 'lineup'" class="space-y-6">
         <div class="flex items-start justify-between">
           <div>
-            <h2 class="text-lg font-semibold mb-1">Lineup</h2>
-            <p class="text-sm text-muted-foreground">Add the teachers and DJs performing at your festival.</p>
+            <h2 class="text-2xl leading-tight font-black mb-1" style="font-family:'Playfair Display', serif; color:#3b1f0d;">Lineup</h2>
+            <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Add the teachers and DJs performing at your festival.</p>
           </div>
           <Button size="sm" variant="outline" class="gap-1 shrink-0" @click="addTeacher">
             <Plus class="w-3.5 h-3.5" /> Add Artist
@@ -451,15 +487,15 @@ const labelClass = 'text-sm font-medium mb-1.5 block'
         </div>
 
         <div v-if="!teachers.length" class="text-center py-12 border rounded-lg border-dashed">
-          <Users class="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-          <p class="text-sm text-muted-foreground mb-3">No artists added yet</p>
+          <Users class="w-8 h-8 mx-auto mb-2" style="color:#9a5614;" />
+          <p style="color:#5b3a1d; font-family: system-ui, sans-serif;" class="text-sm mb-3">No artists added yet</p>
           <Button size="sm" variant="outline" @click="addTeacher">Add your first artist</Button>
         </div>
 
         <div v-for="(teacher, i) in teachers" :key="teacher.id" class="border rounded-lg p-4 space-y-3">
           <div class="flex items-center justify-between">
             <h3 class="text-sm font-semibold">{{ teacher.name || `Artist ${i + 1}` }}</h3>
-            <button class="text-muted-foreground hover:text-destructive p-1" @click="removeTeacher(i)">
+            <button style="color:#9a5614;" class="hover:!text-[#dc2626] p-1" @click="removeTeacher(i)">
               <Trash2 class="w-4 h-4" />
             </button>
           </div>
@@ -502,8 +538,8 @@ const labelClass = 'text-sm font-medium mb-1.5 block'
       <div v-if="currentStep === 'schedule'" class="space-y-6">
         <div class="flex items-start justify-between">
           <div>
-            <h2 class="text-lg font-semibold mb-1">Schedule</h2>
-            <p class="text-sm text-muted-foreground">
+            <h2 class="text-2xl leading-tight font-black mb-1" style="font-family:'Playfair Display', serif; color:#3b1f0d;">Schedule</h2>
+            <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
               Add workshops and parties.
               <span v-if="!days.length" class="text-destructive">Set dates in Basics first.</span>
             </p>
@@ -514,8 +550,8 @@ const labelClass = 'text-sm font-medium mb-1.5 block'
         </div>
 
         <div v-if="!workshops.length" class="text-center py-12 border rounded-lg border-dashed">
-          <Music class="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-          <p class="text-sm text-muted-foreground mb-3">No workshops added yet</p>
+          <Music class="w-8 h-8 mx-auto mb-2" style="color:#9a5614;" />
+          <p style="color:#5b3a1d; font-family: system-ui, sans-serif;" class="text-sm mb-3">No workshops added yet</p>
           <Button size="sm" variant="outline" :disabled="!days.length" @click="addWorkshop">Add your first workshop</Button>
         </div>
 
@@ -526,7 +562,7 @@ const labelClass = 'text-sm font-medium mb-1.5 block'
               <Badge :variant="ws.type === 'party' ? 'secondary' : 'default'" class="text-[10px]">
                 {{ ws.type }}
               </Badge>
-              <button class="text-muted-foreground hover:text-destructive p-1" @click="removeWorkshop(i)">
+              <button style="color:#9a5614;" class="hover:!text-[#dc2626] p-1" @click="removeWorkshop(i)">
                 <Trash2 class="w-4 h-4" />
               </button>
             </div>
@@ -612,8 +648,8 @@ const labelClass = 'text-sm font-medium mb-1.5 block'
       <div v-if="currentStep === 'tickets'" class="space-y-6">
         <div class="flex items-start justify-between">
           <div>
-            <h2 class="text-lg font-semibold mb-1">Tickets</h2>
-            <p class="text-sm text-muted-foreground">Define your ticket options. We'll recommend the best fit to dancers.</p>
+            <h2 class="text-2xl leading-tight font-black mb-1" style="font-family:'Playfair Display', serif; color:#3b1f0d;">Tickets</h2>
+            <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Define your ticket options. We'll recommend the best fit to dancers.</p>
           </div>
           <Button size="sm" variant="outline" class="gap-1 shrink-0" @click="addTicket">
             <Plus class="w-3.5 h-3.5" /> Add Ticket
@@ -623,19 +659,19 @@ const labelClass = 'text-sm font-medium mb-1.5 block'
         <div>
           <label :class="labelClass">Ticket purchase URL</label>
           <input v-model="ticketUrl" :class="inputClass" type="url" placeholder="https://your-ticket-page.com" />
-          <p class="text-xs text-muted-foreground mt-1">Where dancers go to buy tickets (your website or ticket platform)</p>
+          <p style="color:#9a5614; font-family: system-ui, sans-serif;" class="text-xs mt-1">Where dancers go to buy tickets (your website or ticket platform)</p>
         </div>
 
         <div v-if="!tickets.length" class="text-center py-12 border rounded-lg border-dashed">
-          <Ticket class="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-          <p class="text-sm text-muted-foreground mb-3">No ticket options added yet</p>
+          <Ticket class="w-8 h-8 mx-auto mb-2" style="color:#9a5614;" />
+          <p style="color:#5b3a1d; font-family: system-ui, sans-serif;" class="text-sm mb-3">No ticket options added yet</p>
           <Button size="sm" variant="outline" @click="addTicket">Add your first ticket</Button>
         </div>
 
         <div v-for="(ticket, i) in tickets" :key="ticket.id" class="border rounded-lg p-4 space-y-3">
           <div class="flex items-center justify-between">
             <h3 class="text-sm font-semibold">{{ ticket.name || `Ticket ${i + 1}` }}</h3>
-            <button class="text-muted-foreground hover:text-destructive p-1" @click="removeTicket(i)">
+            <button style="color:#9a5614;" class="hover:!text-[#dc2626] p-1" @click="removeTicket(i)">
               <Trash2 class="w-4 h-4" />
             </button>
           </div>
@@ -660,17 +696,17 @@ const labelClass = 'text-sm font-medium mb-1.5 block'
             <div>
               <label :class="labelClass">Max workshops</label>
               <input v-model.number="ticket.workshopCount" :class="inputClass" type="number" min="0" placeholder="Unlimited" />
-              <p class="text-xs text-muted-foreground mt-0.5">Leave empty for unlimited</p>
+              <p style="color:#9a5614; font-family: system-ui, sans-serif;" class="text-xs mt-0.5">Leave empty for unlimited</p>
             </div>
             <div class="flex items-end pb-1">
               <label class="flex items-center gap-2 text-sm cursor-pointer">
-                <input v-model="ticket.includesParty" type="checkbox" class="rounded border-input" />
+                <input v-model="ticket.includesParty" type="checkbox" class="rounded" style="border:1px solid #3b1f0d33; accent-color:#dc2626;" />
                 Includes party
               </label>
             </div>
             <div class="flex items-end pb-1">
               <label class="flex items-center gap-2 text-sm cursor-pointer">
-                <input v-model="ticket.soldOut" type="checkbox" class="rounded border-input" />
+                <input v-model="ticket.soldOut" type="checkbox" class="rounded" style="border:1px solid #3b1f0d33; accent-color:#dc2626;" />
                 Sold out
               </label>
             </div>
@@ -681,15 +717,15 @@ const labelClass = 'text-sm font-medium mb-1.5 block'
       <!-- Step 6: Preview -->
       <div v-if="currentStep === 'preview'" class="space-y-6">
         <div>
-          <h2 class="text-lg font-semibold mb-1">Preview & Publish</h2>
-          <p class="text-sm text-muted-foreground">Review your festival before going live.</p>
+          <h2 class="text-2xl leading-tight font-black mb-1" style="font-family:'Playfair Display', serif; color:#3b1f0d;">Preview & Publish</h2>
+          <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Review your festival before going live.</p>
         </div>
 
         <!-- Published success -->
         <div v-if="isPublished" class="text-center py-12 border rounded-lg bg-green-50 border-green-200">
           <Check class="w-12 h-12 text-green-500 mx-auto mb-3" />
           <h3 class="text-lg font-semibold mb-1">Your festival is live!</h3>
-          <p class="text-sm text-muted-foreground mb-4">
+          <p style="color:#5b3a1d; font-family: system-ui, sans-serif;" class="text-sm mb-4">
             Dancers can now find and plan for <strong>{{ festival.name }}</strong>
           </p>
           <div class="flex items-center justify-center gap-3">
@@ -705,107 +741,126 @@ const labelClass = 'text-sm font-medium mb-1.5 block'
         <!-- Preview summary -->
         <div v-else class="space-y-4">
           <!-- Basics summary -->
-          <Card class="border">
-            <CardContent class="p-4">
+          <div class="rounded-2xl bg-white border p-5" style="border-color:#3b1f0d22; box-shadow: 0 1px 0 #3b1f0d0a, 0 6px 18px rgba(59,31,18,0.04);">
+            <div>
               <div class="flex items-center justify-between mb-2">
                 <h3 class="text-sm font-semibold">Basics</h3>
-                <button class="text-xs text-primary hover:text-primary/80" @click="goToStep('basics')">Edit</button>
+                <button class="text-xs italic hover:underline" style="color:#dc2626; font-family:'Playfair Display', serif;" @click="goToStep('basics')">Edit</button>
               </div>
               <div class="grid grid-cols-2 gap-y-1 text-sm">
-                <span class="text-muted-foreground">Name</span>
+                <span style="color:#9a5614; font-family: system-ui, sans-serif;">Name</span>
                 <span>{{ festival.name || '—' }}</span>
-                <span class="text-muted-foreground">Dates</span>
+                <span style="color:#9a5614; font-family: system-ui, sans-serif;">Dates</span>
                 <span>{{ festival.startDate && festival.endDate ? `${festival.startDate} to ${festival.endDate}` : '—' }}</span>
-                <span class="text-muted-foreground">Social links</span>
+                <span style="color:#9a5614; font-family: system-ui, sans-serif;">Social links</span>
                 <span>{{ festival.socialLinks.length || 0 }} links</span>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
           <!-- Venue summary -->
-          <Card class="border">
-            <CardContent class="p-4">
+          <div class="rounded-2xl bg-white border p-5" style="border-color:#3b1f0d22; box-shadow: 0 1px 0 #3b1f0d0a, 0 6px 18px rgba(59,31,18,0.04);">
+            <div>
               <div class="flex items-center justify-between mb-2">
                 <h3 class="text-sm font-semibold">Venue</h3>
-                <button class="text-xs text-primary hover:text-primary/80" @click="goToStep('venue')">Edit</button>
+                <button class="text-xs italic hover:underline" style="color:#dc2626; font-family:'Playfair Display', serif;" @click="goToStep('venue')">Edit</button>
               </div>
               <div class="grid grid-cols-2 gap-y-1 text-sm">
-                <span class="text-muted-foreground">Name</span>
+                <span style="color:#9a5614; font-family: system-ui, sans-serif;">Name</span>
                 <span>{{ venue.name || '—' }}</span>
-                <span class="text-muted-foreground">Address</span>
+                <span style="color:#9a5614; font-family: system-ui, sans-serif;">Address</span>
                 <span>{{ venue.address || '—' }}</span>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
           <!-- Lineup summary -->
-          <Card class="border">
-            <CardContent class="p-4">
+          <div class="rounded-2xl bg-white border p-5" style="border-color:#3b1f0d22; box-shadow: 0 1px 0 #3b1f0d0a, 0 6px 18px rgba(59,31,18,0.04);">
+            <div>
               <div class="flex items-center justify-between mb-2">
                 <h3 class="text-sm font-semibold">Lineup</h3>
-                <button class="text-xs text-primary hover:text-primary/80" @click="goToStep('lineup')">Edit</button>
+                <button class="text-xs italic hover:underline" style="color:#dc2626; font-family:'Playfair Display', serif;" @click="goToStep('lineup')">Edit</button>
               </div>
               <p class="text-sm">
                 <strong>{{ teachers.length }}</strong> {{ teachers.length === 1 ? 'artist' : 'artists' }}
-                <span v-if="teachers.length" class="text-muted-foreground">
+                <span v-if="teachers.length" style="color:#9a5614; font-family: system-ui, sans-serif;">
                   — {{ teachers.map(t => t.name).filter(Boolean).join(', ') }}
                 </span>
               </p>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
           <!-- Schedule summary -->
-          <Card class="border">
-            <CardContent class="p-4">
+          <div class="rounded-2xl bg-white border p-5" style="border-color:#3b1f0d22; box-shadow: 0 1px 0 #3b1f0d0a, 0 6px 18px rgba(59,31,18,0.04);">
+            <div>
               <div class="flex items-center justify-between mb-2">
                 <h3 class="text-sm font-semibold">Schedule</h3>
-                <button class="text-xs text-primary hover:text-primary/80" @click="goToStep('schedule')">Edit</button>
+                <button class="text-xs italic hover:underline" style="color:#dc2626; font-family:'Playfair Display', serif;" @click="goToStep('schedule')">Edit</button>
               </div>
               <p class="text-sm">
                 <strong>{{ workshopCount }}</strong> {{ workshopCount === 1 ? 'workshop' : 'workshops' }},
                 <strong>{{ partyCount }}</strong> {{ partyCount === 1 ? 'party' : 'parties' }}
-                <span v-if="days.length" class="text-muted-foreground">across {{ days.length }} days</span>
+                <span v-if="days.length" style="color:#9a5614; font-family: system-ui, sans-serif;">across {{ days.length }} days</span>
               </p>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
           <!-- Tickets summary -->
-          <Card class="border">
-            <CardContent class="p-4">
+          <div class="rounded-2xl bg-white border p-5" style="border-color:#3b1f0d22; box-shadow: 0 1px 0 #3b1f0d0a, 0 6px 18px rgba(59,31,18,0.04);">
+            <div>
               <div class="flex items-center justify-between mb-2">
                 <h3 class="text-sm font-semibold">Tickets</h3>
-                <button class="text-xs text-primary hover:text-primary/80" @click="goToStep('tickets')">Edit</button>
+                <button class="text-xs italic hover:underline" style="color:#dc2626; font-family:'Playfair Display', serif;" @click="goToStep('tickets')">Edit</button>
               </div>
               <p class="text-sm">
                 <strong>{{ tickets.length }}</strong> {{ tickets.length === 1 ? 'option' : 'options' }}
-                <span v-if="tickets.length" class="text-muted-foreground">
+                <span v-if="tickets.length" style="color:#9a5614; font-family: system-ui, sans-serif;">
                   — {{ tickets.filter(t => !t.soldOut).map(t => `${t.name} €${t.price}`).join(', ') }}
                 </span>
               </p>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
       </div>
     </div>
 
     <!-- Bottom navigation -->
-    <div v-if="!isPublished" class="fixed bottom-0 left-0 right-0 bg-background border-t z-20">
-      <div class="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
-        <Button v-if="currentStepIndex > 0" variant="outline" class="gap-1" @click="prevStep">
+    <div v-if="!isPublished" class="fixed bottom-0 left-0 right-0 border-t z-20 backdrop-blur-sm" style="background:rgba(251, 245, 234, 0.96); border-color:#3b1f0d22;">
+      <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+        <button
+          v-if="currentStepIndex > 0"
+          type="button"
+          class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold border transition-all hover:-translate-y-0.5"
+          style="background:white; color:#5b3a1d; border-color:#3b1f0d33; font-family: system-ui, sans-serif;"
+          @click="prevStep"
+        >
           <ArrowLeft class="w-4 h-4" /> Back
-        </Button>
-        <div v-else />
+        </button>
+        <div v-else class="w-16" />
 
-        <div class="text-xs text-muted-foreground">
-          Step {{ currentStepIndex + 1 }} of {{ steps.length }}
+        <div class="text-xs italic" style="color:#9a5614; font-family:'Playfair Display', serif;">
+          Step <strong style="color:#3b1f0d;">{{ currentStepIndex + 1 }}</strong> of {{ steps.length }}
         </div>
 
-        <Button v-if="currentStep !== 'preview'" class="gap-1" @click="nextStep">
+        <button
+          v-if="currentStep !== 'preview'"
+          type="button"
+          class="inline-flex items-center gap-2 px-5 py-2 rounded-full text-white text-sm font-bold uppercase tracking-wider"
+          style="background:linear-gradient(135deg, #dc2626, #f97316); box-shadow: 0 3px 0 -1px #b91c1c; font-family: system-ui, sans-serif;"
+          @click="nextStep"
+        >
           Next <ArrowRight class="w-4 h-4" />
-        </Button>
-        <Button v-else :disabled="isPublishing" class="gap-1" @click="publish">
-          {{ isPublishing ? 'Publishing...' : 'Publish' }}
-        </Button>
+        </button>
+        <button
+          v-else
+          type="button"
+          class="inline-flex items-center gap-2 px-5 py-2 rounded-full text-white text-sm font-bold uppercase tracking-wider disabled:opacity-60"
+          :disabled="isPublishing"
+          style="background:linear-gradient(135deg, #16a34a, #0891b2); box-shadow: 0 3px 0 -1px #15803d; font-family: system-ui, sans-serif;"
+          @click="publish"
+        >
+          {{ isPublishing ? 'Publishing…' : 'Publish' }}
+        </button>
       </div>
     </div>
   </div>

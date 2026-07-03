@@ -65,12 +65,11 @@ const styleChipColors = ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b', 
       <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
         <NuxtLink to="/" class="flex items-baseline gap-2">
           <span class="font-bold text-lg">WeDance</span>
-          <span class="text-[10px] uppercase tracking-[0.25em]" style="color:#9a5614;">Summer Edition · 2026</span>
         </NuxtLink>
         <nav class="flex items-center gap-4 text-sm">
           <NuxtLink to="/festivals" class="italic hover:underline">Festivals</NuxtLink>
           <NuxtLink to="/cities" class="italic hover:underline">Cities</NuxtLink>
-          <NuxtLink to="/for-events" class="italic hover:underline hidden sm:inline">For events</NuxtLink>
+          <NuxtLink to="/for-events" class="italic hover:underline hidden sm:inline">Private events</NuxtLink>
           <NuxtLink to="/organizers" class="italic hover:underline hidden sm:inline">For organizers</NuxtLink>
         </nav>
       </div>
