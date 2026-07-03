@@ -123,19 +123,7 @@ function goToEditor() {
 <template>
   <div class="min-h-screen" style="background:#fbf5ea; color:#3b1f0d; font-family:'Playfair Display', serif;">
     <!-- Header — same as homepage -->
-    <header class="border-b" style="border-color:#3b1f0d33;">
-      <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-        <Brand />
-        <nav class="flex items-center gap-5 text-sm">
-          <NuxtLink to="/festivals" class="italic hover:underline">Festivals</NuxtLink>
-          <NuxtLink to="/cities" class="italic hover:underline">Cities</NuxtLink>
-          <NuxtLink to="/artists" class="italic hover:underline hidden sm:inline">Artists</NuxtLink>
-          <NuxtLink to="/gigs" class="italic hover:underline hidden sm:inline">Gigs</NuxtLink>
-          <NuxtLink to="/for-events" class="italic hover:underline hidden sm:inline">Private events</NuxtLink>
-          <NuxtLink to="/organizers" class="italic hover:underline hidden sm:inline">For organizers</NuxtLink>
-        </nav>
-      </div>
-    </header>
+    <SiteHeader />
 
     <!-- HERO -->
     <section class="relative">
