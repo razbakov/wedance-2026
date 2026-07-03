@@ -126,22 +126,43 @@ const accents = ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b', '#ec4899
         </button>
       </div>
 
-      <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div v-else class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         <NuxtLink
           v-for="(a, i) in filtered"
           :key="a.artist.id"
           :to="`/artists/${a.artist.id}`"
-          class="group rounded-2xl bg-white p-5 border flex items-center gap-4 transition-all hover:-translate-y-1"
+          class="group rounded-2xl bg-white border overflow-hidden flex flex-col transition-all hover:-translate-y-1"
           :style="{ borderColor: accents[i % accents.length] + '55', boxShadow: '0 1px 0 ' + accents[i % accents.length] + '22, 0 8px 22px rgba(59,31,18,0.05)' }"
         >
-          <img
-            :src="a.artist.photo"
-            :alt="a.artist.name"
-            class="w-16 h-16 rounded-full object-cover shrink-0 border-2"
-            :style="{ borderColor: accents[i % accents.length] + '33' }"
-          >
-          <div class="min-w-0 flex-1">
-            <div class="font-bold text-base leading-tight truncate" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+          <!-- Face first — the photo dominates the card -->
+          <div class="relative aspect-square overflow-hidden" :style="{ background: accents[i % accents.length] + '12' }">
+            <img
+              :src="a.artist.photo"
+              :alt="a.artist.name"
+              class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
+            >
+            <!-- Appearance chip over the photo -->
+            <div class="absolute top-3 left-3 flex flex-wrap gap-1.5">
+              <span
+                v-if="a.festivalCount"
+                class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full text-white"
+                style="background:rgba(59,31,18,0.55); backdrop-filter: blur(4px);"
+              >
+                <Plane class="w-3 h-3" /> {{ a.festivalCount }}
+              </span>
+              <span
+                v-for="city in a.cityNames"
+                :key="city"
+                class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full text-white"
+                style="background:rgba(59,31,18,0.55); backdrop-filter: blur(4px);"
+              >
+                <MapPin class="w-3 h-3" /> {{ city }}
+              </span>
+            </div>
+          </div>
+
+          <div class="p-4 flex flex-col flex-1">
+            <div class="font-bold text-lg leading-tight" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
               {{ a.artist.name }}
             </div>
             <div v-if="a.artist.styles.length" class="mt-1.5 flex flex-wrap gap-1">
@@ -152,13 +173,15 @@ const accents = ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b', '#ec4899
                 :style="{ background: accents[i % accents.length] + '18', color: accents[i % accents.length] }"
               >{{ s }}</span>
             </div>
-            <div class="mt-2 flex items-center gap-3 text-[11px]" style="color:#9a5614; font-family: system-ui, sans-serif;">
-              <span v-if="a.festivalCount" class="inline-flex items-center gap-1">
-                <Plane class="w-3 h-3" /> {{ a.festivalCount }} festival{{ a.festivalCount === 1 ? '' : 's' }}
-              </span>
-              <span v-for="city in a.cityNames" :key="city" class="inline-flex items-center gap-1">
-                <MapPin class="w-3 h-3" /> {{ city }}
-              </span>
+            <p
+              v-if="a.artist.bio"
+              class="mt-2.5 text-xs leading-relaxed line-clamp-2"
+              style="color:#5b3a1d; font-family: system-ui, sans-serif;"
+            >
+              {{ a.artist.bio }}
+            </p>
+            <div class="mt-auto pt-3 text-xs italic" style="color:#9a5614; font-family:'Playfair Display', serif;">
+              View profile →
             </div>
           </div>
         </NuxtLink>
