@@ -1,6 +1,12 @@
 <script setup lang="ts">
+/**
+ * TeacherProfile — inline artist preview shown on the festival page when
+ * an artist is tapped in the Lineup. Filters the schedule (via the page's
+ * selectedTeacherId) and previews bio + video + socials here, with a link
+ * out to the artist's full /artists/[id] profile. V3 tropical style.
+ */
 import type { Teacher } from '~/types/festival'
-import { Instagram, Youtube, Globe } from 'lucide-vue-next'
+import { Instagram, Youtube, Globe, ArrowRight, X } from 'lucide-vue-next'
 
 defineProps<{
   teacher: Teacher
@@ -17,58 +23,78 @@ const platformIcon: Record<string, any> = {
 }
 
 function toEmbedUrl(url: string): string {
-  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&]+)/)
-  if (match) return `https://www.youtube.com/embed/${match[1]}`
-  return url
+  const match = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([^&/?]+)/)
+  return match ? `https://www.youtube.com/embed/${match[1]}` : url
 }
 </script>
 
 <template>
-  <div class="rounded-lg border bg-card p-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+  <div class="rounded-2xl bg-white p-5 border" style="border-color:#dc262633; box-shadow: 0 1px 0 #dc262622, 0 8px 22px rgba(59,31,18,0.05);">
     <div class="flex items-start gap-4">
-      <div class="w-20 h-20 rounded-full overflow-hidden shrink-0">
-        <img :src="teacher.photo" :alt="teacher.name" class="w-full h-full object-cover" />
-      </div>
+      <img :src="teacher.photo" :alt="teacher.name" class="w-20 h-20 rounded-full object-cover shrink-0 shadow-sm">
       <div class="flex-1 min-w-0">
         <div class="flex items-start justify-between gap-2">
-          <div>
-            <h3 class="font-semibold text-base">{{ teacher.name }}</h3>
-            <p class="text-xs text-muted-foreground">{{ teacher.styles.join(' · ') }}</p>
+          <div class="min-w-0">
+            <h3 class="text-xl font-black leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+              {{ teacher.name }}
+            </h3>
+            <p v-if="teacher.styles.length" class="mt-1 flex flex-wrap gap-1.5">
+              <span
+                v-for="(s, i) in teacher.styles"
+                :key="s"
+                class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
+                :style="{
+                  background: ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b'][i % 5] + '18',
+                  color: ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b'][i % 5],
+                }"
+              >{{ s }}</span>
+            </p>
           </div>
           <button
-            class="text-muted-foreground hover:text-foreground transition-colors shrink-0 p-1 -m-1"
+            type="button"
+            class="shrink-0 p-1 -m-1 rounded-full hover:bg-black/[0.04] transition-colors"
+            style="color:#9a5614;"
+            aria-label="Close preview"
             @click="$emit('close')"
           >
-            ✕
+            <X class="w-4 h-4" />
           </button>
         </div>
-        <p class="text-sm text-muted-foreground mt-2 leading-relaxed">{{ teacher.bio }}</p>
-        <div v-if="teacher.socialLinks?.length" class="flex gap-3 mt-2">
-          <a
-            v-for="link in teacher.socialLinks"
-            :key="link.platform"
-            :href="link.url"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="text-muted-foreground hover:text-foreground transition-colors"
-            :title="link.platform"
+
+        <p v-if="teacher.bio" class="mt-2 text-sm leading-relaxed" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+          {{ teacher.bio }}
+        </p>
+
+        <div class="mt-3 flex items-center gap-4">
+          <div v-if="teacher.socialLinks?.length" class="flex items-center gap-3">
+            <a
+              v-for="link in teacher.socialLinks"
+              :key="link.platform"
+              :href="link.url"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="transition-colors"
+              style="color:#9a5614;"
+              :title="link.platform"
+            >
+              <component :is="platformIcon[link.platform]" v-if="platformIcon[link.platform]" class="w-4 h-4" />
+              <span v-else class="text-xs italic capitalize">{{ link.platform }}</span>
+            </a>
+          </div>
+          <NuxtLink
+            :to="`/artists/${teacher.id}`"
+            class="ml-auto inline-flex items-center gap-1 text-xs font-bold italic hover:underline"
+            style="color:#dc2626; font-family:'Playfair Display', serif;"
           >
-            <component
-              :is="platformIcon[link.platform]"
-              v-if="platformIcon[link.platform]"
-              class="w-4 h-4"
-            />
-            <svg v-else-if="link.platform === 'tiktok'" class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1 0-5.78 2.92 2.92 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 3 15.57 6.33 6.33 0 0 0 9.37 22a6.33 6.33 0 0 0 6.37-6.23V9.12a8.16 8.16 0 0 0 3.85.96V6.69Z" />
-            </svg>
-          </a>
+            Full profile <ArrowRight class="w-3.5 h-3.5" />
+          </NuxtLink>
         </div>
       </div>
     </div>
 
-    <div v-if="teacher.videoUrl" class="aspect-video rounded-md overflow-hidden bg-muted">
+    <div v-if="teacher.videoUrl" class="mt-4 aspect-video rounded-xl overflow-hidden" style="background:#3b1f0d0a;">
       <iframe
-        :src="toEmbedUrl(teacher.videoUrl!)"
+        :src="toEmbedUrl(teacher.videoUrl)"
         class="w-full h-full"
         frameborder="0"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

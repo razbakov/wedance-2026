@@ -4,6 +4,11 @@ import type { Teacher } from '~/types/festival'
 defineProps<{
   teachers: Teacher[]
   selectedId: string | null
+  // When provided and it returns a URL, each artist becomes a link to
+  // that URL (e.g. their /artists/[id] profile). Otherwise the avatar
+  // is a button that emits `select` (the inline-filter behaviour used
+  // on the city page). Keeps both call sites working from one component.
+  hrefFor?: (teacher: Teacher) => string | null | undefined
 }>()
 
 defineEmits<{
@@ -13,30 +18,43 @@ defineEmits<{
 
 <template>
   <div class="flex gap-4 overflow-x-auto py-2">
-    <button
-      v-for="teacher in teachers"
-      :key="teacher.id"
-      class="flex flex-col items-center gap-1.5 shrink-0 group"
-      @click="$emit('select', selectedId === teacher.id ? null : teacher.id)"
-    >
-      <div
-        class="w-16 h-16 rounded-full overflow-hidden border-2 transition-all"
-        :class="selectedId === teacher.id
-          ? 'border-primary shadow-md'
-          : 'border-transparent group-hover:border-border'"
+    <template v-for="teacher in teachers" :key="teacher.id">
+      <!-- Link variant → artist profile -->
+      <NuxtLink
+        v-if="hrefFor && hrefFor(teacher)"
+        :to="hrefFor(teacher)!"
+        class="flex flex-col items-center gap-1.5 shrink-0 group"
       >
-        <img
-          :src="teacher.photo"
-          :alt="teacher.name"
-          class="w-full h-full object-cover"
-        />
-      </div>
-      <span
-        class="text-xs text-center max-w-[70px] leading-tight transition-colors"
-        :class="selectedId === teacher.id ? 'font-semibold text-foreground' : 'text-muted-foreground'"
+        <div class="w-16 h-16 rounded-full overflow-hidden border-2 border-transparent transition-all group-hover:-translate-y-0.5" style="box-shadow: 0 2px 8px rgba(59,31,18,0.08);">
+          <img :src="teacher.photo" :alt="teacher.name" class="w-full h-full object-cover">
+        </div>
+        <span class="text-xs text-center max-w-[70px] leading-tight" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+          {{ teacher.name }}
+        </span>
+      </NuxtLink>
+
+      <!-- Button variant → inline filter (emits select) -->
+      <button
+        v-else
+        type="button"
+        class="flex flex-col items-center gap-1.5 shrink-0 group"
+        @click="$emit('select', selectedId === teacher.id ? null : teacher.id)"
       >
-        {{ teacher.name }}
-      </span>
-    </button>
+        <div
+          class="w-16 h-16 rounded-full overflow-hidden border-2 transition-all"
+          :style="selectedId === teacher.id
+            ? { borderColor: '#dc2626', boxShadow: '0 2px 10px rgba(220,38,38,0.25)' }
+            : { borderColor: 'transparent' }"
+        >
+          <img :src="teacher.photo" :alt="teacher.name" class="w-full h-full object-cover">
+        </div>
+        <span
+          class="text-xs text-center max-w-[70px] leading-tight"
+          :style="{ color: selectedId === teacher.id ? '#3b1f0d' : '#5b3a1d', fontWeight: selectedId === teacher.id ? 700 : 400, fontFamily: 'system-ui, sans-serif' }"
+        >
+          {{ teacher.name }}
+        </span>
+      </button>
+    </template>
   </div>
 </template>

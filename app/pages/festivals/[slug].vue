@@ -1025,7 +1025,7 @@ useHead({
 
         <section id="lineup" class="scroll-mt-16">
           <h2 class="text-2xl font-black leading-tight mb-1" style="color:#3b1f0d;">Lineup</h2>
-          <p class="text-sm mb-3" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Tap an artist to see their profile and filter the schedule.</p>
+          <p class="text-sm mb-3" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Tap an artist to preview and filter the schedule — or open their full profile.</p>
           <Lineup
             :teachers="teachers"
             :selected-id="selectedTeacherId"

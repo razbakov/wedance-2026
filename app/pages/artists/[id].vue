@@ -1,0 +1,264 @@
+<script setup lang="ts">
+/**
+ * /artists/[id] — a dance artist's profile.
+ * V3 tropical style. Aggregates the artist across every festival and
+ * city they appear in (see ~/data/artists.ts).
+ */
+import { Instagram, Youtube, Globe, Calendar, MapPin, ArrowRight } from 'lucide-vue-next'
+import { findArtist, festivalAppearances, cityAppearances } from '~/data/artists'
+
+definePageMeta({ layout: false })
+
+const route = useRoute()
+const id = route.params.id as string
+
+const artist = findArtist(id)
+if (!artist) {
+  throw createError({ statusCode: 404, message: 'Artist not found' })
+}
+
+const festivals = festivalAppearances(id)
+const cities = cityAppearances(id)
+
+useHead({
+  title: `WeDance — ${artist.name}`,
+  meta: [
+    { name: 'description', content: artist.bio?.slice(0, 155) || `${artist.name} on WeDance.` },
+  ],
+  link: [
+    { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+    { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
+    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Caveat:wght@400;700&display=swap' },
+  ],
+})
+
+const platformIcon: Record<string, any> = {
+  instagram: Instagram,
+  youtube: Youtube,
+  website: Globe,
+}
+
+function toEmbedUrl(url: string): string {
+  const match = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([^&/?]+)/)
+  return match ? `https://www.youtube.com/embed/${match[1]}` : url
+}
+
+function formatDateRange(start: string, end: string) {
+  const s = new Date(start)
+  const e = new Date(end)
+  const sameMonth = s.getMonth() === e.getMonth() && s.getFullYear() === e.getFullYear()
+  if (sameMonth) return `${s.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}–${e.getDate()}, ${e.getFullYear()}`
+  return `${s.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${e.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, ${e.getFullYear()}`
+}
+</script>
+
+<template>
+  <div class="min-h-screen" style="background:#fbf5ea; color:#3b1f0d; font-family:'Playfair Display', serif;">
+    <!-- V3 header -->
+    <header class="border-b" style="border-color:#3b1f0d33;">
+      <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+        <Brand />
+        <nav class="flex items-center gap-4 text-sm">
+          <NuxtLink to="/festivals" class="italic hover:underline">Festivals</NuxtLink>
+          <NuxtLink to="/cities" class="italic hover:underline">Cities</NuxtLink>
+          <NuxtLink to="/for-events" class="italic hover:underline hidden sm:inline">Private events</NuxtLink>
+          <NuxtLink to="/organizers" class="italic hover:underline hidden sm:inline">For organizers</NuxtLink>
+        </nav>
+      </div>
+    </header>
+
+    <!-- HERO -->
+    <section class="relative overflow-hidden">
+      <!-- Sun rays -->
+      <svg class="absolute -top-16 -right-16 w-64 h-64 opacity-20 pointer-events-none" viewBox="0 0 100 100">
+        <g stroke="#dc2626" stroke-width="1.5" fill="none">
+          <line v-for="i in 24" :key="i" x1="50" y1="50"
+            :x2="50 + 48 * Math.cos(2 * Math.PI * i / 24)"
+            :y2="50 + 48 * Math.sin(2 * Math.PI * i / 24)" />
+        </g>
+      </svg>
+
+      <div class="relative max-w-4xl mx-auto px-4 pt-10 pb-8">
+        <NuxtLink to="/festivals" class="text-xs italic hover:underline" style="color:#9a5614; font-family:'Playfair Display', serif;">
+          ← all artists
+        </NuxtLink>
+        <div class="mt-4 flex flex-col sm:flex-row items-start gap-5">
+          <!-- Photo with V3 red drop-shadow border -->
+          <img
+            :src="artist.photo"
+            :alt="artist.name"
+            class="w-28 h-28 sm:w-32 sm:h-32 rounded-full object-cover shrink-0 border-4"
+            style="border-color:#fbf5ea; box-shadow: 6px 7px 0 -2px #dc2626;"
+          >
+          <div class="min-w-0 flex-1">
+            <h1 class="text-4xl sm:text-6xl leading-[0.98] tracking-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+              {{ artist.name }}
+            </h1>
+            <div v-if="artist.styles.length" class="mt-3 flex flex-wrap gap-1.5">
+              <span
+                v-for="(s, i) in artist.styles"
+                :key="s"
+                class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
+                :style="{
+                  background: ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b'][i % 5] + '18',
+                  color: ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b'][i % 5],
+                }"
+              >
+                {{ s }}
+              </span>
+            </div>
+            <div v-if="artist.socialLinks?.length" class="mt-4 flex items-center gap-3">
+              <a
+                v-for="link in artist.socialLinks"
+                :key="link.platform"
+                :href="link.url"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="transition-colors"
+                style="color:#9a5614;"
+                :title="link.platform"
+              >
+                <component :is="platformIcon[link.platform]" v-if="platformIcon[link.platform]" class="w-5 h-5" />
+                <span v-else class="text-xs italic capitalize">{{ link.platform }}</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <svg class="block w-full h-10 -mb-px" viewBox="0 0 1440 60" preserveAspectRatio="none">
+        <path d="M0,40 Q360,0 720,30 T1440,20 V60 H0 Z" fill="#3b1f0d" opacity="0.08"/>
+      </svg>
+    </section>
+
+    <div class="max-w-4xl mx-auto px-4 py-10 space-y-12">
+      <!-- BIO -->
+      <section v-if="artist.bio">
+        <p class="text-base sm:text-lg leading-relaxed max-w-2xl" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+          {{ artist.bio }}
+        </p>
+      </section>
+
+      <!-- VIDEO -->
+      <section v-if="artist.videoUrl">
+        <div class="text-xs uppercase tracking-[0.3em] mb-3" style="color:#9a5614;">Watch</div>
+        <div class="aspect-video rounded-2xl overflow-hidden bg-white border" style="border-color:#3b1f0d22;">
+          <iframe
+            :src="toEmbedUrl(artist.videoUrl)"
+            class="w-full h-full"
+            frameborder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowfullscreen
+          />
+        </div>
+      </section>
+
+      <!-- FESTIVAL APPEARANCES -->
+      <section v-if="festivals.length">
+        <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">Catch them at</div>
+        <h2 class="mt-2 mb-5 text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+          <em class="italic" style="color:#dc2626;">Festivals.</em>
+        </h2>
+        <div class="grid gap-4">
+          <NuxtLink
+            v-for="a in festivals"
+            :key="a.festival.slug"
+            :to="`/festivals/${a.festival.slug}`"
+            class="group block rounded-2xl overflow-hidden bg-white border transition-all hover:-translate-y-1"
+            :style="{ borderColor: a.festival.accentColor + '55', boxShadow: '0 1px 0 ' + a.festival.accentColor + '22, 0 8px 22px rgba(59,31,18,0.05)' }"
+          >
+            <div class="h-1.5" :style="{ background: a.festival.accentColor }" />
+            <div class="p-5">
+              <div class="flex items-start gap-4">
+                <img
+                  v-if="a.festival.logo"
+                  :src="a.festival.logo"
+                  :alt="a.festival.name"
+                  class="w-12 h-12 rounded-full shrink-0 shadow-sm"
+                >
+                <div
+                  v-else
+                  class="w-12 h-12 rounded-full shrink-0 flex items-center justify-center text-lg font-bold text-white shadow-sm"
+                  :style="{ background: a.festival.accentColor }"
+                >
+                  {{ a.festival.name.charAt(0) }}
+                </div>
+                <div class="flex-1 min-w-0">
+                  <h3 class="font-bold text-lg leading-tight" style="color:#3b1f0d;">{{ a.festival.name }}</h3>
+                  <div class="flex items-center gap-4 mt-1 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+                    <span class="inline-flex items-center gap-1">
+                      <Calendar class="w-3 h-3" style="color:#9a5614;" />
+                      {{ formatDateRange(a.festival.startDate, a.festival.endDate) }}
+                    </span>
+                    <span class="inline-flex items-center gap-1">
+                      <MapPin class="w-3 h-3" style="color:#9a5614;" />
+                      {{ a.festival.venue.name }}
+                    </span>
+                  </div>
+                  <!-- Their sessions at this festival -->
+                  <div v-if="a.workshops.length" class="mt-3 flex flex-wrap gap-1.5">
+                    <span
+                      v-for="w in a.workshops"
+                      :key="w.id"
+                      class="text-[11px] px-2 py-0.5 rounded-full"
+                      :style="{ background: a.festival.accentColor + '12', color: '#5b3a1d', fontFamily: 'system-ui, sans-serif' }"
+                    >
+                      {{ w.day }} {{ w.time }} · {{ w.title }}
+                    </span>
+                  </div>
+                </div>
+                <ArrowRight class="w-4 h-4 mt-1.5 shrink-0 transition-transform group-hover:translate-x-1" :style="{ color: a.festival.accentColor }" />
+              </div>
+            </div>
+          </NuxtLink>
+        </div>
+      </section>
+
+      <!-- CITY / WEEKLY APPEARANCES -->
+      <section v-if="cities.length">
+        <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">Every week in</div>
+        <h2 class="mt-2 mb-5 text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+          <em class="italic" style="color:#dc2626;">Your city.</em>
+        </h2>
+        <div class="grid gap-4">
+          <div
+            v-for="a in cities"
+            :key="a.city.slug"
+            class="rounded-2xl bg-white border p-5"
+            style="border-color:#3b1f0d22;"
+          >
+            <NuxtLink :to="`/cities/${a.city.slug}`" class="inline-flex items-center gap-2 group">
+              <h3 class="font-bold text-lg leading-tight" style="color:#3b1f0d;">{{ a.city.name }}</h3>
+              <ArrowRight class="w-4 h-4 transition-transform group-hover:translate-x-1" style="color:#dc2626;" />
+            </NuxtLink>
+            <div v-if="a.events.length" class="mt-3 grid gap-1.5">
+              <div
+                v-for="e in a.events"
+                :key="e.id"
+                class="text-sm flex items-center gap-2"
+                style="color:#5b3a1d; font-family: system-ui, sans-serif;"
+              >
+                <span class="text-[10px] font-black uppercase tracking-widest w-9 shrink-0" style="color:#9a5614;">{{ e.day.slice(0, 3) }}</span>
+                <span class="font-bold" style="color:#3b1f0d;">{{ e.time }}</span>
+                <span class="truncate">{{ e.name }} · {{ e.venue }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Nothing scheduled -->
+      <section v-if="!festivals.length && !cities.length">
+        <div class="rounded-2xl p-6 text-center border-2 border-dashed" style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);">
+          <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+            No upcoming appearances listed yet.
+          </p>
+        </div>
+      </section>
+    </div>
+
+    <footer class="border-t py-6 text-center text-xs" style="border-color:#3b1f0d22; color:#9a5614; font-family:'Caveat', cursive; font-size:18px;">
+      WeDance · <NuxtLink to="/festivals" class="underline">festivals</NuxtLink> · <NuxtLink to="/cities" class="underline">cities</NuxtLink>
+    </footer>
+  </div>
+</template>
