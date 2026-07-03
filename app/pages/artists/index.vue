@@ -31,13 +31,30 @@ const allStyles = computed(() => {
   return Array.from(s)
 })
 
+// Cities where artists teach/DJ weekly — the "artists in my city" filter.
+const allCities = computed(() => {
+  const s = new Set<string>()
+  artists.forEach((a) => a.cityNames.forEach((c) => s.add(c)))
+  return Array.from(s).sort()
+})
+
+// Preset from ?city= so a city page can deep-link "artists in Munich".
+// Case-insensitive match against a known city name.
+const route = useRoute()
+const cityParam = (Array.isArray(route.query.city) ? route.query.city[0] : route.query.city) || ''
+const selectedCity = ref(
+  allCities.value.find((c) => c.toLowerCase() === String(cityParam).toLowerCase()) || '',
+)
+
 const filtered = computed(() => {
-  if (!searchQuery.value.trim()) return artists
-  const q = searchQuery.value.toLowerCase()
-  return artists.filter((a) =>
-    a.artist.name.toLowerCase().includes(q)
-    || a.artist.styles.some((s) => s.toLowerCase().includes(q)),
-  )
+  const q = searchQuery.value.trim().toLowerCase()
+  return artists.filter((a) => {
+    const matchesText = !q
+      || a.artist.name.toLowerCase().includes(q)
+      || a.artist.styles.some((s) => s.toLowerCase().includes(q))
+    const matchesCity = !selectedCity.value || a.cityNames.includes(selectedCity.value)
+    return matchesText && matchesCity
+  })
 })
 
 const accents = ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b', '#ec4899', '#7c3aed']
@@ -81,6 +98,24 @@ const accents = ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b', '#ec4899
               style="background:white; border:1px solid #3b1f0d33; color:#3b1f0d; font-family: system-ui, sans-serif; box-shadow: 0 1px 0 #3b1f0d0a, 0 6px 16px rgba(59, 31, 18, 0.04);"
             >
           </div>
+
+          <!-- Location filter — "artists in my city" -->
+          <div v-if="allCities.length" class="flex flex-wrap items-center justify-center gap-2 mt-4">
+            <span class="text-[10px] uppercase tracking-[0.25em] font-bold" style="color:#9a5614;">In your city</span>
+            <button
+              v-for="city in allCities"
+              :key="city"
+              type="button"
+              class="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all"
+              :style="selectedCity === city
+                ? { background: '#3b1f0d', color: '#fbf5ea', boxShadow: '0 2px 0 -1px #3b1f0d' }
+                : { background: 'white', color: '#5b3a1d', border: '1px solid #3b1f0d33' }"
+              @click="selectedCity = selectedCity === city ? '' : city"
+            >
+              <MapPin class="w-3 h-3" /> {{ city }}
+            </button>
+          </div>
+
           <div class="flex flex-wrap items-center justify-center gap-2 mt-4">
             <button
               v-for="(style, i) in allStyles"
@@ -107,7 +142,9 @@ const accents = ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b', '#ec4899
     <section class="max-w-5xl mx-auto px-4 pb-16">
       <div class="flex items-baseline justify-between mb-6">
         <h2 class="text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
-          {{ searchQuery ? 'Results' : 'Everyone' }}
+          <template v-if="selectedCity">In {{ selectedCity }}</template>
+          <template v-else-if="searchQuery">Results</template>
+          <template v-else>Everyone</template>
         </h2>
         <span class="text-xs" style="color:#9a5614; font-family:'Caveat', cursive; font-size:18px;">
           — {{ filtered.length }} artist{{ filtered.length === 1 ? '' : 's' }}
@@ -120,9 +157,13 @@ const accents = ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b', '#ec4899
         style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);"
       >
         <Search class="w-8 h-8 mx-auto mb-3" style="color:#9a5614;" />
-        <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Nothing matches "{{ searchQuery }}"</p>
-        <button type="button" class="text-xs font-bold mt-2 underline" style="color:#dc2626; font-family: system-ui, sans-serif;" @click="searchQuery = ''">
-          Clear search
+        <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+          <template v-if="selectedCity && searchQuery">No artists in {{ selectedCity }} match "{{ searchQuery }}"</template>
+          <template v-else-if="selectedCity">No artists listed in {{ selectedCity }} yet</template>
+          <template v-else>Nothing matches "{{ searchQuery }}"</template>
+        </p>
+        <button type="button" class="text-xs font-bold mt-2 underline" style="color:#dc2626; font-family: system-ui, sans-serif;" @click="searchQuery = ''; selectedCity = ''">
+          Clear filters
         </button>
       </div>
 

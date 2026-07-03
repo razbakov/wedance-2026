@@ -287,10 +287,21 @@ const styleChipColors = ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b', 
     <!-- PEOPLE TABS -->
     <section class="border-b" style="border-color:#3b1f0d22; background:rgba(251, 245, 234, 0.5);">
       <div class="max-w-4xl mx-auto px-4">
-        <div class="text-xs uppercase tracking-[0.3em] pt-6" style="color:#9a5614;">Who's on the floor</div>
-        <h2 class="mt-2 text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
-          The <em class="italic" style="color:#dc2626;">people</em> behind it all.
-        </h2>
+        <div class="flex items-baseline justify-between gap-3 pt-6">
+          <div>
+            <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">Who's on the floor</div>
+            <h2 class="mt-2 text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+              The <em class="italic" style="color:#dc2626;">people</em> behind it all.
+            </h2>
+          </div>
+          <NuxtLink
+            :to="`/artists?city=${encodeURIComponent(city.name)}`"
+            class="text-xs italic hover:underline whitespace-nowrap shrink-0"
+            style="color:#9a5614; font-family:'Playfair Display', serif;"
+          >
+            All {{ city.name }} artists →
+          </NuxtLink>
+        </div>
 
         <!-- Tab headers -->
         <div class="flex gap-1 mt-4 border-b -mb-px overflow-x-auto" style="border-color:#3b1f0d22;">
