@@ -61,6 +61,7 @@ function formatDateRange(start: string, end: string) {
         <nav class="flex items-center gap-4 text-sm">
           <NuxtLink to="/festivals" class="italic hover:underline">Festivals</NuxtLink>
           <NuxtLink to="/cities" class="italic hover:underline">Cities</NuxtLink>
+          <NuxtLink to="/artists" class="italic hover:underline hidden sm:inline">Artists</NuxtLink>
           <NuxtLink to="/for-events" class="italic hover:underline hidden sm:inline">Private events</NuxtLink>
           <NuxtLink to="/organizers" class="italic hover:underline hidden sm:inline">For organizers</NuxtLink>
         </nav>
@@ -79,7 +80,7 @@ function formatDateRange(start: string, end: string) {
       </svg>
 
       <div class="relative max-w-4xl mx-auto px-4 pt-10 pb-8">
-        <NuxtLink to="/festivals" class="text-xs italic hover:underline" style="color:#9a5614; font-family:'Playfair Display', serif;">
+        <NuxtLink to="/artists" class="text-xs italic hover:underline" style="color:#9a5614; font-family:'Playfair Display', serif;">
           ← all artists
         </NuxtLink>
         <div class="mt-4 flex flex-col sm:flex-row items-start gap-5">

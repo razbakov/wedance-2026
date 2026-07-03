@@ -27,12 +27,12 @@ useHead({
 const candids = [
   { src: '/alosha-dj.jpg',           caption: 'first time on the decks', col: '#dc2626', rot: -3.2 },
   { src: '/alex-michelle.jpg',       caption: 'Frida Thursdays · MUC',   col: '#2563eb', rot: 2.4 },
-  { src: '/artists/alexei-emilia.jpg', caption: 'practica · social #14', col: '#16a34a', rot: -1.5 },
-  { src: '/artists/emilia.jpg',      caption: 'Emilia teaching son',     col: '#a855f7', rot: 3 },
-  { src: '/artists/silvio.jpg',      caption: 'Silvio · DJ Cuba',        col: '#f59e0b', rot: -2 },
-  { src: '/artists/ivana.jpg',       caption: 'Ivana · Berlin trip',     col: '#0891b2', rot: 2.6 },
-  { src: '/artists/lisandra.jpg',    caption: 'Lisandra · rueda night',  col: '#ec4899', rot: -2.4 },
-  { src: '/artists/barbara.jpg',     caption: 'Barbara · rumba bbq',     col: '#dc2626', rot: 1.4 },
+  { src: '/people/alexei-emilia.jpg', caption: 'practica · social #14', col: '#16a34a', rot: -1.5 },
+  { src: '/people/emilia.jpg',      caption: 'Emilia teaching son',     col: '#a855f7', rot: 3 },
+  { src: '/people/silvio.jpg',      caption: 'Silvio · DJ Cuba',        col: '#f59e0b', rot: -2 },
+  { src: '/people/ivana.jpg',       caption: 'Ivana · Berlin trip',     col: '#0891b2', rot: 2.6 },
+  { src: '/people/lisandra.jpg',    caption: 'Lisandra · rueda night',  col: '#ec4899', rot: -2.4 },
+  { src: '/people/barbara.jpg',     caption: 'Barbara · rumba bbq',     col: '#dc2626', rot: 1.4 },
 ]
 
 const stages = [

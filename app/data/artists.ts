@@ -59,3 +59,30 @@ export function cityAppearances(id: string): CityAppearance[] {
       ),
     }))
 }
+
+export interface ArtistSummary {
+  artist: Teacher
+  festivalCount: number
+  cityNames: string[]
+}
+
+/**
+ * Every performer with a profile — festival teachers/headliners plus city
+ * teachers and DJs. City organisers are schools/promoters, not artists, so
+ * they're left out of the listing (they still resolve via findArtist if
+ * linked directly). Deduped by id, first occurrence wins.
+ */
+export function allArtists(): ArtistSummary[] {
+  const map = new Map<string, Teacher>()
+  for (const src of festivalSources) {
+    for (const t of src.mockTeachers) if (!map.has(t.id)) map.set(t.id, t)
+  }
+  for (const c of citySources) {
+    for (const t of [...c.teachers, ...c.djs]) if (!map.has(t.id)) map.set(t.id, t)
+  }
+  return [...map.values()].map((artist) => ({
+    artist,
+    festivalCount: festivalAppearances(artist.id).length,
+    cityNames: cityAppearances(artist.id).map((c) => c.city.name),
+  }))
+}

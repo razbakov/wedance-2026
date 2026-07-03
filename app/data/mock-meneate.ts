@@ -53,7 +53,7 @@ export const mockTeachers: Teacher[] = [
   {
     id: 'silvio',
     name: 'Silvio Leroy',
-    photo: '/artists/silvio.jpg',
+    photo: '/people/silvio.jpg',
     bio: 'Cuban artist based in Spain, known for his deep knowledge of Rumba, Son, and Afrocuban traditions. Silvio is a master of Columbia and traditional Cuban dance forms.',
     styles: ['Rumba', 'Son', 'Afro'],
     socialLinks: [
@@ -63,7 +63,7 @@ export const mockTeachers: Teacher[] = [
   {
     id: 'osmel',
     name: 'Osmel Relámpago',
-    photo: '/artists/osmel.jpg',
+    photo: '/people/osmel.jpg',
     bio: 'Cuban dancer based in Austria. Relámpago is known for his powerful Afro, Timba Solo, and Rumba style. A regular fixture in the Vienna Cuban dance scene.',
     styles: ['Afro', 'Timba', 'Rumba'],
     socialLinks: [
@@ -73,7 +73,7 @@ export const mockTeachers: Teacher[] = [
   {
     id: 'lisandra',
     name: 'Lisandra Garcia',
-    photo: '/artists/lisandra.jpg',
+    photo: '/people/lisandra.jpg',
     bio: 'Cuban dancer based in Hungary. Lisandra specializes in Son Cubano, Lady Style, and Cha Cha Cha with a deep connection to Cuban musical traditions.',
     styles: ['Son', 'Ladies', 'Timba'],
     socialLinks: [
@@ -83,7 +83,7 @@ export const mockTeachers: Teacher[] = [
   {
     id: 'emilia',
     name: 'Emilia Pedra',
-    photo: '/artists/emilia.jpg',
+    photo: '/people/emilia.jpg',
     bio: 'Brazilian dancer based in Spain. Emilia teaches Son and Casino partner work alongside Alexei, combining Brazilian movement quality with Cuban dance techniques.',
     styles: ['Son', 'Casino'],
     socialLinks: [
@@ -93,7 +93,7 @@ export const mockTeachers: Teacher[] = [
   {
     id: 'alexei',
     name: 'Alexei Ramos',
-    photo: '/artists/alexei.jpg',
+    photo: '/people/alexei.jpg',
     bio: 'Brazilian dancer based in Spain. Together with Emilia, Alexei is known for their Son Bootcamp and Casino en Pareja workshops at festivals across Europe.',
     styles: ['Son', 'Casino'],
     socialLinks: [
@@ -103,7 +103,7 @@ export const mockTeachers: Teacher[] = [
   {
     id: 'ivan',
     name: 'Ivan Jovanovic',
-    photo: '/artists/ivan.jpg',
+    photo: '/people/ivan.jpg',
     bio: 'Montenegrin dancer specializing in Casino en Pareja and Rueda de Casino. Ivan and Ivana bring precision and joy to their partner work workshops.',
     styles: ['Casino', 'Rueda'],
     socialLinks: [
@@ -113,7 +113,7 @@ export const mockTeachers: Teacher[] = [
   {
     id: 'ivana',
     name: 'Ivana Jovanovic',
-    photo: '/artists/ivana.jpg',
+    photo: '/people/ivana.jpg',
     bio: 'Montenegrin dancer and partner of Ivan. Together they teach Casino en Pareja and Rueda de Casino at international festivals.',
     styles: ['Casino', 'Rueda'],
     socialLinks: [
