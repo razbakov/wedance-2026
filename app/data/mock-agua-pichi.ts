@@ -53,6 +53,7 @@ export const mockFestival: Festival = {
       price: 170,
       days: [],
       description: 'All workshops + all parties incl. Los Van Van',
+      includesParty: true,
     },
     {
       name: 'Super-Early-Bird Party Pass',
@@ -61,6 +62,7 @@ export const mockFestival: Festival = {
       description: 'Party access + Los Van Van concert. 100 tickets, launched at the Charanga Habanera concert.',
       soldOut: true,
       includesParty: true,
+      workshopCount: 0, // party-only: no workshop access
     },
     {
       name: 'Party Pass',
@@ -68,6 +70,7 @@ export const mockFestival: Festival = {
       days: [],
       description: 'All parties incl. Los Van Van concert',
       includesParty: true,
+      workshopCount: 0, // party-only: no workshop access
     },
     {
       name: 'Saturday Pass',

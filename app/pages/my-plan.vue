@@ -350,9 +350,11 @@ function tracks(f: CatalogueEntry): Track[] {
           : f.ticketFromPrice
             ? { text: `From ${priceText}`, tone: 'todo' }
             : { text: 'Not bought', tone: 'todo' },
+      // WeDance is the ticketing platform — buy on the festival page's
+      // Tickets section, not on the organizer's own site.
       action: p.ticketBought
         ? null
-        : { label: f.ticketFromPrice ? `Buy ${priceText}` : 'Buy', href: f.ticketUrl || `/festivals/${f.slug}`, external: !!f.ticketUrl },
+        : { label: f.ticketFromPrice ? `Buy ${priceText}` : 'Buy', href: `/festivals/${f.slug}#tickets`, external: false },
       toggleKey: 'ticketBought',
       done: !!p.ticketBought,
     },
@@ -571,8 +573,8 @@ const heatItems = computed<HeatItem[]>(() => {
       key: `fest-${f.slug}`,
       label: `${f.name} · early-bird`,
       detail: `Ends in ${d}d · from €${f.ticketFromPrice}`,
-      href: f.ticketUrl || `/festivals/${f.slug}`,
-      external: !!f.ticketUrl,
+      href: `/festivals/${f.slug}#tickets`,
+      external: false,
       color: '#dc2626',
       urgency: 100 - d,
     })

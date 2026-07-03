@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { PlanEntry, DanceRole, DancePartner, FestivalFriend, PartnerMatch, DiscoverDancer, ExtraActivity, RideShare, SwipeCard, FreemiumState } from '~/types/festival'
+import { ArrowRight, Sparkles, Check } from 'lucide-vue-next'
 import * as salsaOpen from '~/data/mock-festival'
 import * as meneate from '~/data/mock-meneate'
 import * as cubanFire from '~/data/mock-cuban-fire'
@@ -601,18 +602,244 @@ const { setCartCount } = useCart()
 watch(() => plan.value.size, (n) => setCartCount(n), { immediate: true })
 
 // Navigation
-const sections = ['about', 'discover', 'activities', 'lineup', 'schedule', 'venue'] as const
+const sections = ['about', 'discover', 'activities', 'lineup', 'schedule', 'tickets', 'venue'] as const
 const sectionLabels: Record<string, string> = {
   'about': 'About',
   'discover': 'Shall we dance?',
   'activities': 'Activities',
   'lineup': 'Lineup',
   'schedule': 'Schedule',
+  'tickets': 'Tickets',
   'venue': 'Venue',
 }
 
 function scrollTo(id: string) {
   document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
+  activeSection.value = id // immediate feedback; observer keeps it honest
+}
+
+// ── Sticky nav behaviour ──────────────────────────────────────────
+// - The festival name only appears in the sticky nav once the hero has
+//   scrolled out of view (so a deep-link straight to #tickets still
+//   shows which festival you're on).
+// - The nav highlights the section currently at the top and updates as
+//   you scroll (scrollspy).
+const heroRef = ref<HTMLElement | null>(null)
+const heroVisible = ref(true)
+const activeSection = ref<string>('about')
+
+let heroObserver: IntersectionObserver | null = null
+let sectionObserver: IntersectionObserver | null = null
+
+onMounted(() => {
+  if (heroRef.value) {
+    heroObserver = new IntersectionObserver(
+      ([entry]) => { heroVisible.value = entry.isIntersecting },
+      { threshold: 0 },
+    )
+    heroObserver.observe(heroRef.value)
+  }
+
+  // Scrollspy — track which section sits under the sticky nav.
+  const seen = new Set<string>()
+  sectionObserver = new IntersectionObserver(
+    (entries) => {
+      for (const e of entries) {
+        if (e.isIntersecting) seen.add(e.target.id)
+        else seen.delete(e.target.id)
+      }
+      const active = sections.find((s) => seen.has(s))
+      if (active) activeSection.value = active
+    },
+    { rootMargin: '-64px 0px -60% 0px', threshold: 0 },
+  )
+  for (const s of sections) {
+    const el = document.getElementById(s)
+    if (el) sectionObserver.observe(el)
+  }
+})
+
+onBeforeUnmount(() => {
+  heroObserver?.disconnect()
+  sectionObserver?.disconnect()
+})
+
+// ── WeDance ticketing ─────────────────────────────────────────────
+// WeDance IS the ticketing platform — dancers buy their pass here, and
+// the purchase is what puts their face on the event page ("see who's
+// going before you book"). No link-out to the organizer's own site.
+//
+// The real payment goes through Stripe Checkout (same session backend
+// the €1 social unlock already uses). Until the ticket-purchase
+// endpoint is wired, the checkout modal collects the intent and shows
+// the value prop; `startTicketCheckout` is the single place to plug
+// the real createCheckoutSession call.
+type TicketOption = NonNullable<typeof festival.tickets>[number]
+const selectedTicket = ref<TicketOption | null>(null)
+const showCheckout = ref(false)
+const checkoutLoading = ref(false)
+
+function chooseTicket(ticket: TicketOption) {
+  selectedTicket.value = ticket
+  showCheckout.value = true
+}
+
+async function startTicketCheckout() {
+  if (!selectedTicket.value) return
+  if (!isSignedIn.value) {
+    // Buying = joining the wall, so we need an account first.
+    signUpAction.value = 'ticket'
+    showSignUp.value = true
+    return
+  }
+  checkoutLoading.value = true
+  try {
+    // TODO(backend): swap for the real ticket checkout session.
+    // const res = await $trpc.tickets.createCheckoutSession.mutate({
+    //   festivalSlug: festival.slug, ticketName: selectedTicket.value.name,
+    // })
+    // window.location.href = res.checkoutUrl
+    await new Promise((r) => setTimeout(r, 900))
+  } finally {
+    checkoutLoading.value = false
+  }
+}
+
+// ── Smart ticket recommendation ───────────────────────────────────
+// As the dancer picks workshops + parties, WeDance figures out the
+// cheapest pass (or combo of day passes) that covers their plan.
+// This is the core "add workshops → we recommend the best ticket"
+// pitch. Greedy day-coverage + party add-on, lifted from the
+// TicketRecommendation component and adapted to the page's plan Map.
+const plannedDays = computed(() => {
+  const days = new Set<string>()
+  for (const w of workshops) {
+    if (planIds.value.has(w.id)) days.add(w.day)
+  }
+  return days
+})
+const plannedWorkshopCount = computed(() =>
+  workshops.filter((w) => planIds.value.has(w.id) && w.type !== 'party').length,
+)
+const hasPartyInPlan = computed(() =>
+  workshops.some((w) => planIds.value.has(w.id) && w.type === 'party'),
+)
+
+function cheapestDayCoverage(dayPasses: TicketOption[], targetDays: Set<string>): TicketOption[] {
+  const sorted = [...dayPasses].sort((a, b) => a.price - b.price)
+  for (const t of sorted) {
+    if ([...targetDays].every((d) => t.days.includes(d))) return [t]
+  }
+  const uncovered = new Set(targetDays)
+  const selected: TicketOption[] = []
+  for (const t of sorted) {
+    if (t.days.some((d) => uncovered.has(d))) {
+      selected.push(t)
+      t.days.forEach((d) => uncovered.delete(d))
+      if (uncovered.size === 0) break
+    }
+  }
+  // Only a full-coverage combo is a valid recommendation. If day passes
+  // can't cover every planned day (e.g. no Friday day-pass exists), bail
+  // — the full pass path will carry the plan instead.
+  return uncovered.size === 0 ? selected : []
+}
+
+interface Recommendation {
+  tickets: TicketOption[]
+  total: number
+  savings?: number
+  soldOut: boolean
+}
+
+const recommendation = computed<Recommendation | null>(() => {
+  const all = festival.tickets
+  if (!all?.length) return null
+  const days = plannedDays.value
+  if (days.size === 0) return null
+
+  const workshopCount = plannedWorkshopCount.value
+  const wantsParty = hasPartyInPlan.value
+
+  interface Candidate { tickets: TicketOption[]; total: number; soldOut: boolean }
+  const candidates: Candidate[] = []
+
+  // A combo can only be bought if every part is available.
+  const comboSoldOut = (ts: TicketOption[]) => ts.some((t) => t.soldOut)
+
+  // Cheapest party-only add-on — prefer a buyable one over a sold-out one.
+  const partyAddOn = () => {
+    const partyOnly = all.filter((t) => t.includesParty && (t.workshopCount === undefined || t.workshopCount === 0))
+    const buyable = partyOnly.filter((t) => !t.soldOut).sort((a, b) => a.price - b.price)
+    if (buyable.length) return buyable[0]
+    return partyOnly.sort((a, b) => a.price - b.price)[0]
+  }
+
+  for (const ticket of all) {
+    // workshopCount === 0 marks a party-only pass (grants no workshop
+    // access); undefined means unlimited. A plan with 0 workshops is
+    // trivially covered by any pass.
+    const coversWorkshops = workshopCount === 0
+      || (ticket.workshopCount !== 0 && (ticket.workshopCount === undefined || ticket.workshopCount >= workshopCount))
+    const coversDays = ticket.days.length === 0 || [...days].every((d) => ticket.days.includes(d))
+    const coversParty = !wantsParty || !!ticket.includesParty
+    if (coversWorkshops && coversDays && (workshopCount > 0 || wantsParty)) {
+      if (coversParty) {
+        candidates.push({ tickets: [ticket], total: ticket.price, soldOut: !!ticket.soldOut })
+      } else {
+        const party = partyAddOn()
+        if (party) {
+          candidates.push({ tickets: [ticket, party], total: ticket.price + party.price, soldOut: comboSoldOut([ticket, party]) })
+        } else {
+          candidates.push({ tickets: [ticket], total: ticket.price, soldOut: !!ticket.soldOut })
+        }
+      }
+    }
+  }
+
+  const dayPasses = all.filter((t) => t.days.length > 0 && !t.includesParty && t.workshopCount === undefined)
+  if (dayPasses.length > 0) {
+    const combo = cheapestDayCoverage(dayPasses, days)
+    if (combo.length > 0) {
+      const party = wantsParty ? partyAddOn() : null
+      const tickets = party ? [...combo, party] : combo
+      candidates.push({ tickets, total: tickets.reduce((s, t) => s + t.price, 0), soldOut: comboSoldOut(tickets) })
+    }
+  }
+
+  if (workshopCount === 0 && wantsParty) {
+    const party = partyAddOn()
+    if (party) candidates.push({ tickets: [party], total: party.price, soldOut: !!party.soldOut })
+  }
+
+  if (candidates.length === 0) return null
+  // Prefer buyable options over sold-out ones, then cheapest.
+  candidates.sort((a, b) => (Number(a.soldOut) - Number(b.soldOut)) || (a.total - b.total))
+  const best = candidates[0]
+  const next = candidates[1]
+  return {
+    tickets: best.tickets,
+    total: best.total,
+    savings: next && next.total > best.total ? next.total - best.total : undefined,
+    soldOut: best.soldOut,
+  }
+})
+
+// Which ticket names are in the current recommendation (for grid highlight)
+const recommendedNames = computed(() => new Set((recommendation.value?.tickets ?? []).map((t) => t.name)))
+
+function getRecommendedPass() {
+  const rec = recommendation.value
+  if (!rec) return
+  const buyable = rec.tickets.find((t) => !t.soldOut) ?? rec.tickets[0]
+  if (buyable) chooseTicket(buyable)
+}
+
+// Which grid card gets the highlight: the recommended pass(es) once the
+// dancer has a plan, otherwise the first (cheapest full) pass by default.
+function isTopPass(t: TicketOption, i: number): boolean {
+  if (recommendation.value) return recommendedNames.value.has(t.name)
+  return i === 0
 }
 
 // V3 tropical direction — layout:false + inline header so we can wrap
@@ -667,21 +894,70 @@ useHead({
       </div>
     </header>
 
-    <FestivalHero :festival="festival" />
+    <div ref="heroRef">
+      <FestivalHero :festival="festival" />
+    </div>
 
-    <!-- Section anchor nav — V3 restyled -->
-    <nav class="sticky top-0 z-20 border-b overflow-x-auto" style="background:rgba(251, 245, 234, 0.95); backdrop-filter: blur(8px); border-color:#3b1f0d22;">
-      <div class="max-w-4xl mx-auto flex gap-0 px-4 min-w-0">
-        <button
-          v-for="section in sections"
-          :key="section"
-          type="button"
-          class="px-4 py-3 text-sm italic whitespace-nowrap transition-all"
-          style="color:#5b3a1d; font-family:'Playfair Display', serif;"
-          @click="scrollTo(section)"
+    <!-- Section anchor nav — V3 restyled. Festival identity slides in on
+         the left once the hero has scrolled out of view, so a deep-link
+         (Buy Tickets from the official site) always shows which festival
+         you're on. The active section is highlighted and tracks scroll. -->
+    <nav class="sticky top-0 z-20 border-b" style="background:rgba(251, 245, 234, 0.95); backdrop-filter: blur(8px); border-color:#3b1f0d22;">
+      <div class="max-w-4xl mx-auto flex items-center gap-2 px-4 min-w-0">
+        <Transition
+          enter-active-class="transition-all duration-200 ease-out"
+          enter-from-class="opacity-0 -translate-x-2"
+          enter-to-class="opacity-100 translate-x-0"
+          leave-active-class="transition-all duration-150 ease-in"
+          leave-from-class="opacity-100 translate-x-0"
+          leave-to-class="opacity-0 -translate-x-2"
         >
-          {{ sectionLabels[section] }}
-        </button>
+          <NuxtLink
+            v-if="!heroVisible"
+            :to="`/festivals/${festival.slug}`"
+            class="flex items-center gap-2 shrink-0 pr-3 mr-1 border-r"
+            style="border-color:#3b1f0d15;"
+            @click.prevent="scrollTo('about')"
+          >
+            <img
+              v-if="festival.logo"
+              :src="festival.logo"
+              :alt="festival.name"
+              class="w-6 h-6 rounded-full shrink-0"
+            >
+            <div
+              v-else
+              class="w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold text-white"
+              :style="{ background: festival.accentColor }"
+            >
+              {{ festival.name.charAt(0) }}
+            </div>
+            <span class="text-sm font-bold whitespace-nowrap hidden sm:inline" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+              {{ festival.name }}
+            </span>
+          </NuxtLink>
+        </Transition>
+        <div class="flex gap-0 overflow-x-auto min-w-0">
+          <button
+            v-for="section in sections"
+            :key="section"
+            type="button"
+            class="relative px-3 py-3 text-sm italic whitespace-nowrap transition-colors"
+            :style="{
+              color: activeSection === section ? festival.accentColor : '#5b3a1d',
+              fontWeight: activeSection === section ? 700 : 400,
+              fontFamily: 'Playfair Display, serif',
+            }"
+            @click="scrollTo(section)"
+          >
+            {{ sectionLabels[section] }}
+            <span
+              v-if="activeSection === section"
+              class="absolute left-3 right-3 bottom-0 h-[2px] rounded-full"
+              :style="{ background: festival.accentColor }"
+            />
+          </button>
+        </div>
       </div>
     </nav>
 
@@ -789,6 +1065,184 @@ useHead({
           />
         </section>
 
+        <section v-if="festival.tickets?.length" id="tickets" class="scroll-mt-16">
+          <div class="mb-4">
+            <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">Passes</div>
+            <h2 class="mt-2 text-2xl font-black leading-tight" style="color:#3b1f0d;">
+              Pick your <em class="italic" style="color:#dc2626;">pass.</em>
+            </h2>
+          </div>
+
+          <!-- Smart recommendation for the dancer's current plan -->
+          <div
+            v-if="recommendation"
+            class="rounded-2xl p-5 sm:p-6 mb-6"
+            style="background:linear-gradient(135deg, #fef3c7, #fee2e2); border:1px solid #dc262633;"
+          >
+            <div class="flex items-start gap-3">
+              <div class="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style="background:white;">
+                <Sparkles class="w-5 h-5" style="color:#dc2626;" />
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="text-[10px] uppercase tracking-[0.3em] font-bold" style="color:#dc2626;">
+                  Best value for your plan
+                </div>
+                <div class="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                  <span class="text-lg font-black" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+                    {{ recommendation.tickets.map(t => t.name).join(' + ') }}
+                  </span>
+                  <span class="text-2xl font-black" style="font-family:'Playfair Display', serif; color:#dc2626;">
+                    €{{ recommendation.total }}
+                  </span>
+                  <span
+                    v-if="recommendation.savings"
+                    class="text-xs font-bold px-2 py-0.5 rounded-full"
+                    style="background:#16a34a18; color:#16a34a; font-family: system-ui, sans-serif;"
+                  >
+                    saves €{{ recommendation.savings }}
+                  </span>
+                </div>
+                <div class="mt-1 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+                  Covers your {{ plannedWorkshopCount }} workshop{{ plannedWorkshopCount === 1 ? '' : 's' }}<span v-if="hasPartyInPlan"> + parties</span>
+                  across {{ plannedDays.size }} day{{ plannedDays.size === 1 ? '' : 's' }}.
+                </div>
+                <button
+                  v-if="!recommendation.soldOut"
+                  type="button"
+                  class="mt-3 inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-white text-xs font-bold uppercase tracking-wider"
+                  style="background:linear-gradient(135deg, #dc2626, #f97316); box-shadow: 0 3px 0 -1px #b91c1c;"
+                  @click="getRecommendedPass"
+                >
+                  Get this pass <ArrowRight class="w-3.5 h-3.5" />
+                </button>
+                <div
+                  v-else
+                  class="mt-3 text-xs italic"
+                  style="color:#5b3a1d; font-family:'Playfair Display', serif;"
+                >
+                  Sold out — we'll notify you when a dancer offers theirs.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Nudge: no plan yet -->
+          <NuxtLink
+            v-else
+            to="#schedule"
+            class="rounded-2xl p-5 mb-6 flex items-center gap-3 border-2 border-dashed transition-colors hover:bg-white/60"
+            style="border-color:#3b1f0d33; background:rgba(255,255,255,0.4);"
+            @click="scrollTo('schedule')"
+          >
+            <Sparkles class="w-6 h-6 shrink-0" style="color:#9a5614;" />
+            <div>
+              <div class="text-sm font-bold" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+                Not sure which pass?
+              </div>
+              <div class="text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+                Pick the workshops + parties you want in the schedule above — we'll find your best-value pass.
+              </div>
+            </div>
+            <ArrowRight class="w-4 h-4 ml-auto shrink-0" style="color:#dc2626;" />
+          </NuxtLink>
+
+          <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div
+              v-for="(t, i) in festival.tickets"
+              :key="t.name"
+              class="relative rounded-2xl bg-white p-5 border transition-all"
+              :class="isTopPass(t, i) ? 'md:-translate-y-1' : ''"
+              :style="{
+                borderColor: (isTopPass(t, i) ? '#dc2626' : '#3b1f0d22'),
+                borderWidth: isTopPass(t, i) ? '2px' : '1px',
+                boxShadow: isTopPass(t, i)
+                  ? '6px 8px 0 -2px #dc2626, 0 12px 28px rgba(59,31,18,0.08)'
+                  : '0 1px 0 #3b1f0d0a, 0 6px 18px rgba(59,31,18,0.04)',
+                opacity: t.soldOut ? 0.75 : 1,
+              }"
+            >
+              <div
+                v-if="isTopPass(t, i) && !t.soldOut"
+                class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest text-white whitespace-nowrap"
+                style="background:#dc2626;"
+              >
+                {{ recommendation ? 'Recommended for you' : 'Best value' }}
+              </div>
+              <div
+                v-if="t.soldOut"
+                class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest text-white whitespace-nowrap"
+                style="background:#5b3a1d;"
+              >
+                Sold out
+              </div>
+
+              <div class="text-[10px] uppercase tracking-[0.3em] font-bold" style="color:#9a5614;">
+                {{ t.name }}
+              </div>
+              <div class="mt-2 mb-1 flex items-baseline gap-1">
+                <span class="text-4xl font-black" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+                  €{{ t.price }}
+                </span>
+              </div>
+              <p v-if="t.description" class="text-sm mb-4" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+                {{ t.description }}
+              </p>
+
+              <div class="flex flex-wrap gap-1.5 mb-4">
+                <span
+                  v-if="t.days.length === 0 && !t.includesParty"
+                  class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
+                  style="background:#16a34a18; color:#16a34a;"
+                >
+                  All days
+                </span>
+                <span
+                  v-for="d in t.days"
+                  :key="d"
+                  class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
+                  style="background:#0891b218; color:#0891b2;"
+                >
+                  {{ d }}
+                </span>
+                <span
+                  v-if="t.includesParty"
+                  class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
+                  style="background:#a855f718; color:#a855f7;"
+                >
+                  Parties incl.
+                </span>
+                <span
+                  v-if="t.workshopCount !== undefined && t.workshopCount !== null"
+                  class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
+                  style="background:#f59e0b18; color:#f59e0b;"
+                >
+                  {{ t.workshopCount }} workshop{{ t.workshopCount === 1 ? '' : 's' }}
+                </span>
+              </div>
+
+              <button
+                v-if="!t.soldOut"
+                type="button"
+                class="inline-flex items-center justify-center gap-2 w-full py-3 rounded-full text-white text-xs font-bold uppercase tracking-wider transition-transform hover:-translate-y-0.5"
+                :style="i === 0
+                  ? { background: 'linear-gradient(135deg, #dc2626, #f97316)', boxShadow: '0 3px 0 -1px #b91c1c' }
+                  : { background: '#3b1f0d' }"
+                @click="chooseTicket(t)"
+              >
+                Get this pass
+                <ArrowRight class="w-3.5 h-3.5" />
+              </button>
+              <div
+                v-else
+                class="inline-flex items-center justify-center gap-2 w-full py-3 rounded-full text-xs font-bold uppercase tracking-wider"
+                style="background:#3b1f0d0a; color:#9a5614;"
+              >
+                No longer available
+              </div>
+            </div>
+          </div>
+        </section>
+
         <section id="venue" class="scroll-mt-16">
           <h2 class="text-2xl font-black leading-tight mb-4" style="color:#3b1f0d;">Venue</h2>
           <VenueTab :venue="festival.venue" />
@@ -834,6 +1288,97 @@ useHead({
     />
 
     <SignUpModal v-model:open="showSignUp" :action="signUpAction" :prefill="signUpPrefill" />
+
+    <!-- WeDance ticket checkout — buying happens here, on WeDance. -->
+    <Teleport to="body">
+      <Transition
+        enter-active-class="transition duration-200 ease-out"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="transition duration-150 ease-in"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <div
+          v-if="showCheckout && selectedTicket"
+          class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm px-0 sm:px-4"
+          @click.self="showCheckout = false"
+        >
+          <div
+            class="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl"
+            style="background:#fbf5ea;"
+          >
+            <!-- Header band -->
+            <div class="p-5 sm:p-6" style="background:linear-gradient(135deg, #dc2626, #f97316);">
+              <div class="flex items-center gap-2 text-white/90 text-[10px] font-bold uppercase tracking-[0.3em]">
+                <img src="/icon.svg" alt="" class="w-4 h-4 brightness-0 invert" >
+                Checkout on WeDance
+              </div>
+              <div class="mt-2 text-2xl font-black leading-tight text-white" style="font-family:'Playfair Display', serif;">
+                {{ festival.name }}
+              </div>
+              <div class="text-xs text-white/85 mt-0.5" style="font-family: system-ui, sans-serif;">
+                {{ selectedTicket.name }}
+              </div>
+            </div>
+
+            <div class="p-5 sm:p-6">
+              <!-- Price row -->
+              <div class="flex items-baseline justify-between pb-4 mb-4 border-b" style="border-color:#3b1f0d15;">
+                <div class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+                  {{ selectedTicket.name }}
+                </div>
+                <div class="text-3xl font-black" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+                  €{{ selectedTicket.price }}
+                </div>
+              </div>
+
+              <!-- What you get -->
+              <ul class="space-y-2 mb-5 text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+                <li class="flex items-start gap-2">
+                  <Check class="w-4 h-4 shrink-0 mt-0.5" style="color:#16a34a;" />
+                  <span v-if="selectedTicket.description">{{ selectedTicket.description }}</span>
+                  <span v-else>Access to {{ festival.name }}</span>
+                </li>
+                <li class="flex items-start gap-2">
+                  <Check class="w-4 h-4 shrink-0 mt-0.5" style="color:#16a34a;" />
+                  <span>Your face on the event page — <strong style="color:#3b1f0d;">see who else is going</strong></span>
+                </li>
+                <li class="flex items-start gap-2">
+                  <Check class="w-4 h-4 shrink-0 mt-0.5" style="color:#16a34a;" />
+                  <span>Plan workshops, find a partner, share your plan</span>
+                </li>
+              </ul>
+
+              <button
+                type="button"
+                class="inline-flex items-center justify-center gap-2 w-full py-3.5 rounded-full text-white text-sm font-bold uppercase tracking-wider disabled:opacity-60"
+                style="background:linear-gradient(135deg, #dc2626, #f97316); box-shadow: 0 4px 0 -1px #b91c1c;"
+                :disabled="checkoutLoading"
+                @click="startTicketCheckout"
+              >
+                <template v-if="checkoutLoading">Taking you to payment…</template>
+                <template v-else-if="!isSignedIn">Sign in &amp; pay €{{ selectedTicket.price }}</template>
+                <template v-else>Pay €{{ selectedTicket.price }} <ArrowRight class="w-4 h-4" /></template>
+              </button>
+
+              <div class="mt-3 text-center text-xs" style="color:#9a5614; font-family:'Caveat', cursive; font-size:16px;">
+                — secure payment · instant confirmation
+              </div>
+
+              <button
+                type="button"
+                class="mt-3 w-full text-xs italic hover:underline"
+                style="color:#9a5614; font-family: system-ui, sans-serif;"
+                @click="showCheckout = false"
+              >
+                Maybe later
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
 
     <SharePlanModal
       v-model:open="showSharePlan"
