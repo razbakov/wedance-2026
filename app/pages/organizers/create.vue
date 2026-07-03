@@ -271,6 +271,7 @@ const labelClass = 'text-[10px] uppercase tracking-[0.25em] font-bold mb-2 block
           <NuxtLink to="/festivals" class="italic hover:underline">Festivals</NuxtLink>
           <NuxtLink to="/cities" class="italic hover:underline">Cities</NuxtLink>
           <NuxtLink to="/artists" class="italic hover:underline hidden sm:inline">Artists</NuxtLink>
+          <NuxtLink to="/gigs" class="italic hover:underline hidden sm:inline">Gigs</NuxtLink>
           <NuxtLink to="/for-events" class="italic hover:underline hidden sm:inline">Private events</NuxtLink>
           <NuxtLink to="/organizers" class="italic hover:underline hidden sm:inline">For organizers</NuxtLink>
         </nav>
