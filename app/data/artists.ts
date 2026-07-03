@@ -64,6 +64,18 @@ export interface ArtistSummary {
   artist: Teacher
   festivalCount: number
   cityNames: string[]
+  location: string | null
+}
+
+/**
+ * Best-effort home base. A local artist's city is where they teach/DJ
+ * weekly; a festival artist's comes from the "based in X" their bio
+ * already states — no invented locations. Null when neither is known.
+ */
+export function artistLocation(artist: Teacher, cityNames: string[]): string | null {
+  if (cityNames.length) return cityNames[0]
+  const m = artist.bio?.match(/based in ([A-Z][A-Za-zÀ-ÿ]+(?:\s[A-Z][A-Za-zÀ-ÿ]+)?)/)
+  return m ? m[1] : null
 }
 
 /**
@@ -80,9 +92,13 @@ export function allArtists(): ArtistSummary[] {
   for (const c of citySources) {
     for (const t of [...c.teachers, ...c.djs]) if (!map.has(t.id)) map.set(t.id, t)
   }
-  return [...map.values()].map((artist) => ({
-    artist,
-    festivalCount: festivalAppearances(artist.id).length,
-    cityNames: cityAppearances(artist.id).map((c) => c.city.name),
-  }))
+  return [...map.values()].map((artist) => {
+    const cityNames = cityAppearances(artist.id).map((c) => c.city.name)
+    return {
+      artist,
+      festivalCount: festivalAppearances(artist.id).length,
+      cityNames,
+      location: artistLocation(artist, cityNames),
+    }
+  })
 }

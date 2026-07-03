@@ -182,22 +182,13 @@ const accents = ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b', '#ec4899
               :alt="a.artist.name"
               class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
             >
-            <!-- Appearance chip over the photo -->
-            <div class="absolute top-3 left-3 flex flex-wrap gap-1.5">
+            <!-- Festival-count chip over the photo -->
+            <div v-if="a.festivalCount" class="absolute top-3 left-3">
               <span
-                v-if="a.festivalCount"
                 class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full text-white"
                 style="background:rgba(59,31,18,0.55); backdrop-filter: blur(4px);"
               >
-                <Plane class="w-3 h-3" /> {{ a.festivalCount }}
-              </span>
-              <span
-                v-for="city in a.cityNames"
-                :key="city"
-                class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full text-white"
-                style="background:rgba(59,31,18,0.55); backdrop-filter: blur(4px);"
-              >
-                <MapPin class="w-3 h-3" /> {{ city }}
+                <Plane class="w-3 h-3" /> {{ a.festivalCount }} festival{{ a.festivalCount === 1 ? '' : 's' }}
               </span>
             </div>
           </div>
@@ -206,7 +197,10 @@ const accents = ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b', '#ec4899
             <div class="font-bold text-lg leading-tight" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
               {{ a.artist.name }}
             </div>
-            <div v-if="a.artist.styles.length" class="mt-1.5 flex flex-wrap gap-1">
+            <div v-if="a.location" class="mt-1 inline-flex items-center gap-1 text-xs" style="color:#9a5614; font-family: system-ui, sans-serif;">
+              <MapPin class="w-3 h-3" /> {{ a.location }}
+            </div>
+            <div v-if="a.artist.styles.length" class="mt-2 flex flex-wrap gap-1">
               <span
                 v-for="s in a.artist.styles.slice(0, 3)"
                 :key="s"

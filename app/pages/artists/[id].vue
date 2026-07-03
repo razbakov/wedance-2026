@@ -5,7 +5,7 @@
  * city they appear in (see ~/data/artists.ts).
  */
 import { Instagram, Youtube, Globe, Calendar, MapPin, ArrowRight } from 'lucide-vue-next'
-import { findArtist, festivalAppearances, cityAppearances } from '~/data/artists'
+import { findArtist, festivalAppearances, cityAppearances, artistLocation } from '~/data/artists'
 
 definePageMeta({ layout: false })
 
@@ -19,6 +19,7 @@ if (!artist) {
 
 const festivals = festivalAppearances(id)
 const cities = cityAppearances(id)
+const location = artistLocation(artist, cities.map((c) => c.city.name))
 
 useHead({
   title: `WeDance — ${artist.name}`,
@@ -95,6 +96,9 @@ function formatDateRange(start: string, end: string) {
             <h1 class="text-4xl sm:text-6xl leading-[0.98] tracking-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
               {{ artist.name }}
             </h1>
+            <div v-if="location" class="mt-2 inline-flex items-center gap-1.5 text-sm italic" style="color:#9a5614; font-family:'Playfair Display', serif;">
+              <MapPin class="w-4 h-4" /> {{ location }}
+            </div>
             <div v-if="artist.styles.length" class="mt-3 flex flex-wrap gap-1.5">
               <span
                 v-for="(s, i) in artist.styles"
