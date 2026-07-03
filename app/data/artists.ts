@@ -115,6 +115,12 @@ export function artistResidence(artist: Teacher, cityNames: string[]): string | 
   return null
 }
 
+/** Origin + residence for one artist — resolves their city appearances. */
+export function artistPlaces(artist: Teacher): { origin: string | null; residence: string | null } {
+  const cityNames = cityAppearances(artist.id).map((c) => c.city.name)
+  return { origin: artistOrigin(artist), residence: artistResidence(artist, cityNames) }
+}
+
 /**
  * Every performer with a profile — festival teachers/headliners plus city
  * teachers and DJs. City organisers are schools/promoters, not artists, so

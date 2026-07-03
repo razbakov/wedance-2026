@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { PlanEntry, DanceRole, DancePartner, FestivalFriend, PartnerMatch, DiscoverDancer, ExtraActivity, RideShare, SwipeCard, FreemiumState } from '~/types/festival'
 import { ArrowRight, Sparkles, Check } from 'lucide-vue-next'
+import { artistPlaces } from '~/data/artists'
 import * as salsaOpen from '~/data/mock-festival'
 import * as meneate from '~/data/mock-meneate'
 import * as cubanFire from '~/data/mock-cuban-fire'
@@ -165,6 +166,20 @@ const selectedTeacherId = ref<string | null>(null)
 const selectedTeacher = computed(() =>
   teachers.find((t) => t.id === selectedTeacherId.value) || null,
 )
+
+// Lineup cards — face-forward artist cards (shared with /artists) with
+// origin + residence. Clicking one filters the schedule to that teacher.
+const lineupAccents = ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b', '#ec4899', '#7c3aed']
+const lineupCards = teachers.map((teacher, i) => ({
+  teacher,
+  accent: lineupAccents[i % lineupAccents.length],
+  ...artistPlaces(teacher),
+}))
+
+function toggleTeacherFilter(id: string) {
+  selectedTeacherId.value = selectedTeacherId.value === id ? null : id
+  nextTick(() => scrollTo('schedule'))
+}
 
 // Auth state
 const { isSignedIn } = useAuth()
@@ -1025,19 +1040,32 @@ useHead({
         </section>
 
         <section id="lineup" class="scroll-mt-16">
-          <h2 class="text-2xl font-black leading-tight mb-1" style="color:#3b1f0d;">Lineup</h2>
-          <p class="text-sm mb-3" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Tap an artist to preview and filter the schedule — or open their full profile.</p>
-          <Lineup
-            :teachers="teachers"
-            :selected-id="selectedTeacherId"
-            @select="selectedTeacherId = $event"
-          />
-          <TeacherProfile
-            v-if="selectedTeacher"
-            :teacher="selectedTeacher"
-            class="mt-4"
-            @close="selectedTeacherId = null"
-          />
+          <div class="flex items-baseline justify-between gap-3 mb-1">
+            <h2 class="text-2xl font-black leading-tight" style="color:#3b1f0d;">Lineup</h2>
+            <button
+              v-if="selectedTeacherId"
+              type="button"
+              class="text-xs font-bold whitespace-nowrap"
+              style="color:#dc2626; font-family: system-ui, sans-serif;"
+              @click="selectedTeacherId = null"
+            >
+              Clear filter ✕
+            </button>
+          </div>
+          <p class="text-sm mb-4" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Tap an artist to filter the schedule to their sessions — or open their full profile.</p>
+          <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <ArtistCard
+              v-for="c in lineupCards"
+              :key="c.teacher.id"
+              :artist="c.teacher"
+              :accent="c.accent"
+              :origin="c.origin"
+              :residence="c.residence"
+              selectable
+              :selected="selectedTeacherId === c.teacher.id"
+              @select="toggleTeacherFilter(c.teacher.id)"
+            />
+          </div>
         </section>
 
         <section id="schedule" class="scroll-mt-16">

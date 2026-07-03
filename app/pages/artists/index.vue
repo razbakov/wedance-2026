@@ -4,7 +4,7 @@
  * V3 tropical style. Lists every performer with a profile (festival
  * teachers/headliners + city teachers & DJs) from ~/data/artists.ts.
  */
-import { Search, Plane, MapPin, Globe } from 'lucide-vue-next'
+import { Search, MapPin } from 'lucide-vue-next'
 import { allArtists } from '~/data/artists'
 
 definePageMeta({ layout: false })
@@ -172,74 +172,15 @@ const accents = ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b', '#ec4899
       </div>
 
       <div v-else class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        <NuxtLink
+        <ArtistCard
           v-for="(a, i) in filtered"
           :key="a.artist.id"
-          :to="`/artists/${a.artist.id}`"
-          class="group rounded-2xl bg-white border overflow-hidden flex flex-col transition-all hover:-translate-y-1"
-          :style="{ borderColor: accents[i % accents.length] + '55', boxShadow: '0 1px 0 ' + accents[i % accents.length] + '22, 0 8px 22px rgba(59,31,18,0.05)' }"
-        >
-          <!-- Face first — the photo dominates the card -->
-          <div class="relative aspect-square overflow-hidden" :style="{ background: accents[i % accents.length] + '12' }">
-            <img
-              :src="a.artist.photo"
-              :alt="a.artist.name"
-              class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
-            >
-            <!-- Festival-count chip — always shown so the grid looks the
-                 same whether or not a city filter is applied. -->
-            <div class="absolute top-3 left-3">
-              <span
-                class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full text-white"
-                style="background:rgba(59,31,18,0.55); backdrop-filter: blur(4px);"
-                :title="`${a.festivalCount} festival${a.festivalCount === 1 ? '' : 's'}`"
-              >
-                <Plane class="w-3 h-3" /> {{ a.festivalCount }}
-              </span>
-            </div>
-          </div>
-
-          <div class="p-4 flex flex-col flex-1">
-            <div class="font-bold text-lg leading-tight" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
-              {{ a.artist.name }}
-            </div>
-            <!-- Where they're based now (pin) + where they're from (globe) -->
-            <div
-              v-if="a.residence || a.origin"
-              class="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs"
-              style="color:#9a5614; font-family: system-ui, sans-serif;"
-            >
-              <span v-if="a.residence" class="inline-flex items-center gap-1" title="Based in">
-                <MapPin class="w-3 h-3" /> {{ a.residence }}
-              </span>
-              <span
-                v-if="a.origin && a.origin !== a.residence"
-                class="inline-flex items-center gap-1"
-                title="From"
-              >
-                <Globe class="w-3 h-3" /> {{ a.origin }}
-              </span>
-            </div>
-            <div v-if="a.artist.styles.length" class="mt-2 flex flex-wrap gap-1">
-              <span
-                v-for="s in a.artist.styles.slice(0, 3)"
-                :key="s"
-                class="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
-                :style="{ background: accents[i % accents.length] + '18', color: accents[i % accents.length] }"
-              >{{ s }}</span>
-            </div>
-            <p
-              v-if="a.artist.bio"
-              class="mt-2.5 text-xs leading-relaxed line-clamp-2"
-              style="color:#5b3a1d; font-family: system-ui, sans-serif;"
-            >
-              {{ a.artist.bio }}
-            </p>
-            <div class="mt-auto pt-3 text-xs italic" style="color:#9a5614; font-family:'Playfair Display', serif;">
-              View profile →
-            </div>
-          </div>
-        </NuxtLink>
+          :artist="a.artist"
+          :accent="accents[i % accents.length]"
+          :origin="a.origin"
+          :residence="a.residence"
+          :festival-count="a.festivalCount"
+        />
       </div>
     </section>
 
