@@ -10,6 +10,11 @@ export const dancers = pgTable('dancers', {
   city: text('city'),
   neonAuthId: text('neon_auth_id').unique(),
   isAdmin: boolean('is_admin').default(false),
+  // Email + password auth (FirebaseScrypt, ported from wedance-v4). Empty string
+  // default = "no password set" — a dancer created via magic-link/festival flow
+  // has no credentials and cannot log in via password until they register one.
+  salt: text('salt').default(''),
+  hash: text('hash').default(''),
   magicToken: text('magic_token'),
   magicTokenExpiresAt: timestamp('magic_token_expires_at'),
   createdAt: timestamp('created_at').defaultNow(),
