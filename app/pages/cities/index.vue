@@ -140,6 +140,12 @@ const styleChipColors = ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b', 
           <!-- Color accent bar -->
           <div class="h-1.5" :style="{ background: c.accent }" />
 
+          <!-- Video of the Month — people's-choice winner for this city.
+               Real empty state when there's no winner yet (no fake winner). -->
+          <div class="p-4 pb-0">
+            <VideoOfMonthCard :city-slug="c.slug" :accent="c.accent" />
+          </div>
+
           <div class="p-5">
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">

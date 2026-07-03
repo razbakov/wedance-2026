@@ -210,6 +210,56 @@ function formatDateRange(start: string, end: string) {
 }
 
 const styleChipColors = ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b', '#ec4899', '#7c3aed']
+
+// --- City video competition + giveaways (O-009) ---------------------------
+// All client-fetched: the tRPC client uses a relative URL that throws under
+// Nitro SSR (same reason AttendeeRoster loads on mount).
+const { $trpc } = useNuxtApp()
+
+interface LeaderboardVideo {
+  id: string
+  title: string
+  videoUrl: string
+  thumbnailUrl: string | null
+  danceStyle: string | null
+  eloScore: number
+  voteCount: number
+}
+const leaderboard = ref<LeaderboardVideo[]>([])
+async function loadLeaderboard() {
+  try {
+    const rows = await $trpc.cityVideo.listApproved.query({ citySlug: slug })
+    leaderboard.value = rows.slice(0, 5)
+  } catch {
+    leaderboard.value = []
+  }
+}
+
+interface ActiveGiveaway {
+  id: string
+  sponsorName: string
+  title: string
+  description: string
+  prizeDescription: string
+  ctaUrl: string
+  imageUrl: string | null
+  termsUrl: string | null
+  startsAt: string | Date
+  endsAt: string | Date
+}
+const giveaways = ref<ActiveGiveaway[]>([])
+async function loadGiveaways() {
+  try {
+    giveaways.value = await $trpc.giveaway.listActive.query({ citySlug: slug }) as ActiveGiveaway[]
+  } catch {
+    giveaways.value = []
+  }
+}
+
+onMounted(() => {
+  loadLeaderboard()
+  loadGiveaways()
+})
 </script>
 
 <template>
@@ -248,6 +298,13 @@ const styleChipColors = ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b', 
       <svg class="block w-full h-10 -mb-px" viewBox="0 0 1440 60" preserveAspectRatio="none">
         <path d="M0,40 Q360,0 720,30 T1440,20 V60 H0 Z" fill="#3b1f0d" opacity="0.08"/>
       </svg>
+    </section>
+
+    <!-- TOP HOOK — compact Video-of-the-Day matchup. Entry point into the full
+         vote/competition block further down (#vote / #compete). Collapses to
+         nothing when there's no pair, so it never pushes the page down blank. -->
+    <section class="max-w-4xl mx-auto px-4 pt-6">
+      <CityVideoVote :city-slug="slug" :accent="accent" compact />
     </section>
 
     <!-- PEOPLE TABS -->
@@ -332,6 +389,95 @@ const styleChipColors = ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b', 
         @toggle="toggleEvent"
         @select-teacher="onSelectPerson"
       />
+    </section>
+
+    <!-- VIDEO OF THE DAY — pairwise vote -->
+    <section id="vote" class="border-t" style="border-color:#3b1f0d22; background:rgba(251, 245, 234, 0.5);">
+      <div class="max-w-4xl mx-auto px-4 py-12">
+        <CityVideoVote :city-slug="slug" :accent="accent" />
+      </div>
+    </section>
+
+    <!-- COMPETITION — leaderboard + submit -->
+    <section id="compete" class="max-w-4xl mx-auto px-4 py-12">
+      <div class="mb-6">
+        <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">This month's competition</div>
+        <h2 class="mt-2 text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+          The <em class="italic" :style="{ color: accent }">leaderboard.</em>
+        </h2>
+      </div>
+
+      <div class="grid gap-6 md:grid-cols-2">
+        <!-- Leaderboard -->
+        <div>
+          <ol v-if="leaderboard.length" class="space-y-2">
+            <li
+              v-for="(v, i) in leaderboard"
+              :key="v.id"
+              class="flex items-center gap-3 rounded-xl border bg-white p-3"
+              :style="{ borderColor: accent + '33', boxShadow: '0 1px 0 ' + accent + '14' }"
+            >
+              <span
+                class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-black text-white"
+                :style="{ background: i === 0 ? accent : '#9a5614' }"
+              >{{ i + 1 }}</span>
+              <a
+                :href="v.videoUrl"
+                target="_blank"
+                rel="noopener"
+                class="min-w-0 flex-1"
+              >
+                <p class="truncate text-sm font-bold hover:underline" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+                  {{ v.title }}
+                </p>
+                <p class="text-[11px]" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+                  <span v-if="v.danceStyle">{{ v.danceStyle }} · </span>ELO {{ v.eloScore }} · {{ v.voteCount }} vote{{ v.voteCount === 1 ? '' : 's' }}
+                </p>
+              </a>
+            </li>
+          </ol>
+          <div
+            v-else
+            class="rounded-xl border-2 border-dashed p-6 text-center"
+            style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);"
+          >
+            <p class="text-sm font-bold" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+              No entries yet
+            </p>
+            <p class="mt-1 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+              Be the first to enter this month's competition.
+            </p>
+          </div>
+        </div>
+
+        <!-- Submit form -->
+        <SubmitVideoForm :city-slug="slug" :accent="accent" @submitted="loadLeaderboard" />
+      </div>
+    </section>
+
+    <!-- GIVEAWAYS -->
+    <section
+      v-if="giveaways.length"
+      id="giveaways"
+      class="border-t"
+      style="border-color:#3b1f0d22; background:rgba(251, 245, 234, 0.5);"
+    >
+      <div class="max-w-4xl mx-auto px-4 py-12">
+        <div class="mb-6">
+          <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">Win something</div>
+          <h2 class="mt-2 text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+            Local <em class="italic" :style="{ color: accent }">giveaways.</em>
+          </h2>
+        </div>
+        <div class="grid gap-4">
+          <GiveawayCard
+            v-for="g in giveaways"
+            :key="g.id"
+            :giveaway="g"
+            :accent="accent"
+          />
+        </div>
+      </div>
     </section>
 
     <!-- UPCOMING FESTIVALS IN THIS CITY (V3-styled cards) -->
