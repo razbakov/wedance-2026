@@ -5,7 +5,7 @@
  * city they appear in (see ~/data/artists.ts).
  */
 import { Instagram, Youtube, Globe, Calendar, MapPin, ArrowRight } from 'lucide-vue-next'
-import { findArtist, festivalAppearances, cityAppearances, artistLocation } from '~/data/artists'
+import { findArtist, festivalAppearances, cityAppearances, artistOrigin, artistResidence } from '~/data/artists'
 
 definePageMeta({ layout: false })
 
@@ -19,7 +19,8 @@ if (!artist) {
 
 const festivals = festivalAppearances(id)
 const cities = cityAppearances(id)
-const location = artistLocation(artist, cities.map((c) => c.city.name))
+const residence = artistResidence(artist, cities.map((c) => c.city.name))
+const origin = artistOrigin(artist)
 
 useHead({
   title: `WeDance — ${artist.name}`,
@@ -96,8 +97,17 @@ function formatDateRange(start: string, end: string) {
             <h1 class="text-4xl sm:text-6xl leading-[0.98] tracking-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
               {{ artist.name }}
             </h1>
-            <div v-if="location" class="mt-2 inline-flex items-center gap-1.5 text-sm italic" style="color:#9a5614; font-family:'Playfair Display', serif;">
-              <MapPin class="w-4 h-4" /> {{ location }}
+            <div
+              v-if="residence || origin"
+              class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm italic"
+              style="color:#9a5614; font-family:'Playfair Display', serif;"
+            >
+              <span v-if="residence" class="inline-flex items-center gap-1.5" title="Based in">
+                <MapPin class="w-4 h-4" /> Based in {{ residence }}
+              </span>
+              <span v-if="origin && origin !== residence" class="inline-flex items-center gap-1.5" title="From">
+                <Globe class="w-4 h-4" /> From {{ origin }}
+              </span>
             </div>
             <div v-if="artist.styles.length" class="mt-3 flex flex-wrap gap-1.5">
               <span

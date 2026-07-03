@@ -4,7 +4,7 @@
  * V3 tropical style. Lists every performer with a profile (festival
  * teachers/headliners + city teachers & DJs) from ~/data/artists.ts.
  */
-import { Search, Plane, MapPin } from 'lucide-vue-next'
+import { Search, Plane, MapPin, Globe } from 'lucide-vue-next'
 import { allArtists } from '~/data/artists'
 
 definePageMeta({ layout: false })
@@ -52,11 +52,11 @@ const filtered = computed(() => {
     const matchesText = !q
       || a.artist.name.toLowerCase().includes(q)
       || a.artist.styles.some((s) => s.toLowerCase().includes(q))
-    // Match the location shown on the card, not just weekly-appearance
-    // data — so a "Berlin-based" festival artist appears under Berlin too.
+    // Match where they're based (residence/weekly city) so a
+    // "Berlin-based" festival artist appears under Berlin too.
     const matchesCity = !selectedCity.value
       || a.cityNames.includes(selectedCity.value)
-      || a.location === selectedCity.value
+      || a.residence === selectedCity.value
     return matchesText && matchesCity
   })
 })
@@ -203,8 +203,22 @@ const accents = ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b', '#ec4899
             <div class="font-bold text-lg leading-tight" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
               {{ a.artist.name }}
             </div>
-            <div v-if="a.location" class="mt-1 inline-flex items-center gap-1 text-xs" style="color:#9a5614; font-family: system-ui, sans-serif;">
-              <MapPin class="w-3 h-3" /> {{ a.location }}
+            <!-- Where they're based now (pin) + where they're from (globe) -->
+            <div
+              v-if="a.residence || a.origin"
+              class="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs"
+              style="color:#9a5614; font-family: system-ui, sans-serif;"
+            >
+              <span v-if="a.residence" class="inline-flex items-center gap-1" title="Based in">
+                <MapPin class="w-3 h-3" /> {{ a.residence }}
+              </span>
+              <span
+                v-if="a.origin && a.origin !== a.residence"
+                class="inline-flex items-center gap-1"
+                title="From"
+              >
+                <Globe class="w-3 h-3" /> {{ a.origin }}
+              </span>
             </div>
             <div v-if="a.artist.styles.length" class="mt-2 flex flex-wrap gap-1">
               <span

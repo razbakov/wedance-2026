@@ -64,11 +64,12 @@ export interface ArtistSummary {
   artist: Teacher
   festivalCount: number
   cityNames: string[]
-  location: string | null
+  origin: string | null
+  residence: string | null
 }
 
-// Nationality adjective -> country, for bios that state origin but no
-// residence ("Dominican Bachata artist", "Italian couple"). Only the
+// Nationality adjective -> country of origin, for bios that state it
+// ("Cuban dancer", "Dominican Bachata artist", "Cuban-born"). Only the
 // nationalities that actually appear in the data.
 const NATIONALITY_COUNTRY: Record<string, string> = {
   cuban: 'Cuba',
@@ -84,30 +85,33 @@ const NATIONALITY_COUNTRY: Record<string, string> = {
   french: 'France',
   mexican: 'Mexico',
   puerto: 'Puerto Rico',
+  angolan: 'Angola',
+  argentinian: 'Argentina',
+  argentine: 'Argentina',
 }
 
 /**
- * Best-effort home base, derived — never invented. Order of preference:
+ * Country of origin — derived from the leading nationality the bio
+ * states ("Cuban dancer" / "Cuban-born" -> Cuba). Null if none stated.
+ */
+export function artistOrigin(artist: Teacher): string | null {
+  const m = (artist.bio || '').match(/^([A-Z][a-zà-ÿ]+)(?:-born)?/)
+  return m ? (NATIONALITY_COUNTRY[m[1].toLowerCase()] || null) : null
+}
+
+/**
+ * Where the artist is based now — derived, never invented. In order:
  *   1. A local artist's weekly city (from city data).
  *   2. Stated residence: "Berlin-based" or "based in Berlin".
- *   3. Stated origin: a leading nationality adjective -> its country.
- * Null when the bio states none of these.
+ * Null if the bio states no residence.
  */
-export function artistLocation(artist: Teacher, cityNames: string[]): string | null {
+export function artistResidence(artist: Teacher, cityNames: string[]): string | null {
   if (cityNames.length) return cityNames[0]
   const bio = artist.bio || ''
-  // Residence — "<Place>-based"
   let m = bio.match(/\b([A-Z][A-Za-zÀ-ÿ]+)-based\b/)
   if (m) return m[1]
-  // Residence — "based in <Place>"
   m = bio.match(/based in ([A-Z][A-Za-zÀ-ÿ]+(?:\s[A-Z][A-Za-zÀ-ÿ]+)?)/)
   if (m) return m[1]
-  // Origin — leading nationality adjective
-  m = bio.match(/^([A-Z][a-zà-ÿ]+)/)
-  if (m) {
-    const country = NATIONALITY_COUNTRY[m[1].toLowerCase()]
-    if (country) return country
-  }
   return null
 }
 
@@ -131,7 +135,8 @@ export function allArtists(): ArtistSummary[] {
       artist,
       festivalCount: festivalAppearances(artist.id).length,
       cityNames,
-      location: artistLocation(artist, cityNames),
+      origin: artistOrigin(artist),
+      residence: artistResidence(artist, cityNames),
     }
   })
 }
