@@ -7,9 +7,18 @@ export interface Context {
   db: ReturnType<typeof useDb>
   dancerId: string | null
   isAdmin: boolean
+  // Anonymous voting session id (from the `wd_vote_sid` cookie). Used by the
+  // city-video vote flow to dedupe pairs and cap votes per session. Set by the
+  // trpc event handler, which also writes the cookie back when it mints a new
+  // one. Optional so direct `createCaller` sites (tests, other entry points)
+  // don't have to supply it; the vote flow treats a missing id as "no session".
+  voterSessionId?: string | null
 }
 
-export async function createContext(opts: FetchCreateContextFnOptions): Promise<Context> {
+export async function createContext(
+  opts: FetchCreateContextFnOptions,
+  extra?: { voterSessionId?: string | null },
+): Promise<Context> {
   const db = useDb()
 
   const authHeader = opts.req.headers.get('authorization')
@@ -43,5 +52,5 @@ export async function createContext(opts: FetchCreateContextFnOptions): Promise<
     }
   }
 
-  return { db, dancerId, isAdmin }
+  return { db, dancerId, isAdmin, voterSessionId: extra?.voterSessionId ?? null }
 }
