@@ -109,20 +109,7 @@ const accents = ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b', '#ec4899
             </button>
           </div>
 
-          <div class="flex flex-wrap items-center justify-center gap-2 mt-4">
-            <button
-              v-for="(style, i) in allStyles"
-              :key="style"
-              type="button"
-              class="px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all"
-              :style="searchQuery === style
-                ? { background: accents[i % accents.length], color: 'white', boxShadow: '0 2px 0 -1px ' + accents[i % accents.length] }
-                : { background: 'white', color: accents[i % accents.length], border: '1px solid ' + accents[i % accents.length] + '55' }"
-              @click="searchQuery = searchQuery === style ? '' : style"
-            >
-              {{ style }}
-            </button>
-          </div>
+          <StyleFilter :styles="allStyles" v-model="searchQuery" :accents="accents" class="mt-4" />
         </div>
       </div>
 

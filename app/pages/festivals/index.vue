@@ -237,20 +237,7 @@ const styleChips = ['Salsa', 'Bachata', 'Timba', 'Kizomba', 'Son']
               style="background:white; border:1px solid #3b1f0d33; color:#3b1f0d; font-family: system-ui, sans-serif; box-shadow: 0 1px 0 #3b1f0d0a, 0 6px 16px rgba(59, 31, 18, 0.04);"
             >
           </div>
-          <div class="flex flex-wrap items-center justify-center gap-2 mt-4">
-            <button
-              v-for="(style, i) in styleChips"
-              :key="style"
-              type="button"
-              class="px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all"
-              :style="searchQuery === style
-                ? { background: ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b'][i], color: 'white', boxShadow: '0 2px 0 -1px ' + ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b'][i] }
-                : { background: 'white', color: ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b'][i], border: '1px solid ' + ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b'][i] + '55' }"
-              @click="searchQuery = searchQuery === style ? '' : style"
-            >
-              {{ style }}
-            </button>
-          </div>
+          <StyleFilter :styles="styleChips" v-model="searchQuery" class="mt-4" />
         </div>
       </div>
 

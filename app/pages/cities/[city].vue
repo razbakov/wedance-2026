@@ -241,30 +241,7 @@ const styleChipColors = ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b', 
         </p>
 
         <!-- Style filter chips (V3 warm palette) -->
-        <div class="flex flex-wrap items-center gap-2 mt-6">
-          <button
-            type="button"
-            class="px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all"
-            :style="!selectedStyle
-              ? { background: '#3b1f0d', color: '#fbf5ea', boxShadow: '0 2px 0 -1px #3b1f0d' }
-              : { background: 'white', color: '#5b3a1d', border: '1px solid #3b1f0d33' }"
-            @click="selectedStyle = ''"
-          >
-            All
-          </button>
-          <button
-            v-for="(style, i) in city.styles"
-            :key="style"
-            type="button"
-            class="px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all"
-            :style="selectedStyle === style
-              ? { background: styleChipColors[i % styleChipColors.length], color: 'white', boxShadow: '0 2px 0 -1px ' + styleChipColors[i % styleChipColors.length] }
-              : { background: 'white', color: styleChipColors[i % styleChipColors.length], border: '1px solid ' + styleChipColors[i % styleChipColors.length] + '55' }"
-            @click="selectedStyle = selectedStyle === style ? '' : style"
-          >
-            {{ style }}
-          </button>
-        </div>
+        <StyleFilter :styles="city.styles" v-model="selectedStyle" :accents="styleChipColors" class="mt-6" />
       </div>
 
       <!-- Wave divider -->
