@@ -103,11 +103,11 @@ function formatDateRange(start: string, end: string) {
               class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm italic"
               style="color:#9a5614; font-family:'Playfair Display', serif;"
             >
-              <span v-if="residence" class="inline-flex items-center gap-1.5" title="Based in">
-                <span class="text-base not-italic leading-none">{{ placeFlag(residence) }}</span> Based in {{ residence }}
+              <span v-if="residence" class="inline-flex items-center gap-1.5" :title="'Based in ' + residence">
+                Based in <span class="text-2xl not-italic leading-none">{{ placeFlag(residence) }}</span>
               </span>
-              <span v-if="origin && origin !== residence" class="inline-flex items-center gap-1.5" title="From">
-                <span class="text-base not-italic leading-none">{{ placeFlag(origin) }}</span> From {{ origin }}
+              <span v-if="origin && origin !== residence" class="inline-flex items-center gap-1.5" :title="'From ' + origin">
+                From <span class="text-2xl not-italic leading-none">{{ placeFlag(origin) }}</span>
               </span>
               <span
                 v-if="languages.length"

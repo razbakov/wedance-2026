@@ -88,17 +88,14 @@ const rootTag = computed(() => (props.selectable ? 'button' : NuxtLinkComponent)
         {{ artist.name }}
       </div>
 
-      <!-- Places (flags) + languages (2-letter codes) -->
+      <!-- Place flags + languages (2-letter codes) -->
       <div
         v-if="residence || origin || languages.length"
-        class="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs"
-        style="color:#5b3a1d; font-family: system-ui, sans-serif;"
+        class="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1"
       >
-        <span v-if="residence" class="inline-flex items-center gap-1" :title="'Based in ' + residence">
-          <span class="leading-none">{{ placeFlag(residence) }}</span> {{ residence }}
-        </span>
-        <span v-if="origin && origin !== residence" class="inline-flex items-center gap-1" :title="'From ' + origin" style="color:#9a5614;">
-          <span class="leading-none">{{ placeFlag(origin) }}</span> {{ origin }}
+        <span class="inline-flex items-center gap-1 text-lg leading-none">
+          <span v-if="residence" :title="'Based in ' + residence">{{ placeFlag(residence) }}</span>
+          <span v-if="origin && origin !== residence" :title="'From ' + origin">{{ placeFlag(origin) }}</span>
         </span>
         <span
           v-if="languages.length"
