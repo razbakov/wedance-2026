@@ -1,4 +1,7 @@
-// Auth composable — magic link + session-based authentication
+// Auth composable — email + password + session-based authentication.
+// Magic-link methods (requestMagicLink/verifyMagicLink) are retained but
+// dormant: the primary sign-in UX is email+password, but the pages
+// app/pages/auth/verify.vue and app/pages/charanga/claim.vue still call them.
 const _isSignedIn = ref(false)
 const _dancerId = ref<string | null>(null)
 const _dancerName = ref<string | null>(null)
@@ -55,6 +58,35 @@ export function useAuth() {
     return result
   }
 
+  async function login(data: { email: string; password: string }) {
+    const result = await $trpc.auth.login.mutate({
+      email: data.email,
+      password: data.password,
+    })
+    setSession(result)
+    return result
+  }
+
+  async function register(data: {
+    name: string
+    email: string
+    password: string
+    danceStyles?: string[]
+    role?: 'lead' | 'follow' | 'both'
+    city?: string
+  }) {
+    const result = await $trpc.auth.register.mutate({
+      name: data.name,
+      email: data.email,
+      password: data.password,
+      danceStyles: data.danceStyles ?? [],
+      role: data.role,
+      city: data.city,
+    })
+    setSession(result)
+    return result
+  }
+
   function setSession(data: {
     sessionToken: string
     dancerId: string
@@ -83,6 +115,8 @@ export function useAuth() {
     isAdmin: readonly(_isAdmin),
     isLoading: readonly(_isLoading),
     init,
+    login,
+    register,
     requestMagicLink,
     verifyMagicLink,
     signOut,
