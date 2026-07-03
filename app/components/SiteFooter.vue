@@ -62,10 +62,19 @@ const year = 2026
         </div>
       </div>
 
+      <!-- Legal (Germany/EU: Impressum + Datenschutz mandatory; AGB for ticket sales) -->
+      <div class="mt-10 pt-6 border-t flex flex-wrap items-center gap-x-4 gap-y-2" style="border-color:#3b1f0d15;">
+        <NuxtLink to="/impressum" class="text-xs hover:underline" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Impressum</NuxtLink>
+        <NuxtLink to="/datenschutz" class="text-xs hover:underline" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Datenschutz</NuxtLink>
+        <NuxtLink to="/agb" class="text-xs hover:underline" style="color:#5b3a1d; font-family: system-ui, sans-serif;">AGB</NuxtLink>
+      </div>
+
       <!-- Bottom bar -->
-      <div class="mt-10 pt-6 border-t flex flex-col sm:flex-row items-center justify-between gap-3" style="border-color:#3b1f0d15;">
+      <div class="mt-4 flex flex-col sm:flex-row items-center justify-between gap-2">
         <div class="text-xs" style="color:#9a5614; font-family: system-ui, sans-serif;">
-          © {{ year }} WeDance
+          © {{ year }} WeDance ·
+          Made by
+          <a href="https://razbakov.com" target="_blank" rel="noopener" class="hover:underline" style="color:#dc2626;">Alösha</a>
         </div>
         <div class="text-sm" style="font-family:'Caveat', cursive; font-size:18px; color:#9a5614;">
           Made for dancers, by dancers.
