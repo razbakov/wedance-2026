@@ -37,6 +37,9 @@ async function seed() {
 
   await seedDancers()
 
+  await seedCityVideos()
+  await seedGiveaways()
+
   // Seed signups for salsa-open-berlin only (demo data)
   const { eq: eq2 } = require('drizzle-orm')
   const [salsaOpen] = await db.select().from(schema.festivals).where(eq2(schema.festivals.slug, 'salsa-open-berlin-2026'))
@@ -127,6 +130,68 @@ async function seedFestivalSignups(festivalId: string) {
     }).onConflictDoNothing()
   }
   console.log('Seeded festival signups (7 dancers)')
+}
+
+// --- O-009: city video voting + giveaways seed --------------------------
+
+/** Current competition month key, e.g. '2026-07' (UTC). Mirrors cityVideo router. */
+function currentMonth(now = new Date()): string {
+  const y = now.getUTCFullYear()
+  const m = String(now.getUTCMonth() + 1).padStart(2, '0')
+  return `${y}-${m}`
+}
+
+/** YouTube hqdefault thumbnail from a watch/youtu.be URL (seed helper). */
+function ytThumb(url: string): string | null {
+  const m = url.match(/(?:v=|youtu\.be\/)([\w-]{11})/)
+  return m ? `https://img.youtube.com/vi/${m[1]}/hqdefault.jpg` : null
+}
+
+async function seedCityVideos() {
+  const month = currentMonth()
+  // Real, public YouTube dance videos. Seeded as `approved` so the demo pool
+  // is votable out of the box. Clearly seed data — swap for real submissions.
+  const videos: Array<{ citySlug: string; title: string; videoUrl: string; danceStyle: string }> = [
+    { citySlug: 'munich', title: 'Salsa social night — Munich floor', videoUrl: 'https://www.youtube.com/watch?v=Xa2sWK8w1kU', danceStyle: 'Salsa' },
+    { citySlug: 'munich', title: 'Bachata sensual demo', videoUrl: 'https://www.youtube.com/watch?v=7oEWEMDo0DA', danceStyle: 'Bachata' },
+    { citySlug: 'munich', title: 'Cuban salsa rueda', videoUrl: 'https://www.youtube.com/watch?v=kz1eSPMYUCM', danceStyle: 'Cuban Salsa' },
+    { citySlug: 'berlin', title: 'Berlin bachata jam', videoUrl: 'https://www.youtube.com/watch?v=6Mgqbai3fKo', danceStyle: 'Bachata' },
+    { citySlug: 'berlin', title: 'Salsa on2 performance', videoUrl: 'https://www.youtube.com/watch?v=Q0oIoR9mLwc', danceStyle: 'Salsa' },
+  ]
+
+  for (const v of videos) {
+    await db.insert(schema.cityVideos).values({
+      citySlug: v.citySlug,
+      submittedByEmail: 'seed@wedance.vip',
+      title: v.title,
+      videoUrl: v.videoUrl,
+      thumbnailUrl: ytThumb(v.videoUrl),
+      danceStyle: v.danceStyle,
+      competitionMonth: month,
+      status: 'approved',
+      eloScore: 1500,
+    }).onConflictDoNothing()
+  }
+  console.log(`Seeded ${videos.length} approved city videos for ${month}`)
+}
+
+async function seedGiveaways() {
+  const now = new Date()
+  const endsAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000) // +30 days
+  await db.insert(schema.giveaways).values({
+    citySlug: 'munich',
+    sponsorName: 'Cuban Fire in Munich',
+    title: '2 free festival passes',
+    description: 'Enter to win a pair of full-weekend passes to Cuban Fire in Munich. Free entry, no purchase necessary.',
+    prizeDescription: '2× full-weekend festival passes',
+    ctaUrl: '/festivals/cuban-fire-munich-2026',
+    imageUrl: null,
+    termsUrl: '/agb',
+    startsAt: now,
+    endsAt,
+    status: 'active',
+  }).onConflictDoNothing()
+  console.log('Seeded 1 active Munich giveaway')
 }
 
 seed()
