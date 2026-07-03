@@ -7,9 +7,13 @@ export default defineNuxtConfig({
   app: {
     head: {
       link: [
-        // Rueda dot circle mark — modern browsers pick the SVG over the .ico
+        // WeDance flame mark, tinted V3 red (#dc2626 — same red as
+        // "night" in the homepage H1). Modern browsers use the SVG;
+        // older browsers + Windows fall back to the multi-size .ico;
+        // iOS home-screen uses the 180x180 PNG.
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
-        { rel: 'alternate icon', href: '/favicon.ico' },
+        { rel: 'alternate icon', href: '/favicon.ico', sizes: '16x16 32x32 48x48 64x64' },
+        { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' },
       ],
     },
   },
