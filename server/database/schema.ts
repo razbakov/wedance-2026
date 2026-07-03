@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, integer, boolean, timestamp, date, unique, json } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, text, integer, boolean, timestamp, date, unique, index, json } from 'drizzle-orm/pg-core'
 
 export const dancers = pgTable('dancers', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -94,3 +94,79 @@ export const dinnerGroupMembers = pgTable('dinner_group_members', {
   groupId: uuid('group_id').notNull().references(() => dinnerGroups.id),
   dancerId: uuid('dancer_id').notNull().references(() => dancers.id),
 })
+
+// ---------------------------------------------------------------------------
+// City dance-video voting + competitions + giveaways (O-009)
+//
+// Videos are EMBED URLs (YouTube / Instagram / TikTok), never hosted uploads —
+// we store the source URL + a derived thumbnail URL. Ranking is ELO
+// (Bradley-Terry, start 1500, K=32), updated on every pairwise vote — NOT raw
+// vote count. Submissions default to `pending`; only `approved` videos enter
+// the voting pool or can win Video of the Month.
+// ---------------------------------------------------------------------------
+
+export const cityVideos = pgTable('city_videos', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  citySlug: text('city_slug').notNull(),
+  // Optional link to a known dancer; submissions from the public form are
+  // identified by email only until (if ever) claimed.
+  dancerId: uuid('dancer_id').references(() => dancers.id),
+  submittedByEmail: text('submitted_by_email').notNull(),
+  title: text('title').notNull(),
+  videoUrl: text('video_url').notNull(),
+  thumbnailUrl: text('thumbnail_url'),
+  danceStyle: text('dance_style'),
+  // Competition bucket, e.g. '2026-07'. Winner = highest ELO among approved
+  // videos for the current month.
+  competitionMonth: text('competition_month').notNull(),
+  status: text('status').notNull().default('pending').$type<'pending' | 'approved' | 'rejected'>(),
+  eloScore: integer('elo_score').notNull().default(1500),
+  voteCount: integer('vote_count').notNull().default(0),
+  createdAt: timestamp('created_at').defaultNow(),
+})
+
+export const videoVotes = pgTable('video_votes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  citySlug: text('city_slug').notNull(),
+  winnerVideoId: uuid('winner_video_id').notNull().references(() => cityVideos.id),
+  loserVideoId: uuid('loser_video_id').notNull().references(() => cityVideos.id),
+  // Anonymous session id from the `wd_vote_sid` cookie (server-set if missing).
+  voterSessionId: text('voter_session_id').notNull(),
+  voterDancerId: uuid('voter_dancer_id').references(() => dancers.id),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (t) => [
+  // Dedupe support: `getPair` and `vote` look up every prior vote for a
+  // session in a city to avoid re-showing a pair. A pair (A,B) is treated as
+  // unordered — the router canonicalises the two ids before comparing, so
+  // (A,B) and (B,A) collide. This index makes the per-session lookup cheap.
+  index('video_votes_session_idx').on(t.voterSessionId, t.citySlug),
+])
+
+export const giveaways = pgTable('giveaways', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  citySlug: text('city_slug').notNull(),
+  sponsorName: text('sponsor_name').notNull(),
+  title: text('title').notNull(),
+  description: text('description').notNull(),
+  prizeDescription: text('prize_description').notNull(),
+  // The promoted festival / class / social — where "Enter" and the sponsor
+  // brand point.
+  ctaUrl: text('cta_url').notNull(),
+  imageUrl: text('image_url'),
+  termsUrl: text('terms_url'),
+  startsAt: timestamp('starts_at').notNull(),
+  endsAt: timestamp('ends_at').notNull(),
+  status: text('status').notNull().default('active').$type<'active' | 'ended' | 'draft'>(),
+  createdAt: timestamp('created_at').defaultNow(),
+})
+
+export const giveawayEntries = pgTable('giveaway_entries', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  giveawayId: uuid('giveaway_id').notNull().references(() => giveaways.id),
+  dancerId: uuid('dancer_id').references(() => dancers.id),
+  email: text('email').notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (t) => [
+  // Free-entry: one entry per email per giveaway.
+  unique('giveaway_entry_email_unique').on(t.giveawayId, t.email),
+])
