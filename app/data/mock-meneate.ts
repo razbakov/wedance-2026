@@ -43,7 +43,7 @@ export const mockTeachers: Teacher[] = [
     id: 'barbara',
     name: 'Barbara Jimenez',
     photo: 'https://firebasestorage.googleapis.com/v0/b/wedance-4abe3.appspot.com/o/media%2FtvR012ArEpQhCJdPHh6G7sLuqoO2%2F8b3961ff-18d4-4357-8504-bcc76af45bd5?alt=media&token=11eb17bc-1844-45a9-b5c5-e5ab37c035e2',
-    bio: 'Cuban dancer and instructor based in Italy. Barbara brings explosive energy to her Timba and Ladies Styling workshops, combining Cuban roots with contemporary fusion elements.',
+    bio: 'Explosive energy in every Timba and Ladies Styling class — Cuban roots meeting contemporary fusion. You leave sweating and grinning.',
     styles: ['Timba', 'Ladies', 'Afro'],
     videoUrl: 'https://www.youtube.com/embed/tnkxaw7_xxg',
     socialLinks: [
@@ -54,7 +54,7 @@ export const mockTeachers: Teacher[] = [
     id: 'silvio',
     name: 'Silvio Leroy',
     photo: '/people/silvio.jpg',
-    bio: 'Cuban artist based in Spain, known for his deep knowledge of Rumba, Son, and Afrocuban traditions. Silvio is a master of Columbia and traditional Cuban dance forms.',
+    bio: 'A master of Columbia and traditional Cuban forms — the deep Rumba, Son, and Afrocuban knowledge most festivals only wish they had.',
     styles: ['Rumba', 'Son', 'Afro'],
     socialLinks: [
       { platform: 'instagram', url: 'https://instagram.com/silvio_leroy' },
@@ -64,7 +64,7 @@ export const mockTeachers: Teacher[] = [
     id: 'osmel',
     name: 'Osmel Relámpago',
     photo: '/people/osmel.jpg',
-    bio: 'Cuban dancer based in Austria. Relámpago is known for his powerful Afro, Timba Solo, and Rumba style. A regular fixture in the Vienna Cuban dance scene.',
+    bio: 'Powerful Afro, Timba Solo, and Rumba — the lightning ("Relámpago") that electrifies Vienna\'s Cuban floor.',
     styles: ['Afro', 'Timba', 'Rumba'],
     socialLinks: [
       { platform: 'instagram', url: 'https://instagram.com/relampago_acflow' },
@@ -74,7 +74,7 @@ export const mockTeachers: Teacher[] = [
     id: 'lisandra',
     name: 'Lisandra Garcia',
     photo: '/people/lisandra.jpg',
-    bio: 'Cuban dancer based in Hungary. Lisandra specializes in Son Cubano, Lady Style, and Cha Cha Cha with a deep connection to Cuban musical traditions.',
+    bio: 'Son Cubano, Lady Style, and Cha Cha Cha danced from inside the music — elegance with a deep connection to Cuban tradition.',
     styles: ['Son', 'Ladies', 'Timba'],
     socialLinks: [
       { platform: 'instagram', url: 'https://instagram.com/alocubanolisandra' },
@@ -84,7 +84,7 @@ export const mockTeachers: Teacher[] = [
     id: 'emilia',
     name: 'Emilia Pedra',
     photo: '/people/emilia.jpg',
-    bio: 'Brazilian dancer based in Spain. Emilia teaches Son and Casino partner work alongside Alexei, combining Brazilian movement quality with Cuban dance techniques.',
+    bio: 'Brazilian movement quality meets Cuban partner work — Son and Casino with Alexei that make connection feel effortless.',
     styles: ['Son', 'Casino'],
     socialLinks: [
       { platform: 'instagram', url: 'https://instagram.com/alexei.emilia' },
@@ -94,7 +94,7 @@ export const mockTeachers: Teacher[] = [
     id: 'alexei',
     name: 'Alexei Ramos',
     photo: '/people/alexei.jpg',
-    bio: 'Brazilian dancer based in Spain. Together with Emilia, Alexei is known for their Son Bootcamp and Casino en Pareja workshops at festivals across Europe.',
+    bio: 'Half of Europe\'s favourite Son Bootcamp — Casino en Pareja that finally clicks, taught with Emilia.',
     styles: ['Son', 'Casino'],
     socialLinks: [
       { platform: 'instagram', url: 'https://instagram.com/alexei.emilia' },
@@ -104,7 +104,7 @@ export const mockTeachers: Teacher[] = [
     id: 'ivan',
     name: 'Ivan Jovanovic',
     photo: '/people/ivan.jpg',
-    bio: 'Montenegrin dancer specializing in Casino en Pareja and Rueda de Casino. Ivan and Ivana bring precision and joy to their partner work workshops.',
+    bio: 'Precision and joy in every Casino en Pareja and Rueda — partner work that just works, taught with Ivana.',
     styles: ['Casino', 'Rueda'],
     socialLinks: [
       { platform: 'instagram', url: 'https://instagram.com/jovanovic.77' },
@@ -114,7 +114,7 @@ export const mockTeachers: Teacher[] = [
     id: 'ivana',
     name: 'Ivana Jovanovic',
     photo: '/people/ivana.jpg',
-    bio: 'Montenegrin dancer and partner of Ivan. Together they teach Casino en Pareja and Rueda de Casino at international festivals.',
+    bio: 'The clarity that makes rueda finally click — Casino en Pareja and Rueda de Casino, taught with Ivan.',
     styles: ['Casino', 'Rueda'],
     socialLinks: [
       { platform: 'instagram', url: 'https://instagram.com/ivaninsvet' },
@@ -124,7 +124,7 @@ export const mockTeachers: Teacher[] = [
     id: 'jan',
     name: 'Jan Bervar',
     photo: 'https://firebasestorage.googleapis.com/v0/b/wedance-4abe3.appspot.com/o/media%2FtvR012ArEpQhCJdPHh6G7sLuqoO2%2Fd6b098a3-72fc-4b7b-ab50-59564e7a3851?alt=media&token=e6ebc555-cc78-4507-b852-87b3c506c39d',
-    bio: 'Slovenian music theory expert and dancer. Jan\'s theory workshops on Timba musicality, clave concepts, and Changüí are renowned for making complex musical concepts accessible.',
+    bio: 'Makes clave, Timba musicality, and Changüí finally make sense — the theory workshop that changes how you hear the music.',
     styles: ['Theory'],
     socialLinks: [
       { platform: 'instagram', url: 'https://instagram.com/cubanaljubljana' },
@@ -134,7 +134,7 @@ export const mockTeachers: Teacher[] = [
     id: 'bele',
     name: 'Bele (Fayber Beleno)',
     photo: 'https://firebasestorage.googleapis.com/v0/b/wedance-4abe3.appspot.com/o/media%2FtvR012ArEpQhCJdPHh6G7sLuqoO2%2F89711935-8705-44ec-afc1-d4e110913fdf?alt=media&token=b290bb2f-9ed6-4787-955e-897a9682220d',
-    bio: 'Venezuelan dancer known for Reggaeton and Afro fusion styles. Bele brings high energy and urban flair to his workshops.',
+    bio: 'High-energy Reggaeton and Afro fusion — urban flair that lights up the floor and gets everyone moving.',
     styles: ['Reggaeton', 'Afro'],
     socialLinks: [
       { platform: 'instagram', url: 'https://www.instagram.com/bele.dance/' },

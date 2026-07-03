@@ -1,0 +1,70 @@
+<script setup lang="ts">
+/**
+ * /find-your-dance — placeholder for the dance-finder game (built in v4,
+ * to be integrated here later). For now: a friendly holding page + the
+ * big three as a quick manual start.
+ */
+import { ArrowRight, Sparkles } from 'lucide-vue-next'
+
+definePageMeta({ layout: false })
+
+useHead({
+  title: 'WeDance — Find your dance',
+  link: [
+    { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+    { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
+    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Caveat:wght@400;700&display=swap' },
+  ],
+})
+
+const quickPicks = [
+  { style: 'Salsa', blurb: 'Fast, social, everywhere.', accent: '#dc2626' },
+  { style: 'Bachata', blurb: 'Close, romantic, easy start.', accent: '#a855f7' },
+  { style: 'Kizomba', blurb: 'Slow, grounded, connected.', accent: '#0891b2' },
+]
+</script>
+
+<template>
+  <div class="min-h-screen" style="background:#fbf5ea; color:#3b1f0d; font-family:'Playfair Display', serif;">
+    <SiteHeader />
+
+    <section class="max-w-3xl mx-auto px-4 pt-14 pb-8 text-center">
+      <div class="text-sm tracking-widest uppercase mb-3" style="color:#9a5614;">Find your dance</div>
+      <h1 class="text-5xl sm:text-6xl leading-[0.98]" style="color:#3b1f0d;">
+        Not sure where <em class="italic" style="color:#dc2626;">to start?</em>
+      </h1>
+      <p class="mt-5 text-base sm:text-lg leading-relaxed max-w-xl mx-auto" style="color:#5b3a1d;">
+        A quick quiz that matches you to a dance by feel — not jargon — is coming soon. Meanwhile, pick by vibe:
+      </p>
+
+      <!-- Placeholder banner -->
+      <div class="mt-6 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-widest" style="background:#dc262614; color:#dc2626;">
+        <Sparkles class="w-4 h-4" /> Dance-finder quiz · coming soon
+      </div>
+    </section>
+
+    <section class="max-w-3xl mx-auto px-4 pb-16">
+      <div class="grid gap-4 sm:grid-cols-3">
+        <NuxtLink
+          v-for="p in quickPicks"
+          :key="p.style"
+          :to="`/cities?style=${p.style}`"
+          class="group rounded-2xl bg-white border p-6 text-center transition-all hover:-translate-y-1"
+          :style="{ borderColor: p.accent + '55', boxShadow: '0 1px 0 ' + p.accent + '22, 0 8px 22px rgba(59,31,18,0.05)' }"
+        >
+          <div class="text-2xl font-black" style="font-family:'Playfair Display', serif; color:#3b1f0d;">{{ p.style }}</div>
+          <div class="mt-1 text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">{{ p.blurb }}</div>
+          <div class="mt-4 inline-flex items-center gap-1 text-xs font-bold italic" :style="{ color: p.accent }">
+            Find classes <ArrowRight class="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
+          </div>
+        </NuxtLink>
+      </div>
+
+      <p class="mt-6 text-center text-sm" style="color:#9a5614; font-family:'Caveat', cursive; font-size:18px;">
+        — or just try a free taster class and see what sticks.
+      </p>
+    </section>
+
+    <SiteFooter />
+  </div>
+</template>
