@@ -14,6 +14,10 @@ import { parseVideoUrl } from '~/lib/videoEmbed'
 const props = defineProps<{
   citySlug: string
   accent?: string
+  // Slim "hook" mode: one-line label + the pair only. No votes-cast chip, no
+  // end-state boxes — when there's no pair to show, the whole widget collapses
+  // to nothing so it never pushes the rest of the page down with a blank.
+  compact?: boolean
 }>()
 
 const { $trpc } = useNuxtApp()
@@ -40,6 +44,10 @@ const activeEmbed = ref<string | null>(null) // id of the video expanded to a li
 function embedFor(v: Vid) {
   return parseVideoUrl(v.videoUrl)
 }
+
+// In compact (hook) mode, once loading settles with no pair to show, collapse
+// the whole widget so we never render a blank box at the top of the page.
+const collapsed = computed(() => props.compact && !loading.value && !pair.value)
 
 async function loadPair() {
   loading.value = true
@@ -88,9 +96,17 @@ onMounted(loadPair)
 </script>
 
 <template>
-  <div>
-    <!-- Header -->
-    <div class="mb-4 flex items-baseline justify-between gap-3">
+  <!-- Compact hook with nothing to show collapses to nothing (no blank box). -->
+  <div v-if="!(compact && collapsed)">
+    <!-- Compact header: one-line label. -->
+    <div v-if="compact" class="mb-3">
+      <p class="text-sm sm:text-base" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+        Which is better? <em class="italic" :style="{ color: accent }">Vote the daily matchup.</em>
+      </p>
+    </div>
+
+    <!-- Full header -->
+    <div v-else class="mb-4 flex items-baseline justify-between gap-3">
       <div>
         <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">Video of the day</div>
         <h3 class="mt-1 text-xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">

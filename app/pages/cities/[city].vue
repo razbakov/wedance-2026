@@ -300,6 +300,13 @@ onMounted(() => {
       </svg>
     </section>
 
+    <!-- TOP HOOK — compact Video-of-the-Day matchup. Entry point into the full
+         vote/competition block further down (#vote / #compete). Collapses to
+         nothing when there's no pair, so it never pushes the page down blank. -->
+    <section class="max-w-4xl mx-auto px-4 pt-6">
+      <CityVideoVote :city-slug="slug" :accent="accent" compact />
+    </section>
+
     <!-- PEOPLE TABS -->
     <section class="border-b" style="border-color:#3b1f0d22; background:rgba(251, 245, 234, 0.5);">
       <div class="max-w-4xl mx-auto px-4">
