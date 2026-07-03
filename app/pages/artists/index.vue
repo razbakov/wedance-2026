@@ -52,7 +52,11 @@ const filtered = computed(() => {
     const matchesText = !q
       || a.artist.name.toLowerCase().includes(q)
       || a.artist.styles.some((s) => s.toLowerCase().includes(q))
-    const matchesCity = !selectedCity.value || a.cityNames.includes(selectedCity.value)
+    // Match the location shown on the card, not just weekly-appearance
+    // data — so a "Berlin-based" festival artist appears under Berlin too.
+    const matchesCity = !selectedCity.value
+      || a.cityNames.includes(selectedCity.value)
+      || a.location === selectedCity.value
     return matchesText && matchesCity
   })
 })
