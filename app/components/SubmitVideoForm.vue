@@ -1,0 +1,164 @@
+<script setup lang="ts">
+/**
+ * Submit your video to enter the monthly competition. Collects title, video
+ * URL (YouTube/Instagram/TikTok), optional style, and email. Calls
+ * `cityVideo.submit` which stores the entry as `pending` for admin review.
+ */
+import { CheckCircle2 } from 'lucide-vue-next'
+import { parseVideoUrl } from '~/lib/videoEmbed'
+
+const props = defineProps<{
+  citySlug: string
+  accent?: string
+}>()
+
+const emit = defineEmits<{ submitted: [] }>()
+
+const { $trpc } = useNuxtApp()
+const accent = computed(() => props.accent ?? '#dc2626')
+
+const title = ref('')
+const videoUrl = ref('')
+const danceStyle = ref('')
+const email = ref('')
+
+const submitting = ref(false)
+const submitted = ref(false)
+const error = ref<string | null>(null)
+
+const provider = computed(() => (videoUrl.value.trim() ? parseVideoUrl(videoUrl.value).provider : null))
+const urlLooksValid = computed(() => provider.value !== null && provider.value !== 'unknown')
+
+async function submit() {
+  error.value = null
+  if (!title.value.trim() || !videoUrl.value.trim() || !email.value.trim()) {
+    error.value = 'Please fill in title, video URL, and email.'
+    return
+  }
+  submitting.value = true
+  try {
+    await $trpc.cityVideo.submit.mutate({
+      citySlug: props.citySlug,
+      title: title.value.trim(),
+      videoUrl: videoUrl.value.trim(),
+      danceStyle: danceStyle.value.trim() || undefined,
+      email: email.value.trim(),
+    })
+    submitted.value = true
+    emit('submitted')
+  } catch (e: any) {
+    error.value = e?.message ?? 'Could not submit your video. Check the URL and try again.'
+  } finally {
+    submitting.value = false
+  }
+}
+
+function reset() {
+  title.value = ''
+  videoUrl.value = ''
+  danceStyle.value = ''
+  email.value = ''
+  submitted.value = false
+  error.value = null
+}
+</script>
+
+<template>
+  <div
+    class="rounded-2xl border bg-white p-5"
+    :style="{ borderColor: accent + '44', boxShadow: '0 1px 0 ' + accent + '18, 0 8px 22px rgba(59,31,18,0.05)' }"
+  >
+    <div v-if="submitted" class="flex flex-col items-center gap-2 py-6 text-center">
+      <CheckCircle2 class="h-8 w-8" :style="{ color: accent }" />
+      <p class="text-base font-bold" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+        Submitted — pending review
+      </p>
+      <p class="max-w-xs text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+        We review every entry before it joins the vote. You'll appear in the competition once approved.
+      </p>
+      <button
+        type="button"
+        class="mt-2 text-xs font-bold underline"
+        :style="{ color: accent, fontFamily: 'system-ui, sans-serif' }"
+        @click="reset"
+      >
+        Submit another
+      </button>
+    </div>
+
+    <form v-else class="space-y-3" @submit.prevent="submit">
+      <div>
+        <div class="text-[10px] uppercase tracking-[0.3em] font-bold" :style="{ color: accent }">Enter the competition</div>
+        <h3 class="mt-1 text-lg font-bold" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+          Submit your video
+        </h3>
+        <p class="mt-0.5 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+          Paste a YouTube, Instagram, or TikTok link. Winners get featured and win prizes.
+        </p>
+      </div>
+
+      <input
+        v-model="title"
+        type="text"
+        placeholder="Video title"
+        maxlength="120"
+        class="w-full rounded-lg border px-3 py-2 text-sm outline-none"
+        style="border-color:#3b1f0d33; font-family: system-ui, sans-serif; color:#3b1f0d;"
+      >
+
+      <div>
+        <input
+          v-model="videoUrl"
+          type="url"
+          placeholder="https://youtube.com/watch?v=…"
+          class="w-full rounded-lg border px-3 py-2 text-sm outline-none"
+          style="border-color:#3b1f0d33; font-family: system-ui, sans-serif; color:#3b1f0d;"
+        >
+        <p
+          v-if="videoUrl.trim() && !urlLooksValid"
+          class="mt-1 text-[11px]"
+          style="color:#b45309; font-family: system-ui, sans-serif;"
+        >
+          We couldn't recognise this as a YouTube, Instagram, or TikTok link — double-check it.
+        </p>
+        <p
+          v-else-if="urlLooksValid"
+          class="mt-1 text-[11px] capitalize"
+          :style="{ color: accent, fontFamily: 'system-ui, sans-serif' }"
+        >
+          {{ provider }} link detected ✓
+        </p>
+      </div>
+
+      <input
+        v-model="danceStyle"
+        type="text"
+        placeholder="Dance style (optional) — e.g. Bachata"
+        maxlength="60"
+        class="w-full rounded-lg border px-3 py-2 text-sm outline-none"
+        style="border-color:#3b1f0d33; font-family: system-ui, sans-serif; color:#3b1f0d;"
+      >
+
+      <input
+        v-model="email"
+        type="email"
+        placeholder="Your email"
+        class="w-full rounded-lg border px-3 py-2 text-sm outline-none"
+        style="border-color:#3b1f0d33; font-family: system-ui, sans-serif; color:#3b1f0d;"
+      >
+
+      <p v-if="error" class="text-xs" style="color:#dc2626; font-family: system-ui, sans-serif;">
+        {{ error }}
+      </p>
+
+      <button
+        type="submit"
+        :disabled="submitting"
+        class="inline-flex w-full items-center justify-center rounded-full px-5 py-2.5 text-sm font-bold uppercase tracking-wider text-white transition-all disabled:opacity-50"
+        :style="{ background: accent, boxShadow: '0 3px 0 -1px rgba(0,0,0,0.15)' }"
+      >
+        {{ submitting ? 'Submitting…' : 'Submit my video' }}
+      </button>
+    </form>
+  </div>
+</template>
