@@ -1,5 +1,11 @@
 <script setup lang="ts">
-import { Flame } from 'lucide-vue-next'
+/**
+ * WeeklyCalendar — chronological per-day list, V3 tropical style.
+ * Replaces the old shadcn time-x-venue table: same data, easier to scan
+ * on mobile, aligned with the cream + Playfair Display + Caveat
+ * language used on /, /festivals, /cities, /my-plan.
+ */
+import { Flame, MapPin } from 'lucide-vue-next'
 import type { CityEvent, DayOfWeek } from '~/types/city'
 import type { Teacher } from '~/types/festival'
 import { getStyleColors } from '~/lib/style-colors'
@@ -17,10 +23,10 @@ const emit = defineEmits<{
 
 const days: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
-// Compute day labels with dates for current week (like festival ScheduleTab)
+// Day labels: e.g. "Monday, Jan 8" for the current week.
 const dayLabels = computed(() => {
   const now = new Date()
-  const currentDay = now.getDay() // 0=Sun, 1=Mon, ...
+  const currentDay = now.getDay()
   const mondayOffset = currentDay === 0 ? -6 : 1 - currentDay
   const monday = new Date(now)
   monday.setDate(now.getDate() + mondayOffset)
@@ -47,31 +53,14 @@ function personFor(event: CityEvent): { person: Teacher; id: string } | undefine
   return person ? { person, id } : undefined
 }
 
-// Days that have events (skip empty days)
 const daysWithEvents = computed(() =>
   days.filter(day => props.events.some(e => e.day === day)),
 )
 
-// All events for a day (including socials — socials go in the grid too)
 function eventsForDay(day: DayOfWeek) {
   return props.events
     .filter(e => e.day === day)
     .sort((a, b) => a.time.localeCompare(b.time))
-}
-
-// Venues that have events on a specific day (not all venues globally)
-function venuesForDay(day: DayOfWeek) {
-  return [...new Set(eventsForDay(day).map(e => e.venue))]
-}
-
-// Unique time slots for a day
-function timeSlotsForDay(day: DayOfWeek) {
-  return [...new Set(eventsForDay(day).map(e => e.time))].sort()
-}
-
-// Find event at specific day/time/venue
-function eventAt(day: DayOfWeek, time: string, venue: string): CityEvent | undefined {
-  return eventsForDay(day).find(e => e.time === time && e.venue === venue)
 }
 
 function levelChilis(level?: string): number {
@@ -81,98 +70,161 @@ function levelChilis(level?: string): number {
   return 0
 }
 
-const typeBadge: Record<string, { label: string; class: string }> = {
-  class: { label: 'Class', class: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300' },
-  social: { label: 'Social', class: 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300' },
-  practica: { label: 'Practica', class: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300' },
-  workshop: { label: 'Workshop', class: 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300' },
+// Type accent — warm, not shadcn palette
+type EventType = 'class' | 'social' | 'practica' | 'workshop'
+const typeStyle: Record<EventType, { label: string; color: string }> = {
+  class:    { label: 'Class',    color: '#0891b2' },
+  social:   { label: 'Social',   color: '#dc2626' },
+  practica: { label: 'Practica', color: '#f59e0b' },
+  workshop: { label: 'Workshop', color: '#a855f7' },
+}
+
+// Style accent color — resolved from the shared getStyleColors util.
+// Falls back to a warm neutral if the util returns a non-color class.
+function styleAccent(style: string): string {
+  const c = getStyleColors(style)
+  const map: Record<string, string> = {
+    salsa:    '#dc2626',
+    bachata:  '#a855f7',
+    kizomba:  '#ec4899',
+    timba:    '#f59e0b',
+    son:      '#16a34a',
+    rumba:    '#0891b2',
+    'urban kiz': '#7c3aed',
+    semba:    '#f59e0b',
+    'hip hop':'#0ea5e9',
+  }
+  return map[style.toLowerCase()] || (c as any)?.hex || '#9a5614'
 }
 
 const today = new Date().toLocaleDateString('en-US', { weekday: 'long' }) as DayOfWeek
 </script>
 
 <template>
-  <div class="space-y-6">
-    <!-- Day sections -->
-    <div v-for="day in daysWithEvents" :key="day" class="space-y-2">
-      <h3
-        class="text-base font-semibold sticky top-11 bg-background py-2 z-10 border-b"
-        :class="day === today ? 'text-primary' : ''"
-      >
-        {{ dayLabels[day] }}
-        <span v-if="day === today" class="text-[10px] font-normal bg-primary/10 text-primary px-1.5 py-0.5 rounded-full ml-2">Today</span>
-      </h3>
+  <div class="space-y-10">
+    <!-- Empty (nothing across the whole week matches filters) -->
+    <div
+      v-if="!daysWithEvents.length"
+      class="text-center py-14 rounded-2xl border-2 border-dashed"
+      style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);"
+    >
+      <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+        No events match your filters.
+      </p>
+    </div>
 
-      <!-- Table: time × venue grid (venues scoped to this day) -->
-      <div v-if="timeSlotsForDay(day).length > 0" class="overflow-x-auto">
-        <table class="w-full border-collapse">
-          <thead>
-            <tr>
-              <th class="text-left text-xs font-medium text-muted-foreground p-2 w-16">Time</th>
-              <th
-                v-for="venue in venuesForDay(day)"
-                :key="venue"
-                class="text-left text-xs font-medium text-muted-foreground p-2"
-              >
-                {{ venue }}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="time in timeSlotsForDay(day)" :key="time" class="border-t">
-              <td class="text-sm font-medium text-muted-foreground p-2 align-top whitespace-nowrap font-mono">
-                {{ time }}
-              </td>
-              <td v-for="venue in venuesForDay(day)" :key="venue" class="p-2 align-top">
-                <div
-                  v-if="eventAt(day, time, venue)"
-                  class="rounded-md border border-l-[3px] p-2 hover:shadow-sm transition-shadow min-w-[140px]"
-                  :class="getStyleColors(eventAt(day, time, venue)!.style).border"
-                >
-                  <div class="flex items-center gap-1.5 flex-wrap">
-                    <span
-                      class="px-1 py-0.5 rounded text-[9px] font-medium leading-none"
-                      :class="typeBadge[eventAt(day, time, venue)!.type]?.class"
-                    >
-                      {{ typeBadge[eventAt(day, time, venue)!.type]?.label }}
-                    </span>
-                  </div>
-                  <h4 class="text-[11px] font-medium mt-1 leading-tight">{{ eventAt(day, time, venue)!.name }}</h4>
-                  <button
-                    v-if="personFor(eventAt(day, time, venue)!)"
-                    class="text-[10px] text-primary hover:text-primary/80 mt-0.5 truncate block text-left"
-                    @click="emit('select-teacher', personFor(eventAt(day, time, venue)!)!.id)"
-                  >
-                    {{ personFor(eventAt(day, time, venue)!)!.person.name }}
-                  </button>
-                  <div class="flex items-center gap-2 mt-1 text-[10px] text-muted-foreground">
-                    <span v-if="levelChilis(eventAt(day, time, venue)!.level) > 0" class="flex items-center gap-px" :title="eventAt(day, time, venue)!.level">
-                      <Flame
-                        v-for="n in levelChilis(eventAt(day, time, venue)!.level)"
-                        :key="n"
-                        class="w-2.5 h-2.5"
-                        :class="levelChilis(eventAt(day, time, venue)!.level) === 3 ? 'text-red-500' : levelChilis(eventAt(day, time, venue)!.level) === 2 ? 'text-orange-500' : 'text-amber-400'"
-                      />
-                    </span>
-                    <span v-else-if="eventAt(day, time, venue)!.level" class="text-[9px]">{{ eventAt(day, time, venue)!.level }}</span>
-                    <button
-                      class="ml-auto text-[9px] font-medium px-1.5 py-0.5 rounded border transition-colors"
-                      :class="weekPlanIds?.has(eventAt(day, time, venue)!.id) ? 'bg-primary/10 text-primary border-primary/30' : 'text-muted-foreground hover:text-foreground hover:border-foreground/30'"
-                      @click="emit('toggle', eventAt(day, time, venue)!.id)"
-                    >
-                      {{ weekPlanIds?.has(eventAt(day, time, venue)!.id) ? '✓ Picked' : 'Pick' }}
-                    </button>
-                  </div>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+    <!-- Per-day sections -->
+    <div v-for="day in daysWithEvents" :key="day" class="space-y-3">
+      <!-- Sticky day header -->
+      <div
+        class="sticky top-0 z-10 pt-2 pb-3 flex items-baseline gap-3 backdrop-blur-sm"
+        style="background:rgba(251, 245, 234, 0.95); border-bottom:1px solid #3b1f0d22;"
+      >
+        <h3
+          class="text-xl font-black leading-none"
+          style="font-family:'Playfair Display', serif;"
+          :style="{ color: day === today ? '#dc2626' : '#3b1f0d' }"
+        >
+          {{ dayLabels[day] }}
+        </h3>
+        <span
+          v-if="day === today"
+          class="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full"
+          style="background:#dc262618; color:#dc2626; font-family: system-ui, sans-serif;"
+        >
+          Tonight
+        </span>
       </div>
 
-      <p v-else class="text-sm text-muted-foreground py-4">
-        No events match your filters for {{ dayLabels[day] }}.
-      </p>
+      <!-- Event rows -->
+      <div class="grid gap-2">
+        <div
+          v-for="e in eventsForDay(day)"
+          :key="e.id"
+          class="group rounded-xl bg-white p-3 sm:p-4 border transition-all hover:-translate-y-0.5 flex items-center gap-3 sm:gap-4"
+          :style="{
+            borderColor: styleAccent(e.style) + '55',
+            boxShadow: '0 1px 0 ' + styleAccent(e.style) + '18, 0 4px 14px rgba(59,31,18,0.04)',
+          }"
+        >
+          <!-- Time (fixed width, bold) -->
+          <div class="w-14 shrink-0 text-center">
+            <div
+              class="text-lg font-black leading-none tabular-nums"
+              :style="{ color: styleAccent(e.style), fontFamily: 'Playfair Display, serif' }"
+            >
+              {{ e.time }}
+            </div>
+          </div>
+
+          <!-- Middle: type badge, name, venue + teacher -->
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center flex-wrap gap-2">
+              <span
+                class="inline-flex items-center text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded"
+                :style="{ background: typeStyle[e.type as EventType]?.color + '18', color: typeStyle[e.type as EventType]?.color }"
+              >
+                {{ typeStyle[e.type as EventType]?.label ?? e.type }}
+              </span>
+              <span
+                class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
+                :style="{ background: styleAccent(e.style) + '18', color: styleAccent(e.style) }"
+              >
+                {{ e.style }}
+              </span>
+            </div>
+            <h4 class="text-sm sm:text-base font-bold leading-tight mt-1" style="color:#3b1f0d;">
+              {{ e.name }}
+            </h4>
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+              <span class="inline-flex items-center gap-1">
+                <MapPin class="w-3 h-3" style="color:#9a5614;" />
+                {{ e.venue }}
+              </span>
+              <button
+                v-if="personFor(e)"
+                type="button"
+                class="italic hover:underline"
+                :style="{ color: styleAccent(e.style) }"
+                @click="emit('select-teacher', personFor(e)!.id)"
+              >
+                {{ personFor(e)!.person.name }}
+              </button>
+              <span
+                v-if="levelChilis(e.level) > 0"
+                class="inline-flex items-center gap-px"
+                :title="e.level"
+              >
+                <Flame
+                  v-for="n in levelChilis(e.level)"
+                  :key="n"
+                  class="w-3 h-3"
+                  :style="{ color: levelChilis(e.level) === 3 ? '#dc2626' : levelChilis(e.level) === 2 ? '#f59e0b' : '#fbbf24' }"
+                />
+              </span>
+              <span
+                v-else-if="e.level"
+                class="text-[10px] font-bold uppercase tracking-wider"
+                style="color:#9a5614;"
+              >
+                {{ e.level }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Pick button -->
+          <button
+            type="button"
+            class="text-xs font-bold px-3 py-1.5 rounded-full transition-all shrink-0 whitespace-nowrap"
+            :style="weekPlanIds?.has(e.id)
+              ? { background: styleAccent(e.style), color: 'white' }
+              : { background: 'white', color: styleAccent(e.style), border: '1.5px solid ' + styleAccent(e.style) + '55' }"
+            @click="emit('toggle', e.id)"
+          >
+            {{ weekPlanIds?.has(e.id) ? '✓ Picked' : 'Pick' }}
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 </template>

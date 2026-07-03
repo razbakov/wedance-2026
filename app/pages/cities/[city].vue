@@ -1,10 +1,16 @@
 <script setup lang="ts">
-import {
-  MapPin,
-  Users,
-  Calendar,
-  Heart,
-} from 'lucide-vue-next'
+/**
+ * /cities/[city] — a specific city.
+ * Restyled 2026-07-02 to match V3 tropical direction.
+ * layout: false + inline V3 header. Retired the WeekDrawer sidebar
+ * and mobile drawer (same pattern the /festivals and /festivals/[slug]
+ * retirements followed) — replaced with a soft floating nudge pill to
+ * /my-plan when the user has picks in their week.
+ * Shared child components (Lineup, TeacherProfile, WeeklyCalendar,
+ * WeekDrawer) still carry shadcn styling and will get restyled in a
+ * follow-up pass.
+ */
+import { MapPin, Calendar, ArrowRight, Users } from 'lucide-vue-next'
 import type { City } from '~/types/city'
 import type { Teacher } from '~/types/festival'
 import { getStyleColors } from '~/lib/style-colors'
@@ -14,11 +20,14 @@ import * as salsaOpen from '~/data/mock-festival'
 import * as cubanFire from '~/data/mock-cuban-fire'
 import * as caribbeanUrbanFire from '~/data/mock-caribbean-urban-fire'
 
+definePageMeta({ layout: false })
+
 const route = useRoute()
 const slug = route.params.city as string
 
-// Week plan state
-const { weekPlanIds, weekDrawerOpen, toggleEvent, removeEvent, closeDrawer } = useWeekPlan()
+// Week plan — sidebar retired; picks now surface via the floating
+// nudge pill and the full view lives on /my-plan.
+const { weekPlanIds, toggleEvent, weekCount } = useWeekPlan()
 
 const cityDataMap = {
   munich: munichData,
@@ -37,10 +46,21 @@ const teachers = data.teachers
 const djs = data.djs
 const organisers = data.organisers
 
+const cityAccent: Record<string, string> = {
+  munich: '#dc2626',
+  berlin: '#0891b2',
+}
+const accent = cityAccent[slug] || '#a855f7'
+
 useHead({
-  title: `${city.name} — WeDance`,
+  title: `WeDance — ${city.name}`,
   meta: [
     { name: 'description', content: `Dance classes, socials, and practicas in ${city.name}. ${city.eventCount} weekly events.` },
+  ],
+  link: [
+    { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+    { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
+    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Caveat:wght@400;700&display=swap' },
   ],
 })
 
@@ -59,7 +79,6 @@ const peopleTabs: { key: PeopleTab; label: string }[] = [
 ]
 
 // Venues derived from events. Slug = venue name, photo = auto-avatar.
-// Sorted by event count so the most-used venues lead the lineup.
 const venues = computed<Teacher[]>(() => {
   const counts = new Map<string, number>()
   for (const e of events) {
@@ -77,17 +96,14 @@ const venues = computed<Teacher[]>(() => {
     } as unknown as Teacher))
 })
 
-// All people combined (teachers + djs + organisers + venues) for lookup
 const allPeople = computed(() => [...teachers, ...djs, ...organisers, ...venues.value])
 
-// Selected person across all tabs
 const selectedPersonId = ref<string | null>(null)
 
 const selectedPerson = computed(() =>
   allPeople.value.find(p => p.id === selectedPersonId.value),
 )
 
-// Active filter label for schedule header
 const filterLabel = computed(() => {
   if (!selectedPerson.value) return null
   const tab = activeTab.value
@@ -114,7 +130,6 @@ function switchTab(tab: PeopleTab) {
   selectedPersonId.value = null
 }
 
-// Current tab's lineup data
 const currentLineup = computed(() => {
   if (activeTab.value === 'teachers') return teachers
   if (activeTab.value === 'djs') return djs
@@ -122,7 +137,6 @@ const currentLineup = computed(() => {
   return venues.value
 })
 
-// Filtered events
 const filteredEvents = computed(() => {
   let result = events
   if (selectedStyle.value) {
@@ -137,7 +151,6 @@ const filteredEvents = computed(() => {
     } else if (activeTab.value === 'organisers') {
       result = result.filter(e => e.organizerId === id)
     } else {
-      // venues: id format is "venue:<name>"
       const venueName = id.replace(/^venue:/, '')
       result = result.filter(e => e.venue === venueName)
     }
@@ -158,8 +171,6 @@ const cityFestivals = computed(() => {
       logo: salsaOpen.mockFestival.logo,
       accentColor: salsaOpen.mockFestival.accentColor,
       styles: ['Salsa', 'Bachata'],
-      attendeeCount: salsaOpen.mockFestival.attendeeCount,
-      friendsGoing: 2,
       workshopCount: salsaOpen.mockWorkshops.length,
     },
     {
@@ -171,8 +182,6 @@ const cityFestivals = computed(() => {
       logo: '',
       accentColor: cubanFire.mockFestival.accentColor,
       styles: ['Timba', 'Salsa', 'Son', 'Rumba'],
-      attendeeCount: cubanFire.mockFestival.attendeeCount,
-      friendsGoing: 1,
       workshopCount: cubanFire.mockWorkshops.filter(w => w.type !== 'party').length,
     },
     {
@@ -184,8 +193,6 @@ const cityFestivals = computed(() => {
       logo: '',
       accentColor: caribbeanUrbanFire.mockFestival.accentColor,
       styles: ['Salsa', 'Bachata', 'Hip Hop'],
-      attendeeCount: caribbeanUrbanFire.mockFestival.attendeeCount,
-      friendsGoing: 0,
       workshopCount: caribbeanUrbanFire.mockWorkshops.filter(w => w.type !== 'party').length,
     },
   ]
@@ -202,62 +209,109 @@ function formatDateRange(start: string, end: string) {
   return `${s.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${e.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, ${e.getFullYear()}`
 }
 
+const styleChipColors = ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b', '#ec4899', '#7c3aed']
 </script>
 
 <template>
-  <div class="lg:mr-80">
-    <!-- City hero -->
-    <section class="relative border-b">
-      <div class="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent" />
-      <div class="relative max-w-3xl mx-auto px-4 pt-6 pb-5">
-        <h1 class="text-2xl font-bold tracking-tight">{{ city.name }}</h1>
-        <p class="text-sm text-muted-foreground mt-0.5 flex items-center gap-1">
-          <MapPin class="w-3.5 h-3.5" />
+  <div class="min-h-screen" style="background:#fbf5ea; color:#3b1f0d; font-family:'Playfair Display', serif;">
+    <!-- V3 header — same as /, /festivals, /organizers, /for-events, /my-plan, /cities -->
+    <header class="border-b" style="border-color:#3b1f0d33;">
+      <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+        <NuxtLink to="/" class="flex items-baseline gap-2">
+          <span class="font-bold text-lg">WeDance</span>
+          <span class="text-[10px] uppercase tracking-[0.25em]" style="color:#9a5614;">Summer Edition · 2026</span>
+        </NuxtLink>
+        <nav class="flex items-center gap-4 text-sm">
+          <NuxtLink to="/festivals" class="italic hover:underline">Festivals</NuxtLink>
+          <NuxtLink to="/cities" class="italic hover:underline">Cities</NuxtLink>
+          <NuxtLink to="/for-events" class="italic hover:underline hidden sm:inline">For events</NuxtLink>
+          <NuxtLink to="/organizers" class="italic hover:underline hidden sm:inline">For organizers</NuxtLink>
+        </nav>
+      </div>
+    </header>
+
+    <!-- CITY HERO -->
+    <section class="relative">
+      <!-- Sun rays behind the whole hero, tinted by city accent -->
+      <svg class="absolute -top-16 -right-16 w-64 h-64 opacity-20 pointer-events-none" viewBox="0 0 100 100">
+        <g :stroke="accent" stroke-width="1.5" fill="none">
+          <line v-for="i in 24" :key="i" x1="50" y1="50"
+            :x2="50 + 48 * Math.cos(2 * Math.PI * i / 24)"
+            :y2="50 + 48 * Math.sin(2 * Math.PI * i / 24)" />
+        </g>
+      </svg>
+
+      <div class="relative max-w-4xl mx-auto px-4 pt-10 pb-6">
+        <div class="text-lg leading-none mb-2" :style="{ fontFamily: 'Caveat, cursive', color: accent }">
+          — {{ city.eventCount }} weekly events
+        </div>
+        <h1 class="text-5xl sm:text-7xl leading-[0.98] tracking-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+          {{ city.name }}
+        </h1>
+        <p class="mt-2 text-sm sm:text-base flex items-center gap-1 italic" style="color:#5b3a1d; font-family:'Playfair Display', serif;">
+          <MapPin class="w-3.5 h-3.5" style="color:#9a5614;" />
           {{ city.country }}
         </p>
 
-        <!-- Style filters -->
-        <div class="flex flex-wrap items-center gap-2 mt-4">
+        <!-- Style filter chips (V3 warm palette) -->
+        <div class="flex flex-wrap items-center gap-2 mt-6">
           <button
-            class="px-3 py-1 rounded-full text-xs font-medium border transition-colors"
-            :class="!selectedStyle ? 'bg-foreground text-background border-foreground' : 'bg-background text-muted-foreground border-input hover:border-foreground/30'"
+            type="button"
+            class="px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all"
+            :style="!selectedStyle
+              ? { background: '#3b1f0d', color: '#fbf5ea', boxShadow: '0 2px 0 -1px #3b1f0d' }
+              : { background: 'white', color: '#5b3a1d', border: '1px solid #3b1f0d33' }"
             @click="selectedStyle = ''"
           >
             All
           </button>
           <button
-            v-for="style in city.styles"
+            v-for="(style, i) in city.styles"
             :key="style"
-            class="px-3 py-1 rounded-full text-xs font-medium border transition-colors"
-            :class="selectedStyle === style ? getStyleColors(style).pillActive : getStyleColors(style).pill"
+            type="button"
+            class="px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all"
+            :style="selectedStyle === style
+              ? { background: styleChipColors[i % styleChipColors.length], color: 'white', boxShadow: '0 2px 0 -1px ' + styleChipColors[i % styleChipColors.length] }
+              : { background: 'white', color: styleChipColors[i % styleChipColors.length], border: '1px solid ' + styleChipColors[i % styleChipColors.length] + '55' }"
             @click="selectedStyle = selectedStyle === style ? '' : style"
           >
             {{ style }}
           </button>
         </div>
       </div>
+
+      <!-- Wave divider -->
+      <svg class="block w-full h-10 -mb-px" viewBox="0 0 1440 60" preserveAspectRatio="none">
+        <path d="M0,40 Q360,0 720,30 T1440,20 V60 H0 Z" fill="#3b1f0d" opacity="0.08"/>
+      </svg>
     </section>
 
-    <!-- People tabs: Teachers / DJs / Organisers -->
-    <section class="border-b">
-      <div class="max-w-3xl mx-auto px-4">
+    <!-- PEOPLE TABS -->
+    <section class="border-b" style="border-color:#3b1f0d22; background:rgba(251, 245, 234, 0.5);">
+      <div class="max-w-4xl mx-auto px-4">
+        <div class="text-xs uppercase tracking-[0.3em] pt-6" style="color:#9a5614;">Who's on the floor</div>
+        <h2 class="mt-2 text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+          The <em class="italic" style="color:#dc2626;">people</em> behind it all.
+        </h2>
+
         <!-- Tab headers -->
-        <div class="flex border-b -mb-px">
+        <div class="flex gap-1 mt-4 border-b -mb-px overflow-x-auto" style="border-color:#3b1f0d22;">
           <button
             v-for="tab in peopleTabs"
             :key="tab.key"
-            class="flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 transition-colors"
-            :class="activeTab === tab.key
-              ? 'border-primary text-primary'
-              : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'"
+            type="button"
+            class="px-4 py-3 text-sm italic whitespace-nowrap transition-all -mb-px border-b-2"
+            :style="activeTab === tab.key
+              ? { borderColor: accent, color: accent, fontWeight: 700, fontFamily: 'Playfair Display, serif' }
+              : { borderColor: 'transparent', color: '#5b3a1d', fontFamily: 'Playfair Display, serif' }"
             @click="switchTab(tab.key)"
           >
             {{ tab.label }}
           </button>
         </div>
 
-        <!-- Tab content: Lineup + Profile -->
-        <div class="py-4">
+        <!-- Tab content -->
+        <div class="py-5">
           <Lineup
             :teachers="currentLineup"
             :selected-id="selectedPersonId"
@@ -273,13 +327,27 @@ function formatDateRange(start: string, end: string) {
       </div>
     </section>
 
-    <!-- Weekly calendar -->
-    <section class="max-w-6xl mx-auto px-4 py-6">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-semibold">Weekly schedule</h2>
-        <div v-if="filterLabel" class="flex items-center gap-2 text-xs text-muted-foreground">
-          <span>Filtering by {{ filterLabel.role }} <strong class="text-foreground">{{ filterLabel.name }}</strong></span>
-          <button class="text-primary hover:text-primary/80 font-medium" @click="clearPersonFilter">Clear</button>
+    <!-- WEEKLY SCHEDULE -->
+    <section class="max-w-6xl mx-auto px-4 py-12">
+      <div class="flex flex-wrap items-baseline justify-between gap-3 mb-6">
+        <div>
+          <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">This week</div>
+          <h2 class="mt-2 text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+            Where you're <em class="italic" style="color:#dc2626;">dancing.</em>
+          </h2>
+        </div>
+        <div v-if="filterLabel" class="flex items-center gap-2 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+          <span>
+            Filtering by {{ filterLabel.role }} <strong style="color:#3b1f0d;">{{ filterLabel.name }}</strong>
+          </span>
+          <button
+            type="button"
+            class="text-xs font-bold underline"
+            :style="{ color: accent, fontFamily: 'system-ui, sans-serif' }"
+            @click="clearPersonFilter"
+          >
+            Clear
+          </button>
         </div>
       </div>
       <WeeklyCalendar
@@ -291,13 +359,22 @@ function formatDateRange(start: string, end: string) {
       />
     </section>
 
-    <!-- Upcoming festivals -->
-    <section v-if="cityFestivals.length > 0" class="border-t">
-      <div class="max-w-3xl mx-auto px-4 py-6">
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="text-lg font-semibold">Upcoming festivals in {{ city.name }}</h2>
-          <NuxtLink to="/festivals" class="text-xs text-primary hover:text-primary/80">
-            All festivals
+    <!-- UPCOMING FESTIVALS IN THIS CITY (V3-styled cards) -->
+    <section v-if="cityFestivals.length > 0" class="border-t" style="border-color:#3b1f0d22; background:rgba(251, 245, 234, 0.5);">
+      <div class="max-w-4xl mx-auto px-4 py-12">
+        <div class="flex items-baseline justify-between mb-6">
+          <div>
+            <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">Coming to {{ city.name }}</div>
+            <h2 class="mt-2 text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+              Upcoming <em class="italic" style="color:#dc2626;">festivals.</em>
+            </h2>
+          </div>
+          <NuxtLink
+            to="/festivals"
+            class="text-xs italic hover:underline"
+            style="color:#9a5614; font-family:'Playfair Display', serif;"
+          >
+            All festivals →
           </NuxtLink>
         </div>
 
@@ -306,53 +383,51 @@ function formatDateRange(start: string, end: string) {
             v-for="f in cityFestivals"
             :key="f.slug"
             :to="`/festivals/${f.slug}`"
-            class="group block border rounded-lg overflow-hidden hover:shadow-md transition-shadow bg-background"
+            class="group block rounded-2xl overflow-hidden bg-white border transition-all hover:-translate-y-1"
+            :style="{ borderColor: f.accentColor + '55', boxShadow: '0 1px 0 ' + f.accentColor + '22, 0 8px 22px rgba(59,31,18,0.05)' }"
           >
-            <div class="h-1" :style="{ backgroundColor: f.accentColor }" />
-            <div class="p-4">
-              <div class="flex items-start gap-3">
+            <div class="h-1.5" :style="{ background: f.accentColor }" />
+            <div class="p-5">
+              <div class="flex items-start gap-4">
                 <img
                   v-if="f.logo"
                   :src="f.logo"
                   :alt="f.name"
-                  class="w-10 h-10 rounded-full shrink-0"
-                />
+                  class="w-14 h-14 rounded-full shrink-0 shadow-sm"
+                >
                 <div
                   v-else
-                  class="w-10 h-10 rounded-full shrink-0 flex items-center justify-center text-sm font-bold text-white"
-                  :style="{ backgroundColor: f.accentColor }"
+                  class="w-14 h-14 rounded-full shrink-0 flex items-center justify-center text-xl font-bold text-white shadow-sm"
+                  :style="{ background: f.accentColor }"
                 >
                   {{ f.name.charAt(0) }}
                 </div>
                 <div class="flex-1 min-w-0">
-                  <h3 class="font-semibold text-sm group-hover:text-primary transition-colors">{{ f.name }}</h3>
-                  <div class="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
-                    <span class="flex items-center gap-1">
-                      <Calendar class="w-3 h-3" />
+                  <h3 class="font-bold text-lg leading-tight" style="color:#3b1f0d;">
+                    {{ f.name }}
+                  </h3>
+                  <div class="flex items-center gap-4 mt-1 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+                    <span class="inline-flex items-center gap-1">
+                      <Calendar class="w-3 h-3" style="color:#9a5614;" />
                       {{ formatDateRange(f.startDate, f.endDate) }}
                     </span>
+                    <span class="inline-flex items-center gap-1">
+                      <Users class="w-3 h-3" style="color:#9a5614;" />
+                      {{ f.workshopCount }} workshops
+                    </span>
                   </div>
-                  <div class="flex flex-wrap gap-1 mt-2">
+                  <div class="flex flex-wrap gap-1.5 mt-3">
                     <span
                       v-for="style in f.styles.slice(0, 4)"
                       :key="style"
-                      class="px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground"
+                      class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
+                      :style="{ background: f.accentColor + '18', color: f.accentColor }"
                     >
                       {{ style }}
                     </span>
                   </div>
-                  <div class="flex items-center gap-4 mt-2 text-[11px] text-muted-foreground">
-                    <span class="flex items-center gap-1">
-                      <Users class="w-3 h-3" />
-                      {{ f.attendeeCount }} planning
-                    </span>
-                    <span>{{ f.workshopCount }} workshops</span>
-                    <span v-if="f.friendsGoing" class="flex items-center gap-1 text-primary font-medium">
-                      <Heart class="w-3 h-3" />
-                      {{ f.friendsGoing }} friends going
-                    </span>
-                  </div>
                 </div>
+                <ArrowRight class="w-4 h-4 mt-1.5 shrink-0 transition-transform group-hover:translate-x-1" :style="{ color: f.accentColor }" />
               </div>
             </div>
           </NuxtLink>
@@ -360,58 +435,38 @@ function formatDateRange(start: string, end: string) {
       </div>
     </section>
 
-    <!-- Desktop week sidebar (fixed, full height) -->
-    <aside class="hidden lg:flex fixed right-0 top-12 bottom-0 w-80 border-l bg-background z-30">
-      <WeekDrawer
-        :events="events"
-        :week-plan-ids="weekPlanIds"
-        :city-name="city.name"
-        :teachers="[...teachers, ...djs, ...organisers]"
-        class="w-full"
-        @remove="removeEvent"
-        @sign-in="() => {}"
-        @close="closeDrawer()"
-      />
-    </aside>
+    <footer class="border-t py-6 text-center text-xs" style="border-color:#3b1f0d22; color:#9a5614; font-family:'Caveat', cursive; font-size:18px;">
+      WeDance ·
+      <NuxtLink to="/" class="underline">home</NuxtLink> ·
+      <NuxtLink to="/festivals" class="underline">festivals</NuxtLink> ·
+      <NuxtLink to="/cities" class="underline">cities</NuxtLink> ·
+      <NuxtLink to="/my-plan" class="underline">my plan</NuxtLink>
+    </footer>
 
-    <!-- Mobile week drawer overlay (< lg only) -->
+    <!-- Soft plan nudge — same pattern as /festivals and /festivals/[slug]. -->
     <Teleport to="body">
       <Transition
         enter-active-class="transition duration-200 ease-out"
-        enter-from-class="opacity-0"
-        enter-to-class="opacity-100"
+        enter-from-class="opacity-0 translate-y-2"
+        enter-to-class="opacity-100 translate-y-0"
         leave-active-class="transition duration-150 ease-in"
-        leave-from-class="opacity-100"
-        leave-to-class="opacity-0"
+        leave-from-class="opacity-100 translate-y-0"
+        leave-to-class="opacity-0 translate-y-2"
       >
-        <div
-          v-if="weekDrawerOpen"
-          class="lg:hidden fixed inset-0 z-40 bg-black/50"
-          @click="closeDrawer()"
-        />
-      </Transition>
-      <Transition
-        enter-active-class="transition duration-200 ease-out"
-        enter-from-class="translate-x-full"
-        enter-to-class="translate-x-0"
-        leave-active-class="transition duration-150 ease-in"
-        leave-from-class="translate-x-0"
-        leave-to-class="translate-x-full"
-      >
-        <div
-          v-if="weekDrawerOpen"
-          class="lg:hidden fixed right-0 top-12 bottom-0 z-50 w-80 max-w-[85vw] shadow-xl"
+        <NuxtLink
+          v-if="weekCount > 0"
+          to="/my-plan"
+          class="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 pl-3 pr-4 py-2.5 rounded-full text-white text-sm font-bold shadow-lg hover:shadow-xl transition-all"
+          :style="{ background: accent, boxShadow: '0 6px 20px rgba(0,0,0,0.18), 0 3px 0 -1px rgba(0,0,0,0.15)' }"
         >
-          <WeekDrawer
-            :events="events"
-            :week-plan-ids="weekPlanIds"
-            :city-name="city.name"
-            :teachers="[...teachers, ...djs, ...organisers]"
-            @remove="removeEvent"
-            @sign-in="() => {}"
-            @close="closeDrawer()"
-          />
-        </div>
+          <span
+            class="inline-flex items-center justify-center w-6 h-6 rounded-full text-[11px] font-black bg-white"
+            :style="{ color: accent }"
+          >{{ weekCount }}</span>
+          <span style="font-family:'Playfair Display', serif; letter-spacing:0.01em;">in your week</span>
+          <span style="font-family:'Caveat', cursive; font-size:16px; opacity:0.85;">— see dashboard</span>
+          <ArrowRight class="w-4 h-4" />
+        </NuxtLink>
       </Transition>
     </Teleport>
   </div>
