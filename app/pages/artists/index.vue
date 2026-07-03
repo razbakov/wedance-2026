@@ -182,13 +182,15 @@ const accents = ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b', '#ec4899
               :alt="a.artist.name"
               class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
             >
-            <!-- Festival-count chip over the photo -->
-            <div v-if="a.festivalCount" class="absolute top-3 left-3">
+            <!-- Festival-count chip — always shown so the grid looks the
+                 same whether or not a city filter is applied. -->
+            <div class="absolute top-3 left-3">
               <span
                 class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full text-white"
                 style="background:rgba(59,31,18,0.55); backdrop-filter: blur(4px);"
+                :title="`${a.festivalCount} festival${a.festivalCount === 1 ? '' : 's'}`"
               >
-                <Plane class="w-3 h-3" /> {{ a.festivalCount }} festival{{ a.festivalCount === 1 ? '' : 's' }}
+                <Plane class="w-3 h-3" /> {{ a.festivalCount }}
               </span>
             </div>
           </div>
