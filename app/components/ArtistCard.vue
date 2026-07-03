@@ -10,9 +10,9 @@
  *   `select` (to filter the schedule); a separate "Full profile →" link
  *   still reaches the profile.
  */
-import { MapPin, Globe, Plane, ArrowRight } from 'lucide-vue-next'
+import { Plane, ArrowRight } from 'lucide-vue-next'
 import type { Teacher } from '~/types/festival'
-import type { Language } from '~/data/artists'
+import { placeFlag, type Language } from '~/data/artists'
 
 const props = withDefaults(defineProps<{
   artist: Teacher
@@ -88,24 +88,29 @@ const rootTag = computed(() => (props.selectable ? 'button' : NuxtLinkComponent)
         {{ artist.name }}
       </div>
 
-      <!-- Based-in (pin) + from (globe) + language flags -->
+      <!-- Places (flags) + languages (2-letter codes) -->
       <div
         v-if="residence || origin || languages.length"
-        class="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs"
-        style="color:#9a5614; font-family: system-ui, sans-serif;"
+        class="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs"
+        style="color:#5b3a1d; font-family: system-ui, sans-serif;"
       >
-        <span v-if="residence" class="inline-flex items-center gap-1" title="Based in">
-          <MapPin class="w-3 h-3" /> {{ residence }}
+        <span v-if="residence" class="inline-flex items-center gap-1" :title="'Based in ' + residence">
+          <span class="leading-none">{{ placeFlag(residence) }}</span> {{ residence }}
         </span>
-        <span v-if="origin && origin !== residence" class="inline-flex items-center gap-1" title="From">
-          <Globe class="w-3 h-3" /> {{ origin }}
+        <span v-if="origin && origin !== residence" class="inline-flex items-center gap-1" :title="'From ' + origin" style="color:#9a5614;">
+          <span class="leading-none">{{ placeFlag(origin) }}</span> {{ origin }}
         </span>
         <span
           v-if="languages.length"
-          class="inline-flex items-center gap-0.5"
+          class="inline-flex items-center gap-1"
           :title="'Speaks ' + languages.map((l) => l.label).join(', ')"
         >
-          <span v-for="l in languages" :key="l.label" class="leading-none">{{ l.flag }}</span>
+          <span
+            v-for="l in languages"
+            :key="l.code"
+            class="text-[9px] font-bold tracking-wide px-1.5 py-0.5 rounded"
+            :style="{ background: accent + '14', color: accent }"
+          >{{ l.code }}</span>
         </span>
       </div>
 

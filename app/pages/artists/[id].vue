@@ -5,7 +5,7 @@
  * city they appear in (see ~/data/artists.ts).
  */
 import { Instagram, Youtube, Globe, Calendar, MapPin, ArrowRight } from 'lucide-vue-next'
-import { findArtist, festivalAppearances, cityAppearances, artistOrigin, artistResidence, artistLanguages } from '~/data/artists'
+import { findArtist, festivalAppearances, cityAppearances, artistOrigin, artistResidence, artistLanguages, placeFlag } from '~/data/artists'
 
 definePageMeta({ layout: false })
 
@@ -104,17 +104,22 @@ function formatDateRange(start: string, end: string) {
               style="color:#9a5614; font-family:'Playfair Display', serif;"
             >
               <span v-if="residence" class="inline-flex items-center gap-1.5" title="Based in">
-                <MapPin class="w-4 h-4" /> Based in {{ residence }}
+                <span class="text-base not-italic leading-none">{{ placeFlag(residence) }}</span> Based in {{ residence }}
               </span>
               <span v-if="origin && origin !== residence" class="inline-flex items-center gap-1.5" title="From">
-                <Globe class="w-4 h-4" /> From {{ origin }}
+                <span class="text-base not-italic leading-none">{{ placeFlag(origin) }}</span> From {{ origin }}
               </span>
               <span
                 v-if="languages.length"
-                class="inline-flex items-center gap-1"
+                class="inline-flex items-center gap-1 not-italic"
                 :title="'Speaks ' + languages.map((l) => l.label).join(', ')"
               >
-                <span v-for="l in languages" :key="l.label" class="text-base leading-none not-italic">{{ l.flag }}</span>
+                <span
+                  v-for="l in languages"
+                  :key="l.code"
+                  class="text-[10px] font-bold tracking-wide px-1.5 py-0.5 rounded"
+                  style="background:#dc262614; color:#dc2626; font-family: system-ui, sans-serif;"
+                >{{ l.code }}</span>
               </span>
             </div>
             <div v-if="artist.styles.length" class="mt-3 flex flex-wrap gap-1.5">

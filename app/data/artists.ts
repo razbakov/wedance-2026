@@ -122,32 +122,58 @@ export function artistPlaces(artist: Teacher): { origin: string | null; residenc
   return { origin: artistOrigin(artist), residence: artistResidence(artist, cityNames) }
 }
 
-// Place (country or one of our cities) -> primary language + flag.
-// Language "flags" use the canonical country of that language, per the
-// usual UI convention.
-export interface Language { label: string; flag: string }
+// Place (country or one of our cities) -> its country flag.
+export const PLACE_FLAG: Record<string, string> = {
+  Cuba: '🇨🇺',
+  Spain: '🇪🇸',
+  'Dominican Republic': '🇩🇴',
+  Colombia: '🇨🇴',
+  Venezuela: '🇻🇪',
+  Mexico: '🇲🇽',
+  Argentina: '🇦🇷',
+  Italy: '🇮🇹',
+  Germany: '🇩🇪',
+  Austria: '🇦🇹',
+  France: '🇫🇷',
+  Brazil: '🇧🇷',
+  Portugal: '🇵🇹',
+  Angola: '🇦🇴',
+  Hungary: '🇭🇺',
+  Montenegro: '🇲🇪',
+  Slovenia: '🇸🇮',
+  // Cities resolve to their country's flag.
+  Munich: '🇩🇪',
+  Berlin: '🇩🇪',
+  Vienna: '🇦🇹',
+}
+
+export function placeFlag(place: string | null | undefined): string {
+  return place ? (PLACE_FLAG[place] || '') : ''
+}
+
+// Place -> primary language (label + 2-letter code).
+export interface Language { label: string; code: string }
 const PLACE_LANGUAGE: Record<string, Language> = {
-  Cuba: { label: 'Spanish', flag: '🇪🇸' },
-  Spain: { label: 'Spanish', flag: '🇪🇸' },
-  'Dominican Republic': { label: 'Spanish', flag: '🇪🇸' },
-  Colombia: { label: 'Spanish', flag: '🇪🇸' },
-  Venezuela: { label: 'Spanish', flag: '🇪🇸' },
-  Mexico: { label: 'Spanish', flag: '🇪🇸' },
-  Argentina: { label: 'Spanish', flag: '🇪🇸' },
-  Italy: { label: 'Italian', flag: '🇮🇹' },
-  Germany: { label: 'German', flag: '🇩🇪' },
-  Austria: { label: 'German', flag: '🇩🇪' },
-  France: { label: 'French', flag: '🇫🇷' },
-  Brazil: { label: 'Portuguese', flag: '🇧🇷' },
-  Portugal: { label: 'Portuguese', flag: '🇵🇹' },
-  Angola: { label: 'Portuguese', flag: '🇵🇹' },
-  Hungary: { label: 'Hungarian', flag: '🇭🇺' },
-  Montenegro: { label: 'Montenegrin', flag: '🇲🇪' },
-  Slovenia: { label: 'Slovenian', flag: '🇸🇮' },
-  // Our cities resolve to their country's language too.
-  Munich: { label: 'German', flag: '🇩🇪' },
-  Berlin: { label: 'German', flag: '🇩🇪' },
-  Vienna: { label: 'German', flag: '🇩🇪' },
+  Cuba: { label: 'Spanish', code: 'ES' },
+  Spain: { label: 'Spanish', code: 'ES' },
+  'Dominican Republic': { label: 'Spanish', code: 'ES' },
+  Colombia: { label: 'Spanish', code: 'ES' },
+  Venezuela: { label: 'Spanish', code: 'ES' },
+  Mexico: { label: 'Spanish', code: 'ES' },
+  Argentina: { label: 'Spanish', code: 'ES' },
+  Italy: { label: 'Italian', code: 'IT' },
+  Germany: { label: 'German', code: 'DE' },
+  Austria: { label: 'German', code: 'DE' },
+  France: { label: 'French', code: 'FR' },
+  Brazil: { label: 'Portuguese', code: 'PT' },
+  Portugal: { label: 'Portuguese', code: 'PT' },
+  Angola: { label: 'Portuguese', code: 'PT' },
+  Hungary: { label: 'Hungarian', code: 'HU' },
+  Montenegro: { label: 'Montenegrin', code: 'ME' },
+  Slovenia: { label: 'Slovenian', code: 'SL' },
+  Munich: { label: 'German', code: 'DE' },
+  Berlin: { label: 'German', code: 'DE' },
+  Vienna: { label: 'German', code: 'DE' },
 }
 
 /**
@@ -166,7 +192,7 @@ export function artistLanguages(origin: string | null, residence: string | null)
       out.push(lang)
     }
   }
-  if (!seen.has('English')) out.push({ label: 'English', flag: '🇬🇧' })
+  if (!seen.has('English')) out.push({ label: 'English', code: 'EN' })
   return out
 }
 
