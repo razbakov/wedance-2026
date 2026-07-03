@@ -1,11 +1,14 @@
 <script setup lang="ts">
 /**
- * /my-plan — signed-in dashboard.
- * Shows every festival the user has picked with a next-action nudge.
- * Replaces the per-page CartDrawer as the single source of "what's next".
- * V3 tropical style.
+ * /my-plan — signed-in dashboard: the whole planning cascade.
+ * Sections top-to-bottom follow the mental model that big motivates small:
+ *   Heat strip -> Goals -> Year (festivals) -> Month (courses)
+ *   -> Week (socials) -> Tonight (hangouts)
+ * Every section uses the V3 tropical style + accordion / compact-list
+ * pattern established by the Year cards. Data is currently local +
+ * preview-seeded; wire real backend when the pieces exist.
  */
-import { ArrowRight, MapPin, Calendar, Search, Ticket, Plane, Home, GraduationCap, Heart, Coffee, CalendarPlus, Check, ExternalLink, ChevronDown } from 'lucide-vue-next'
+import { ArrowRight, MapPin, Calendar, Search, Ticket, Plane, Home, GraduationCap, Heart, Coffee, CalendarPlus, Check, ExternalLink, ChevronDown, Target, Flame, Sparkles, MoonStar, UtensilsCrossed, GlassWater, Car, X, Star, Users as UsersIcon, Undo2 } from 'lucide-vue-next'
 import * as salsaOpen from '~/data/mock-festival'
 import * as meneate from '~/data/mock-meneate'
 import * as cubanFire from '~/data/mock-cuban-fire'
@@ -23,7 +26,7 @@ useHead({
 })
 
 const { isSignedIn: isSignedInReal, dancerName: dancerNameReal } = useAuth()
-const { yearPlanIds, removeFestival } = useYearPlan()
+const { yearPlanIds, removeFestival, toggleFestival } = useYearPlan()
 
 // ?preview=1 — dev shortcut. Fakes signed-in + seeds picks so we can
 // eyeball the strip + cards without running the real magic-link flow.
@@ -462,6 +465,323 @@ function toggleExpanded(slug: string) {
   expandedSlugs.value = s
 }
 
+// -----------------------------------------------------------------------
+// GOALS · long arcs above the year. Editing not yet wired — content is
+// user-owned data that will live server-side. Preview seeds a mix.
+// -----------------------------------------------------------------------
+type Goal = { id: string; title: string; why: string; progress: number; nudge?: string; icon: any; color: string }
+const previewGoals: Goal[] = [
+  { id: 'g1', title: 'Learn timba (advanced)',   why: 'Feel at home in a Cuban rueda.',             progress: 55, nudge: 'Book 2 more privates before Cuban Fire.', icon: Flame,     color: '#dc2626' },
+  { id: 'g2', title: 'Perform at Cuban Fire',    why: 'Duet with Emilia — 3-minute son piece.',    progress: 20, nudge: 'Choose the song this week.',                icon: Sparkles,  color: '#f59e0b' },
+  { id: 'g3', title: 'Teach my first class',     why: 'Kids salsa Saturdays at 15x4.',              progress: 10, nudge: 'Sit in on Anna\'s lesson Sunday.',           icon: GraduationCap, color: '#16a34a' },
+]
+const goals = ref<Goal[]>(isPreviewInitial ? previewGoals : [])
+
+// -----------------------------------------------------------------------
+// COURSES · monthly cadence: school + teacher + level + next class.
+// -----------------------------------------------------------------------
+type Course = {
+  id: string; school: string; teacher: string; style: string; level: string
+  weekday: string; time: string; venue: string
+  nextClassDate: string
+  attended: number; total: number
+  paidThroughMonth: boolean
+  color: string
+}
+const previewCourses: Course[] = [
+  {
+    id: 'c1',
+    school: 'Cubaila Munich', teacher: 'Yordana + Alexei',
+    style: 'Timba', level: 'Beginner+',
+    weekday: 'Wed', time: '19:00',
+    venue: 'La Rumba',
+    nextClassDate: '2026-07-08',
+    attended: 6, total: 8,
+    paidThroughMonth: true,
+    color: '#dc2626',
+  },
+  {
+    id: 'c2',
+    school: '15x4 Munich', teacher: 'Emilia',
+    style: 'Cuban Son', level: 'Intermediate',
+    weekday: 'Mon', time: '20:00',
+    venue: 'Buena Vista',
+    nextClassDate: '2026-07-06',
+    attended: 3, total: 4,
+    paidThroughMonth: false,
+    color: '#0891b2',
+  },
+]
+const courses = ref<Course[]>(isPreviewInitial ? previewCourses : [])
+
+// -----------------------------------------------------------------------
+// SOCIALS · this-week horizon. Fri/Sat/Sun parties + practicas.
+// -----------------------------------------------------------------------
+type Social = {
+  id: string; name: string; dayLabel: string; dateISO: string; time: string
+  venue: string; city: string; style: string
+  friendsGoing: number; rsvpd: boolean
+  color: string
+}
+const previewSocials: Social[] = [
+  { id: 's1', name: 'La Rumba Fri',           dayLabel: 'Fri', dateISO: '2026-07-03', time: '21:00', venue: 'La Rumba',   city: 'Munich', style: 'Cuban',   friendsGoing: 5, rsvpd: true,  color: '#dc2626' },
+  { id: 's2', name: 'Rueda flashmob',         dayLabel: 'Sat', dateISO: '2026-07-04', time: '14:00', venue: 'Diana Tempel', city: 'Munich', style: 'Rueda',   friendsGoing: 12, rsvpd: true, color: '#f59e0b' },
+  { id: 's3', name: 'Bailala Sat',            dayLabel: 'Sat', dateISO: '2026-07-04', time: '22:00', venue: 'Bailala',   city: 'Munich', style: 'Bachata', friendsGoing: 3, rsvpd: false, color: '#a855f7' },
+  { id: 's4', name: 'Cuban Sunday practica',  dayLabel: 'Sun', dateISO: '2026-07-05', time: '19:00', venue: 'Buena Vista', city: 'Munich', style: 'Practica', friendsGoing: 4, rsvpd: false, color: '#16a34a' },
+  { id: 's5', name: 'Thursday warmup',        dayLabel: 'Thu', dateISO: '2026-07-09', time: '20:30', venue: 'La Rumba',   city: 'Munich', style: 'All',     friendsGoing: 2, rsvpd: false, color: '#0891b2' },
+]
+const socials = ref<Social[]>(isPreviewInitial ? previewSocials : [])
+function toggleSocialRsvp(id: string) {
+  socials.value = socials.value.map(s => s.id === id ? { ...s, rsvpd: !s.rsvpd } : s)
+}
+
+// -----------------------------------------------------------------------
+// TONIGHT · spontaneous evening — dinners, bar hops, rides.
+// -----------------------------------------------------------------------
+type Hangout = {
+  id: string; kind: 'dinner' | 'bar' | 'ride' | 'floor'
+  title: string; time: string; host?: string; venue?: string
+  people: number; going: boolean
+  color: string
+}
+const previewHangouts: Hangout[] = [
+  { id: 'h1', kind: 'dinner', title: 'Dinner before La Rumba', time: '19:00', host: 'Mark + Klaus', venue: 'Xoco', people: 6,  going: false, color: '#f59e0b' },
+  { id: 'h2', kind: 'floor',  title: 'La Rumba floor',         time: '22:00', venue: 'La Rumba',   people: 40, going: true,  color: '#dc2626' },
+  { id: 'h3', kind: 'bar',    title: 'Post-social mojitos',    time: '02:30', venue: 'Café con Leche', people: 8,  going: false, color: '#a855f7' },
+  { id: 'h4', kind: 'ride',   title: 'Ride to Diana Tempel',   time: '13:30', host: 'Egor',        people: 3,  going: false, color: '#0891b2' },
+]
+const hangouts = ref<Hangout[]>(isPreviewInitial ? previewHangouts : [])
+function toggleHangout(id: string) {
+  hangouts.value = hangouts.value.map(h => h.id === id ? { ...h, going: !h.going } : h)
+}
+const hangoutIcon = (kind: Hangout['kind']) => kind === 'dinner' ? UtensilsCrossed : kind === 'bar' ? GlassWater : kind === 'ride' ? Car : MoonStar
+
+// -----------------------------------------------------------------------
+// HEAT STRIP · the top 3 items across every scale, sorted by urgency.
+// -----------------------------------------------------------------------
+type HeatItem = { key: string; label: string; detail: string; href: string; external?: boolean; color: string; urgency: number }
+const heatItems = computed<HeatItem[]>(() => {
+  const items: HeatItem[] = []
+  // Festivals: early-bird deadlines
+  picked.value.forEach(f => {
+    if (!f.earlyBirdDeadline) return
+    const d = daysBetween(f.earlyBirdDeadline)
+    if (d < 0 || d > 14 || getProgress(f.slug).ticketBought) return
+    items.push({
+      key: `fest-${f.slug}`,
+      label: `${f.name} · early-bird`,
+      detail: `Ends in ${d}d · from €${f.ticketFromPrice}`,
+      href: f.ticketUrl || `/festivals/${f.slug}`,
+      external: !!f.ticketUrl,
+      color: '#dc2626',
+      urgency: 100 - d,
+    })
+  })
+  // Courses: unpaid this month
+  courses.value.filter(c => !c.paidThroughMonth).forEach(c => {
+    items.push({
+      key: `course-${c.id}`,
+      label: `${c.school} · pay for July`,
+      detail: `${c.style} ${c.level} · ${c.weekday} ${c.time}`,
+      href: '#courses',
+      color: '#f59e0b',
+      urgency: 70,
+    })
+  })
+  // Socials: this-week RSVPs still open
+  socials.value.filter(s => !s.rsvpd).slice(0, 2).forEach(s => {
+    items.push({
+      key: `social-${s.id}`,
+      label: `${s.name} · ${s.dayLabel} ${s.time}`,
+      detail: `${s.venue} · ${s.friendsGoing} friends going`,
+      href: '#socials',
+      color: '#0891b2',
+      urgency: 40,
+    })
+  })
+  // Tonight: any open invites
+  hangouts.value.filter(h => !h.going).slice(0, 1).forEach(h => {
+    items.push({
+      key: `tonight-${h.id}`,
+      label: `Tonight · ${h.title}`,
+      detail: `${h.time} · ${h.venue ?? h.host ?? ''}`,
+      href: '#tonight',
+      color: '#a855f7',
+      urgency: 90,
+    })
+  })
+  return items.sort((a, b) => b.urgency - a.urgency).slice(0, 3)
+})
+
+// -----------------------------------------------------------------------
+// DISCOVER · widen-your-year deck below hangouts.
+// Swipeable cards mixing dancers going to fests + local dancers + events.
+// Yes-swipe on a dancer heading to an unpicked festival accumulates a
+// nudge in the Year section: "3 friends heading to Prague — add it?".
+// -----------------------------------------------------------------------
+type DeckCard =
+  | { id: string; kind: 'dancer-your-fest';   name: string; photo: string; city: string; danceStyles: string[]; festivalSlug: string; festivalName: string; festivalColor: string }
+  | { id: string; kind: 'dancer-new-fest';    name: string; photo: string; city: string; danceStyles: string[]; festivalSlug: string; festivalName: string; festivalColor: string }
+  | { id: string; kind: 'dancer-local';       name: string; photo: string; city: string; danceStyles: string[]; regularAt: string }
+  | { id: string; kind: 'event-festival';     name: string; slug: string;  dateISO: string; venue: string; city: string; friendsGoing: number; color: string }
+  | { id: string; kind: 'event-social';       name: string; dayLabel: string; time: string; venue: string; city: string; style: string; friendsGoing: number; color: string }
+
+const previewDeck: DeckCard[] = [
+  { id: 'd1', kind: 'dancer-your-fest',  name: 'Ivana',   city: 'Berlin',    photo: 'https://i.pravatar.cc/240?u=ivana',   danceStyles: ['Timba', 'Son'],       festivalSlug: 'meneate-viena-2026',           festivalName: 'Menéate Viena',        festivalColor: '#dc2626' },
+  { id: 'd2', kind: 'dancer-new-fest',   name: 'Emilia',  city: 'Munich',    photo: 'https://i.pravatar.cc/240?u=emilia',  danceStyles: ['Kizomba', 'Urban Kiz'], festivalSlug: 'timba-fest-london-2026',      festivalName: 'Timba Fest London',    festivalColor: '#0ea5e9' },
+  { id: 'e1', kind: 'event-social',      name: 'Salsa on the Isar',  dayLabel: 'Sat', time: '15:00', venue: 'Muffatwerk terrace', city: 'Munich', style: 'Salsa', friendsGoing: 6, color: '#f59e0b' },
+  { id: 'd3', kind: 'dancer-local',      name: 'Klaus',   city: 'Munich',    photo: 'https://i.pravatar.cc/240?u=klaus',   danceStyles: ['Salsa', 'Bachata'],    regularAt: 'La Rumba Fridays' },
+  { id: 'd4', kind: 'dancer-new-fest',   name: 'Sasha',   city: 'Vienna',    photo: 'https://i.pravatar.cc/240?u=sasha',   danceStyles: ['Timba', 'Rumba'],     festivalSlug: 'timba-fest-london-2026',      festivalName: 'Timba Fest London',    festivalColor: '#0ea5e9' },
+  { id: 'e2', kind: 'event-festival',    name: 'Salsa Fusion Prague', slug: 'salsa-fusion-prague-2026', dateISO: '2026-11-14', venue: 'La Loca', city: 'Prague',   friendsGoing: 2, color: '#a855f7' },
+  { id: 'd5', kind: 'dancer-your-fest',  name: 'Silvio',  city: 'Havana',    photo: 'https://i.pravatar.cc/240?u=silvio',  danceStyles: ['Son', 'Timba'],       festivalSlug: 'bachata-stars-barcelona-2026', festivalName: 'Bachata Stars Barcelona', festivalColor: '#7c3aed' },
+  { id: 'd6', kind: 'dancer-local',      name: 'Barbara', city: 'Munich',    photo: 'https://i.pravatar.cc/240?u=barbara', danceStyles: ['Rumba', 'Son'],       regularAt: 'Cuban Sunday practica' },
+  { id: 'd7', kind: 'dancer-new-fest',   name: 'Egor',    city: 'Munich',    photo: 'https://i.pravatar.cc/240?u=egor',    danceStyles: ['Timba', 'Casino'],    festivalSlug: 'timba-fest-london-2026',      festivalName: 'Timba Fest London',    festivalColor: '#0ea5e9' },
+  { id: 'e3', kind: 'event-social',      name: 'Havana Nights',      dayLabel: 'Fri', time: '22:30', venue: '537 Bar',          city: 'Munich', style: 'Cuban', friendsGoing: 8, color: '#dc2626' },
+]
+
+// Live deck state
+const deck = ref<DeckCard[]>(isPreviewInitial ? [...previewDeck] : [])
+// History stack for Undo
+const swipeHistory = ref<Array<{ card: DeckCard; direction: 'yes' | 'skip' | 'save'; nudgeAdded?: string }>>([])
+// Save-for-later stash (not exposed yet; scaffold shape)
+const savedForLater = ref<DeckCard[]>([])
+// Yes-swipes on dancers heading to a festival → accumulator
+type FestivalNudge = { festivalSlug: string; festivalName: string; festivalColor: string; dancerNames: string[]; dismissed: boolean }
+const festivalNudges = ref<FestivalNudge[]>(isPreviewInitial
+  ? [
+      // Preview: prime the "add Timba Fest London" nudge so the loop is visible.
+      { festivalSlug: 'timba-fest-london-2026', festivalName: 'Timba Fest London', festivalColor: '#0ea5e9', dancerNames: ['Emilia', 'Sasha'], dismissed: false },
+    ]
+  : [])
+
+const activeFestivalNudges = computed(() =>
+  festivalNudges.value.filter(n => !n.dismissed && !effectivePickIds.value.has(n.festivalSlug) && n.dancerNames.length >= 2)
+)
+
+const deckCurrent = computed(() => deck.value[0] ?? null)
+const deckNext    = computed(() => deck.value[1] ?? null)
+const deckAfter   = computed(() => deck.value[2] ?? null)
+const canUndo     = computed(() => swipeHistory.value.length > 0)
+
+// Pointer-gesture state for the top card
+const dragDx = ref(0)
+const dragActive = ref(false)
+const dragStartX = ref(0)
+const dragPointerId = ref<number | null>(null)
+const cardExitDir = ref<'yes' | 'skip' | 'save' | null>(null)
+
+const SWIPE_THRESHOLD = 110
+
+function currentCardTransform(): string {
+  if (cardExitDir.value === 'yes')  return 'translateX(120vw) rotate(18deg)'
+  if (cardExitDir.value === 'skip') return 'translateX(-120vw) rotate(-18deg)'
+  if (cardExitDir.value === 'save') return 'translateY(120vh) scale(0.9)'
+  const dx = dragDx.value
+  const rot = dx * 0.06
+  return `translateX(${dx}px) rotate(${rot}deg)`
+}
+
+function onCardPointerDown(e: PointerEvent) {
+  if (cardExitDir.value) return
+  dragPointerId.value = e.pointerId
+  dragStartX.value = e.clientX
+  dragActive.value = true
+  ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
+}
+
+function onCardPointerMove(e: PointerEvent) {
+  if (!dragActive.value || e.pointerId !== dragPointerId.value) return
+  dragDx.value = e.clientX - dragStartX.value
+}
+
+function onCardPointerUp(e: PointerEvent) {
+  if (e.pointerId !== dragPointerId.value) return
+  dragActive.value = false
+  dragPointerId.value = null
+  if (dragDx.value > SWIPE_THRESHOLD)       commitSwipe('yes')
+  else if (dragDx.value < -SWIPE_THRESHOLD) commitSwipe('skip')
+  else                                      dragDx.value = 0
+}
+
+function commitSwipe(direction: 'yes' | 'skip' | 'save') {
+  const card = deckCurrent.value
+  if (!card) return
+  cardExitDir.value = direction
+
+  let nudgeAdded: string | undefined
+  if (direction === 'yes') {
+    if (card.kind === 'dancer-new-fest') {
+      nudgeAdded = card.festivalSlug
+      addNudge(card)
+    }
+    if (card.kind === 'event-festival') {
+      // Add straight to the year picks
+      if (!previewMode.value) toggleFestival(card.slug)
+    }
+  }
+  if (direction === 'save') {
+    savedForLater.value = [...savedForLater.value, card]
+  }
+
+  // Animate out then advance
+  setTimeout(() => {
+    swipeHistory.value = [...swipeHistory.value, { card, direction, nudgeAdded }]
+    deck.value = deck.value.slice(1)
+    dragDx.value = 0
+    cardExitDir.value = null
+  }, 260)
+}
+
+function addNudge(card: Extract<DeckCard, { kind: 'dancer-new-fest' }>) {
+  const existing = festivalNudges.value.find(n => n.festivalSlug === card.festivalSlug)
+  if (existing) {
+    if (!existing.dancerNames.includes(card.name)) {
+      existing.dancerNames = [...existing.dancerNames, card.name]
+    }
+    existing.dismissed = false
+  } else {
+    festivalNudges.value = [
+      ...festivalNudges.value,
+      { festivalSlug: card.festivalSlug, festivalName: card.festivalName, festivalColor: card.festivalColor, dancerNames: [card.name], dismissed: false },
+    ]
+  }
+}
+
+function undoSwipe() {
+  const last = swipeHistory.value[swipeHistory.value.length - 1]
+  if (!last) return
+  swipeHistory.value = swipeHistory.value.slice(0, -1)
+  deck.value = [last.card, ...deck.value]
+  if (last.direction === 'save') savedForLater.value = savedForLater.value.filter(c => c.id !== last.card.id)
+  if (last.direction === 'yes' && last.nudgeAdded) {
+    const n = festivalNudges.value.find(x => x.festivalSlug === last.nudgeAdded)
+    if (n && 'name' in last.card) {
+      n.dancerNames = n.dancerNames.filter(name => name !== (last.card as any).name)
+    }
+  }
+}
+
+function acceptFestivalNudge(n: FestivalNudge) {
+  if (!previewMode.value) toggleFestival(n.festivalSlug)
+  n.dismissed = true
+  festivalNudges.value = [...festivalNudges.value]
+}
+
+function dismissFestivalNudge(n: FestivalNudge) {
+  n.dismissed = true
+  festivalNudges.value = [...festivalNudges.value]
+}
+
+// -----------------------------------------------------------------------
+// GOAL · progress ring color
+// -----------------------------------------------------------------------
+function goalProgressColor(p: number) {
+  if (p >= 75) return '#16a34a'
+  if (p >= 40) return '#0891b2'
+  if (p >= 15) return '#f59e0b'
+  return '#dc2626'
+}
+
 // Collapsed-view summary: how much of the plan is done, and what's the
 // single most-urgent open track (the row that pulls the eye).
 function cardSummary(f: CatalogueEntry) {
@@ -554,6 +874,104 @@ function cardSummary(f: CatalogueEntry) {
 
     <!-- SIGNED IN, WITH PICKS -->
     <section v-else class="max-w-4xl mx-auto px-4 py-6 pb-16">
+      <!-- HEAT STRIP · the top 3 items across every scale, sorted by urgency. -->
+      <div v-if="heatItems.length" class="rounded-2xl mb-8 p-5 sm:p-6 relative overflow-hidden" style="background:linear-gradient(135deg, #fef3c7 0%, #fee2e2 100%); border:1px solid #dc262633;">
+        <div class="flex items-baseline justify-between mb-3">
+          <div class="text-xs uppercase tracking-[0.3em] font-bold" style="color:#dc2626;">This week · do these first</div>
+          <span class="text-xs" style="color:#9a5614; font-family:'Caveat', cursive; font-size:18px;">
+            — 3 things across your plan
+          </span>
+        </div>
+        <div class="grid gap-2">
+          <a
+            v-for="item in heatItems"
+            :key="item.key"
+            :href="item.href"
+            :target="item.external ? '_blank' : undefined"
+            :rel="item.external ? 'noopener noreferrer' : undefined"
+            class="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/80 hover:bg-white transition-all border"
+            :style="{ borderColor: item.color + '55' }"
+          >
+            <span class="w-2 h-2 rounded-full shrink-0 animate-pulse" :style="{ background: item.color }" />
+            <span class="font-bold text-sm" style="color:#3b1f0d; font-family:'Playfair Display', serif;">{{ item.label }}</span>
+            <span class="text-xs italic hidden sm:inline" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+              — {{ item.detail }}
+            </span>
+            <span class="ml-auto text-xs font-bold" :style="{ color: item.color }">
+              <template v-if="item.external">Open ↗</template>
+              <template v-else>Go →</template>
+            </span>
+          </a>
+        </div>
+      </div>
+
+      <!-- GOALS · long arcs above the horizon. -->
+      <div class="mb-10">
+        <div class="flex items-baseline justify-between mb-4">
+          <div>
+            <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">Goals · your compass</div>
+            <h2 class="mt-2 text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+              Where you're <em class="italic" style="color:#dc2626;">headed.</em>
+            </h2>
+          </div>
+          <button
+            type="button"
+            class="text-xs italic hover:underline"
+            style="color:#9a5614; font-family:'Playfair Display', serif;"
+          >
+            + Add a goal
+          </button>
+        </div>
+
+        <div v-if="!goals.length" class="rounded-2xl p-6 text-center border-2 border-dashed" style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);">
+          <Target class="w-8 h-8 mx-auto mb-3" style="color:#9a5614;" />
+          <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+            No goals yet. One year, one arc, one reason to keep showing up.
+          </p>
+        </div>
+        <div v-else class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div
+            v-for="g in goals"
+            :key="g.id"
+            class="rounded-2xl bg-white p-5 border"
+            :style="{ borderColor: g.color + '55', boxShadow: '0 1px 0 ' + g.color + '22, 0 8px 22px rgba(59,31,18,0.05)' }"
+          >
+            <div class="flex items-start gap-3 mb-3">
+              <component :is="g.icon" class="w-5 h-5 shrink-0" :style="{ color: g.color, 'stroke-width': 1.5 }" />
+              <div class="flex-1 min-w-0">
+                <div class="text-base font-bold leading-tight" style="color:#3b1f0d;">
+                  {{ g.title }}
+                </div>
+                <div class="mt-1 text-xs italic" style="color:#5b3a1d; font-family:'Playfair Display', serif;">
+                  {{ g.why }}
+                </div>
+              </div>
+            </div>
+            <!-- Progress bar -->
+            <div class="mt-4">
+              <div class="flex items-baseline justify-between mb-1">
+                <span class="text-[10px] uppercase tracking-widest font-bold" style="color:#9a5614;">Progress</span>
+                <span class="text-xs font-black" :style="{ color: goalProgressColor(g.progress), fontFamily: 'Playfair Display, serif' }">{{ g.progress }}%</span>
+              </div>
+              <div class="w-full h-2 rounded-full overflow-hidden" style="background:#3b1f0d10;">
+                <div class="h-full transition-all" :style="{ width: g.progress + '%', background: goalProgressColor(g.progress) }" />
+              </div>
+            </div>
+            <div v-if="g.nudge" class="mt-3 text-sm" style="font-family:'Caveat', cursive; color:#9a5614; font-size:17px;">
+              — {{ g.nudge }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- YEAR · festivals section header -->
+      <div class="mb-4">
+        <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">This year · festivals</div>
+        <h2 class="mt-2 text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+          Where you're <em class="italic" style="color:#dc2626;">going.</em>
+        </h2>
+      </div>
+
       <!-- Cross-festival summary — the money + urgency crosscut. -->
       <div
         class="rounded-2xl bg-white border p-5 sm:p-6 mb-8"
@@ -643,12 +1061,52 @@ function cardSummary(f: CatalogueEntry) {
         </div>
       </div>
 
-      <div class="flex items-baseline justify-between mb-6">
-        <h2 class="text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
-          Your festivals
-        </h2>
+      <!-- Nudges from Discover swipes — "3 friends heading to X, add it?" -->
+      <div v-if="activeFestivalNudges.length" class="mb-4 grid gap-2">
+        <div
+          v-for="n in activeFestivalNudges"
+          :key="n.festivalSlug"
+          class="rounded-2xl p-4 flex flex-wrap items-center gap-3 bg-white border"
+          :style="{ borderColor: n.festivalColor + '55', boxShadow: '0 1px 0 ' + n.festivalColor + '22, 0 6px 18px rgba(59,31,18,0.04)' }"
+        >
+          <span
+            class="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full"
+            :style="{ background: n.festivalColor + '18', color: n.festivalColor }"
+          >
+            <UsersIcon class="w-3 h-3" style="stroke-width:2;" /> {{ n.dancerNames.length }} match{{ n.dancerNames.length === 1 ? '' : 'es' }}
+          </span>
+          <div class="min-w-0 flex-1">
+            <div class="text-sm font-bold" style="color:#3b1f0d;">
+              {{ n.dancerNames.slice(0, 3).join(', ') }}<span v-if="n.dancerNames.length > 3"> and {{ n.dancerNames.length - 3 }} more</span> heading to
+              <span :style="{ color: n.festivalColor }">{{ n.festivalName }}</span>.
+            </div>
+            <div class="text-xs italic" style="color:#5b3a1d; font-family:'Playfair Display', serif;">
+              Not in your year yet — add it and you'll meet them there.
+            </div>
+          </div>
+          <button
+            type="button"
+            class="text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-full text-white whitespace-nowrap"
+            :style="{ background: n.festivalColor, boxShadow: '0 3px 0 -1px ' + n.festivalColor + 'CC' }"
+            @click="acceptFestivalNudge(n)"
+          >
+            Add to year
+          </button>
+          <button
+            type="button"
+            class="text-xs italic hover:underline shrink-0"
+            style="color:#9a5614;"
+            @click="dismissFestivalNudge(n)"
+          >
+            Not this year
+          </button>
+        </div>
+      </div>
+
+      <div class="flex items-baseline justify-between mb-4">
+        <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">Picked</div>
         <span class="text-xs" style="color:#9a5614; font-family:'Caveat', cursive; font-size:18px;">
-          — {{ picked.length }} picked
+          — {{ picked.length }} in your year
         </span>
       </div>
 
@@ -861,6 +1319,398 @@ function cardSummary(f: CatalogueEntry) {
               </button>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- MONTH · Courses. -->
+      <div id="courses" class="mt-14">
+        <div class="flex items-baseline justify-between mb-4">
+          <div>
+            <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">This month · courses</div>
+            <h2 class="mt-2 text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+              Where you <em class="italic" style="color:#dc2626;">show up.</em>
+            </h2>
+          </div>
+          <button
+            type="button"
+            class="text-xs italic hover:underline"
+            style="color:#9a5614; font-family:'Playfair Display', serif;"
+          >
+            + Enroll
+          </button>
+        </div>
+
+        <div v-if="!courses.length" class="rounded-2xl p-6 text-center border-2 border-dashed" style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);">
+          <GraduationCap class="w-8 h-8 mx-auto mb-3" style="color:#9a5614;" />
+          <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+            No monthly cadence yet. A weekly class is the quickest way to keep momentum.
+          </p>
+        </div>
+        <div v-else class="grid sm:grid-cols-2 gap-4">
+          <div
+            v-for="c in courses"
+            :key="c.id"
+            class="rounded-2xl bg-white p-5 border"
+            :style="{ borderColor: c.color + '55', boxShadow: '0 1px 0 ' + c.color + '22, 0 6px 18px rgba(59,31,18,0.04)' }"
+          >
+            <div class="flex items-start justify-between gap-3 mb-2">
+              <div class="min-w-0">
+                <div class="text-base font-bold leading-tight" style="color:#3b1f0d;">
+                  {{ c.school }}
+                </div>
+                <div class="text-xs mt-0.5" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+                  {{ c.teacher }} · <span style="color:#9a5614;">{{ c.style }} · {{ c.level }}</span>
+                </div>
+              </div>
+              <span
+                class="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full whitespace-nowrap"
+                :style="c.paidThroughMonth
+                  ? { color: '#16a34a', background: '#16a34a18' }
+                  : { color: '#dc2626', background: '#dc262618' }"
+              >
+                {{ c.paidThroughMonth ? 'Paid' : 'Pay due' }}
+              </span>
+            </div>
+
+            <div class="mt-3 space-y-1.5 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+              <div class="flex items-center gap-2">
+                <Calendar class="w-3 h-3" style="color:#9a5614;" />
+                Next class <strong>{{ c.weekday }} {{ c.time }}</strong>
+              </div>
+              <div class="flex items-center gap-2">
+                <MapPin class="w-3 h-3" style="color:#9a5614;" />
+                {{ c.venue }}
+              </div>
+            </div>
+
+            <div class="mt-4">
+              <div class="flex items-baseline justify-between mb-1">
+                <span class="text-[10px] uppercase tracking-widest font-bold" style="color:#9a5614;">Attendance this cycle</span>
+                <span class="text-xs font-black" style="color:#3b1f0d; font-family:'Playfair Display', serif;">{{ c.attended }} / {{ c.total }}</span>
+              </div>
+              <div class="w-full h-1.5 rounded-full overflow-hidden" style="background:#3b1f0d10;">
+                <div class="h-full transition-all" :style="{ width: Math.round((c.attended / c.total) * 100) + '%', background: c.color }" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- WEEK · Socials. -->
+      <div id="socials" class="mt-14">
+        <div class="flex items-baseline justify-between mb-4">
+          <div>
+            <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">This week · socials</div>
+            <h2 class="mt-2 text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+              Where you're <em class="italic" style="color:#dc2626;">dancing.</em>
+            </h2>
+          </div>
+          <NuxtLink
+            to="/cities/munich"
+            class="text-xs italic hover:underline"
+            style="color:#9a5614; font-family:'Playfair Display', serif;"
+          >
+            Full week →
+          </NuxtLink>
+        </div>
+
+        <div v-if="!socials.length" class="rounded-2xl p-6 text-center border-2 border-dashed" style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);">
+          <Sparkles class="w-8 h-8 mx-auto mb-3" style="color:#9a5614;" />
+          <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+            Pick your city and we'll surface this week's socials here.
+          </p>
+        </div>
+        <div v-else class="rounded-2xl bg-white border overflow-hidden" style="border-color:#3b1f0d22;">
+          <div
+            v-for="(s, i) in socials"
+            :key="s.id"
+            class="flex flex-wrap items-center gap-3 px-4 py-3"
+            :class="i > 0 ? 'border-t' : ''"
+            :style="{ borderColor: '#3b1f0d0d', background: s.rsvpd ? '#16a34a08' : 'white' }"
+          >
+            <span
+              class="w-10 text-center text-[10px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded"
+              :style="{ background: s.color + '18', color: s.color }"
+            >{{ s.dayLabel }}</span>
+            <span class="text-sm font-bold" style="color:#3b1f0d; font-family: system-ui, sans-serif;">
+              {{ s.time }}
+            </span>
+            <div class="min-w-0 flex-1">
+              <div class="text-sm font-bold truncate" style="color:#3b1f0d;">{{ s.name }}</div>
+              <div class="text-xs truncate" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+                {{ s.venue }} · <span :style="{ color: s.color }">{{ s.style }}</span> · {{ s.friendsGoing }} friends going
+              </div>
+            </div>
+            <button
+              type="button"
+              class="text-xs font-bold px-3 py-1.5 rounded-full whitespace-nowrap"
+              :style="s.rsvpd
+                ? { background: '#16a34a', color: 'white' }
+                : { background: 'white', color: s.color, border: '1.5px solid ' + s.color + '55' }"
+              @click="toggleSocialRsvp(s.id)"
+            >
+              {{ s.rsvpd ? '✓ Going' : 'RSVP' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TONIGHT · Hangouts. -->
+      <div id="tonight" class="mt-14">
+        <div class="flex items-baseline justify-between mb-4">
+          <div>
+            <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">Tonight · hangouts</div>
+            <h2 class="mt-2 text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+              Who's <em class="italic" style="color:#dc2626;">out.</em>
+            </h2>
+          </div>
+          <span
+            class="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full"
+            style="background:#dc262618; color:#dc2626; font-family: system-ui, sans-serif;"
+          >
+            <span class="w-1.5 h-1.5 rounded-full animate-pulse" style="background:#dc2626;" />
+            Live
+          </span>
+        </div>
+
+        <div v-if="!hangouts.length" class="rounded-2xl p-6 text-center border-2 border-dashed" style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);">
+          <MoonStar class="w-8 h-8 mx-auto mb-3" style="color:#9a5614;" />
+          <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+            Nobody's out yet. Post a dinner, a bar hop, or a ride — dancers show up when someone starts.
+          </p>
+        </div>
+        <div v-else class="rounded-2xl bg-white border overflow-hidden" style="border-color:#3b1f0d22;">
+          <div
+            v-for="(h, i) in hangouts"
+            :key="h.id"
+            class="flex flex-wrap items-center gap-3 px-4 py-3"
+            :class="i > 0 ? 'border-t' : ''"
+            :style="{ borderColor: '#3b1f0d0d', background: h.going ? '#16a34a08' : 'white' }"
+          >
+            <component :is="hangoutIcon(h.kind)" class="w-4 h-4 shrink-0" :style="{ color: h.color, 'stroke-width': 1.5 }" />
+            <span class="text-sm font-bold w-12" style="color:#3b1f0d; font-family: system-ui, sans-serif;">
+              {{ h.time }}
+            </span>
+            <div class="min-w-0 flex-1">
+              <div class="text-sm font-bold truncate" style="color:#3b1f0d;">{{ h.title }}</div>
+              <div class="text-xs truncate" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+                <span v-if="h.host">{{ h.host }} · </span>
+                <span v-if="h.venue">{{ h.venue }} · </span>
+                {{ h.people }} in
+              </div>
+            </div>
+            <button
+              type="button"
+              class="text-xs font-bold px-3 py-1.5 rounded-full whitespace-nowrap"
+              :style="h.going
+                ? { background: '#16a34a', color: 'white' }
+                : { background: 'white', color: h.color, border: '1.5px solid ' + h.color + '55' }"
+              @click="toggleHangout(h.id)"
+            >
+              {{ h.going ? '✓ In' : 'Join' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- DISCOVER · widen-your-year deck. -->
+      <div id="discover" class="mt-14">
+        <div class="flex items-baseline justify-between mb-4">
+          <div>
+            <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">Widen your year · discover</div>
+            <h2 class="mt-2 text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+              What could <em class="italic" style="color:#dc2626;">rearrange</em> the year?
+            </h2>
+          </div>
+          <button
+            type="button"
+            class="inline-flex items-center gap-1 text-xs italic hover:underline"
+            :class="canUndo ? '' : 'opacity-40 pointer-events-none'"
+            style="color:#9a5614; font-family:'Playfair Display', serif;"
+            @click="undoSwipe"
+          >
+            <Undo2 class="w-3 h-3" /> Undo
+          </button>
+        </div>
+        <p class="text-sm mb-6 max-w-xl" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+          People and places that could pull you somewhere new. Yes = we surface it above. Skip = we won't.
+        </p>
+
+        <!-- Deck -->
+        <div class="relative mx-auto max-w-md">
+          <div v-if="!deckCurrent" class="rounded-2xl p-10 text-center border-2 border-dashed" style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);">
+            <Sparkles class="w-10 h-10 mx-auto mb-3" style="color:#9a5614;" />
+            <p class="text-lg" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+              That's it for this pass.
+            </p>
+            <p class="mt-2 text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+              We'll refresh nightly with more people and places.
+            </p>
+          </div>
+
+          <div v-else class="relative" style="height: 400px;">
+            <!-- Peek: card 3 behind -->
+            <div v-if="deckAfter" class="absolute inset-0 rounded-3xl bg-white border" style="transform: scale(0.88) translateY(20px); opacity:0.35; border-color:#3b1f0d22; box-shadow: 0 6px 22px rgba(0,0,0,0.08);" />
+            <!-- Peek: card 2 behind -->
+            <div v-if="deckNext" class="absolute inset-0 rounded-3xl bg-white border" style="transform: scale(0.94) translateY(10px); opacity:0.65; border-color:#3b1f0d22; box-shadow: 0 6px 22px rgba(0,0,0,0.08);" />
+            <!-- Current card — gestures live here -->
+            <div
+              :key="deckCurrent.id"
+              class="absolute inset-0 rounded-3xl bg-white border overflow-hidden touch-none select-none cursor-grab active:cursor-grabbing"
+              :style="{
+                borderColor: '#3b1f0d22',
+                boxShadow: '0 12px 32px rgba(0,0,0,0.14)',
+                transform: currentCardTransform(),
+                transition: dragActive || cardExitDir ? 'transform 260ms ease-out' : 'transform 220ms ease-out',
+              }"
+              @pointerdown="onCardPointerDown"
+              @pointermove="onCardPointerMove"
+              @pointerup="onCardPointerUp"
+              @pointercancel="onCardPointerUp"
+            >
+              <!-- YES / SKIP labels tinted by drag -->
+              <div
+                class="absolute top-6 left-6 z-10 px-3 py-1 rounded-full border-2 text-sm font-black uppercase tracking-widest pointer-events-none transition-opacity"
+                style="color:#dc2626; border-color:#dc2626; transform: rotate(-10deg);"
+                :style="{ opacity: Math.min(1, Math.max(0, -dragDx / 100)) }"
+              >Skip</div>
+              <div
+                class="absolute top-6 right-6 z-10 px-3 py-1 rounded-full border-2 text-sm font-black uppercase tracking-widest pointer-events-none transition-opacity"
+                style="color:#16a34a; border-color:#16a34a; transform: rotate(10deg);"
+                :style="{ opacity: Math.min(1, Math.max(0, dragDx / 100)) }"
+              >Yes</div>
+
+              <!-- DANCER CARDS (any of the 3 dancer kinds) -->
+              <template v-if="deckCurrent.kind === 'dancer-your-fest' || deckCurrent.kind === 'dancer-new-fest' || deckCurrent.kind === 'dancer-local'">
+                <img :src="deckCurrent.photo" :alt="deckCurrent.name" class="w-full h-2/3 object-cover" draggable="false">
+                <div class="p-5">
+                  <div class="flex items-baseline justify-between gap-3">
+                    <div class="text-xl font-black" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+                      {{ deckCurrent.name }}
+                    </div>
+                    <div class="text-xs italic" style="color:#9a5614; font-family:'Playfair Display', serif;">
+                      {{ deckCurrent.city }}
+                    </div>
+                  </div>
+                  <!-- Context chip -->
+                  <div v-if="deckCurrent.kind === 'dancer-your-fest'"
+                       class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold"
+                       :style="{ background: deckCurrent.festivalColor + '18', color: deckCurrent.festivalColor }">
+                    <Plane class="w-3 h-3" style="stroke-width:1.5;" />
+                    Also going to {{ deckCurrent.festivalName }}
+                  </div>
+                  <div v-else-if="deckCurrent.kind === 'dancer-new-fest'"
+                       class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold"
+                       :style="{ background: deckCurrent.festivalColor + '18', color: deckCurrent.festivalColor }">
+                    <Plane class="w-3 h-3" style="stroke-width:1.5;" />
+                    Going to {{ deckCurrent.festivalName }} — you're not
+                  </div>
+                  <div v-else-if="deckCurrent.kind === 'dancer-local'"
+                       class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold"
+                       style="background:#16a34a18; color:#16a34a;">
+                    <MapPin class="w-3 h-3" style="stroke-width:1.5;" />
+                    Regular at {{ (deckCurrent as any).regularAt }}
+                  </div>
+                  <div class="mt-3 flex flex-wrap gap-1">
+                    <span v-for="st in deckCurrent.danceStyles" :key="st"
+                          class="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full"
+                          style="background:#3b1f0d0a; color:#5b3a1d;">
+                      {{ st }}
+                    </span>
+                  </div>
+                </div>
+              </template>
+
+              <!-- EVENT: FESTIVAL -->
+              <template v-else-if="deckCurrent.kind === 'event-festival'">
+                <div class="h-2/3 p-6 flex flex-col justify-end" :style="{ background: 'linear-gradient(135deg, ' + (deckCurrent as any).color + ', #f97316)' }">
+                  <div class="text-[10px] uppercase tracking-widest font-bold text-white/90">Festival · not in your year</div>
+                  <div class="mt-1 text-3xl font-black leading-none text-white" style="font-family:'Playfair Display', serif;">
+                    {{ deckCurrent.name }}
+                  </div>
+                </div>
+                <div class="p-5">
+                  <div class="flex items-center gap-4 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+                    <span class="inline-flex items-center gap-1">
+                      <Calendar class="w-3 h-3" style="color:#9a5614;" />
+                      {{ new Date((deckCurrent as any).dateISO).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) }}
+                    </span>
+                    <span class="inline-flex items-center gap-1">
+                      <MapPin class="w-3 h-3" style="color:#9a5614;" />
+                      {{ (deckCurrent as any).venue }}, {{ (deckCurrent as any).city }}
+                    </span>
+                  </div>
+                  <div class="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold"
+                       style="background:#f59e0b18; color:#f59e0b;">
+                    <UsersIcon class="w-3 h-3" style="stroke-width:1.5;" />
+                    {{ (deckCurrent as any).friendsGoing }} friends going
+                  </div>
+                </div>
+              </template>
+
+              <!-- EVENT: LOCAL SOCIAL -->
+              <template v-else>
+                <div class="h-2/3 p-6 flex flex-col justify-end" :style="{ background: 'linear-gradient(135deg, ' + (deckCurrent as any).color + ', #7c3aed)' }">
+                  <div class="text-[10px] uppercase tracking-widest font-bold text-white/90">Local · {{ (deckCurrent as any).style }}</div>
+                  <div class="mt-1 text-3xl font-black leading-none text-white" style="font-family:'Playfair Display', serif;">
+                    {{ deckCurrent.name }}
+                  </div>
+                </div>
+                <div class="p-5">
+                  <div class="flex items-center gap-4 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+                    <span class="inline-flex items-center gap-1">
+                      <Calendar class="w-3 h-3" style="color:#9a5614;" />
+                      {{ (deckCurrent as any).dayLabel }} {{ (deckCurrent as any).time }}
+                    </span>
+                    <span class="inline-flex items-center gap-1">
+                      <MapPin class="w-3 h-3" style="color:#9a5614;" />
+                      {{ (deckCurrent as any).venue }}, {{ (deckCurrent as any).city }}
+                    </span>
+                  </div>
+                  <div class="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold"
+                       style="background:#f59e0b18; color:#f59e0b;">
+                    <UsersIcon class="w-3 h-3" style="stroke-width:1.5;" />
+                    {{ (deckCurrent as any).friendsGoing }} friends going
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- Action buttons -->
+          <div v-if="deckCurrent" class="mt-8 flex items-center justify-center gap-6">
+            <button
+              type="button"
+              class="w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95"
+              style="background:white; border:2px solid #dc262655; color:#dc2626;"
+              aria-label="Skip"
+              @click="commitSwipe('skip')"
+            >
+              <X class="w-6 h-6" style="stroke-width:2;" />
+            </button>
+            <button
+              type="button"
+              class="w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95"
+              style="background:white; border:2px solid #f59e0b55; color:#f59e0b;"
+              aria-label="Save for later"
+              @click="commitSwipe('save')"
+            >
+              <Star class="w-5 h-5" style="stroke-width:2;" />
+            </button>
+            <button
+              type="button"
+              class="w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95"
+              style="background:white; border:2px solid #16a34a55; color:#16a34a;"
+              aria-label="Yes"
+              @click="commitSwipe('yes')"
+            >
+              <Heart class="w-6 h-6" style="stroke-width:2;" />
+            </button>
+          </div>
+
+          <p v-if="deckCurrent" class="mt-4 text-xs text-center italic" style="color:#9a5614; font-family:'Playfair Display', serif;">
+            Drag or use the buttons · {{ deck.length }} left
+          </p>
         </div>
       </div>
     </section>
