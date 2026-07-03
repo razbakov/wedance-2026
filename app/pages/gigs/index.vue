@@ -200,8 +200,6 @@ function daysUntil(dateStr?: string): { text: string; urgent: boolean } | null {
       </div>
     </section>
 
-    <footer class="border-t py-6 text-center text-xs" style="border-color:#3b1f0d22; color:#9a5614; font-family:'Caveat', cursive; font-size:18px;">
-      WeDance · <NuxtLink to="/artists" class="underline">artists</NuxtLink> · <NuxtLink to="/festivals" class="underline">festivals</NuxtLink> · <NuxtLink to="/organizers" class="underline">for organizers</NuxtLink>
-    </footer>
+    <SiteFooter />
   </div>
 </template>

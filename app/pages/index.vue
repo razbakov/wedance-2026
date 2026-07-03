@@ -469,9 +469,7 @@ const attendees = [
         </div>
       </section>
 
-      <footer class="border-t py-6 text-center text-xs" style="border-color:#3b1f0d22; color:#9a5614; font-family:'Caveat', cursive; font-size:18px;">
-        With love · Munich · 2026
-      </footer>
+      <SiteFooter />
     </div>
 
   </div>

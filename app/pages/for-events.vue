@@ -76,8 +76,6 @@ const occasions = ['Weddings', 'Birthdays', 'Corporate', 'Brand launches', 'Team
       </div>
     </section>
 
-    <footer class="border-t py-6 text-center text-xs" style="border-color:#3b1f0d22; color:#9a5614; font-family:'Caveat', cursive; font-size:18px;">
-      WeDance · <NuxtLink to="/" class="underline">home</NuxtLink> · <NuxtLink to="/organizers" class="underline">for organizers</NuxtLink>
-    </footer>
+    <SiteFooter />
   </div>
 </template>

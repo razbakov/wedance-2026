@@ -1444,5 +1444,7 @@ useHead({
         </div>
       </div>
     </Teleport>
+
+    <SiteFooter />
   </div>
 </template>

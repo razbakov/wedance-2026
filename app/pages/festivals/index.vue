@@ -418,13 +418,7 @@ const styleChips = ['Salsa', 'Bachata', 'Timba', 'Kizomba', 'Son']
       </div>
     </section>
 
-    <footer class="border-t py-6 text-center text-xs" style="border-color:#3b1f0d22; color:#9a5614; font-family:'Caveat', cursive; font-size:18px;">
-      WeDance ·
-      <NuxtLink to="/" class="underline">home</NuxtLink> ·
-      <NuxtLink to="/cities" class="underline">cities</NuxtLink> ·
-      <NuxtLink to="/for-events" class="underline">for events</NuxtLink> ·
-      <NuxtLink to="/organizers" class="underline">for organizers</NuxtLink>
-    </footer>
+    <SiteFooter />
 
     <!-- Soft year-plan nudge — appears only when the user has picks.
          Same pattern as the /festivals/[slug] plan nudge. YearCanvas
