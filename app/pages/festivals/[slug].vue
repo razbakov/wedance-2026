@@ -655,9 +655,7 @@ useHead({
     <!-- V3 header — same as /, /festivals, /organizers -->
     <header class="border-b" style="border-color:#3b1f0d33; background:#fbf5ea;">
       <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-        <NuxtLink to="/" class="flex items-baseline gap-2">
-          <span class="font-bold text-lg">WeDance</span>
-        </NuxtLink>
+        <Brand />
         <nav class="flex items-center gap-4 text-sm">
           <NuxtLink to="/festivals" class="italic hover:underline">Festivals</NuxtLink>
           <NuxtLink to="/cities" class="italic hover:underline">Cities</NuxtLink>

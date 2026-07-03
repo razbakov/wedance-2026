@@ -108,9 +108,7 @@ const attendees = [
       <!-- Header — old-fashioned travel poster strip -->
       <header class="border-b" style="border-color:#3b1f0d33;">
         <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <NuxtLink to="/" class="flex items-baseline gap-2">
-            <span class="font-bold text-lg" style="font-family:'Playfair Display', serif;">WeDance</span>
-          </NuxtLink>
+          <Brand />
           <nav class="flex items-center gap-5 text-sm" style="font-family:'Playfair Display', serif;">
             <NuxtLink to="/festivals" class="italic hover:underline">Festivals</NuxtLink>
             <NuxtLink to="/cities" class="italic hover:underline">Cities</NuxtLink>
