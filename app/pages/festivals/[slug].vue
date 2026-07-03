@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { PlanEntry, DanceRole, DancePartner, FestivalFriend, PartnerMatch, DiscoverDancer, ExtraActivity, RideShare, SwipeCard, FreemiumState } from '~/types/festival'
 import { ArrowRight, Sparkles, Check } from 'lucide-vue-next'
-import { artistPlaces } from '~/data/artists'
+import { artistPlaces, artistLanguages } from '~/data/artists'
 import * as salsaOpen from '~/data/mock-festival'
 import * as meneate from '~/data/mock-meneate'
 import * as cubanFire from '~/data/mock-cuban-fire'
@@ -170,11 +170,15 @@ const selectedTeacher = computed(() =>
 // Lineup cards — face-forward artist cards (shared with /artists) with
 // origin + residence. Clicking one filters the schedule to that teacher.
 const lineupAccents = ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b', '#ec4899', '#7c3aed']
-const lineupCards = teachers.map((teacher, i) => ({
-  teacher,
-  accent: lineupAccents[i % lineupAccents.length],
-  ...artistPlaces(teacher),
-}))
+const lineupCards = teachers.map((teacher, i) => {
+  const places = artistPlaces(teacher)
+  return {
+    teacher,
+    accent: lineupAccents[i % lineupAccents.length],
+    ...places,
+    languages: artistLanguages(places.origin, places.residence),
+  }
+})
 
 function toggleTeacherFilter(id: string) {
   selectedTeacherId.value = selectedTeacherId.value === id ? null : id
@@ -1061,6 +1065,7 @@ useHead({
               :accent="c.accent"
               :origin="c.origin"
               :residence="c.residence"
+              :languages="c.languages"
               selectable
               :selected="selectedTeacherId === c.teacher.id"
               @select="toggleTeacherFilter(c.teacher.id)"

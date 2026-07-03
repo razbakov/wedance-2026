@@ -12,12 +12,14 @@
  */
 import { MapPin, Globe, Plane, ArrowRight } from 'lucide-vue-next'
 import type { Teacher } from '~/types/festival'
+import type { Language } from '~/data/artists'
 
 const props = withDefaults(defineProps<{
   artist: Teacher
   accent: string
   origin?: string | null
   residence?: string | null
+  languages?: Language[]
   festivalCount?: number | null
   showBio?: boolean
   selectable?: boolean
@@ -25,6 +27,7 @@ const props = withDefaults(defineProps<{
 }>(), {
   origin: null,
   residence: null,
+  languages: () => [],
   festivalCount: null,
   showBio: true,
   selectable: false,
@@ -85,9 +88,9 @@ const rootTag = computed(() => (props.selectable ? 'button' : NuxtLinkComponent)
         {{ artist.name }}
       </div>
 
-      <!-- Based-in (pin) + from (globe) -->
+      <!-- Based-in (pin) + from (globe) + language flags -->
       <div
-        v-if="residence || origin"
+        v-if="residence || origin || languages.length"
         class="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs"
         style="color:#9a5614; font-family: system-ui, sans-serif;"
       >
@@ -96,6 +99,13 @@ const rootTag = computed(() => (props.selectable ? 'button' : NuxtLinkComponent)
         </span>
         <span v-if="origin && origin !== residence" class="inline-flex items-center gap-1" title="From">
           <Globe class="w-3 h-3" /> {{ origin }}
+        </span>
+        <span
+          v-if="languages.length"
+          class="inline-flex items-center gap-0.5"
+          :title="'Speaks ' + languages.map((l) => l.label).join(', ')"
+        >
+          <span v-for="l in languages" :key="l.label" class="leading-none">{{ l.flag }}</span>
         </span>
       </div>
 

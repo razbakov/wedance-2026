@@ -66,6 +66,7 @@ export interface ArtistSummary {
   cityNames: string[]
   origin: string | null
   residence: string | null
+  languages: Language[]
 }
 
 // Nationality adjective -> country of origin, for bios that state it
@@ -121,6 +122,54 @@ export function artistPlaces(artist: Teacher): { origin: string | null; residenc
   return { origin: artistOrigin(artist), residence: artistResidence(artist, cityNames) }
 }
 
+// Place (country or one of our cities) -> primary language + flag.
+// Language "flags" use the canonical country of that language, per the
+// usual UI convention.
+export interface Language { label: string; flag: string }
+const PLACE_LANGUAGE: Record<string, Language> = {
+  Cuba: { label: 'Spanish', flag: '🇪🇸' },
+  Spain: { label: 'Spanish', flag: '🇪🇸' },
+  'Dominican Republic': { label: 'Spanish', flag: '🇪🇸' },
+  Colombia: { label: 'Spanish', flag: '🇪🇸' },
+  Venezuela: { label: 'Spanish', flag: '🇪🇸' },
+  Mexico: { label: 'Spanish', flag: '🇪🇸' },
+  Argentina: { label: 'Spanish', flag: '🇪🇸' },
+  Italy: { label: 'Italian', flag: '🇮🇹' },
+  Germany: { label: 'German', flag: '🇩🇪' },
+  Austria: { label: 'German', flag: '🇩🇪' },
+  France: { label: 'French', flag: '🇫🇷' },
+  Brazil: { label: 'Portuguese', flag: '🇧🇷' },
+  Portugal: { label: 'Portuguese', flag: '🇵🇹' },
+  Angola: { label: 'Portuguese', flag: '🇵🇹' },
+  Hungary: { label: 'Hungarian', flag: '🇭🇺' },
+  Montenegro: { label: 'Montenegrin', flag: '🇲🇪' },
+  Slovenia: { label: 'Slovenian', flag: '🇸🇮' },
+  // Our cities resolve to their country's language too.
+  Munich: { label: 'German', flag: '🇩🇪' },
+  Berlin: { label: 'German', flag: '🇩🇪' },
+  Vienna: { label: 'German', flag: '🇩🇪' },
+}
+
+/**
+ * Languages an artist likely speaks — derived from their origin and
+ * residence, plus English as the international dance-festival lingua
+ * franca. Deduped, English last. Best-effort, not a stated fact.
+ */
+export function artistLanguages(origin: string | null, residence: string | null): Language[] {
+  const out: Language[] = []
+  const seen = new Set<string>()
+  for (const place of [origin, residence]) {
+    if (!place) continue
+    const lang = PLACE_LANGUAGE[place]
+    if (lang && !seen.has(lang.label)) {
+      seen.add(lang.label)
+      out.push(lang)
+    }
+  }
+  if (!seen.has('English')) out.push({ label: 'English', flag: '🇬🇧' })
+  return out
+}
+
 /**
  * Every performer with a profile — festival teachers/headliners plus city
  * teachers and DJs. City organisers are schools/promoters, not artists, so
@@ -137,12 +186,15 @@ export function allArtists(): ArtistSummary[] {
   }
   return [...map.values()].map((artist) => {
     const cityNames = cityAppearances(artist.id).map((c) => c.city.name)
+    const origin = artistOrigin(artist)
+    const residence = artistResidence(artist, cityNames)
     return {
       artist,
       festivalCount: festivalAppearances(artist.id).length,
       cityNames,
-      origin: artistOrigin(artist),
-      residence: artistResidence(artist, cityNames),
+      origin,
+      residence,
+      languages: artistLanguages(origin, residence),
     }
   })
 }

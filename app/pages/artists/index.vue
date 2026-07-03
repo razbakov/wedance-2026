@@ -179,6 +179,7 @@ const accents = ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b', '#ec4899
           :accent="accents[i % accents.length]"
           :origin="a.origin"
           :residence="a.residence"
+          :languages="a.languages"
           :festival-count="a.festivalCount"
         />
       </div>

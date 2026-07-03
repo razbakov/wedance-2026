@@ -5,7 +5,7 @@
  * city they appear in (see ~/data/artists.ts).
  */
 import { Instagram, Youtube, Globe, Calendar, MapPin, ArrowRight } from 'lucide-vue-next'
-import { findArtist, festivalAppearances, cityAppearances, artistOrigin, artistResidence } from '~/data/artists'
+import { findArtist, festivalAppearances, cityAppearances, artistOrigin, artistResidence, artistLanguages } from '~/data/artists'
 
 definePageMeta({ layout: false })
 
@@ -21,6 +21,7 @@ const festivals = festivalAppearances(id)
 const cities = cityAppearances(id)
 const residence = artistResidence(artist, cities.map((c) => c.city.name))
 const origin = artistOrigin(artist)
+const languages = artistLanguages(origin, residence)
 
 useHead({
   title: `WeDance — ${artist.name}`,
@@ -107,6 +108,13 @@ function formatDateRange(start: string, end: string) {
               </span>
               <span v-if="origin && origin !== residence" class="inline-flex items-center gap-1.5" title="From">
                 <Globe class="w-4 h-4" /> From {{ origin }}
+              </span>
+              <span
+                v-if="languages.length"
+                class="inline-flex items-center gap-1"
+                :title="'Speaks ' + languages.map((l) => l.label).join(', ')"
+              >
+                <span v-for="l in languages" :key="l.label" class="text-base leading-none not-italic">{{ l.flag }}</span>
               </span>
             </div>
             <div v-if="artist.styles.length" class="mt-3 flex flex-wrap gap-1.5">
