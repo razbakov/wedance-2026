@@ -4,6 +4,7 @@ import * as salsaOpen from '~/data/mock-festival'
 import * as meneate from '~/data/mock-meneate'
 import * as cubanFire from '~/data/mock-cuban-fire'
 import * as caribbeanUrbanFire from '~/data/mock-caribbean-urban-fire'
+import * as aguaPichi from '~/data/mock-agua-pichi'
 
 const route = useRoute()
 const router = useRouter()
@@ -13,6 +14,7 @@ const festivals: Record<string, { festival: typeof salsaOpen.mockFestival; works
   'meneate-viena-2026': { festival: meneate.mockFestival, workshops: meneate.mockWorkshops, teachers: meneate.mockTeachers },
   'cuban-fire-munich-2026': { festival: cubanFire.mockFestival, workshops: cubanFire.mockWorkshops, teachers: cubanFire.mockTeachers },
   'caribbean-urban-fire-munich-2026': { festival: caribbeanUrbanFire.mockFestival, workshops: caribbeanUrbanFire.mockWorkshops, teachers: caribbeanUrbanFire.mockTeachers },
+  'agua-pichi-2027': { festival: aguaPichi.mockFestival, workshops: aguaPichi.mockWorkshops, teachers: aguaPichi.mockTeachers },
 }
 
 const data = festivals[route.params.slug as string] || festivals['meneate-viena-2026']

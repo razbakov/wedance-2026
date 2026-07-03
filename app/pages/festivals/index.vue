@@ -19,6 +19,7 @@ import * as salsaOpen from '~/data/mock-festival'
 import * as meneate from '~/data/mock-meneate'
 import * as cubanFire from '~/data/mock-cuban-fire'
 import * as caribbeanUrbanFire from '~/data/mock-caribbean-urban-fire'
+import * as aguaPichi from '~/data/mock-agua-pichi'
 
 definePageMeta({ layout: false })
 
@@ -45,6 +46,22 @@ const { yearPlanIds, toggleFestival, yearCount } = useYearPlan()
 const searchQuery = ref('')
 
 const allFestivals = [
+  {
+    slug: aguaPichi.mockFestival.slug,
+    name: aguaPichi.mockFestival.name,
+    startDate: aguaPichi.mockFestival.startDate,
+    endDate: aguaPichi.mockFestival.endDate,
+    location: 'Munich, Germany',
+    logo: aguaPichi.mockFestival.logo,
+    accentColor: aguaPichi.mockFestival.accentColor,
+    styles: ['Timba', 'Casino', 'Rumba', 'Son', 'Afro'],
+    attendeeCount: aguaPichi.mockFestival.attendeeCount,
+    friendsGoing: 0,
+    workshopCount: aguaPichi.mockWorkshops.filter(w => w.type !== 'party').length,
+    partyCount: aguaPichi.mockWorkshops.filter(w => w.type === 'party').length,
+    description: aguaPichi.mockFestival.description,
+    earlyBirdDeadline: '2026-11-30',
+  },
   {
     slug: meneate.mockFestival.slug,
     name: meneate.mockFestival.name,
