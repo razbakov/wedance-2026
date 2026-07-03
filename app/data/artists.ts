@@ -67,15 +67,48 @@ export interface ArtistSummary {
   location: string | null
 }
 
+// Nationality adjective -> country, for bios that state origin but no
+// residence ("Dominican Bachata artist", "Italian couple"). Only the
+// nationalities that actually appear in the data.
+const NATIONALITY_COUNTRY: Record<string, string> = {
+  cuban: 'Cuba',
+  dominican: 'Dominican Republic',
+  italian: 'Italy',
+  brazilian: 'Brazil',
+  montenegrin: 'Montenegro',
+  slovenian: 'Slovenia',
+  venezuelan: 'Venezuela',
+  spanish: 'Spain',
+  colombian: 'Colombia',
+  german: 'Germany',
+  french: 'France',
+  mexican: 'Mexico',
+  puerto: 'Puerto Rico',
+}
+
 /**
- * Best-effort home base. A local artist's city is where they teach/DJ
- * weekly; a festival artist's comes from the "based in X" their bio
- * already states — no invented locations. Null when neither is known.
+ * Best-effort home base, derived — never invented. Order of preference:
+ *   1. A local artist's weekly city (from city data).
+ *   2. Stated residence: "Berlin-based" or "based in Berlin".
+ *   3. Stated origin: a leading nationality adjective -> its country.
+ * Null when the bio states none of these.
  */
 export function artistLocation(artist: Teacher, cityNames: string[]): string | null {
   if (cityNames.length) return cityNames[0]
-  const m = artist.bio?.match(/based in ([A-Z][A-Za-zÀ-ÿ]+(?:\s[A-Z][A-Za-zÀ-ÿ]+)?)/)
-  return m ? m[1] : null
+  const bio = artist.bio || ''
+  // Residence — "<Place>-based"
+  let m = bio.match(/\b([A-Z][A-Za-zÀ-ÿ]+)-based\b/)
+  if (m) return m[1]
+  // Residence — "based in <Place>"
+  m = bio.match(/based in ([A-Z][A-Za-zÀ-ÿ]+(?:\s[A-Z][A-Za-zÀ-ÿ]+)?)/)
+  if (m) return m[1]
+  // Origin — leading nationality adjective
+  m = bio.match(/^([A-Z][a-zà-ÿ]+)/)
+  if (m) {
+    const country = NATIONALITY_COUNTRY[m[1].toLowerCase()]
+    if (country) return country
+  }
+  return null
 }
 
 /**
