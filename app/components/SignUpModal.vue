@@ -1,11 +1,15 @@
 <script setup lang="ts">
 /**
  * Email + password auth modal, styled in the 2026 V3 tropical aesthetic
- * (Playfair Display / Caveat, #fbf5ea / #3b1f0d / #dc2626). Replaces the old
- * magic-link modal. Two modes: Login (email + password) and Register (name,
- * email, password + optional onboarding fields). The register mode preserves
- * the onboarding fields the old magic-link signup collected (danceStyles /
- * role / city) so nothing downstream breaks.
+ * (Playfair Display / Caveat, #fbf5ea / #3b1f0d / #dc2626). Two modes: Login
+ * (email + password) and Register (name + email + password only).
+ *
+ * Register is intentionally near-instant: it collects ONLY name, email, and
+ * password. Dance styles / role / city are NOT asked here — they belong to a
+ * later onboarding step. The register tRPC procedure keeps those params
+ * optional, so callers that already collected them via their own onboarding
+ * (e.g. the festival page) may still pass them through `prefill`; the modal
+ * forwards prefilled values but never renders inputs for them.
  */
 const props = defineProps<{
   open: boolean
@@ -30,8 +34,6 @@ const headlines: Record<string, string> = {
   social: 'Join the community',
 }
 
-const DANCE_STYLES = ['Salsa', 'Bachata', 'Kizomba', 'Zouk', 'Semba', 'Afro-Cuban', 'Reggaeton', 'Cha-Cha']
-
 type Mode = 'login' | 'register'
 
 // signin action → start in login mode; every other action is a "join" prompt →
@@ -43,42 +45,27 @@ const form = reactive({
   name: '',
   email: '',
   password: '',
-  danceStyles: [] as string[],
-  role: '' as '' | 'lead' | 'follow' | 'both',
-  city: '',
 })
 
 const error = ref('')
 const loading = ref(false)
 const showPassword = ref(false)
 
-// Track which fields were pre-filled from onboarding — hide them in the form.
+// Track whether the name was pre-filled from onboarding — hide it in the form.
 const hasPrefillName = ref(false)
-const hasPrefillStyles = ref(false)
-const hasPrefillRole = ref(false)
-const hasPrefillCity = ref(false)
 
 function resetForm() {
   form.name = ''
   form.email = ''
   form.password = ''
-  form.danceStyles = []
-  form.role = ''
-  form.city = ''
   error.value = ''
   showPassword.value = false
   hasPrefillName.value = false
-  hasPrefillStyles.value = false
-  hasPrefillRole.value = false
-  hasPrefillCity.value = false
 }
 
 function applyPrefill() {
   if (!props.prefill) return
   if (props.prefill.name) { form.name = props.prefill.name; hasPrefillName.value = true }
-  if (props.prefill.danceStyles?.length) { form.danceStyles = [...props.prefill.danceStyles]; hasPrefillStyles.value = true }
-  if (props.prefill.role) { form.role = props.prefill.role; hasPrefillRole.value = true }
-  if (props.prefill.city) { form.city = props.prefill.city; hasPrefillCity.value = true }
 }
 
 watch(() => props.open, (open) => {
@@ -94,15 +81,6 @@ watch(() => props.open, (open) => {
 function switchMode(next: Mode) {
   mode.value = next
   error.value = ''
-}
-
-function toggleStyle(style: string) {
-  const idx = form.danceStyles.indexOf(style)
-  if (idx >= 0) {
-    form.danceStyles.splice(idx, 1)
-  } else {
-    form.danceStyles.push(style)
-  }
 }
 
 async function handleSubmit() {
@@ -132,13 +110,16 @@ async function handleSubmit() {
   loading.value = true
   try {
     if (isRegister.value) {
+      // Fast register: name + email + password only. Dance styles / role /
+      // city are forwarded ONLY when a caller pre-filled them from its own
+      // onboarding — the modal never collects them itself.
       await register({
         name: form.name.trim() || props.prefill?.name || '',
         email,
         password: form.password,
-        danceStyles: [...form.danceStyles],
-        role: form.role || undefined,
-        city: form.city.trim() || undefined,
+        danceStyles: props.prefill?.danceStyles ?? [],
+        role: props.prefill?.role,
+        city: props.prefill?.city,
       })
     } else {
       await login({ email, password: form.password })
@@ -232,56 +213,6 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
               </button>
             </div>
           </div>
-
-          <!-- Onboarding extras (register only) -->
-          <template v-if="isRegister">
-            <div v-if="!hasPrefillStyles" class="space-y-1.5">
-              <span class="text-sm font-bold" style="color:#3b1f0d;">Dance styles</span>
-              <div class="flex flex-wrap gap-2">
-                <button
-                  v-for="style in DANCE_STYLES"
-                  :key="style"
-                  type="button"
-                  :aria-pressed="form.danceStyles.includes(style)"
-                  class="rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider transition-colors"
-                  :style="form.danceStyles.includes(style)
-                    ? 'background:#dc2626; color:white; border:1px solid #dc2626;'
-                    : 'background:white; color:#5b3a1d; border:1px solid #3b1f0d33;'"
-                  @click="toggleStyle(style)"
-                >
-                  {{ style }}
-                </button>
-              </div>
-            </div>
-
-            <div v-if="!hasPrefillRole" class="space-y-1.5">
-              <span class="text-sm font-bold" style="color:#3b1f0d;">Dance role</span>
-              <div class="flex gap-4">
-                <label
-                  v-for="r in [{ value: 'lead', label: 'Lead' }, { value: 'follow', label: 'Follow' }, { value: 'both', label: 'Both' }]"
-                  :key="r.value"
-                  class="flex items-center gap-1.5 text-sm cursor-pointer"
-                  style="color:#5b3a1d; font-family: system-ui, sans-serif;"
-                >
-                  <input v-model="form.role" type="radio" name="role" :value="r.value" style="accent-color:#dc2626;">
-                  {{ r.label }}
-                </label>
-              </div>
-            </div>
-
-            <div v-if="!hasPrefillCity" class="space-y-1.5">
-              <label for="auth-city" class="text-sm font-bold" style="color:#3b1f0d;">City</label>
-              <input
-                id="auth-city"
-                v-model="form.city"
-                type="text"
-                placeholder="Berlin, Munich..."
-                autocomplete="address-level2"
-                :class="inputClass"
-                :style="inputStyle"
-              >
-            </div>
-          </template>
 
           <p v-if="error" class="text-sm font-bold" style="color:#dc2626; font-family: system-ui, sans-serif;">
             {{ error }}
