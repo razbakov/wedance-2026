@@ -25,7 +25,14 @@ useHead({
   ],
 })
 
-const { isSignedIn: isSignedInReal, dancerName: dancerNameReal } = useAuth()
+const {
+  isSignedIn: isSignedInReal,
+  dancerName: dancerNameReal,
+  city: dancerCityReal,
+  danceStyles: dancerStylesReal,
+  onboardedAt: onboardedAtReal,
+  justRegistered,
+} = useAuth()
 const { yearPlanIds, removeFestival, toggleFestival } = useYearPlan()
 
 // ?preview=1 — dev shortcut. Fakes signed-in + seeds picks so we can
@@ -42,6 +49,34 @@ const PREVIEW_PICK_SLUGS = new Set([
 const isSignedIn = computed(() => isSignedInReal.value || previewMode.value)
 const dancerName = computed(() => previewMode.value ? 'Alex' : dancerNameReal.value)
 const effectivePickIds = computed(() => previewMode.value ? PREVIEW_PICK_SLUGS : yearPlanIds.value)
+
+// Personalization from the signed-in profile (via `me`). Preview fakes Munich +
+// the big three so the personalized copy is visible without a real session.
+const dancerCity = computed(() => previewMode.value ? 'Munich' : (dancerCityReal.value || null))
+const dancerStyles = computed(() => previewMode.value ? ['Salsa', 'Bachata', 'Kizomba'] : [...(dancerStylesReal.value || [])])
+
+// Onboarding state: guard banner when signed-in but not onboarded; first-run
+// hint right after a fresh signup + onboarding this session.
+const isOnboarded = computed(() => previewMode.value ? true : !!onboardedAtReal.value)
+const needsOnboarding = computed(() => isSignedIn.value && !previewMode.value && !onboardedAtReal.value)
+const showFirstRunHint = computed(() => isSignedIn.value && isOnboarded.value && justRegistered.value)
+
+// Human-readable style list for scoped headings ("Salsa & Bachata in Munich").
+const stylesLabel = computed(() => {
+  const s = dancerStyles.value
+  if (!s.length) return ''
+  if (s.length === 1) return s[0]
+  if (s.length === 2) return `${s[0]} & ${s[1]}`
+  return `${s[0]}, ${s[1]} +${s.length - 2}`
+})
+
+// "Full week" link → the user's city page when we have one, else the cities
+// index. Only munich/berlin have dedicated pages in the current mock data.
+const CITY_PAGES = new Set(['munich', 'berlin'])
+const citySocialsLink = computed(() => {
+  const slug = (dancerCity.value || '').trim().toLowerCase()
+  return CITY_PAGES.has(slug) ? `/cities/${slug}` : '/cities'
+})
 
 // Catalogue of festivals — same source /festivals uses. Extract to a
 // composable once this data starts to matter.
@@ -814,11 +849,57 @@ function cardSummary(f: CatalogueEntry) {
         <template v-else>Your plan</template>
       </div>
       <h1 class="text-5xl sm:text-6xl leading-[0.98]" style="color:#3b1f0d;">
-        What's <em class="italic" style="color:#dc2626;">next?</em>
+        <template v-if="isSignedIn && dancerCity">
+          Your floor in <em class="italic" style="color:#dc2626;">{{ dancerCity }}</em>
+        </template>
+        <template v-else>
+          What's <em class="italic" style="color:#dc2626;">next?</em>
+        </template>
       </h1>
       <p class="mt-5 text-base sm:text-lg leading-relaxed max-w-xl mx-auto" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
-        Every festival you picked, in one place — with the one thing to do this week.
+        <template v-if="isSignedIn && stylesLabel">
+          {{ stylesLabel }} — every festival, course and social you care about, in one place.
+        </template>
+        <template v-else>
+          Every festival you picked, in one place — with the one thing to do this week.
+        </template>
       </p>
+    </section>
+
+    <!-- ONBOARDING GUARD — signed in but not onboarded. Gentle, not a trap. -->
+    <section v-if="needsOnboarding" class="max-w-4xl mx-auto px-4">
+      <div
+        class="rounded-2xl px-5 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+        style="background:white; border:1px solid #dc262655; box-shadow: 0 1px 0 #dc262622, 0 8px 22px rgba(59,31,18,0.05);"
+      >
+        <div>
+          <div class="text-[10px] uppercase tracking-[0.3em] font-bold mb-1" style="color:#dc2626;">Finish setup</div>
+          <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+            Tell us what you're into and we'll fill your plan with the right festivals, classes and socials.
+          </p>
+        </div>
+        <NuxtLink
+          to="/onboarding"
+          class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-white text-sm font-bold uppercase tracking-wider shrink-0"
+          style="background:#dc2626; box-shadow: 0 3px 0 -1px #b91c1c; font-family: system-ui, sans-serif;"
+        >
+          Set up my plan <ArrowRight class="w-4 h-4" />
+        </NuxtLink>
+      </div>
+    </section>
+
+    <!-- FIRST-RUN HINT — right after a fresh signup + onboarding this session. -->
+    <section v-else-if="showFirstRunHint" class="max-w-4xl mx-auto px-4">
+      <div
+        class="rounded-2xl px-5 py-4 flex items-center gap-3"
+        style="background:linear-gradient(135deg, #fef3c7 0%, #fee2e2 100%); border:1px solid #dc262633;"
+      >
+        <Sparkles class="w-5 h-5 shrink-0" style="color:#dc2626;" />
+        <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+          <span class="font-bold" style="color:#3b1f0d;">This is your home.</span>
+          Come back weekly — your festivals, classes and socials live here.
+        </p>
+      </div>
     </section>
 
     <!-- SIGNED OUT — sign-in nudge -->
@@ -1389,13 +1470,15 @@ function cardSummary(f: CatalogueEntry) {
       <div id="socials" class="mt-14">
         <div class="flex items-baseline justify-between mb-4">
           <div>
-            <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">This week · socials</div>
+            <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">
+              This week · socials<template v-if="dancerCity"> · {{ dancerCity }}</template>
+            </div>
             <h2 class="mt-2 text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
               Where you're <em class="italic" style="color:#dc2626;">dancing.</em>
             </h2>
           </div>
           <NuxtLink
-            to="/cities/munich"
+            :to="citySocialsLink"
             class="text-xs italic hover:underline"
             style="color:#9a5614; font-family:'Playfair Display', serif;"
           >
@@ -1406,7 +1489,12 @@ function cardSummary(f: CatalogueEntry) {
         <div v-if="!socials.length" class="rounded-2xl p-6 text-center border-2 border-dashed" style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);">
           <Sparkles class="w-8 h-8 mx-auto mb-3" style="color:#9a5614;" />
           <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
-            Pick your city and we'll surface this week's socials here.
+            <template v-if="dancerCity">
+              We're still gathering this week's socials in {{ dancerCity }}<template v-if="stylesLabel"> for {{ stylesLabel }}</template>. Check back soon.
+            </template>
+            <template v-else>
+              Pick your city and we'll surface this week's socials here.
+            </template>
           </p>
         </div>
         <div v-else class="rounded-2xl bg-white border overflow-hidden" style="border-color:#3b1f0d22;">
