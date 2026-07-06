@@ -36,6 +36,13 @@
       "when": 1783098305734,
       "tag": "0004_late_gargoyle",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1783342257901,
+      "tag": "0005_special_medusa",
+      "breakpoints": true
     }
   ]
 }

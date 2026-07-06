@@ -57,6 +57,8 @@ class FakeDb {
       danceStyles: row.danceStyles ?? [],
       role: row.role ?? null,
       city: row.city ?? null,
+      intent: row.intent ?? null,
+      onboardedAt: row.onboardedAt ?? null,
       ...row,
     }
     this.dancers.push(full)
@@ -91,6 +93,19 @@ class FakeDb {
     }
   }
 
+  update(table: any) {
+    return {
+      set: (patch: FakeRow) => ({
+        where: (filter: FilterFn) => {
+          for (const row of this.tableFor(table)) {
+            if (filter(row)) Object.assign(row, patch)
+          }
+          return Promise.resolve()
+        },
+      }),
+    }
+  }
+
   private tableFor(table: any): FakeRow[] {
     if (table === dancers) return this.dancers
     if (table === sessions) return this.sessions
@@ -98,8 +113,12 @@ class FakeDb {
   }
 }
 
-function createCaller(db: any) {
-  return appRouter.createCaller({ db, dancerId: null, isAdmin: false })
+function createCaller(db: any, opts: { dancerId?: string | null; isAdmin?: boolean } = {}) {
+  return appRouter.createCaller({
+    db,
+    dancerId: opts.dancerId ?? null,
+    isAdmin: opts.isAdmin ?? false,
+  })
 }
 
 beforeAll(() => {
@@ -261,5 +280,111 @@ describe('auth.login', () => {
     await expect(
       caller.auth.login({ email: 'passwordless@example.com', password: 'anything123' }),
     ).rejects.toThrow(/Invalid email or password/)
+  })
+})
+
+// ---------- completeOnboarding ----------
+
+describe('auth.completeOnboarding', () => {
+  it('updates intent + collected fields and stamps onboardedAt', async () => {
+    const db = new FakeDb()
+    const id = db.seedDancer({ email: 'onboard@example.com' })
+    const caller = createCaller(db, { dancerId: id })
+
+    const before = db.dancers[0].onboardedAt
+    const result = await caller.auth.completeOnboarding({
+      intent: 'social',
+      city: 'Munich',
+      danceStyles: ['Salsa', 'Bachata'],
+      role: 'both',
+    })
+
+    expect(result).toEqual({ ok: true })
+    const row = db.dancers[0]
+    expect(row.intent).toBe('social')
+    expect(row.city).toBe('Munich')
+    expect(row.danceStyles).toEqual(['Salsa', 'Bachata'])
+    expect(row.role).toBe('both')
+    // onboardedAt went from null to a Date.
+    expect(before).toBeNull()
+    expect(row.onboardedAt).toBeInstanceOf(Date)
+  })
+
+  it('a Skip (intent-only) stamps onboardedAt without wiping existing fields', async () => {
+    const db = new FakeDb()
+    const id = db.seedDancer({
+      email: 'skip@example.com',
+      city: 'Berlin',
+      danceStyles: ['Zouk'],
+      role: 'lead',
+    })
+    const caller = createCaller(db, { dancerId: id })
+
+    await caller.auth.completeOnboarding({ intent: 'skipped' })
+
+    const row = db.dancers[0]
+    expect(row.intent).toBe('skipped')
+    expect(row.onboardedAt).toBeInstanceOf(Date)
+    // Existing fields untouched — no accidental wipe.
+    expect(row.city).toBe('Berlin')
+    expect(row.danceStyles).toEqual(['Zouk'])
+    expect(row.role).toBe('lead')
+  })
+
+  it('rejects when unauthenticated', async () => {
+    const db = new FakeDb()
+    const caller = createCaller(db) // no dancerId
+
+    await expect(
+      caller.auth.completeOnboarding({ intent: 'social' }),
+    ).rejects.toThrow(/Not signed in/)
+  })
+})
+
+// ---------- me (extended fields) ----------
+
+describe('auth.me', () => {
+  it('returns null when unauthenticated', async () => {
+    const db = new FakeDb()
+    const caller = createCaller(db)
+    expect(await caller.auth.me()).toBeNull()
+  })
+
+  it('returns the extended profile fields for a signed-in dancer', async () => {
+    const db = new FakeDb()
+    const onboardedAt = new Date('2026-07-04T10:00:00.000Z')
+    const id = db.seedDancer({
+      email: 'me@example.com',
+      name: 'Me User',
+      city: 'Munich',
+      danceStyles: ['Salsa'],
+      role: 'follow',
+      intent: 'social',
+      onboardedAt,
+    })
+    const caller = createCaller(db, { dancerId: id })
+
+    const me = await caller.auth.me()
+    expect(me).toEqual({
+      id,
+      name: 'Me User',
+      isAdmin: false,
+      city: 'Munich',
+      danceStyles: ['Salsa'],
+      role: 'follow',
+      intent: 'social',
+      onboardedAt: '2026-07-04T10:00:00.000Z',
+    })
+  })
+
+  it('returns null onboardedAt/intent for a dancer that has not onboarded', async () => {
+    const db = new FakeDb()
+    const id = db.seedDancer({ email: 'fresh@example.com', name: 'Fresh' })
+    const caller = createCaller(db, { dancerId: id })
+
+    const me = await caller.auth.me()
+    expect(me?.onboardedAt).toBeNull()
+    expect(me?.intent).toBeNull()
+    expect(me?.danceStyles).toEqual([])
   })
 })

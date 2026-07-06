@@ -15,6 +15,12 @@ export const dancers = pgTable('dancers', {
   // has no credentials and cannot log in via password until they register one.
   salt: text('salt').default(''),
   hash: text('hash').default(''),
+  // Onboarding: `intent` is the chosen persona key (e.g. 'social', 'festivals',
+  // 'learn', 'perform', 'organize'); `onboardedAt` is set once the user finishes
+  // (or skips) onboarding so we never nag them again. Both nullable — a dancer
+  // created before onboarding existed, or via a stub flow, has neither set.
+  intent: text('intent'),
+  onboardedAt: timestamp('onboarded_at'),
   magicToken: text('magic_token'),
   magicTokenExpiresAt: timestamp('magic_token_expires_at'),
   createdAt: timestamp('created_at').defaultNow(),

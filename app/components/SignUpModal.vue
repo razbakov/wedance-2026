@@ -150,10 +150,14 @@ async function handleSubmit() {
         role: props.prefill?.role,
         city: props.prefill?.city,
       })
+      emit('update:open', false)
+      // New users go to onboarding (the intent picker). Existing users (login)
+      // never do.
+      await navigateTo('/onboarding')
     } else {
       await login({ email, password: form.password })
+      emit('update:open', false)
     }
-    emit('update:open', false)
   } catch (e: any) {
     error.value = e?.message || 'Something went wrong. Please try again.'
   } finally {

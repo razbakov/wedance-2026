@@ -7,6 +7,15 @@ const _dancerId = ref<string | null>(null)
 const _dancerName = ref<string | null>(null)
 const _isAdmin = ref(false)
 const _isLoading = ref(true)
+// Profile fields used for personalization + the onboarding guard. Populated by
+// init()'s me query; null/[] until then. `justRegistered` marks a brand-new
+// signup this session so my-plan can show the first-run hint after onboarding.
+const _city = ref<string | null>(null)
+const _danceStyles = ref<string[]>([])
+const _role = ref<string | null>(null)
+const _intent = ref<string | null>(null)
+const _onboardedAt = ref<string | null>(null)
+const _justRegistered = ref(false)
 
 export function useAuth() {
   const { $trpc, $setAuthToken } = useNuxtApp()
@@ -25,6 +34,11 @@ export function useAuth() {
         _dancerId.value = me.id
         _dancerName.value = me.name
         _isAdmin.value = me.isAdmin
+        _city.value = me.city ?? null
+        _danceStyles.value = me.danceStyles ?? []
+        _role.value = me.role ?? null
+        _intent.value = me.intent ?? null
+        _onboardedAt.value = me.onboardedAt ?? null
       } else {
         // Invalid/expired session
         signOut()
@@ -84,7 +98,41 @@ export function useAuth() {
       city: data.city,
     })
     setSession(result)
+    // Mark this session as a fresh signup so the caller can route to
+    // /onboarding and my-plan can show the first-run hint.
+    _justRegistered.value = true
     return result
+  }
+
+  // Re-pull the profile after a mutation that changes it (e.g. onboarding).
+  async function refreshMe() {
+    try {
+      const me = await $trpc.auth.me.query()
+      if (me) {
+        _city.value = me.city ?? null
+        _danceStyles.value = me.danceStyles ?? []
+        _role.value = me.role ?? null
+        _intent.value = me.intent ?? null
+        _onboardedAt.value = me.onboardedAt ?? null
+      }
+    } catch {
+      // best-effort refresh; leave existing state on failure
+    }
+  }
+
+  async function completeOnboarding(data: {
+    intent: string
+    city?: string
+    danceStyles?: string[]
+    role?: 'lead' | 'follow' | 'both'
+  }) {
+    await $trpc.auth.completeOnboarding.mutate({
+      intent: data.intent,
+      city: data.city,
+      danceStyles: data.danceStyles,
+      role: data.role,
+    })
+    await refreshMe()
   }
 
   function setSession(data: {
@@ -106,6 +154,12 @@ export function useAuth() {
     _dancerId.value = null
     _dancerName.value = null
     _isAdmin.value = false
+    _city.value = null
+    _danceStyles.value = []
+    _role.value = null
+    _intent.value = null
+    _onboardedAt.value = null
+    _justRegistered.value = false
   }
 
   return {
@@ -114,9 +168,17 @@ export function useAuth() {
     dancerName: readonly(_dancerName),
     isAdmin: readonly(_isAdmin),
     isLoading: readonly(_isLoading),
+    city: readonly(_city),
+    danceStyles: readonly(_danceStyles),
+    role: readonly(_role),
+    intent: readonly(_intent),
+    onboardedAt: readonly(_onboardedAt),
+    justRegistered: readonly(_justRegistered),
     init,
     login,
     register,
+    completeOnboarding,
+    refreshMe,
     requestMagicLink,
     verifyMagicLink,
     signOut,
