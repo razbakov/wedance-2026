@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { eq, and, gt } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { FirebaseScrypt } from 'firebase-scrypt'
-import { router, publicProcedure } from '../trpc'
+import { router, publicProcedure, protectedProcedure } from '../trpc'
 import { dancers, sessions } from '../../database/schema'
 import { sendMagicLinkEmail } from '../../utils/email'
 
@@ -249,6 +249,35 @@ export const authRouter = router({
       return createSession(ctx.db, dancer)
     }),
 
+  // Persist the onboarding choice. Protected: requires a signed-in dancer.
+  // Sets the chosen persona + any collected fields and stamps onboardedAt so
+  // the onboarding guard never nags again (Skip calls this too, intent-only).
+  completeOnboarding: protectedProcedure
+    .input(z.object({
+      intent: z.string().min(1),
+      city: z.string().optional(),
+      danceStyles: z.array(z.string()).optional(),
+      role: z.enum(['lead', 'follow', 'both']).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const updateSet: Record<string, unknown> = {
+        intent: input.intent,
+        onboardedAt: new Date(),
+      }
+      // Only overwrite collected fields when the branch actually provided them,
+      // so a Skip (intent-only) doesn't wipe anything already on the profile.
+      if (input.city !== undefined) updateSet.city = input.city
+      if (input.danceStyles !== undefined) updateSet.danceStyles = input.danceStyles
+      if (input.role !== undefined) updateSet.role = input.role
+
+      await ctx.db
+        .update(dancers)
+        .set(updateSet)
+        .where(eq(dancers.id, ctx.dancerId))
+
+      return { ok: true }
+    }),
+
   me: publicProcedure
     .query(async ({ ctx }) => {
       if (!ctx.dancerId) return null
@@ -258,6 +287,11 @@ export const authRouter = router({
           id: dancers.id,
           name: dancers.name,
           isAdmin: dancers.isAdmin,
+          city: dancers.city,
+          danceStyles: dancers.danceStyles,
+          role: dancers.role,
+          intent: dancers.intent,
+          onboardedAt: dancers.onboardedAt,
         })
         .from(dancers)
         .where(eq(dancers.id, ctx.dancerId))
@@ -268,6 +302,11 @@ export const authRouter = router({
         id: dancer.id,
         name: dancer.name,
         isAdmin: dancer.isAdmin ?? false,
+        city: dancer.city ?? null,
+        danceStyles: dancer.danceStyles ?? [],
+        role: dancer.role ?? null,
+        intent: dancer.intent ?? null,
+        onboardedAt: dancer.onboardedAt ? dancer.onboardedAt.toISOString() : null,
       }
     }),
 })
