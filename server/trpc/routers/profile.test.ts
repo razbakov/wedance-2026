@@ -3,7 +3,7 @@
  * slug helper. Hermetic FakeDb pattern (same as auth.test.ts) — no live Neon.
  */
 import { describe, it, expect, vi } from 'vitest'
-import { dancers, sessions } from '../../database/schema'
+import { dancers, sessions, cityVideos } from '../../database/schema'
 import { slugify, generateUsername } from '../../utils/slug'
 
 // Replace drizzle's opaque `eq` with a predicate builder so FakeDb.where() runs
@@ -28,14 +28,24 @@ interface FakeRow { [k: string]: any }
 class FakeDb {
   dancers: FakeRow[] = []
   sessions: FakeRow[] = []
+  cityVideos: FakeRow[] = []
 
   seedDancer(row: Partial<FakeRow> & { id: string }) {
     const full: FakeRow = {
       name: 'Test Dancer', username: null, photo: null, city: null,
-      danceStyles: [], role: null, email: `${row.id}@example.com`, ...row,
+      danceStyles: [], role: null, email: `${row.id}@example.com`,
+      bio: null, instagram: null, youtube: null, website: null, profilePublic: true,
+      ...row,
     }
     this.dancers.push(full)
     return row.id
+  }
+
+  seedVideo(row: Partial<FakeRow> & { id: string; dancerId: string }) {
+    this.cityVideos.push({
+      title: 'Clip', videoUrl: 'https://y.t/x', thumbnailUrl: null,
+      danceStyle: null, citySlug: 'munich', eloScore: 1500, status: 'approved', ...row,
+    })
   }
 
   select(_columns: any) {
@@ -60,6 +70,7 @@ class FakeDb {
   private tableFor(table: any): FakeRow[] {
     if (table === dancers) return this.dancers
     if (table === sessions) return this.sessions
+    if (table === cityVideos) return this.cityVideos
     throw new Error('unexpected table in FakeDb')
   }
 }
@@ -105,6 +116,31 @@ describe('profile.getByUsername', () => {
   })
 })
 
+describe('profile.getByUsername — videos & privacy', () => {
+  it('includes the dancer\'s approved videos, excluding pending', async () => {
+    const db = new FakeDb()
+    db.seedDancer({ id: 'd1', username: 'ana-x1' })
+    db.seedVideo({ id: 'v1', dancerId: 'd1', title: 'Salsa run', status: 'approved' })
+    db.seedVideo({ id: 'v2', dancerId: 'd1', title: 'Pending clip', status: 'pending' })
+    const caller = createCaller(db)
+
+    const p = await caller.profile.getByUsername({ username: 'ana-x1' })
+    expect(p.videos.map((v: any) => v.id)).toEqual(['v1'])
+  })
+
+  it('hides a private profile from other viewers but shows it to the owner', async () => {
+    const db = new FakeDb()
+    db.seedDancer({ id: 'd1', username: 'ana-x1', profilePublic: false })
+    // Anonymous / other viewer → 404
+    await expect(createCaller(db).profile.getByUsername({ username: 'ana-x1' }))
+      .rejects.toMatchObject({ code: 'NOT_FOUND' })
+    // Owner → visible, flagged private + owned
+    const own = await createCaller(db, { dancerId: 'd1' }).profile.getByUsername({ username: 'ana-x1' })
+    expect(own.isPublic).toBe(false)
+    expect(own.isOwner).toBe(true)
+  })
+})
+
 describe('profile.update', () => {
   it('rejects an unauthenticated caller', async () => {
     const db = new FakeDb()
@@ -133,5 +169,30 @@ describe('profile.update', () => {
     const caller = createCaller(db, { dancerId: 'd1' })
     await caller.profile.update({ photo: '' })
     expect(db.dancers[0].photo).toBeNull()
+  })
+
+  it('sets bio, socials, and the privacy flag', async () => {
+    const db = new FakeDb()
+    db.seedDancer({ id: 'd1' })
+    const caller = createCaller(db, { dancerId: 'd1' })
+    await caller.profile.update({
+      bio: 'I dance timba.', instagram: '@ana', youtube: '@anadance', website: 'ana.com',
+      profilePublic: false,
+    })
+    const row = db.dancers[0]
+    expect(row.bio).toBe('I dance timba.')
+    expect(row.instagram).toBe('@ana')
+    expect(row.youtube).toBe('@anadance')
+    expect(row.website).toBe('ana.com')
+    expect(row.profilePublic).toBe(false)
+  })
+
+  it('clears bio/socials when passed empty strings', async () => {
+    const db = new FakeDb()
+    db.seedDancer({ id: 'd1', bio: 'x', instagram: '@ana' })
+    const caller = createCaller(db, { dancerId: 'd1' })
+    await caller.profile.update({ bio: '', instagram: '' })
+    expect(db.dancers[0].bio).toBeNull()
+    expect(db.dancers[0].instagram).toBeNull()
   })
 })
