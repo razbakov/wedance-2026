@@ -265,6 +265,20 @@ export const profiles = pgTable('profiles', {
   address: text('address'),
   // Venue floor type matters to dancers (parquet / tiles / concrete).
   floorType: text('floor_type'),
+  // 'OpenAir' | 'Indoor' | … — an OpenAir community spot (e.g. Pinakothek) is a
+  // free commons, not a commercial rental.
+  venueType: text('venue_type'),
+  // Drawn map of the areas (image URL).
+  mapUrl: text('map_url'),
+  // Community guidelines the space runs by (the "politics" a moderator proposes).
+  guidelines: text('guidelines'),
+  // 'free' (community commons, moderator-managed) | 'commercial' (venue rental).
+  bookingModel: text('booking_model').notNull().default('commercial').$type<'free' | 'commercial'>(),
+  // The community-elected moderator (annual term) who manages free bookings and
+  // proposes the guidelines. Full election flow is a follow-up; stored flat for now.
+  moderatorName: text('moderator_name'),
+  moderatorHandle: text('moderator_handle'),
+  moderatorSince: integer('moderator_since'),
   socials: json('socials').$type<{ platform: string; url: string }[]>().default([]),
   claimed: boolean('claimed').default(false),
   status: text('status').notNull().default('visible').$type<'visible' | 'hidden'>(),
