@@ -8,7 +8,7 @@
 import type { Teacher } from '~/types/festival'
 import { Instagram, Youtube, Globe, ArrowRight, X } from 'lucide-vue-next'
 
-defineProps<{
+const props = defineProps<{
   teacher: Teacher
 }>()
 
@@ -21,6 +21,16 @@ const platformIcon: Record<string, any> = {
   youtube: Youtube,
   website: Globe,
 }
+
+// Unified profile handle: /@<slug-of-name>. Resolves to a real venue/pro page
+// when one exists (e.g. the Pinakothek showcase), otherwise a graceful
+// "not on WeDance yet — claim it" stub. No more /artists/<id> 404s.
+const profileHref = computed(() => {
+  const slug = String(props.teacher.name || '')
+    .toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40)
+  return slug ? `/@${slug}` : null
+})
 
 function toEmbedUrl(url: string): string {
   const match = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([^&/?]+)/)
@@ -82,7 +92,8 @@ function toEmbedUrl(url: string): string {
             </a>
           </div>
           <NuxtLink
-            :to="`/artists/${teacher.id}`"
+            v-if="profileHref"
+            :to="profileHref"
             class="ml-auto inline-flex items-center gap-1 text-xs font-bold italic hover:underline"
             style="color:#dc2626; font-family:'Playfair Display', serif;"
           >
