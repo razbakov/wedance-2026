@@ -556,6 +556,14 @@ onMounted(() => {
       </div>
     </section>
 
+    <!-- Cold-start: local groups + ask locals (client-only: tRPC has no SSR) -->
+    <ClientOnly>
+      <section class="max-w-4xl mx-auto px-4 pb-10">
+        <CommunityGroupsSection :city-slug="slug" :city-name="city.name" />
+        <AskLocalsSection :city-slug="slug" :city-name="city.name" />
+      </section>
+    </ClientOnly>
+
     <SiteFooter />
 
     <!-- Soft plan nudge — same pattern as /festivals and /festivals/[slug]. -->

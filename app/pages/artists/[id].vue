@@ -272,6 +272,12 @@ function formatDateRange(start: string, end: string) {
           </p>
         </div>
       </section>
+
+      <ClientOnly>
+        <section class="max-w-3xl mx-auto px-4 pb-10">
+          <ReviewsSection target-type="artist" :target-slug="id" :target-name="artist.name" />
+        </section>
+      </ClientOnly>
     </div>
 
     <SiteFooter />
