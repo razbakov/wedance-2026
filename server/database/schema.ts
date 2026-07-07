@@ -15,6 +15,14 @@ export const dancers = pgTable('dancers', {
   // for dancers created before this field existed. Nullable so legacy rows stay
   // valid until backfilled; unique so the URL is a stable identity.
   username: text('username').unique(),
+  // Profile detail rendered on /u/<username>: a short bio + social links.
+  bio: text('bio'),
+  instagram: text('instagram'),
+  youtube: text('youtube'),
+  website: text('website'),
+  // Privacy: when false the public profile is hidden from everyone but the
+  // owner (getByUsername 404s for other viewers). Default public.
+  profilePublic: boolean('profile_public').default(true),
   // Email + password auth (FirebaseScrypt, ported from wedance-v4). Empty string
   // default = "no password set" — a dancer created via magic-link/festival flow
   // has no credentials and cannot log in via password until they register one.
