@@ -11,7 +11,7 @@
  *     a FREE "book a slot" flow (accept the guidelines).
  *   - 'commercial' → a rentable venue: bookable spaces with a request flow.
  */
-import { MapPin, Instagram, Youtube, Globe, Facebook, LayoutGrid, ArrowLeft, Check, Calendar, ScrollText, ShieldCheck, Trees } from 'lucide-vue-next'
+import { MapPin, Instagram, Youtube, Globe, Facebook, LayoutGrid, ArrowLeft, Check, Calendar, ScrollText, ShieldCheck, Trees, Plus } from 'lucide-vue-next'
 
 definePageMeta({ layout: false })
 
@@ -201,8 +201,11 @@ useHead(() => ({
 
       <!-- Book a (free) slot -->
       <section v-if="spaces.length" class="max-w-2xl mx-auto px-4 pb-4" style="font-family: system-ui, sans-serif;">
-        <div class="flex items-center gap-2"><LayoutGrid class="w-5 h-5" style="color:#dc2626;" /><h2 class="text-2xl" style="font-family:'Playfair Display', serif; color:#3b1f0d;">{{ isFree ? 'Book a free slot' : 'Book a space' }}</h2></div>
-        <p class="mt-1 text-sm" style="color:#5b3a1d;">{{ isFree ? `Pick a free slot in any of the ${spaces.length} areas — it's free. A community moderator confirms it against the guidelines.` : `Pick an available slot in one of ${spaces.length} areas.` }}</p>
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2"><LayoutGrid class="w-5 h-5" style="color:#dc2626;" /><h2 class="text-2xl" style="font-family:'Playfair Display', serif; color:#3b1f0d;">{{ isFree ? 'Book a free slot' : 'Book a space' }}</h2></div>
+          <button type="button" class="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shrink-0" style="background:linear-gradient(135deg,#dc2626,#f97316);" @click="openBooking(spaces[0])"><Plus class="w-3.5 h-3.5" /> Propose an event</button>
+        </div>
+        <p class="mt-1 text-sm" style="color:#5b3a1d;">{{ isFree ? `Tap a free cell to reserve that area — it's free. A community moderator confirms it against the guidelines.` : `Tap an available slot in one of the ${spaces.length} areas.` }}</p>
         <AvailabilityCalendar :spaces="spaces" :bookings="schedule" class="mt-4" @book="onCalendarBook" />
       </section>
 
@@ -225,13 +228,18 @@ useHead(() => ({
     <div v-if="booking.open" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" style="background:rgba(59,31,18,0.4);" @click.self="booking.open = false">
       <div class="w-full max-w-md rounded-2xl bg-white p-6" style="font-family: system-ui, sans-serif; box-shadow: 0 20px 50px rgba(0,0,0,0.25);">
         <template v-if="!booking.done">
-          <h3 class="text-xl font-bold" style="font-family:'Playfair Display', serif; color:#3b1f0d;">{{ isFree ? 'Book' : 'Request' }} “{{ booking.spaceName }}”</h3>
+          <h3 class="text-xl font-bold" style="font-family:'Playfair Display', serif; color:#3b1f0d;">{{ isFree ? 'Propose an event' : 'Request a space' }}</h3>
           <p class="text-xs mt-1" style="color:#9a5614;">{{ isFree ? 'Free — a community moderator confirms it against the guidelines.' : 'WeDance connects you with the venue — no payment here.' }}</p>
           <div class="mt-4 space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+            <div class="grid grid-cols-2 gap-2">
+              <select v-model="booking.spaceId" class="h-10 rounded-xl px-3 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;" aria-label="Area">
+                <option v-for="sp in spaces" :key="sp.id" :value="sp.id">{{ sp.name }}</option>
+              </select>
+              <select v-model="booking.eventType" class="h-10 rounded-xl px-3 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;" aria-label="Type">
+                <option v-for="t in EVENT_TYPES" :key="t" :value="t">{{ t }}</option>
+              </select>
+            </div>
             <input v-model="booking.title" type="text" maxlength="120" placeholder="Event name — e.g. Sunday Salsa Social" class="w-full h-10 rounded-xl px-3 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;">
-            <select v-model="booking.eventType" class="w-full h-10 rounded-xl px-3 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;">
-              <option v-for="t in EVENT_TYPES" :key="t" :value="t">{{ t }}</option>
-            </select>
             <div>
               <div class="text-[10px] uppercase tracking-wider font-bold mb-1.5" style="color:#9a5614;">Styles</div>
               <div class="flex flex-wrap gap-1.5">
