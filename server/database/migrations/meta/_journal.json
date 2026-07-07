@@ -57,6 +57,20 @@
       "when": 1783383448872,
       "tag": "0007_aspiring_raider",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1783408441233,
+      "tag": "0008_fast_killmonger",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1783408537745,
+      "tag": "0009_windy_scarlet_spider",
+      "breakpoints": true
     }
   ]
 }
