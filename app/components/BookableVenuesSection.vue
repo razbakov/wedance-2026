@@ -6,7 +6,7 @@
  */
 import { LayoutGrid, ArrowUpRight, MapPin } from 'lucide-vue-next'
 
-const props = defineProps<{ citySlug?: string; cityName?: string }>()
+const props = defineProps<{ citySlug?: string; cityName?: string; hideHeading?: boolean }>()
 const { $trpc } = useNuxtApp()
 
 const venues = ref<any[]>([])
@@ -27,12 +27,14 @@ function initials(name: string) {
 </script>
 
 <template>
-  <section v-if="loading || venues.length" class="mt-10" style="font-family: system-ui, sans-serif;">
-    <div class="flex items-center gap-2">
-      <LayoutGrid class="w-5 h-5" style="color:#dc2626;" />
-      <h3 class="text-2xl" style="font-family:'Playfair Display', serif; color:#3b1f0d;">Book a space</h3>
-    </div>
-    <p class="mt-1 text-sm" style="color:#5b3a1d;">Organizing a social, class, or private event{{ cityName ? ` in ${cityName}` : '' }}? Request a spot directly from a venue.</p>
+  <section v-if="loading || venues.length" :class="hideHeading ? '' : 'mt-10'" style="font-family: system-ui, sans-serif;">
+    <template v-if="!hideHeading">
+      <div class="flex items-center gap-2">
+        <LayoutGrid class="w-5 h-5" style="color:#dc2626;" />
+        <h3 class="text-2xl" style="font-family:'Playfair Display', serif; color:#3b1f0d;">Book a space</h3>
+      </div>
+      <p class="mt-1 text-sm" style="color:#5b3a1d;">Organizing a social, class, or private event{{ cityName ? ` in ${cityName}` : '' }}? Request a spot directly from a venue.</p>
+    </template>
 
     <div v-if="loading" class="mt-4 text-sm" style="color:#9a5614;">Loading…</div>
     <div v-else class="mt-4 grid gap-3 sm:grid-cols-2">

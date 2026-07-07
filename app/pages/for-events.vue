@@ -22,13 +22,8 @@ const services = [
 
 const occasions = ['Weddings', 'Birthdays', 'Corporate', 'Brand launches', 'Team offsites', 'Private parties']
 
-// The "Venue" service is the entry point to browsing bookable venues.
-const showVenues = ref(false)
-function onServiceClick(label: string) {
-  if (label !== 'Venue') return
-  showVenues.value = true
-  nextTick(() => document.getElementById('venues')?.scrollIntoView({ behavior: 'smooth' }))
-}
+// The "Venue" service links to the venues page.
+const NuxtLinkC = resolveComponent('NuxtLink')
 </script>
 
 <template>
@@ -55,13 +50,12 @@ function onServiceClick(label: string) {
     <section class="max-w-5xl mx-auto px-4 pb-10">
       <div class="grid md:grid-cols-3 gap-5">
         <component
-          :is="s.label === 'Venue' ? 'button' : 'div'"
+          :is="s.label === 'Venue' ? NuxtLinkC : 'div'"
           v-for="(s, i) in services" :key="s.label"
-          type="button"
-          class="rounded-2xl bg-white p-6 border text-left w-full transition-all"
+          :to="s.label === 'Venue' ? '/venues' : undefined"
+          class="rounded-2xl bg-white p-6 border block transition-all"
           :class="s.label === 'Venue' ? 'hover:-translate-y-0.5 cursor-pointer' : ''"
           :style="{ borderColor: ['#dc2626', '#f59e0b', '#0891b2', '#16a34a', '#a855f7'][i % 5] + '55' }"
-          @click="onServiceClick(s.label)"
         >
           <component :is="s.icon" class="w-6 h-6 mb-3" :style="{ color: ['#dc2626', '#f59e0b', '#0891b2', '#16a34a', '#a855f7'][i % 5], 'stroke-width': 1.5 }" />
           <div class="text-lg font-bold" style="color:#3b1f0d;">{{ s.label }}</div>
@@ -72,13 +66,6 @@ function onServiceClick(label: string) {
         </component>
       </div>
     </section>
-
-    <!-- Bookable venues — revealed from the "Venue" service (client-only: tRPC has no SSR) -->
-    <ClientOnly>
-      <section v-if="showVenues" id="venues" class="max-w-3xl mx-auto px-4 pb-6 scroll-mt-16">
-        <BookableVenuesSection />
-      </section>
-    </ClientOnly>
 
     <!-- CTA -->
     <section class="max-w-3xl mx-auto px-4 py-16 text-center">
