@@ -5,7 +5,7 @@
  * on mobile, aligned with the cream + Playfair Display + Caveat
  * language used on /, /festivals, /cities, /my-plan.
  */
-import { Flame, MapPin } from 'lucide-vue-next'
+import { Flame, MapPin, Plus, Check } from 'lucide-vue-next'
 import type { CityEvent, DayOfWeek } from '~/types/city'
 import type { Teacher } from '~/types/festival'
 import { getStyleColors } from '~/lib/style-colors'
@@ -215,13 +215,13 @@ const today = new Date().toLocaleDateString('en-US', { weekday: 'long' }) as Day
           <!-- Pick button -->
           <button
             type="button"
-            class="text-xs font-bold px-3 py-1.5 rounded-full transition-all shrink-0 whitespace-nowrap"
+            class="text-xs font-bold px-3 py-1.5 rounded-full transition-all shrink-0 whitespace-nowrap inline-flex items-center gap-1"
             :style="weekPlanIds?.has(e.id)
               ? { background: styleAccent(e.style), color: 'white' }
               : { background: 'white', color: styleAccent(e.style), border: '1.5px solid ' + styleAccent(e.style) + '55' }"
             @click="emit('toggle', e.id)"
           >
-            {{ weekPlanIds?.has(e.id) ? '✓ Picked' : 'Pick' }}
+            <component :is="weekPlanIds?.has(e.id) ? Check : Plus" class="w-3 h-3" />{{ weekPlanIds?.has(e.id) ? 'Picked' : 'Pick' }}
           </button>
         </div>
       </div>
