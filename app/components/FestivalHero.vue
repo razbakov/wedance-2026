@@ -1,10 +1,27 @@
 <script setup lang="ts">
 import type { Festival } from '~/types/festival'
-import { Instagram, Globe, Facebook, Users } from 'lucide-vue-next'
+import { Instagram, Globe, Facebook, Users, Star, Ticket, ArrowRight } from 'lucide-vue-next'
 
 const props = defineProps<{
   festival: Festival
 }>()
+
+// Review rating (client-side — the tRPC client is client-only). Renders after
+// mount; null until then so SSR + first client render match (no hydration jump).
+const { $trpc } = useNuxtApp()
+const rating = ref<{ average: number; count: number } | null>(null)
+onMounted(async () => {
+  try {
+    const r = await $trpc.review.list.query({ targetType: 'festival', targetSlug: props.festival.slug })
+    rating.value = { average: r.average, count: r.count }
+  } catch { /* leave null */ }
+})
+
+// Primary CTA: external tickets when we have a link, else scroll to the
+// in-page join/discover flow.
+const hasTickets = computed(() => !!props.festival.ticketUrl)
+const ctaHref = computed(() => props.festival.ticketUrl || '#discover')
+const ctaLabel = computed(() => (props.festival.ticketUrl ? 'Get tickets' : 'Join the festival'))
 
 const dateRange = computed(() => {
   const start = new Date(props.festival.startDate)
@@ -104,6 +121,17 @@ const daysUntil = computed(() => {
               <Users class="w-3 h-3" />
               {{ festival.attendeeCount }} planning
             </span>
+            <!-- Review rating (appears once loaded), links to the reviews section -->
+            <a
+              v-if="rating && rating.count"
+              href="#reviews"
+              class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-bold"
+              style="background:#f59e0b1f; color:#b45309; font-family: system-ui, sans-serif;"
+            >
+              <Star class="w-3 h-3" style="fill:#f59e0b; color:#f59e0b;" />
+              {{ rating.average.toFixed(1) }}
+              <span style="opacity:0.65;">· {{ rating.count }}</span>
+            </a>
             <div v-if="festival.socialLinks.length" class="flex items-center gap-2">
               <a
                 v-for="link in festival.socialLinks"
@@ -125,6 +153,21 @@ const daysUntil = computed(() => {
                 <span v-else class="text-xs capitalize italic">{{ link.platform }}</span>
               </a>
             </div>
+          </div>
+
+          <!-- Primary CTA: tickets (external) or join the in-page flow -->
+          <div class="mt-4">
+            <a
+              :href="ctaHref"
+              :target="hasTickets ? '_blank' : undefined"
+              :rel="hasTickets ? 'noopener noreferrer' : undefined"
+              class="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold uppercase tracking-wider text-white"
+              :style="{ background: 'linear-gradient(135deg, ' + festival.accentColor + ', #f97316)', boxShadow: '0 3px 0 -1px ' + festival.accentColor }"
+            >
+              <Ticket v-if="hasTickets" class="w-4 h-4" />
+              {{ ctaLabel }}
+              <ArrowRight class="w-4 h-4" />
+            </a>
           </div>
         </div>
       </div>

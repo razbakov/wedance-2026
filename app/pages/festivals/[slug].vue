@@ -1446,7 +1446,7 @@ useHead({
     </Teleport>
 
     <ClientOnly>
-      <section class="max-w-4xl mx-auto px-4 pb-10">
+      <section id="reviews" class="max-w-4xl mx-auto px-4 pb-10 scroll-mt-16">
         <ReviewsSection target-type="festival" :target-slug="festival.slug" :target-name="festival.name" />
       </section>
     </ClientOnly>
