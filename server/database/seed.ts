@@ -1,6 +1,7 @@
 import { neon } from '@neondatabase/serverless'
 import { drizzle } from 'drizzle-orm/neon-http'
 import * as schema from './schema'
+import { eq } from 'drizzle-orm'
 
 const DATABASE_URL = process.env.DATABASE_URL
 if (!DATABASE_URL) throw new Error('DATABASE_URL is required')
@@ -40,6 +41,7 @@ async function seed() {
   await seedCityVideos()
   await seedGiveaways()
   await seedCommunityGroups()
+  await seedProfiles()
 
   // Seed signups for salsa-open-berlin only (demo data)
   const { eq: eq2 } = require('drizzle-orm')
@@ -208,6 +210,34 @@ async function seedCommunityGroups() {
     await db.insert(schema.communityGroups).values(g).onConflictDoNothing()
   }
   console.log(`Seeded ${communityGroupData.length} community groups`)
+}
+
+// Pinakothek der Moderne — the venue-booking showcase (concept). 5 bookable
+// areas for social-dance organizers. Pricing "On request" (no invented figures).
+async function seedProfiles() {
+  const handle = 'pinakothek-der-moderne'
+  const existing = await db.select({ id: schema.profiles.id }).from(schema.profiles).where(eq(schema.profiles.username, handle))
+  if (existing.length) { console.log('Pinakothek profile already seeded'); return }
+  const [p] = await db.insert(schema.profiles).values({
+    username: handle, type: 'venue', name: 'Pinakothek der Moderne',
+    city: 'Munich', citySlug: 'munich',
+    bio: "Showcase concept — Munich's museum of modern art & design, reimagined as a home for social dance across five distinctive spaces. Book an area to run your social, class, or milonga under the dome.",
+    address: 'Barer Straße 40, 80333 München', floorType: 'stone / terrazzo',
+    socials: [{ platform: 'website', url: 'https://www.pinakothek-der-moderne.de' }],
+  }).returning({ id: schema.profiles.id })
+  const areas: [string, number, string, string][] = [
+    ['Rotunde (central dome)', 200, 'stone / terrazzo', 'The iconic domed rotunda — a dramatic circular floor under natural light.'],
+    ['Ernst von Siemens Auditorium', 150, 'wood', 'A tiered auditorium; flat-floor configuration available for dancing.'],
+    ['Forum / Atrium', 300, 'stone', 'The largest open hall — space for a full social with a live band.'],
+    ['Danner-Rotunde', 80, 'stone', 'An intimate side rotunda for classes and smaller practicas.'],
+    ['Café Terrace', 120, 'outdoor deck', 'Open-air terrace for summer socials and warm-up sessions.'],
+  ]
+  let i = 10
+  for (const [name, capacity, floorType, description] of areas) {
+    await db.insert(schema.bookableSpaces).values({ profileId: p!.id, name, capacity, floorType, priceInfo: 'On request', description, sortOrder: i })
+    i += 10
+  }
+  console.log('Seeded Pinakothek venue + 5 bookable areas')
 }
 
 seed()
