@@ -308,9 +308,16 @@ export const bookingRequests = pgTable('booking_requests', {
   requesterId: uuid('requester_id').references(() => dancers.id),
   requesterEmail: text('requester_email').notNull(),
   requesterName: text('requester_name'),
+  // Event details — a booking IS a scheduled event, so it carries enough info
+  // to show on the community calendar: title, type, styles, date + time window.
+  title: text('title'),
+  eventType: text('event_type'), // Social · Party · Workshop · Class · Practica
+  styles: json('styles').$type<string[]>().default([]),
   eventDate: date('event_date'),
+  startTime: text('start_time'), // 'HH:MM'
+  endTime: text('end_time'),     // 'HH:MM'
   headcount: integer('headcount'),
-  message: text('message'),
+  message: text('message'), // description / notes
   termsAcceptedAt: timestamp('terms_accepted_at'),
   status: text('status').notNull().default('pending').$type<'pending' | 'accepted' | 'declined'>(),
   createdAt: timestamp('created_at').defaultNow(),

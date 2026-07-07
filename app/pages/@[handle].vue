@@ -60,22 +60,39 @@ const initials = computed(() => {
 })
 function fmtDate(d: any) { if (!d) return 'Date TBD'; try { return new Date(d).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) } catch { return String(d) } }
 
-// --- Booking modal ---
+// --- Booking modal (a booking IS a scheduled event — collect enough info) ---
+const EVENT_TYPES = ['Social', 'Party', 'Workshop', 'Class', 'Practica']
+const DANCE_STYLES = ['Salsa', 'Bachata', 'Kizomba', 'Zouk', 'Timba', 'Casino', 'Rueda', 'Afro']
 const booking = reactive({
-  open: false, spaceId: '', spaceName: '', email: '', name: '', eventDate: '', headcount: '' as string | number, message: '', terms: false, busy: false, err: '', done: false,
+  open: false, spaceId: '', spaceName: '',
+  title: '', eventType: 'Social', styles: [] as string[],
+  email: '', name: '', eventDate: '', startTime: '', endTime: '',
+  headcount: '' as string | number, message: '', terms: false, busy: false, err: '', done: false,
 })
 function openBooking(space: any) {
-  Object.assign(booking, { open: true, spaceId: space.id, spaceName: space.name, email: '', name: (dancerName.value as string) || '', eventDate: '', headcount: '', message: '', terms: false, err: '', done: false })
+  Object.assign(booking, {
+    open: true, spaceId: space.id, spaceName: space.name,
+    title: '', eventType: 'Social', styles: [],
+    email: '', name: (dancerName.value as string) || '', eventDate: '', startTime: '', endTime: '',
+    headcount: '', message: '', terms: false, err: '', done: false,
+  })
+}
+function toggleBookingStyle(s: string) {
+  const i = booking.styles.indexOf(s)
+  if (i >= 0) booking.styles.splice(i, 1); else booking.styles.push(s)
 }
 async function submitBooking() {
   booking.err = ''
+  if (!booking.title.trim()) { booking.err = 'Give your event a name.'; return }
   if (!booking.email.trim()) { booking.err = 'Add an email so the moderator can reply.'; return }
   if (!booking.terms) { booking.err = isFree.value ? 'Please agree to the community guidelines.' : 'Please accept the booking terms.'; return }
   booking.busy = true
   try {
     await $trpc.booking.request.mutate({
       spaceId: booking.spaceId, email: booking.email.trim(), name: booking.name.trim() || undefined,
-      eventDate: booking.eventDate || undefined, headcount: booking.headcount ? Number(booking.headcount) : undefined,
+      title: booking.title.trim(), eventType: booking.eventType, styles: booking.styles,
+      eventDate: booking.eventDate || undefined, startTime: booking.startTime || undefined, endTime: booking.endTime || undefined,
+      headcount: booking.headcount ? Number(booking.headcount) : undefined,
       message: booking.message.trim() || undefined, termsAccepted: booking.terms,
     })
     booking.done = true
@@ -152,13 +169,19 @@ useHead(() => ({
       <section class="max-w-2xl mx-auto px-4 pb-6" style="font-family: system-ui, sans-serif;">
         <div class="flex items-center gap-2"><Calendar class="w-5 h-5" style="color:#dc2626;" /><h2 class="text-2xl" style="font-family:'Playfair Display', serif; color:#3b1f0d;">Scheduled</h2></div>
         <ul v-if="schedule.length" class="mt-3 space-y-2">
-          <li v-for="ev in schedule" :key="ev.id" class="flex items-center gap-3 rounded-xl border p-3 bg-white" style="border-color:#3b1f0d1a;">
-            <div class="text-center shrink-0 w-14">
-              <div class="text-[10px] uppercase font-bold" style="color:#9a5614;">{{ fmtDate(ev.eventDate) }}</div>
+          <li v-for="ev in schedule" :key="ev.id" class="flex items-start gap-3 rounded-xl border p-3 bg-white" style="border-color:#3b1f0d1a;">
+            <div class="text-center shrink-0 w-16">
+              <div class="text-[10px] uppercase font-bold leading-tight" style="color:#dc2626;">{{ fmtDate(ev.eventDate) }}</div>
+              <div v-if="ev.startTime" class="text-[10px] mt-0.5" style="color:#9a5614;">{{ ev.startTime }}<span v-if="ev.endTime">–{{ ev.endTime }}</span></div>
             </div>
             <div class="min-w-0 flex-1">
-              <div class="text-sm font-bold truncate" style="color:#3b1f0d;">{{ ev.message || 'Social' }}</div>
-              <div class="text-[11px]" style="color:#9a5614;">{{ spaceName(ev.spaceId) }}<span v-if="ev.requesterName"> · {{ ev.requesterName }}</span></div>
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="text-sm font-bold" style="color:#3b1f0d;">{{ ev.title || ev.message || 'Social' }}</span>
+                <span v-if="ev.eventType" class="text-[9px] uppercase tracking-wider font-bold rounded-full px-1.5 py-0.5" style="background:#3b1f0d0f; color:#5b3a1d;">{{ ev.eventType }}</span>
+              </div>
+              <div class="text-[11px] mt-0.5" style="color:#9a5614;">
+                {{ spaceName(ev.spaceId) }}<span v-if="ev.styles?.length"> · {{ ev.styles.join(', ') }}</span><span v-if="ev.requesterName"> · {{ ev.requesterName }}</span>
+              </div>
             </div>
             <span class="text-[9px] uppercase tracking-wider font-bold rounded-full px-1.5 py-0.5 shrink-0" :style="ev.status === 'accepted' ? 'background:#16a34a18; color:#16a34a;' : 'background:#f59e0b18; color:#b45309;'">{{ ev.status === 'accepted' ? 'Confirmed' : 'Proposed' }}</span>
           </li>
@@ -200,14 +223,28 @@ useHead(() => ({
         <template v-if="!booking.done">
           <h3 class="text-xl font-bold" style="font-family:'Playfair Display', serif; color:#3b1f0d;">{{ isFree ? 'Book' : 'Request' }} “{{ booking.spaceName }}”</h3>
           <p class="text-xs mt-1" style="color:#9a5614;">{{ isFree ? 'Free — a community moderator confirms it against the guidelines.' : 'WeDance connects you with the venue — no payment here.' }}</p>
-          <div class="mt-4 space-y-3">
-            <input v-model="booking.name" type="text" placeholder="Your name" class="w-full h-10 rounded-xl px-3 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;">
-            <input v-model="booking.email" type="email" placeholder="Email" class="w-full h-10 rounded-xl px-3 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;">
-            <input v-model="booking.message" type="text" maxlength="120" placeholder="What are you running? (e.g. Sunday salsa social)" class="w-full h-10 rounded-xl px-3 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;">
+          <div class="mt-4 space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+            <input v-model="booking.title" type="text" maxlength="120" placeholder="Event name — e.g. Sunday Salsa Social" class="w-full h-10 rounded-xl px-3 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;">
+            <select v-model="booking.eventType" class="w-full h-10 rounded-xl px-3 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;">
+              <option v-for="t in EVENT_TYPES" :key="t" :value="t">{{ t }}</option>
+            </select>
+            <div>
+              <div class="text-[10px] uppercase tracking-wider font-bold mb-1.5" style="color:#9a5614;">Styles</div>
+              <div class="flex flex-wrap gap-1.5">
+                <button v-for="s in DANCE_STYLES" :key="s" type="button" class="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider" :style="booking.styles.includes(s) ? 'background:#dc2626; color:white;' : 'background:#dc262614; color:#dc2626;'" @click="toggleBookingStyle(s)">{{ s }}</button>
+              </div>
+            </div>
             <div class="flex gap-2">
-              <input v-model="booking.eventDate" type="date" class="flex-1 h-10 rounded-xl px-3 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;">
+              <input v-model="booking.eventDate" type="date" class="flex-1 h-10 rounded-xl px-3 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;" aria-label="Date">
+              <input v-model="booking.startTime" type="time" class="w-28 h-10 rounded-xl px-2 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;" aria-label="Start">
+              <input v-model="booking.endTime" type="time" class="w-28 h-10 rounded-xl px-2 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;" aria-label="End">
+            </div>
+            <textarea v-model="booking.message" rows="2" maxlength="2000" placeholder="Anything the community should know (DJ, level, entry…)" class="w-full rounded-xl px-3 py-2 text-sm outline-none resize-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;" />
+            <div class="flex gap-2">
+              <input v-model="booking.name" type="text" placeholder="Your name" class="flex-1 h-10 rounded-xl px-3 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;">
               <input v-model="booking.headcount" type="number" min="1" placeholder="Guests" class="w-24 h-10 rounded-xl px-3 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;">
             </div>
+            <input v-model="booking.email" type="email" placeholder="Email (so the moderator can reply)" class="w-full h-10 rounded-xl px-3 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;">
             <label class="flex items-start gap-2 text-xs cursor-pointer" style="color:#5b3a1d;">
               <input v-model="booking.terms" type="checkbox" class="mt-0.5 w-4 h-4 accent-[#dc2626]">
               <span v-if="isFree">I've read and will follow the <a href="#" class="underline font-bold" style="color:#dc2626;" @click.prevent="booking.open && (document.querySelector('.whitespace-pre-line')?.scrollIntoView({behavior:'smooth'}))">community guidelines</a>.</span>
