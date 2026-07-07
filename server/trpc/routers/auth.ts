@@ -5,6 +5,7 @@ import { FirebaseScrypt } from 'firebase-scrypt'
 import { router, publicProcedure, protectedProcedure } from '../trpc'
 import { dancers, sessions } from '../../database/schema'
 import { sendMagicLinkEmail } from '../../utils/email'
+import { generateUsername } from '../../utils/slug'
 
 // FirebaseScrypt parameters, ported verbatim from wedance-v4
 // (server/api/auth/[...].ts). These MUST match v4 exactly so legacy user
@@ -221,6 +222,7 @@ export const authRouter = router({
           .values({
             name: input.name,
             email: input.email,
+            username: generateUsername(input.name),
             danceStyles: input.danceStyles,
             role: input.role ?? null,
             city: input.city ?? null,
@@ -270,6 +272,17 @@ export const authRouter = router({
       if (input.danceStyles !== undefined) updateSet.danceStyles = input.danceStyles
       if (input.role !== undefined) updateSet.role = input.role
 
+      // Backfill a username for dancers created before the field existed
+      // (magic-link / festival-claim signups). New registrations already have
+      // one; this ensures anyone who reaches onboarding gets a profile URL.
+      const [current] = await ctx.db
+        .select({ username: dancers.username, name: dancers.name })
+        .from(dancers)
+        .where(eq(dancers.id, ctx.dancerId))
+      if (current && !current.username) {
+        updateSet.username = generateUsername(current.name)
+      }
+
       await ctx.db
         .update(dancers)
         .set(updateSet)
@@ -286,6 +299,7 @@ export const authRouter = router({
         .select({
           id: dancers.id,
           name: dancers.name,
+          username: dancers.username,
           isAdmin: dancers.isAdmin,
           city: dancers.city,
           danceStyles: dancers.danceStyles,
@@ -301,6 +315,7 @@ export const authRouter = router({
       return {
         id: dancer.id,
         name: dancer.name,
+        username: dancer.username ?? null,
         isAdmin: dancer.isAdmin ?? false,
         city: dancer.city ?? null,
         danceStyles: dancer.danceStyles ?? [],

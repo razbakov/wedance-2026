@@ -7,6 +7,7 @@ import { claimRouter } from './routers/claim'
 import { festivalRouter } from './routers/festival'
 import { cityVideoRouter } from './routers/cityVideo'
 import { giveawayRouter } from './routers/giveaway'
+import { profileRouter } from './routers/profile'
 
 export const appRouter = router({
   auth: authRouter,
@@ -17,6 +18,7 @@ export const appRouter = router({
   festival: festivalRouter,
   cityVideo: cityVideoRouter,
   giveaway: giveawayRouter,
+  profile: profileRouter,
 })
 
 export type AppRouter = typeof appRouter
