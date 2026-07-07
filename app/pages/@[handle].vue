@@ -51,6 +51,10 @@ const profile = computed(() => data.value?.profile ?? null)
 const spaces = computed(() => data.value?.spaces ?? [])
 const isFree = computed(() => profile.value?.bookingModel === 'free')
 const spaceName = (id: string) => spaces.value.find((s: any) => s.id === id)?.name ?? 'Area'
+// Schedule mapped to the shared EventSchedule card shape (area as location).
+const scheduleCards = computed(() => (schedule.value ?? []).map((ev: any) => ({
+  ...ev, location: spaceName(ev.spaceId),
+})))
 
 const typeLabel: Record<string, string> = { venue: 'Venue', artist: 'Artist', organizer: 'Organizer' }
 const socialIcon: Record<string, any> = { instagram: Instagram, youtube: Youtube, facebook: Facebook, website: Globe }
@@ -173,29 +177,8 @@ useHead(() => ({
 
       <!-- Scheduled events (first) -->
       <section class="max-w-2xl mx-auto px-4 pb-6" style="font-family: system-ui, sans-serif;">
-        <div class="flex items-center gap-2"><Calendar class="w-5 h-5" style="color:#dc2626;" /><h2 class="text-2xl" style="font-family:'Playfair Display', serif; color:#3b1f0d;">Scheduled</h2></div>
-        <ul v-if="schedule.length" class="mt-3 space-y-2">
-          <li v-for="ev in schedule" :key="ev.id" class="flex items-start gap-3 rounded-xl border p-3 bg-white" style="border-color:#3b1f0d1a;">
-            <div class="text-center shrink-0 w-16">
-              <div class="text-[10px] uppercase font-bold leading-tight" style="color:#dc2626;">{{ fmtDate(ev.eventDate) }}</div>
-              <div v-if="ev.startTime" class="text-[10px] mt-0.5" style="color:#9a5614;">{{ ev.startTime }}<span v-if="ev.endTime">–{{ ev.endTime }}</span></div>
-            </div>
-            <div class="min-w-0 flex-1">
-              <div class="flex items-center gap-1.5 flex-wrap">
-                <span class="text-sm font-bold" style="color:#3b1f0d;">{{ ev.title || ev.message || 'Social' }}</span>
-                <span v-if="ev.eventType" class="text-[9px] uppercase tracking-wider font-bold rounded-full px-1.5 py-0.5" style="background:#3b1f0d0f; color:#5b3a1d;">{{ ev.eventType }}</span>
-              </div>
-              <div class="text-[11px] mt-0.5" style="color:#9a5614;">
-                {{ spaceName(ev.spaceId) }}<span v-if="ev.styles?.length"> · {{ ev.styles.join(', ') }}</span><span v-if="ev.requesterName"> · {{ ev.requesterName }}</span>
-              </div>
-              <div v-if="ev.artists?.length" class="text-[11px] mt-0.5" style="color:#5b3a1d;">
-                with
-                <template v-for="(a, i) in ev.artists" :key="i"><NuxtLink v-if="String(a).startsWith('@')" :to="`/${a}`" class="font-bold hover:underline" style="color:#dc2626;">{{ a }}</NuxtLink><span v-else class="font-bold">{{ a }}</span>{{ i < ev.artists.length - 1 ? ', ' : '' }}</template>
-              </div>
-            </div>
-            <span class="text-[9px] uppercase tracking-wider font-bold rounded-full px-1.5 py-0.5 shrink-0" :style="ev.status === 'accepted' ? 'background:#16a34a18; color:#16a34a;' : 'background:#f59e0b18; color:#b45309;'">{{ ev.status === 'accepted' ? 'Confirmed' : 'Proposed' }}</span>
-          </li>
-        </ul>
+        <div class="flex items-center gap-2 mb-3"><Calendar class="w-5 h-5" style="color:#dc2626;" /><h2 class="text-2xl" style="font-family:'Playfair Display', serif; color:#3b1f0d;">Scheduled</h2></div>
+        <EventSchedule v-if="scheduleCards.length" :events="scheduleCards" />
         <p v-else class="mt-3 text-sm italic" style="color:#9a5614;">Nothing scheduled yet — book the first slot.</p>
       </section>
 
