@@ -215,40 +215,82 @@ export const authRouter = router({
       const scrypt = new FirebaseScrypt(firebaseScryptParameters)
       const hash = await scrypt.hash(input.password, salt)
 
-      let dancer: { id: string; name: string; isAdmin: boolean | null }
-      try {
-        const [inserted] = await ctx.db
-          .insert(dancers)
-          .values({
-            name: input.name,
-            email: input.email,
-            username: generateUsername(input.name),
-            danceStyles: input.danceStyles,
-            role: input.role ?? null,
-            city: input.city ?? null,
-            salt,
-            hash,
-          })
-          .returning({
-            id: dancers.id,
-            name: dancers.name,
-            isAdmin: dancers.isAdmin,
-          })
-        dancer = inserted
-      } catch (error: unknown) {
-        // Unique-violation race (two registrations for the same email at once):
-        // Postgres error code 23505. Surface the same clean message.
-        const code = (error as { code?: string })?.code
-        if (code === '23505') {
-          throw new TRPCError({
-            code: 'CONFLICT',
-            message: 'Email already in use.',
-          })
+      // Insert with a generated username. A 23505 unique violation is either
+      // the email (→ clean "already in use") or a username collision (~1e-6) —
+      // in the latter case we regenerate the handle and retry rather than
+      // surfacing a wrong "email in use" error and failing the signup.
+      let dancer: { id: string; name: string; isAdmin: boolean | null } | undefined
+      const MAX_USERNAME_TRIES = 5
+      for (let attempt = 0; attempt < MAX_USERNAME_TRIES && !dancer; attempt++) {
+        try {
+          const [inserted] = await ctx.db
+            .insert(dancers)
+            .values({
+              name: input.name,
+              email: input.email,
+              username: generateUsername(input.name),
+              danceStyles: input.danceStyles,
+              role: input.role ?? null,
+              city: input.city ?? null,
+              salt,
+              hash,
+            })
+            .returning({
+              id: dancers.id,
+              name: dancers.name,
+              isAdmin: dancers.isAdmin,
+            })
+          dancer = inserted
+        } catch (error: unknown) {
+          const e = error as { code?: string; constraint?: string }
+          if (e?.code === '23505') {
+            // Username clash: regenerate and retry. Any other unique violation
+            // (email, or an unknown constraint) is the email-in-use case.
+            if (e.constraint === 'dancers_username_unique') continue
+            throw new TRPCError({ code: 'CONFLICT', message: 'Email already in use.' })
+          }
+          throw error
         }
-        throw error
+      }
+
+      if (!dancer) {
+        // Exhausted retries on username collisions — astronomically unlikely.
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Could not create your account. Please try again.',
+        })
       }
 
       return createSession(ctx.db, dancer)
+    }),
+
+  // Change the signed-in dancer's password: verify the current one, then
+  // re-hash the new one with a fresh salt (same FirebaseScrypt scheme as
+  // register). A dancer with no password set (magic-link signup) has empty
+  // salt/hash and will fail the current-password check — they recover via the
+  // magic link instead.
+  changePassword: protectedProcedure
+    .input(z.object({
+      currentPassword: z.string().min(1),
+      newPassword: z.string().min(8, 'Password must be at least 8 characters.'),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const [dancer] = await ctx.db
+        .select({ salt: dancers.salt, hash: dancers.hash })
+        .from(dancers)
+        .where(eq(dancers.id, ctx.dancerId))
+
+      const scrypt = new FirebaseScrypt(firebaseScryptParameters)
+      const ok = dancer && dancer.salt && dancer.hash
+        && await scrypt.verify(input.currentPassword, dancer.salt, dancer.hash)
+      if (!ok) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Current password is incorrect.' })
+      }
+
+      const salt = Buffer.from(String(Math.random()).slice(7)).toString('base64')
+      const hash = await scrypt.hash(input.newPassword, salt)
+      await ctx.db.update(dancers).set({ salt, hash }).where(eq(dancers.id, ctx.dancerId))
+      return { ok: true }
     }),
 
   // Persist the onboarding choice. Protected: requires a signed-in dancer.
@@ -306,6 +348,11 @@ export const authRouter = router({
           role: dancers.role,
           intent: dancers.intent,
           onboardedAt: dancers.onboardedAt,
+          bio: dancers.bio,
+          instagram: dancers.instagram,
+          youtube: dancers.youtube,
+          website: dancers.website,
+          profilePublic: dancers.profilePublic,
         })
         .from(dancers)
         .where(eq(dancers.id, ctx.dancerId))
@@ -322,6 +369,11 @@ export const authRouter = router({
         role: dancer.role ?? null,
         intent: dancer.intent ?? null,
         onboardedAt: dancer.onboardedAt ? dancer.onboardedAt.toISOString() : null,
+        bio: dancer.bio ?? null,
+        instagram: dancer.instagram ?? null,
+        youtube: dancer.youtube ?? null,
+        website: dancer.website ?? null,
+        profilePublic: dancer.profilePublic ?? true,
       }
     }),
 })
