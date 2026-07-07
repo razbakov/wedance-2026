@@ -21,6 +21,14 @@ const services = [
 ]
 
 const occasions = ['Weddings', 'Birthdays', 'Corporate', 'Brand launches', 'Team offsites', 'Private parties']
+
+// The "Venue" service is the entry point to browsing bookable venues.
+const showVenues = ref(false)
+function onServiceClick(label: string) {
+  if (label !== 'Venue') return
+  showVenues.value = true
+  nextTick(() => document.getElementById('venues')?.scrollIntoView({ behavior: 'smooth' }))
+}
 </script>
 
 <template>
@@ -46,19 +54,28 @@ const occasions = ['Weddings', 'Birthdays', 'Corporate', 'Brand launches', 'Team
     <!-- SERVICES -->
     <section class="max-w-5xl mx-auto px-4 pb-10">
       <div class="grid md:grid-cols-3 gap-5">
-        <div v-for="(s, i) in services" :key="s.label"
-          class="rounded-2xl bg-white p-6 border"
-          :style="{ borderColor: ['#dc2626', '#f59e0b', '#0891b2', '#16a34a', '#a855f7'][i % 5] + '55' }">
+        <component
+          :is="s.label === 'Venue' ? 'button' : 'div'"
+          v-for="(s, i) in services" :key="s.label"
+          type="button"
+          class="rounded-2xl bg-white p-6 border text-left w-full transition-all"
+          :class="s.label === 'Venue' ? 'hover:-translate-y-0.5 cursor-pointer' : ''"
+          :style="{ borderColor: ['#dc2626', '#f59e0b', '#0891b2', '#16a34a', '#a855f7'][i % 5] + '55' }"
+          @click="onServiceClick(s.label)"
+        >
           <component :is="s.icon" class="w-6 h-6 mb-3" :style="{ color: ['#dc2626', '#f59e0b', '#0891b2', '#16a34a', '#a855f7'][i % 5], 'stroke-width': 1.5 }" />
           <div class="text-lg font-bold" style="color:#3b1f0d;">{{ s.label }}</div>
           <div class="mt-2 text-sm leading-relaxed" style="color:#5b3a1d; font-family: system-ui, sans-serif;">{{ s.detail }}</div>
-        </div>
+          <div v-if="s.label === 'Venue'" class="mt-3 inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider" style="color:#dc2626; font-family: system-ui, sans-serif;">
+            Browse venues <ArrowRight class="w-3.5 h-3.5" />
+          </div>
+        </component>
       </div>
     </section>
 
-    <!-- Bookable spaces (client-only: tRPC has no SSR) -->
+    <!-- Bookable venues — revealed from the "Venue" service (client-only: tRPC has no SSR) -->
     <ClientOnly>
-      <section class="max-w-3xl mx-auto px-4 pb-6">
+      <section v-if="showVenues" id="venues" class="max-w-3xl mx-auto px-4 pb-6 scroll-mt-16">
         <BookableVenuesSection />
       </section>
     </ClientOnly>
