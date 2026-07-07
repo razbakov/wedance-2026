@@ -56,6 +56,13 @@ const occasions = ['Weddings', 'Birthdays', 'Corporate', 'Brand launches', 'Team
       </div>
     </section>
 
+    <!-- Bookable spaces (client-only: tRPC has no SSR) -->
+    <ClientOnly>
+      <section class="max-w-3xl mx-auto px-4 pb-6">
+        <BookableVenuesSection />
+      </section>
+    </ClientOnly>
+
     <!-- CTA -->
     <section class="max-w-3xl mx-auto px-4 py-16 text-center">
       <h2 class="text-3xl sm:text-4xl leading-tight">

@@ -559,7 +559,6 @@ onMounted(() => {
     <!-- Cold-start: local groups + ask locals (client-only: tRPC has no SSR) -->
     <ClientOnly>
       <section class="max-w-2xl mx-auto px-4 pb-10">
-        <BookableVenuesSection :city-slug="slug" :city-name="city.name" />
         <CommunityGroupsSection :city-slug="slug" :city-name="city.name" />
         <AskLocalsSection :city-slug="slug" :city-name="city.name" />
       </section>
