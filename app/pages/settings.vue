@@ -1,9 +1,9 @@
 <script setup lang="ts">
 /**
- * /settings — the signed-in dancer edits their own profile: display name, city,
- * dance styles, role, and photo URL. These are the same fields onboarding
- * collects, changeable over time. Protected: signed-out users are sent home.
- * 2026 tropical style, mirroring the onboarding details step.
+ * /settings — the signed-in dancer manages their profile + account.
+ *   - Profile: name, city, role, styles, bio, socials, photo URL, privacy.
+ *   - Account: change password.
+ * Protected: signed-out users are sent home. 2026 tropical style.
  */
 import { Check, ExternalLink } from 'lucide-vue-next'
 
@@ -21,38 +21,48 @@ useHead({
 const {
   isSignedIn, isLoading, username,
   dancerName, city: meCity, danceStyles: meStyles, role: meRole,
-  updateProfile,
+  bio: meBio, instagram: meIg, youtube: meYt, website: meSite, profilePublic: mePublic,
+  updateProfile, changePassword,
 } = useAuth()
 
 const DANCE_STYLES = ['Salsa', 'Bachata', 'Kizomba', 'Zouk', 'Timba', 'Semba', 'Afro-Cuban', 'Reggaeton', 'Cha-Cha']
 
 const form = reactive({
-  name: '',
-  city: '',
-  photo: '',
+  name: '', city: '', photo: '', bio: '',
+  instagram: '', youtube: '', website: '',
   danceStyles: [] as string[],
   role: '' as '' | 'lead' | 'follow' | 'both',
+  profilePublic: true,
 })
 
 const loading = ref(false)
 const error = ref('')
 const saved = ref(false)
 
-// Redirect signed-out users home (guard like onboarding).
+// Change-password sub-form.
+const pw = reactive({ current: '', next: '' })
+const pwLoading = ref(false)
+const pwError = ref('')
+const pwSaved = ref(false)
+
 watch([isLoading, isSignedIn], ([loadingNow, signedIn]) => {
   if (!loadingNow && !signedIn) navigateTo('/')
 }, { immediate: true })
 
-// Prefill from current profile once loaded.
 function hydrate() {
   form.name = dancerName.value ?? ''
   form.city = meCity.value ?? ''
+  form.bio = meBio.value ?? ''
+  form.instagram = meIg.value ?? ''
+  form.youtube = meYt.value ?? ''
+  form.website = meSite.value ?? ''
   form.danceStyles = meStyles.value ? [...meStyles.value] : []
   const r = meRole.value
   form.role = (r === 'lead' || r === 'follow' || r === 'both') ? r : ''
+  form.profilePublic = mePublic.value !== false
 }
 onMounted(hydrate)
-watch([dancerName, meCity, meStyles, meRole], hydrate)
+watch([dancerName, meCity, meStyles, meRole, meBio, meIg, meYt, meSite, mePublic], hydrate)
 
 function toggleStyle(style: string) {
   const i = form.danceStyles.indexOf(style)
@@ -72,6 +82,11 @@ async function save() {
       danceStyles: form.danceStyles,
       role: form.role || undefined,
       photo: form.photo.trim(),
+      bio: form.bio.trim(),
+      instagram: form.instagram.trim(),
+      youtube: form.youtube.trim(),
+      website: form.website.trim(),
+      profilePublic: form.profilePublic,
     })
     saved.value = true
   } catch (e: unknown) {
@@ -80,40 +95,60 @@ async function save() {
     loading.value = false
   }
 }
+
+async function submitPassword() {
+  pwError.value = ''
+  pwSaved.value = false
+  if (pw.next.length < 8) { pwError.value = 'New password must be at least 8 characters.'; return }
+  pwLoading.value = true
+  try {
+    await changePassword({ currentPassword: pw.current, newPassword: pw.next })
+    pwSaved.value = true
+    pw.current = ''
+    pw.next = ''
+  } catch (e: unknown) {
+    pwError.value = (e as { message?: string })?.message || 'Could not change password.'
+  } finally {
+    pwLoading.value = false
+  }
+}
+
+const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;'
 </script>
 
 <template>
   <div class="min-h-screen" style="background:#fbf5ea; color:#3b1f0d; font-family:'Playfair Display', serif;">
     <SiteHeader />
 
-    <section class="max-w-lg mx-auto px-4 pt-12 pb-16">
+    <section class="max-w-lg mx-auto px-4 pt-12 pb-16" style="font-family: system-ui, sans-serif;">
       <div class="flex items-baseline justify-between">
-        <h1 class="text-4xl" style="color:#3b1f0d;">Your profile</h1>
+        <h1 class="text-4xl" style="color:#3b1f0d; font-family:'Playfair Display', serif;">Settings</h1>
         <NuxtLink
           v-if="username"
           :to="`/u/${username}`"
           class="inline-flex items-center gap-1 text-xs font-bold"
-          style="color:#dc2626; font-family: system-ui, sans-serif;"
+          style="color:#dc2626;"
         >View public <ExternalLink class="w-3 h-3" /></NuxtLink>
       </div>
-      <p class="mt-2 text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
-        This is what other dancers see. Change it anytime.
-      </p>
 
-      <div class="mt-8 space-y-6" style="font-family: system-ui, sans-serif;">
-        <!-- Name -->
+      <!-- PROFILE -->
+      <h2 class="mt-8 text-lg font-bold" style="color:#3b1f0d; font-family:'Playfair Display', serif;">Profile</h2>
+      <div class="mt-4 space-y-6">
         <div>
           <label class="block text-xs font-bold uppercase tracking-wider mb-1.5" style="color:#9a5614;">Name</label>
-          <input v-model="form.name" type="text" class="w-full h-11 rounded-xl px-3.5 text-sm outline-none" style="background:white; border:1px solid #3b1f0d33; color:#3b1f0d;">
+          <input v-model="form.name" type="text" class="w-full h-11 rounded-xl px-3.5 text-sm outline-none" :style="inputStyle">
         </div>
 
-        <!-- City -->
         <div>
           <label class="block text-xs font-bold uppercase tracking-wider mb-1.5" style="color:#9a5614;">City</label>
-          <input v-model="form.city" type="text" placeholder="e.g. Munich" class="w-full h-11 rounded-xl px-3.5 text-sm outline-none" style="background:white; border:1px solid #3b1f0d33; color:#3b1f0d;">
+          <input v-model="form.city" type="text" placeholder="e.g. Munich" class="w-full h-11 rounded-xl px-3.5 text-sm outline-none" :style="inputStyle">
         </div>
 
-        <!-- Role -->
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider mb-1.5" style="color:#9a5614;">Bio</label>
+          <textarea v-model="form.bio" rows="3" maxlength="500" placeholder="A line or two about you and your dancing." class="w-full rounded-xl px-3.5 py-2.5 text-sm outline-none resize-none" :style="inputStyle" />
+        </div>
+
         <div>
           <label class="block text-xs font-bold uppercase tracking-wider mb-1.5" style="color:#9a5614;">Role</label>
           <div class="flex gap-2">
@@ -122,15 +157,12 @@ async function save() {
               :key="opt.v"
               type="button"
               class="flex-1 h-11 rounded-xl text-sm font-bold transition-all"
-              :style="form.role === opt.v
-                ? 'background:#dc2626; color:white; box-shadow:0 3px 0 -1px #b91c1c;'
-                : 'background:white; color:#5b3a1d; border:1px solid #3b1f0d33;'"
+              :style="form.role === opt.v ? 'background:#dc2626; color:white; box-shadow:0 3px 0 -1px #b91c1c;' : 'background:white; color:#5b3a1d; border:1px solid #3b1f0d33;'"
               @click="form.role = (form.role === opt.v ? '' : (opt.v as any))"
             >{{ opt.l }}</button>
           </div>
         </div>
 
-        <!-- Styles -->
         <div>
           <label class="block text-xs font-bold uppercase tracking-wider mb-1.5" style="color:#9a5614;">Dances</label>
           <div class="flex flex-wrap gap-1.5">
@@ -139,32 +171,72 @@ async function save() {
               :key="s"
               type="button"
               class="px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all"
-              :style="form.danceStyles.includes(s)
-                ? 'background:#dc2626; color:white;'
-                : 'background:#dc262614; color:#dc2626;'"
+              :style="form.danceStyles.includes(s) ? 'background:#dc2626; color:white;' : 'background:#dc262614; color:#dc2626;'"
               @click="toggleStyle(s)"
             >{{ s }}</button>
           </div>
         </div>
 
-        <!-- Photo -->
-        <div>
-          <label class="block text-xs font-bold uppercase tracking-wider mb-1.5" style="color:#9a5614;">Photo URL <span class="normal-case font-normal" style="color:#9a5614;">(optional)</span></label>
-          <input v-model="form.photo" type="url" placeholder="https://…" class="w-full h-11 rounded-xl px-3.5 text-sm outline-none" style="background:white; border:1px solid #3b1f0d33; color:#3b1f0d;">
+        <!-- Socials -->
+        <div class="grid gap-3">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider mb-1.5" style="color:#9a5614;">Instagram <span class="normal-case font-normal">(handle or URL)</span></label>
+            <input v-model="form.instagram" type="text" placeholder="@yourhandle" class="w-full h-11 rounded-xl px-3.5 text-sm outline-none" :style="inputStyle">
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider mb-1.5" style="color:#9a5614;">YouTube <span class="normal-case font-normal">(handle or URL)</span></label>
+            <input v-model="form.youtube" type="text" placeholder="@yourchannel" class="w-full h-11 rounded-xl px-3.5 text-sm outline-none" :style="inputStyle">
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider mb-1.5" style="color:#9a5614;">Website</label>
+            <input v-model="form.website" type="text" placeholder="yoursite.com" class="w-full h-11 rounded-xl px-3.5 text-sm outline-none" :style="inputStyle">
+          </div>
         </div>
 
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider mb-1.5" style="color:#9a5614;">Photo URL <span class="normal-case font-normal">(optional)</span></label>
+          <input v-model="form.photo" type="url" placeholder="https://…" class="w-full h-11 rounded-xl px-3.5 text-sm outline-none" :style="inputStyle">
+        </div>
+
+        <!-- Privacy -->
+        <label class="flex items-start gap-3 cursor-pointer select-none">
+          <input v-model="form.profilePublic" type="checkbox" class="mt-1 w-4 h-4 accent-[#dc2626]">
+          <span class="text-sm" style="color:#5b3a1d;">
+            <span class="font-bold" style="color:#3b1f0d;">Public profile</span><br>
+            When off, your <span class="italic">/u/{{ username }}</span> page is hidden from everyone but you.
+          </span>
+        </label>
+
         <p v-if="error" class="text-sm font-bold" style="color:#dc2626;">{{ error }}</p>
-        <p v-if="saved" class="inline-flex items-center gap-1.5 text-sm font-bold" style="color:#16a34a;">
-          <Check class="w-4 h-4" /> Saved
-        </p>
+        <p v-if="saved" class="inline-flex items-center gap-1.5 text-sm font-bold" style="color:#16a34a;"><Check class="w-4 h-4" /> Saved</p>
 
         <button
-          type="button"
-          :disabled="loading"
+          type="button" :disabled="loading"
           class="w-full h-12 rounded-full text-white text-sm font-bold uppercase tracking-wider disabled:opacity-60"
           style="background:linear-gradient(135deg, #dc2626, #f97316); box-shadow:0 3px 0 -1px #b91c1c;"
           @click="save"
         >{{ loading ? 'Saving…' : 'Save changes' }}</button>
+      </div>
+
+      <!-- ACCOUNT -->
+      <h2 class="mt-12 text-lg font-bold" style="color:#3b1f0d; font-family:'Playfair Display', serif;">Change password</h2>
+      <div class="mt-4 space-y-4">
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider mb-1.5" style="color:#9a5614;">Current password</label>
+          <input v-model="pw.current" type="password" autocomplete="current-password" class="w-full h-11 rounded-xl px-3.5 text-sm outline-none" :style="inputStyle">
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider mb-1.5" style="color:#9a5614;">New password</label>
+          <input v-model="pw.next" type="password" autocomplete="new-password" placeholder="At least 8 characters" class="w-full h-11 rounded-xl px-3.5 text-sm outline-none" :style="inputStyle">
+        </div>
+        <p v-if="pwError" class="text-sm font-bold" style="color:#dc2626;">{{ pwError }}</p>
+        <p v-if="pwSaved" class="inline-flex items-center gap-1.5 text-sm font-bold" style="color:#16a34a;"><Check class="w-4 h-4" /> Password changed</p>
+        <button
+          type="button" :disabled="pwLoading || !pw.current || !pw.next"
+          class="w-full h-11 rounded-full text-sm font-bold uppercase tracking-wider disabled:opacity-50"
+          style="background:white; color:#dc2626; border:1px solid #dc262655;"
+          @click="submitPassword"
+        >{{ pwLoading ? 'Changing…' : 'Change password' }}</button>
       </div>
     </section>
 
