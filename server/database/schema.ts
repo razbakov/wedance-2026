@@ -247,3 +247,57 @@ export const recommendationRequests = pgTable('recommendation_requests', {
   status: text('status').notNull().default('open').$type<'open' | 'closed'>(),
   createdAt: timestamp('created_at').defaultNow(),
 })
+
+// Professional profiles — venues, artists, organizers — under the unified
+// /@<username> handle namespace (v4-style). Dancers keep their own row + handle
+// in `dancers`; the /@handle route resolves either. Reviews attach polymorphically
+// by (type, username).
+export const profiles = pgTable('profiles', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  username: text('username').notNull().unique(),
+  type: text('type').notNull().$type<'venue' | 'artist' | 'organizer'>(),
+  name: text('name').notNull(),
+  city: text('city'),
+  citySlug: text('city_slug'),
+  photo: text('photo'),
+  bio: text('bio'),
+  styles: json('styles').$type<string[]>().default([]),
+  address: text('address'),
+  // Venue floor type matters to dancers (parquet / tiles / concrete).
+  floorType: text('floor_type'),
+  socials: json('socials').$type<{ platform: string; url: string }[]>().default([]),
+  claimed: boolean('claimed').default(false),
+  status: text('status').notNull().default('visible').$type<'visible' | 'hidden'>(),
+  createdAt: timestamp('created_at').defaultNow(),
+})
+
+// A profile (venue) can offer N bookable areas — e.g. Pinakothek's 5 spaces.
+export const bookableSpaces = pgTable('bookable_spaces', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  profileId: uuid('profile_id').notNull().references(() => profiles.id),
+  name: text('name').notNull(),
+  capacity: integer('capacity'),
+  floorType: text('floor_type'),
+  priceInfo: text('price_info'),
+  description: text('description'),
+  imageUrl: text('image_url'),
+  sortOrder: integer('sort_order').default(0),
+  createdAt: timestamp('created_at').defaultNow(),
+})
+
+// Booking requests — connector model (no payment held). An organizer requests a
+// date for a space; the venue responds. T&C accepted at request time.
+export const bookingRequests = pgTable('booking_requests', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  spaceId: uuid('space_id').notNull().references(() => bookableSpaces.id),
+  profileId: uuid('profile_id').notNull().references(() => profiles.id),
+  requesterId: uuid('requester_id').references(() => dancers.id),
+  requesterEmail: text('requester_email').notNull(),
+  requesterName: text('requester_name'),
+  eventDate: date('event_date'),
+  headcount: integer('headcount'),
+  message: text('message'),
+  termsAcceptedAt: timestamp('terms_accepted_at'),
+  status: text('status').notNull().default('pending').$type<'pending' | 'accepted' | 'declined'>(),
+  createdAt: timestamp('created_at').defaultNow(),
+})
