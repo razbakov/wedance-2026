@@ -39,6 +39,7 @@ async function seed() {
 
   await seedCityVideos()
   await seedGiveaways()
+  await seedCommunityGroups()
 
   // Seed signups for salsa-open-berlin only (demo data)
   const { eq: eq2 } = require('drizzle-orm')
@@ -192,6 +193,21 @@ async function seedGiveaways() {
     status: 'active',
   }).onConflictDoNothing()
   console.log('Seeded 1 active Munich giveaway')
+}
+
+// Community groups directory. This is where the Commander's existing WhatsApp/
+// Telegram list gets imported — add rows here (or bulk-insert a CSV) keyed by
+// citySlug. The two below are illustrative examples for the demo.
+const communityGroupData = [
+  { citySlug: 'berlin', name: 'Berlin Salsa & Bachata', platform: 'whatsapp' as const, inviteUrl: 'https://chat.whatsapp.com/example-berlin', styles: ['Salsa', 'Bachata'], source: 'seed-example', verified: false },
+  { citySlug: 'munich', name: 'Munich Timba Crew', platform: 'whatsapp' as const, inviteUrl: 'https://chat.whatsapp.com/example-munich', styles: ['Timba', 'Salsa'], source: 'seed-example', verified: true },
+]
+
+async function seedCommunityGroups() {
+  for (const g of communityGroupData) {
+    await db.insert(schema.communityGroups).values(g).onConflictDoNothing()
+  }
+  console.log(`Seeded ${communityGroupData.length} community groups`)
 }
 
 seed()

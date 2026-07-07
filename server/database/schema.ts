@@ -194,3 +194,56 @@ export const giveawayEntries = pgTable('giveaway_entries', {
   // Free-entry: one entry per email per giveaway.
   unique('giveaway_entry_email_unique').on(t.giveawayId, t.email),
 ])
+
+// Reviews & ratings — polymorphic by (targetType, targetSlug) so a review can
+// attach to ANY entity (festival / venue / artist / organizer), including
+// on-demand stubs created by "ask locals" recommendations, without needing a
+// full entity table for each. `source` separates a normal review from an
+// auto-5★ recommendation. One review per dancer per target.
+export const reviews = pgTable('reviews', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  targetType: text('target_type').notNull().$type<'festival' | 'venue' | 'artist' | 'organizer'>(),
+  targetSlug: text('target_slug').notNull(),
+  targetName: text('target_name'),
+  // For organizer/venue recommendations: which city the target is in.
+  citySlug: text('city_slug'),
+  dancerId: uuid('dancer_id').notNull().references(() => dancers.id),
+  // Denormalized reviewer identity (name + handle) so the review list needs no
+  // join and can link to /u/<handle>. Snapshotted at write time.
+  reviewerName: text('reviewer_name'),
+  reviewerUsername: text('reviewer_username'),
+  rating: integer('rating').notNull(),
+  text: text('text'),
+  source: text('source').notNull().default('review').$type<'review' | 'recommendation'>(),
+  status: text('status').notNull().default('visible').$type<'visible' | 'hidden'>(),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (t) => [
+  // One review per dancer per target (a recommend also upserts through this).
+  unique('review_target_dancer_unique').on(t.targetType, t.targetSlug, t.dancerId),
+])
+
+// Community groups (WhatsApp / Telegram / …) per city — the cold-start
+// directory for cities where WeDance has no events yet.
+export const communityGroups = pgTable('community_groups', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  citySlug: text('city_slug').notNull(),
+  name: text('name').notNull(),
+  platform: text('platform').notNull().default('whatsapp').$type<'whatsapp' | 'telegram' | 'facebook' | 'other'>(),
+  inviteUrl: text('invite_url').notNull(),
+  styles: json('styles').$type<string[]>().default([]),
+  source: text('source'),
+  verified: boolean('verified').default(false),
+  status: text('status').notNull().default('visible').$type<'visible' | 'hidden'>(),
+  createdAt: timestamp('created_at').defaultNow(),
+})
+
+// "Ask locals" — a question posted for a city, answered by recommendations
+// (which write into `reviews` with source='recommendation').
+export const recommendationRequests = pgTable('recommendation_requests', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  citySlug: text('city_slug').notNull(),
+  askerId: uuid('asker_id').notNull().references(() => dancers.id),
+  question: text('question').notNull(),
+  status: text('status').notNull().default('open').$type<'open' | 'closed'>(),
+  createdAt: timestamp('created_at').defaultNow(),
+})
