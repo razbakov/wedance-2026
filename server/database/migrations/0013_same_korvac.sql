@@ -1,0 +1,1 @@
+ALTER TABLE "booking_requests" ADD COLUMN "artists" json DEFAULT '[]'::json;

@@ -92,6 +92,13 @@
       "when": 1783464506760,
       "tag": "0012_perpetual_puff_adder",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1783464918606,
+      "tag": "0013_same_korvac",
+      "breakpoints": true
     }
   ]
 }

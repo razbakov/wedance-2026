@@ -313,6 +313,9 @@ export const bookingRequests = pgTable('booking_requests', {
   title: text('title'),
   eventType: text('event_type'), // Social · Party · Workshop · Class · Practica
   styles: json('styles').$type<string[]>().default([]),
+  // Artists / teachers / DJs featured — names or @handles. Lets the event surface
+  // on each artist's profile.
+  artists: json('artists').$type<string[]>().default([]),
   eventDate: date('event_date'),
   startTime: text('start_time'), // 'HH:MM'
   endTime: text('end_time'),     // 'HH:MM'

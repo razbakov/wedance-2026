@@ -1,0 +1,77 @@
+<script setup lang="ts">
+/**
+ * Availability calendar for a bookable space (Google-Calendar-ish): a week grid
+ * of areas × days showing existing bookings, click an empty cell to book that
+ * area on that day. Emits `book({ spaceId, spaceName, date })`.
+ */
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-vue-next'
+
+const props = defineProps<{
+  spaces: Array<{ id: string; name: string }>
+  bookings: Array<{ spaceId: string; eventDate: string | null; title?: string | null; startTime?: string | null; status?: string }>
+}>()
+const emit = defineEmits<{ book: [{ spaceId: string; spaceName: string; date: string }] }>()
+
+// Monday of the current week + a week offset.
+const weekOffset = ref(0)
+function mondayOf(d: Date) { const x = new Date(d); const day = (x.getDay() + 6) % 7; x.setDate(x.getDate() - day); x.setHours(0, 0, 0, 0); return x }
+const weekStart = computed(() => { const m = mondayOf(new Date()); m.setDate(m.getDate() + weekOffset.value * 7); return m })
+const days = computed(() => Array.from({ length: 7 }, (_, i) => { const d = new Date(weekStart.value); d.setDate(d.getDate() + i); return d }))
+const iso = (d: Date) => d.toISOString().slice(0, 10)
+const weekLabel = computed(() => {
+  const a = days.value[0], b = days.value[6]
+  const f = (d: Date) => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  return `${f(a)} – ${f(b)}`
+})
+
+function bookingsFor(spaceId: string, d: Date) {
+  const day = iso(d)
+  return props.bookings
+    .filter(b => b.spaceId === spaceId && b.eventDate && String(b.eventDate).slice(0, 10) === day)
+    .sort((a, b) => String(a.startTime ?? '').localeCompare(String(b.startTime ?? '')))
+}
+
+const todayIso = iso(new Date())
+</script>
+
+<template>
+  <div style="font-family: system-ui, sans-serif;">
+    <!-- Week nav -->
+    <div class="flex items-center justify-between mb-3">
+      <button type="button" class="w-8 h-8 rounded-full flex items-center justify-center" style="background:#dc262614; color:#dc2626;" aria-label="Previous week" @click="weekOffset--"><ChevronLeft class="w-4 h-4" /></button>
+      <div class="text-sm font-bold" style="color:#3b1f0d; font-family:'Playfair Display', serif;">{{ weekLabel }}<button v-if="weekOffset !== 0" type="button" class="ml-2 text-[10px] uppercase tracking-wider" style="color:#dc2626;" @click="weekOffset = 0">Today</button></div>
+      <button type="button" class="w-8 h-8 rounded-full flex items-center justify-center" style="background:#dc262614; color:#dc2626;" aria-label="Next week" @click="weekOffset++"><ChevronRight class="w-4 h-4" /></button>
+    </div>
+
+    <div class="overflow-x-auto -mx-4 px-4">
+      <div class="min-w-[640px]">
+        <!-- Day header -->
+        <div class="grid" style="grid-template-columns: 84px repeat(7, 1fr); gap:4px;">
+          <div />
+          <div v-for="d in days" :key="d.toISOString()" class="text-center py-1">
+            <div class="text-[10px] uppercase font-bold" style="color:#9a5614;">{{ d.toLocaleDateString(undefined, { weekday: 'short' }) }}</div>
+            <div class="text-xs font-bold" :style="iso(d) === todayIso ? 'color:#dc2626;' : 'color:#3b1f0d;'">{{ d.getDate() }}</div>
+          </div>
+        </div>
+
+        <!-- Area rows -->
+        <div v-for="sp in spaces" :key="sp.id" class="grid mt-1" style="grid-template-columns: 84px repeat(7, 1fr); gap:4px;">
+          <div class="flex items-center text-[11px] font-bold pr-1" style="color:#3b1f0d;">{{ sp.name }}</div>
+          <div v-for="d in days" :key="d.toISOString()" class="min-h-[44px] rounded-lg border p-1" style="border-color:#3b1f0d12; background:white;">
+            <template v-if="bookingsFor(sp.id, d).length">
+              <div v-for="(b, i) in bookingsFor(sp.id, d)" :key="i" class="rounded px-1 py-0.5 mb-0.5 text-[9px] leading-tight truncate"
+                :style="b.status === 'accepted' ? 'background:#16a34a1a; color:#166534;' : 'background:#f59e0b1a; color:#b45309;'"
+                :title="(b.startTime ? b.startTime + ' ' : '') + (b.title || 'Event')">
+                <span v-if="b.startTime" class="font-bold">{{ b.startTime }}</span> {{ b.title || 'Event' }}
+              </div>
+            </template>
+            <button v-else type="button" class="w-full h-full min-h-[36px] rounded flex items-center justify-center opacity-40 hover:opacity-100 transition-opacity" style="color:#dc2626;" :aria-label="`Book ${sp.name}`" @click="emit('book', { spaceId: sp.id, spaceName: sp.name, date: iso(d) })">
+              <Plus class="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="mt-2 text-[11px]" style="color:#9a5614;">Tap a free cell to propose an event in that area. Green = confirmed, amber = proposed.</p>
+  </div>
+</template>

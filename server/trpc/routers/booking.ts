@@ -1,8 +1,8 @@
 import { z } from 'zod'
-import { eq } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { router, publicProcedure } from '../trpc'
-import { bookableSpaces, bookingRequests } from '../../database/schema'
+import { bookableSpaces, bookingRequests, profiles } from '../../database/schema'
 
 /**
  * Booking requests — connector model (WeDance holds no money). An organizer
@@ -24,6 +24,7 @@ export const bookingRouter = router({
           title: bookingRequests.title,
           eventType: bookingRequests.eventType,
           styles: bookingRequests.styles,
+          artists: bookingRequests.artists,
           eventDate: bookingRequests.eventDate,
           startTime: bookingRequests.startTime,
           endTime: bookingRequests.endTime,
@@ -40,6 +41,33 @@ export const bookingRouter = router({
         .sort((a: any, b: any) => String(a.eventDate ?? '9999').localeCompare(String(b.eventDate ?? '9999')))
     }),
 
+  // Upcoming events across all venues in a city — the "what's on" feed shown on
+  // the city page. Joins bookings to their venue profile by citySlug.
+  upcomingByCity: publicProcedure
+    .input(z.object({ citySlug: z.string().min(1) }))
+    .query(async ({ ctx, input }) => {
+      const rows = await ctx.db
+        .select({
+          id: bookingRequests.id,
+          title: bookingRequests.title,
+          eventType: bookingRequests.eventType,
+          styles: bookingRequests.styles,
+          eventDate: bookingRequests.eventDate,
+          startTime: bookingRequests.startTime,
+          status: bookingRequests.status,
+          venueName: profiles.name,
+          venueHandle: profiles.username,
+        })
+        .from(bookingRequests)
+        .innerJoin(profiles, eq(bookingRequests.profileId, profiles.id))
+        .where(and(eq(profiles.citySlug, input.citySlug), eq(profiles.status, 'visible')))
+
+      const today = new Date().toISOString().slice(0, 10)
+      return rows
+        .filter((r: any) => r.status !== 'declined' && (!r.eventDate || String(r.eventDate).slice(0, 10) >= today))
+        .sort((a: any, b: any) => String(a.eventDate ?? '9999').localeCompare(String(b.eventDate ?? '9999')))
+    }),
+
   request: publicProcedure
     .input(z.object({
       spaceId: z.string().uuid(),
@@ -48,6 +76,7 @@ export const bookingRouter = router({
       title: z.string().max(160).optional(),
       eventType: z.string().max(40).optional(),
       styles: z.array(z.string()).optional(),
+      artists: z.array(z.string()).optional(),
       eventDate: z.string().optional(), // YYYY-MM-DD
       startTime: z.string().max(5).optional(), // HH:MM
       endTime: z.string().max(5).optional(),
@@ -80,6 +109,7 @@ export const bookingRouter = router({
           title: input.title ?? null,
           eventType: input.eventType ?? null,
           styles: input.styles ?? [],
+          artists: input.artists ?? [],
           eventDate: input.eventDate ?? null,
           startTime: input.startTime ?? null,
           endTime: input.endTime ?? null,

@@ -65,14 +65,14 @@ const EVENT_TYPES = ['Social', 'Party', 'Workshop', 'Class', 'Practica']
 const DANCE_STYLES = ['Salsa', 'Bachata', 'Kizomba', 'Zouk', 'Timba', 'Casino', 'Rueda', 'Afro']
 const booking = reactive({
   open: false, spaceId: '', spaceName: '',
-  title: '', eventType: 'Social', styles: [] as string[],
+  title: '', eventType: 'Social', styles: [] as string[], artists: '',
   email: '', name: '', eventDate: '', startTime: '', endTime: '',
   headcount: '' as string | number, message: '', terms: false, busy: false, err: '', done: false,
 })
 function openBooking(space: any) {
   Object.assign(booking, {
     open: true, spaceId: space.id, spaceName: space.name,
-    title: '', eventType: 'Social', styles: [],
+    title: '', eventType: 'Social', styles: [], artists: '',
     email: '', name: (dancerName.value as string) || '', eventDate: '', startTime: '', endTime: '',
     headcount: '', message: '', terms: false, err: '', done: false,
   })
@@ -80,6 +80,11 @@ function openBooking(space: any) {
 function toggleBookingStyle(s: string) {
   const i = booking.styles.indexOf(s)
   if (i >= 0) booking.styles.splice(i, 1); else booking.styles.push(s)
+}
+// From the availability calendar: open the form pre-filled with the picked slot.
+function onCalendarBook(slot: { spaceId: string; spaceName: string; date: string }) {
+  openBooking({ id: slot.spaceId, name: slot.spaceName })
+  booking.eventDate = slot.date
 }
 async function submitBooking() {
   booking.err = ''
@@ -91,6 +96,7 @@ async function submitBooking() {
     await $trpc.booking.request.mutate({
       spaceId: booking.spaceId, email: booking.email.trim(), name: booking.name.trim() || undefined,
       title: booking.title.trim(), eventType: booking.eventType, styles: booking.styles,
+      artists: booking.artists.split(',').map(a => a.trim()).filter(Boolean),
       eventDate: booking.eventDate || undefined, startTime: booking.startTime || undefined, endTime: booking.endTime || undefined,
       headcount: booking.headcount ? Number(booking.headcount) : undefined,
       message: booking.message.trim() || undefined, termsAccepted: booking.terms,
@@ -182,6 +188,10 @@ useHead(() => ({
               <div class="text-[11px] mt-0.5" style="color:#9a5614;">
                 {{ spaceName(ev.spaceId) }}<span v-if="ev.styles?.length"> · {{ ev.styles.join(', ') }}</span><span v-if="ev.requesterName"> · {{ ev.requesterName }}</span>
               </div>
+              <div v-if="ev.artists?.length" class="text-[11px] mt-0.5" style="color:#5b3a1d;">
+                with
+                <template v-for="(a, i) in ev.artists" :key="i"><NuxtLink v-if="String(a).startsWith('@')" :to="`/${a}`" class="font-bold hover:underline" style="color:#dc2626;">{{ a }}</NuxtLink><span v-else class="font-bold">{{ a }}</span>{{ i < ev.artists.length - 1 ? ', ' : '' }}</template>
+              </div>
             </div>
             <span class="text-[9px] uppercase tracking-wider font-bold rounded-full px-1.5 py-0.5 shrink-0" :style="ev.status === 'accepted' ? 'background:#16a34a18; color:#16a34a;' : 'background:#f59e0b18; color:#b45309;'">{{ ev.status === 'accepted' ? 'Confirmed' : 'Proposed' }}</span>
           </li>
@@ -192,14 +202,8 @@ useHead(() => ({
       <!-- Book a (free) slot -->
       <section v-if="spaces.length" class="max-w-2xl mx-auto px-4 pb-4" style="font-family: system-ui, sans-serif;">
         <div class="flex items-center gap-2"><LayoutGrid class="w-5 h-5" style="color:#dc2626;" /><h2 class="text-2xl" style="font-family:'Playfair Display', serif; color:#3b1f0d;">{{ isFree ? 'Book a free slot' : 'Book a space' }}</h2></div>
-        <p class="mt-1 text-sm" style="color:#5b3a1d;">{{ isFree ? `Running a social? Reserve one of the ${spaces.length} areas — free. A community moderator confirms it against the guidelines.` : `Request one of ${spaces.length} areas.` }}</p>
-        <div class="mt-4 grid gap-3 sm:grid-cols-3">
-          <div v-for="sp in spaces" :key="sp.id" class="rounded-2xl bg-white border p-4 flex flex-col" style="border-color:#3b1f0d1a;">
-            <h3 class="font-bold" style="color:#3b1f0d;">{{ sp.name }}</h3>
-            <p v-if="sp.description" class="text-xs mt-1 leading-relaxed flex-1" style="color:#5b3a1d;">{{ sp.description }}</p>
-            <button type="button" class="mt-3 rounded-full px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-white" style="background:#dc2626;" @click="openBooking(sp)">{{ isFree ? 'Book' : 'Request' }}</button>
-          </div>
-        </div>
+        <p class="mt-1 text-sm" style="color:#5b3a1d;">{{ isFree ? `Pick a free slot in any of the ${spaces.length} areas — it's free. A community moderator confirms it against the guidelines.` : `Pick an available slot in one of ${spaces.length} areas.` }}</p>
+        <AvailabilityCalendar :spaces="spaces" :bookings="schedule" class="mt-4" @book="onCalendarBook" />
       </section>
 
       <!-- Guidelines -->
@@ -239,7 +243,8 @@ useHead(() => ({
               <input v-model="booking.startTime" type="time" class="w-28 h-10 rounded-xl px-2 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;" aria-label="Start">
               <input v-model="booking.endTime" type="time" class="w-28 h-10 rounded-xl px-2 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;" aria-label="End">
             </div>
-            <textarea v-model="booking.message" rows="2" maxlength="2000" placeholder="Anything the community should know (DJ, level, entry…)" class="w-full rounded-xl px-3 py-2 text-sm outline-none resize-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;" />
+            <input v-model="booking.artists" type="text" placeholder="Artists / DJs / teachers (comma-separated · @handle or name)" class="w-full h-10 rounded-xl px-3 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;">
+            <textarea v-model="booking.message" rows="2" maxlength="2000" placeholder="Anything the community should know (level, entry…)" class="w-full rounded-xl px-3 py-2 text-sm outline-none resize-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;" />
             <div class="flex gap-2">
               <input v-model="booking.name" type="text" placeholder="Your name" class="flex-1 h-10 rounded-xl px-3 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;">
               <input v-model="booking.headcount" type="number" min="1" placeholder="Guests" class="w-24 h-10 rounded-xl px-3 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;">
