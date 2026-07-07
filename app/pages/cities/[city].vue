@@ -46,6 +46,31 @@ const teachers = data.teachers
 const djs = data.djs
 const organisers = data.organisers
 
+// Real booked events from the DB (booking_requests) merged into the weekly feed,
+// so venue bookings (e.g. the Pinakothek open-air spot) show alongside the mock
+// weekly socials — not just on the venue page. Fetched client-side (tRPC is
+// client-only); filtered to THIS week so the weekday mapping stays correct.
+const bookedEvents = ref<any[]>([])
+onMounted(async () => {
+  try { bookedEvents.value = await $trpc.booking.upcomingByCity.query({ citySlug: slug }) } catch { /* ignore */ }
+})
+const bookedTypeMap: Record<string, string> = { Social: 'social', Party: 'social', Workshop: 'workshop', Class: 'class', Practica: 'practica' }
+const thisWeekDates = computed(() => {
+  const now = new Date(); const off = (now.getDay() + 6) % 7
+  const mon = new Date(now); mon.setDate(now.getDate() - off); mon.setHours(0, 0, 0, 0)
+  const set = new Set<string>()
+  for (let i = 0; i < 7; i++) { const x = new Date(mon); x.setDate(mon.getDate() + i); set.add(x.toISOString().slice(0, 10)) }
+  return set
+})
+const bookedThisWeek = computed(() => bookedEvents.value
+  .filter(b => b.eventDate && thisWeekDates.value.has(String(b.eventDate).slice(0, 10)))
+  .map(b => ({
+    id: b.id, name: b.title || 'Social', type: bookedTypeMap[b.eventType] || 'social',
+    style: b.styles?.[0] || '', day: new Date(String(b.eventDate).slice(0, 10)).toLocaleDateString('en-US', { weekday: 'long' }),
+    time: b.startTime || '', duration: 0, venue: b.venueName, address: '', organizer: '',
+    accentColor: '#dc2626', attendeeCount: 0, recurring: false, date: b.eventDate,
+  })))
+
 const cityAccent: Record<string, string> = {
   munich: '#dc2626',
   berlin: '#0891b2',
@@ -138,7 +163,7 @@ const currentLineup = computed(() => {
 })
 
 const filteredEvents = computed(() => {
-  let result = events
+  let result: any[] = [...events, ...bookedThisWeek.value]
   if (selectedStyle.value) {
     result = result.filter(e => e.style === selectedStyle.value)
   }
