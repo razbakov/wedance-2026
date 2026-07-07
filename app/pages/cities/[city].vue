@@ -360,7 +360,7 @@ onMounted(() => {
     </section>
 
     <!-- WEEKLY SCHEDULE -->
-    <section class="max-w-2xl mx-auto px-4 py-12">
+    <section class="max-w-4xl mx-auto px-4 py-12">
       <div class="flex flex-wrap items-baseline justify-between gap-3 mb-6">
         <div>
           <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">This week</div>
@@ -559,7 +559,6 @@ onMounted(() => {
     <!-- Cold-start: local groups + ask locals (client-only: tRPC has no SSR) -->
     <ClientOnly>
       <section class="max-w-2xl mx-auto px-4 pb-10">
-        <CityEventsSection :city-slug="slug" :city-name="city.name" />
         <BookableVenuesSection :city-slug="slug" :city-name="city.name" />
         <CommunityGroupsSection :city-slug="slug" :city-name="city.name" />
         <AskLocalsSection :city-slug="slug" :city-name="city.name" />
