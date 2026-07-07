@@ -356,6 +356,7 @@ describe('auth.me', () => {
     const id = db.seedDancer({
       email: 'me@example.com',
       name: 'Me User',
+      username: 'me-user-x1',
       city: 'Munich',
       danceStyles: ['Salsa'],
       role: 'follow',
@@ -368,6 +369,7 @@ describe('auth.me', () => {
     expect(me).toEqual({
       id,
       name: 'Me User',
+      username: 'me-user-x1',
       isAdmin: false,
       city: 'Munich',
       danceStyles: ['Salsa'],
