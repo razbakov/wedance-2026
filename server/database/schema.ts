@@ -10,6 +10,11 @@ export const dancers = pgTable('dancers', {
   city: text('city'),
   neonAuthId: text('neon_auth_id').unique(),
   isAdmin: boolean('is_admin').default(false),
+  // Public handle for the shareable profile URL (/u/<username>). Generated from
+  // the name + a short random suffix at register, and backfilled on onboarding
+  // for dancers created before this field existed. Nullable so legacy rows stay
+  // valid until backfilled; unique so the URL is a stable identity.
+  username: text('username').unique(),
   // Email + password auth (FirebaseScrypt, ported from wedance-v4). Empty string
   // default = "no password set" — a dancer created via magic-link/festival flow
   // has no credentials and cannot log in via password until they register one.
