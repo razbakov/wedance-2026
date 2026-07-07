@@ -212,32 +212,40 @@ async function seedCommunityGroups() {
   console.log(`Seeded ${communityGroupData.length} community groups`)
 }
 
-// Pinakothek der Moderne — the venue-booking showcase (concept). 5 bookable
-// areas for social-dance organizers. Pricing "On request" (no invented figures).
+// Pinakothek der Moderne (Open Air) — the real community dance commons: a free,
+// self-organised open-air spot under the roof by the museum's exit doors (NOT
+// run by the museum). Six community-mapped areas, moderator-managed, guidelines
+// from the community. Data sourced from the WeDance v3 database.
 async function seedProfiles() {
   const handle = 'pinakothek-der-moderne'
   const existing = await db.select({ id: schema.profiles.id }).from(schema.profiles).where(eq(schema.profiles.username, handle))
   if (existing.length) { console.log('Pinakothek profile already seeded'); return }
+  const guidelines = `We're at Pina since 2017. We keep this spot by following a few rules that everyone must respect:
+
+1. No music before 7pm.
+2. Keep the music volume very low after 10pm — the city can fine us up to €5000. Remind DJs and others if they forget.
+3. Don't damage Pina property; park your bike outside the dancing area.
+4. Don't block the exit doors with your bags.
+5. Keep it clean and take your trash with you.`
   const [p] = await db.insert(schema.profiles).values({
-    username: handle, type: 'venue', name: 'Pinakothek der Moderne',
-    city: 'Munich', citySlug: 'munich',
-    bio: "Showcase concept — Munich's museum of modern art & design, reimagined as a home for social dance across five distinctive spaces. Book an area to run your social, class, or milonga under the dome.",
-    address: 'Barer Straße 40, 80333 München', floorType: 'stone / terrazzo',
-    socials: [{ platform: 'website', url: 'https://www.pinakothek-der-moderne.de' }],
+    username: handle, type: 'venue', name: 'Pinakothek der Moderne (Open Air)',
+    city: 'Munich', citySlug: 'munich', venueType: 'OpenAir', bookingModel: 'free',
+    bio: 'A free open-air dance commons at the Pinakothek der Moderne — under the roof by the exit doors. Self-organised by the community since 2017, not run by the museum. Six mapped areas; keep to the guidelines and it stays ours.',
+    guidelines,
+    mapUrl: 'https://firebasestorage.googleapis.com/v0/b/wedance-4abe3.appspot.com/o/media%2FtvR012ArEpQhCJdPHh6G7sLuqoO2%2F45ad2564-fa2b-4169-9f22-0527d8d95e0c?alt=media&token=cf147971-f33a-40b1-84d0-bee0a0cea51d',
+    photo: 'https://firebasestorage.googleapis.com/v0/b/wedance-4abe3.appspot.com/o/media%2FtvR012ArEpQhCJdPHh6G7sLuqoO2%2Fdc862207-95df-4573-9e92-6884ce0e7b83?alt=media&token=eb5bb326-9da4-4e2b-8428-c07afe0a707d',
+    address: 'By the exit doors, Pinakothek der Moderne · Barer Str. 40, 80333 München',
+    floorType: 'stone / open-air',
+    moderatorName: 'Community-elected moderator', moderatorSince: 2024,
+    socials: [
+      { platform: 'instagram', url: 'https://instagram.com/pinakothekdermoderne' },
+      { platform: 'website', url: 'https://www.pinakothek-der-moderne.de/' },
+    ],
   }).returning({ id: schema.profiles.id })
-  const areas: [string, number, string, string][] = [
-    ['Rotunde (central dome)', 200, 'stone / terrazzo', 'The iconic domed rotunda — a dramatic circular floor under natural light.'],
-    ['Ernst von Siemens Auditorium', 150, 'wood', 'A tiered auditorium; flat-floor configuration available for dancing.'],
-    ['Forum / Atrium', 300, 'stone', 'The largest open hall — space for a full social with a live band.'],
-    ['Danner-Rotunde', 80, 'stone', 'An intimate side rotunda for classes and smaller practicas.'],
-    ['Café Terrace', 120, 'outdoor deck', 'Open-air terrace for summer socials and warm-up sessions.'],
-  ]
-  let i = 10
-  for (const [name, capacity, floorType, description] of areas) {
-    await db.insert(schema.bookableSpaces).values({ profileId: p!.id, name, capacity, floorType, priceInfo: 'On request', description, sortOrder: i })
-    i += 10
+  for (let i = 1; i <= 6; i++) {
+    await db.insert(schema.bookableSpaces).values({ profileId: p!.id, name: `Area ${i}`, priceInfo: 'Free', description: 'One of the six community-mapped dance areas.', sortOrder: i })
   }
-  console.log('Seeded Pinakothek venue + 5 bookable areas')
+  console.log('Seeded Pinakothek Open Air commons + 6 areas')
 }
 
 seed()
