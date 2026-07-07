@@ -6,7 +6,7 @@
  * out to the artist's full /artists/[id] profile. V3 tropical style.
  */
 import type { Teacher } from '~/types/festival'
-import { Instagram, Youtube, Globe, ArrowRight, X } from 'lucide-vue-next'
+import { Instagram, Youtube, Globe, X } from 'lucide-vue-next'
 
 defineProps<{
   teacher: Teacher
@@ -81,13 +81,10 @@ function toEmbedUrl(url: string): string {
               <span v-else class="text-xs italic capitalize">{{ link.platform }}</span>
             </a>
           </div>
-          <NuxtLink
-            :to="`/artists/${teacher.id}`"
-            class="ml-auto inline-flex items-center gap-1 text-xs font-bold italic hover:underline"
-            style="color:#dc2626; font-family:'Playfair Display', serif;"
-          >
-            Full profile <ArrowRight class="w-3.5 h-3.5" />
-          </NuxtLink>
+          <!-- "Full profile" link removed: city people (teachers/DJs/organisers/
+               venues) have no profile page yet — their synthetic ids (muc-1,
+               venue:Name) don't resolve to /artists/[id] and 404'd. Re-add once
+               the unified /@handle profile model lands (see WeDance plan). -->
         </div>
       </div>
     </div>
