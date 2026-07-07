@@ -10,6 +10,12 @@ const _isLoading = ref(true)
 // Profile fields used for personalization + the onboarding guard. Populated by
 // init()'s me query; null/[] until then. `justRegistered` marks a brand-new
 // signup this session so my-plan can show the first-run hint after onboarding.
+const _username = ref<string | null>(null)
+const _bio = ref<string | null>(null)
+const _instagram = ref<string | null>(null)
+const _youtube = ref<string | null>(null)
+const _website = ref<string | null>(null)
+const _profilePublic = ref(true)
 const _city = ref<string | null>(null)
 const _danceStyles = ref<string[]>([])
 const _role = ref<string | null>(null)
@@ -33,12 +39,18 @@ export function useAuth() {
         _isSignedIn.value = true
         _dancerId.value = me.id
         _dancerName.value = me.name
+        _username.value = me.username ?? null
         _isAdmin.value = me.isAdmin
         _city.value = me.city ?? null
         _danceStyles.value = me.danceStyles ?? []
         _role.value = me.role ?? null
         _intent.value = me.intent ?? null
         _onboardedAt.value = me.onboardedAt ?? null
+        _bio.value = me.bio ?? null
+        _instagram.value = me.instagram ?? null
+        _youtube.value = me.youtube ?? null
+        _website.value = me.website ?? null
+        _profilePublic.value = me.profilePublic ?? true
       } else {
         // Invalid/expired session
         signOut()
@@ -104,16 +116,24 @@ export function useAuth() {
     return result
   }
 
-  // Re-pull the profile after a mutation that changes it (e.g. onboarding).
+  // Re-pull the profile after a mutation that changes it (e.g. onboarding,
+  // profile edit). Also refreshes name + username so the header reflects edits.
   async function refreshMe() {
     try {
       const me = await $trpc.auth.me.query()
       if (me) {
+        _dancerName.value = me.name
+        _username.value = me.username ?? null
         _city.value = me.city ?? null
         _danceStyles.value = me.danceStyles ?? []
         _role.value = me.role ?? null
         _intent.value = me.intent ?? null
         _onboardedAt.value = me.onboardedAt ?? null
+        _bio.value = me.bio ?? null
+        _instagram.value = me.instagram ?? null
+        _youtube.value = me.youtube ?? null
+        _website.value = me.website ?? null
+        _profilePublic.value = me.profilePublic ?? true
       }
     } catch {
       // best-effort refresh; leave existing state on failure
@@ -135,6 +155,28 @@ export function useAuth() {
     await refreshMe()
   }
 
+  // Edit the signed-in dancer's own profile, then refresh local state so the
+  // header + personalization update immediately.
+  async function updateProfile(data: {
+    name?: string
+    city?: string
+    danceStyles?: string[]
+    role?: 'lead' | 'follow' | 'both'
+    photo?: string
+    bio?: string
+    instagram?: string
+    youtube?: string
+    website?: string
+    profilePublic?: boolean
+  }) {
+    await $trpc.profile.update.mutate(data)
+    await refreshMe()
+  }
+
+  async function changePassword(data: { currentPassword: string; newPassword: string }) {
+    await $trpc.auth.changePassword.mutate(data)
+  }
+
   function setSession(data: {
     sessionToken: string
     dancerId: string
@@ -153,6 +195,12 @@ export function useAuth() {
     _isSignedIn.value = false
     _dancerId.value = null
     _dancerName.value = null
+    _username.value = null
+    _bio.value = null
+    _instagram.value = null
+    _youtube.value = null
+    _website.value = null
+    _profilePublic.value = true
     _isAdmin.value = false
     _city.value = null
     _danceStyles.value = []
@@ -166,6 +214,12 @@ export function useAuth() {
     isSignedIn: readonly(_isSignedIn),
     dancerId: readonly(_dancerId),
     dancerName: readonly(_dancerName),
+    username: readonly(_username),
+    bio: readonly(_bio),
+    instagram: readonly(_instagram),
+    youtube: readonly(_youtube),
+    website: readonly(_website),
+    profilePublic: readonly(_profilePublic),
     isAdmin: readonly(_isAdmin),
     isLoading: readonly(_isLoading),
     city: readonly(_city),
@@ -178,6 +232,8 @@ export function useAuth() {
     login,
     register,
     completeOnboarding,
+    updateProfile,
+    changePassword,
     refreshMe,
     requestMagicLink,
     verifyMagicLink,

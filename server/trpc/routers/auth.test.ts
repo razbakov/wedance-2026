@@ -356,6 +356,7 @@ describe('auth.me', () => {
     const id = db.seedDancer({
       email: 'me@example.com',
       name: 'Me User',
+      username: 'me-user-x1',
       city: 'Munich',
       danceStyles: ['Salsa'],
       role: 'follow',
@@ -368,12 +369,18 @@ describe('auth.me', () => {
     expect(me).toEqual({
       id,
       name: 'Me User',
+      username: 'me-user-x1',
       isAdmin: false,
       city: 'Munich',
       danceStyles: ['Salsa'],
       role: 'follow',
       intent: 'social',
       onboardedAt: '2026-07-04T10:00:00.000Z',
+      bio: null,
+      instagram: null,
+      youtube: null,
+      website: null,
+      profilePublic: true,
     })
   })
 
@@ -386,5 +393,35 @@ describe('auth.me', () => {
     expect(me?.onboardedAt).toBeNull()
     expect(me?.intent).toBeNull()
     expect(me?.danceStyles).toEqual([])
+  })
+})
+
+// ---------- changePassword ----------
+
+describe('auth.changePassword', () => {
+  it('changes the password after verifying the current one (old fails, new works)', async () => {
+    const db = new FakeDb()
+    const reg = await createCaller(db).auth.register({ name: 'Pw User', email: 'pw@example.com', password: 'oldpassword' })
+    const caller = createCaller(db, { dancerId: reg.dancerId })
+
+    await caller.auth.changePassword({ currentPassword: 'oldpassword', newPassword: 'newpassword1' })
+
+    await expect(createCaller(db).auth.login({ email: 'pw@example.com', password: 'oldpassword' })).rejects.toBeTruthy()
+    const ok = await createCaller(db).auth.login({ email: 'pw@example.com', password: 'newpassword1' })
+    expect(ok.dancerId).toBe(reg.dancerId)
+  })
+
+  it('rejects a wrong current password', async () => {
+    const db = new FakeDb()
+    const reg = await createCaller(db).auth.register({ name: 'Pw User', email: 'pw@example.com', password: 'oldpassword' })
+    const caller = createCaller(db, { dancerId: reg.dancerId })
+    await expect(caller.auth.changePassword({ currentPassword: 'nope', newPassword: 'newpassword1' }))
+      .rejects.toMatchObject({ code: 'BAD_REQUEST' })
+  })
+
+  it('requires authentication', async () => {
+    const db = new FakeDb()
+    await expect(createCaller(db).auth.changePassword({ currentPassword: 'a', newPassword: 'newpassword1' }))
+      .rejects.toMatchObject({ code: 'UNAUTHORIZED' })
   })
 })
