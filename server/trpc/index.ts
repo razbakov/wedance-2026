@@ -8,6 +8,9 @@ import { festivalRouter } from './routers/festival'
 import { cityVideoRouter } from './routers/cityVideo'
 import { giveawayRouter } from './routers/giveaway'
 import { profileRouter } from './routers/profile'
+import { reviewRouter } from './routers/review'
+import { communityGroupRouter } from './routers/communityGroup'
+import { askLocalsRouter } from './routers/askLocals'
 
 export const appRouter = router({
   auth: authRouter,
@@ -19,6 +22,9 @@ export const appRouter = router({
   cityVideo: cityVideoRouter,
   giveaway: giveawayRouter,
   profile: profileRouter,
+  review: reviewRouter,
+  communityGroup: communityGroupRouter,
+  askLocals: askLocalsRouter,
 })
 
 export type AppRouter = typeof appRouter
