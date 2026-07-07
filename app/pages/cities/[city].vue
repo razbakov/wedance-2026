@@ -360,7 +360,7 @@ onMounted(() => {
     </section>
 
     <!-- WEEKLY SCHEDULE -->
-    <section class="max-w-6xl mx-auto px-4 py-12">
+    <section class="max-w-2xl mx-auto px-4 py-12">
       <div class="flex flex-wrap items-baseline justify-between gap-3 mb-6">
         <div>
           <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">This week</div>
