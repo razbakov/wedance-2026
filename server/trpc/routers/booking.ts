@@ -11,6 +11,30 @@ import { bookableSpaces, bookingRequests } from '../../database/schema'
  * caller's dancerId is captured when signed in. Terms must be accepted.
  */
 export const bookingRouter = router({
+  // Scheduled events for a space/profile — the community calendar shown first on
+  // an OpenAir commons page. Returns non-declined bookings (spaceId maps to a
+  // space name client-side from the profile's spaces list).
+  scheduleForProfile: publicProcedure
+    .input(z.object({ profileId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const rows = await ctx.db
+        .select({
+          id: bookingRequests.id,
+          spaceId: bookingRequests.spaceId,
+          eventDate: bookingRequests.eventDate,
+          headcount: bookingRequests.headcount,
+          message: bookingRequests.message,
+          requesterName: bookingRequests.requesterName,
+          status: bookingRequests.status,
+        })
+        .from(bookingRequests)
+        .where(eq(bookingRequests.profileId, input.profileId))
+
+      return rows
+        .filter((r: any) => r.status !== 'declined')
+        .sort((a: any, b: any) => String(a.eventDate ?? '9999').localeCompare(String(b.eventDate ?? '9999')))
+    }),
+
   request: publicProcedure
     .input(z.object({
       spaceId: z.string().uuid(),
