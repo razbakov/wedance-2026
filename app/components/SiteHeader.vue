@@ -3,7 +3,7 @@
  * SiteHeader — the shared V3 top bar (brand + nav + auth) used on every
  * page. One place to change the nav or the sign-in affordance.
  */
-const { isSignedIn, dancerName, signOut } = useAuth()
+const { isSignedIn, dancerName, username, signOut } = useAuth()
 const showSignIn = ref(false)
 
 const links = [
@@ -33,9 +33,18 @@ const links = [
         <template v-if="isSignedIn">
           <NuxtLink
             to="/my-plan"
+            class="hidden sm:inline italic hover:underline"
+          >My plan</NuxtLink>
+          <NuxtLink
+            :to="username ? `/u/${username}` : '/my-plan'"
             class="hidden sm:inline font-bold hover:underline"
             style="color:#3b1f0d; font-family:'Playfair Display', serif;"
-          >{{ dancerName || 'My plan' }}</NuxtLink>
+          >{{ dancerName || 'Profile' }}</NuxtLink>
+          <NuxtLink
+            to="/settings"
+            class="hidden sm:inline italic hover:underline"
+            style="color:#9a5614;"
+          >Settings</NuxtLink>
           <button
             type="button"
             class="italic hover:underline"

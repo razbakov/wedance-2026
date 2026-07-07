@@ -10,6 +10,7 @@ const _isLoading = ref(true)
 // Profile fields used for personalization + the onboarding guard. Populated by
 // init()'s me query; null/[] until then. `justRegistered` marks a brand-new
 // signup this session so my-plan can show the first-run hint after onboarding.
+const _username = ref<string | null>(null)
 const _city = ref<string | null>(null)
 const _danceStyles = ref<string[]>([])
 const _role = ref<string | null>(null)
@@ -33,6 +34,7 @@ export function useAuth() {
         _isSignedIn.value = true
         _dancerId.value = me.id
         _dancerName.value = me.name
+        _username.value = me.username ?? null
         _isAdmin.value = me.isAdmin
         _city.value = me.city ?? null
         _danceStyles.value = me.danceStyles ?? []
@@ -104,11 +106,14 @@ export function useAuth() {
     return result
   }
 
-  // Re-pull the profile after a mutation that changes it (e.g. onboarding).
+  // Re-pull the profile after a mutation that changes it (e.g. onboarding,
+  // profile edit). Also refreshes name + username so the header reflects edits.
   async function refreshMe() {
     try {
       const me = await $trpc.auth.me.query()
       if (me) {
+        _dancerName.value = me.name
+        _username.value = me.username ?? null
         _city.value = me.city ?? null
         _danceStyles.value = me.danceStyles ?? []
         _role.value = me.role ?? null
@@ -135,6 +140,19 @@ export function useAuth() {
     await refreshMe()
   }
 
+  // Edit the signed-in dancer's own profile, then refresh local state so the
+  // header + personalization update immediately.
+  async function updateProfile(data: {
+    name?: string
+    city?: string
+    danceStyles?: string[]
+    role?: 'lead' | 'follow' | 'both'
+    photo?: string
+  }) {
+    await $trpc.profile.update.mutate(data)
+    await refreshMe()
+  }
+
   function setSession(data: {
     sessionToken: string
     dancerId: string
@@ -153,6 +171,7 @@ export function useAuth() {
     _isSignedIn.value = false
     _dancerId.value = null
     _dancerName.value = null
+    _username.value = null
     _isAdmin.value = false
     _city.value = null
     _danceStyles.value = []
@@ -166,6 +185,7 @@ export function useAuth() {
     isSignedIn: readonly(_isSignedIn),
     dancerId: readonly(_dancerId),
     dancerName: readonly(_dancerName),
+    username: readonly(_username),
     isAdmin: readonly(_isAdmin),
     isLoading: readonly(_isLoading),
     city: readonly(_city),
@@ -178,6 +198,7 @@ export function useAuth() {
     login,
     register,
     completeOnboarding,
+    updateProfile,
     refreshMe,
     requestMagicLink,
     verifyMagicLink,
