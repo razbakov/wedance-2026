@@ -59,7 +59,7 @@ const sections = computed(() => {
   const s: { id: string; label: string }[] = []
   if (ev.value?.message) s.push({ id: 'about', label: 'About' })
   if (ev.value?.artists?.length) s.push({ id: 'lineup', label: 'Lineup' })
-  s.push({ id: 'going', label: 'Going' })
+  s.push({ id: 'venue', label: 'Venue' })
   s.push({ id: 'reviews', label: 'Reviews' })
   return s
 })
@@ -91,7 +91,7 @@ useHead(() => ({
 
     <template v-else>
       <!-- Same hero as festivals -->
-      <FestivalHero :festival="asFestival" review-target-type="event" entity-label="event" cta-anchor="#going" cta-fallback-label="I'm going" />
+      <FestivalHero :festival="asFestival" review-target-type="event" :picked="picked" @pick="toggleEvent(ev.id)" />
 
       <!-- Section anchor nav (festival-style) -->
       <nav class="sticky top-0 z-20 border-b" style="background:rgba(251, 245, 234, 0.95); backdrop-filter: blur(8px); border-color:#3b1f0d22;">
@@ -118,23 +118,16 @@ useHead(() => ({
           </div>
         </section>
 
-        <!-- Going / add to plan (also the hero's #discover target) -->
-        <section id="going" class="scroll-mt-16">
-          <h2 class="text-2xl font-black leading-tight mb-1" style="font-family:'Playfair Display', serif; color:#3b1f0d;">Going?</h2>
-          <p class="text-sm mb-4" style="color:#5b3a1d;">Add it to your plan so you don't miss it — and see it on <NuxtLink to="/my-plan" class="underline font-bold" style="color:#dc2626;">My plan</NuxtLink>.</p>
-          <div class="flex flex-wrap gap-2 items-center">
-            <button type="button" class="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold uppercase tracking-wider transition-all"
-              :style="picked ? { background: accent, color: 'white' } : { background: 'white', color: accent, border: '1.5px solid ' + accent + '55' }"
-              @click="toggleEvent(ev.id)">
-              <component :is="picked ? Check : Plus" class="w-4 h-4" /> {{ picked ? 'In my plan' : 'Add to my plan' }}
-            </button>
-            <NuxtLink v-if="ev.venueHandle" :to="`/@${ev.venueHandle}`" class="inline-flex items-center gap-1.5 text-sm font-bold" style="color:#5b3a1d;">
-              <MapPin class="w-4 h-4" style="color:#9a5614;" /> {{ ev.venueName }}<span v-if="ev.venueCity">, {{ ev.venueCity }}</span>
-            </NuxtLink>
-            <span v-else-if="ev.venueName" class="inline-flex items-center gap-1.5 text-sm font-bold" style="color:#5b3a1d;">
-              <MapPin class="w-4 h-4" style="color:#9a5614;" /> {{ ev.venueName }}<span v-if="ev.venueCity">, {{ ev.venueCity }}</span>
-            </span>
-          </div>
+        <!-- Venue (Pick lives in the hero now) -->
+        <section id="venue" class="scroll-mt-16">
+          <h2 class="text-2xl font-black leading-tight mb-2" style="font-family:'Playfair Display', serif; color:#3b1f0d;">Venue</h2>
+          <NuxtLink v-if="ev.venueHandle" :to="`/@${ev.venueHandle}`" class="inline-flex items-center gap-2 text-sm font-bold hover:underline" style="color:#3b1f0d;">
+            <MapPin class="w-4 h-4" style="color:#9a5614;" /> {{ ev.venueName }}<span v-if="ev.venueCity">, {{ ev.venueCity }}</span>
+          </NuxtLink>
+          <span v-else-if="ev.venueName" class="inline-flex items-center gap-2 text-sm font-bold" style="color:#3b1f0d;">
+            <MapPin class="w-4 h-4" style="color:#9a5614;" /> {{ ev.venueName }}<span v-if="ev.venueCity">, {{ ev.venueCity }}</span>
+          </span>
+          <p v-if="ev.venueAddress" class="mt-1 text-xs" style="color:#9a5614;">{{ ev.venueAddress }}</p>
         </section>
 
         <!-- Reviews (same component as venues/festivals) -->

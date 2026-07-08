@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Festival } from '~/types/festival'
-import { Instagram, Globe, Facebook, Users, Star, Ticket, ArrowRight } from 'lucide-vue-next'
+import { Instagram, Globe, Facebook, Users, Star, Ticket, Check, Plus } from 'lucide-vue-next'
 
 // Shared hero for festivals AND events (an event is just a smaller festival).
 // `reviewTargetType` + `entityLabel` let the same hero serve either.
@@ -12,7 +12,12 @@ const props = withDefaults(defineProps<{
   // events point at their #going section). And an optional clearer label.
   ctaAnchor?: string
   ctaFallbackLabel?: string
+  // Add-to-plan ("Pick") state — shown alongside tickets. Parent owns the store
+  // (year-plan for festivals, week-plan for events) and toggles on `pick`.
+  picked?: boolean
 }>(), { reviewTargetType: 'festival', entityLabel: 'festival', ctaAnchor: '#discover' })
+
+defineEmits<{ pick: [] }>()
 
 // Review rating (client-side — the tRPC client is client-only). Renders after
 // mount; null until then so SSR + first client render match (no hydration jump).
@@ -167,19 +172,28 @@ const daysUntil = computed(() => {
             </div>
           </div>
 
-          <!-- Primary CTA: tickets (external) or join the in-page flow -->
-          <div class="mt-4">
+          <!-- CTAs: Get tickets (external, if any) + Pick (add to plan). Both. -->
+          <div class="mt-4 flex flex-wrap gap-2">
             <a
-              :href="ctaHref"
-              :target="hasTickets ? '_blank' : undefined"
-              :rel="hasTickets ? 'noopener noreferrer' : undefined"
+              v-if="hasTickets"
+              :href="festival.ticketUrl"
+              target="_blank"
+              rel="noopener noreferrer"
               class="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold uppercase tracking-wider text-white"
               :style="{ background: 'linear-gradient(135deg, ' + festival.accentColor + ', #f97316)', boxShadow: '0 3px 0 -1px ' + festival.accentColor }"
             >
-              <Ticket v-if="hasTickets" class="w-4 h-4" />
-              {{ ctaLabel }}
-              <ArrowRight class="w-4 h-4" />
+              <Ticket class="w-4 h-4" /> Get tickets
             </a>
+            <button
+              type="button"
+              class="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold uppercase tracking-wider transition-all"
+              :style="picked
+                ? { background: festival.accentColor, color: 'white', boxShadow: '0 3px 0 -1px ' + festival.accentColor }
+                : { background: 'white', color: festival.accentColor, border: '1.5px solid ' + festival.accentColor + '66' }"
+              @click="$emit('pick')"
+            >
+              <component :is="picked ? Check : Plus" class="w-4 h-4" /> {{ picked ? 'Picked' : 'Pick' }}
+            </button>
           </div>
         </div>
       </div>
