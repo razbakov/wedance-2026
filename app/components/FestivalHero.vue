@@ -2,9 +2,13 @@
 import type { Festival } from '~/types/festival'
 import { Instagram, Globe, Facebook, Users, Star, Ticket, ArrowRight } from 'lucide-vue-next'
 
-const props = defineProps<{
+// Shared hero for festivals AND events (an event is just a smaller festival).
+// `reviewTargetType` + `entityLabel` let the same hero serve either.
+const props = withDefaults(defineProps<{
   festival: Festival
-}>()
+  reviewTargetType?: 'festival' | 'event' | 'venue' | 'artist' | 'organizer'
+  entityLabel?: string
+}>(), { reviewTargetType: 'festival', entityLabel: 'festival' })
 
 // Review rating (client-side — the tRPC client is client-only). Renders after
 // mount; null until then so SSR + first client render match (no hydration jump).
@@ -12,7 +16,7 @@ const { $trpc } = useNuxtApp()
 const rating = ref<{ average: number; count: number } | null>(null)
 onMounted(async () => {
   try {
-    const r = await $trpc.review.list.query({ targetType: 'festival', targetSlug: props.festival.slug })
+    const r = await $trpc.review.list.query({ targetType: props.reviewTargetType, targetSlug: props.festival.slug })
     rating.value = { average: r.average, count: r.count }
   } catch { /* leave null */ }
 })
@@ -21,11 +25,15 @@ onMounted(async () => {
 // in-page join/discover flow.
 const hasTickets = computed(() => !!props.festival.ticketUrl)
 const ctaHref = computed(() => props.festival.ticketUrl || '#discover')
-const ctaLabel = computed(() => (props.festival.ticketUrl ? 'Get tickets' : 'Join the festival'))
+const ctaLabel = computed(() => (props.festival.ticketUrl ? 'Get tickets' : `Join the ${props.entityLabel}`))
 
 const dateRange = computed(() => {
   const start = new Date(props.festival.startDate)
   const end = new Date(props.festival.endDate)
+  // Single-day (events) → one date; multi-day (festivals) → a range.
+  if (start.toDateString() === end.toDateString()) {
+    return start.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+  }
   return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
 })
 

@@ -10,6 +10,21 @@ import { profiles, bookableSpaces } from '../../database/schema'
  * tries this first, then the dancer.
  */
 export const entityRouter = router({
+  // All bookable venues (any city) — surfaced on the Private-events page.
+  listVenues: publicProcedure
+    .query(async ({ ctx }) => {
+      return ctx.db
+        .select({
+          username: profiles.username,
+          name: profiles.name,
+          photo: profiles.photo,
+          city: profiles.city,
+          floorType: profiles.floorType,
+        })
+        .from(profiles)
+        .where(and(eq(profiles.type, 'venue'), eq(profiles.status, 'visible')))
+    }),
+
   // Bookable venues in a city — surfaced on the city page.
   listByCity: publicProcedure
     .input(z.object({ citySlug: z.string().min(1), type: z.enum(['venue', 'artist', 'organizer']).default('venue') }))

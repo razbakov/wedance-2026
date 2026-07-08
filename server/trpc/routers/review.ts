@@ -3,7 +3,7 @@ import { eq, and } from 'drizzle-orm'
 import { router, publicProcedure, protectedProcedure } from '../trpc'
 import { reviews, dancers } from '../../database/schema'
 
-export const TARGET_TYPES = ['festival', 'venue', 'artist', 'organizer'] as const
+export const TARGET_TYPES = ['festival', 'venue', 'artist', 'organizer', 'event'] as const
 export type TargetType = (typeof TARGET_TYPES)[number]
 
 /**

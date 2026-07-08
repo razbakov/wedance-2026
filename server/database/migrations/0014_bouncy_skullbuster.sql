@@ -1,0 +1,1 @@
+ALTER TABLE "booking_requests" ADD COLUMN "ticket_url" text;
