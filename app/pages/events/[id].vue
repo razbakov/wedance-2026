@@ -91,7 +91,7 @@ useHead(() => ({
 
     <template v-else>
       <!-- Same hero as festivals -->
-      <FestivalHero :festival="asFestival" review-target-type="event" entity-label="event" />
+      <FestivalHero :festival="asFestival" review-target-type="event" entity-label="event" cta-anchor="#going" cta-fallback-label="I'm going" />
 
       <!-- Section anchor nav (festival-style) -->
       <nav class="sticky top-0 z-20 border-b" style="background:rgba(251, 245, 234, 0.95); backdrop-filter: blur(8px); border-color:#3b1f0d22;">

@@ -8,7 +8,11 @@ const props = withDefaults(defineProps<{
   festival: Festival
   reviewTargetType?: 'festival' | 'event' | 'venue' | 'artist' | 'organizer'
   entityLabel?: string
-}>(), { reviewTargetType: 'festival', entityLabel: 'festival' })
+  // Where the non-ticket CTA scrolls (festivals use the in-page #discover flow;
+  // events point at their #going section). And an optional clearer label.
+  ctaAnchor?: string
+  ctaFallbackLabel?: string
+}>(), { reviewTargetType: 'festival', entityLabel: 'festival', ctaAnchor: '#discover' })
 
 // Review rating (client-side — the tRPC client is client-only). Renders after
 // mount; null until then so SSR + first client render match (no hydration jump).
@@ -24,8 +28,8 @@ onMounted(async () => {
 // Primary CTA: external tickets when we have a link, else scroll to the
 // in-page join/discover flow.
 const hasTickets = computed(() => !!props.festival.ticketUrl)
-const ctaHref = computed(() => props.festival.ticketUrl || '#discover')
-const ctaLabel = computed(() => (props.festival.ticketUrl ? 'Get tickets' : `Join the ${props.entityLabel}`))
+const ctaHref = computed(() => props.festival.ticketUrl || props.ctaAnchor)
+const ctaLabel = computed(() => (props.festival.ticketUrl ? 'Get tickets' : (props.ctaFallbackLabel || `Join the ${props.entityLabel}`)))
 
 const dateRange = computed(() => {
   const start = new Date(props.festival.startDate)
