@@ -321,6 +321,8 @@ export const bookingRequests = pgTable('booking_requests', {
   endTime: text('end_time'),     // 'HH:MM'
   headcount: integer('headcount'),
   message: text('message'), // description / notes
+  // Optional external tickets link — free community events leave this null.
+  ticketUrl: text('ticket_url'),
   termsAcceptedAt: timestamp('terms_accepted_at'),
   status: text('status').notNull().default('pending').$type<'pending' | 'accepted' | 'declined'>(),
   createdAt: timestamp('created_at').defaultNow(),

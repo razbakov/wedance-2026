@@ -68,9 +68,44 @@ export const bookingRouter = router({
         .sort((a: any, b: any) => String(a.eventDate ?? '9999').localeCompare(String(b.eventDate ?? '9999')))
     }),
 
+  // A single event's detail (for the /events/<id> page) — with venue + space.
+  getEvent: publicProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const [ev] = await ctx.db
+        .select({
+          id: bookingRequests.id,
+          title: bookingRequests.title,
+          eventType: bookingRequests.eventType,
+          styles: bookingRequests.styles,
+          artists: bookingRequests.artists,
+          eventDate: bookingRequests.eventDate,
+          startTime: bookingRequests.startTime,
+          endTime: bookingRequests.endTime,
+          headcount: bookingRequests.headcount,
+          message: bookingRequests.message,
+          requesterName: bookingRequests.requesterName,
+          status: bookingRequests.status,
+          ticketUrl: bookingRequests.ticketUrl,
+          spaceName: bookableSpaces.name,
+          venueName: profiles.name,
+          venueHandle: profiles.username,
+          venueAddress: profiles.address,
+          venueCity: profiles.city,
+        })
+        .from(bookingRequests)
+        .innerJoin(bookableSpaces, eq(bookingRequests.spaceId, bookableSpaces.id))
+        .innerJoin(profiles, eq(bookingRequests.profileId, profiles.id))
+        .where(eq(bookingRequests.id, input.id))
+
+      if (!ev) throw new TRPCError({ code: 'NOT_FOUND', message: 'Event not found.' })
+      return ev
+    }),
+
   request: publicProcedure
     .input(z.object({
       spaceId: z.string().uuid(),
+      ticketUrl: z.union([z.string().url(), z.literal('')]).optional(),
       email: z.string().email(),
       name: z.string().max(160).optional(),
       title: z.string().max(160).optional(),
@@ -115,6 +150,7 @@ export const bookingRouter = router({
           endTime: input.endTime ?? null,
           headcount: input.headcount ?? null,
           message: input.message ?? null,
+          ticketUrl: input.ticketUrl || null,
           termsAcceptedAt: new Date(),
         })
         .returning({ id: bookingRequests.id })

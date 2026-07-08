@@ -53,7 +53,7 @@ const isFree = computed(() => profile.value?.bookingModel === 'free')
 const spaceName = (id: string) => spaces.value.find((s: any) => s.id === id)?.name ?? 'Area'
 // Schedule mapped to the shared EventSchedule card shape (area as location).
 const scheduleCards = computed(() => (schedule.value ?? []).map((ev: any) => ({
-  ...ev, location: spaceName(ev.spaceId),
+  ...ev, location: spaceName(ev.spaceId), href: `/events/${ev.id}`,
 })))
 
 const typeLabel: Record<string, string> = { venue: 'Venue', artist: 'Artist', organizer: 'Organizer' }

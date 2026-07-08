@@ -98,6 +98,11 @@ function styleAccent(style: string): string {
 }
 
 const today = new Date().toLocaleDateString('en-US', { weekday: 'long' }) as DayOfWeek
+
+// Real booked events (UUID ids) have a detail page at /events/<id>; mock weekly
+// events (muc-… ids) don't, so only the real ones link.
+const NuxtLinkC = resolveComponent('NuxtLink')
+const isRealEvent = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(String(id))
 </script>
 
 <template>
@@ -173,9 +178,15 @@ const today = new Date().toLocaleDateString('en-US', { weekday: 'long' }) as Day
                 {{ e.style }}
               </span>
             </div>
-            <h4 class="text-sm sm:text-base font-bold leading-tight mt-1" style="color:#3b1f0d;">
+            <component
+              :is="isRealEvent(e.id) ? NuxtLinkC : 'h4'"
+              :to="isRealEvent(e.id) ? `/events/${e.id}` : undefined"
+              class="block text-sm sm:text-base font-bold leading-tight mt-1"
+              :class="isRealEvent(e.id) ? 'hover:underline' : ''"
+              style="color:#3b1f0d;"
+            >
               {{ e.name }}
-            </h4>
+            </component>
             <div class="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
               <span class="inline-flex items-center gap-1">
                 <MapPin class="w-3 h-3" style="color:#9a5614;" />
