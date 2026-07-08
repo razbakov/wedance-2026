@@ -6,6 +6,7 @@
  * content, so an event can grow into a full festival-grade page over time.
  */
 import { Check, Plus, ArrowLeft, MapPin } from 'lucide-vue-next'
+import { findMockEvent } from '~/lib/mockEvents'
 
 definePageMeta({ layout: false })
 
@@ -20,8 +21,14 @@ const failed = ref(false)
 
 async function load() {
   pending.value = true; failed.value = false
-  try { ev.value = await $trpc.booking.getEvent.query({ id: id.value }) }
-  catch { failed.value = true } finally { pending.value = false }
+  try {
+    ev.value = await $trpc.booking.getEvent.query({ id: id.value })
+  } catch {
+    // Not a DB booking — fall back to a mock city event so it still has a page.
+    const mock = findMockEvent(id.value)
+    if (mock) ev.value = mock
+    else failed.value = true
+  } finally { pending.value = false }
 }
 onMounted(load)
 
@@ -121,9 +128,12 @@ useHead(() => ({
               @click="toggleEvent(ev.id)">
               <component :is="picked ? Check : Plus" class="w-4 h-4" /> {{ picked ? 'In my plan' : 'Add to my plan' }}
             </button>
-            <NuxtLink :to="`/@${ev.venueHandle}`" class="inline-flex items-center gap-1.5 text-sm font-bold" style="color:#5b3a1d;">
+            <NuxtLink v-if="ev.venueHandle" :to="`/@${ev.venueHandle}`" class="inline-flex items-center gap-1.5 text-sm font-bold" style="color:#5b3a1d;">
               <MapPin class="w-4 h-4" style="color:#9a5614;" /> {{ ev.venueName }}<span v-if="ev.venueCity">, {{ ev.venueCity }}</span>
             </NuxtLink>
+            <span v-else-if="ev.venueName" class="inline-flex items-center gap-1.5 text-sm font-bold" style="color:#5b3a1d;">
+              <MapPin class="w-4 h-4" style="color:#9a5614;" /> {{ ev.venueName }}<span v-if="ev.venueCity">, {{ ev.venueCity }}</span>
+            </span>
           </div>
         </section>
 

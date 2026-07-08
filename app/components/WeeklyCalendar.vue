@@ -144,10 +144,10 @@ const isRealEvent = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(String(id))
       <!-- Event rows -->
       <div class="grid gap-2">
         <component
-          :is="isRealEvent(e.id) ? NuxtLinkC : 'div'"
+          :is="NuxtLinkC"
           v-for="e in eventsForDay(day)"
           :key="e.id"
-          :to="isRealEvent(e.id) ? `/events/${e.id}` : undefined"
+          :to="`/events/${e.id}`"
           class="group rounded-xl bg-white p-3 sm:p-4 border transition-all hover:-translate-y-0.5 flex items-center gap-3 sm:gap-4"
           :style="{
             borderColor: styleAccent(e.style) + '55',
@@ -180,7 +180,7 @@ const isRealEvent = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(String(id))
                 {{ e.style }}
               </span>
             </div>
-            <h4 class="text-sm sm:text-base font-bold leading-tight mt-1" :class="isRealEvent(e.id) ? 'group-hover:underline' : ''" style="color:#3b1f0d;">
+            <h4 class="text-sm sm:text-base font-bold leading-tight mt-1 group-hover:underline" style="color:#3b1f0d;">
               {{ e.name }}
             </h4>
             <div class="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
