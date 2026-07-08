@@ -24,6 +24,10 @@ const festival = data.festival
 const workshops = data.workshops
 const teachers = data.teachers
 
+// Festival-level "Pick" — adds the whole festival to the year plan (distinct
+// from the per-workshop picks below).
+const { yearPlanIds, toggleFestival } = useYearPlan()
+
 // Shared plan view detection
 const isSharedView = computed(() => route.query.plan === 'shared')
 const hasReferral = computed(() => !!route.query.ref)
@@ -904,7 +908,7 @@ useHead({
     <SiteHeader />
 
     <div ref="heroRef">
-      <FestivalHero :festival="festival" />
+      <FestivalHero :festival="festival" :picked="yearPlanIds.has(festival.slug)" @pick="toggleFestival(festival.slug)" />
     </div>
 
     <!-- Section anchor nav — V3 restyled. Festival identity slides in on
