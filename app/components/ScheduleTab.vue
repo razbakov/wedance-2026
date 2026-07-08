@@ -18,11 +18,17 @@ const props = defineProps<{
   planIds: Set<string>
   selectedTeacherId: string | null
   startDate: string
+  festivalSlug?: string
 }>()
 
 const emit = defineEmits<{
   toggleWorkshop: [id: string]
 }>()
+
+// Each schedule item opens its own event page. Compound id (festival~workshop)
+// keeps it globally unique since workshop ids repeat across festivals.
+const NuxtLinkC = resolveComponent('NuxtLink')
+const eventHref = (wid: string) => (props.festivalSlug ? `/events/f~${props.festivalSlug}~${wid}` : undefined)
 
 const dayLabels = computed(() => {
   const start = new Date(props.startDate)
@@ -143,9 +149,11 @@ const levelColor: Record<string, string> = {
 
       <!-- Workshop rows -->
       <div v-if="filteredForDay(day).length > 0" class="grid gap-2">
-        <div
+        <component
+          :is="NuxtLinkC"
           v-for="w in filteredForDay(day)"
           :key="w.id"
+          :to="eventHref(w.id)"
           class="group rounded-xl bg-white p-3 sm:p-4 border transition-all hover:-translate-y-0.5 flex items-start gap-3 sm:gap-4"
           :style="{
             borderColor: styleAccent(w.style) + '55',
@@ -206,11 +214,11 @@ const levelColor: Record<string, string> = {
             :style="planIds.has(w.id)
               ? { background: styleAccent(w.style), color: 'white' }
               : { background: 'white', color: styleAccent(w.style), border: '1.5px solid ' + styleAccent(w.style) + '55' }"
-            @click="emit('toggleWorkshop', w.id)"
+            @click.stop.prevent="emit('toggleWorkshop', w.id)"
           >
             {{ planIds.has(w.id) ? '✓ Picked' : 'Pick' }}
           </button>
-        </div>
+        </component>
       </div>
 
       <p
