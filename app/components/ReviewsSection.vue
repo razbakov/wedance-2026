@@ -7,7 +7,7 @@
 import { Star } from 'lucide-vue-next'
 
 const props = defineProps<{
-  targetType: 'festival' | 'venue' | 'artist' | 'organizer'
+  targetType: 'festival' | 'venue' | 'artist' | 'organizer' | 'event'
   targetSlug: string
   targetName?: string
   citySlug?: string

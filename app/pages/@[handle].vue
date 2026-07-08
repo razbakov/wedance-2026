@@ -11,7 +11,7 @@
  *     a FREE "book a slot" flow (accept the guidelines).
  *   - 'commercial' → a rentable venue: bookable spaces with a request flow.
  */
-import { MapPin, Instagram, Youtube, Globe, Facebook, LayoutGrid, ArrowLeft, Check, Calendar, ScrollText, ShieldCheck, Trees } from 'lucide-vue-next'
+import { MapPin, Instagram, Youtube, Globe, Facebook, LayoutGrid, ArrowLeft, Check, Calendar, ScrollText, ShieldCheck, Trees, Plus } from 'lucide-vue-next'
 
 definePageMeta({ layout: false })
 
@@ -51,6 +51,10 @@ const profile = computed(() => data.value?.profile ?? null)
 const spaces = computed(() => data.value?.spaces ?? [])
 const isFree = computed(() => profile.value?.bookingModel === 'free')
 const spaceName = (id: string) => spaces.value.find((s: any) => s.id === id)?.name ?? 'Area'
+// Schedule mapped to the shared EventSchedule card shape (area as location).
+const scheduleCards = computed(() => (schedule.value ?? []).map((ev: any) => ({
+  ...ev, location: spaceName(ev.spaceId), href: `/events/${ev.id}`,
+})))
 
 const typeLabel: Record<string, string> = { venue: 'Venue', artist: 'Artist', organizer: 'Organizer' }
 const socialIcon: Record<string, any> = { instagram: Instagram, youtube: Youtube, facebook: Facebook, website: Globe }
@@ -173,36 +177,18 @@ useHead(() => ({
 
       <!-- Scheduled events (first) -->
       <section class="max-w-2xl mx-auto px-4 pb-6" style="font-family: system-ui, sans-serif;">
-        <div class="flex items-center gap-2"><Calendar class="w-5 h-5" style="color:#dc2626;" /><h2 class="text-2xl" style="font-family:'Playfair Display', serif; color:#3b1f0d;">Scheduled</h2></div>
-        <ul v-if="schedule.length" class="mt-3 space-y-2">
-          <li v-for="ev in schedule" :key="ev.id" class="flex items-start gap-3 rounded-xl border p-3 bg-white" style="border-color:#3b1f0d1a;">
-            <div class="text-center shrink-0 w-16">
-              <div class="text-[10px] uppercase font-bold leading-tight" style="color:#dc2626;">{{ fmtDate(ev.eventDate) }}</div>
-              <div v-if="ev.startTime" class="text-[10px] mt-0.5" style="color:#9a5614;">{{ ev.startTime }}<span v-if="ev.endTime">–{{ ev.endTime }}</span></div>
-            </div>
-            <div class="min-w-0 flex-1">
-              <div class="flex items-center gap-1.5 flex-wrap">
-                <span class="text-sm font-bold" style="color:#3b1f0d;">{{ ev.title || ev.message || 'Social' }}</span>
-                <span v-if="ev.eventType" class="text-[9px] uppercase tracking-wider font-bold rounded-full px-1.5 py-0.5" style="background:#3b1f0d0f; color:#5b3a1d;">{{ ev.eventType }}</span>
-              </div>
-              <div class="text-[11px] mt-0.5" style="color:#9a5614;">
-                {{ spaceName(ev.spaceId) }}<span v-if="ev.styles?.length"> · {{ ev.styles.join(', ') }}</span><span v-if="ev.requesterName"> · {{ ev.requesterName }}</span>
-              </div>
-              <div v-if="ev.artists?.length" class="text-[11px] mt-0.5" style="color:#5b3a1d;">
-                with
-                <template v-for="(a, i) in ev.artists" :key="i"><NuxtLink v-if="String(a).startsWith('@')" :to="`/${a}`" class="font-bold hover:underline" style="color:#dc2626;">{{ a }}</NuxtLink><span v-else class="font-bold">{{ a }}</span>{{ i < ev.artists.length - 1 ? ', ' : '' }}</template>
-              </div>
-            </div>
-            <span class="text-[9px] uppercase tracking-wider font-bold rounded-full px-1.5 py-0.5 shrink-0" :style="ev.status === 'accepted' ? 'background:#16a34a18; color:#16a34a;' : 'background:#f59e0b18; color:#b45309;'">{{ ev.status === 'accepted' ? 'Confirmed' : 'Proposed' }}</span>
-          </li>
-        </ul>
+        <div class="flex items-center gap-2 mb-3"><Calendar class="w-5 h-5" style="color:#dc2626;" /><h2 class="text-2xl" style="font-family:'Playfair Display', serif; color:#3b1f0d;">Scheduled</h2></div>
+        <EventSchedule v-if="scheduleCards.length" :events="scheduleCards" />
         <p v-else class="mt-3 text-sm italic" style="color:#9a5614;">Nothing scheduled yet — book the first slot.</p>
       </section>
 
       <!-- Book a (free) slot -->
       <section v-if="spaces.length" class="max-w-2xl mx-auto px-4 pb-4" style="font-family: system-ui, sans-serif;">
-        <div class="flex items-center gap-2"><LayoutGrid class="w-5 h-5" style="color:#dc2626;" /><h2 class="text-2xl" style="font-family:'Playfair Display', serif; color:#3b1f0d;">{{ isFree ? 'Book a free slot' : 'Book a space' }}</h2></div>
-        <p class="mt-1 text-sm" style="color:#5b3a1d;">{{ isFree ? `Pick a free slot in any of the ${spaces.length} areas — it's free. A community moderator confirms it against the guidelines.` : `Pick an available slot in one of ${spaces.length} areas.` }}</p>
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2"><LayoutGrid class="w-5 h-5" style="color:#dc2626;" /><h2 class="text-2xl" style="font-family:'Playfair Display', serif; color:#3b1f0d;">{{ isFree ? 'Book a free slot' : 'Book a space' }}</h2></div>
+          <button type="button" class="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shrink-0" style="background:linear-gradient(135deg,#dc2626,#f97316);" @click="openBooking(spaces[0])"><Plus class="w-3.5 h-3.5" /> Propose an event</button>
+        </div>
+        <p class="mt-1 text-sm" style="color:#5b3a1d;">{{ isFree ? `Tap a free cell to reserve that area — it's free. A community moderator confirms it against the guidelines.` : `Tap an available slot in one of the ${spaces.length} areas.` }}</p>
         <AvailabilityCalendar :spaces="spaces" :bookings="schedule" class="mt-4" @book="onCalendarBook" />
       </section>
 
@@ -225,13 +211,18 @@ useHead(() => ({
     <div v-if="booking.open" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" style="background:rgba(59,31,18,0.4);" @click.self="booking.open = false">
       <div class="w-full max-w-md rounded-2xl bg-white p-6" style="font-family: system-ui, sans-serif; box-shadow: 0 20px 50px rgba(0,0,0,0.25);">
         <template v-if="!booking.done">
-          <h3 class="text-xl font-bold" style="font-family:'Playfair Display', serif; color:#3b1f0d;">{{ isFree ? 'Book' : 'Request' }} “{{ booking.spaceName }}”</h3>
+          <h3 class="text-xl font-bold" style="font-family:'Playfair Display', serif; color:#3b1f0d;">{{ isFree ? 'Propose an event' : 'Request a space' }}</h3>
           <p class="text-xs mt-1" style="color:#9a5614;">{{ isFree ? 'Free — a community moderator confirms it against the guidelines.' : 'WeDance connects you with the venue — no payment here.' }}</p>
           <div class="mt-4 space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+            <div class="grid grid-cols-2 gap-2">
+              <select v-model="booking.spaceId" class="h-10 rounded-xl px-3 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;" aria-label="Area">
+                <option v-for="sp in spaces" :key="sp.id" :value="sp.id">{{ sp.name }}</option>
+              </select>
+              <select v-model="booking.eventType" class="h-10 rounded-xl px-3 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;" aria-label="Type">
+                <option v-for="t in EVENT_TYPES" :key="t" :value="t">{{ t }}</option>
+              </select>
+            </div>
             <input v-model="booking.title" type="text" maxlength="120" placeholder="Event name — e.g. Sunday Salsa Social" class="w-full h-10 rounded-xl px-3 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;">
-            <select v-model="booking.eventType" class="w-full h-10 rounded-xl px-3 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;">
-              <option v-for="t in EVENT_TYPES" :key="t" :value="t">{{ t }}</option>
-            </select>
             <div>
               <div class="text-[10px] uppercase tracking-wider font-bold mb-1.5" style="color:#9a5614;">Styles</div>
               <div class="flex flex-wrap gap-1.5">

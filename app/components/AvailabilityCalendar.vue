@@ -16,6 +16,22 @@ const emit = defineEmits<{ book: [{ spaceId: string; spaceName: string; date: st
 const weekOffset = ref(0)
 function mondayOf(d: Date) { const x = new Date(d); const day = (x.getDay() + 6) % 7; x.setDate(x.getDate() - day); x.setHours(0, 0, 0, 0); return x }
 const weekStart = computed(() => { const m = mondayOf(new Date()); m.setDate(m.getDate() + weekOffset.value * 7); return m })
+
+// Land on the week of the next upcoming booking so the grid isn't empty next to
+// a schedule that has events. Runs once when bookings first arrive.
+const jumped = ref(false)
+watch(() => props.bookings, (bs) => {
+  if (jumped.value || !bs?.length) return
+  const today = new Date().toISOString().slice(0, 10)
+  const next = bs.map(b => (b.eventDate ? String(b.eventDate).slice(0, 10) : ''))
+    .filter(d => d && d >= today).sort()[0]
+  if (next) {
+    const cur = mondayOf(new Date()).getTime()
+    const tgt = mondayOf(new Date(next)).getTime()
+    weekOffset.value = Math.round((tgt - cur) / (7 * 86400000))
+  }
+  jumped.value = true
+}, { immediate: true })
 const days = computed(() => Array.from({ length: 7 }, (_, i) => { const d = new Date(weekStart.value); d.setDate(d.getDate() + i); return d }))
 const iso = (d: Date) => d.toISOString().slice(0, 10)
 const weekLabel = computed(() => {
@@ -65,8 +81,8 @@ const todayIso = iso(new Date())
                 <span v-if="b.startTime" class="font-bold">{{ b.startTime }}</span> {{ b.title || 'Event' }}
               </div>
             </template>
-            <button v-else type="button" class="w-full h-full min-h-[36px] rounded flex items-center justify-center opacity-40 hover:opacity-100 transition-opacity" style="color:#dc2626;" :aria-label="`Book ${sp.name}`" @click="emit('book', { spaceId: sp.id, spaceName: sp.name, date: iso(d) })">
-              <Plus class="w-3.5 h-3.5" />
+            <button v-else type="button" class="w-full h-full min-h-[36px] rounded flex items-center justify-center border border-dashed transition-colors hover:text-white" style="border-color:#dc262655; color:#dc2626;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='transparent'" :aria-label="`Book ${sp.name} on ${iso(d)}`" @click="emit('book', { spaceId: sp.id, spaceName: sp.name, date: iso(d) })">
+              <Plus class="w-4 h-4" />
             </button>
           </div>
         </div>
