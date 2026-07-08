@@ -143,9 +143,11 @@ const isRealEvent = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(String(id))
 
       <!-- Event rows -->
       <div class="grid gap-2">
-        <div
+        <component
+          :is="isRealEvent(e.id) ? NuxtLinkC : 'div'"
           v-for="e in eventsForDay(day)"
           :key="e.id"
+          :to="isRealEvent(e.id) ? `/events/${e.id}` : undefined"
           class="group rounded-xl bg-white p-3 sm:p-4 border transition-all hover:-translate-y-0.5 flex items-center gap-3 sm:gap-4"
           :style="{
             borderColor: styleAccent(e.style) + '55',
@@ -178,15 +180,9 @@ const isRealEvent = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(String(id))
                 {{ e.style }}
               </span>
             </div>
-            <component
-              :is="isRealEvent(e.id) ? NuxtLinkC : 'h4'"
-              :to="isRealEvent(e.id) ? `/events/${e.id}` : undefined"
-              class="block text-sm sm:text-base font-bold leading-tight mt-1"
-              :class="isRealEvent(e.id) ? 'hover:underline' : ''"
-              style="color:#3b1f0d;"
-            >
+            <h4 class="text-sm sm:text-base font-bold leading-tight mt-1" :class="isRealEvent(e.id) ? 'group-hover:underline' : ''" style="color:#3b1f0d;">
               {{ e.name }}
-            </component>
+            </h4>
             <div class="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
               <span class="inline-flex items-center gap-1">
                 <MapPin class="w-3 h-3" style="color:#9a5614;" />
@@ -197,7 +193,7 @@ const isRealEvent = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(String(id))
                 type="button"
                 class="italic hover:underline"
                 :style="{ color: styleAccent(e.style) }"
-                @click="emit('select-teacher', personFor(e)!.id)"
+                @click.stop.prevent="emit('select-teacher', personFor(e)!.id)"
               >
                 {{ personFor(e)!.person.name }}
               </button>
@@ -230,11 +226,11 @@ const isRealEvent = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(String(id))
             :style="weekPlanIds?.has(e.id)
               ? { background: styleAccent(e.style), color: 'white' }
               : { background: 'white', color: styleAccent(e.style), border: '1.5px solid ' + styleAccent(e.style) + '55' }"
-            @click="emit('toggle', e.id)"
+            @click.stop.prevent="emit('toggle', e.id)"
           >
             <component :is="weekPlanIds?.has(e.id) ? Check : Plus" class="w-3 h-3" />{{ weekPlanIds?.has(e.id) ? 'Picked' : 'Pick' }}
           </button>
-        </div>
+        </component>
       </div>
     </div>
   </div>
