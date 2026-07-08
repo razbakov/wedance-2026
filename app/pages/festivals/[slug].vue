@@ -1088,6 +1088,7 @@ useHead({
             :plan-ids="planIds"
             :selected-teacher-id="selectedTeacherId"
             :start-date="festival.startDate"
+            :festival-slug="festival.slug"
             @toggle-workshop="toggleWorkshop"
           />
         </section>
