@@ -38,6 +38,7 @@ const styleColor: Record<string, string> = {
 }
 const accent = computed(() => styleColor[String(ev.value?.styles?.[0] || '').toLowerCase()] || '#dc2626')
 const picked = computed(() => !!ev.value && weekPlanIds?.value?.has(ev.value.id))
+const parentFestival = computed(() => ev.value?.parentFestival ?? null)
 
 // Adapt the event into the Festival shape FestivalHero expects.
 const asFestival = computed(() => ({
@@ -90,6 +91,15 @@ useHead(() => ({
     </section>
 
     <template v-else>
+      <!-- Part-of-festival banner (workshops / festival schedule items) -->
+      <NuxtLink v-if="parentFestival" :to="`/festivals/${parentFestival.slug}`" class="block border-b hover:brightness-95 transition-all" style="background:#dc262610; border-color:#3b1f0d22;">
+        <div class="max-w-3xl mx-auto px-4 py-2.5 flex items-center gap-2 text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+          <span class="text-[10px] uppercase tracking-widest font-black shrink-0" style="color:#dc2626;">Festival</span>
+          <span class="truncate">Part of <b style="color:#3b1f0d;">{{ parentFestival.name }}</b></span>
+          <span class="ml-auto font-bold whitespace-nowrap shrink-0" style="color:#dc2626;">View festival →</span>
+        </div>
+      </NuxtLink>
+
       <!-- Same hero as festivals -->
       <FestivalHero :festival="asFestival" review-target-type="event" :picked="picked" @pick="toggleEvent(ev.id)" />
 
