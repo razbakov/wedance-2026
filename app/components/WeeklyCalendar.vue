@@ -228,7 +228,7 @@ const isRealEvent = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(String(id))
               : { background: 'white', color: styleAccent(e.style), border: '1.5px solid ' + styleAccent(e.style) + '55' }"
             @click.stop.prevent="emit('toggle', e.id)"
           >
-            <component :is="weekPlanIds?.has(e.id) ? Check : Plus" class="w-3 h-3" />{{ weekPlanIds?.has(e.id) ? 'Picked' : 'Pick' }}
+            <component :is="weekPlanIds?.has(e.id) ? Check : Plus" class="w-3 h-3" />{{ weekPlanIds?.has(e.id) ? 'Going' : 'Going' }}
           </button>
         </component>
       </div>
