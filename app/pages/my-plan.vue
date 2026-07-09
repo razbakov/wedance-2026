@@ -1174,7 +1174,7 @@ function cardSummary(f: CatalogueEntry) {
       </div>
 
       <div class="flex items-baseline justify-between mb-4">
-        <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">Picked</div>
+        <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">Going</div>
         <span class="text-xs" style="color:#9a5614; font-family:'Caveat', cursive; font-size:18px;">
           — {{ picked.length }} in your year
         </span>
