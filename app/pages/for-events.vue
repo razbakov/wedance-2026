@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowRight, MapPin, Music, Mic, Users, PartyPopper } from 'lucide-vue-next'
+import { ArrowRight, MapPin, Music, Mic, Users, PartyPopper, UtensilsCrossed, Camera, Ticket } from 'lucide-vue-next'
 
 definePageMeta({ layout: false })
 
@@ -13,11 +13,14 @@ useHead({
 })
 
 const services = [
-  { icon: MapPin,      label: 'Venue',        detail: 'Cuban bars, dance halls, private lofts, rooftops.' },
-  { icon: Mic,         label: 'MC / Host',    detail: 'Bilingual EN/DE/ES. Reads the room, keeps the energy.' },
-  { icon: Music,       label: 'DJ',           detail: 'Salsa, bachata, kizomba, timba, urbano. Your BPM.' },
-  { icon: Users,       label: 'Show dancers', detail: 'Solo showcase, couples, choreo for your first dance.' },
-  { icon: PartyPopper, label: 'Full night',   detail: 'End-to-end — we handle it, you enjoy it.' },
+  { icon: MapPin,          label: 'Venue',         detail: 'Cuban bars, dance halls, private lofts, rooftops.' },
+  { icon: UtensilsCrossed, label: 'Catering',      detail: 'Cuban bites, a mojito bar, or a full sit-down — flavors that match the floor.' },
+  { icon: Mic,             label: 'MC / Host',     detail: 'Bilingual EN/DE/ES. Reads the room, keeps the energy.' },
+  { icon: Music,           label: 'DJ',            detail: 'Salsa, bachata, kizomba, timba, urbano. Your BPM.' },
+  { icon: Users,           label: 'Show dancers',  detail: 'Solo showcase, couples, choreo for your first dance.' },
+  { icon: Camera,          label: 'Photo / Video', detail: 'Photographer and videographer — a highlight reel ready to post.' },
+  { icon: Ticket,          label: 'Ticketing',     detail: 'Paid tickets, guest lists, and check-in — we run the door.' },
+  { icon: PartyPopper,     label: 'Full night',    detail: 'End-to-end — we handle it, you enjoy it.' },
 ]
 
 const occasions = ['Weddings', 'Birthdays', 'Corporate', 'Brand launches', 'Team offsites', 'Private parties']
