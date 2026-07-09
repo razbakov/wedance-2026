@@ -371,7 +371,7 @@ const styleChips = ['Salsa', 'Bachata', 'Timba', 'Kizomba', 'Son']
                       : { background: 'white', color: f.accentColor, border: '1.5px solid ' + f.accentColor + '55' }"
                     @click.prevent="toggleFestival(f.slug)"
                   >
-                    {{ yearPlanIds.has(f.slug) ? '✓ Picked' : 'Pick' }}
+                    {{ yearPlanIds.has(f.slug) ? 'Going!' : 'Going?' }}
                   </button>
                 </div>
               </div>
