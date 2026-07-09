@@ -192,7 +192,7 @@ const daysUntil = computed(() => {
                 : { background: 'white', color: festival.accentColor, border: '1.5px solid ' + festival.accentColor + '66' }"
               @click="$emit('pick')"
             >
-              <component :is="picked ? Check : Plus" class="w-4 h-4" /> {{ picked ? 'Picked' : 'Pick' }}
+              <component :is="picked ? Check : Plus" class="w-4 h-4" /> {{ picked ? 'Going' : 'Going' }}
             </button>
           </div>
         </div>

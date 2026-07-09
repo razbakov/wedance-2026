@@ -36,7 +36,7 @@ defineEmits<{
             class="shrink-0 text-xs h-7"
             @click="$emit('toggle')"
           >
-            {{ inPlan ? '✓ Picked' : 'Pick' }}
+            {{ inPlan ? '✓ Going' : 'Going' }}
           </Button>
         </div>
       </div>

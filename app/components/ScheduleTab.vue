@@ -216,7 +216,7 @@ const levelColor: Record<string, string> = {
               : { background: 'white', color: styleAccent(w.style), border: '1.5px solid ' + styleAccent(w.style) + '55' }"
             @click.stop.prevent="emit('toggleWorkshop', w.id)"
           >
-            {{ planIds.has(w.id) ? '✓ Picked' : 'Pick' }}
+            {{ planIds.has(w.id) ? '✓ Going' : 'Going' }}
           </button>
         </component>
       </div>
@@ -275,7 +275,7 @@ const levelColor: Record<string, string> = {
             : { background: 'white', color: '#dc2626', border: '1.5px solid #dc262655' }"
           @click="emit('toggleWorkshop', party.id)"
         >
-          {{ planIds.has(party.id) ? '✓ Picked' : 'Pick' }}
+          {{ planIds.has(party.id) ? '✓ Going' : 'Going' }}
         </button>
       </div>
     </div>

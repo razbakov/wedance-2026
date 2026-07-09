@@ -91,7 +91,7 @@ const groups = computed(() => {
           :style="weekPlanIds?.has(e.id) ? { background: accent(e.styles?.[0] || ''), color: 'white' } : { background: 'white', color: accent(e.styles?.[0] || ''), border: '1.5px solid ' + accent(e.styles?.[0] || '') + '55' }"
           @click.stop.prevent="toggleEvent(e.id)"
         >
-          <component :is="weekPlanIds?.has(e.id) ? Check : Plus" class="w-3 h-3" />{{ weekPlanIds?.has(e.id) ? 'Picked' : 'Pick' }}
+          <component :is="weekPlanIds?.has(e.id) ? Check : Plus" class="w-3 h-3" />{{ weekPlanIds?.has(e.id) ? 'Going' : 'Going' }}
         </button>
       </component>
     </div>
