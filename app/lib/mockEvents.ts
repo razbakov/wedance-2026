@@ -46,8 +46,10 @@ function mapWorkshop(w: any, fest: any) {
     startTime: w.time || null,
     endTime: null,
     headcount: w.goingCount || null,
-    message: `Part of ${fest.festival.name}.`,
-    requesterName: fest.festival.name,
+    message: null as string | null,
+    // Parent festival so the event page can link back to it prominently.
+    parentFestival: { name: fest.festival.name, slug: fest.festival.slug },
+    requesterName: (fest.teachers as any[]).find(t => t.id === w.teacherId)?.name || null,
     status: 'accepted',
     ticketUrl: fest.festival.ticketUrl || null,
     spaceName: w.room || null,
