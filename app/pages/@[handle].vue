@@ -193,7 +193,7 @@ useHead(() => ({
       </section>
 
       <!-- Guidelines -->
-      <section v-if="profile.guidelines" class="max-w-2xl mx-auto px-4 pb-6" style="font-family: system-ui, sans-serif;">
+      <section v-if="profile.guidelines" id="guidelines" class="max-w-2xl mx-auto px-4 pb-6" style="font-family: system-ui, sans-serif;">
         <div class="flex items-center gap-2"><ScrollText class="w-5 h-5" style="color:#dc2626;" /><h2 class="text-2xl" style="font-family:'Playfair Display', serif; color:#3b1f0d;">Guidelines</h2></div>
         <p class="mt-1 text-xs" style="color:#9a5614;">Proposed by the elected moderator — keep to them and the spot stays ours.</p>
         <div class="mt-3 rounded-2xl border p-4 whitespace-pre-line text-sm leading-relaxed" style="border-color:#dc262633; background:white; color:#5b3a1d;">{{ profile.guidelines }}</div>
@@ -243,7 +243,8 @@ useHead(() => ({
             <input v-model="booking.email" type="email" placeholder="Email (so the moderator can reply)" class="w-full h-10 rounded-xl px-3 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;">
             <label class="flex items-start gap-2 text-xs cursor-pointer" style="color:#5b3a1d;">
               <input v-model="booking.terms" type="checkbox" class="mt-0.5 w-4 h-4 accent-[#dc2626]">
-              <span v-if="isFree">I've read and will follow the <a href="#" class="underline font-bold" style="color:#dc2626;" @click.prevent="booking.open && (document.querySelector('.whitespace-pre-line')?.scrollIntoView({behavior:'smooth'}))">community guidelines</a>.</span>
+              <span v-if="isFree && profile.guidelines">I've read and will follow the <a href="#guidelines" class="underline font-bold" style="color:#dc2626;" @click.prevent="document.getElementById('guidelines')?.scrollIntoView({behavior:'smooth'})">community guidelines</a>.</span>
+              <span v-else-if="isFree">I'll respect this space and its community.</span>
               <span v-else>I accept the <NuxtLink to="/booking-terms" target="_blank" class="underline font-bold" style="color:#dc2626;">booking terms</NuxtLink>.</span>
             </label>
             <p v-if="booking.err" class="text-sm font-bold" style="color:#dc2626;">{{ booking.err }}</p>

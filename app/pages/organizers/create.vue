@@ -243,13 +243,34 @@ const partyCount = computed(() => workshops.value.filter(w => w.type === 'party'
 // Publish
 const isPublishing = ref(false)
 const isPublished = ref(false)
+const submitError = ref('')
+
+const { $trpc } = useNuxtApp()
 
 async function publish() {
   isPublishing.value = true
-  // Simulate API call
-  await new Promise(resolve => setTimeout(resolve, 1500))
-  isPublishing.value = false
-  isPublished.value = true
+  submitError.value = ''
+  try {
+    // No live self-serve publish yet — persist the full draft for the team to
+    // review and onboard, instead of faking "your festival is live".
+    await $trpc.festival.submitDraft.mutate({
+      slug: festival.slug || undefined,
+      name: festival.name || undefined,
+      payload: {
+        festival: { ...festival },
+        venue: { ...venue },
+        teachers: teachers.value,
+        workshops: workshops.value,
+        tickets: tickets.value,
+        ticketUrl: ticketUrl.value,
+      },
+    })
+    isPublished.value = true
+  } catch (e: any) {
+    submitError.value = e?.message || 'Could not submit right now. Please try again.'
+  } finally {
+    isPublishing.value = false
+  }
 }
 
 // V3 shared field styles. Kept as class strings so field usage
@@ -289,7 +310,7 @@ const labelClass = 'text-[10px] uppercase tracking-[0.25em] font-bold mb-2 block
           style="background:linear-gradient(135deg, #dc2626, #f97316); box-shadow: 0 3px 0 -1px #b91c1c;"
           @click="publish"
         >
-          {{ isPublished ? 'Published!' : isPublishing ? 'Publishing…' : 'Publish' }}
+          {{ isPublished ? 'Submitted' : isPublishing ? 'Submitting…' : 'Submit for review' }}
         </button>
         <div v-else class="w-14" />
       </div>
@@ -705,21 +726,18 @@ const labelClass = 'text-[10px] uppercase tracking-[0.25em] font-bold mb-2 block
       <!-- Step 6: Preview -->
       <div v-if="currentStep === 'preview'" class="space-y-6">
         <div>
-          <h2 class="text-2xl leading-tight font-black mb-1" style="font-family:'Playfair Display', serif; color:#3b1f0d;">Preview & Publish</h2>
-          <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Review your festival before going live.</p>
+          <h2 class="text-2xl leading-tight font-black mb-1" style="font-family:'Playfair Display', serif; color:#3b1f0d;">Preview & Submit</h2>
+          <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Review your festival, then send it to our team to onboard.</p>
         </div>
 
-        <!-- Published success -->
+        <!-- Submitted success -->
         <div v-if="isPublished" class="text-center py-12 border rounded-lg bg-green-50 border-green-200">
           <Check class="w-12 h-12 text-green-500 mx-auto mb-3" />
-          <h3 class="text-lg font-semibold mb-1">Your festival is live!</h3>
+          <h3 class="text-lg font-semibold mb-1">Submitted for review</h3>
           <p style="color:#5b3a1d; font-family: system-ui, sans-serif;" class="text-sm mb-4">
-            Dancers can now find and plan for <strong>{{ festival.name }}</strong>
+            Thanks — we've got <strong>{{ festival.name }}</strong>. Our team will review it and reach out to get it live on WeDance.
           </p>
           <div class="flex items-center justify-center gap-3">
-            <Button variant="outline" as="a" :href="`/festivals/${festival.slug}`">
-              View Festival Page
-            </Button>
             <Button variant="outline" @click="router.push('/organizers')">
               Back to Dashboard
             </Button>
@@ -728,6 +746,9 @@ const labelClass = 'text-[10px] uppercase tracking-[0.25em] font-bold mb-2 block
 
         <!-- Preview summary -->
         <div v-else class="space-y-4">
+          <p v-if="submitError" class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {{ submitError }}
+          </p>
           <!-- Basics summary -->
           <div class="rounded-2xl bg-white border p-5" style="border-color:#3b1f0d22; box-shadow: 0 1px 0 #3b1f0d0a, 0 6px 18px rgba(59,31,18,0.04);">
             <div>
@@ -847,7 +868,7 @@ const labelClass = 'text-[10px] uppercase tracking-[0.25em] font-bold mb-2 block
           style="background:linear-gradient(135deg, #16a34a, #0891b2); box-shadow: 0 3px 0 -1px #15803d; font-family: system-ui, sans-serif;"
           @click="publish"
         >
-          {{ isPublishing ? 'Publishing…' : 'Publish' }}
+          {{ isPublishing ? 'Submitting…' : 'Submit for review' }}
         </button>
       </div>
     </div>

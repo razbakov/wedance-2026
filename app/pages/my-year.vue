@@ -162,6 +162,12 @@ function onCreateYearPlan() {
   router.replace({ query: {} })
 }
 
+// Adding a friend requires an account — send the viewer into the join flow.
+// (A real follow/friend graph lands with its own backend.)
+function onAddFriend() {
+  navigateTo('/onboarding')
+}
+
 useHead({
   title: isSharedView.value
     ? `${mockSharer.name}'s 2026 Dance Year | WeDance`
@@ -176,10 +182,10 @@ useHead({
     :sharer="mockSharer"
     :festivals="myFestivals"
     :viewer-festival-slugs="viewerFestivalSlugs"
-    @add-friend="() => {}"
+    @add-friend="onAddFriend"
     @open-festival="openFestival"
     @create-year-plan="onCreateYearPlan"
-    @sign-in="() => {}"
+    @sign-in="onAddFriend"
   />
 
   <!-- Own year plan -->

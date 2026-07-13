@@ -20,9 +20,13 @@ onMounted(async () => {
     dancerName.value = result.name
     status.value = 'success'
 
-    // Redirect to festival page after a short delay
+    // Redirect after a short delay — honor an explicit ?redirect target,
+    // otherwise land on the personal dashboard (not a hardcoded festival).
+    const redirect = typeof route.query.redirect === 'string' && route.query.redirect.startsWith('/')
+      ? route.query.redirect
+      : '/my-plan'
     setTimeout(() => {
-      navigateTo('/festivals/meneate-viena-2026')
+      navigateTo(redirect)
     }, 2000)
   } catch (e: any) {
     status.value = 'error'
@@ -45,7 +49,7 @@ onMounted(async () => {
       <template v-else-if="status === 'success'">
         <div class="text-4xl">🎉</div>
         <h1 class="text-xl font-semibold">Welcome, {{ dancerName }}!</h1>
-        <p class="text-sm text-muted-foreground">You're signed in. Redirecting to the festival...</p>
+        <p class="text-sm text-muted-foreground">You're signed in. Taking you to your plan...</p>
       </template>
 
       <!-- Error -->

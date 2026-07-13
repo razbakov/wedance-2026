@@ -26,8 +26,11 @@ useHead({
 })
 
 const router = useRouter()
+const route = useRoute()
 
-const searchQuery = ref('')
+// Honor a ?style= intent (e.g. from /find-your-dance quick-picks) by seeding
+// the search, which already matches on style names.
+const searchQuery = ref(typeof route.query.style === 'string' ? route.query.style : '')
 
 const cityColors: Record<string, string> = {
   munich: '#dc2626',

@@ -6,7 +6,23 @@
  * gigs is post-driven — "I need X" or "I offer Y".
  */
 import { ArrowRight, MapPin, Calendar, Wallet, Plus, Megaphone, Hand } from 'lucide-vue-next'
-import { mockGigs, type GigKind } from '~/data/mock-gigs'
+import { mockGigs, type Gig, type GigKind } from '~/data/mock-gigs'
+
+// No self-serve gig board yet — posting and applying route through the team
+// inbox (same channel as /for-events), so the buttons do a real thing.
+const postGigMailto = 'mailto:hello@wedance.vip?subject=' + encodeURIComponent('Post a gig on WeDance')
+  + '&body=' + encodeURIComponent('What you need (or offer):\nRole / service:\nEvent / context:\nLocation:\nDates:\nCompensation:\nDeadline:\nContact:')
+
+function gigMailto(g: Gig): string {
+  const applying = g.kind === 'role'
+  const subject = applying
+    ? `Applying: ${g.title} — ${g.posterName}`
+    : `Booking enquiry: ${g.title} — ${g.posterName}`
+  const body = applying
+    ? `Hi ${g.posterName},\n\nI'd like to apply for "${g.title}" (${g.location}, ${g.when}).\n\nAbout me:\nExperience:\nLinks:\n`
+    : `Hi ${g.posterName},\n\nI'd like to enquire about "${g.title}" (${g.location}, ${g.when}).\n\nMy event:\nDate:\nWhat I need:\n`
+  return 'mailto:hello@wedance.vip?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body)
+}
 
 definePageMeta({ layout: false })
 
@@ -63,13 +79,13 @@ function daysUntil(dateStr?: string): { text: string; urgent: boolean } | null {
         </p>
 
         <div class="mt-7 flex flex-col sm:flex-row items-center justify-center gap-3">
-          <button
-            type="button"
+          <a
+            :href="postGigMailto"
             class="inline-flex items-center gap-2 px-6 py-3 rounded-full text-white text-sm font-bold uppercase tracking-wider"
             style="background:linear-gradient(135deg, #dc2626, #f97316); box-shadow: 0 4px 0 -1px #b91c1c;"
           >
             <Plus class="w-4 h-4" /> Post a gig
-          </button>
+          </a>
         </div>
 
         <!-- Kind toggle -->
@@ -188,13 +204,13 @@ function daysUntil(dateStr?: string): { text: string; urgent: boolean } | null {
               {{ daysUntil(g.deadline)!.text }}
             </span>
             <span v-else />
-            <button
-              type="button"
+            <a
+              :href="gigMailto(g)"
               class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-white text-xs font-bold uppercase tracking-wider"
               :style="{ background: g.accent, boxShadow: '0 3px 0 -1px ' + g.accent + 'cc' }"
             >
               {{ g.kind === 'role' ? 'Apply' : 'Contact' }} <ArrowRight class="w-3.5 h-3.5" />
-            </button>
+            </a>
           </div>
         </div>
       </div>
