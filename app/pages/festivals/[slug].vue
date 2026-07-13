@@ -7,6 +7,7 @@ import * as meneate from '~/data/mock-meneate'
 import * as cubanFire from '~/data/mock-cuban-fire'
 import * as caribbeanUrbanFire from '~/data/mock-caribbean-urban-fire'
 import * as aguaPichi from '~/data/mock-agua-pichi'
+import { liteFestivals } from '~/data/mock-festivals-lite'
 
 const route = useRoute()
 const router = useRouter()
@@ -17,9 +18,13 @@ const festivals: Record<string, { festival: typeof salsaOpen.mockFestival; works
   'cuban-fire-munich-2026': { festival: cubanFire.mockFestival, workshops: cubanFire.mockWorkshops, teachers: cubanFire.mockTeachers },
   'caribbean-urban-fire-munich-2026': { festival: caribbeanUrbanFire.mockFestival, workshops: caribbeanUrbanFire.mockWorkshops, teachers: caribbeanUrbanFire.mockTeachers },
   'agua-pichi-2027': { festival: aguaPichi.mockFestival, workshops: aguaPichi.mockWorkshops, teachers: aguaPichi.mockTeachers },
+  ...liteFestivals,
 }
 
-const data = festivals[route.params.slug as string] || festivals['meneate-viena-2026']
+const data = festivals[route.params.slug as string]
+if (!data) {
+  throw createError({ statusCode: 404, statusMessage: 'Festival not found', fatal: true })
+}
 const festival = data.festival
 const workshops = data.workshops
 const teachers = data.teachers
@@ -899,6 +904,7 @@ useHead({
     :has-referral="hasReferral"
     @create-plan="onCreatePlan"
     @be-partner="onBePartner"
+    @add-friend="onSignIn('friend')"
     @sign-in="onSignIn"
   />
 

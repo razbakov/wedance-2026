@@ -12,7 +12,7 @@
 import { z } from 'zod'
 import { eq } from 'drizzle-orm'
 import { router, publicProcedure } from '../trpc'
-import { festivals } from '../../database/schema'
+import { festivals, festivalSubmissions } from '../../database/schema'
 
 export const festivalRouter = router({
   /**
@@ -44,5 +44,34 @@ export const festivalRouter = router({
       }
 
       return festival
+    }),
+
+  /**
+   * Submit a festival draft from the /organizers/create wizard.
+   *
+   * There is no live self-serve publish yet, so instead of faking "your
+   * festival is live", we persist the whole draft for the team to review and
+   * onboard. Returns the submission id so the UI can show a real confirmation.
+   */
+  submitDraft: publicProcedure
+    .input(z.object({
+      slug: z.string().max(120).optional(),
+      name: z.string().max(200).optional(),
+      email: z.string().email().optional(),
+      payload: z.record(z.string(), z.unknown()),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const [row] = await ctx.db
+        .insert(festivalSubmissions)
+        .values({
+          slug: input.slug || null,
+          name: input.name || null,
+          submittedById: ctx.dancerId ?? null,
+          submittedByEmail: input.email || null,
+          payload: input.payload,
+        })
+        .returning({ id: festivalSubmissions.id })
+
+      return { id: row.id }
     }),
 })

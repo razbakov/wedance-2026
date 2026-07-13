@@ -20,7 +20,8 @@ const emit = defineEmits<{
 const friendAdded = ref(false)
 
 function addFriend() {
-  friendAdded.value = true
+  // Don't claim success locally — the parent owns the real action (join to
+  // connect). friendAdded flips only once that actually completes.
   emit('add-friend')
 }
 

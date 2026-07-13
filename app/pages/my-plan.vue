@@ -514,6 +514,23 @@ const previewGoals: Goal[] = [
 ]
 const goals = ref<Goal[]>(isPreviewInitial ? previewGoals : [])
 
+// Add a goal — quick capture. Persistence lands with the goals backend (#issue);
+// for now it adds to your list this session so the button does a real thing.
+function addGoal() {
+  const title = (globalThis.prompt('What are you working toward?') || '').trim()
+  if (!title) return
+  const why = (globalThis.prompt('Why does it matter? (optional)') || '').trim()
+  goals.value.push({
+    id: `g-${goals.value.length + 1}-${title.slice(0, 8)}`,
+    title,
+    why,
+    progress: 0,
+    nudge: '',
+    icon: Target,
+    color: '#9a5614',
+  })
+}
+
 // -----------------------------------------------------------------------
 // COURSES · monthly cadence: school + teacher + level + next class.
 // -----------------------------------------------------------------------
@@ -988,6 +1005,7 @@ function cardSummary(f: CatalogueEntry) {
             type="button"
             class="text-xs italic hover:underline"
             style="color:#9a5614; font-family:'Playfair Display', serif;"
+            @click="addGoal"
           >
             + Add a goal
           </button>
@@ -1401,13 +1419,13 @@ function cardSummary(f: CatalogueEntry) {
               Where you <em class="italic" style="color:#dc2626;">show up.</em>
             </h2>
           </div>
-          <button
-            type="button"
+          <NuxtLink
+            to="/cities"
             class="text-xs italic hover:underline"
             style="color:#9a5614; font-family:'Playfair Display', serif;"
           >
             + Enroll
-          </button>
+          </NuxtLink>
         </div>
 
         <div v-if="!courses.length" class="rounded-2xl p-6 text-center border-2 border-dashed" style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);">

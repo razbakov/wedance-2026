@@ -65,6 +65,7 @@ const pricing = [
       'Link to your ticket page',
     ],
     cta: 'Get started',
+    contact: false,
     highlighted: false,
     color: '#0891b2',
   },
@@ -84,6 +85,7 @@ const pricing = [
       'Priority support',
     ],
     cta: 'Start free trial',
+    contact: false,
     highlighted: true,
     color: '#dc2626',
   },
@@ -101,10 +103,14 @@ const pricing = [
       'Dedicated account manager',
     ],
     cta: 'Talk to us',
+    contact: true,
     highlighted: false,
     color: '#16a34a',
   },
 ]
+
+const salesMailto = 'mailto:hello@wedance.vip?subject=' + encodeURIComponent('WeDance for organizers — Network plan')
+  + '&body=' + encodeURIComponent('Organization:\nEvents per year:\nWhat you need:\n')
 
 const howItWorks = [
   { step: '1', title: 'List your event',       description: 'Add your festival, schedule, teachers, and venue in minutes.',                    color: '#dc2626' },
@@ -306,7 +312,18 @@ function goToEditor() {
               </li>
             </ul>
 
+            <a
+              v-if="plan.contact"
+              :href="salesMailto"
+              class="block text-center w-full py-3 rounded-full text-sm font-bold uppercase tracking-wider transition-all"
+              :style="plan.highlighted
+                ? { background: 'linear-gradient(135deg, ' + plan.color + ', #f97316)', color: 'white', boxShadow: '0 4px 0 -1px ' + plan.color }
+                : { border: '2px solid ' + plan.color, color: plan.color, background: 'white' }"
+            >
+              {{ plan.cta }}
+            </a>
             <button
+              v-else
               type="button"
               class="w-full py-3 rounded-full text-sm font-bold uppercase tracking-wider transition-all"
               :style="plan.highlighted

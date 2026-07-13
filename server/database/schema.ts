@@ -327,3 +327,19 @@ export const bookingRequests = pgTable('booking_requests', {
   status: text('status').notNull().default('pending').$type<'pending' | 'accepted' | 'declined'>(),
   createdAt: timestamp('created_at').defaultNow(),
 })
+
+// Festival submissions from the /organizers/create wizard. There is no live
+// self-serve publish yet — the wizard captures the full draft here for the
+// team to review and onboard, instead of pretending to go live. The whole
+// draft is stored as a JSON payload so the schema doesn't have to track every
+// wizard field.
+export const festivalSubmissions = pgTable('festival_submissions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  slug: text('slug'),
+  name: text('name'),
+  submittedById: uuid('submitted_by_id').references(() => dancers.id),
+  submittedByEmail: text('submitted_by_email'),
+  payload: json('payload').$type<Record<string, unknown>>().notNull(),
+  status: text('status').notNull().default('pending').$type<'pending' | 'reviewing' | 'onboarded' | 'declined'>(),
+  createdAt: timestamp('created_at').defaultNow(),
+})
