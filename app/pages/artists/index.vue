@@ -1,11 +1,10 @@
 <script setup lang="ts">
 /**
- * /artists — the artist directory.
- * V3 tropical style. Lists every performer with a profile (festival
- * teachers/headliners + city teachers & DJs) from ~/data/artists.ts.
+ * /artists — the artist directory, backed by real migrated profiles
+ * (entity.listArtists). The tRPC client is client-only, so we fetch on mount.
+ * Each card links to the unified /@<handle> profile.
  */
 import { Search, MapPin } from 'lucide-vue-next'
-import { allArtists } from '~/data/artists'
 
 definePageMeta({ layout: false })
 
@@ -21,52 +20,55 @@ useHead({
   ],
 })
 
-const artists = allArtists()
+type Artist = { username: string; name: string; photo: string | null; city: string | null; styles: string[]; bio: string | null }
+
+const { $trpc } = useNuxtApp()
+const artists = ref<Artist[]>([])
+const loading = ref(true)
+
+onMounted(async () => {
+  try {
+    artists.value = (await $trpc.entity.listArtists.query()) as Artist[]
+  } catch { /* leave empty */ }
+  finally { loading.value = false }
+})
 
 const searchQuery = ref('')
 
 const allStyles = computed(() => {
   const s = new Set<string>()
-  artists.forEach((a) => a.artist.styles.forEach((st) => s.add(st)))
+  artists.value.forEach((a) => (a.styles || []).forEach((st) => s.add(st)))
   return Array.from(s)
 })
 
-// Cities where artists teach/DJ weekly — the "artists in my city" filter.
 const allCities = computed(() => {
   const s = new Set<string>()
-  artists.forEach((a) => a.cityNames.forEach((c) => s.add(c)))
+  artists.value.forEach((a) => { if (a.city) s.add(a.city) })
   return Array.from(s).sort()
 })
 
-// Preset from ?city= so a city page can deep-link "artists in Munich".
-// Case-insensitive match against a known city name.
 const route = useRoute()
 const cityParam = (Array.isArray(route.query.city) ? route.query.city[0] : route.query.city) || ''
-const selectedCity = ref(
-  allCities.value.find((c) => c.toLowerCase() === String(cityParam).toLowerCase()) || '',
-)
+const selectedCity = ref(String(cityParam))
 
 const filtered = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
-  return artists.filter((a) => {
+  return artists.value.filter((a) => {
     const matchesText = !q
-      || a.artist.name.toLowerCase().includes(q)
-      || a.artist.styles.some((s) => s.toLowerCase().includes(q))
-    // Match where they're based (residence/weekly city) so a
-    // "Berlin-based" festival artist appears under Berlin too.
+      || a.name.toLowerCase().includes(q)
+      || (a.styles || []).some((s) => s.toLowerCase().includes(q))
     const matchesCity = !selectedCity.value
-      || a.cityNames.includes(selectedCity.value)
-      || a.residence === selectedCity.value
+      || (a.city && a.city.toLowerCase() === selectedCity.value.toLowerCase())
     return matchesText && matchesCity
   })
 })
 
 const accents = ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b', '#ec4899', '#7c3aed']
+const NuxtLinkC = resolveComponent('NuxtLink')
 </script>
 
 <template>
   <div class="min-h-screen" style="background:#fbf5ea; color:#3b1f0d; font-family:'Playfair Display', serif;">
-    <!-- V3 header -->
     <SiteHeader />
 
     <!-- HERO -->
@@ -92,7 +94,6 @@ const accents = ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b', '#ec4899
             >
           </div>
 
-          <!-- Location filter — "artists in my city" -->
           <div v-if="allCities.length" class="flex flex-wrap items-center justify-center gap-2 mt-4">
             <span class="text-[10px] uppercase tracking-[0.25em] font-bold" style="color:#9a5614;">In your city</span>
             <button
@@ -109,7 +110,7 @@ const accents = ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b', '#ec4899
             </button>
           </div>
 
-          <StyleFilter :styles="allStyles" v-model="searchQuery" :accents="accents" class="mt-4" />
+          <StyleFilter v-if="allStyles.length" :styles="allStyles" v-model="searchQuery" :accents="accents" class="mt-4" />
         </div>
       </div>
 
@@ -131,8 +132,12 @@ const accents = ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b', '#ec4899
         </span>
       </div>
 
+      <div v-if="loading" class="text-center py-14" style="color:#9a5614; font-family: system-ui, sans-serif;">
+        Loading artists…
+      </div>
+
       <div
-        v-if="!filtered.length"
+        v-else-if="!filtered.length"
         class="text-center py-14 rounded-2xl border-2 border-dashed"
         style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);"
       >
@@ -140,24 +145,52 @@ const accents = ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b', '#ec4899
         <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
           <template v-if="selectedCity && searchQuery">No artists in {{ selectedCity }} match "{{ searchQuery }}"</template>
           <template v-else-if="selectedCity">No artists listed in {{ selectedCity }} yet</template>
-          <template v-else>Nothing matches "{{ searchQuery }}"</template>
+          <template v-else-if="searchQuery">Nothing matches "{{ searchQuery }}"</template>
+          <template v-else>No artists yet.</template>
         </p>
-        <button type="button" class="text-xs font-bold mt-2 underline" style="color:#dc2626; font-family: system-ui, sans-serif;" @click="searchQuery = ''; selectedCity = ''">
+        <button v-if="searchQuery || selectedCity" type="button" class="text-xs font-bold mt-2 underline" style="color:#dc2626; font-family: system-ui, sans-serif;" @click="searchQuery = ''; selectedCity = ''">
           Clear filters
         </button>
       </div>
 
       <div v-else class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        <ArtistCard
+        <component
+          :is="NuxtLinkC"
           v-for="(a, i) in filtered"
-          :key="a.artist.id"
-          :artist="a.artist"
-          :accent="accents[i % accents.length]"
-          :origin="a.origin"
-          :residence="a.residence"
-          :languages="a.languages"
-          :festival-count="a.festivalCount"
-        />
+          :key="a.username"
+          :to="`/@${a.username}`"
+          class="group rounded-2xl bg-white border p-5 transition-all hover:-translate-y-0.5 flex items-center gap-4"
+          :style="{ borderColor: accents[i % accents.length] + '55', boxShadow: '0 1px 0 ' + accents[i % accents.length] + '18, 0 6px 18px rgba(59,31,18,0.04)' }"
+        >
+          <img
+            v-if="a.photo"
+            :src="a.photo"
+            :alt="a.name"
+            class="w-16 h-16 rounded-full object-cover border-2 shrink-0"
+            :style="{ borderColor: accents[i % accents.length] + '55' }"
+          >
+          <div
+            v-else
+            class="w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold text-white shrink-0"
+            :style="{ background: accents[i % accents.length] }"
+          >
+            {{ a.name.charAt(0) }}
+          </div>
+          <div class="min-w-0">
+            <h3 class="text-lg font-bold leading-tight truncate group-hover:underline" style="color:#3b1f0d;">{{ a.name }}</h3>
+            <p v-if="a.city" class="text-xs inline-flex items-center gap-1 mt-0.5" style="color:#9a5614; font-family: system-ui, sans-serif;">
+              <MapPin class="w-3 h-3" /> {{ a.city }}
+            </p>
+            <div v-if="a.styles?.length" class="flex flex-wrap gap-1 mt-2">
+              <span
+                v-for="st in a.styles.slice(0, 3)"
+                :key="st"
+                class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
+                :style="{ background: accents[i % accents.length] + '18', color: accents[i % accents.length] }"
+              >{{ st }}</span>
+            </div>
+          </div>
+        </component>
       </div>
     </section>
 

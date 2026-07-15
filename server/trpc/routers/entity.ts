@@ -25,6 +25,47 @@ export const entityRouter = router({
         .where(and(eq(profiles.type, 'venue'), eq(profiles.status, 'visible')))
     }),
 
+  // All artists (any city) — the /artists directory, from migrated real data.
+  listArtists: publicProcedure
+    .query(async ({ ctx }) => {
+      return ctx.db
+        .select({
+          username: profiles.username,
+          name: profiles.name,
+          photo: profiles.photo,
+          city: profiles.city,
+          styles: profiles.styles,
+          bio: profiles.bio,
+        })
+        .from(profiles)
+        .where(and(eq(profiles.type, 'artist'), eq(profiles.status, 'visible')))
+    }),
+
+  // Distinct cities that have any migrated profile — the /cities directory.
+  // Counts per type let the card show "N venues · N artists".
+  listCities: publicProcedure
+    .query(async ({ ctx }) => {
+      const rows = await ctx.db
+        .select({
+          city: profiles.city,
+          citySlug: profiles.citySlug,
+          type: profiles.type,
+        })
+        .from(profiles)
+        .where(and(eq(profiles.status, 'visible')))
+      const map = new Map<string, { city: string; citySlug: string; venues: number; artists: number; organizers: number; total: number }>()
+      for (const r of rows) {
+        if (!r.citySlug || !r.city) continue
+        const e = map.get(r.citySlug) ?? { city: r.city, citySlug: r.citySlug, venues: 0, artists: 0, organizers: 0, total: 0 }
+        if (r.type === 'venue') e.venues++
+        else if (r.type === 'artist') e.artists++
+        else if (r.type === 'organizer') e.organizers++
+        e.total++
+        map.set(r.citySlug, e)
+      }
+      return [...map.values()].sort((a, b) => b.total - a.total)
+    }),
+
   // Bookable venues in a city — surfaced on the city page.
   listByCity: publicProcedure
     .input(z.object({ citySlug: z.string().min(1), type: z.enum(['venue', 'artist', 'organizer']).default('venue') }))
