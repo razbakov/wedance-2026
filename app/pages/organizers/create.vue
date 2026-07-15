@@ -266,6 +266,8 @@ async function publish() {
       },
     })
     isPublished.value = true
+    // CUJ: "List a festival" — draft submitted for review.
+    useTrack().track('festival_draft_submitted', { slug: festival.slug })
   } catch (e: any) {
     submitError.value = e?.message || 'Could not submit right now. Please try again.'
   } finally {

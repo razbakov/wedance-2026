@@ -181,6 +181,7 @@ const daysUntil = computed(() => {
               rel="noopener noreferrer"
               class="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold uppercase tracking-wider text-white"
               :style="{ background: 'linear-gradient(135deg, ' + festival.accentColor + ', #f97316)', boxShadow: '0 3px 0 -1px ' + festival.accentColor }"
+              @click="useTrack().track('ticket_cta_click', { entity: reviewTargetType, slug: festival.slug })"
             >
               <Ticket class="w-4 h-4" /> Get tickets
             </a>

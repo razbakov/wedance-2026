@@ -904,7 +904,7 @@ useHead({
     :has-referral="hasReferral"
     @create-plan="onCreatePlan"
     @be-partner="onBePartner"
-    @add-friend="onSignIn('friend')"
+    @add-friend="() => { useTrack().track('shared_plan_signup', { surface: 'festival', slug: festival.slug }); onSignIn('friend') }"
     @sign-in="onSignIn"
   />
 

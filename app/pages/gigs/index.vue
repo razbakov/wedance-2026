@@ -83,6 +83,7 @@ function daysUntil(dateStr?: string): { text: string; urgent: boolean } | null {
             :href="postGigMailto"
             class="inline-flex items-center gap-2 px-6 py-3 rounded-full text-white text-sm font-bold uppercase tracking-wider"
             style="background:linear-gradient(135deg, #dc2626, #f97316); box-shadow: 0 4px 0 -1px #b91c1c;"
+            @click="useTrack().track('gig_cta_click', { action: 'post' })"
           >
             <Plus class="w-4 h-4" /> Post a gig
           </a>
@@ -208,6 +209,7 @@ function daysUntil(dateStr?: string): { text: string; urgent: boolean } | null {
               :href="gigMailto(g)"
               class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-white text-xs font-bold uppercase tracking-wider"
               :style="{ background: g.accent, boxShadow: '0 3px 0 -1px ' + g.accent + 'cc' }"
+              @click="useTrack().track('gig_cta_click', { action: g.kind === 'role' ? 'apply' : 'contact', gig_id: g.id })"
             >
               {{ g.kind === 'role' ? 'Apply' : 'Contact' }} <ArrowRight class="w-3.5 h-3.5" />
             </a>

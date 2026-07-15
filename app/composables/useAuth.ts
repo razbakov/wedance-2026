@@ -113,6 +113,8 @@ export function useAuth() {
     // Mark this session as a fresh signup so the caller can route to
     // /onboarding and my-plan can show the first-run hint.
     _justRegistered.value = true
+    // CUJ: "Sign up & onboard" — account created.
+    useTrack().track('signup_completed', { method: 'password' })
     return result
   }
 
@@ -153,6 +155,8 @@ export function useAuth() {
       role: data.role,
     })
     await refreshMe()
+    // CUJ: "Sign up & onboard" — onboarding finished (intent chosen).
+    useTrack().track('onboarding_completed', { intent: data.intent })
   }
 
   // Edit the signed-in dancer's own profile, then refresh local state so the
@@ -171,6 +175,8 @@ export function useAuth() {
   }) {
     await $trpc.profile.update.mutate(data)
     await refreshMe()
+    // CUJ: "Manage profile" — profile edited/saved.
+    useTrack().track('profile_updated')
   }
 
   async function changePassword(data: { currentPassword: string; newPassword: string }) {
@@ -188,6 +194,8 @@ export function useAuth() {
     _dancerId.value = data.dancerId
     _dancerName.value = data.name
     _isAdmin.value = data.isAdmin
+    // Tie analytics events to this dancer (login / register / magic-link).
+    useTrack().identify(data.dancerId, { name: data.name })
   }
 
   function signOut() {
@@ -208,6 +216,8 @@ export function useAuth() {
     _intent.value = null
     _onboardedAt.value = null
     _justRegistered.value = false
+    // Stop attributing events to this dancer after sign-out.
+    useTrack().reset()
   }
 
   return {

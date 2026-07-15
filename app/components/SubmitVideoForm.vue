@@ -63,6 +63,8 @@ async function submit() {
       email: email.value.trim(),
     })
     submitted.value = true
+    // CUJ: "Vote on videos" — a video was submitted to the competition.
+    useTrack().track('video_submit', { city: props.citySlug, dance_style: danceStyle.value.trim() || undefined })
     emit('submitted')
   } catch (e: any) {
     error.value = e?.message ?? 'Could not submit your video. Check the URL and try again.'
