@@ -21,6 +21,12 @@ export default defineNuxtPlugin({
       defaults: '2025-05-24',
     })
 
+    // WeDance 2026 currently shares the WeDance v4 PostHog project (the EU org's
+    // free plan is capped at one project). Tag every event with `app` so 2026
+    // data is trivially filterable and never confused with v4 — and so it can
+    // be split into a dedicated project later with zero code change.
+    posthog.register({ app: 'wedance-2026' })
+
     const router = useRouter()
     router.afterEach((to) => {
       // Wait a tick so document.title reflects the new page.
