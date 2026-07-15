@@ -66,6 +66,27 @@ export const entityRouter = router({
       return [...map.values()].sort((a, b) => b.total - a.total)
     }),
 
+  // Everything in one city — the real community directory for /cities/[slug].
+  // Returns venues/artists/organizers so the city page renders from real data.
+  cityDirectory: publicProcedure
+    .input(z.object({ citySlug: z.string().min(1) }))
+    .query(async ({ ctx, input }) => {
+      const rows = await ctx.db
+        .select({
+          username: profiles.username,
+          name: profiles.name,
+          photo: profiles.photo,
+          type: profiles.type,
+          styles: profiles.styles,
+          city: profiles.city,
+        })
+        .from(profiles)
+        .where(and(eq(profiles.citySlug, input.citySlug), eq(profiles.status, 'visible')))
+      const city = rows.find(r => r.city)?.city ?? null
+      const pick = (t: string) => rows.filter(r => r.type === t).map(({ username, name, photo, styles }) => ({ username, name, photo, styles: styles ?? [] }))
+      return { city, citySlug: input.citySlug, venues: pick('venue'), artists: pick('artist'), organizers: pick('organizer') }
+    }),
+
   // Bookable venues in a city — surfaced on the city page.
   listByCity: publicProcedure
     .input(z.object({ citySlug: z.string().min(1), type: z.enum(['venue', 'artist', 'organizer']).default('venue') }))
