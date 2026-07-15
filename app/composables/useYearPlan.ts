@@ -6,6 +6,8 @@ export function useYearPlan() {
     const next = new Set(yearPlanIds.value)
     next.add(slug)
     yearPlanIds.value = next
+    // CUJ: "Plan a festival year" — festival added to the year plan.
+    useTrack().track('year_plan_add', { festival_slug: slug, year_count: next.size })
   }
 
   function removeFestival(slug: string) {

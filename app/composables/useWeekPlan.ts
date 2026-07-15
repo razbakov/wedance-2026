@@ -6,6 +6,8 @@ export function useWeekPlan() {
     const next = new Set(weekPlanIds.value)
     next.add(id)
     weekPlanIds.value = next
+    // CUJ: "Find a class" — Going! on a class/social (fires from any surface).
+    useTrack().track('week_plan_add', { event_id: id, week_count: next.size })
   }
 
   function removeEvent(id: string) {

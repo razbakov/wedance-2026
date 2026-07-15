@@ -28,6 +28,7 @@
     "firebase-scrypt": "^2.2.0",
     "lucide-vue-next": "^0.577.0",
     "nuxt": "^4.4.2",
+    "posthog-js": "^1.400.1",
     "radix-vue": "^1.9.17",
     "reka-ui": "^2.9.2",
     "resend": "^6.9.4",

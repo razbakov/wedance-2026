@@ -165,6 +165,8 @@ function onCreateYearPlan() {
 // Adding a friend requires an account — send the viewer into the join flow.
 // (A real follow/friend graph lands with its own backend.)
 function onAddFriend() {
+  // CUJ: "Connect via shared plan" — viewer intends to connect (viral loop).
+  useTrack().track('shared_plan_signup', { surface: 'my-year', sharer: mockSharer.name })
   navigateTo('/onboarding')
 }
 

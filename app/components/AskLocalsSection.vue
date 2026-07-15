@@ -29,6 +29,8 @@ async function ask() {
   asking.busy = true
   try {
     await $trpc.askLocals.ask.mutate({ citySlug: props.citySlug, question: asking.text.trim() })
+    // CUJ: "Ask locals" — question posted.
+    useTrack().track('ask_locals_post', { city: props.citySlug, kind: 'ask' })
     asking.text = ''; asking.open = false
     await load()
   } catch (e: any) { asking.err = e?.message || 'Could not post.' } finally { asking.busy = false }
@@ -43,6 +45,8 @@ async function recommend() {
       citySlug: props.citySlug, targetType: rec.type,
       targetName: rec.name.trim(), text: rec.text.trim() || undefined,
     })
+    // CUJ: "Ask locals" — recommendation posted (auto 5-star review).
+    useTrack().track('ask_locals_post', { city: props.citySlug, kind: 'recommend', target_type: rec.type })
     rec.done = true; rec.name = ''; rec.text = ''
   } catch (e: any) { rec.err = e?.message || 'Could not recommend.' } finally { rec.busy = false }
 }

@@ -106,6 +106,8 @@ async function submitBooking() {
       message: booking.message.trim() || undefined, termsAccepted: booking.terms,
     })
     booking.done = true
+    // CUJ: "Book a venue space" — request submitted.
+    useTrack().track('booking_request_submitted', { space_id: booking.spaceId, event_type: booking.eventType, free: isFree.value })
     if (profile.value) { try { schedule.value = await $trpc.booking.scheduleForProfile.query({ profileId: profile.value.id }) } catch {} }
   } catch (e: any) { booking.err = e?.message || 'Could not send your request.' } finally { booking.busy = false }
 }

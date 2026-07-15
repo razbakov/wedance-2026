@@ -83,6 +83,8 @@ async function vote(winner: Vid, loser: Vid) {
       loserVideoId: loser.id,
     })
     votesCast.value += 1
+    // CUJ: "Vote on videos" — a pairwise vote was cast.
+    useTrack().track('video_vote', { city: props.citySlug, votes_cast: votesCast.value })
     await loadPair()
   } catch {
     // On error just try to reload a fresh pair.
