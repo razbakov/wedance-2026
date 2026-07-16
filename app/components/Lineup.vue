@@ -23,12 +23,13 @@ defineEmits<{
       <NuxtLink
         v-if="hrefFor && hrefFor(teacher)"
         :to="hrefFor(teacher)!"
-        class="flex flex-col items-center gap-1.5 shrink-0 group"
+        class="flex flex-col items-center gap-1.5 shrink-0 w-20 group"
+        :title="teacher.name"
       >
         <div class="w-16 h-16 rounded-full overflow-hidden border-2 border-transparent transition-all group-hover:-translate-y-0.5" style="box-shadow: 0 2px 8px rgba(59,31,18,0.08);">
           <img :src="teacher.photo" :alt="teacher.name" class="w-full h-full object-cover">
         </div>
-        <span class="text-xs text-center max-w-[70px] leading-tight" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+        <span class="w-full text-xs text-center leading-tight line-clamp-2 break-words" style="color:#5b3a1d; font-family: system-ui, sans-serif; overflow-wrap:anywhere;">
           {{ teacher.name }}
         </span>
       </NuxtLink>
@@ -37,7 +38,8 @@ defineEmits<{
       <button
         v-else
         type="button"
-        class="flex flex-col items-center gap-1.5 shrink-0 group"
+        class="flex flex-col items-center gap-1.5 shrink-0 w-20 group"
+        :title="teacher.name"
         @click="$emit('select', selectedId === teacher.id ? null : teacher.id)"
       >
         <div
@@ -49,8 +51,8 @@ defineEmits<{
           <img :src="teacher.photo" :alt="teacher.name" class="w-full h-full object-cover">
         </div>
         <span
-          class="text-xs text-center max-w-[70px] leading-tight"
-          :style="{ color: selectedId === teacher.id ? '#3b1f0d' : '#5b3a1d', fontWeight: selectedId === teacher.id ? 700 : 400, fontFamily: 'system-ui, sans-serif' }"
+          class="w-full text-xs text-center leading-tight line-clamp-2 break-words"
+          :style="{ color: selectedId === teacher.id ? '#3b1f0d' : '#5b3a1d', fontWeight: selectedId === teacher.id ? 700 : 400, fontFamily: 'system-ui, sans-serif', overflowWrap: 'anywhere' }"
         >
           {{ teacher.name }}
         </span>
