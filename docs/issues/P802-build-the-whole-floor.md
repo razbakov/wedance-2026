@@ -1,5 +1,5 @@
 ---
-title: "[P802] Whole Floor"
+title: "Whole Floor"
 type: Story
 id: P802
 page: /for-events

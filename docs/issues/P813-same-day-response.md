@@ -1,5 +1,5 @@
 ---
-title: "[P813] Same-Day Reply"
+title: "Same-Day Reply"
 type: Story
 id: P813
 page: /for-events

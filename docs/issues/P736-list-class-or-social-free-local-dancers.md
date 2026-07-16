@@ -1,5 +1,5 @@
 ---
-title: "[P736] List Your Social"
+title: "List Your Social"
 type: Story
 id: P736
 page: /cities

@@ -1,5 +1,5 @@
 ---
-title: "[P1006] Free Taster Class"
+title: "Free Taster Class"
 type: Story
 id: P1006
 page: /find-your-dance

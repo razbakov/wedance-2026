@@ -1,5 +1,5 @@
 ---
-title: "[P228] Pick Workshops"
+title: "Pick Workshops"
 type: Story
 id: P228
 page: /my-plan

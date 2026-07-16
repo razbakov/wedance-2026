@@ -1,5 +1,5 @@
 ---
-title: "[P223] One Place"
+title: "One Place"
 type: Story
 id: P223
 page: /my-plan

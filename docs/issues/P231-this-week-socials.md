@@ -1,5 +1,5 @@
 ---
-title: "[P231] Where You Dance"
+title: "Where You Dance"
 type: Story
 id: P231
 page: /my-plan

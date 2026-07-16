@@ -1,5 +1,5 @@
 ---
-title: "[P712] Partner Matching"
+title: "Partner Matching"
 type: Story
 id: P712
 page: /organizers

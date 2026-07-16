@@ -1,5 +1,5 @@
 ---
-title: "[P201] First Night, Best Year"
+title: "First Night, Best Year"
 type: Story
 id: P201
 page: /

@@ -1,5 +1,5 @@
 ---
-title: "[P806] Bilingual MC"
+title: "Bilingual MC"
 type: Story
 id: P806
 page: /for-events

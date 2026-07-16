@@ -1,5 +1,5 @@
 ---
-title: "[P731] Network Plan"
+title: "Network Plan"
 type: Story
 id: P731
 page: /organizers

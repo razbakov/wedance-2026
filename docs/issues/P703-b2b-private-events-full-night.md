@@ -1,5 +1,5 @@
 ---
-title: "[P703] Whole Night Supplied"
+title: "Whole Night Supplied"
 type: Story
 id: P703
 page: /

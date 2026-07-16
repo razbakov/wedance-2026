@@ -1,5 +1,5 @@
 ---
-title: "[P227] Your Compass"
+title: "Your Compass"
 type: Story
 id: P227
 page: /my-plan

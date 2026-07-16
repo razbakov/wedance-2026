@@ -1,5 +1,5 @@
 ---
-title: "[P725] Workshop Demand"
+title: "Workshop Demand"
 type: Story
 id: P725
 page: /organizers

@@ -1,5 +1,5 @@
 ---
-title: "[P230] Where You Show Up"
+title: "Where You Show Up"
 type: Story
 id: P230
 page: /my-plan

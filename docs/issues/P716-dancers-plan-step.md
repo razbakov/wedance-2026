@@ -1,5 +1,5 @@
 ---
-title: "[P716] Dancers Plan"
+title: "Dancers Plan"
 type: Story
 id: P716
 page: /organizers

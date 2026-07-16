@@ -1,5 +1,5 @@
 ---
-title: "[P738] Help Wanted"
+title: "Help Wanted"
 type: Story
 id: P738
 page: /gigs

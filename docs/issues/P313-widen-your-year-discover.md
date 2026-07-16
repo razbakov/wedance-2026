@@ -1,5 +1,5 @@
 ---
-title: "[P313] Widen Your Year"
+title: "Widen Your Year"
 type: Story
 id: P313
 page: /my-plan

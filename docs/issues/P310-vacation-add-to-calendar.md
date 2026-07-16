@@ -1,5 +1,5 @@
 ---
-title: "[P310] Book Vacation"
+title: "Book Vacation"
 type: Story
 id: P310
 page: /my-plan

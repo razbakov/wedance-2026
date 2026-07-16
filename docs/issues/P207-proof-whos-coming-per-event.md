@@ -1,5 +1,5 @@
 ---
-title: "[P207] Per-Event Attendees"
+title: "Per-Event Attendees"
 type: Story
 id: P207
 page: /

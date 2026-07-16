@@ -1,5 +1,5 @@
 ---
-title: "[P202] Every Face Real"
+title: "Every Face Real"
 type: Story
 id: P202
 page: /

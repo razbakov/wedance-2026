@@ -1,5 +1,5 @@
 ---
-title: "[P234] Match Rate"
+title: "Match Rate"
 type: Story
 id: P234
 page: /my-year

@@ -1,5 +1,5 @@
 ---
-title: "[P218] Real Numbers"
+title: "Real Numbers"
 type: Story
 id: P218
 page: /cities

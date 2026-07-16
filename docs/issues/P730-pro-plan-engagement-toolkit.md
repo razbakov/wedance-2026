@@ -1,5 +1,5 @@
 ---
-title: "[P730] Pro Toolkit"
+title: "Pro Toolkit"
 type: Story
 id: P730
 page: /organizers

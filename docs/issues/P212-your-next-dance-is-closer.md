@@ -1,5 +1,5 @@
 ---
-title: "[P212] Closer Than You Think"
+title: "Closer Than You Think"
 type: Story
 id: P212
 page: /

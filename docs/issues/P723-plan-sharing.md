@@ -1,5 +1,5 @@
 ---
-title: "[P723] Share as Invite"
+title: "Share as Invite"
 type: Story
 id: P723
 page: /organizers

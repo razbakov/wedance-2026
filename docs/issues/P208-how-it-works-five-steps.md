@@ -1,5 +1,5 @@
 ---
-title: "[P208] Five Steps"
+title: "Five Steps"
 type: Story
 id: P208
 page: /

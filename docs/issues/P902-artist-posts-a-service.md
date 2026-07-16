@@ -1,5 +1,5 @@
 ---
-title: "[P902] Offer a Service"
+title: "Offer a Service"
 type: Story
 id: P902
 page: /gigs

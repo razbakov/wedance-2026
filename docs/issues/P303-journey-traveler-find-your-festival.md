@@ -1,5 +1,5 @@
 ---
-title: "[P303] Festivals Mapped"
+title: "Festivals Mapped"
 type: Story
 id: P303
 page: /

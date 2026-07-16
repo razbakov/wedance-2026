@@ -1,5 +1,5 @@
 ---
-title: "[P302] Who's Going"
+title: "Who's Going"
 type: Story
 id: P302
 page: /

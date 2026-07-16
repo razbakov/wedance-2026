@@ -1,5 +1,5 @@
 ---
-title: "[P236] Be Their Partner"
+title: "Be Their Partner"
 type: Story
 id: P236
 page: /my-year

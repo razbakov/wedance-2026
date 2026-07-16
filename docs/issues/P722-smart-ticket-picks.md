@@ -1,5 +1,5 @@
 ---
-title: "[P722] Smart Ticket Picks"
+title: "Smart Ticket Picks"
 type: Story
 id: P722
 page: /organizers

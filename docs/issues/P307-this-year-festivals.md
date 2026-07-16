@@ -1,5 +1,5 @@
 ---
-title: "[P307] This Year's Festivals"
+title: "This Year's Festivals"
 type: Story
 id: P307
 page: /my-plan

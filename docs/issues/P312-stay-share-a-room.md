@@ -1,5 +1,5 @@
 ---
-title: "[P312] Share A Room"
+title: "Share A Room"
 type: Story
 id: P312
 page: /my-plan

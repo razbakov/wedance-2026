@@ -1,5 +1,5 @@
 ---
-title: "[P315] Year Snapshot"
+title: "Year Snapshot"
 type: Story
 id: P315
 page: /my-year

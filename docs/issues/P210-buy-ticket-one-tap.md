@@ -1,5 +1,5 @@
 ---
-title: "[P210] One-Tap Ticket"
+title: "One-Tap Ticket"
 type: Story
 id: P210
 page: /

@@ -1,5 +1,5 @@
 ---
-title: "[P220] Follow Artists"
+title: "Follow Artists"
 type: Story
 id: P220
 page: /artists

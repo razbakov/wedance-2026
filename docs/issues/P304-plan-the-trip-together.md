@@ -1,5 +1,5 @@
 ---
-title: "[P304] Plan Together"
+title: "Plan Together"
 type: Story
 id: P304
 page: /

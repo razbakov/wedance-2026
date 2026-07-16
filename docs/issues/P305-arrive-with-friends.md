@@ -1,5 +1,5 @@
 ---
-title: "[P305] Arrive With Friends"
+title: "Arrive With Friends"
 type: Story
 id: P305
 page: /

@@ -1,5 +1,5 @@
 ---
-title: "[P705] Ticket Your Festival"
+title: "Ticket Your Festival"
 type: Story
 id: P705
 page: /

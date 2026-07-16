@@ -1,5 +1,5 @@
 ---
-title: "[P222] Artists by City"
+title: "Artists by City"
 type: Story
 id: P222
 page: /artists

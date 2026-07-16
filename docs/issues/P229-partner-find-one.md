@@ -1,5 +1,5 @@
 ---
-title: "[P229] Find a Partner"
+title: "Find a Partner"
 type: Story
 id: P229
 page: /my-plan

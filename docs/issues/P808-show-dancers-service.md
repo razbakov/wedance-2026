@@ -1,5 +1,5 @@
 ---
-title: "[P808] Show Dancers"
+title: "Show Dancers"
 type: Story
 id: P808
 page: /for-events

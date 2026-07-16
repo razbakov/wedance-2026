@@ -1,5 +1,5 @@
 ---
-title: "[P704] Book Us"
+title: "Book Us"
 type: Task
 id: P704
 page: /

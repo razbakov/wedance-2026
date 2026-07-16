@@ -1,5 +1,5 @@
 ---
-title: "[P311] Find A Ride"
+title: "Find A Ride"
 type: Story
 id: P311
 page: /my-plan

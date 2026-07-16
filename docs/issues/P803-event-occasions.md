@@ -1,5 +1,5 @@
 ---
-title: "[P803] Any Occasion"
+title: "Any Occasion"
 type: Story
 id: P803
 page: /for-events

@@ -1,5 +1,5 @@
 ---
-title: "[P817] Social, Class, Private"
+title: "Social, Class, Private"
 type: Story
 id: P817
 page: /venues

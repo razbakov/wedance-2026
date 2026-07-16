@@ -1,5 +1,5 @@
 ---
-title: "[P724] Year Planning"
+title: "Year Planning"
 type: Story
 id: P724
 page: /organizers

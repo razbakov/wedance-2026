@@ -1,5 +1,5 @@
 ---
-title: "[P203] First Move To Stage"
+title: "First Move To Stage"
 type: Story
 id: P203
 page: /

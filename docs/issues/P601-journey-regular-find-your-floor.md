@@ -1,5 +1,5 @@
 ---
-title: "[P601] Weekly Floor"
+title: "Weekly Floor"
 type: Story
 id: P601
 page: /

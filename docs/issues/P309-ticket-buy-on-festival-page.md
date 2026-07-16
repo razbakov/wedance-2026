@@ -1,5 +1,5 @@
 ---
-title: "[P309] Ticket On Page"
+title: "Ticket On Page"
 type: Story
 id: P309
 page: /my-plan

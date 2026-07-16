@@ -1,5 +1,5 @@
 ---
-title: "[P209] Europe-Wide Map"
+title: "Europe-Wide Map"
 type: Story
 id: P209
 page: /

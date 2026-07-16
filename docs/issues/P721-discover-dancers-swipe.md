@@ -1,5 +1,5 @@
 ---
-title: "[P721] Swipe to Match"
+title: "Swipe to Match"
 type: Story
 id: P721
 page: /organizers

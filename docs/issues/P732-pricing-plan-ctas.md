@@ -1,5 +1,5 @@
 ---
-title: "[P732] Plan CTAs"
+title: "Plan CTAs"
 type: Task
 id: P732
 page: /organizers

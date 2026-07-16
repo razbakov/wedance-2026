@@ -1,5 +1,5 @@
 ---
-title: "[P301] Next Festival"
+title: "Next Festival"
 type: Task
 id: P301
 page: /

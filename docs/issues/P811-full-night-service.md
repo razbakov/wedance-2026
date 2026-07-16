@@ -1,5 +1,5 @@
 ---
-title: "[P811] End-to-End Night"
+title: "End-to-End Night"
 type: Story
 id: P811
 page: /for-events

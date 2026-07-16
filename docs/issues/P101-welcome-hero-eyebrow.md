@@ -1,5 +1,5 @@
 ---
-title: "[P101] Welcome In"
+title: "Welcome In"
 type: Story
 id: P101
 page: /

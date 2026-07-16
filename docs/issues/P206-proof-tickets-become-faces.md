@@ -1,5 +1,5 @@
 ---
-title: "[P206] No Fake Friends"
+title: "No Fake Friends"
 type: Story
 id: P206
 page: /

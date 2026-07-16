@@ -1,5 +1,5 @@
 ---
-title: "[P316] Early Bird Alert"
+title: "Early Bird Alert"
 type: Story
 id: P316
 page: /my-year

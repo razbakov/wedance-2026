@@ -1,5 +1,5 @@
 ---
-title: "[P401] Free Tasters"
+title: "Free Tasters"
 type: Story
 id: P401
 page: /

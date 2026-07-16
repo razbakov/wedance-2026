@@ -1,5 +1,5 @@
 ---
-title: "[P701] Take the Stage"
+title: "Take the Stage"
 type: Story
 id: P701
 page: /

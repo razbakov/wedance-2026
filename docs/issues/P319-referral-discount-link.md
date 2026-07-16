@@ -1,5 +1,5 @@
 ---
-title: "[P319] Friend's Link"
+title: "Friend's Link"
 type: Story
 id: P319
 page: /my-year

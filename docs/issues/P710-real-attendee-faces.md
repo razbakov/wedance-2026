@@ -1,5 +1,5 @@
 ---
-title: "[P710] Real Faces"
+title: "Real Faces"
 type: Story
 id: P710
 page: /organizers

@@ -1,5 +1,5 @@
 ---
-title: "[P225] Auto-Fill Plan"
+title: "Auto-Fill Plan"
 type: Story
 id: P225
 page: /my-plan

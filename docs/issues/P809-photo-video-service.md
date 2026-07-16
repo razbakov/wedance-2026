@@ -1,5 +1,5 @@
 ---
-title: "[P809] Highlight Reel"
+title: "Highlight Reel"
 type: Story
 id: P809
 page: /for-events

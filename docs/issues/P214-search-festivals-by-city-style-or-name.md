@@ -1,5 +1,5 @@
 ---
-title: "[P214] Festival Search"
+title: "Festival Search"
 type: Story
 id: P214
 page: /festivals

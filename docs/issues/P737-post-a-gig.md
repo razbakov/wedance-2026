@@ -1,5 +1,5 @@
 ---
-title: "[P737] Post a Gig"
+title: "Post a Gig"
 type: Task
 id: P737
 page: /gigs

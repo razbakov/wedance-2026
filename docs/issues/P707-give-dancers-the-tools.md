@@ -1,5 +1,5 @@
 ---
-title: "[P707] Already Planning"
+title: "Already Planning"
 type: Story
 id: P707
 page: /organizers

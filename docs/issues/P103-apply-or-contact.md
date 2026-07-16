@@ -1,5 +1,5 @@
 ---
-title: "[P103] Apply Or Contact"
+title: "Apply Or Contact"
 type: Task
 id: P103
 page: /gigs

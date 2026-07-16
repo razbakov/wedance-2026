@@ -1,5 +1,5 @@
 ---
-title: "[P1005] Kizomba Quick Pick"
+title: "Kizomba Quick Pick"
 type: Story
 id: P1005
 page: /find-your-dance

@@ -1,5 +1,5 @@
 ---
-title: "[P215] Tap Going"
+title: "Tap Going"
 type: Story
 id: P215
 page: /festivals

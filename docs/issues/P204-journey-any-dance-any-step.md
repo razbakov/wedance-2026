@@ -1,5 +1,5 @@
 ---
-title: "[P204] Any Dance, Any Step"
+title: "Any Dance, Any Step"
 type: Story
 id: P204
 page: /

@@ -1,5 +1,5 @@
 ---
-title: "[P702] Host the Night"
+title: "Host the Night"
 type: Story
 id: P702
 page: /

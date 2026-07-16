@@ -1,5 +1,5 @@
 ---
-title: "[P812] Plan, No Forms"
+title: "Plan, No Forms"
 type: Story
 id: P812
 page: /for-events

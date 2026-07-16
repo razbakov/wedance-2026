@@ -1,5 +1,5 @@
 ---
-title: "[P219] Floor Movers"
+title: "Floor Movers"
 type: Story
 id: P219
 page: /artists

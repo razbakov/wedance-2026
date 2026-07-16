@@ -1,5 +1,5 @@
 ---
-title: "[P805] Mojito Bar"
+title: "Mojito Bar"
 type: Story
 id: P805
 page: /for-events

@@ -1,5 +1,5 @@
 ---
-title: "[P708] Where Dancers Are"
+title: "Where Dancers Are"
 type: Story
 id: P708
 page: /organizers

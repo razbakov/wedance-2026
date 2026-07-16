@@ -1,5 +1,5 @@
 ---
-title: "[P727] Audience Geography"
+title: "Audience Geography"
 type: Story
 id: P727
 page: /organizers

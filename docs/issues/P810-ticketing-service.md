@@ -1,5 +1,5 @@
 ---
-title: "[P810] Run the Door"
+title: "Run the Door"
 type: Story
 id: P810
 page: /for-events

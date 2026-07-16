@@ -1,5 +1,5 @@
 ---
-title: "[P734] Free to List"
+title: "Free to List"
 type: Story
 id: P734
 page: /organizers

@@ -1,5 +1,5 @@
 ---
-title: "[P706] Ticket With Us"
+title: "Ticket With Us"
 type: Task
 id: P706
 page: /

@@ -1,5 +1,5 @@
 ---
-title: "[P719] Interactive Schedule"
+title: "Interactive Schedule"
 type: Story
 id: P719
 page: /organizers

@@ -1,5 +1,5 @@
 ---
-title: "[P807] Your BPM"
+title: "Your BPM"
 type: Story
 id: P807
 page: /for-events

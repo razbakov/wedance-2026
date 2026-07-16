@@ -1,5 +1,5 @@
 ---
-title: "[P235] Track Your Year"
+title: "Track Your Year"
 type: Story
 id: P235
 page: /my-year

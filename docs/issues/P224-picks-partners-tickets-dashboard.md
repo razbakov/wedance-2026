@@ -1,5 +1,5 @@
 ---
-title: "[P224] One Dashboard"
+title: "One Dashboard"
 type: Story
 id: P224
 page: /my-plan

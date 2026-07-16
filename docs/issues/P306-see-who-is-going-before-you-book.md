@@ -1,5 +1,5 @@
 ---
-title: "[P306] See Before Booking"
+title: "See Before Booking"
 type: Story
 id: P306
 page: /festivals

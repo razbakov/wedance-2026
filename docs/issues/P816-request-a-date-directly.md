@@ -1,5 +1,5 @@
 ---
-title: "[P816] Request a Date"
+title: "Request a Date"
 type: Story
 id: P816
 page: /venues

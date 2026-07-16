@@ -1,5 +1,5 @@
 ---
-title: "[P733] List in Minutes"
+title: "List in Minutes"
 type: Story
 id: P733
 page: /organizers

@@ -1,5 +1,5 @@
 ---
-title: "[P729] Starter Free"
+title: "Starter Free"
 type: Story
 id: P729
 page: /organizers
