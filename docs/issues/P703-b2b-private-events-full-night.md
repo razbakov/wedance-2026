@@ -1,5 +1,5 @@
 ---
-title: "Home B2B: Private events, whole night supplied"
+title: "[P703] Whole Night Supplied"
 type: Story
 id: P703
 page: /

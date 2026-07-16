@@ -1,5 +1,5 @@
 ---
-title: "Insights: Post-festival signal"
+title: "[P728] Post-Festival Signal"
 type: Story
 id: P728
 page: /organizers

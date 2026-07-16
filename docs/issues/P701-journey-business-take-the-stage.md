@@ -1,5 +1,5 @@
 ---
-title: "Home Journey: Take the stage as teacher, DJ, host or venue"
+title: "[P701] Take the Stage"
 type: Story
 id: P701
 page: /

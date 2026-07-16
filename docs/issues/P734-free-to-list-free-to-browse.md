@@ -1,5 +1,5 @@
 ---
-title: "Organizer Onboarding: Free to list and free to browse"
+title: "[P734] Free to List"
 type: Story
 id: P734
 page: /organizers

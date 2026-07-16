@@ -1,5 +1,5 @@
 ---
-title: "Organizer Pricing: List for free on the Starter plan"
+title: "[P729] Starter Free"
 type: Story
 id: P729
 page: /organizers

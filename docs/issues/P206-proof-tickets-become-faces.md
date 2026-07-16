@@ -1,5 +1,5 @@
 ---
-title: "Home Proof: Every ticket becomes a real face, no fake friends"
+title: "[P206] No Fake Friends"
 type: Story
 id: P206
 page: /

@@ -1,5 +1,5 @@
 ---
-title: "Home Journey: Regular finds their weekly floor"
+title: "[P601] Weekly Floor"
 type: Story
 id: P601
 page: /

@@ -1,5 +1,5 @@
 ---
-title: "Tonight: See who's out dancing live"
+title: "[P232] Who's Out Tonight"
 type: Story
 id: P232
 page: /my-plan

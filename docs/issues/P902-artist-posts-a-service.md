@@ -1,5 +1,5 @@
 ---
-title: "Gigs: Artist posts a service"
+title: "[P902] Offer a Service"
 type: Story
 id: P902
 page: /gigs

@@ -1,5 +1,5 @@
 ---
-title: "Shared Year: Offer to be their partner"
+title: "[P236] Be Their Partner"
 type: Story
 id: P236
 page: /my-year

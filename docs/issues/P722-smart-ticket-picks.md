@@ -1,5 +1,5 @@
 ---
-title: "Toolkit: Smart ticket picks"
+title: "[P722] Smart Ticket Picks"
 type: Story
 id: P722
 page: /organizers

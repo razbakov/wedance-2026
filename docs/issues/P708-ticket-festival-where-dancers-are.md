@@ -1,5 +1,5 @@
 ---
-title: "Organizer landing: Ticket where the dancers are"
+title: "[P708] Where Dancers Are"
 type: Story
 id: P708
 page: /organizers

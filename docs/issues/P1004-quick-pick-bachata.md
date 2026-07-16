@@ -1,5 +1,5 @@
 ---
-title: "Find your dance: Bachata quick pick"
+title: "[P1004] Bachata Quick Pick"
 type: Story
 id: P1004
 page: /find-your-dance

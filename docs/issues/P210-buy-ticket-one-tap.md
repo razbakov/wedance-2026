@@ -1,5 +1,5 @@
 ---
-title: "Ticketing: Buy a festival ticket in one tap"
+title: "[P210] One-Tap Ticket"
 type: Story
 id: P210
 page: /

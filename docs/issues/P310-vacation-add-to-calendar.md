@@ -1,5 +1,5 @@
 ---
-title: "Vacation: Add festival dates to calendar"
+title: "[P310] Book Vacation"
 type: Story
 id: P310
 page: /my-plan

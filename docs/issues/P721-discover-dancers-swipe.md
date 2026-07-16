@@ -1,5 +1,5 @@
 ---
-title: "Toolkit: Discover dancers by swipe"
+title: "[P721] Swipe to Match"
 type: Story
 id: P721
 page: /organizers

@@ -1,5 +1,5 @@
 ---
-title: "Discover: Widen your year with new people and places"
+title: "[P313] Widen Your Year"
 type: Story
 id: P313
 page: /my-plan

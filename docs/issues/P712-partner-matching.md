@@ -1,5 +1,5 @@
 ---
-title: "Toolkit: Partner matching"
+title: "[P712] Partner Matching"
 type: Story
 id: P712
 page: /organizers

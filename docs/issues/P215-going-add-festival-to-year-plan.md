@@ -1,5 +1,5 @@
 ---
-title: "Festivals: Add a festival to your year plan with Going"
+title: "[P215] Tap Going"
 type: Story
 id: P215
 page: /festivals

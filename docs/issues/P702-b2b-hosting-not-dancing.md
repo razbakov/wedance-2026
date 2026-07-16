@@ -1,5 +1,5 @@
 ---
-title: "Home B2B: Help for people hosting the night, not dancing at it"
+title: "[P702] Host the Night"
 type: Story
 id: P702
 page: /

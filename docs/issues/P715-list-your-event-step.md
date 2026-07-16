@@ -1,5 +1,5 @@
 ---
-title: "How it works: List your event"
+title: "[P715] List Your Event"
 type: Story
 id: P715
 page: /organizers

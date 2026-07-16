@@ -1,5 +1,5 @@
 ---
-title: "Home Journey: Traveler finds festivals with attendees mapped"
+title: "[P303] Festivals Mapped"
 type: Story
 id: P303
 page: /

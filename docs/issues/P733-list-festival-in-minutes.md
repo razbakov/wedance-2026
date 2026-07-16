@@ -1,5 +1,5 @@
 ---
-title: "Organizer Onboarding: List a festival in minutes"
+title: "[P733] List in Minutes"
 type: Story
 id: P733
 page: /organizers

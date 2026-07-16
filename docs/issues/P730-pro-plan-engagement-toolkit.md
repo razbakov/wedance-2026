@@ -1,5 +1,5 @@
 ---
-title: "Organizer Pricing: Upgrade to Pro for the full engagement toolkit"
+title: "[P730] Pro Toolkit"
 type: Story
 id: P730
 page: /organizers

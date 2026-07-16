@@ -1,5 +1,5 @@
 ---
-title: "Home Journey: Whatever the dance, whichever step you're on"
+title: "[P204] Any Dance, Any Step"
 type: Story
 id: P204
 page: /

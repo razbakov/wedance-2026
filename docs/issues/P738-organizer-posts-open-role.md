@@ -1,5 +1,5 @@
 ---
-title: "Gigs: Organizer posts an open role"
+title: "[P738] Help Wanted"
 type: Story
 id: P738
 page: /gigs

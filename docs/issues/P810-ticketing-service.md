@@ -1,5 +1,5 @@
 ---
-title: "Ticketing service: Sell tickets and run the door"
+title: "[P810] Run the Door"
 type: Story
 id: P810
 page: /for-events

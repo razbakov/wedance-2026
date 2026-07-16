@@ -1,5 +1,5 @@
 ---
-title: "Tickets: Get early-bird expiry alerts"
+title: "[P316] Early Bird Alert"
 type: Story
 id: P316
 page: /my-year

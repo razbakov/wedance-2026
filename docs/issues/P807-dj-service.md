@@ -1,5 +1,5 @@
 ---
-title: "DJ service: Add a DJ for your dance styles"
+title: "[P807] Your BPM"
 type: Story
 id: P807
 page: /for-events

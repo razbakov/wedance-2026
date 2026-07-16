@@ -1,5 +1,5 @@
 ---
-title: "Event request: Tell us about your event"
+title: "[P814] Tell Us More"
 type: Task
 id: P814
 page: /for-events

@@ -1,5 +1,5 @@
 ---
-title: "Show dancers: Add a performance or first-dance choreo"
+title: "[P808] Show Dancers"
 type: Story
 id: P808
 page: /for-events

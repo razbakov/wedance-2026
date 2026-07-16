@@ -1,5 +1,5 @@
 ---
-title: "Event proposal: Get a shareable plan back, no forms"
+title: "[P812] Plan, No Forms"
 type: Story
 id: P812
 page: /for-events

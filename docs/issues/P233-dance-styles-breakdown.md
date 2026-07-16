@@ -1,5 +1,5 @@
 ---
-title: "My Year: See my dance styles breakdown"
+title: "[P233] Styles Breakdown"
 type: Story
 id: P233
 page: /my-year

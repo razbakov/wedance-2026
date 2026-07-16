@@ -1,5 +1,5 @@
 ---
-title: "My Plan: Picks, partners and tickets in one dashboard"
+title: "[P224] One Dashboard"
 type: Story
 id: P224
 page: /my-plan

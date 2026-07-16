@@ -1,5 +1,5 @@
 ---
-title: "Social arrival: Arrive already knowing people"
+title: "[P305] Arrive With Friends"
 type: Story
 id: P305
 page: /

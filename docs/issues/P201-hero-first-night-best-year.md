@@ -1,5 +1,5 @@
 ---
-title: "Home Hero: Promise a journey from first night to best year"
+title: "[P201] First Night, Best Year"
 type: Story
 id: P201
 page: /

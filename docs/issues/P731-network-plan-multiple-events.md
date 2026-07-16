@@ -1,5 +1,5 @@
 ---
-title: "Organizer Pricing: Choose the Network plan for multiple events"
+title: "[P731] Network Plan"
 type: Story
 id: P731
 page: /organizers

@@ -1,5 +1,5 @@
 ---
-title: "Checkout: One-tap checkout"
+title: "[P713] One-Tap Checkout"
 type: Story
 id: P713
 page: /organizers

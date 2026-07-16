@@ -1,5 +1,5 @@
 ---
-title: "Festivals: List your festival free with ticketing on us"
+title: "[P735] Ticketing On Us"
 type: Story
 id: P735
 page: /festivals

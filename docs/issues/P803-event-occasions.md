@@ -1,5 +1,5 @@
 ---
-title: "Occasions: Book a dance night for any occasion"
+title: "[P803] Any Occasion"
 type: Story
 id: P803
 page: /for-events

@@ -1,5 +1,5 @@
 ---
-title: "Toolkit: Get discovered in year planning"
+title: "[P724] Year Planning"
 type: Story
 id: P724
 page: /organizers

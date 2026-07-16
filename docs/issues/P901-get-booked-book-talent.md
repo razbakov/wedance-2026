@@ -1,5 +1,5 @@
 ---
-title: "Gigs: Get booked and book talent"
+title: "[P901] Get Booked"
 type: Story
 id: P901
 page: /gigs

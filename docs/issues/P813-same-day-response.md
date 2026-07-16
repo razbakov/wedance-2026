@@ -1,5 +1,5 @@
 ---
-title: "Response time: Expect a same-day reply"
+title: "[P813] Same-Day Reply"
 type: Story
 id: P813
 page: /for-events

@@ -1,5 +1,5 @@
 ---
-title: "Festivals: Pick your next festival and plan the year"
+title: "[P213] Plan the Year"
 type: Story
 id: P213
 page: /festivals

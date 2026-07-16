@@ -1,5 +1,5 @@
 ---
-title: "Home Journey: Seeker finds their dance with free tasters"
+title: "[P401] Free Tasters"
 type: Story
 id: P401
 page: /

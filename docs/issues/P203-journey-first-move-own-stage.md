@@ -1,5 +1,5 @@
 ---
-title: "Home Journey: From first move to your own stage"
+title: "[P203] First Move To Stage"
 type: Story
 id: P203
 page: /

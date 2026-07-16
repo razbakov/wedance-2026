@@ -1,5 +1,5 @@
 ---
-title: "My Year: Sign up to track your dance year"
+title: "[P235] Track Your Year"
 type: Story
 id: P235
 page: /my-year

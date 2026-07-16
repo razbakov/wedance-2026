@@ -1,5 +1,5 @@
 ---
-title: "How it works: From listing to insights"
+title: "[P714] Listing to Insights"
 type: Story
 id: P714
 page: /organizers

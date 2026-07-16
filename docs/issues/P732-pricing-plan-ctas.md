@@ -1,5 +1,5 @@
 ---
-title: "Organizer Pricing: Act on each plan from its call to action"
+title: "[P732] Plan CTAs"
 type: Task
 id: P732
 page: /organizers

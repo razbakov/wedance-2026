@@ -1,5 +1,5 @@
 ---
-title: "Referral: Buy a ticket through a friend's link for a discount"
+title: "[P319] Friend's Link"
 type: Story
 id: P319
 page: /my-year

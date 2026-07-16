@@ -1,5 +1,5 @@
 ---
-title: "My Year: See festivals, workshops, and countries at a glance"
+title: "[P315] Year Snapshot"
 type: Story
 id: P315
 page: /my-year

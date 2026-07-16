@@ -1,5 +1,5 @@
 ---
-title: "Gigs: Open roles and artist services"
+title: "[P102] Roles & Services"
 type: Story
 id: P102
 page: /gigs

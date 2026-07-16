@@ -1,5 +1,5 @@
 ---
-title: "Partner: Find a dance partner for a festival"
+title: "[P229] Find a Partner"
 type: Story
 id: P229
 page: /my-plan

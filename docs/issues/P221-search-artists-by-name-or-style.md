@@ -1,5 +1,5 @@
 ---
-title: "Artists: Search by name or style"
+title: "[P221] Artist Search"
 type: Story
 id: P221
 page: /artists

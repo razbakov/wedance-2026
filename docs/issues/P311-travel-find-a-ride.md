@@ -1,5 +1,5 @@
 ---
-title: "Travel: Find a ride to a festival"
+title: "[P311] Find A Ride"
 type: Story
 id: P311
 page: /my-plan

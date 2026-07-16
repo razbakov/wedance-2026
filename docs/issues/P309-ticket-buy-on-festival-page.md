@@ -1,5 +1,5 @@
 ---
-title: "My Plan: Buy tickets on the festival page"
+title: "[P309] Ticket On Page"
 type: Story
 id: P309
 page: /my-plan

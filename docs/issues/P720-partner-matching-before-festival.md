@@ -1,5 +1,5 @@
 ---
-title: "Toolkit: Leads and follows match early"
+title: "[P720] Partner Matching"
 type: Story
 id: P720
 page: /organizers

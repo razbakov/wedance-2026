@@ -1,5 +1,5 @@
 ---
-title: "My Plan: Every festival plus this week's action"
+title: "[P223] One Place"
 type: Story
 id: P223
 page: /my-plan

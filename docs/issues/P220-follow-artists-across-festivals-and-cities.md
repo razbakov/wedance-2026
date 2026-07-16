@@ -1,5 +1,5 @@
 ---
-title: "Artists: Follow teachers, DJs, and performers across festivals and cities"
+title: "[P220] Follow Artists"
 type: Story
 id: P220
 page: /artists

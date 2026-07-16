@@ -1,5 +1,5 @@
 ---
-title: "Find your dance: Not sure where to start"
+title: "[P1001] Where To Start"
 type: Story
 id: P1001
 page: /find-your-dance

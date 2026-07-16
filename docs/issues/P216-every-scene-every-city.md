@@ -1,5 +1,5 @@
 ---
-title: "Cities: Every scene, every city"
+title: "[P216] Every City"
 type: Story
 id: P216
 page: /cities

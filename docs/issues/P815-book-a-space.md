@@ -1,5 +1,5 @@
 ---
-title: "Venues: Book a space"
+title: "[P815] Book a Space"
 type: Story
 id: P815
 page: /venues

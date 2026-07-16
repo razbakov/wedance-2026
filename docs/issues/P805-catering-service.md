@@ -1,5 +1,5 @@
 ---
-title: "Catering service: Add food and drinks to the event"
+title: "[P805] Mojito Bar"
 type: Story
 id: P805
 page: /for-events

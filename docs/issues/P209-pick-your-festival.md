@@ -1,5 +1,5 @@
 ---
-title: "Festival discovery: Pick from a Europe-wide map"
+title: "[P209] Europe-Wide Map"
 type: Story
 id: P209
 page: /

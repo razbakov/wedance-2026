@@ -1,5 +1,5 @@
 ---
-title: "Insights: Style and level mix"
+title: "[P726] Style & Level Mix"
 type: Story
 id: P726
 page: /organizers

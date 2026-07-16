@@ -1,5 +1,5 @@
 ---
-title: "Home Hero: Welcome visitors into the dance world"
+title: "[P101] Welcome In"
 type: Story
 id: P101
 page: /

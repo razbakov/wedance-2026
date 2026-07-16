@@ -1,5 +1,5 @@
 ---
-title: "My Year: See my year in numbers"
+title: "[P317] Year In Numbers"
 type: Story
 id: P317
 page: /my-year

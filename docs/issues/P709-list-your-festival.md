@@ -1,5 +1,5 @@
 ---
-title: "Organizer CTA: List your festival"
+title: "[P709] List Your Festival"
 type: Task
 id: P709
 page: /organizers

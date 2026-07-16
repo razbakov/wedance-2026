@@ -1,5 +1,5 @@
 ---
-title: "Event production: Host a dance night without dancing at it"
+title: "[P801] Host, Don't Dance"
 type: Story
 id: P801
 page: /for-events

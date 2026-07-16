@@ -1,5 +1,5 @@
 ---
-title: "Organizer tools: Reach dancers already planning trips"
+title: "[P707] Already Planning"
 type: Story
 id: P707
 page: /organizers

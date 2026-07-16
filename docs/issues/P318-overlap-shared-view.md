@@ -1,5 +1,5 @@
 ---
-title: "Shared Year: See festivals you overlap on"
+title: "[P318] Festival Overlap"
 type: Story
 id: P318
 page: /my-year

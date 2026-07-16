@@ -1,5 +1,5 @@
 ---
-title: "Home B2B: Festival organizers get ticketing, promo and real faces"
+title: "[P705] Ticket Your Festival"
 type: Story
 id: P705
 page: /

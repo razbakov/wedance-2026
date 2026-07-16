@@ -1,5 +1,5 @@
 ---
-title: "Home Hero: Find your next festival button"
+title: "[P301] Next Festival"
 type: Task
 id: P301
 page: /

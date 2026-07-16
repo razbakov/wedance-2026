@@ -1,5 +1,5 @@
 ---
-title: "Socials: See this week's socials you're dancing at"
+title: "[P231] Where You Dance"
 type: Story
 id: P231
 page: /my-plan

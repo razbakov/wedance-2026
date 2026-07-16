@@ -1,5 +1,5 @@
 ---
-title: "Attendee list: See who else is going, opt-in only"
+title: "[P211] Opt-In Attendees"
 type: Story
 id: P211
 page: /

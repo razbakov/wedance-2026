@@ -1,5 +1,5 @@
 ---
-title: "Festivals: Search by city, style, or festival"
+title: "[P214] Festival Search"
 type: Story
 id: P214
 page: /festivals

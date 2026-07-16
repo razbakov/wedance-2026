@@ -1,5 +1,5 @@
 ---
-title: "MC service: Add a bilingual host to the event"
+title: "[P806] Bilingual MC"
 type: Story
 id: P806
 page: /for-events

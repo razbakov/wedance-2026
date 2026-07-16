@@ -1,5 +1,5 @@
 ---
-title: "Find your dance: Dance-match quiz"
+title: "[P1002] Dance-Match Quiz"
 type: Story
 id: P1002
 page: /find-your-dance

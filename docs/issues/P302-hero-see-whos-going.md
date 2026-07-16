@@ -1,5 +1,5 @@
 ---
-title: "Home Hero: See who's going before you book"
+title: "[P302] Who's Going"
 type: Story
 id: P302
 page: /

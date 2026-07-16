@@ -1,5 +1,5 @@
 ---
-title: "Venues: Request a date directly from a dance-ready venue"
+title: "[P816] Request a Date"
 type: Story
 id: P816
 page: /venues

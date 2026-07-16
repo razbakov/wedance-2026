@@ -1,5 +1,5 @@
 ---
-title: "Cities: List your class or weekly social for free"
+title: "[P736] List Your Social"
 type: Story
 id: P736
 page: /cities

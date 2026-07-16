@@ -1,5 +1,5 @@
 ---
-title: "My Year: See my 2026 dance year"
+title: "[P314] My 2026 Year"
 type: Story
 id: P314
 page: /my-year

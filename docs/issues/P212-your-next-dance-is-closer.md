@@ -1,5 +1,5 @@
 ---
-title: "Final CTA: Start finding your next dance"
+title: "[P212] Closer Than You Think"
 type: Story
 id: P212
 page: /

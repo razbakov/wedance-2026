@@ -1,5 +1,5 @@
 ---
-title: "Home Journey: Student finds their teacher via real profiles"
+title: "[P501] Find Your Teacher"
 type: Story
 id: P501
 page: /

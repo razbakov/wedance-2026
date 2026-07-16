@@ -1,5 +1,5 @@
 ---
-title: "Trip planning: Organize dinners, rides and partners together"
+title: "[P304] Plan Together"
 type: Story
 id: P304
 page: /

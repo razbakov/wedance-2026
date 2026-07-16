@@ -1,5 +1,5 @@
 ---
-title: "My Plan: Year at a glance"
+title: "[P308] Year At A Glance"
 type: Story
 id: P308
 page: /my-plan

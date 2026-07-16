@@ -1,5 +1,5 @@
 ---
-title: "How it works: Plans drive tickets"
+title: "[P717] Plans Drive Tickets"
 type: Story
 id: P717
 page: /organizers

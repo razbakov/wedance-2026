@@ -1,5 +1,5 @@
 ---
-title: "Toolkit: Plan sharing as invitation"
+title: "[P723] Share as Invite"
 type: Story
 id: P723
 page: /organizers

@@ -1,5 +1,5 @@
 ---
-title: "Full production: One team builds the whole night"
+title: "[P802] Whole Floor"
 type: Story
 id: P802
 page: /for-events

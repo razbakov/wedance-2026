@@ -1,5 +1,5 @@
 ---
-title: "Home How It Works: Five steps, no surprises"
+title: "[P208] Five Steps"
 type: Story
 id: P208
 page: /

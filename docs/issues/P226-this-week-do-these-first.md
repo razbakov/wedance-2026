@@ -1,5 +1,5 @@
 ---
-title: "My Plan: This week, do these first"
+title: "[P226] Do These First"
 type: Story
 id: P226
 page: /my-plan

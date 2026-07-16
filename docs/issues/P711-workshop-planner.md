@@ -1,5 +1,5 @@
 ---
-title: "Toolkit: Workshop planner"
+title: "[P711] Workshop Planner"
 type: Story
 id: P711
 page: /organizers

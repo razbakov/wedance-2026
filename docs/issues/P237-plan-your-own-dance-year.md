@@ -1,5 +1,5 @@
 ---
-title: "My Year: Plan your own dance year"
+title: "[P237] Plan Your Year"
 type: Story
 id: P237
 page: /my-year

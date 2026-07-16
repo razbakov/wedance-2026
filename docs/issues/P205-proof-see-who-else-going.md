@@ -1,5 +1,5 @@
 ---
-title: "Home Proof: See who else is going"
+title: "[P205] Who's Going"
 type: Story
 id: P205
 page: /

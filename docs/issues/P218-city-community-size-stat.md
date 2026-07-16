@@ -1,5 +1,5 @@
 ---
-title: "Cities: See real community size per city"
+title: "[P218] Real Numbers"
 type: Story
 id: P218
 page: /cities

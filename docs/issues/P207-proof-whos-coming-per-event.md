@@ -1,5 +1,5 @@
 ---
-title: "Home Proof: Who's coming shown per event"
+title: "[P207] Per-Event Attendees"
 type: Story
 id: P207
 page: /

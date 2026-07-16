@@ -1,5 +1,5 @@
 ---
-title: "Home B2B: Book us for your event button"
+title: "[P704] Book Us"
 type: Task
 id: P704
 page: /

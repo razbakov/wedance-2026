@@ -1,5 +1,5 @@
 ---
-title: "Courses: See this month's courses you attend"
+title: "[P230] Where You Show Up"
 type: Story
 id: P230
 page: /my-plan
