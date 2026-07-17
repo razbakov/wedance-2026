@@ -5,7 +5,7 @@
  * community votes on a timestamped, attributable, editable-with-history ledger,
  * and the winner's guidelines become the space's active ruleset.
  */
-import { ShieldCheck, ArrowLeft, Check, ScrollText, Clock, History, Trophy, Users, Plus } from 'lucide-vue-next'
+import { ShieldCheck, ArrowLeft, Check, X, ScrollText, Clock, History, Trophy, Users, Plus, Inbox, Calendar } from 'lucide-vue-next'
 
 definePageMeta({ layout: false })
 
@@ -20,6 +20,7 @@ const notFound = ref(false)
 const profile = ref<any>(null)
 const data = ref<any>(null)         // election.forProfile result
 const mine = ref<any>(null)         // election.myVote result
+const queue = ref<any[]>([])        // G804: pending free-booking requests (steward)
 const showAuth = ref(false)
 const busy = ref('')                // id of the in-flight action, for button state
 const err = ref('')
@@ -46,9 +47,25 @@ async function resolve() {
     if (!pro) { notFound.value = true; pending.value = false; return }
     profile.value = pro.profile
     await loadElection()
+    if (isSteward.value) await loadQueue()
   } catch { notFound.value = true }
   pending.value = false
 }
+
+// G804 — the elected moderator's free-booking queue.
+async function loadQueue() {
+  try { queue.value = await $trpc.election.pendingBookings.query({ profileId: profile.value.id }) }
+  catch { queue.value = [] }
+}
+async function moderateBooking(id: string, action: 'accept' | 'decline') {
+  busy.value = id
+  try {
+    await $trpc.election.moderateBooking.mutate({ bookingId: id, action })
+    await loadQueue()
+  } catch (e: any) { err.value = e?.message || 'Could not update that request.' }
+  busy.value = ''
+}
+function fmtDate(d: any) { if (!d) return 'Date TBD'; try { return new Date(d).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) } catch { return String(d) } }
 
 async function loadElection() {
   data.value = await $trpc.election.forProfile.query({ profileId: profile.value.id })
@@ -121,7 +138,10 @@ function candName(id: string) { return candidates.value.find(c => c.id === id)?.
 const phaseLabel: Record<string, string> = { nominations: 'Nominations open', voting: 'Voting open', closed: 'Closed', none: 'Not started' }
 const phaseColor: Record<string, string> = { nominations: '#9a5614', voting: '#16a34a', closed: '#5b3a1d', none: '#9a5614' }
 
-watch(isSignedIn, () => { if (election.value) loadElection() })
+watch(isSignedIn, async () => {
+  if (election.value) await loadElection()
+  if (isSteward.value) await loadQueue(); else queue.value = []
+})
 onMounted(resolve)
 </script>
 
@@ -271,6 +291,33 @@ onMounted(resolve)
             <span style="color:#5b3a1d;">→ {{ candName(v.candidateId) }}</span>
             <span v-if="v.changed" class="text-[10px] font-bold uppercase rounded-full px-1.5 py-0.5" style="background:#9a561418; color:#9a5614;">changed</span>
             <span class="ml-auto text-xs" style="color:#9a5614;">{{ fmt(v.votedAt) }}</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Booking queue (G804) — the elected moderator approves/declines free bookings -->
+      <section v-if="isSteward" class="max-w-2xl mx-auto px-4 py-4" style="font-family: system-ui, sans-serif;">
+        <h2 class="text-xs uppercase tracking-[0.28em] font-bold mb-1" style="color:#9a5614;">Booking queue</h2>
+        <p class="text-xs mb-3" style="color:#5b3a1d;">Pending requests for the free floor. Approve against the active guidelines — accepted slots show up in the space's schedule.</p>
+        <div v-if="!queue.length" class="rounded-2xl bg-white border p-6 text-center text-sm" style="border-color:#dc262633; color:#9a5614;">
+          <Inbox class="w-6 h-6 mx-auto mb-2" style="color:#9a561466;" /> No pending requests.
+        </div>
+        <div v-else class="space-y-3">
+          <div v-for="b in queue" :key="b.id" class="rounded-2xl bg-white border p-4" style="border-color:#dc262633;">
+            <div class="flex items-start gap-3">
+              <div class="min-w-0 flex-1">
+                <div class="font-bold" style="color:#3b1f0d;">{{ b.title || 'Untitled event' }}<span v-if="b.eventType" class="ml-2 text-[10px] font-bold uppercase tracking-wider rounded-full px-2 py-0.5" style="background:#dc262614; color:#dc2626;">{{ b.eventType }}</span></div>
+                <div class="flex flex-wrap gap-x-4 gap-y-0.5 mt-1 text-xs" style="color:#9a5614;">
+                  <span class="inline-flex items-center gap-1"><Calendar class="w-3 h-3" /> {{ fmtDate(b.eventDate) }}<span v-if="b.startTime"> · {{ b.startTime }}<span v-if="b.endTime">–{{ b.endTime }}</span></span></span>
+                  <span v-if="b.requesterName || b.requesterEmail" class="inline-flex items-center gap-1"><Users class="w-3 h-3" /> {{ b.requesterName || b.requesterEmail }}</span>
+                </div>
+                <p v-if="b.message" class="text-sm mt-2" style="color:#5b3a1d;">{{ b.message }}</p>
+              </div>
+            </div>
+            <div class="flex gap-2 mt-3">
+              <button :disabled="busy===b.id" class="inline-flex items-center gap-1 rounded-full px-4 py-1.5 text-sm font-bold text-white disabled:opacity-50" style="background:#16a34a;" @click="moderateBooking(b.id, 'accept')"><Check class="w-3.5 h-3.5" /> Approve</button>
+              <button :disabled="busy===b.id" class="inline-flex items-center gap-1 rounded-full px-4 py-1.5 text-sm font-bold disabled:opacity-50" style="background:#dc262614; color:#dc2626; border:1px solid #dc262633;" @click="moderateBooking(b.id, 'decline')"><X class="w-3.5 h-3.5" /> Decline</button>
+            </div>
           </div>
         </div>
       </section>
