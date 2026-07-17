@@ -2,6 +2,7 @@
 title: "Locals Recommend"
 type: Story
 id: WED-157
+p: E805
 source_github: "razbakov/wedance-2026#51"
 linear_url: https://linear.app/wedance/issue/WED-157
 audience: All

@@ -2,6 +2,7 @@
 title: "Artist's Events"
 type: Story
 id: WED-161
+p: E809
 source_github: "razbakov/wedance-2026#61"
 linear_url: https://linear.app/wedance/issue/WED-161
 audience: Artist

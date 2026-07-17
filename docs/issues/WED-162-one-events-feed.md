@@ -2,6 +2,7 @@
 title: "One Events Feed"
 type: Story
 id: WED-162
+p: E810
 source_github: "razbakov/wedance-2026#63"
 linear_url: https://linear.app/wedance/issue/WED-162
 audience: Regular

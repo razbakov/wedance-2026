@@ -2,6 +2,7 @@
 title: "Erase My Account"
 type: Story
 id: WED-155
+p: E803
 source_github: "razbakov/wedance-2026#48"
 linear_url: https://linear.app/wedance/issue/WED-155
 audience: All

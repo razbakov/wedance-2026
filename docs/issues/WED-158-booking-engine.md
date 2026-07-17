@@ -2,6 +2,7 @@
 title: "Booking Engine"
 type: Story
 id: WED-158
+p: E806
 source_github: "razbakov/wedance-2026#56"
 linear_url: https://linear.app/wedance/issue/WED-158
 audience: Organizer

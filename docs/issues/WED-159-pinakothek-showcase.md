@@ -2,6 +2,7 @@
 title: "Pinakothek Showcase"
 type: Story
 id: WED-159
+p: E807
 source_github: "razbakov/wedance-2026#57"
 linear_url: https://linear.app/wedance/issue/WED-159
 audience: Organizer

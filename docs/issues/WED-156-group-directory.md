@@ -2,6 +2,7 @@
 title: "Group Directory"
 type: Story
 id: WED-156
+p: E804
 source_github: "razbakov/wedance-2026#50"
 linear_url: https://linear.app/wedance/issue/WED-156
 audience: All

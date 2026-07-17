@@ -2,6 +2,7 @@
 title: "Year, Saved"
 type: Story
 id: WED-154
+p: E802
 source_github: "razbakov/wedance-2026#47"
 linear_url: https://linear.app/wedance/issue/WED-154
 audience: Traveler

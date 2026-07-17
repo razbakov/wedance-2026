@@ -2,6 +2,7 @@
 title: "Booking Terms"
 type: Story
 id: WED-160
+p: E808
 source_github: "razbakov/wedance-2026#58"
 linear_url: https://linear.app/wedance/issue/WED-160
 audience: Organizer
