@@ -167,6 +167,9 @@ useHead(() => ({
             <div v-if="profile.moderatorName" class="mt-4 flex items-center gap-1.5 text-xs" style="color:#9a5614; font-family: system-ui, sans-serif;">
               <ShieldCheck class="w-3.5 h-3.5" /> Moderated by the {{ profile.moderatorName }}<span v-if="profile.moderatorSince"> · since {{ profile.moderatorSince }}</span>
             </div>
+            <NuxtLink v-if="isFree" :to="`/elections/${handle}`" class="mt-2 inline-flex items-center gap-1.5 text-xs font-bold" style="color:#dc2626; font-family: system-ui, sans-serif;">
+              <ShieldCheck class="w-3.5 h-3.5" /> {{ profile.moderatorName ? 'Moderator election' : 'Elect a moderator' }} →
+            </NuxtLink>
           </div>
         </div>
       </section>

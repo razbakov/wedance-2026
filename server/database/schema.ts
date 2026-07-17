@@ -325,6 +325,12 @@ export const bookingRequests = pgTable('booking_requests', {
   ticketUrl: text('ticket_url'),
   termsAcceptedAt: timestamp('terms_accepted_at'),
   status: text('status').notNull().default('pending').$type<'pending' | 'accepted' | 'declined'>(),
+  // Free/OpenAir commons only (G804): the elected moderator approves/declines
+  // requests against the active guidelines. Who decided, when, and an optional
+  // note back to the requester. Null on commercial venues (decided off-platform).
+  moderatedById: uuid('moderated_by_id').references(() => dancers.id),
+  moderatedAt: timestamp('moderated_at'),
+  moderationNote: text('moderation_note'),
   createdAt: timestamp('created_at').defaultNow(),
 })
 
@@ -343,3 +349,88 @@ export const festivalSubmissions = pgTable('festival_submissions', {
   status: text('status').notNull().default('pending').$type<'pending' | 'reviewing' | 'onboarded' | 'declined'>(),
   createdAt: timestamp('created_at').defaultNow(),
 })
+
+// --- Moderator elections (community governance for free/OpenAir commons) ------
+// Epic G800 (WED-152): a free space's moderator is elected annually. Candidates
+// self-nominate and propose the guidelines the space runs by; the community votes
+// on an OPEN, verifiable ledger (timestamped, attributable, editable-with-history);
+// the winner's guidelines become the active ruleset the moderator enforces on the
+// free-booking queue. Replaces the flat profiles.moderator* fields.
+
+// The election itself + its lifecycle (G801). One active (non-closed) election
+// per profile is enforced in the router.
+export const moderatorElections = pgTable('moderator_elections', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  profileId: uuid('profile_id').notNull().references(() => profiles.id),
+  status: text('status').notNull().default('nominations').$type<'nominations' | 'voting' | 'closed'>(),
+  // The one-year term the winner will serve.
+  termStart: date('term_start'),
+  termEnd: date('term_end'),
+  // Phase transitions, each timestamped.
+  nominationsOpenAt: timestamp('nominations_open_at').defaultNow(),
+  votingOpenAt: timestamp('voting_open_at'),
+  closesAt: timestamp('closes_at'), // planned close (informational)
+  closedAt: timestamp('closed_at'), // actual close
+  // Set on close. No FK (would create a cycle with electionCandidates.electionId).
+  winnerCandidateId: uuid('winner_candidate_id'),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (t) => [
+  index('moderator_elections_profile_idx').on(t.profileId),
+])
+
+// A self-nominated candidate + the guidelines they run on (G802). One candidacy
+// per dancer per election; a real (verified) profile is required — enforced in
+// the router by requiring the dancer to have a username.
+export const electionCandidates = pgTable('election_candidates', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  electionId: uuid('election_id').notNull().references(() => moderatorElections.id),
+  dancerId: uuid('dancer_id').notNull().references(() => dancers.id),
+  guidelines: text('guidelines').notNull(),
+  statement: text('statement'), // optional short pitch
+  createdAt: timestamp('created_at').defaultNow(),
+}, (t) => [
+  unique('election_candidates_unique').on(t.electionId, t.dancerId),
+])
+
+// The CURRENT vote per voter — one row per (election, voter), upserted on change
+// (G803). One real profile = one vote (G801 anti-stuffing). The tally uses this
+// table (latest vote per voter); the full trail lives in electionVoteHistory.
+export const electionVotes = pgTable('election_votes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  electionId: uuid('election_id').notNull().references(() => moderatorElections.id),
+  voterDancerId: uuid('voter_dancer_id').notNull().references(() => dancers.id),
+  candidateId: uuid('candidate_id').notNull().references(() => electionCandidates.id),
+  createdAt: timestamp('created_at').defaultNow(), // first cast
+  updatedAt: timestamp('updated_at').defaultNow(), // last change
+}, (t) => [
+  unique('election_votes_unique').on(t.electionId, t.voterDancerId),
+])
+
+// Immutable append-only log of every cast/change (G803). Makes "is my vote still
+// X?" verifiable — a vote is never silently overwritten, each change is a row.
+export const electionVoteHistory = pgTable('election_vote_history', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  electionId: uuid('election_id').notNull().references(() => moderatorElections.id),
+  voterDancerId: uuid('voter_dancer_id').notNull().references(() => dancers.id),
+  fromCandidateId: uuid('from_candidate_id'), // null = first cast
+  toCandidateId: uuid('to_candidate_id').notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (t) => [
+  index('election_vote_history_idx').on(t.electionId, t.voterDancerId),
+])
+
+// Per-term guideline versions (G804): on close, the winner's guidelines become
+// the space's active ruleset; every term is preserved so governance history is
+// auditable across elections.
+export const guidelineVersions = pgTable('guideline_versions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  profileId: uuid('profile_id').notNull().references(() => profiles.id),
+  electionId: uuid('election_id').references(() => moderatorElections.id),
+  moderatorDancerId: uuid('moderator_dancer_id').references(() => dancers.id),
+  guidelines: text('guidelines').notNull(),
+  termStart: date('term_start'),
+  termEnd: date('term_end'),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (t) => [
+  index('guideline_versions_profile_idx').on(t.profileId),
+])
