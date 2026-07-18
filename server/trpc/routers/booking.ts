@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { eq, and } from 'drizzle-orm'
+import { alias } from 'drizzle-orm/pg-core'
 import { TRPCError } from '@trpc/server'
 import { router, publicProcedure } from '../trpc'
 import { bookableSpaces, bookingRequests, profiles } from '../../database/schema'
@@ -46,20 +47,25 @@ export const bookingRouter = router({
   upcomingByCity: publicProcedure
     .input(z.object({ citySlug: z.string().min(1) }))
     .query(async ({ ctx, input }) => {
+      const organizer = alias(profiles, 'organizer')
       const rows = await ctx.db
         .select({
           id: bookingRequests.id,
           title: bookingRequests.title,
           eventType: bookingRequests.eventType,
           styles: bookingRequests.styles,
+          artists: bookingRequests.artists,
           eventDate: bookingRequests.eventDate,
           startTime: bookingRequests.startTime,
           status: bookingRequests.status,
           venueName: profiles.name,
           venueHandle: profiles.username,
+          organizerName: organizer.name,
+          organizerHandle: organizer.username,
         })
         .from(bookingRequests)
         .innerJoin(profiles, eq(bookingRequests.profileId, profiles.id))
+        .leftJoin(organizer, eq(bookingRequests.organizerId, organizer.id))
         .where(and(eq(profiles.citySlug, input.citySlug), eq(profiles.status, 'visible')))
 
       const today = new Date().toISOString().slice(0, 10)
@@ -112,6 +118,9 @@ export const bookingRouter = router({
       eventType: z.string().max(40).optional(),
       styles: z.array(z.string()).optional(),
       artists: z.array(z.string()).optional(),
+      // The organiser running this event — an @handle of an 'organizer' profile.
+      // Resolved to organizerId below; unknown/blank handles are simply ignored.
+      organizerHandle: z.string().max(160).optional(),
       eventDate: z.string().optional(), // YYYY-MM-DD
       startTime: z.string().max(5).optional(), // HH:MM
       endTime: z.string().max(5).optional(),
@@ -133,11 +142,23 @@ export const bookingRouter = router({
         throw new TRPCError({ code: 'NOT_FOUND', message: 'That space no longer exists.' })
       }
 
+      // Resolve the organiser handle (if given) to a visible 'organizer' profile.
+      let organizerId: string | null = null
+      const handle = input.organizerHandle?.trim().replace(/^@/, '')
+      if (handle) {
+        const [org] = await ctx.db
+          .select({ id: profiles.id })
+          .from(profiles)
+          .where(and(eq(profiles.username, handle), eq(profiles.type, 'organizer')))
+        organizerId = org?.id ?? null
+      }
+
       const [row] = await ctx.db
         .insert(bookingRequests)
         .values({
           spaceId: space.id,
           profileId: space.profileId,
+          organizerId,
           requesterId: ctx.dancerId ?? null,
           requesterEmail: input.email,
           requesterName: input.name ?? null,

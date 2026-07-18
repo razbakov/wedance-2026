@@ -25,13 +25,6 @@ const { weekPlanIds, toggleEvent, weekCount } = useWeekPlan()
 // People + venues from real migrated profiles (entity.cityDirectory), kept as
 // refs and populated on mount (tRPC client is client-only). Same tabbed Lineup
 // interface — only the data source changed (mock → DB).
-const cityName = ref(slug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '))
-const teachers = ref<Teacher[]>([])
-const djs = ref<Teacher[]>([])
-const organisers = ref<Teacher[]>([])
-const dbVenues = ref<Teacher[]>([])
-const loadingDir = ref(true)
-
 const toPerson = (e: any): Teacher => ({
   id: e.username,
   name: e.name,
@@ -40,28 +33,37 @@ const toPerson = (e: any): Teacher => ({
   bio: '',
 } as unknown as Teacher)
 
+// Directory is SSR-rendered (see server/api/cities/[slug].get.ts) so the people
+// list and the data-driven <title> ship in the HTML — crawlable + instant.
+const { data: dir, pending: loadingDir } = await useFetch(`/api/cities/${slug}`, {
+  key: `city-directory-${slug}`,
+})
+const cityName = computed(() =>
+  dir.value?.city || slug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+)
+const teachers = computed<Teacher[]>(() => (dir.value?.artists ?? []).map(toPerson))
+const djs = computed<Teacher[]>(() => [])
+const organisers = computed<Teacher[]>(() => (dir.value?.organizers ?? []).map(toPerson))
+const dbVenues = computed<Teacher[]>(() => (dir.value?.venues ?? []).map(toPerson))
+
 // No mock weekly feed anymore — migrated events are historical, so the only live
 // weekly events are real DB bookings (merged into the calendar below).
 const events: any[] = []
 
 const bookedEvents = ref<any[]>([])
 onMounted(async () => {
-  try {
-    const dir = await $trpc.entity.cityDirectory.query({ citySlug: slug })
-    if (dir.city) cityName.value = dir.city
-    teachers.value = dir.artists.map(toPerson)
-    organisers.value = dir.organizers.map(toPerson)
-    dbVenues.value = dir.venues.map(toPerson)
-  } catch { /* leave empty */ }
-  finally { loadingDir.value = false }
   try { bookedEvents.value = await $trpc.booking.upcomingByCity.query({ citySlug: slug }) } catch { /* ignore */ }
 })
 const bookedTypeMap: Record<string, string> = { Social: 'social', Party: 'social', Workshop: 'workshop', Class: 'class', Practica: 'practica' }
+// Local YYYY-MM-DD (never toISOString — that shifts to UTC and, in a positive
+// offset like CEST, moves every day back by one, so "this week" ends up a day off).
+const fmtLocalDate = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 const thisWeekDates = computed(() => {
   const now = new Date(); const off = (now.getDay() + 6) % 7
   const mon = new Date(now); mon.setDate(now.getDate() - off); mon.setHours(0, 0, 0, 0)
   const set = new Set<string>()
-  for (let i = 0; i < 7; i++) { const x = new Date(mon); x.setDate(mon.getDate() + i); set.add(x.toISOString().slice(0, 10)) }
+  for (let i = 0; i < 7; i++) { const x = new Date(mon); x.setDate(mon.getDate() + i); set.add(fmtLocalDate(x)) }
   return set
 })
 const bookedThisWeek = computed(() => bookedEvents.value
@@ -82,15 +84,31 @@ const accent = cityAccent[slug] || '#a855f7'
 // City meta the template renders (name / count / styles), derived from real data.
 const city = computed(() => ({
   name: cityName.value,
-  country: '',
+  country: dir.value?.country || '',
   eventCount: bookedThisWeek.value.length,
   styles: Array.from(new Set(teachers.value.flatMap((t: any) => t.styles || []))).slice(0, 12),
 }))
 
+// Intent-first, data-driven SEO. Dancers search by style ("salsa munich"), so
+// the title leads with this city's actual top styles; brand goes last.
+const hero = computed(() => dir.value?.hero ?? null)
+const topStyles = computed(() => dir.value?.topStyles ?? [])
+const stylePhrase = computed(() => {
+  const s = topStyles.value
+  if (s.length >= 3) return `${s[0]}, ${s[1]} & ${s[2]}`
+  if (s.length === 2) return `${s[0]} & ${s[1]}`
+  if (s.length === 1) return s[0]
+  return 'Social Dance'
+})
+const seoTitle = computed(() => `${stylePhrase.value} in ${city.value.name} — Venues, Artists & Socials | WeDance`)
+const seoDescription = computed(() =>
+  `Find ${stylePhrase.value.toLowerCase()} venues, artists and organizers in ${city.value.name} — the local dance scene on WeDance.`,
+)
+
 useHead(() => ({
-  title: `WeDance — ${city.value.name}`,
+  title: seoTitle.value,
   meta: [
-    { name: 'description', content: `Venues, artists and organizers in ${city.value.name}.` },
+    { name: 'description', content: seoDescription.value },
   ],
   link: [
     { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
@@ -102,15 +120,42 @@ useHead(() => ({
 // Style filter
 const selectedStyle = ref('')
 
-// People tabs (now also includes Venues — same Lineup shape with auto-generated avatars)
+// People tabs (now also includes Venues — same Lineup shape with auto-generated avatars).
+// Order: Venues first, then Organisers, then Artists.
 type PeopleTab = 'teachers' | 'djs' | 'organisers' | 'venues'
-const activeTab = ref<PeopleTab>('teachers')
+const activeTab = ref<PeopleTab>('venues')
 
 const peopleTabs: { key: PeopleTab; label: string }[] = [
-  { key: 'teachers', label: 'Artists' },
-  { key: 'organisers', label: 'Organisers' },
   { key: 'venues', label: 'Venues' },
+  { key: 'organisers', label: 'Organisers' },
+  { key: 'teachers', label: 'Artists' },
 ]
+
+// "Active this week" — who has an event on the calendar in the current week.
+// Default view shows only these; "See all" reveals the full directory. The raw
+// booked rows carry the identifiers we match on (venue/organiser @handle and the
+// event's artists[] — names or @handles), so we derive one set per role.
+const rawThisWeek = computed(() => bookedEvents.value.filter(
+  b => b.eventDate && thisWeekDates.value.has(String(b.eventDate).slice(0, 10)),
+))
+const activeVenueIds = computed(() => new Set(rawThisWeek.value.map((b: any) => b.venueHandle).filter(Boolean)))
+const activeOrganiserIds = computed(() => new Set(rawThisWeek.value.map((b: any) => b.organizerHandle).filter(Boolean)))
+const activeArtistTokens = computed(() => {
+  const s = new Set<string>()
+  for (const b of rawThisWeek.value) {
+    for (const a of ((b as any).artists || [])) s.add(String(a).trim().replace(/^@/, '').toLowerCase())
+  }
+  return s
+})
+function personActiveThisWeek(tab: PeopleTab, p: any): boolean {
+  if (tab === 'venues') return activeVenueIds.value.has(p.id)
+  if (tab === 'organisers') return activeOrganiserIds.value.has(p.id)
+  if (tab === 'teachers') {
+    const t = activeArtistTokens.value
+    return t.has(String(p.id).toLowerCase()) || t.has(String(p.name).trim().toLowerCase())
+  }
+  return false
+}
 
 // Real venue profiles in this city.
 const venues = computed<Teacher[]>(() => dbVenues.value)
@@ -149,12 +194,20 @@ function switchTab(tab: PeopleTab) {
   selectedPersonId.value = null
 }
 
-const currentLineup = computed(() => {
+const fullLineup = computed(() => {
   if (activeTab.value === 'teachers') return teachers.value
   if (activeTab.value === 'djs') return djs.value
   if (activeTab.value === 'organisers') return organisers.value
   return venues.value
 })
+// Each tab shows only who has an event this week; the full directory lives on a
+// dedicated "See all" page (/cities/[city]/{role}) for its own SEO.
+const activeLineup = computed(() => fullLineup.value.filter(p => personActiveThisWeek(activeTab.value, p)))
+const currentLineup = activeLineup
+
+const roleSlugFor = (tab: PeopleTab) =>
+  tab === 'organisers' ? 'organisers' : tab === 'venues' ? 'venues' : 'artists'
+const seeAllHref = computed(() => `/cities/${slug}/${roleSlugFor(activeTab.value)}`)
 
 const filteredEvents = computed(() => {
   let result: any[] = [...events, ...bookedThisWeek.value]
@@ -249,8 +302,49 @@ onMounted(() => {
     <!-- V3 header — same as /, /festivals, /organizers, /for-events, /my-plan, /cities -->
     <SiteHeader />
 
-    <!-- CITY HERO -->
-    <section class="relative">
+    <!-- CITY HERO — landmark photo (Wikimedia) when we have one, else warm cream -->
+    <section v-if="hero" class="relative">
+      <div class="relative w-full h-64 sm:h-96 overflow-hidden">
+        <img
+          :src="hero.image"
+          :alt="`${city.name} — landmark`"
+          class="absolute inset-0 w-full h-full object-cover"
+          loading="eager"
+          fetchpriority="high"
+        >
+        <!-- Scrim: keeps the overlaid title legible over any photo -->
+        <div class="absolute inset-0" style="background:linear-gradient(180deg, rgba(59,31,18,0.15) 0%, rgba(59,31,18,0.05) 40%, rgba(59,31,18,0.75) 100%);" />
+
+        <div class="relative h-full max-w-4xl mx-auto px-4 flex flex-col justify-end pb-6">
+          <div class="text-lg leading-none mb-1" style="font-family:'Caveat, cursive'; color:#fbe3c2;">
+            — {{ city.eventCount }} weekly events
+          </div>
+          <h1 class="text-5xl sm:text-7xl leading-[0.98] tracking-tight" style="font-family:'Playfair Display', serif; color:#fff; text-shadow:0 2px 24px rgba(0,0,0,0.35);">
+            {{ city.name }}
+          </h1>
+        </div>
+
+        <!-- CC attribution (required for Wikimedia photos) -->
+        <a
+          v-if="hero.source"
+          :href="hero.source" target="_blank" rel="noopener nofollow"
+          class="absolute bottom-1.5 right-2 text-[10px] px-1.5 py-0.5 rounded"
+          style="color:rgba(255,255,255,0.75); background:rgba(0,0,0,0.25); font-family: system-ui, sans-serif;"
+          :title="`${hero.credit || 'Wikimedia Commons'}${hero.license ? ' · ' + hero.license : ''}`"
+        >📷 {{ hero.credit || 'Wikimedia' }}<template v-if="hero.license"> · {{ hero.license }}</template></a>
+      </div>
+
+      <div class="relative max-w-4xl mx-auto px-4 pt-5 pb-2">
+        <StyleFilter :styles="city.styles" v-model="selectedStyle" :accents="styleChipColors" />
+      </div>
+
+      <svg class="block w-full h-10 -mb-px" viewBox="0 0 1440 60" preserveAspectRatio="none">
+        <path d="M0,40 Q360,0 720,30 T1440,20 V60 H0 Z" fill="#3b1f0d" opacity="0.08"/>
+      </svg>
+    </section>
+
+    <!-- CITY HERO — fallback (no landmark image): original warm cream design -->
+    <section v-else class="relative">
       <!-- Sun rays behind the whole hero, tinted by city accent -->
       <svg class="absolute -top-16 -right-16 w-64 h-64 opacity-20 pointer-events-none" viewBox="0 0 100 100">
         <g :stroke="accent" stroke-width="1.5" fill="none">
@@ -300,11 +394,11 @@ onMounted(() => {
             </h2>
           </div>
           <NuxtLink
-            :to="`/artists?city=${encodeURIComponent(city.name)}`"
+            :to="seeAllHref"
             class="text-xs italic hover:underline whitespace-nowrap shrink-0"
             style="color:#9a5614; font-family:'Playfair Display', serif;"
           >
-            All {{ city.name }} artists →
+            All {{ city.name }} {{ activeTab === 'organisers' ? 'organisers' : activeTab === 'venues' ? 'venues' : 'artists' }} →
           </NuxtLink>
         </div>
 
@@ -324,9 +418,32 @@ onMounted(() => {
           </button>
         </div>
 
+        <!-- This-week relevance label — the tab shows only who has an event this
+             week; the full directory is the "All … →" link in the header above. -->
+        <div class="pt-4 pb-1">
+          <span class="text-xs italic" style="color:#9a5614; font-family:'Playfair Display', serif;">
+            {{ activeLineup.length
+              ? `${activeLineup.length} with events this week`
+              : 'None with events this week' }}
+          </span>
+        </div>
+
         <!-- Tab content -->
         <div class="py-5">
+          <p
+            v-if="!currentLineup.length"
+            class="text-sm italic py-4"
+            style="color:#5b3a1d; font-family:'Playfair Display', serif;"
+          >
+            <template v-if="fullLineup.length">
+              Nobody has an event this week yet.
+            </template>
+            <template v-else>
+              No {{ activeTab === 'venues' ? 'venues' : activeTab === 'organisers' ? 'organisers' : 'artists' }} listed here yet.
+            </template>
+          </p>
           <Lineup
+            v-else
             :teachers="currentLineup"
             :selected-id="selectedPersonId"
             @select="onSelectPerson"
@@ -538,10 +655,10 @@ onMounted(() => {
       </div>
     </section>
 
-    <!-- Cold-start: local groups + ask locals (client-only: tRPC has no SSR) -->
+    <!-- Ask locals (client-only: tRPC has no SSR). Local groups now live under
+         the Organisers directory (/cities/[city]/organisers) — one home. -->
     <ClientOnly>
       <section class="max-w-2xl mx-auto px-4 pb-10">
-        <CommunityGroupsSection :city-slug="slug" :city-name="city.name" />
         <AskLocalsSection :city-slug="slug" :city-name="city.name" />
       </section>
     </ClientOnly>

@@ -22,24 +22,32 @@ useHead({
 
 const router = useRouter()
 
-type CityRow = { city: string; citySlug: string; venues: number; artists: number; organizers: number; total: number }
+type CityRow = { city: string; citySlug: string; venues: number; artists: number; organizers: number; total: number; image: string | null; credit: string | null; license: string | null; country: string | null; altNames: string[] }
 
-const { $trpc } = useNuxtApp()
-const cities = ref<CityRow[]>([])
-const loading = ref(true)
-
-onMounted(async () => {
-  try { cities.value = (await $trpc.entity.listCities.query()) as CityRow[] }
-  catch { cities.value = [] }
-  finally { loading.value = false }
+// SSR-rendered so the list ships in the HTML — no on-mount spinner (see
+// server/api/cities.get.ts). The tRPC client is client-only, hence useFetch.
+const { data, pending } = await useFetch<CityRow[]>('/api/cities', {
+  key: 'cities-directory',
+  default: () => [],
 })
+const cities = computed(() => data.value ?? [])
+const loading = computed(() => pending.value)
 
 const searchQuery = ref('')
 const filteredCities = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
   if (!q) return cities.value
-  return cities.value.filter(c => c.city.toLowerCase().includes(q))
+  return cities.value.filter(c =>
+    c.city.toLowerCase().includes(q)
+    || (c.country?.toLowerCase().includes(q) ?? false)
+    || (c.altNames?.some(n => n.toLowerCase().includes(q)) ?? false),
+  )
 })
+
+// Show only the first 9 cities by default for faster load; searching spans all cities.
+const displayedCities = computed(() =>
+  searchQuery.value.trim() ? filteredCities.value : filteredCities.value.slice(0, 9),
+)
 
 const accents = ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b', '#ec4899', '#7c3aed']
 const accentFor = (slug: string) => accents[[...slug].reduce((a, c) => a + c.charCodeAt(0), 0) % accents.length]
@@ -66,7 +74,7 @@ const accentFor = (slug: string) => accents[[...slug].reduce((a, c) => a + c.cha
             <input
               v-model="searchQuery"
               type="text"
-              placeholder="Search by city"
+              placeholder="Search by city or country"
               class="w-full h-12 rounded-full pl-11 pr-4 text-sm outline-none transition-all"
               style="background:white; border:1px solid #3b1f0d33; color:#3b1f0d; font-family: system-ui, sans-serif; box-shadow: 0 1px 0 #3b1f0d0a, 0 6px 16px rgba(59, 31, 18, 0.04);"
             >
@@ -83,10 +91,11 @@ const accentFor = (slug: string) => accents[[...slug].reduce((a, c) => a + c.cha
     <section class="max-w-4xl mx-auto px-4 pb-12">
       <div class="flex items-baseline justify-between mb-6">
         <h2 class="text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
-          {{ searchQuery ? 'Results' : 'Cities' }}
+          {{ searchQuery ? 'Results' : 'Top cities' }}
         </h2>
         <span v-if="!loading" class="text-xs" style="color:#9a5614; font-family:'Caveat', cursive; font-size:18px;">
-          — {{ filteredCities.length }} cit{{ filteredCities.length === 1 ? 'y' : 'ies' }}
+          <template v-if="searchQuery">— {{ displayedCities.length }} cit{{ displayedCities.length === 1 ? 'y' : 'ies' }}</template>
+          <template v-else>— top {{ displayedCities.length }} of {{ cities.length }}</template>
         </span>
       </div>
 
@@ -106,17 +115,41 @@ const accentFor = (slug: string) => accents[[...slug].reduce((a, c) => a + c.cha
 
       <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <NuxtLink
-          v-for="c in filteredCities"
+          v-for="c in displayedCities"
           :key="c.citySlug"
           :to="`/cities/${c.citySlug}`"
           class="group block rounded-2xl overflow-hidden bg-white border transition-all hover:-translate-y-1"
           :style="{ borderColor: accentFor(c.citySlug) + '55', boxShadow: '0 1px 0 ' + accentFor(c.citySlug) + '22, 0 8px 22px rgba(59,31,18,0.05)' }"
         >
-          <div class="h-1.5" :style="{ background: accentFor(c.citySlug) }" />
+          <!-- Landmark photo (Wikimedia) with the city name overlaid; accent bar when no photo -->
+          <div v-if="c.image" class="relative h-32 overflow-hidden">
+            <img
+              :src="c.image"
+              :alt="`${c.city} — landmark`"
+              class="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+              loading="lazy"
+            >
+            <div class="absolute inset-0" style="background:linear-gradient(180deg, rgba(59,31,18,0) 35%, rgba(59,31,18,0.7) 100%);" />
+            <div class="absolute bottom-2 left-3 right-3">
+              <h3 class="font-bold text-xl leading-tight" style="color:#fff; font-family:'Playfair Display', serif; text-shadow:0 1px 12px rgba(0,0,0,0.4);">{{ c.city }}</h3>
+              <div v-if="c.country" class="text-[11px] font-medium" style="color:rgba(255,255,255,0.85); font-family: system-ui, sans-serif; text-shadow:0 1px 8px rgba(0,0,0,0.5);">{{ c.country }}</div>
+            </div>
+            <span
+              v-if="c.credit"
+              class="absolute top-1 right-1.5 text-[9px] px-1 py-px rounded"
+              style="color:rgba(255,255,255,0.7); background:rgba(0,0,0,0.25); font-family: system-ui, sans-serif;"
+              :title="`${c.credit}${c.license ? ' · ' + c.license : ''} · Wikimedia Commons`"
+            >📷</span>
+          </div>
+          <div v-else class="h-1.5" :style="{ background: accentFor(c.citySlug) }" />
           <div class="p-5">
             <div class="flex items-start justify-between gap-3">
-              <h3 class="font-bold text-xl leading-tight" style="color:#3b1f0d;">{{ c.city }}</h3>
-              <ArrowRight class="w-4 h-4 mt-1.5 shrink-0 transition-transform group-hover:translate-x-1" :style="{ color: accentFor(c.citySlug) }" />
+              <div v-if="!c.image">
+                <h3 class="font-bold text-xl leading-tight" style="color:#3b1f0d;">{{ c.city }}</h3>
+                <div v-if="c.country" class="text-[11px] font-medium mt-0.5" style="color:#9a5614; font-family: system-ui, sans-serif;">{{ c.country }}</div>
+              </div>
+              <span v-else class="text-xs font-bold uppercase tracking-wider" :style="{ color: accentFor(c.citySlug) }">Explore</span>
+              <ArrowRight class="w-4 h-4 mt-0.5 shrink-0 transition-transform group-hover:translate-x-1" :style="{ color: accentFor(c.citySlug) }" />
             </div>
             <div class="mt-3 flex items-center gap-1.5 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
               <Users class="w-3 h-3" style="color:#9a5614;" />

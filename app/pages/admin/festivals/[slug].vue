@@ -5,15 +5,14 @@ import { Button } from '~/components/ui/button'
 
 const route = useRoute()
 const slug = route.params.slug as string
-const { $trpc, $setAuthToken } = useNuxtApp()
+const { $trpc } = useNuxtApp()
 
+definePageMeta({ layout: 'admin' })
 useHead({ title: `Admin: ${slug} | WeDance` })
 
-// Authenticate as admin (scoped to this page)
-// Save previous token so we can restore it when leaving the admin page
-const _previousToken = useState<string | null>('trpc-auth-token').value
-$setAuthToken('admin@wedance.vip')
-onUnmounted(() => $setAuthToken(_previousToken))
+// Auth uses the signed-in admin session (gated by the `admin` layout). The old hardcoded
+// `$setAuthToken('admin@wedance.vip')` was broken — that token has no `sessions`
+// row, so every adminProcedure call returned FORBIDDEN.
 
 // State
 const selectedDinnerId = ref<string | null>(null)
@@ -125,11 +124,10 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-background">
-    <div class="max-w-3xl mx-auto px-4 py-6 space-y-6">
+  <div class="space-y-6">
       <!-- Header -->
       <div class="flex items-center gap-3">
-        <NuxtLink :to="`/festivals/${slug}`" class="p-2 rounded-lg hover:bg-muted transition-colors">
+        <NuxtLink to="/admin/festivals" class="p-2 rounded-lg hover:bg-muted transition-colors">
           <ArrowLeft class="w-5 h-5" />
         </NuxtLink>
         <div>
@@ -280,5 +278,4 @@ onMounted(() => {
         </div>
       </div>
     </div>
-  </div>
 </template>

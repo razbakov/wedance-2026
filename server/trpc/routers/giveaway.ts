@@ -5,6 +5,18 @@ import { router, publicProcedure, adminProcedure } from '../trpc'
 import { giveaways, giveawayEntries } from '../../database/schema'
 
 export const giveawayRouter = router({
+  // Admin: every giveaway across cities, newest first (moderation dashboard).
+  listAll: adminProcedure
+    .input(z.object({ citySlug: z.string().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const rows = await ctx.db
+        .select()
+        .from(giveaways)
+        .where(input?.citySlug ? eq(giveaways.citySlug, input.citySlug) : undefined)
+        .orderBy(desc(giveaways.createdAt))
+      return rows
+    }),
+
   // Active giveaways for a city: status='active' AND now within [startsAt, endsAt].
   // Returns [] (never a fabricated sponsor) when the city has none.
   listActive: publicProcedure

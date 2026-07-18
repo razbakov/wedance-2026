@@ -69,14 +69,14 @@ const EVENT_TYPES = ['Social', 'Party', 'Workshop', 'Class', 'Practica']
 const DANCE_STYLES = ['Salsa', 'Bachata', 'Kizomba', 'Zouk', 'Timba', 'Casino', 'Rueda', 'Afro']
 const booking = reactive({
   open: false, spaceId: '', spaceName: '',
-  title: '', eventType: 'Social', styles: [] as string[], artists: '',
+  title: '', eventType: 'Social', styles: [] as string[], artists: '', organizerHandle: '',
   email: '', name: '', eventDate: '', startTime: '', endTime: '',
   headcount: '' as string | number, message: '', terms: false, busy: false, err: '', done: false,
 })
 function openBooking(space: any) {
   Object.assign(booking, {
     open: true, spaceId: space.id, spaceName: space.name,
-    title: '', eventType: 'Social', styles: [], artists: '',
+    title: '', eventType: 'Social', styles: [], artists: '', organizerHandle: '',
     email: '', name: (dancerName.value as string) || '', eventDate: '', startTime: '', endTime: '',
     headcount: '', message: '', terms: false, err: '', done: false,
   })
@@ -101,6 +101,7 @@ async function submitBooking() {
       spaceId: booking.spaceId, email: booking.email.trim(), name: booking.name.trim() || undefined,
       title: booking.title.trim(), eventType: booking.eventType, styles: booking.styles,
       artists: booking.artists.split(',').map(a => a.trim()).filter(Boolean),
+      organizerHandle: booking.organizerHandle.trim() || undefined,
       eventDate: booking.eventDate || undefined, startTime: booking.startTime || undefined, endTime: booking.endTime || undefined,
       headcount: booking.headcount ? Number(booking.headcount) : undefined,
       message: booking.message.trim() || undefined, termsAccepted: booking.terms,
@@ -240,6 +241,7 @@ useHead(() => ({
               <input v-model="booking.endTime" type="time" class="w-28 h-10 rounded-xl px-2 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;" aria-label="End">
             </div>
             <input v-model="booking.artists" type="text" placeholder="Artists / DJs / teachers (comma-separated · @handle or name)" class="w-full h-10 rounded-xl px-3 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;">
+            <input v-model="booking.organizerHandle" type="text" placeholder="Organiser @handle (optional — who runs this event)" class="w-full h-10 rounded-xl px-3 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;">
             <textarea v-model="booking.message" rows="2" maxlength="2000" placeholder="Anything the community should know (level, entry…)" class="w-full rounded-xl px-3 py-2 text-sm outline-none resize-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;" />
             <div class="flex gap-2">
               <input v-model="booking.name" type="text" placeholder="Your name" class="flex-1 h-10 rounded-xl px-3 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;">

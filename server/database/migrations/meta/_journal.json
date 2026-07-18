@@ -120,6 +120,13 @@
       "when": 1784272398892,
       "tag": "0016_material_slyde",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1784361810431,
+      "tag": "0017_tricky_zaran",
+      "breakpoints": true
     }
   ]
 }

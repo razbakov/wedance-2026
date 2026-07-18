@@ -189,4 +189,18 @@ export const adminRouter = router({
 
       return result
     }),
+
+  // Admin: festivals to manage (dinner assignment lives at /admin/festivals/[slug]).
+  listFestivals: adminProcedure
+    .query(async ({ ctx }) => {
+      return ctx.db
+        .select({
+          slug: festivals.slug,
+          name: festivals.name,
+          startDate: festivals.startDate,
+          endDate: festivals.endDate,
+        })
+        .from(festivals)
+        .orderBy(festivals.startDate)
+    }),
 })

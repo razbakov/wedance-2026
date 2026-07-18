@@ -22,15 +22,11 @@ const platformIcon: Record<string, any> = {
   website: Globe,
 }
 
-// Unified profile handle: /@<slug-of-name>. Resolves to a real venue/pro page
-// when one exists (e.g. the Pinakothek showcase), otherwise a graceful
-// "not on WeDance yet — claim it" stub. No more /artists/<id> 404s.
-const profileHref = computed(() => {
-  const slug = String(props.teacher.name || '')
-    .toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40)
-  return slug ? `/@${slug}` : null
-})
+// Link to the real unified profile at /@<handle>. The city directory passes the
+// profile's actual username as `id` (see toPerson in /cities/[city]), so use it
+// directly — slugifying the display name produced dead handles like
+// "pinakothek-der-moderne-open-air" that never matched the real "pinakothek-der-moderne".
+const profileHref = computed(() => (props.teacher.id ? `/@${props.teacher.id}` : null))
 
 function toEmbedUrl(url: string): string {
   const match = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([^&/?]+)/)

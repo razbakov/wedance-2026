@@ -30,7 +30,7 @@ const platformLabel: Record<string, string> = {
       <h3 class="text-2xl" style="font-family:'Playfair Display', serif; color:#3b1f0d;">Local groups</h3>
     </div>
     <p class="mt-1 text-sm" style="color:#5b3a1d;">
-      No WeDance events here yet — but the scene is alive. Join the locals{{ cityName ? ` in ${cityName}` : '' }}.
+      Community chats where the{{ cityName ? ` ${cityName}` : '' }} scene organises — WhatsApp, Telegram &amp; more. Join the locals.
     </p>
 
     <div v-if="loading" class="mt-4 text-sm" style="color:#9a5614;">Loading…</div>

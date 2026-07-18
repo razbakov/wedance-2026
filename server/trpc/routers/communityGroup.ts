@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { eq, and } from 'drizzle-orm'
+import { eq, and, desc } from 'drizzle-orm'
 import { router, publicProcedure, adminProcedure } from '../trpc'
 import { communityGroups } from '../../database/schema'
 
@@ -11,6 +11,18 @@ const PLATFORMS = ['whatsapp', 'telegram', 'facebook', 'other'] as const
  * existing list is imported via the seed / an admin import).
  */
 export const communityGroupRouter = router({
+  // Admin: every community group across cities, newest first (dashboard).
+  listAll: adminProcedure
+    .input(z.object({ citySlug: z.string().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const rows = await ctx.db
+        .select()
+        .from(communityGroups)
+        .where(input?.citySlug ? eq(communityGroups.citySlug, input.citySlug) : undefined)
+        .orderBy(desc(communityGroups.createdAt))
+      return rows
+    }),
+
   listByCity: publicProcedure
     .input(z.object({ citySlug: z.string().min(1) }))
     .query(async ({ ctx, input }) => {

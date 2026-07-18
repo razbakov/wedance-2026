@@ -305,6 +305,10 @@ export const bookingRequests = pgTable('booking_requests', {
   id: uuid('id').primaryKey().defaultRandom(),
   spaceId: uuid('space_id').notNull().references(() => bookableSpaces.id),
   profileId: uuid('profile_id').notNull().references(() => profiles.id),
+  // The organiser running this event — an 'organizer' profile. Lets the event
+  // surface on the organiser's page and marks that organiser "active this week"
+  // on the city directory. Nullable: legacy/self-serve bookings may have none.
+  organizerId: uuid('organizer_id').references(() => profiles.id),
   requesterId: uuid('requester_id').references(() => dancers.id),
   requesterEmail: text('requester_email').notNull(),
   requesterName: text('requester_name'),
