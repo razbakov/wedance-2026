@@ -95,7 +95,7 @@ const accentFor = (slug: string) => accents[[...slug].reduce((a, c) => a + c.cha
     <section class="max-w-4xl mx-auto px-4 pb-12">
       <div class="flex items-baseline justify-between mb-6">
         <h2 class="text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
-          {{ searchQuery ? 'Results' : 'Top cities' }}
+          {{ searchQuery ? 'Results' : 'Biggest communities' }}
         </h2>
         <span v-if="!loading" class="text-xs" style="color:#9a5614; font-family:'Caveat', cursive; font-size:18px;">
           <template v-if="searchQuery">— {{ displayedCities.length }} cit{{ displayedCities.length === 1 ? 'y' : 'ies' }}</template>
