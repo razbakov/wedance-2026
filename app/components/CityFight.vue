@@ -35,7 +35,7 @@ const thumb = (f: NonNullable<CityFight['fight']>['a']) =>
       <NuxtLink
         v-for="(f, i) in [fight.a, fight.b]"
         :key="f.citySlug"
-        :to="`/cities/${f.citySlug}#compete`"
+        :to="`/cities/${f.citySlug}#vote`"
         class="group block rounded-2xl overflow-hidden bg-white border transition-all hover:-translate-y-1"
         :style="{ borderColor: (i === 0 ? '#dc2626' : '#0891b2') + '55', boxShadow: '0 8px 22px rgba(59,31,18,0.06)' }"
       >
