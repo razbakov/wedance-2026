@@ -9,8 +9,16 @@ import { parseVideoUrl } from '~/lib/videoEmbed'
 
 const props = defineProps<{
   citySlug: string
+  // City display name — used in the reward copy ("featured on WeDance <city>").
+  cityName?: string
+  // Real prize for this month, only when a giveaway is actually live. When
+  // absent we promise only the reward that always exists (getting featured),
+  // so the copy is never a broken promise.
+  prize?: string | null
   accent?: string
 }>()
+
+const cityLabel = computed(() => (props.cityName ? ` ${props.cityName}` : ''))
 
 const emit = defineEmits<{ submitted: [] }>()
 
@@ -88,8 +96,17 @@ function reset() {
     class="rounded-2xl border bg-white p-5"
     :style="{ borderColor: accent + '44', boxShadow: '0 1px 0 ' + accent + '18, 0 8px 22px rgba(59,31,18,0.05)' }"
   >
-    <!-- Step 1: CTA. Default view — a single button + one-line subtext. -->
-    <div v-if="!open" class="flex flex-col items-center gap-2 py-4 text-center">
+    <!-- Step 1: CTA. Leads with the payoff + who can enter, THEN the button —
+         so the reason to participate is visible before the ask. -->
+    <div v-if="!open" class="flex flex-col items-center gap-3 py-3 text-center">
+      <p class="text-sm font-bold leading-snug" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+        Get your dancing seen.
+      </p>
+      <p class="max-w-xs text-xs leading-relaxed" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+        Post a clip, the community votes, and the top-voted video this month gets
+        featured on WeDance{{ cityLabel }}<template v-if="prize"> and wins <span class="font-bold" :style="{ color: accent }">{{ prize }}</span></template>.
+        Any dancer, any style.
+      </p>
       <button
         type="button"
         class="inline-flex items-center justify-center gap-2 rounded-full px-6 py-2.5 text-sm font-bold uppercase tracking-wider text-white transition-all"
@@ -98,8 +115,8 @@ function reset() {
       >
         <Video class="h-4 w-4" /> Submit your video
       </button>
-      <p class="text-xs" style="color:#5b3a1d; font-family:'Playfair Display', serif;">
-        Enter this month's competition
+      <p class="text-[11px]" style="color:#9a5614; font-family: system-ui, sans-serif;">
+        Free · we review every entry before it joins the vote
       </p>
     </div>
 
@@ -140,7 +157,7 @@ function reset() {
             Submit your video
           </h3>
           <p class="mt-0.5 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
-            Paste a YouTube, Instagram, or TikTok link. Winners get featured and win prizes.
+            Paste a YouTube, Instagram, or TikTok link. Top-voted clip gets featured on WeDance{{ cityLabel }}<template v-if="prize"> and wins {{ prize }}</template>.
           </p>
         </div>
         <button

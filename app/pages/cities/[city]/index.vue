@@ -376,13 +376,6 @@ onMounted(() => {
       </svg>
     </section>
 
-    <!-- TOP HOOK — compact Video-of-the-Day matchup. Entry point into the full
-         vote/competition block further down (#vote / #compete). Collapses to
-         nothing when there's no pair, so it never pushes the page down blank. -->
-    <section class="max-w-4xl mx-auto px-4 pt-6">
-      <CityVideoVote :city-slug="slug" :accent="accent" compact />
-    </section>
-
     <!-- PEOPLE TABS -->
     <section class="border-b" style="border-color:#3b1f0d22; background:rgba(251, 245, 234, 0.5);">
       <div class="max-w-4xl mx-auto px-4">
@@ -504,6 +497,10 @@ onMounted(() => {
         <h2 class="mt-2 text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
           The <em class="italic" :style="{ color: accent }">leaderboard.</em>
         </h2>
+        <p class="mt-2 max-w-2xl text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+          Post a clip from a {{ city.name }} dance floor and the community votes head-to-head
+          in the matchup above. The highest-ranked video this month gets featured on WeDance{{ ' ' + city.name }}<template v-if="giveaways.length">, and wins this month's prize</template>. Any dancer, any style.
+        </p>
       </div>
 
       <div class="grid gap-6 md:grid-cols-2">
@@ -550,7 +547,13 @@ onMounted(() => {
         </div>
 
         <!-- Submit form -->
-        <SubmitVideoForm :city-slug="slug" :accent="accent" @submitted="loadLeaderboard" />
+        <SubmitVideoForm
+          :city-slug="slug"
+          :city-name="city.name"
+          :accent="accent"
+          :prize="giveaways.length ? (giveaways[0].prizeDescription || giveaways[0].title) : undefined"
+          @submitted="loadLeaderboard"
+        />
       </div>
     </section>
 
