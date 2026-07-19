@@ -1,8 +1,8 @@
 import { z } from 'zod'
-import { eq, and, desc, or, sql } from 'drizzle-orm'
+import { eq, and, desc, or, sql, inArray } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { router, publicProcedure, adminProcedure } from '../trpc'
-import { cityVideos, videoVotes } from '../../database/schema'
+import { cityVideos, videoVotes, cityBattleVotes, profiles } from '../../database/schema'
 import { updateElo, INITIAL_ELO } from '../lib/elo'
 import { pairKey, selectNextPair } from '../lib/pairSelect'
 
@@ -35,6 +35,43 @@ function deriveThumbnail(url: string): string | null {
 // Reasonable per-session vote cap for one city+month. High enough that a real
 // enthusiast never hits it, low enough to blunt scripted ballot-stuffing.
 const MAX_VOTES_PER_SESSION = 200
+
+const titleCaseSlug = (slug: string) =>
+  slug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+
+// Unordered city pair key, so (munich,havana) and (havana,munich) collide.
+const cityPairKey = (a: string, b: string) => [a, b].sort().join('|')
+
+type Champion = {
+  citySlug: string; city: string; videoId: string; title: string
+  videoUrl: string; thumbnailUrl: string | null; danceStyle: string | null; eloScore: number
+}
+
+// Each city's champion for a month = its highest-ELO approved video. Names come
+// from the profiles table (no country/name column on city_videos).
+async function getChampions(db: any, month: string): Promise<Champion[]> {
+  const vids = await db
+    .select({
+      id: cityVideos.id, citySlug: cityVideos.citySlug, title: cityVideos.title,
+      videoUrl: cityVideos.videoUrl, thumbnailUrl: cityVideos.thumbnailUrl,
+      danceStyle: cityVideos.danceStyle, eloScore: cityVideos.eloScore,
+    })
+    .from(cityVideos)
+    .where(and(eq(cityVideos.status, 'approved'), eq(cityVideos.competitionMonth, month)))
+    .orderBy(desc(cityVideos.eloScore))
+  const champ = new Map<string, typeof vids[number]>()
+  for (const v of vids) if (!champ.has(v.citySlug)) champ.set(v.citySlug, v)
+  const list = [...champ.values()]
+  const slugs = list.map(c => c.citySlug)
+  const names = slugs.length
+    ? await db.select({ city: profiles.city, citySlug: profiles.citySlug }).from(profiles).where(inArray(profiles.citySlug, slugs))
+    : []
+  const nameOf = (slug: string) => names.find((n: any) => n.citySlug === slug)?.city ?? titleCaseSlug(slug)
+  return list.map(c => ({
+    citySlug: c.citySlug, city: nameOf(c.citySlug), videoId: c.id, title: c.title,
+    videoUrl: c.videoUrl, thumbnailUrl: c.thumbnailUrl, danceStyle: c.danceStyle, eloScore: c.eloScore,
+  }))
+}
 
 export const cityVideoRouter = router({
   // Approved videos for a city (optionally a specific month), best first.
@@ -301,5 +338,115 @@ export const cityVideoRouter = router({
         .set({ status: input.status })
         .where(eq(cityVideos.id, input.videoId))
       return { videoId: input.videoId, status: input.status }
+    }),
+
+  // --- Cross-city battle (the tier above per-city voting) -------------------
+
+  // Next city-vs-city matchup for this session: two cities' champion videos,
+  // skipping pairs this session already voted this month. matchup: null when
+  // fewer than two cities have a champion, the session is capped, or every
+  // pairing has been voted.
+  battleMatchup: publicProcedure.query(async ({ ctx }) => {
+    const month = currentMonth()
+    const champions = await getChampions(ctx.db, month)
+    if (champions.length < 2) return { matchup: null, poolCities: champions.length, votesCast: 0, reason: 'not_enough_cities' as const }
+
+    const sessionId = ctx.voterSessionId
+    const seen = new Set<string>()
+    let votesCast = 0
+    if (sessionId) {
+      const prior = await ctx.db
+        .select({ w: cityBattleVotes.winnerCitySlug, l: cityBattleVotes.loserCitySlug })
+        .from(cityBattleVotes)
+        .where(and(eq(cityBattleVotes.voterSessionId, sessionId), eq(cityBattleVotes.competitionMonth, month)))
+      votesCast = prior.length
+      for (const p of prior) seen.add(cityPairKey(p.w, p.l))
+    }
+    if (votesCast >= MAX_VOTES_PER_SESSION) return { matchup: null, poolCities: champions.length, votesCast, reason: 'capped' as const }
+
+    const unseen: [Champion, Champion][] = []
+    for (let i = 0; i < champions.length; i++)
+      for (let j = i + 1; j < champions.length; j++)
+        if (!seen.has(cityPairKey(champions[i].citySlug, champions[j].citySlug))) unseen.push([champions[i], champions[j]])
+    if (!unseen.length) return { matchup: null, poolCities: champions.length, votesCast, reason: 'exhausted' as const }
+
+    const picked = unseen[Math.floor(Math.random() * unseen.length)]
+    const [a, b] = Math.random() < 0.5 ? picked : [picked[1], picked[0]]
+    return { matchup: { month, a, b }, poolCities: champions.length, votesCast, reason: null }
+  }),
+
+  // Record one cross-city vote. Deduped per session per unordered city pair per
+  // month; capped per session. Ranks cities, not videos.
+  battleVote: publicProcedure
+    .input(z.object({
+      winnerCitySlug: z.string().min(1),
+      loserCitySlug: z.string().min(1),
+      winnerVideoId: z.string().uuid().optional(),
+      loserVideoId: z.string().uuid().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      if (input.winnerCitySlug === input.loserCitySlug) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'A city cannot beat itself.' })
+      }
+      const sessionId = ctx.voterSessionId
+      if (!sessionId) throw new TRPCError({ code: 'BAD_REQUEST', message: 'No voting session.' })
+      const month = currentMonth()
+
+      const prior = await ctx.db
+        .select({ id: cityBattleVotes.id })
+        .from(cityBattleVotes)
+        .where(and(
+          eq(cityBattleVotes.voterSessionId, sessionId),
+          eq(cityBattleVotes.competitionMonth, month),
+          or(
+            and(eq(cityBattleVotes.winnerCitySlug, input.winnerCitySlug), eq(cityBattleVotes.loserCitySlug, input.loserCitySlug)),
+            and(eq(cityBattleVotes.winnerCitySlug, input.loserCitySlug), eq(cityBattleVotes.loserCitySlug, input.winnerCitySlug)),
+          ),
+        ))
+        .limit(1)
+      if (prior.length > 0) return { recorded: false, duplicate: true }
+
+      await ctx.db.insert(cityBattleVotes).values({
+        competitionMonth: month,
+        winnerCitySlug: input.winnerCitySlug,
+        loserCitySlug: input.loserCitySlug,
+        winnerVideoId: input.winnerVideoId ?? null,
+        loserVideoId: input.loserVideoId ?? null,
+        voterSessionId: sessionId,
+        voterDancerId: ctx.dancerId,
+      })
+      return { recorded: true, duplicate: false }
+    }),
+
+  // "Top dance cities" — cities ranked by battle wins for the current month.
+  cityLeaderboard: publicProcedure
+    .input(z.object({ limit: z.number().min(1).max(50).default(10) }).optional())
+    .query(async ({ ctx, input }) => {
+      const month = currentMonth()
+      const rows = await ctx.db
+        .select({ w: cityBattleVotes.winnerCitySlug, l: cityBattleVotes.loserCitySlug })
+        .from(cityBattleVotes)
+        .where(eq(cityBattleVotes.competitionMonth, month))
+
+      const stat = new Map<string, { wins: number; losses: number }>()
+      const bump = (slug: string, k: 'wins' | 'losses') => {
+        const e = stat.get(slug) ?? { wins: 0, losses: 0 }
+        e[k]++; stat.set(slug, e)
+      }
+      for (const r of rows) { bump(r.w, 'wins'); bump(r.l, 'losses') }
+
+      const slugs = [...stat.keys()]
+      const names = slugs.length
+        ? await ctx.db.select({ city: profiles.city, citySlug: profiles.citySlug }).from(profiles).where(inArray(profiles.citySlug, slugs))
+        : []
+      const nameOf = (slug: string) => names.find((n: any) => n.citySlug === slug)?.city ?? titleCaseSlug(slug)
+
+      const cities = slugs.map((s) => {
+        const { wins, losses } = stat.get(s)!
+        const battles = wins + losses
+        return { citySlug: s, city: nameOf(s), wins, losses, battles, winRate: battles ? wins / battles : 0 }
+      }).sort((a, b) => b.wins - a.wins || b.winRate - a.winRate || b.battles - a.battles)
+
+      return { month, totalVotes: rows.length, cities: cities.slice(0, input?.limit ?? 10) }
     }),
 })

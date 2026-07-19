@@ -166,6 +166,29 @@ export const videoVotes = pgTable('video_votes', {
   index('video_votes_session_idx').on(t.voterSessionId, t.citySlug),
 ])
 
+// Cross-city battle votes — the tier above per-city voting. Each row is one
+// vote in a head-to-head between two cities' champion videos (the current
+// month's highest-ELO approved video per city). Ranks CITIES, not videos, into
+// the "Top dance cities" leaderboard. videoIds are stored for provenance only
+// (plain uuid, no FK — champions rotate as ELO shifts, and this must survive
+// video deletion).
+export const cityBattleVotes = pgTable('city_battle_votes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  competitionMonth: text('competition_month').notNull(),
+  winnerCitySlug: text('winner_city_slug').notNull(),
+  loserCitySlug: text('loser_city_slug').notNull(),
+  winnerVideoId: uuid('winner_video_id'),
+  loserVideoId: uuid('loser_video_id'),
+  voterSessionId: text('voter_session_id').notNull(),
+  voterDancerId: uuid('voter_dancer_id').references(() => dancers.id),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (t) => [
+  // Per-session dedupe (one vote per unordered city pair per month) + leaderboard
+  // tallies both hit these.
+  index('city_battle_votes_session_idx').on(t.voterSessionId, t.competitionMonth),
+  index('city_battle_votes_month_idx').on(t.competitionMonth),
+])
+
 export const giveaways = pgTable('giveaways', {
   id: uuid('id').primaryKey().defaultRandom(),
   citySlug: text('city_slug').notNull(),

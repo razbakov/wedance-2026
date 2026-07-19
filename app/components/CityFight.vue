@@ -1,62 +1,158 @@
 <script setup lang="ts">
 /**
- * City-vs-city video battle. Renders the current month's winning video from two
- * cities side by side (data from /api/city-fight). Guarded: shows nothing until
- * at least two cities have a winner, so it stays hidden while the per-city
- * competition is still empty. Each side links into that city's competition —
- * a discovery hook, not a separate voting system (cross-city vote tallies are a
- * deliberate follow-up once the base competition has content).
+ * City-vs-city video battle — the tier above per-city voting.
+ *
+ * Shows two cities' champion clips (each the current month's highest-ELO
+ * approved video) head to head; you vote for a CITY, not a video. Votes tally
+ * into the "Top dance cities" leaderboard below. Client-only (the tRPC client
+ * uses a relative URL that throws under SSR), and guarded: when fewer than two
+ * cities have a champion the whole widget collapses to nothing.
  */
-import { Swords, ArrowRight } from 'lucide-vue-next'
-import type { CityFight } from '~/server/api/city-fight.get'
+import { Swords, Play, Trophy } from 'lucide-vue-next'
+import { parseVideoUrl } from '~/lib/videoEmbed'
 
-const { data } = await useFetch<CityFight>('/api/city-fight', { key: 'city-fight' })
-const fight = computed(() => data.value?.fight ?? null)
+const { $trpc } = useNuxtApp()
 
-const thumb = (f: NonNullable<CityFight['fight']>['a']) =>
-  f.thumbnailUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(f.city)}&size=320&background=dc2626&color=fff&bold=true`
+interface Champion {
+  citySlug: string; city: string; videoId: string; title: string
+  videoUrl: string; thumbnailUrl: string | null; danceStyle: string | null; eloScore: number
+}
+type LeaderRow = { citySlug: string; city: string; wins: number; losses: number; battles: number; winRate: number }
+
+const matchup = ref<{ a: Champion; b: Champion } | null>(null)
+const leaderboard = ref<LeaderRow[]>([])
+const loading = ref(true)
+const voting = ref(false)
+const end = ref<null | 'capped' | 'exhausted' | 'not_enough_cities'>(null)
+const activeEmbed = ref<string | null>(null)
+const accents = ['#dc2626', '#0891b2'] as const
+
+async function loadMatchup() {
+  activeEmbed.value = null
+  try {
+    const res = await $trpc.cityVideo.battleMatchup.query()
+    if (res.matchup) { matchup.value = { a: res.matchup.a, b: res.matchup.b }; end.value = null }
+    else { matchup.value = null; end.value = (res.reason ?? 'exhausted') as typeof end.value }
+  } catch { matchup.value = null; end.value = 'not_enough_cities' }
+}
+async function loadLeaderboard() {
+  try { leaderboard.value = (await $trpc.cityVideo.cityLeaderboard.query({ limit: 8 })).cities }
+  catch { leaderboard.value = [] }
+}
+
+async function voteCity(winner: Champion, loser: Champion) {
+  if (voting.value) return
+  voting.value = true
+  try {
+    await $trpc.cityVideo.battleVote.mutate({
+      winnerCitySlug: winner.citySlug, loserCitySlug: loser.citySlug,
+      winnerVideoId: winner.videoId, loserVideoId: loser.videoId,
+    })
+    useTrack().track('city_battle_vote', { winner: winner.citySlug, loser: loser.citySlug })
+    await Promise.all([loadMatchup(), loadLeaderboard()])
+  } catch { await loadMatchup() }
+  finally { voting.value = false }
+}
+
+const embed = (v: Champion) => parseVideoUrl(v.videoUrl)
+const rankColor = (i: number) => ['#f59e0b', '#9ca3af', '#b45309'][i] ?? '#9a5614'
+
+onMounted(async () => {
+  await Promise.all([loadMatchup(), loadLeaderboard()])
+  loading.value = false
+})
+
+// Collapse entirely when there's genuinely nothing to show (no matchup and an
+// empty leaderboard) — never leave a blank block at the top of the page.
+const collapsed = computed(() => !loading.value && !matchup.value && !leaderboard.value.length)
 </script>
 
 <template>
-  <section v-if="fight" class="max-w-4xl mx-auto px-4 py-10">
+  <section v-if="!collapsed" class="max-w-4xl mx-auto px-4 py-10">
     <div class="text-center mb-6">
       <div class="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.3em] font-bold" style="color:#dc2626; font-family: system-ui, sans-serif;">
-        <Swords class="w-4 h-4" /> Video battle
+        <Swords class="w-4 h-4" /> City battle
       </div>
       <h2 class="text-2xl sm:text-3xl mt-1" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
-        {{ fight.a.city }} <em class="italic" style="color:#dc2626;">vs</em> {{ fight.b.city }}
+        Which city <em class="italic" style="color:#dc2626;">wins?</em>
       </h2>
       <p class="text-xs mt-1" style="color:#9a5614; font-family:'Caveat', cursive; font-size:16px;">
-        — this month's winning clips, head to head
+        — vote the winning clips, city vs city
       </p>
     </div>
 
-    <div class="grid grid-cols-2 gap-3 sm:gap-5 items-stretch relative">
-      <NuxtLink
-        v-for="(f, i) in [fight.a, fight.b]"
-        :key="f.citySlug"
-        :to="`/cities/${f.citySlug}#vote`"
-        class="group block rounded-2xl overflow-hidden bg-white border transition-all hover:-translate-y-1"
-        :style="{ borderColor: (i === 0 ? '#dc2626' : '#0891b2') + '55', boxShadow: '0 8px 22px rgba(59,31,18,0.06)' }"
-      >
-        <div class="relative aspect-video overflow-hidden">
-          <img :src="thumb(f)" :alt="`${f.city} — winning video`" class="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
-          <div class="absolute inset-0" style="background:linear-gradient(180deg, rgba(59,31,18,0) 45%, rgba(59,31,18,0.72) 100%);" />
-          <div class="absolute bottom-2 left-3 right-3">
-            <div class="font-bold text-lg sm:text-xl leading-tight" style="color:#fff; font-family:'Playfair Display', serif; text-shadow:0 1px 12px rgba(0,0,0,0.4);">{{ f.city }}</div>
-            <div v-if="f.danceStyle" class="text-[11px]" style="color:rgba(255,255,255,0.85); font-family: system-ui, sans-serif;">{{ f.danceStyle }}</div>
-          </div>
-        </div>
-        <div class="p-3 sm:p-4 flex items-center justify-between gap-2">
-          <span class="text-xs sm:text-sm font-medium truncate" style="color:#5b3a1d; font-family: system-ui, sans-serif;">{{ f.title }}</span>
-          <span class="inline-flex items-center gap-1 text-xs font-bold shrink-0" :style="{ color: i === 0 ? '#dc2626' : '#0891b2' }">Vote <ArrowRight class="w-3.5 h-3.5" /></span>
-        </div>
-      </NuxtLink>
+    <!-- Loading -->
+    <div v-if="loading" class="grid grid-cols-2 gap-3 sm:gap-5">
+      <div v-for="i in 2" :key="i" class="aspect-video rounded-2xl animate-pulse" style="background:#3b1f0d0d;" />
+    </div>
 
-      <!-- VS badge -->
+    <!-- Matchup -->
+    <div v-else-if="matchup" class="grid grid-cols-2 gap-3 sm:gap-5 items-stretch relative">
+      <div
+        v-for="(f, i) in [matchup.a, matchup.b]"
+        :key="f.citySlug"
+        class="rounded-2xl overflow-hidden bg-white border flex flex-col"
+        :style="{ borderColor: accents[i] + '55', boxShadow: '0 8px 22px rgba(59,31,18,0.06)' }"
+      >
+        <div class="relative aspect-video" style="background:#3b1f0d;">
+          <iframe
+            v-if="activeEmbed === f.videoId && embed(f).embedUrl"
+            :src="embed(f).embedUrl!"
+            class="absolute inset-0 h-full w-full" frameborder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen
+          />
+          <button v-else type="button" class="absolute inset-0 h-full w-full" @click="embed(f).embedUrl ? (activeEmbed = f.videoId) : window.open(f.videoUrl, '_blank')">
+            <img v-if="embed(f).thumbnailUrl" :src="embed(f).thumbnailUrl!" :alt="`${f.city} — winning clip`" class="absolute inset-0 w-full h-full object-cover" loading="lazy">
+            <div class="absolute inset-0" style="background:linear-gradient(180deg, rgba(59,31,18,0) 40%, rgba(59,31,18,0.72) 100%);" />
+            <span class="absolute inset-0 flex items-center justify-center">
+              <span class="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/90 shadow-lg">
+                <Play class="h-5 w-5 translate-x-0.5" :style="{ color: accents[i] }" fill="currentColor" />
+              </span>
+            </span>
+            <span class="absolute bottom-2 left-3 right-3 text-left">
+              <span class="block font-bold text-lg sm:text-xl leading-tight" style="color:#fff; font-family:'Playfair Display', serif; text-shadow:0 1px 12px rgba(0,0,0,0.4);">{{ f.city }}</span>
+              <span v-if="f.danceStyle" class="block text-[11px]" style="color:rgba(255,255,255,0.85); font-family: system-ui, sans-serif;">{{ f.danceStyle }}</span>
+            </span>
+          </button>
+        </div>
+        <button
+          type="button" :disabled="voting"
+          class="m-3 mt-3 inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-bold uppercase tracking-wider text-white transition-all disabled:opacity-50"
+          :style="{ background: accents[i], boxShadow: '0 3px 0 -1px rgba(0,0,0,0.15)' }"
+          @click="voteCity(f, [matchup.a, matchup.b][i === 0 ? 1 : 0])"
+        >Vote {{ f.city }}</button>
+      </div>
+
       <div class="absolute left-1/2 top-[28%] -translate-x-1/2 -translate-y-1/2 pointer-events-none">
         <div class="w-11 h-11 rounded-full flex items-center justify-center text-white font-black text-sm" style="background:#3b1f0d; box-shadow:0 4px 0 -1px #1f0f06, 0 6px 18px rgba(0,0,0,0.25); font-family:'Playfair Display', serif;">VS</div>
       </div>
+    </div>
+
+    <!-- End states (matchup exhausted / capped) — leaderboard still shows below -->
+    <div v-else class="rounded-2xl border-2 border-dashed p-5 text-center" style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);">
+      <p class="text-sm font-bold" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+        {{ end === 'capped' ? "That's a lot of voting — thank you!" : "You've voted every matchup. Here's the standings." }}
+      </p>
+    </div>
+
+    <!-- Top dance cities leaderboard -->
+    <div v-if="leaderboard.length" class="mt-8">
+      <div class="flex items-center gap-2 mb-3">
+        <Trophy class="w-4 h-4" style="color:#f59e0b;" />
+        <h3 class="text-lg" style="font-family:'Playfair Display', serif; color:#3b1f0d;">Top dance cities <span class="text-xs" style="color:#9a5614; font-family:'Caveat', cursive; font-size:15px;">— this month</span></h3>
+      </div>
+      <ol class="space-y-1.5">
+        <li
+          v-for="(c, i) in leaderboard" :key="c.citySlug"
+          class="flex items-center gap-3 rounded-xl bg-white border px-3 py-2"
+          style="border-color:#3b1f0d1a; box-shadow:0 1px 0 rgba(59,31,18,0.03);"
+        >
+          <span class="w-6 text-center font-black text-sm" :style="{ color: rankColor(i) }">{{ i + 1 }}</span>
+          <NuxtLink :to="`/cities/${c.citySlug}`" class="flex-1 font-bold text-sm hover:underline" style="color:#3b1f0d; font-family:'Playfair Display', serif;">{{ c.city }}</NuxtLink>
+          <span class="text-xs font-bold" style="color:#16a34a; font-family: system-ui, sans-serif;">{{ c.wins }}W</span>
+          <span class="text-[11px]" style="color:#9a5614; font-family: system-ui, sans-serif;">{{ Math.round(c.winRate * 100) }}%</span>
+        </li>
+      </ol>
     </div>
   </section>
 </template>
