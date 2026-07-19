@@ -65,7 +65,7 @@ const accentFor = (slug: string) => accents[[...slug].reduce((a, c) => a + c.cha
           Every scene <em class="italic" style="color:#dc2626;">every city.</em>
         </h1>
         <p class="mt-5 text-base sm:text-lg leading-relaxed max-w-xl mx-auto" style="color:#5b3a1d;">
-          The venues, artists and organizers of the Cuban dance world — find your city's community.
+          The venues, artists and organizers behind every dance scene — find your city's community.
         </p>
 
         <div class="mt-8 max-w-lg mx-auto">
@@ -164,6 +164,9 @@ const accentFor = (slug: string) => accents[[...slug].reduce((a, c) => a + c.cha
         </NuxtLink>
       </div>
     </section>
+
+    <!-- City-vs-city video battle — renders only when ≥2 cities have a winner -->
+    <CityFight />
 
     <!-- Organizer CTA -->
     <section class="max-w-4xl mx-auto px-4 py-10">
