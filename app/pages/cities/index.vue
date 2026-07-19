@@ -87,6 +87,9 @@ const accentFor = (slug: string) => accents[[...slug].reduce((a, c) => a + c.cha
       </svg>
     </section>
 
+    <!-- City-vs-city video battle — right after the hero. Renders only when ≥2 cities have a winner. -->
+    <div id="battle"><CityFight /></div>
+
     <!-- City grid -->
     <section class="max-w-4xl mx-auto px-4 pb-12">
       <div class="flex items-baseline justify-between mb-6">
@@ -164,9 +167,6 @@ const accentFor = (slug: string) => accents[[...slug].reduce((a, c) => a + c.cha
         </NuxtLink>
       </div>
     </section>
-
-    <!-- City-vs-city video battle — renders only when ≥2 cities have a winner -->
-    <CityFight />
 
     <!-- Organizer CTA -->
     <section class="max-w-4xl mx-auto px-4 py-10">
