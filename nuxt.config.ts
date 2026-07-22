@@ -33,7 +33,7 @@ export default defineNuxtConfig({
     databaseUrl: process.env.DATABASE_URL || '',
     resendApiKey: process.env.RESEND_API_KEY || '',
     resendFromEmail: process.env.RESEND_FROM_EMAIL || 'WeDance <noreply@wedance.vip>',
-    siteUrl: process.env.SITE_URL || 'http://localhost:3000',
+    siteUrl: process.env.SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'),
     stripeSecretKey: process.env.STRIPE_SECRET_KEY || '',
     stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
     tickettailorWebhookSecret: process.env.TICKETTAILOR_WEBHOOK_SECRET || '',
