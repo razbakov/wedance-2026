@@ -1,0 +1,225 @@
+<script setup lang="ts">
+/**
+ * "Report a problem" widget — a site-wide floating button that lets any visitor
+ * (signed in or not) file a bug. On click it snapshots the *current* page with
+ * html2canvas (before the dialog opens, so the report shows what the user was
+ * actually looking at), then opens a dialog for a short description + optional
+ * email. Submitting calls the `feedback.report` tRPC mutation, which files a
+ * Linear issue in team WED with the screenshot + a rich context bundle
+ * (device, route, recent client errors, Sentry replay link — see
+ * useReportContext). Styled in the 2026 tropical aesthetic to match SignUpModal.
+ */
+import { Bug, X, Check, Loader2, ImageIcon } from 'lucide-vue-next'
+
+const { collect } = useReportContext()
+const { isSignedIn } = useAuth()
+const { track } = useTrack()
+const { $trpc } = useNuxtApp()
+
+const open = ref(false)
+const description = ref('')
+const email = ref('')
+const screenshot = ref<string | null>(null)
+const capturing = ref(false)
+const submitting = ref(false)
+const error = ref('')
+const doneUrl = ref<string | null>(null)
+
+async function captureScreenshot(): Promise<string | null> {
+  if (!import.meta.client) return null
+  try {
+    const html2canvas = (await import('html2canvas')).default
+    const canvas = await html2canvas(document.body, {
+      logging: false,
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      scale: Math.min(window.devicePixelRatio || 1, 1.5),
+      x: window.scrollX,
+      y: window.scrollY,
+      width: window.innerWidth,
+      height: window.innerHeight,
+      windowWidth: document.documentElement.scrollWidth,
+      windowHeight: document.documentElement.scrollHeight,
+    })
+    // JPEG @ 0.8 keeps the data URL small enough for a single request.
+    return canvas.toDataURL('image/jpeg', 0.8)
+  } catch {
+    return null // screenshot is best-effort; report still submits without it
+  }
+}
+
+async function openReport() {
+  error.value = ''
+  doneUrl.value = null
+  capturing.value = true
+  // Snapshot the page as it looks right now, then reveal the dialog.
+  screenshot.value = await captureScreenshot()
+  capturing.value = false
+  open.value = true
+  track('problem_report_opened')
+}
+
+function reset() {
+  description.value = ''
+  email.value = ''
+  screenshot.value = null
+  error.value = ''
+  submitting.value = false
+  doneUrl.value = null
+}
+
+watch(open, (v) => {
+  if (!v) setTimeout(reset, 200)
+})
+
+async function submit() {
+  error.value = ''
+  const desc = description.value.trim()
+  if (!desc) {
+    error.value = 'Please describe what went wrong.'
+    return
+  }
+  submitting.value = true
+  try {
+    const res = await $trpc.feedback.report.mutate({
+      description: desc,
+      email: email.value.trim() || undefined,
+      context: collect(),
+      screenshot: screenshot.value || undefined,
+    })
+    doneUrl.value = res.url
+    track('problem_report_submitted', { identifier: res.identifier })
+  } catch (e: any) {
+    error.value = e?.message || 'Could not submit. Please try again, or email hello@wedance.vip.'
+  } finally {
+    submitting.value = false
+  }
+}
+
+const inputClass = 'w-full rounded-2xl px-4 py-3 text-sm outline-none transition-all'
+const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d; font-family: system-ui, sans-serif;'
+</script>
+
+<template>
+  <!-- Floating trigger (bottom-left to stay clear of the plan/cart sidebar) -->
+  <button
+    type="button"
+    :disabled="capturing"
+    class="fixed left-4 bottom-4 z-40 inline-flex items-center gap-2 rounded-full pl-3 pr-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-lg disabled:opacity-70"
+    style="background:#3b1f0d; box-shadow: 0 4px 14px rgba(59,31,13,0.35);"
+    aria-label="Report a problem"
+    @click="openReport"
+  >
+    <Loader2 v-if="capturing" class="w-4 h-4 animate-spin" />
+    <Bug v-else class="w-4 h-4" />
+    <span class="hidden sm:inline">{{ capturing ? 'Capturing…' : 'Report a problem' }}</span>
+  </button>
+
+  <Dialog v-model:open="open">
+    <DialogContent
+      class="sm:max-w-md border-0 p-0 overflow-hidden"
+      style="background:#fbf5ea; color:#3b1f0d; font-family:'Playfair Display', serif;"
+    >
+      <div class="h-1.5" style="background:#dc2626;" />
+
+      <div class="px-6 pb-6 pt-4">
+        <!-- Success -->
+        <template v-if="doneUrl">
+          <DialogHeader class="text-left space-y-1">
+            <div class="text-[10px] uppercase tracking-[0.3em] font-bold" style="color:#9a5614;">Thank you</div>
+            <DialogTitle class="text-2xl leading-tight" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+              Report sent 🎉
+            </DialogTitle>
+            <DialogDescription style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+              Our team has it, complete with a screenshot and technical details. We really appreciate you flagging it.
+            </DialogDescription>
+          </DialogHeader>
+          <button
+            type="button"
+            class="mt-5 w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-white text-sm font-bold uppercase tracking-wider"
+            style="background:#dc2626; box-shadow: 0 3px 0 -1px #b91c1c; font-family: system-ui, sans-serif;"
+            @click="open = false"
+          >
+            <Check class="w-4 h-4" /> Done
+          </button>
+        </template>
+
+        <!-- Form -->
+        <template v-else>
+          <DialogHeader class="text-left space-y-1">
+            <div class="text-[10px] uppercase tracking-[0.3em] font-bold" style="color:#9a5614;">Help us improve</div>
+            <DialogTitle class="text-2xl leading-tight" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+              Report a problem
+            </DialogTitle>
+            <DialogDescription style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+              Tell us what went wrong. We’ll attach a screenshot of this page and technical details to help us fix it fast.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form class="space-y-4 pt-4" @submit.prevent="submit">
+            <div class="space-y-1.5">
+              <label for="report-desc" class="text-sm font-bold" style="color:#3b1f0d;">What happened?</label>
+              <textarea
+                id="report-desc"
+                v-model="description"
+                rows="4"
+                placeholder="e.g. I clicked ‘Save my plan’ and nothing happened…"
+                required
+                :class="inputClass"
+                :style="inputStyle"
+              />
+            </div>
+
+            <div v-if="!isSignedIn" class="space-y-1.5">
+              <label for="report-email" class="text-sm font-bold" style="color:#3b1f0d;">
+                Email <span style="color:#9a5614; font-weight:400;">(optional — so we can follow up)</span>
+              </label>
+              <input
+                id="report-email"
+                v-model="email"
+                type="email"
+                placeholder="you@example.com"
+                autocomplete="email"
+                :class="inputClass"
+                :style="inputStyle"
+              >
+            </div>
+
+            <!-- Screenshot status -->
+            <div
+              class="flex items-center gap-2 rounded-2xl px-3 py-2.5 text-xs"
+              style="background:white; border:1px solid #3b1f0d22; color:#5b3a1d; font-family: system-ui, sans-serif;"
+            >
+              <ImageIcon class="w-4 h-4 shrink-0" :style="screenshot ? 'color:#16a34a' : 'color:#9a5614'" />
+              <span v-if="screenshot" class="flex-1">Screenshot of this page attached.</span>
+              <span v-else class="flex-1">No screenshot captured — we’ll still get your description &amp; details.</span>
+              <button
+                v-if="screenshot"
+                type="button"
+                class="font-bold underline shrink-0"
+                style="color:#dc2626;"
+                @click="screenshot = null"
+              >
+                Remove
+              </button>
+            </div>
+
+            <p v-if="error" class="text-sm font-bold" style="color:#dc2626; font-family: system-ui, sans-serif;">
+              {{ error }}
+            </p>
+
+            <button
+              type="submit"
+              :disabled="submitting"
+              class="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-white text-sm font-bold uppercase tracking-wider disabled:opacity-60"
+              style="background:#dc2626; box-shadow: 0 3px 0 -1px #b91c1c; font-family: system-ui, sans-serif;"
+            >
+              <Loader2 v-if="submitting" class="w-4 h-4 animate-spin" />
+              {{ submitting ? 'Sending…' : 'Send report' }}
+            </button>
+          </form>
+        </template>
+      </div>
+    </DialogContent>
+  </Dialog>
+</template>

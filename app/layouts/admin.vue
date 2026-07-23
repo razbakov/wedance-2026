@@ -125,5 +125,7 @@ const isActive = (item: { to: string; exact: boolean }) =>
         <slot v-else />
       </div>
     </main>
+
+    <ReportProblem />
   </div>
 </template>
