@@ -33,7 +33,17 @@ export default defineNuxtConfig({
     databaseUrl: process.env.DATABASE_URL || '',
     resendApiKey: process.env.RESEND_API_KEY || '',
     resendFromEmail: process.env.RESEND_FROM_EMAIL || 'WeDance <noreply@wedance.vip>',
-    siteUrl: process.env.SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'),
+    // Canonical, user-facing base URL for links in emails (magic link / reset).
+    // Precedence: explicit SITE_URL → production always uses the custom domain
+    // (never VERCEL_URL, which is the per-deployment hostname and leaks ugly
+    // *.vercel.app links) → preview deploys use their VERCEL_URL → local dev.
+    siteUrl:
+      process.env.SITE_URL
+      || (process.env.VERCEL_ENV === 'production'
+        ? 'https://2026.wedance.vip'
+        : process.env.VERCEL_URL
+          ? `https://${process.env.VERCEL_URL}`
+          : 'http://localhost:3000'),
     stripeSecretKey: process.env.STRIPE_SECRET_KEY || '',
     stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
     tickettailorWebhookSecret: process.env.TICKETTAILOR_WEBHOOK_SECRET || '',

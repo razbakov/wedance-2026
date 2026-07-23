@@ -19,7 +19,14 @@ const columns = [
     links: [
       { to: '/gigs', label: 'Gigs' },
       { to: '/for-events', label: 'Private events' },
-      { to: '/organizers', label: 'For organizers' },
+    ],
+  },
+  {
+    title: 'Work with us',
+    links: [
+      { to: '/for-organizers', label: 'For organizers' },
+      { to: '/for-sponsors', label: 'For sponsors' },
+      { to: '/press', label: 'Press' },
     ],
   },
 ]
@@ -30,7 +37,7 @@ const year = 2026
 <template>
   <footer class="border-t mt-8" style="border-color:#3b1f0d22; background:rgba(251, 245, 234, 0.6);">
     <div class="max-w-6xl mx-auto px-4 py-12">
-      <div class="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+      <div class="grid gap-8 sm:grid-cols-2 lg:grid-cols-5">
         <!-- Brand + tagline -->
         <div class="lg:col-span-2">
           <Brand />
