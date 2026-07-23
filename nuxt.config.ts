@@ -20,7 +20,7 @@ export default defineNuxtConfig({
   nitro: {
     preset: 'vercel',
   },
-  modules: ['shadcn-nuxt'],
+  modules: ['shadcn-nuxt', '@sentry/nuxt/module'],
   shadcn: {
     prefix: '',
     componentDir: './app/components/ui',
@@ -42,6 +42,25 @@ export default defineNuxtConfig({
       // ship un-keyed). Set NUXT_PUBLIC_POSTHOG_KEY (phc_…) to turn it on.
       posthogKey: process.env.NUXT_PUBLIC_POSTHOG_KEY || '',
       posthogHost: process.env.NUXT_PUBLIC_POSTHOG_HOST || 'https://eu.i.posthog.com',
+      // Sentry error monitoring + session replay. Empty DSN => the SDK is a
+      // no-op (safe to ship un-keyed, same pattern as PostHog). Set SENTRY_DSN
+      // to turn it on; problem reports then link to the user's replay.
+      sentryDsn: process.env.SENTRY_DSN || '',
+      // Base URL of the Sentry replays view, e.g.
+      // https://<org>.sentry.io/organizations/<org>/replays — the report widget
+      // appends the replay id to deep-link triage straight to the recording.
+      sentryReplayUrlBase: process.env.SENTRY_REPLAY_URL_BASE || '',
+      // Short commit SHA, surfaced in problem reports as the build identifier.
+      commitSha: (process.env.VERCEL_GIT_COMMIT_SHA || '').slice(0, 7),
+    },
+  },
+  // Source-map upload for readable Sentry stack traces. Skipped automatically
+  // (build still succeeds) when SENTRY_AUTH_TOKEN is absent.
+  sentry: {
+    sourceMapsUploadOptions: {
+      org: process.env.SENTRY_ORG,
+      project: process.env.SENTRY_PROJECT,
+      authToken: process.env.SENTRY_AUTH_TOKEN,
     },
   },
 })

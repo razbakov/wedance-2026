@@ -153,5 +153,7 @@ function onSignIn() {
     </main>
 
     <SignUpModal v-model:open="showSignUp" action="signin" />
+
+    <ReportProblem />
   </div>
 </template>
