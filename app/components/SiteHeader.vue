@@ -9,10 +9,6 @@ const showSignIn = ref(false)
 const links = [
   { to: '/festivals', label: 'Festivals', always: true },
   { to: '/cities', label: 'Cities', always: true },
-  { to: '/artists', label: 'Artists', always: false },
-  { to: '/gigs', label: 'Gigs', always: false },
-  { to: '/for-events', label: 'Private events', always: false },
-  { to: '/organizers', label: 'For organizers', always: false },
 ]
 </script>
 
