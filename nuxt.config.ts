@@ -47,6 +47,10 @@ export default defineNuxtConfig({
     stripeSecretKey: process.env.STRIPE_SECRET_KEY || '',
     stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
     tickettailorWebhookSecret: process.env.TICKETTAILOR_WEBHOOK_SECRET || '',
+    // Shared secret for the onboarding quest write endpoints (/api/join/*).
+    // The envoy Telegram bot sends it as the `x-onboarding-secret` header; the
+    // routes compare it with timingSafeEqual and fail closed 401 when unset.
+    onboardingApiSecret: process.env.ONBOARDING_API_SECRET || '',
     public: {
       // PostHog product analytics. Empty key => tracking is a no-op (safe to
       // ship un-keyed). Set NUXT_PUBLIC_POSTHOG_KEY (phc_…) to turn it on.

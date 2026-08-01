@@ -446,6 +446,32 @@ export const electionVoteHistory = pgTable('election_vote_history', {
   index('election_vote_history_idx').on(t.electionId, t.voterDancerId),
 ])
 
+// --- Onboarding quest machine (Phase 1) ------------------------------------
+// The "Join WeDance" onboarding funnel modelled as a game. Each candidate is a
+// row that levels up 0→5 as they progress, and carries a `quest` payload whose
+// `cuj_events` map tracks the 13 critical-user-journey checks (green/red/pending).
+// The public board page (/join/[id]) reads a safe projection of this row; the
+// envoy Telegram bot drives writes through the secret-guarded /api/join/* routes.
+//
+// Levels: 0=invited · 1=joined(read map) · 2=claimed(call booked) ·
+//         3=quest in progress · 4=boss beaten(all CUJ green) · 5=active(access granted)
+//
+// `quest`   — { cuj_events: { <event>: 'pending' | 'green' | 'red' } }
+// `history` — append-only [{ event, at, data? }] audit trail of advances.
+export const onboardingCandidates = pgTable('onboarding_candidates', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  email: text('email'),
+  telegramId: text('telegram_id'),
+  role: text('role'),
+  level: integer('level').notNull().default(0),
+  quest: json('quest').$type<{ cuj_events: Record<string, 'pending' | 'green' | 'red'> }>().default({ cuj_events: {} }),
+  accessGranted: boolean('access_granted').notNull().default(false),
+  history: json('history').$type<Array<{ event: string; at: string; data?: Record<string, unknown> }>>().default([]),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+})
+
 // Per-term guideline versions (G804): on close, the winner's guidelines become
 // the space's active ruleset; every term is preserved so governance history is
 // auditable across elections.

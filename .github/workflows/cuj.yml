@@ -1,0 +1,80 @@
+name: CUJ
+
+# Onboarding quest CI.
+#
+#   unit      — always runs: installs bun, `bun install`, `bun run test`.
+#   cuj-e2e   — OUTLINE (does not run yet). Runs the Playwright critical-user-
+#               journey suite against a deployed preview URL, then POSTs a
+#               green/red result per CUJ event to /api/join/[id]/cuj so the
+#               candidate's board reflects reality. Needs wiring before it can
+#               run — see the comments in that job.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Run unit tests
+        run: bun run test
+
+  cuj-e2e:
+    name: CUJ e2e → board (outline — needs wiring)
+    runs-on: ubuntu-latest
+    # NOT enabled yet. Flip to `if: false` off once the two TODOs below are done.
+    # It is gated so the workflow stays green until Alex wires the preview URL
+    # and the secret.
+    if: ${{ false }}
+    needs: unit
+    env:
+      # TODO(1): the deployed preview URL to run the CUJ suite against. Wire this
+      # from the Vercel preview deployment for this commit/PR (e.g. via the
+      # Vercel GitHub integration output, or a `vercel` CLI `--prebuilt` deploy).
+      PREVIEW_URL: ${{ vars.CUJ_PREVIEW_URL }}
+      # TODO(2): the shared write-secret. Add it as a GitHub Actions secret named
+      # ONBOARDING_API_SECRET (Settings → Secrets and variables → Actions), the
+      # SAME value set in Vercel prod + preview env. Never commit it.
+      ONBOARDING_API_SECRET: ${{ secrets.ONBOARDING_API_SECRET }}
+      # The candidate whose board this run reports into. Provide per-run (e.g. a
+      # workflow_dispatch input) — a fixed id here is only a placeholder.
+      CANDIDATE_ID: ${{ vars.CUJ_CANDIDATE_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Install Playwright browsers
+        run: bunx playwright install --with-deps chromium
+      # The Playwright BDD suite drives the 13 critical user journeys against
+      # $PREVIEW_URL. `bun run test:e2e` runs `bddgen && playwright test`.
+      - name: Run CUJ Playwright suite
+        run: bun run test:e2e
+        env:
+          BASE_URL: ${{ env.PREVIEW_URL }}
+      # After the suite, POST one result per CUJ event to the board. This is a
+      # sketch of the reporting step — the real version should derive each
+      # event's pass/fail from the Playwright JSON report (results.json) rather
+      # than the hard-coded list here. Each call is secret-guarded.
+      #
+      #   for event in week_plan_add year_plan_add ...(all 13); do
+      #     status=$(jq -r --arg e "$event" '...' results.json)   # green|red
+      #     curl -fsS -X POST "$PREVIEW_URL/api/join/$CANDIDATE_ID/cuj" \
+      #       -H "content-type: application/json" \
+      #       -H "x-onboarding-secret: $ONBOARDING_API_SECRET" \
+      #       -d "{\"event\":\"$event\",\"status\":\"$status\"}"
+      #   done
+      - name: Report CUJ results to board (placeholder)
+        run: echo "Wire results.json → POST /api/join/$CANDIDATE_ID/cuj for each of the 13 events."
