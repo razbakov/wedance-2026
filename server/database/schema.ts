@@ -461,3 +461,33 @@ export const guidelineVersions = pgTable('guideline_versions', {
 }, (t) => [
   index('guideline_versions_profile_idx').on(t.profileId),
 ])
+
+// ---------------------------------------------------------------------------
+// Gigs — opportunity board for dance roles and service offerings
+// 
+// kind: 'role' = organizer/festival posting an open role they need filled
+// kind: 'offer' = artist posting a service they offer
+// ---------------------------------------------------------------------------
+export const gigs = pgTable('gigs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  kind: text('kind').notNull().$type<'role' | 'offer'>(),
+  category: text('category').notNull(), // Teacher, DJ, MC, Performer, Show, Photographer, Organizer
+  title: text('title').notNull(),
+  posterName: text('poster_name').notNull(),
+  posterType: text('poster_type').notNull(), // Festival, Organizer, Private event, School, Artist
+  location: text('location').notNull(),
+  styles: json('styles').$type<string[]>().default([]),
+  when: text('when').notNull(),
+  compensation: text('compensation').notNull(),
+  deadline: date('deadline'),
+  // Contact info for the poster (email for replies, optional URL to profile/website)
+  contactEmail: text('contact_email').notNull(),
+  contactUrl: text('contact_url'),
+  // Optional: link to related entity (festival, profile, etc.)
+  entityUrl: text('entity_url'),
+  // Soft delete: gigs can be marked closed without removing from history
+  status: text('status').notNull().default('open').$type<'open' | 'closed'>(),
+  dancerId: uuid('dancer_id').references(() => dancers.id),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+})

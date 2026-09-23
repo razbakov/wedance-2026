@@ -5,24 +5,7 @@
  * V3 tropical style. Distinct from /artists (which is browse-a-directory):
  * gigs is post-driven — "I need X" or "I offer Y".
  */
-import { ArrowRight, MapPin, Calendar, Wallet, Plus, Megaphone, Hand } from 'lucide-vue-next'
-import { mockGigs, type Gig, type GigKind } from '~/data/mock-gigs'
-
-// No self-serve gig board yet — posting and applying route through the team
-// inbox (same channel as /for-events), so the buttons do a real thing.
-const postGigMailto = 'mailto:hello@wedance.vip?subject=' + encodeURIComponent('Post a gig on WeDance')
-  + '&body=' + encodeURIComponent('What you need (or offer):\nRole / service:\nEvent / context:\nLocation:\nDates:\nCompensation:\nDeadline:\nContact:')
-
-function gigMailto(g: Gig): string {
-  const applying = g.kind === 'role'
-  const subject = applying
-    ? `Applying: ${g.title} — ${g.posterName}`
-    : `Booking enquiry: ${g.title} — ${g.posterName}`
-  const body = applying
-    ? `Hi ${g.posterName},\n\nI'd like to apply for "${g.title}" (${g.location}, ${g.when}).\n\nAbout me:\nExperience:\nLinks:\n`
-    : `Hi ${g.posterName},\n\nI'd like to enquire about "${g.title}" (${g.location}, ${g.when}).\n\nMy event:\nDate:\nWhat I need:\n`
-  return 'mailto:hello@wedance.vip?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body)
-}
+import { ArrowRight, MapPin, Calendar, Wallet, Plus, Megaphone, Hand, X } from 'lucide-vue-next'
 
 definePageMeta({ layout: false })
 
@@ -38,27 +21,139 @@ useHead({
   ],
 })
 
+const client = useTRPC()
+const user = await useAuth()
+
 const route = useRoute()
 const kindParam = (Array.isArray(route.query.kind) ? route.query.kind[0] : route.query.kind) || ''
-const kindFilter = ref<GigKind | ''>(kindParam === 'role' || kindParam === 'offer' ? kindParam : '')
+const kindFilter = ref<'role' | 'offer' | ''>(kindParam === 'role' || kindParam === 'offer' ? kindParam : '')
 const categoryFilter = ref('')
 
-const categories = computed(() => Array.from(new Set(mockGigs.map((g) => g.category))))
+// Fetch gigs from API
+const { data: gigs, pending: loadingGigs, refresh: refreshGigs } = await useFetch(() => {
+  return $fetch('/api/trpc/gigs.list', {
+    method: 'POST',
+    body: {
+      kind: kindFilter.value || undefined,
+      category: categoryFilter.value || undefined,
+    },
+  })
+}, { watch: [kindFilter, categoryFilter] })
 
-const filtered = computed(() =>
-  mockGigs.filter((g) =>
-    (!kindFilter.value || g.kind === kindFilter.value)
-    && (!categoryFilter.value || g.category === categoryFilter.value),
-  ),
-)
+const allGigs = computed(() => gigs.value?.result?.data || [])
+const categories = computed(() => Array.from(new Set(allGigs.value.map((g: any) => g.category))))
 
-function daysUntil(dateStr?: string): { text: string; urgent: boolean } | null {
+function daysUntil(dateStr?: string | Date): { text: string; urgent: boolean } | null {
   if (!dateStr) return null
-  const diff = Math.ceil((new Date(dateStr).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+  const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr
+  const diff = Math.ceil((date.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
   if (diff < 0) return { text: 'Closed', urgent: false }
   if (diff === 0) return { text: 'Closes today', urgent: true }
   if (diff <= 14) return { text: `Closes in ${diff}d`, urgent: true }
   return { text: `Closes in ${Math.ceil(diff / 7)}w`, urgent: false }
+}
+
+// Form state for creating offerings
+const showForm = ref(false)
+const formData = reactive({
+  kind: 'offer' as 'role' | 'offer',
+  category: '',
+  title: '',
+  posterName: '',
+  posterType: 'Artist',
+  location: '',
+  styles: [] as string[],
+  when: '',
+  compensation: '',
+  deadline: '',
+  contactEmail: user.value?.email || '',
+  contactUrl: '',
+  entityUrl: '',
+})
+
+const styleInput = ref('')
+const submittingForm = ref(false)
+const formError = ref('')
+const formSuccess = ref(false)
+
+function addStyle() {
+  if (styleInput.value.trim()) {
+    formData.styles.push(styleInput.value.trim())
+    styleInput.value = ''
+  }
+}
+
+function removeStyle(index: number) {
+  formData.styles.splice(index, 1)
+}
+
+async function submitForm() {
+  if (!user.value) {
+    formError.value = 'Please sign in to post a gig'
+    return
+  }
+
+  formError.value = ''
+  submittingForm.value = true
+
+  try {
+    const result = await $fetch('/api/trpc/gigs.create', {
+      method: 'POST',
+      body: formData,
+    })
+
+    formSuccess.value = true
+    formData.kind = 'offer'
+    formData.category = ''
+    formData.title = ''
+    formData.posterName = ''
+    formData.posterType = 'Artist'
+    formData.location = ''
+    formData.styles = []
+    formData.when = ''
+    formData.compensation = ''
+    formData.deadline = ''
+    formData.contactUrl = ''
+    formData.entityUrl = ''
+    styleInput.value = ''
+
+    setTimeout(() => {
+      formSuccess.value = false
+      showForm.value = false
+      refreshGigs()
+    }, 2000)
+  }
+  catch (error: any) {
+    formError.value = error.data?.message || 'Failed to create gig. Please try again.'
+  }
+  finally {
+    submittingForm.value = false
+  }
+}
+
+function gigMailto(g: any): string {
+  const applying = g.kind === 'role'
+  const subject = applying
+    ? `Applying: ${g.title} — ${g.posterName}`
+    : `Booking enquiry: ${g.title} — ${g.posterName}`
+  const body = applying
+    ? `Hi ${g.posterName},\n\nI'd like to apply for "${g.title}" (${g.location}, ${g.when}).\n\nAbout me:\nExperience:\nLinks:\n`
+    : `Hi ${g.posterName},\n\nI'd like to enquire about "${g.title}" (${g.location}, ${g.when}).\n\nMy event:\nDate:\nWhat I need:\n`
+  return 'mailto:' + (g.contactEmail || 'hello@wedance.vip') + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body)
+}
+
+const accentColors: { [key: string]: string } = {
+  'Teacher': '#dc2626',
+  'DJ': '#0891b2',
+  'MC': '#f59e0b',
+  'Performer': '#a855f7',
+  'Show': '#a855f7',
+  'Photographer': '#ec4899',
+  'Organizer': '#16a34a',
+}
+
+function getAccent(category: string): string {
+  return accentColors[category] || '#3b1f0d'
 }
 </script>
 
@@ -79,13 +174,22 @@ function daysUntil(dateStr?: string): { text: string; urgent: boolean } | null {
         </p>
 
         <div class="mt-7 flex flex-col sm:flex-row items-center justify-center gap-3">
-          <a
-            :href="postGigMailto"
+          <button
+            v-if="user"
+            type="button"
             class="inline-flex items-center gap-2 px-6 py-3 rounded-full text-white text-sm font-bold uppercase tracking-wider"
             style="background:linear-gradient(135deg, #dc2626, #f97316); box-shadow: 0 4px 0 -1px #b91c1c;"
-            @click="useTrack().track('gig_cta_click', { action: 'post' })"
+            @click="showForm = !showForm"
           >
-            <Plus class="w-4 h-4" /> Post a gig
+            <Plus class="w-4 h-4" /> {{ showForm ? 'Close' : 'Post a gig' }}
+          </button>
+          <a
+            v-else
+            href="/auth/signin"
+            class="inline-flex items-center gap-2 px-6 py-3 rounded-full text-white text-sm font-bold uppercase tracking-wider"
+            style="background:linear-gradient(135deg, #dc2626, #f97316); box-shadow: 0 4px 0 -1px #b91c1c;"
+          >
+            <Plus class="w-4 h-4" /> Sign in to post
           </a>
         </div>
 
@@ -99,7 +203,7 @@ function daysUntil(dateStr?: string): { text: string; urgent: boolean } | null {
             :style="kindFilter === opt.v
               ? { background: '#3b1f0d', color: '#fbf5ea' }
               : { background: 'transparent', color: '#5b3a1d' }"
-            @click="kindFilter = opt.v as GigKind | ''"
+            @click="kindFilter = opt.v as 'role' | 'offer' | ''"
           >
             {{ opt.label }}
           </button>
@@ -127,6 +231,191 @@ function daysUntil(dateStr?: string): { text: string; urgent: boolean } | null {
       </svg>
     </section>
 
+    <!-- FORM (when user clicks Post a gig) -->
+    <section v-if="showForm" class="max-w-2xl mx-auto px-4 mb-8 bg-white rounded-2xl p-6 border-2" style="border-color:#dc262633;">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-2xl font-bold" style="color:#3b1f0d;">Post an offering</h2>
+        <button
+          type="button"
+          class="p-2 rounded-full hover:bg-gray-100"
+          @click="showForm = false"
+        >
+          <X class="w-5 h-5" style="color:#3b1f0d;" />
+        </button>
+      </div>
+
+      <form class="space-y-4" @submit.prevent="submitForm">
+        <!-- Category -->
+        <div>
+          <label class="block text-sm font-bold mb-1" style="color:#5b3a1d;">Service category</label>
+          <select
+            v-model="formData.category"
+            required
+            class="w-full px-3 py-2 rounded-lg border"
+            style="border-color:#3b1f0d22; color:#3b1f0d;"
+          >
+            <option value="">Select a category</option>
+            <option value="Teacher">Teacher</option>
+            <option value="DJ">DJ</option>
+            <option value="MC">MC</option>
+            <option value="Performer">Performer</option>
+            <option value="Show">Show</option>
+            <option value="Photographer">Photographer</option>
+            <option value="Organizer">Organizer</option>
+          </select>
+        </div>
+
+        <!-- Title -->
+        <div>
+          <label class="block text-sm font-bold mb-1" style="color:#5b3a1d;">Service title</label>
+          <input
+            v-model="formData.title"
+            type="text"
+            required
+            placeholder="e.g., Timba workshops for European festivals"
+            class="w-full px-3 py-2 rounded-lg border"
+            style="border-color:#3b1f0d22; color:#3b1f0d;"
+          />
+        </div>
+
+        <!-- Your name -->
+        <div>
+          <label class="block text-sm font-bold mb-1" style="color:#5b3a1d;">Your name</label>
+          <input
+            v-model="formData.posterName"
+            type="text"
+            required
+            placeholder="Your name or artist name"
+            class="w-full px-3 py-2 rounded-lg border"
+            style="border-color:#3b1f0d22; color:#3b1f0d;"
+          />
+        </div>
+
+        <!-- Location -->
+        <div>
+          <label class="block text-sm font-bold mb-1" style="color:#5b3a1d;">Location or base</label>
+          <input
+            v-model="formData.location"
+            type="text"
+            required
+            placeholder="e.g., Munich, Germany"
+            class="w-full px-3 py-2 rounded-lg border"
+            style="border-color:#3b1f0d22; color:#3b1f0d;"
+          />
+        </div>
+
+        <!-- Styles -->
+        <div>
+          <label class="block text-sm font-bold mb-1" style="color:#5b3a1d;">Dance styles</label>
+          <div class="flex gap-2 mb-2">
+            <input
+              v-model="styleInput"
+              type="text"
+              placeholder="Add style (e.g., Timba)"
+              class="flex-1 px-3 py-2 rounded-lg border"
+              style="border-color:#3b1f0d22; color:#3b1f0d;"
+              @keyup.enter="addStyle"
+            />
+            <button
+              type="button"
+              class="px-4 py-2 rounded-lg font-bold text-white"
+              style="background:#dc2626;"
+              @click="addStyle"
+            >
+              Add
+            </button>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <span
+              v-for="(style, idx) in formData.styles"
+              :key="idx"
+              class="px-3 py-1 rounded-full text-sm font-bold flex items-center gap-2"
+              style="background:#dc262618; color:#dc2626;"
+            >
+              {{ style }}
+              <button
+                type="button"
+                class="hover:opacity-70"
+                @click="removeStyle(idx)"
+              >
+                <X class="w-3 h-3" />
+              </button>
+            </span>
+          </div>
+        </div>
+
+        <!-- Availability -->
+        <div>
+          <label class="block text-sm font-bold mb-1" style="color:#5b3a1d;">When available</label>
+          <input
+            v-model="formData.when"
+            type="text"
+            required
+            placeholder="e.g., Weekends, Booking 2026–27"
+            class="w-full px-3 py-2 rounded-lg border"
+            style="border-color:#3b1f0d22; color:#3b1f0d;"
+          />
+        </div>
+
+        <!-- Compensation -->
+        <div>
+          <label class="block text-sm font-bold mb-1" style="color:#5b3a1d;">Compensation / rate</label>
+          <input
+            v-model="formData.compensation"
+            type="text"
+            required
+            placeholder="e.g., From €200/hour, On request"
+            class="w-full px-3 py-2 rounded-lg border"
+            style="border-color:#3b1f0d22; color:#3b1f0d;"
+          />
+        </div>
+
+        <!-- Contact email -->
+        <div>
+          <label class="block text-sm font-bold mb-1" style="color:#5b3a1d;">Contact email</label>
+          <input
+            v-model="formData.contactEmail"
+            type="email"
+            required
+            class="w-full px-3 py-2 rounded-lg border"
+            style="border-color:#3b1f0d22; color:#3b1f0d;"
+          />
+        </div>
+
+        <!-- Website (optional) -->
+        <div>
+          <label class="block text-sm font-bold mb-1" style="color:#5b3a1d;">Website or portfolio (optional)</label>
+          <input
+            v-model="formData.contactUrl"
+            type="url"
+            placeholder="https://..."
+            class="w-full px-3 py-2 rounded-lg border"
+            style="border-color:#3b1f0d22; color:#3b1f0d;"
+          />
+        </div>
+
+        <!-- Error message -->
+        <div v-if="formError" class="p-3 rounded-lg text-sm font-bold" style="background:#dc262618; color:#dc2626;">
+          {{ formError }}
+        </div>
+
+        <!-- Success message -->
+        <div v-if="formSuccess" class="p-3 rounded-lg text-sm font-bold" style="background:#16a34a18; color:#16a34a;">
+          ✓ Gig posted! It will appear on the board shortly.
+        </div>
+
+        <!-- Submit -->
+        <button
+          type="submit"
+          :disabled="submittingForm"
+          class="w-full px-6 py-3 rounded-full text-white font-bold uppercase tracking-wider"
+          style="background:linear-gradient(135deg, #dc2626, #f97316); box-shadow: 0 4px 0 -1px #b91c1c;"
+        >
+          {{ submittingForm ? 'Posting...' : 'Post your offering' }}
+        </button>
+      </form>
+    </section>
+
     <!-- BOARD -->
     <section class="max-w-4xl mx-auto px-4 pb-16">
       <div class="flex items-baseline justify-between mb-6">
@@ -134,20 +423,24 @@ function daysUntil(dateStr?: string): { text: string; urgent: boolean } | null {
           {{ kindFilter === 'role' ? 'Open roles' : kindFilter === 'offer' ? 'Services offered' : 'All gigs' }}
         </h2>
         <span class="text-xs" style="color:#9a5614; font-family:'Caveat', cursive; font-size:18px;">
-          — {{ filtered.length }} gig{{ filtered.length === 1 ? '' : 's' }}
+          — {{ allGigs.length }} gig{{ allGigs.length === 1 ? '' : 's' }}
         </span>
       </div>
 
-      <div v-if="!filtered.length" class="text-center py-14 rounded-2xl border-2 border-dashed" style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);">
+      <div v-if="loadingGigs" class="text-center py-14">
+        <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Loading gigs...</p>
+      </div>
+
+      <div v-else-if="!allGigs.length" class="text-center py-14 rounded-2xl border-2 border-dashed" style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);">
         <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">No gigs match your filters yet.</p>
       </div>
 
       <div v-else class="grid gap-4 sm:grid-cols-2">
         <div
-          v-for="g in filtered"
+          v-for="g in allGigs"
           :key="g.id"
           class="rounded-2xl bg-white border p-5 flex flex-col transition-all hover:-translate-y-1"
-          :style="{ borderColor: g.accent + '55', boxShadow: '0 1px 0 ' + g.accent + '22, 0 8px 22px rgba(59,31,18,0.05)' }"
+          :style="{ borderColor: getAccent(g.category) + '55', boxShadow: '0 1px 0 ' + getAccent(g.category) + '22, 0 8px 22px rgba(59,31,18,0.05)' }"
         >
           <!-- Kind + category -->
           <div class="flex items-center justify-between gap-2 mb-2">
@@ -160,7 +453,7 @@ function daysUntil(dateStr?: string): { text: string; urgent: boolean } | null {
               <component :is="g.kind === 'role' ? Megaphone : Hand" class="w-3 h-3" />
               {{ g.kind === 'role' ? 'Wanted' : 'Offering' }}
             </span>
-            <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full" :style="{ background: g.accent + '18', color: g.accent }">
+            <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full" :style="{ background: getAccent(g.category) + '18', color: getAccent(g.category) }">
               {{ g.category }}
             </span>
           </div>
@@ -171,10 +464,7 @@ function daysUntil(dateStr?: string): { text: string; urgent: boolean } | null {
 
           <!-- Poster -->
           <div class="mt-1 text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
-            <NuxtLink v-if="g.href" :to="g.href" class="font-bold hover:underline" :style="{ color: g.accent }">
-              {{ g.posterName }}
-            </NuxtLink>
-            <span v-else class="font-bold" :style="{ color: g.accent }">{{ g.posterName }}</span>
+            <span class="font-bold" :style="{ color: getAccent(g.category) }">{{ g.posterName }}</span>
             <span style="color:#9a5614;"> · {{ g.posterType }}</span>
           </div>
 
@@ -191,14 +481,14 @@ function daysUntil(dateStr?: string): { text: string; urgent: boolean } | null {
               v-for="s in g.styles"
               :key="s"
               class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
-              :style="{ background: g.accent + '14', color: g.accent }"
+              :style="{ background: getAccent(g.category) + '14', color: getAccent(g.category) }"
             >{{ s }}</span>
           </div>
 
           <!-- Footer -->
           <div class="mt-auto pt-4 flex items-center justify-between gap-3">
             <span
-              v-if="daysUntil(g.deadline)"
+              v-if="g.deadline && daysUntil(g.deadline)"
               class="text-xs font-bold"
               :style="{ color: daysUntil(g.deadline)!.urgent ? '#dc2626' : '#9a5614', fontFamily: 'system-ui, sans-serif' }"
             >
@@ -208,7 +498,7 @@ function daysUntil(dateStr?: string): { text: string; urgent: boolean } | null {
             <a
               :href="gigMailto(g)"
               class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-white text-xs font-bold uppercase tracking-wider"
-              :style="{ background: g.accent, boxShadow: '0 3px 0 -1px ' + g.accent + 'cc' }"
+              :style="{ background: getAccent(g.category), boxShadow: '0 3px 0 -1px ' + getAccent(g.category) + 'cc' }"
               @click="useTrack().track('gig_cta_click', { action: g.kind === 'role' ? 'apply' : 'contact', gig_id: g.id })"
             >
               {{ g.kind === 'role' ? 'Apply' : 'Contact' }} <ArrowRight class="w-3.5 h-3.5" />
