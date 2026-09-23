@@ -20,6 +20,7 @@ import * as meneate from '~/data/mock-meneate'
 import * as cubanFire from '~/data/mock-cuban-fire'
 import * as caribbeanUrbanFire from '~/data/mock-caribbean-urban-fire'
 import * as aguaPichi from '~/data/mock-agua-pichi'
+import { hasEventEnded, daysUntil } from '#shared/utils/festivalDateFormatter'
 
 definePageMeta({ layout: false })
 
@@ -181,26 +182,26 @@ function formatDateRange(start: string, end: string) {
   return `${s.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${e.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, ${e.getFullYear()}`
 }
 
-function daysUntil(dateStr: string) {
-  const now = new Date()
-  const target = new Date(dateStr)
-  const diff = Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-  if (diff < 0) return 'Happening now'
-  if (diff === 0) return 'Today'
-  if (diff === 1) return 'Tomorrow'
-  if (diff <= 30) return `In ${diff} days`
-  if (diff <= 60) return `In ${Math.ceil(diff / 7)} weeks`
-  return `In ${Math.ceil(diff / 30)} months`
-}
 
 const filteredFestivals = computed(() => {
-  if (!searchQuery.value.trim()) return allFestivals
+  // Filter out past festivals (where end date has passed)
+  const upcomingFestivals = allFestivals.filter(f => !hasEventEnded(f.endDate))
+
+  // Apply search filter
+  if (!searchQuery.value.trim()) {
+    // Sort by start date ascending (nearest first)
+    return upcomingFestivals.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
+  }
+
   const q = searchQuery.value.toLowerCase()
-  return allFestivals.filter(f =>
+  const results = upcomingFestivals.filter(f =>
     f.name.toLowerCase().includes(q)
     || f.location.toLowerCase().includes(q)
     || f.styles.some(s => s.toLowerCase().includes(q))
   )
+
+  // Sort by start date ascending when search results are returned
+  return results.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
 })
 
 const styleChips = ['Salsa', 'Bachata', 'Timba', 'Kizomba', 'Son']

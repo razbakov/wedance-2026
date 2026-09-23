@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Festival } from '~/types/festival'
 import { Instagram, Globe, Facebook, Users, Star, Ticket, Check, Plus } from 'lucide-vue-next'
+import { daysUntil as formatDaysUntil } from '#shared/utils/festivalDateFormatter'
 
 // Shared hero for festivals AND events (an event is just a smaller festival).
 // `reviewTargetType` + `entityLabel` let the same hero serve either.
@@ -52,17 +53,7 @@ const platformIcon: Record<string, any> = {
   website: Globe,
 }
 
-const daysUntil = computed(() => {
-  const now = new Date()
-  const target = new Date(props.festival.startDate)
-  const diff = Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-  if (diff < 0) return 'Happening now'
-  if (diff === 0) return 'Today'
-  if (diff === 1) return 'Tomorrow'
-  if (diff <= 30) return `In ${diff} days`
-  if (diff <= 60) return `In ${Math.ceil(diff / 7)} weeks`
-  return `In ${Math.ceil(diff / 30)} months`
-})
+const daysUntil = computed(() => formatDaysUntil(props.festival.startDate))
 </script>
 
 <template>

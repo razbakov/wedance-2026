@@ -1,4 +1,5 @@
 import tailwindcss from "@tailwindcss/vite";
+import path from "path";
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
@@ -28,6 +29,11 @@ export default defineNuxtConfig({
   css: ['./app/assets/css/tailwind.css'],
   vite: {
     plugins: [tailwindcss()],
+    resolve: {
+      alias: {
+        '#shared': path.resolve(__dirname, './shared'),
+      },
+    },
   },
   runtimeConfig: {
     databaseUrl: process.env.DATABASE_URL || '',
