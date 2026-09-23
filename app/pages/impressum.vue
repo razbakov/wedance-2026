@@ -1,12 +1,13 @@
 <script setup lang="ts">
 /**
  * /impressum — legally required imprint (§5 DDG). PLACEHOLDER.
+ * Route: /impressum (German for legacy; content is English).
  * The fields below must be filled with the real operator details before
- * launch. Do not ship ticket sales without a complete, accurate Impressum.
+ * launch. Do not ship ticket sales without a complete, accurate imprint.
  */
 definePageMeta({ layout: false })
 useHead({
-  title: 'WeDance — Impressum',
+  title: 'WeDance — Imprint',
   meta: [{ name: 'robots', content: 'noindex' }],
   link: [
     { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
@@ -34,10 +35,10 @@ const rows = [
     <SiteHeader />
     <section class="max-w-3xl mx-auto px-4 py-12">
       <div class="text-sm tracking-widest uppercase mb-3" style="color:#9a5614;">Legal</div>
-      <h1 class="text-4xl sm:text-5xl leading-tight" style="color:#3b1f0d;">Impressum</h1>
+      <h1 class="text-4xl sm:text-5xl leading-tight" style="color:#3b1f0d;">Imprint</h1>
 
       <div class="mt-6 rounded-xl p-4 text-sm" style="background:#dc262610; border:1px solid #dc262633; color:#5b3a1d; font-family: system-ui, sans-serif;">
-        ⚠️ Draft. Replace the placeholders below with the real operator details before launch — an incomplete Impressum is an Abmahnung risk under §5 DDG.
+        ⚠️ Draft. Replace the placeholders below with the real operator details before launch — an incomplete imprint is a legal risk.
       </div>
 
       <dl class="mt-6 grid sm:grid-cols-[200px_1fr] gap-x-6 gap-y-3 text-sm" style="color:#3b1f0d; font-family: system-ui, sans-serif;">
