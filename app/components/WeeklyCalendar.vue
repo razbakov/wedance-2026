@@ -143,11 +143,12 @@ const isRealEvent = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(String(id))
 
       <!-- Event rows -->
       <div class="grid gap-2">
+        <!-- Real UUID events link to /events/<id>; mock weekly and booked events don't. -->
         <component
-          :is="NuxtLinkC"
+          :is="isRealEvent(e.id) ? NuxtLinkC : 'div'"
           v-for="e in eventsForDay(day)"
           :key="e.id"
-          :to="`/events/${e.id}`"
+          :to="isRealEvent(e.id) ? `/events/${e.id}` : undefined"
           class="group rounded-xl bg-white p-3 sm:p-4 border transition-all hover:-translate-y-0.5 flex items-center gap-3 sm:gap-4"
           :style="{
             borderColor: styleAccent(e.style) + '55',

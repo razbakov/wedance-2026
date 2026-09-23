@@ -1,13 +1,14 @@
 <script setup lang="ts">
 /**
  * /agb — terms of sale for ticketing. PLACEHOLDER.
+ * Route: /agb (German for legacy; content is English).
  * Needs real content + legal review before ticket sales go live
  * (parties: WeDance vs organizer, payment, delivery, cancellation,
  * withdrawal-right exemption for dated events §312g BGB).
  */
 definePageMeta({ layout: false })
 useHead({
-  title: 'WeDance — AGB',
+  title: 'WeDance — Terms',
   meta: [{ name: 'robots', content: 'noindex' }],
   link: [
     { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
@@ -31,7 +32,7 @@ const willCover = [
     <SiteHeader />
     <section class="max-w-3xl mx-auto px-4 py-12">
       <div class="text-sm tracking-widest uppercase mb-3" style="color:#9a5614;">Legal</div>
-      <h1 class="text-4xl sm:text-5xl leading-tight" style="color:#3b1f0d;">AGB</h1>
+      <h1 class="text-4xl sm:text-5xl leading-tight" style="color:#3b1f0d;">Terms</h1>
 
       <div class="mt-6 rounded-xl p-4 text-sm" style="background:#dc262610; border:1px solid #dc262633; color:#5b3a1d; font-family: system-ui, sans-serif;">
         ⚠️ Draft. Terms of sale are pending real content + legal review. Required before ticket sales go live — including consumer info and the withdrawal-right exemption for dated events.
