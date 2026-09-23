@@ -3,7 +3,7 @@ import { loadEnv } from 'vite'
 
 export default defineConfig({
   test: {
-    include: ['server/**/*.test.ts'],
+    include: ['server/**/*.test.ts', 'shared/**/*.test.ts'],
     env: loadEnv('', process.cwd(), ''),
     fileParallelism: false,
   },

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Festival } from '~/types/festival'
 import { Instagram, Globe, Facebook, Users, Star, Ticket, Check, Plus } from 'lucide-vue-next'
-import { daysUntil as formatDaysUntil } from '~/server/utils/festivalDateFormatter'
+import { daysUntil as formatDaysUntil } from '#shared/utils/festivalDateFormatter'
 
 // Shared hero for festivals AND events (an event is just a smaller festival).
 // `reviewTargetType` + `entityLabel` let the same hero serve either.

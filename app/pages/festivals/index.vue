@@ -20,7 +20,7 @@ import * as meneate from '~/data/mock-meneate'
 import * as cubanFire from '~/data/mock-cuban-fire'
 import * as caribbeanUrbanFire from '~/data/mock-caribbean-urban-fire'
 import * as aguaPichi from '~/data/mock-agua-pichi'
-import { hasEventEnded, daysUntil } from '~/server/utils/festivalDateFormatter'
+import { hasEventEnded, daysUntil } from '#shared/utils/festivalDateFormatter'
 
 definePageMeta({ layout: false })
 
