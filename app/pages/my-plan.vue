@@ -33,7 +33,7 @@ const {
   onboardedAt: onboardedAtReal,
   justRegistered,
 } = useAuth()
-const { yearPlanIds, removeFestival, toggleFestival } = useYearPlan()
+const { yearPlanIds, removeFestival, toggleFestival, addFestival } = useYearPlan()
 
 // ?preview=1 — dev shortcut. Fakes signed-in + seeds picks so we can
 // eyeball the strip + cards without running the real magic-link flow.
@@ -196,6 +196,39 @@ const picked = computed(() =>
     .filter(f => effectivePickIds.value.has(f.slug))
     .sort((a, b) => a.startDate.localeCompare(b.startDate))
 )
+
+// Auto-fill the plan based on user preferences after onboarding.
+// Match festivals by dance styles and city when user completes onboarding.
+function autoFillPlan() {
+  if (previewMode.value) return
+  if (!isSignedIn.value || yearPlanIds.value.size > 0) return
+  const styles = dancerStyles.value
+  const city = dancerCity.value
+
+  if (!styles.length) return
+
+  // Match festivals: find ones that match at least one of the user's dance styles.
+  // For mock data, we'll match by looking at the festival's name for relevant styles.
+  const matchedFestivals = catalogue.filter(f => {
+    const nameUpper = f.name.toUpperCase()
+    return styles.some(s => nameUpper.includes(s.toUpperCase()))
+  })
+
+  // Add up to 3-4 matching festivals to give a good starting point.
+  matchedFestivals.slice(0, 4).forEach(f => {
+    if (!yearPlanIds.value.has(f.slug)) {
+      addFestival(f.slug)
+    }
+  })
+}
+
+// Trigger auto-fill when user lands on my-plan for the first time after onboarding.
+watch([isSignedIn, onboardedAtReal, yearPlanIds], () => {
+  // Only auto-fill if: signed in, onboarded, and plan is empty (first visit after onboarding)
+  if (isSignedIn.value && onboardedAtReal.value && yearPlanIds.value.size === 0) {
+    nextTick(() => autoFillPlan())
+  }
+}, { immediate: true })
 
 function onRemove(slug: string) {
   // In preview mode we don't mutate real state.
