@@ -3,7 +3,12 @@ import { eq, and, gt } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { FirebaseScrypt } from 'firebase-scrypt'
 import { router, publicProcedure, protectedProcedure } from '../trpc'
-import { dancers, sessions } from '../../database/schema'
+import {
+  dancers, sessions, dinnerSignups, dinnerGroupMembers, videoVotes,
+  cityBattleVotes, giveawayEntries, reviews, bookingRequests,
+  electionCandidates, electionVotes, electionVoteHistory,
+  recommendationRequests, festivalSubmissions, festivalSignups, cityVideos,
+} from '../../database/schema'
 import { sendMagicLinkEmail } from '../../utils/email'
 import { generateUsername } from '../../utils/slug'
 
@@ -374,6 +379,71 @@ export const authRouter = router({
         youtube: dancer.youtube ?? null,
         website: dancer.website ?? null,
         profilePublic: dancer.profilePublic ?? true,
+      }
+    }),
+
+  // GDPR account deletion: permanently remove the dancer and cascade delete or
+  // anonymize referencing rows in FK-safe order. Session is invalidated
+  // immediately on return.
+  //
+  // Deletion strategy:
+  // - Hard delete: sessions, dinnerSignups, dinnerGroupMembers, giveawayEntries,
+  //   bookingRequests, electionCandidates, electionVotes, electionVoteHistory,
+  //   recommendationRequests, festivalSubmissions.
+  // - Anonymize (set dancerId=null or anonymize name): videoVotes,
+  //   cityBattleVotes, festivalSignups, cityVideos, reviews.
+  // - Keep (no FK cleanup needed): guidelineVersions (moderatorDancerId nullable).
+  deleteAccount: protectedProcedure
+    .mutation(async ({ ctx }) => {
+      const dancerId = ctx.dancerId
+      if (!dancerId) {
+        throw new TRPCError({
+          code: 'UNAUTHORIZED',
+          message: 'You must be signed in to delete your account.',
+        })
+      }
+
+      try {
+        // FK-safe deletion order (deepest dependencies first):
+        // 1. Delete rows that only reference the dancer
+        await ctx.db.delete(electionVoteHistory).where(eq(electionVoteHistory.voterDancerId, dancerId))
+        await ctx.db.delete(electionVotes).where(eq(electionVotes.voterDancerId, dancerId))
+        await ctx.db.delete(electionCandidates).where(eq(electionCandidates.dancerId, dancerId))
+        await ctx.db.delete(recommendationRequests).where(eq(recommendationRequests.askerId, dancerId))
+        await ctx.db.delete(dinnerGroupMembers).where(eq(dinnerGroupMembers.dancerId, dancerId))
+        await ctx.db.delete(dinnerSignups).where(eq(dinnerSignups.dancerId, dancerId))
+        await ctx.db.delete(giveawayEntries).where(eq(giveawayEntries.dancerId, dancerId))
+
+        // 2. Handle bookingRequests: delete where requester is this dancer, set moderatedById=null where this dancer is moderator
+        await ctx.db.delete(bookingRequests).where(eq(bookingRequests.requesterId, dancerId))
+        await ctx.db.update(bookingRequests).set({ moderatedById: null }).where(eq(bookingRequests.moderatedById, dancerId))
+
+        // 3. Anonymize rows where the dancer is a voter/submitter but the row should survive:
+        //    - videoVotes: keep the vote record but clear voterDancerId (anonymous vote)
+        //    - cityBattleVotes: keep the vote record but clear voterDancerId (anonymous vote)
+        //    - festivalSignups: clear dancerId but preserve signup/payment record (anonymized attendee)
+        //    - cityVideos: clear dancerId but preserve video/submission (anonymized)
+        //    - reviews: delete all reviews from this dancer (they are inherently personal)
+        await ctx.db.update(videoVotes).set({ voterDancerId: null }).where(eq(videoVotes.voterDancerId, dancerId))
+        await ctx.db.update(cityBattleVotes).set({ voterDancerId: null }).where(eq(cityBattleVotes.voterDancerId, dancerId))
+        await ctx.db.update(festivalSignups).set({ dancerId: null }).where(eq(festivalSignups.dancerId, dancerId))
+        await ctx.db.update(cityVideos).set({ dancerId: null }).where(eq(cityVideos.dancerId, dancerId))
+        await ctx.db.delete(reviews).where(eq(reviews.dancerId, dancerId))
+
+        // 4. Handle festivalSubmissions: delete submissions from this dancer
+        await ctx.db.delete(festivalSubmissions).where(eq(festivalSubmissions.submittedById, dancerId))
+
+        // 5. Finally, delete sessions and the dancer row
+        await ctx.db.delete(sessions).where(eq(sessions.dancerId, dancerId))
+        await ctx.db.delete(dancers).where(eq(dancers.id, dancerId))
+
+        return { ok: true, deleted: true }
+      } catch (error) {
+        console.error('Account deletion error:', error)
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Could not delete your account. Please try again or contact support.',
+        })
       }
     }),
 })

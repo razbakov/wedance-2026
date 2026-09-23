@@ -183,6 +183,12 @@ export function useAuth() {
     await $trpc.auth.changePassword.mutate(data)
   }
 
+  async function deleteAccount() {
+    await $trpc.auth.deleteAccount.mutate()
+    // Immediately clear the session since the account is deleted.
+    signOut()
+  }
+
   function setSession(data: {
     sessionToken: string
     dancerId: string
@@ -244,6 +250,7 @@ export function useAuth() {
     completeOnboarding,
     updateProfile,
     changePassword,
+    deleteAccount,
     refreshMe,
     requestMagicLink,
     verifyMagicLink,
