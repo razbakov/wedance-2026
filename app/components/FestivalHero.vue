@@ -56,7 +56,7 @@ const daysUntil = computed(() => {
   const now = new Date()
   const target = new Date(props.festival.startDate)
   const diff = Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-  if (diff < 0) return 'Happening now'
+  if (diff < 0) return 'Past'
   if (diff === 0) return 'Today'
   if (diff === 1) return 'Tomorrow'
   if (diff <= 30) return `In ${diff} days`
