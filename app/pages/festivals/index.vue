@@ -20,6 +20,7 @@ import * as meneate from '~/data/mock-meneate'
 import * as cubanFire from '~/data/mock-cuban-fire'
 import * as caribbeanUrbanFire from '~/data/mock-caribbean-urban-fire'
 import * as aguaPichi from '~/data/mock-agua-pichi'
+import { hasEventEnded, daysUntil } from '~/server/utils/festivalDateFormatter'
 
 definePageMeta({ layout: false })
 
@@ -181,25 +182,6 @@ function formatDateRange(start: string, end: string) {
   return `${s.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${e.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, ${e.getFullYear()}`
 }
 
-function hasEventEnded(endDate: string): boolean {
-  const now = new Date()
-  now.setHours(0, 0, 0, 0) // Start of today
-  const end = new Date(endDate)
-  end.setHours(0, 0, 0, 0) // Start of end date
-  return end < now
-}
-
-function daysUntil(dateStr: string) {
-  const now = new Date()
-  const target = new Date(dateStr)
-  const diff = Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-  if (diff < 0) return 'Past'
-  if (diff === 0) return 'Today'
-  if (diff === 1) return 'Tomorrow'
-  if (diff <= 30) return `In ${diff} days`
-  if (diff <= 60) return `In ${Math.ceil(diff / 7)} weeks`
-  return `In ${Math.ceil(diff / 30)} months`
-}
 
 const filteredFestivals = computed(() => {
   // Filter out past festivals (where end date has passed)

@@ -5,9 +5,13 @@
  * 1. Past festivals (where endDate has passed) are filtered out
  * 2. Upcoming festivals are sorted by startDate (nearest first)
  * 3. The daysUntil formatter works correctly for various scenarios
+ *
+ * CRITICAL: This test imports the REAL implementations from festivalDateFormatter.ts,
+ * not local copies. If the source functions break, this test WILL fail.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { hasEventEnded, daysUntil } from './festivalDateFormatter'
 
 // Mock date: 2026-09-23 (fixed "today" for deterministic tests)
 const MOCK_TODAY = new Date('2026-09-23')
@@ -18,27 +22,6 @@ describe('Festival board (RAZ-175)', () => {
     vi.useFakeTimers()
     vi.setSystemTime(MOCK_TODAY)
   })
-
-  // Helper function matching the implementation
-  function hasEventEnded(endDate: string): boolean {
-    const now = new Date()
-    now.setHours(0, 0, 0, 0)
-    const end = new Date(endDate)
-    end.setHours(0, 0, 0, 0)
-    return end < now
-  }
-
-  function daysUntil(dateStr: string) {
-    const now = new Date()
-    const target = new Date(dateStr)
-    const diff = Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-    if (diff < 0) return 'Past'
-    if (diff === 0) return 'Today'
-    if (diff === 1) return 'Tomorrow'
-    if (diff <= 30) return `In ${diff} days`
-    if (diff <= 60) return `In ${Math.ceil(diff / 7)} weeks`
-    return `In ${Math.ceil(diff / 30)} months`
-  }
 
   it('should mark festivals ending before today as ended', () => {
     // March 2026 festivals (6+ months past relative to 2026-09-23)
