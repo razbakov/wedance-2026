@@ -41,7 +41,8 @@ const stages = [
     detail: 'Free taster classes. Pick by feeling, not guessing.',
     icon: Compass,
     horizon: 'first night',
-    href: '/cities',
+    href: '/find-your-dance',
+    isStartingPoint: true,
   },
   {
     label: 'Student',
@@ -197,6 +198,10 @@ const attendees = [
                   boxShadow: '0 1px 0 ' + ['#dc2626', '#0891b2', '#16a34a', '#f59e0b', '#a855f7'][i] + '22, 0 12px 28px rgba(59, 31, 18, 0.06)',
                 }"
               >
+                <!-- Starting point badge (for Seeker stage) -->
+                <div v-if="s.isStartingPoint" class="absolute -top-3 left-4 inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest" style="background:#dc2626; color:#fff;">
+                  <span>You are here</span>
+                </div>
                 <!-- Step number + monochrome line icon at top -->
                 <div class="flex items-center justify-between mb-4">
                   <span class="text-2xl leading-none" style="font-family:'Playfair Display', serif; color:#9a5614;">{{ String(i + 1).padStart(2, '0') }}</span>
