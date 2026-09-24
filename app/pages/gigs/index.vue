@@ -165,12 +165,12 @@ function getAccent(category: string): string {
     <!-- HERO -->
     <section class="relative">
       <div class="max-w-4xl mx-auto px-4 pt-12 pb-8 text-center">
-        <div class="text-sm tracking-widest uppercase mb-3" style="color:#9a5614;">The opportunity board</div>
+        <div class="text-sm tracking-widest uppercase mb-3" style="color:#9a5614;">The two-way opportunity board</div>
         <h1 class="text-5xl sm:text-6xl leading-[0.98]" style="color:#3b1f0d;">
-          Get booked. <em class="italic" style="color:#dc2626;">Book talent.</em>
+          Get booked. <em class="italic" style="color:#dc2626;">Hire talent.</em>
         </h1>
         <p class="mt-5 text-base sm:text-lg leading-relaxed max-w-xl mx-auto" style="color:#5b3a1d;">
-          Open roles at festivals and events — and artists offering their services. Post what you need, or what you do.
+          Find open roles at festivals and events. Post your services and book gigs. Organizers and artists — it all happens here.
         </p>
 
         <div class="mt-7 flex flex-col sm:flex-row items-center justify-center gap-3">
