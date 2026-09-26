@@ -300,6 +300,17 @@ const monthsGrid = computed(() =>
 const todayMonth = ref(-1)
 onMounted(() => {
   todayMonth.value = new Date().getMonth()
+  // Fetch real hangouts data for signed-in users with a city
+  if (isSignedIn.value && !previewMode.value && dancerCity.value) {
+    fetchHangouts()
+  }
+})
+
+// Refetch hangouts when city changes
+watch(() => dancerCity.value, () => {
+  if (isSignedIn.value && !previewMode.value && dancerCity.value) {
+    fetchHangouts()
+  }
 })
 
 // -----------------------------------------------------------------------
@@ -631,15 +642,89 @@ type Hangout = {
   people: number; going: boolean
   color: string
 }
+
+// Color map for hangout kinds
+const hangoutColors: Record<string, string> = {
+  dinner: '#f59e0b',
+  floor: '#dc2626',
+  bar: '#a855f7',
+  ride: '#0891b2',
+}
+
 const previewHangouts: Hangout[] = [
   { id: 'h1', kind: 'dinner', title: 'Dinner before La Rumba', time: '19:00', host: 'Mark + Klaus', venue: 'Xoco', people: 6,  going: false, color: '#f59e0b' },
   { id: 'h2', kind: 'floor',  title: 'La Rumba floor',         time: '22:00', venue: 'La Rumba',   people: 40, going: true,  color: '#dc2626' },
   { id: 'h3', kind: 'bar',    title: 'Post-social mojitos',    time: '02:30', venue: 'Café con Leche', people: 8,  going: false, color: '#a855f7' },
   { id: 'h4', kind: 'ride',   title: 'Ride to Diana Tempel',   time: '13:30', host: 'Egor',        people: 3,  going: false, color: '#0891b2' },
 ]
+
 const hangouts = ref<Hangout[]>(isPreviewInitial ? previewHangouts : [])
-function toggleHangout(id: string) {
-  hangouts.value = hangouts.value.map(h => h.id === id ? { ...h, going: !h.going } : h)
+const loadingHangouts = ref(false)
+const userRsvpedHangouts = ref<Set<string>>(new Set())
+
+// Fetch tonight's hangouts from backend
+async function fetchHangouts() {
+  if (previewMode.value || !isSignedIn.value || !dancerCity.value) return
+
+  loadingHangouts.value = true
+  try {
+    const citySlug = dancerCity.value?.toLowerCase() || 'munich'
+    const response = await $fetch('/api/trpc/hangouts.listTonight', {
+      method: 'POST',
+      body: { citySlug },
+    })
+
+    const result = response?.result?.data || []
+    const currentDancerId = useAuth().dancerId?.value
+
+    hangouts.value = result.map((h: any) => ({
+      id: h.id,
+      kind: h.kind,
+      title: h.title,
+      time: h.time,
+      host: h.host,
+      venue: h.venue,
+      people: h.rsvpCount || 0,
+      going: h.rsvps?.includes(currentDancerId) || false,
+      color: hangoutColors[h.kind] || '#3b1f0d',
+    }))
+
+    // Track which hangouts user has RSVPed to
+    userRsvpedHangouts.value = new Set(result.filter((h: any) => h.rsvps?.includes(currentDancerId)).map((h: any) => h.id))
+  } catch (error) {
+    console.error('Failed to fetch hangouts:', error)
+  } finally {
+    loadingHangouts.value = false
+  }
+}
+
+async function toggleHangout(id: string) {
+  if (previewMode.value) {
+    hangouts.value = hangouts.value.map(h => h.id === id ? { ...h, going: !h.going } : h)
+    return
+  }
+
+  try {
+    await $fetch('/api/trpc/hangouts.toggleRsvp', {
+      method: 'POST',
+      body: { hangoutId: id },
+    })
+
+    // Update local state
+    const wasGoing = userRsvpedHangouts.value.has(id)
+    if (wasGoing) {
+      userRsvpedHangouts.value.delete(id)
+    } else {
+      userRsvpedHangouts.value.add(id)
+    }
+
+    // Update the hangout in the list
+    hangouts.value = hangouts.value.map(h =>
+      h.id === id ? { ...h, going: !h.going } : h
+    )
+  } catch (error) {
+    console.error('Failed to toggle RSVP:', error)
+  }
 }
 const hangoutIcon = (kind: Hangout['kind']) => kind === 'dinner' ? UtensilsCrossed : kind === 'bar' ? GlassWater : kind === 'ride' ? Car : MoonStar
 

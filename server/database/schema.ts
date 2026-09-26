@@ -491,3 +491,31 @@ export const gigs = pgTable('gigs', {
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 })
+
+// ---------------------------------------------------------------------------
+// Tonight (Hangouts) — spontaneous evening activities where dancers can mark
+// they're out (dinner, bar, ride, floor, etc.) and see who else is joining.
+// ---------------------------------------------------------------------------
+export const hangouts = pgTable('hangouts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  kind: text('kind').notNull().$type<'dinner' | 'bar' | 'ride' | 'floor'>(),
+  title: text('title').notNull(),
+  time: text('time').notNull(), // 'HH:MM' format
+  venue: text('venue'),
+  host: text('host'),
+  citySlug: text('city_slug').notNull(),
+  peopleCount: integer('people_count').default(0),
+  status: text('status').notNull().default('active').$type<'active' | 'closed'>(),
+  dancerId: uuid('dancer_id').notNull().references(() => dancers.id),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+})
+
+export const hangoutRsvps = pgTable('hangout_rsvps', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  hangoutId: uuid('hangout_id').notNull().references(() => hangouts.id),
+  dancerId: uuid('dancer_id').notNull().references(() => dancers.id),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (t) => [
+  unique('hangout_rsvp_unique').on(t.hangoutId, t.dancerId),
+])

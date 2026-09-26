@@ -16,6 +16,7 @@ import { bookingRouter } from './routers/booking'
 import { electionRouter } from './routers/election'
 import { feedbackRouter } from './routers/feedback'
 import { gigsRouter } from './routers/gigs'
+import { hangoutsRouter } from './routers/hangouts'
 
 export const appRouter = router({
   auth: authRouter,
@@ -35,6 +36,7 @@ export const appRouter = router({
   election: electionRouter,
   feedback: feedbackRouter,
   gigs: gigsRouter,
+  hangouts: hangoutsRouter,
 })
 
 export type AppRouter = typeof appRouter
