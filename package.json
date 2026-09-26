@@ -47,6 +47,7 @@
     "@playwright/test": "^1.58.2",
     "drizzle-kit": "^0.31.10",
     "playwright-bdd": "^8.5.0",
+    "typescript": "^7.0.2",
     "vitest": "^4.1.0"
   }
 }

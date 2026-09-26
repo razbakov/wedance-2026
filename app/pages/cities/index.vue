@@ -177,8 +177,8 @@ const accentFor = (slug: string) => accents[[...slug].reduce((a, c) => a + c.cha
           <h3 class="text-lg font-bold" style="color:#3b1f0d;">Run a class or a weekly social?</h3>
           <p class="text-sm mt-1" style="color:#5b3a1d; font-family: system-ui, sans-serif;">List your event for free. Local dancers find you.</p>
         </div>
-        <button type="button" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-white text-sm font-bold uppercase tracking-wider shrink-0" style="background:#0891b2; box-shadow: 0 3px 0 -1px #0e7490;" @click="router.push('/organizers')">
-          Learn more <ArrowRight class="w-4 h-4" />
+        <button type="button" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-white text-sm font-bold uppercase tracking-wider shrink-0" style="background:#0891b2; box-shadow: 0 3px 0 -1px #0e7490;" @click="router.push('/organizers/create')">
+          Create listing <ArrowRight class="w-4 h-4" />
         </button>
       </div>
     </section>
