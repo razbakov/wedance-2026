@@ -274,10 +274,11 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
               <br><br>
               <strong>What happens to your data:</strong>
               <br>• Your profile (name, email, photo, bio) is permanently deleted
-              <br>• Voting records are anonymized (votes kept, voter identity removed)
-              <br>• Festival signups are anonymized (kept for attendance records)
+              <br>• Election votes are permanently deleted
+              <br>• Other voting records (video/city battles) are anonymized (votes kept, voter identity removed)
+              <br>• Festival signups are anonymized (kept for attendance, emails cleared)
               <br>• Your submitted reviews are deleted
-              <br>• Your submitted videos and recommendations are anonymized
+              <br>• Your submitted videos and recommendations are anonymized (emails cleared)
             </p>
 
             <button
