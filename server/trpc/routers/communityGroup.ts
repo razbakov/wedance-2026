@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { eq, and, desc } from 'drizzle-orm'
+import { eq, and, desc, sql } from 'drizzle-orm'
 import { router, publicProcedure, adminProcedure } from '../trpc'
 import { communityGroups } from '../../database/schema'
 
@@ -77,9 +77,13 @@ export const communityGroupRouter = router({
       groupId: z.string().uuid(),
     }))
     .mutation(async ({ ctx, input }) => {
-      // Increment report count and hide group if it gets 3+ reports
+      // Validate group exists and is not already hidden
       const group = await ctx.db
-        .select({ reportCount: communityGroups.reportCount })
+        .select({
+          id: communityGroups.id,
+          status: communityGroups.status,
+          reportCount: communityGroups.reportCount,
+        })
         .from(communityGroups)
         .where(eq(communityGroups.id, input.groupId))
 
@@ -87,13 +91,19 @@ export const communityGroupRouter = router({
         throw new Error('Group not found')
       }
 
+      // Do not allow reporting of already-hidden groups
+      if (group[0].status === 'hidden') {
+        throw new Error('Group already reported')
+      }
+
+      // Atomically increment report count; hide if count >= 3
       const newCount = (group[0].reportCount || 0) + 1
       const newStatus = newCount >= 3 ? 'hidden' : 'visible'
 
       await ctx.db
         .update(communityGroups)
         .set({ reportCount: newCount, status: newStatus as any })
-        .where(eq(communityGroups.id, input.groupId))
+        .where(and(eq(communityGroups.id, input.groupId), eq(communityGroups.status, 'visible')))
 
       return { reported: true, hidden: newStatus === 'hidden' }
     }),

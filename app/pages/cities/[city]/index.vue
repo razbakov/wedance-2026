@@ -453,13 +453,9 @@ onMounted(() => {
     </section>
 
     <!-- LOCAL COMMUNITY GROUPS — cold-start filler when there are few/no events -->
-    <section v-if="bookedEventsLoaded && bookedThisWeek.length === 0" class="border-t" style="border-color:#3b1f0d22; background:rgba(251, 245, 234, 0.5);">
-      <div class="max-w-4xl mx-auto px-4 py-12">
-        <ClientOnly>
-          <CommunityGroupsSection :city-slug="slug" :city-name="city.name" />
-        </ClientOnly>
-      </div>
-    </section>
+    <ClientOnly v-if="bookedEventsLoaded && bookedThisWeek.length === 0">
+      <CommunityGroupsSection :city-slug="slug" :city-name="city.name" />
+    </ClientOnly>
 
     <!-- WEEKLY SCHEDULE -->
     <section class="max-w-4xl mx-auto px-4 py-12">
