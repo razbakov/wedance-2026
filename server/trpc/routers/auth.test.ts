@@ -47,6 +47,27 @@ import { appRouter } from '../index'
 
 interface FakeRow { [k: string]: any }
 
+// Query builder that can be awaited or executed via batch
+class FakeQuery {
+  private executeFn: () => Promise<void>
+
+  constructor(fn: () => Promise<void>) {
+    this.executeFn = fn
+  }
+
+  then(onFulfilled?: any, onRejected?: any) {
+    return this.executeFn().then(onFulfilled, onRejected)
+  }
+
+  catch(onRejected?: any) {
+    return this.executeFn().catch(onRejected)
+  }
+
+  _execute() {
+    return this.executeFn()
+  }
+}
+
 class FakeDb {
   dancers: FakeRow[] = []
   sessions: FakeRow[] = []
@@ -118,10 +139,11 @@ class FakeDb {
     return {
       set: (patch: FakeRow) => ({
         where: (filter: FilterFn) => {
-          for (const row of this.tableFor(table)) {
-            if (filter(row)) Object.assign(row, patch)
-          }
-          return Promise.resolve()
+          return new FakeQuery(async () => {
+            for (const row of this.tableFor(table)) {
+              if (filter(row)) Object.assign(row, patch)
+            }
+          })
         },
       }),
     }
@@ -130,21 +152,28 @@ class FakeDb {
   delete(table: any) {
     return {
       where: (filter: FilterFn) => {
-        const target = this.tableFor(table)
-        const indices = []
-        for (let i = target.length - 1; i >= 0; i--) {
-          if (filter(target[i])) indices.push(i)
-        }
-        // Delete in reverse order to avoid index shifting
-        for (const i of indices) target.splice(i, 1)
-        return Promise.resolve()
+        return new FakeQuery(async () => {
+          const target = this.tableFor(table)
+          const indices = []
+          for (let i = target.length - 1; i >= 0; i--) {
+            if (filter(target[i])) indices.push(i)
+          }
+          // Delete in reverse order to avoid index shifting
+          for (const i of indices) target.splice(i, 1)
+        })
       },
     }
   }
 
-  async transaction(fn: (tx: any) => Promise<void>) {
-    // Simple transaction mock: just pass `this` as the transaction object
-    await fn(this)
+  batch(statements: any[]) {
+    // Execute all statements in order (atomic on neon-http)
+    // Each statement is either a FakeQuery or a Promise
+    return Promise.all(statements.map(s => s._execute ? s._execute() : s))
+  }
+
+  transaction(fn: (tx: any) => Promise<void>): Promise<void> {
+    // transaction() is no longer supported; db.batch() should be used instead
+    throw new Error('transaction() is not supported by neon-http driver. Use db.batch() instead.')
   }
 
   private tableFor(table: any): FakeRow[] {
