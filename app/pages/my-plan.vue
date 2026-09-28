@@ -415,6 +415,23 @@ function getSelectedWorkshops(slug: string): Set<string> {
   return workshopSelections.value[slug] ?? new Set()
 }
 
+function removeConflicting(slug: string, newWorkshopId: string) {
+  // Remove any existing pick at the same day+time (different room)
+  const allWorkshops = getWorkshopsForFestival(slug)
+  const newWorkshop = allWorkshops.find((w: any) => w.id === newWorkshopId)
+  if (!newWorkshop || newWorkshop.type === 'party') return
+
+  const selected = getSelectedWorkshops(slug)
+  const toRemove: string[] = []
+  for (const existingId of selected) {
+    const existing = allWorkshops.find((w: any) => w.id === existingId)
+    if (existing && existing.id !== newWorkshop.id && existing.type !== 'party' && existing.day === newWorkshop.day && existing.time === newWorkshop.time) {
+      toRemove.push(existingId)
+    }
+  }
+  toRemove.forEach(id => selected.delete(id))
+}
+
 function toggleWorkshop(slug: string, workshopId: string) {
   if (!workshopSelections.value[slug]) {
     workshopSelections.value[slug] = new Set()
@@ -423,6 +440,7 @@ function toggleWorkshop(slug: string, workshopId: string) {
   if (selected.has(workshopId)) {
     selected.delete(workshopId)
   } else {
+    removeConflicting(slug, workshopId)
     selected.add(workshopId)
   }
   workshopSelections.value = { ...workshopSelections.value }
@@ -564,7 +582,7 @@ function tracks(f: CatalogueEntry): Track[] {
       icon: GraduationCap,
       label: 'Workshops',
       state: { text: `${f.workshopCount} on the schedule · ${getSelectedWorkshops(f.slug).size} picked`, tone: getSelectedWorkshops(f.slug).size > 0 ? 'done' : 'todo' },
-      action: getWorkshopsForFestival(f.slug).length === 0 ? { label: 'Browse workshops', href: `/festivals/${f.slug}#workshops`, external: false } : null,
+      action: getWorkshopsForFestival(f.slug).length === 0 ? { label: 'Browse workshops', href: `/festivals/${f.slug}#schedule`, external: false } : null,
       done: getSelectedWorkshops(f.slug).size > 0,
     },
     // Partner
