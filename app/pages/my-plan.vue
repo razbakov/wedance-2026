@@ -398,6 +398,19 @@ function getWorkshopsForFestival(slug: string): typeof meneate.mockWorkshops {
   return []
 }
 
+function getTeacherName(slug: string, teacherId: string): string {
+  const teachers = {
+    'meneate-viena-2026': meneate.mockTeachers,
+    'salsa-open-berlin-2026': salsaOpen.mockTeachers,
+    'cuban-fire-munich-2026': cubanFire.mockTeachers,
+    'caribbean-urban-fire-munich-2026': caribbeanUrbanFire.mockTeachers,
+  }
+  const festivalTeachers = teachers[slug as keyof typeof teachers]
+  if (!festivalTeachers) return ''
+  const teacher = festivalTeachers.find((t: any) => t.id === teacherId)
+  return teacher?.name || ''
+}
+
 function getSelectedWorkshops(slug: string): Set<string> {
   return workshopSelections.value[slug] ?? new Set()
 }
@@ -413,7 +426,7 @@ function toggleWorkshop(slug: string, workshopId: string) {
     selected.add(workshopId)
   }
   workshopSelections.value = { ...workshopSelections.value }
-  persistWorkshopSelections()
+  if (!previewMode.value) persistWorkshopSelections()
 }
 
 function removeSelectedWorkshop(slug: string, workshopId: string) {
@@ -421,7 +434,7 @@ function removeSelectedWorkshop(slug: string, workshopId: string) {
   if (selected.has(workshopId)) {
     selected.delete(workshopId)
     workshopSelections.value = { ...workshopSelections.value }
-    persistWorkshopSelections()
+    if (!previewMode.value) persistWorkshopSelections()
   }
 }
 
@@ -551,7 +564,7 @@ function tracks(f: CatalogueEntry): Track[] {
       icon: GraduationCap,
       label: 'Workshops',
       state: { text: `${f.workshopCount} on the schedule · ${getSelectedWorkshops(f.slug).size} picked`, tone: getSelectedWorkshops(f.slug).size > 0 ? 'done' : 'todo' },
-      action: null,
+      action: getWorkshopsForFestival(f.slug).length === 0 ? { label: 'Browse workshops', href: `/festivals/${f.slug}#workshops`, external: false } : null,
       done: getSelectedWorkshops(f.slug).size > 0,
     },
     // Partner
@@ -1617,7 +1630,7 @@ function cardSummary(f: CatalogueEntry) {
                           </div>
                           <div class="text-xs mt-0.5" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
                             <template v-if="w.teacherId">
-                              SAMPLE DATA
+                              {{ getTeacherName(f.slug, w.teacherId) }}
                             </template>
                             {{ w.level }}
                             <template v-if="w.room">
