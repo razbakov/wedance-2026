@@ -13,7 +13,7 @@ import {
   dancers, sessions, electionVotes, electionVoteHistory, electionCandidates,
   moderatorElections, festivalSignups, cityVideos, videoVotes, cityBattleVotes,
   reviews, guidelineVersions, bookingRequests, dinnerSignups, dinnerGroupMembers,
-  giveawayEntries, recommendationRequests, festivalSubmissions,
+  giveawayEntries, recommendationRequests, festivalSubmissions, gigs, hangouts, hangoutRsvps,
 } from '../../database/schema'
 
 // ---------- mocks ----------
@@ -87,6 +87,9 @@ class FakeDb {
   giveawayEntries: FakeRow[] = []
   recommendationRequests: FakeRow[] = []
   festivalSubmissions: FakeRow[] = []
+  gigs: FakeRow[] = []
+  hangouts: FakeRow[] = []
+  hangoutRsvps: FakeRow[] = []
 
   seedDancer(row: Partial<FakeRow> & { email: string }) {
     const id = row.id ?? 'dancer-' + this.dancers.length
@@ -195,6 +198,9 @@ class FakeDb {
     if (table === giveawayEntries) return this.giveawayEntries
     if (table === recommendationRequests) return this.recommendationRequests
     if (table === festivalSubmissions) return this.festivalSubmissions
+    if (table === gigs) return this.gigs
+    if (table === hangouts) return this.hangouts
+    if (table === hangoutRsvps) return this.hangoutRsvps
     throw new Error('unexpected table in FakeDb')
   }
 }
@@ -604,5 +610,76 @@ describe('auth.deleteAccount', () => {
     const signupsAfter = db.festivalSignups.find(s => s.id === 'signup-1')
     expect(signupsAfter?.dancerId).toBeNull()
     expect(signupsAfter?.tickettailorBuyerEmail).toBeNull()
+  })
+
+  it('deletes hangout RSVPs and owned hangouts, anonymizes gigs', async () => {
+    const db = new FakeDb()
+    const reg = await createCaller(db).auth.register({
+      name: 'Hangout User',
+      email: 'hangout@example.com',
+      password: 'password123',
+    })
+    const dancerId = reg.dancerId
+
+    // Seed hangout and RSVP data
+    const hangoutId = 'hangout-1'
+    db.hangouts.push({
+      id: hangoutId,
+      kind: 'dinner',
+      title: 'Dinner Hangout',
+      time: '19:00',
+      venue: 'Restaurant',
+      host: 'organizer',
+      citySlug: 'munich',
+      peopleCount: 5,
+      status: 'active',
+      dancerId, // This user created the hangout
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+
+    // Other dancer RSVP'd to this user's hangout
+    db.hangoutRsvps.push({
+      id: 'rsvp-1',
+      hangoutId,
+      dancerId: 'other-dancer-1',
+      createdAt: new Date(),
+    })
+
+    // This user RSVP'd to another hangout
+    db.hangoutRsvps.push({
+      id: 'rsvp-2',
+      hangoutId: 'hangout-2',
+      dancerId,
+      createdAt: new Date(),
+    })
+
+    // Posted gigs
+    db.gigs.push({
+      id: 'gig-1',
+      kind: 'role',
+      category: 'Teacher',
+      title: 'Salsa Class',
+      posterName: 'Test User',
+      dancerId, // Gig posted by this user
+      status: 'open',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+
+    const caller = createCaller(db, { dancerId })
+
+    // Delete the account
+    await caller.auth.deleteAccount()
+
+    // Verify hangouts and RSVPs are deleted
+    expect(db.hangouts.find(h => h.id === hangoutId)).toBeUndefined()
+    expect(db.hangoutRsvps.find(r => r.dancerId === dancerId)).toBeUndefined()
+    expect(db.hangoutRsvps.find(r => r.hangoutId === hangoutId)).toBeUndefined()
+
+    // Verify gigs are anonymized (dancerId nulled)
+    const gigAfter = db.gigs.find(g => g.id === 'gig-1')
+    expect(gigAfter).toBeDefined()
+    expect(gigAfter?.dancerId).toBeNull()
   })
 })

@@ -8,7 +8,7 @@ import {
   cityBattleVotes, giveawayEntries, reviews, bookingRequests,
   electionCandidates, electionVotes, electionVoteHistory,
   recommendationRequests, festivalSubmissions, festivalSignups, cityVideos,
-  guidelineVersions, moderatorElections,
+  guidelineVersions, moderatorElections, gigs, hangouts, hangoutRsvps,
 } from '../../database/schema'
 import { sendMagicLinkEmail } from '../../utils/email'
 import { generateUsername } from '../../utils/slug'
@@ -408,11 +408,16 @@ export const authRouter = router({
       }
 
       try {
-        // Get candidate IDs first (before batch, since batch doesn't support dependent queries)
+        // Get dependent IDs first (before batch, since batch doesn't support dependent queries)
         const candidateIds = await ctx.db
           .select({ id: electionCandidates.id })
           .from(electionCandidates)
           .where(eq(electionCandidates.dancerId, dancerId))
+
+        const ownedHangoutIds = await ctx.db
+          .select({ id: hangouts.id })
+          .from(hangouts)
+          .where(eq(hangouts.dancerId, dancerId))
 
         // Build all mutation statements in FK-safe order
         const statements = [
@@ -436,21 +441,35 @@ export const authRouter = router({
           // 4. Delete candidates from this dancer
           ctx.db.delete(electionCandidates).where(eq(electionCandidates.dancerId, dancerId)),
 
-          // 5. Delete other direct FK references to this dancer
+          // 5. Delete hangout RSVPs where this dancer is RSVP'd
+          ctx.db.delete(hangoutRsvps).where(eq(hangoutRsvps.dancerId, dancerId)),
+
+          // 6. Delete RSVPs on hangouts this dancer created (RSVPs from other dancers on this user's hangouts)
+          ...ownedHangoutIds.map(hangout =>
+            ctx.db.delete(hangoutRsvps).where(eq(hangoutRsvps.hangoutId, hangout.id))
+          ),
+
+          // 7. Delete owned hangouts
+          ctx.db.delete(hangouts).where(eq(hangouts.dancerId, dancerId)),
+
+          // 8. Anonymize gigs (gigs.dancerId is nullable; anonymize instead of deleting to preserve history)
+          ctx.db.update(gigs).set({ dancerId: null }).where(eq(gigs.dancerId, dancerId)),
+
+          // 9. Delete other direct FK references to this dancer
           ctx.db.delete(recommendationRequests).where(eq(recommendationRequests.askerId, dancerId)),
           ctx.db.delete(dinnerGroupMembers).where(eq(dinnerGroupMembers.dancerId, dancerId)),
           ctx.db.delete(dinnerSignups).where(eq(dinnerSignups.dancerId, dancerId)),
           ctx.db.delete(giveawayEntries).where(eq(giveawayEntries.dancerId, dancerId)),
           ctx.db.delete(reviews).where(eq(reviews.dancerId, dancerId)),
 
-          // 6. Handle bookingRequests: delete where requester, null where moderator
+          // 10. Handle bookingRequests: delete where requester, null where moderator
           ctx.db.delete(bookingRequests).where(eq(bookingRequests.requesterId, dancerId)),
           ctx.db.update(bookingRequests).set({ moderatedById: null }).where(eq(bookingRequests.moderatedById, dancerId)),
 
-          // 7. Null out guidelineVersions.moderator_dancer_id
+          // 11. Null out guidelineVersions.moderator_dancer_id
           ctx.db.update(guidelineVersions).set({ moderatorDancerId: null }).where(eq(guidelineVersions.moderatorDancerId, dancerId)),
 
-          // 8. Anonymize rows where the dancer is a voter/submitter but the row should survive
+          // 12. Anonymize rows where the dancer is a voter/submitter but the row should survive
           ctx.db.update(videoVotes).set({ voterDancerId: null }).where(eq(videoVotes.voterDancerId, dancerId)),
           ctx.db.update(cityBattleVotes).set({ voterDancerId: null }).where(eq(cityBattleVotes.voterDancerId, dancerId)),
           ctx.db.update(festivalSignups)
@@ -460,10 +479,10 @@ export const authRouter = router({
             .set({ dancerId: null, submittedByEmail: 'anonymized@wedance.local' })
             .where(eq(cityVideos.dancerId, dancerId)),
 
-          // 9. Delete festivalSubmissions
+          // 13. Delete festivalSubmissions
           ctx.db.delete(festivalSubmissions).where(eq(festivalSubmissions.submittedById, dancerId)),
 
-          // 10. Delete sessions and the dancer row
+          // 14. Delete sessions and the dancer row
           ctx.db.delete(sessions).where(eq(sessions.dancerId, dancerId)),
           ctx.db.delete(dancers).where(eq(dancers.id, dancerId)),
         ]

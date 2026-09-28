@@ -279,6 +279,8 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
               <br>• Festival signups are anonymized (kept for attendance, emails cleared)
               <br>• Your submitted reviews are deleted
               <br>• Your submitted videos and recommendations are anonymized (emails cleared)
+              <br>• Hangouts you created and RSVPs are permanently deleted
+              <br>• Gigs you posted are anonymized (record kept, your identity removed)
             </p>
 
             <button
