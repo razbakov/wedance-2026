@@ -8,6 +8,7 @@ import {
   cityBattleVotes, giveawayEntries, reviews, bookingRequests,
   electionCandidates, electionVotes, electionVoteHistory,
   recommendationRequests, festivalSubmissions, festivalSignups, cityVideos,
+  guidelineVersions, moderatorElections,
 } from '../../database/schema'
 import { sendMagicLinkEmail } from '../../utils/email'
 import { generateUsername } from '../../utils/slug'
@@ -383,16 +384,19 @@ export const authRouter = router({
     }),
 
   // GDPR account deletion: permanently remove the dancer and cascade delete or
-  // anonymize referencing rows in FK-safe order. Session is invalidated
-  // immediately on return.
+  // anonymize referencing rows in FK-safe order. All writes execute atomically
+  // in a transaction. Session is invalidated immediately on return.
   //
   // Deletion strategy:
   // - Hard delete: sessions, dinnerSignups, dinnerGroupMembers, giveawayEntries,
-  //   bookingRequests, electionCandidates, electionVotes, electionVoteHistory,
+  //   bookingRequests, electionVotes (where voter is this dancer),
+  //   electionVoteHistory (where voter is this dancer), electionCandidates,
   //   recommendationRequests, festivalSubmissions.
-  // - Anonymize (set dancerId=null or anonymize name): videoVotes,
+  // - Handle FK constraints: null moderator_dancer_id in guidelineVersions,
+  //   null winner_candidate_id in moderatorElections, delete votes targeting
+  //   deleted candidates.
+  // - Anonymize: set dancerId=null or clear emails in videoVotes,
   //   cityBattleVotes, festivalSignups, cityVideos, reviews.
-  // - Keep (no FK cleanup needed): guidelineVersions (moderatorDancerId nullable).
   deleteAccount: protectedProcedure
     .mutation(async ({ ctx }) => {
       const dancerId = ctx.dancerId
@@ -404,38 +408,74 @@ export const authRouter = router({
       }
 
       try {
-        // FK-safe deletion order (deepest dependencies first):
-        // 1. Delete rows that only reference the dancer
-        await ctx.db.delete(electionVoteHistory).where(eq(electionVoteHistory.voterDancerId, dancerId))
-        await ctx.db.delete(electionVotes).where(eq(electionVotes.voterDancerId, dancerId))
-        await ctx.db.delete(electionCandidates).where(eq(electionCandidates.dancerId, dancerId))
-        await ctx.db.delete(recommendationRequests).where(eq(recommendationRequests.askerId, dancerId))
-        await ctx.db.delete(dinnerGroupMembers).where(eq(dinnerGroupMembers.dancerId, dancerId))
-        await ctx.db.delete(dinnerSignups).where(eq(dinnerSignups.dancerId, dancerId))
-        await ctx.db.delete(giveawayEntries).where(eq(giveawayEntries.dancerId, dancerId))
+        await ctx.db.transaction(async (tx) => {
+          // FK-safe deletion order (deepest dependencies first):
 
-        // 2. Handle bookingRequests: delete where requester is this dancer, set moderatedById=null where this dancer is moderator
-        await ctx.db.delete(bookingRequests).where(eq(bookingRequests.requesterId, dancerId))
-        await ctx.db.update(bookingRequests).set({ moderatedById: null }).where(eq(bookingRequests.moderatedById, dancerId))
+          // 1. Delete votes cast by this dancer (both tables)
+          await tx.delete(electionVoteHistory).where(eq(electionVoteHistory.voterDancerId, dancerId))
+          await tx.delete(electionVotes).where(eq(electionVotes.voterDancerId, dancerId))
 
-        // 3. Anonymize rows where the dancer is a voter/submitter but the row should survive:
-        //    - videoVotes: keep the vote record but clear voterDancerId (anonymous vote)
-        //    - cityBattleVotes: keep the vote record but clear voterDancerId (anonymous vote)
-        //    - festivalSignups: clear dancerId but preserve signup/payment record (anonymized attendee)
-        //    - cityVideos: clear dancerId but preserve video/submission (anonymized)
-        //    - reviews: delete all reviews from this dancer (they are inherently personal)
-        await ctx.db.update(videoVotes).set({ voterDancerId: null }).where(eq(videoVotes.voterDancerId, dancerId))
-        await ctx.db.update(cityBattleVotes).set({ voterDancerId: null }).where(eq(cityBattleVotes.voterDancerId, dancerId))
-        await ctx.db.update(festivalSignups).set({ dancerId: null }).where(eq(festivalSignups.dancerId, dancerId))
-        await ctx.db.update(cityVideos).set({ dancerId: null }).where(eq(cityVideos.dancerId, dancerId))
-        await ctx.db.delete(reviews).where(eq(reviews.dancerId, dancerId))
+          // 2. Find all candidate IDs for this dancer before deleting them
+          const candidateIds = await tx
+            .select({ id: electionCandidates.id })
+            .from(electionCandidates)
+            .where(eq(electionCandidates.dancerId, dancerId))
 
-        // 4. Handle festivalSubmissions: delete submissions from this dancer
-        await ctx.db.delete(festivalSubmissions).where(eq(festivalSubmissions.submittedById, dancerId))
+          // Delete votes that target those candidates
+          for (const candidate of candidateIds) {
+            await tx.delete(electionVotes).where(eq(electionVotes.candidateId, candidate.id))
+            await tx.delete(electionVoteHistory).where(eq(electionVoteHistory.candidateId, candidate.id))
+          }
 
-        // 5. Finally, delete sessions and the dancer row
-        await ctx.db.delete(sessions).where(eq(sessions.dancerId, dancerId))
-        await ctx.db.delete(dancers).where(eq(dancers.id, dancerId))
+          // 3. Null out any winner_candidate_id references for candidates from this dancer
+          if (candidateIds.length > 0) {
+            const candidateIdList = candidateIds.map(c => c.id)
+            // For each candidate, find elections where that candidate won and null the winner
+            for (const candidateId of candidateIdList) {
+              await tx.update(moderatorElections)
+                .set({ winnerCandidateId: null })
+                .where(eq(moderatorElections.winnerCandidateId, candidateId))
+            }
+          }
+
+          // 4. Delete candidates from this dancer
+          await tx.delete(electionCandidates).where(eq(electionCandidates.dancerId, dancerId))
+
+          // 5. Delete other direct FK references to this dancer
+          await tx.delete(recommendationRequests).where(eq(recommendationRequests.askerId, dancerId))
+          await tx.delete(dinnerGroupMembers).where(eq(dinnerGroupMembers.dancerId, dancerId))
+          await tx.delete(dinnerSignups).where(eq(dinnerSignups.dancerId, dancerId))
+          await tx.delete(giveawayEntries).where(eq(giveawayEntries.dancerId, dancerId))
+          await tx.delete(reviews).where(eq(reviews.dancerId, dancerId))
+
+          // 6. Handle bookingRequests: delete where requester is this dancer, set moderatedById=null where this dancer is moderator
+          await tx.delete(bookingRequests).where(eq(bookingRequests.requesterId, dancerId))
+          await tx.update(bookingRequests).set({ moderatedById: null }).where(eq(bookingRequests.moderatedById, dancerId))
+
+          // 7. Null out guidelineVersions.moderator_dancer_id before deleting the dancer
+          await tx.update(guidelineVersions).set({ moderatorDancerId: null }).where(eq(guidelineVersions.moderatorDancerId, dancerId))
+
+          // 8. Anonymize rows where the dancer is a voter/submitter but the row should survive:
+          //    - videoVotes: keep the vote record but clear voterDancerId (anonymous vote)
+          //    - cityBattleVotes: keep the vote record but clear voterDancerId (anonymous vote)
+          //    - festivalSignups: clear dancerId and anonymize email
+          //    - cityVideos: clear dancerId and anonymize email
+          await tx.update(videoVotes).set({ voterDancerId: null }).where(eq(videoVotes.voterDancerId, dancerId))
+          await tx.update(cityBattleVotes).set({ voterDancerId: null }).where(eq(cityBattleVotes.voterDancerId, dancerId))
+          await tx.update(festivalSignups)
+            .set({ dancerId: null, tickettailorBuyerEmail: null })
+            .where(eq(festivalSignups.dancerId, dancerId))
+          await tx.update(cityVideos)
+            .set({ dancerId: null, submittedByEmail: 'anonymized@wedance.local' })
+            .where(eq(cityVideos.dancerId, dancerId))
+
+          // 9. Handle festivalSubmissions: delete submissions from this dancer
+          await tx.delete(festivalSubmissions).where(eq(festivalSubmissions.submittedById, dancerId))
+
+          // 10. Finally, delete sessions and the dancer row
+          await tx.delete(sessions).where(eq(sessions.dancerId, dancerId))
+          await tx.delete(dancers).where(eq(dancers.id, dancerId))
+        })
 
         return { ok: true, deleted: true }
       } catch (error) {

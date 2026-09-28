@@ -9,7 +9,12 @@
  * uses the same params that hash used.
  */
 import { describe, it, expect, vi, beforeAll } from 'vitest'
-import { dancers, sessions } from '../../database/schema'
+import {
+  dancers, sessions, electionVotes, electionVoteHistory, electionCandidates,
+  moderatorElections, festivalSignups, cityVideos, videoVotes, cityBattleVotes,
+  reviews, guidelineVersions, bookingRequests, dinnerSignups, dinnerGroupMembers,
+  giveawayEntries, recommendationRequests, festivalSubmissions,
+} from '../../database/schema'
 
 // ---------- mocks ----------
 // drizzle-orm's `eq` returns an opaque tagged object; replace it with a
@@ -45,6 +50,22 @@ interface FakeRow { [k: string]: any }
 class FakeDb {
   dancers: FakeRow[] = []
   sessions: FakeRow[] = []
+  electionVotes: FakeRow[] = []
+  electionVoteHistory: FakeRow[] = []
+  electionCandidates: FakeRow[] = []
+  moderatorElections: FakeRow[] = []
+  festivalSignups: FakeRow[] = []
+  cityVideos: FakeRow[] = []
+  videoVotes: FakeRow[] = []
+  cityBattleVotes: FakeRow[] = []
+  reviews: FakeRow[] = []
+  guidelineVersions: FakeRow[] = []
+  bookingRequests: FakeRow[] = []
+  dinnerSignups: FakeRow[] = []
+  dinnerGroupMembers: FakeRow[] = []
+  giveawayEntries: FakeRow[] = []
+  recommendationRequests: FakeRow[] = []
+  festivalSubmissions: FakeRow[] = []
 
   seedDancer(row: Partial<FakeRow> & { email: string }) {
     const id = row.id ?? 'dancer-' + this.dancers.length
@@ -106,9 +127,45 @@ class FakeDb {
     }
   }
 
+  delete(table: any) {
+    return {
+      where: (filter: FilterFn) => {
+        const target = this.tableFor(table)
+        const indices = []
+        for (let i = target.length - 1; i >= 0; i--) {
+          if (filter(target[i])) indices.push(i)
+        }
+        // Delete in reverse order to avoid index shifting
+        for (const i of indices) target.splice(i, 1)
+        return Promise.resolve()
+      },
+    }
+  }
+
+  async transaction(fn: (tx: any) => Promise<void>) {
+    // Simple transaction mock: just pass `this` as the transaction object
+    await fn(this)
+  }
+
   private tableFor(table: any): FakeRow[] {
     if (table === dancers) return this.dancers
     if (table === sessions) return this.sessions
+    if (table === electionVotes) return this.electionVotes
+    if (table === electionVoteHistory) return this.electionVoteHistory
+    if (table === electionCandidates) return this.electionCandidates
+    if (table === moderatorElections) return this.moderatorElections
+    if (table === festivalSignups) return this.festivalSignups
+    if (table === cityVideos) return this.cityVideos
+    if (table === videoVotes) return this.videoVotes
+    if (table === cityBattleVotes) return this.cityBattleVotes
+    if (table === reviews) return this.reviews
+    if (table === guidelineVersions) return this.guidelineVersions
+    if (table === bookingRequests) return this.bookingRequests
+    if (table === dinnerSignups) return this.dinnerSignups
+    if (table === dinnerGroupMembers) return this.dinnerGroupMembers
+    if (table === giveawayEntries) return this.giveawayEntries
+    if (table === recommendationRequests) return this.recommendationRequests
+    if (table === festivalSubmissions) return this.festivalSubmissions
     throw new Error('unexpected table in FakeDb')
   }
 }
@@ -423,5 +480,100 @@ describe('auth.changePassword', () => {
     const db = new FakeDb()
     await expect(createCaller(db).auth.changePassword({ currentPassword: 'a', newPassword: 'newpassword1' }))
       .rejects.toMatchObject({ code: 'UNAUTHORIZED' })
+  })
+})
+
+// ---------- deleteAccount ----------
+
+describe('auth.deleteAccount', () => {
+  it('requires authentication', async () => {
+    const db = new FakeDb()
+    await expect(createCaller(db).auth.deleteAccount())
+      .rejects.toMatchObject({ code: 'UNAUTHORIZED' })
+  })
+
+  it('deletes a dancer and their sessions in a transaction', async () => {
+    const db = new FakeDb()
+    const reg = await createCaller(db).auth.register({
+      name: 'Delete User',
+      email: 'delete@example.com',
+      password: 'password123',
+    })
+    const dancerId = reg.dancerId
+    const caller = createCaller(db, { dancerId })
+
+    // Verify the dancer exists
+    const dancersBefore = db.dancers.length
+    const sessionsBefore = db.sessions.length
+    expect(dancersBefore).toBeGreaterThan(0)
+    expect(sessionsBefore).toBeGreaterThan(0)
+
+    // Delete the account
+    const result = await caller.auth.deleteAccount()
+    expect(result.ok).toBe(true)
+    expect(result.deleted).toBe(true)
+
+    // Verify the dancer is deleted
+    const dancersAfter = db.dancers.filter(d => d.id === dancerId)
+    expect(dancersAfter).toHaveLength(0)
+
+    // Verify the sessions are deleted
+    const sessionsAfter = db.sessions.filter(s => s.dancerId === dancerId)
+    expect(sessionsAfter).toHaveLength(0)
+  })
+
+  it('atomically deletes all related data (votes, signups, etc)', async () => {
+    const db = new FakeDb()
+    const reg = await createCaller(db).auth.register({
+      name: 'Complex Delete User',
+      email: 'complex@example.com',
+      password: 'password123',
+    })
+    const dancerId = reg.dancerId
+
+    // Seed some related data
+    db.electionCandidates.push({
+      id: 'candidate-1',
+      dancerId,
+      electionId: 'election-1',
+      guidelines: 'test',
+    })
+    db.festivalSignups.push({
+      id: 'signup-1',
+      dancerId,
+      festivalId: 'fest-1',
+      tickettailorBuyerEmail: 'test@example.com',
+    })
+    db.videoVotes.push({
+      id: 'vote-1',
+      voterDancerId: dancerId,
+      winnerVideoId: 'vid-1',
+      loserVideoId: 'vid-2',
+      citySlug: 'berlin',
+      voterSessionId: 'sess-1',
+    })
+    db.reviews.push({
+      id: 'review-1',
+      dancerId,
+      profileId: 'prof-1',
+      rating: 5,
+      comment: 'test',
+    })
+
+    const caller = createCaller(db, { dancerId })
+
+    // Delete the account
+    await caller.auth.deleteAccount()
+
+    // Verify all related data is deleted or anonymized
+    expect(db.dancers.find(d => d.id === dancerId)).toBeUndefined()
+    expect(db.electionCandidates.find(c => c.dancerId === dancerId)).toBeUndefined()
+    expect(db.videoVotes.find(v => v.voterDancerId === dancerId)).toBeUndefined()
+    expect(db.reviews.find(r => r.dancerId === dancerId)).toBeUndefined()
+
+    // Festival signups should be anonymized (dancerId nulled, email cleared)
+    const signupsAfter = db.festivalSignups.find(s => s.id === 'signup-1')
+    expect(signupsAfter?.dancerId).toBeNull()
+    expect(signupsAfter?.tickettailorBuyerEmail).toBeNull()
   })
 })

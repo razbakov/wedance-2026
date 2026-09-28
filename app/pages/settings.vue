@@ -294,7 +294,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
                 <input
                   v-model="deleteConfirmInput"
                   type="text"
-                  :placeholder="`Type: ${dancerName.value}`"
+                  :placeholder="`Type: ${dancerName}`"
                   class="w-full h-11 rounded-xl px-3.5 text-sm outline-none"
                   :style="inputStyle"
                 >
@@ -310,7 +310,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
                 >Cancel</button>
                 <button
                   type="button"
-                  :disabled="deleteLoading || deleteConfirmInput !== dancerName.value"
+                  :disabled="deleteLoading || deleteConfirmInput !== dancerName"
                   class="flex-1 h-11 rounded-full text-sm font-bold uppercase tracking-wider disabled:opacity-50"
                   style="background:#dc2626; color:white; box-shadow:0 3px 0 -1px #b91c1c;"
                   @click="submitDelete"
