@@ -71,4 +71,30 @@ export const communityGroupRouter = router({
         .returning({ id: communityGroups.id })
       return { id: row!.id }
     }),
+
+  report: publicProcedure
+    .input(z.object({
+      groupId: z.string().uuid(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // Increment report count and hide group if it gets 3+ reports
+      const group = await ctx.db
+        .select({ reportCount: communityGroups.reportCount })
+        .from(communityGroups)
+        .where(eq(communityGroups.id, input.groupId))
+
+      if (!group.length) {
+        throw new Error('Group not found')
+      }
+
+      const newCount = (group[0].reportCount || 0) + 1
+      const newStatus = newCount >= 3 ? 'hidden' : 'visible'
+
+      await ctx.db
+        .update(communityGroups)
+        .set({ reportCount: newCount, status: newStatus as any })
+        .where(eq(communityGroups.id, input.groupId))
+
+      return { reported: true, hidden: newStatus === 'hidden' }
+    }),
 })

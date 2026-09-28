@@ -257,6 +257,7 @@ export const communityGroups = pgTable('community_groups', {
   source: text('source'),
   verified: boolean('verified').default(false),
   status: text('status').notNull().default('visible').$type<'visible' | 'hidden'>(),
+  reportCount: integer('report_count').default(0),
   createdAt: timestamp('created_at').defaultNow(),
 })
 

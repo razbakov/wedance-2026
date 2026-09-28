@@ -1,0 +1,5 @@
+citySlug,name,platform,inviteUrl,styles,source,verified
+munich,Salsa Community Munich,whatsapp,https://chat.whatsapp.com/example1,salsa|bachata,local-organizer,true
+munich,Kizomba Wednesday Munich,telegram,https://t.me/joinchat/example2,kizomba,friend-referral,false
+berlin,Berlin Social Dancers,whatsapp,https://chat.whatsapp.com/example3,salsa|merengue,community-lead,true
+berlin,Tango Buenos Aires Style,telegram,https://t.me/joinchat/example4,tango,self-organized,false
