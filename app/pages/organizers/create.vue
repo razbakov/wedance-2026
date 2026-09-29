@@ -31,6 +31,10 @@ useHead({
 })
 
 const router = useRouter()
+const route = useRoute()
+
+// Capture the pricing plan from the URL query parameter
+const selectedPlan = computed(() => (route.query.plan as string) || 'starter')
 
 // Step management
 const steps = [

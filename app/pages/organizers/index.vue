@@ -55,6 +55,7 @@ const insights = [
 const pricing = [
   {
     name: 'Starter',
+    plan: 'starter',
     price: 'Free',
     description: 'Get listed and let dancers find you.',
     features: [
@@ -64,13 +65,14 @@ const pricing = [
       'Basic attendee count',
       'Link to your ticket page',
     ],
-    cta: 'Get started',
+    cta: 'Get started free',
     contact: false,
     highlighted: false,
     color: '#0891b2',
   },
   {
     name: 'Pro',
+    plan: 'pro',
     price: '€49',
     period: '/event',
     description: 'The full engagement toolkit.',
@@ -91,6 +93,7 @@ const pricing = [
   },
   {
     name: 'Network',
+    plan: 'network',
     price: '€199',
     period: '/year',
     description: 'For organizers running multiple events.',
@@ -121,8 +124,9 @@ const howItWorks = [
 
 const router = useRouter()
 
-function goToEditor() {
-  router.push('/organizers/create')
+function goToEditor(plan?: string) {
+  const query = plan ? { plan } : {}
+  router.push({ path: '/organizers/create', query })
 }
 </script>
 
@@ -153,7 +157,7 @@ function goToEditor() {
                 type="button"
                 class="inline-flex items-center gap-2 px-6 py-3 rounded-full text-white text-sm font-bold uppercase tracking-wider"
                 style="background:linear-gradient(135deg, #dc2626, #f97316); box-shadow: 0 4px 0 -1px #b91c1c;"
-                @click="goToEditor"
+                @click="goToEditor('starter')"
               >
                 List your festival <ArrowRight class="w-4 h-4" />
               </button>
@@ -329,7 +333,7 @@ function goToEditor() {
               :style="plan.highlighted
                 ? { background: 'linear-gradient(135deg, ' + plan.color + ', #f97316)', color: 'white', boxShadow: '0 4px 0 -1px ' + plan.color }
                 : { border: '2px solid ' + plan.color, color: plan.color, background: 'white' }"
-              @click="goToEditor"
+              @click="goToEditor(plan.plan)"
             >
               {{ plan.cta }}
             </button>
@@ -351,7 +355,7 @@ function goToEditor() {
         type="button"
         class="mt-8 inline-flex items-center gap-2 px-7 py-3 rounded-full text-white text-sm font-bold uppercase tracking-wider"
         style="background:linear-gradient(135deg, #dc2626, #f97316); box-shadow: 0 4px 0 -1px #b91c1c;"
-        @click="goToEditor"
+        @click="goToEditor('starter')"
       >
         Get started free <ArrowRight class="w-4 h-4" />
       </button>
