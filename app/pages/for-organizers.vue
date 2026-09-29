@@ -10,7 +10,7 @@
  * Clones for-events.vue conventions: layout:false, Playfair Display + Caveat,
  * lucide icons, Cuban-warm editorial palette.
  */
-import { ArrowRight, CalendarDays, Users, Ticket, BarChart3, PartyPopper } from 'lucide-vue-next'
+import { ArrowRight, CalendarDays, Users, Ticket, BarChart3, PartyPopper, Sparkles } from 'lucide-vue-next'
 
 definePageMeta({ layout: false })
 
@@ -29,8 +29,14 @@ useHead({
 const props_ = [
   { icon: CalendarDays, title: 'Publish your event',       detail: 'Your night, your festival, your weekly social — on the calendar dancers already check. Build an interactive schedule dancers can plan against weeks ahead.' },
   { icon: Users,        title: 'Reach the city\'s dancers', detail: 'Get discovered by the people who actually go out dancing. Your event lands in front of a warm, high-intent audience — not a cold ad feed.' },
-  { icon: Ticket,       title: 'Ticketing & door',         detail: 'Sell tickets, run guest lists, and check people in at the door. One flow from listing to entry.' },
+  { icon: Ticket,       title: 'Ticketing & door',         detail: 'Sell tickets, run guest lists, and check people in at the door. One flow from listing to entry. Smart ticket picks guide dancers to the best value for their plan.' },
   { icon: BarChart3,    title: 'Audience data back',       detail: 'See which styles and levels your crowd wants, where they travel from, and what filled the room — so the next event is sharper.' },
+]
+
+const includedFeatures_ = [
+  { icon: Sparkles, title: 'Smart ticket picks', detail: 'Dancers see the best-value ticket recommendation as they build their workshop plan. Higher conversion, happier dancers.' },
+  { icon: CalendarDays, title: 'Workshop schedule', detail: 'Build an interactive schedule with teachers, times, rooms, and levels. Dancers plan weeks ahead.' },
+  { icon: Users, title: 'Community features', detail: 'Dancers find partners, share rides, organize dinners, and discover each other — all around your event.' },
 ]
 </script>
 
@@ -61,6 +67,27 @@ const props_ = [
           <component :is="p.icon" class="w-6 h-6 mb-3" :style="{ color: ['#dc2626', '#0891b2', '#f59e0b', '#16a34a', '#a855f7'][i % 5], 'stroke-width': 1.5 }" />
           <div class="text-lg font-bold" style="color:#3b1f0d;">{{ p.title }}</div>
           <div class="mt-2 text-sm leading-relaxed" style="color:#5b3a1d; font-family: system-ui, sans-serif;">{{ p.detail }}</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- INCLUDED FEATURES -->
+    <section class="max-w-5xl mx-auto px-4 pb-10">
+      <div class="mb-8">
+        <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">Smart features</div>
+        <h2 class="mt-2 text-3xl font-black leading-tight" style="color:#3b1f0d;">
+          What's <em class="italic" style="color:#dc2626;">included.</em>
+        </h2>
+      </div>
+      <div class="grid md:grid-cols-3 gap-5">
+        <div
+          v-for="(f, i) in includedFeatures_" :key="f.title"
+          class="rounded-2xl bg-white p-6 border"
+          :style="{ borderColor: ['#dc2626', '#0891b2', '#f59e0b'][i % 3] + '55' }"
+        >
+          <component :is="f.icon" class="w-5 h-5 mb-3" :style="{ color: ['#dc2626', '#0891b2', '#f59e0b'][i % 3], 'stroke-width': 1.5 }" />
+          <div class="font-bold" style="color:#3b1f0d;">{{ f.title }}</div>
+          <div class="mt-2 text-sm leading-relaxed" style="color:#5b3a1d; font-family: system-ui, sans-serif;">{{ f.detail }}</div>
         </div>
       </div>
     </section>
