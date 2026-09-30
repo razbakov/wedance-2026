@@ -382,7 +382,7 @@ const attendees = [
             </NuxtLink>
 
             <!-- Festival organizers -->
-            <NuxtLink to="/organizers" class="group rounded-2xl bg-white p-6 sm:p-7 border transition-all hover:-translate-y-1"
+            <NuxtLink to="/organizers/create" class="group rounded-2xl bg-white p-6 sm:p-7 border transition-all hover:-translate-y-1"
               :style="{ borderColor: '#0891b255', boxShadow: '0 1px 0 #0891b222, 0 12px 28px rgba(59, 31, 18, 0.06)' }">
               <div class="flex items-center justify-between mb-3">
                 <div class="text-[10px] uppercase tracking-[0.3em] font-bold" style="color:#0891b2;">Festival organizers</div>
