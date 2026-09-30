@@ -32,14 +32,23 @@ const kindFilter = ref<'role' | 'offer' | ''>(kindParam === 'role' || kindParam 
 const categoryFilter = ref('')
 
 // Fetch gigs via the tRPC client (queries are GET; a raw POST to a query 405s).
-const { data: gigs, pending: loadingGigs, refresh: refreshGigs } = await useAsyncData(
+// The tRPC client is client-only (relative '/api/trpc' URL, no SSR base — see
+// app/pages/u/[username].vue), so this must never run during SSR: an SSR fetch
+// fails with "Failed to parse URL", the error is hydrated, and the board stays
+// empty until a filter changes. `server: false` runs it after hydration on the
+// client, and `watch` refetches on every filter change.
+const { data: gigs, status: gigsStatus, refresh: refreshGigs } = useAsyncData(
   'gigs-list',
   () => $trpc.gigs.list.query({
     kind: kindFilter.value || undefined,
     category: categoryFilter.value || undefined,
   }),
-  { watch: [kindFilter, categoryFilter] },
+  { server: false, watch: [kindFilter, categoryFilter] },
 )
+// With server:false the SSR/hydration status is 'idle' — treat it as loading so
+// the page never flashes "No gigs match" before the client fetch starts.
+const loadingGigs = computed(() => gigsStatus.value === 'idle' || gigsStatus.value === 'pending')
+const gigsFailed = computed(() => gigsStatus.value === 'error')
 
 const allGigs = computed(() => gigs.value || [])
 const categories = computed(() => Array.from(new Set(allGigs.value.map((g: any) => g.category))))
@@ -435,6 +444,10 @@ function getAccent(category: string): string {
 
       <div v-if="loadingGigs" class="text-center py-14">
         <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Loading gigs...</p>
+      </div>
+
+      <div v-else-if="gigsFailed" class="text-center py-14">
+        <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Couldn't load gigs. <button type="button" class="underline" @click="refreshGigs()">Try again</button></p>
       </div>
 
       <div v-else-if="!allGigs.length" class="text-center py-14 rounded-2xl border-2 border-dashed" style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);">
