@@ -399,9 +399,9 @@ const styleChips = ['Salsa', 'Bachata', 'Timba', 'Kizomba', 'Son']
           type="button"
           class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-white text-sm font-bold uppercase tracking-wider shrink-0"
           style="background:#0891b2; box-shadow: 0 3px 0 -1px #0e7490;"
-          @click="router.push('/organizers')"
+          @click="router.push('/organizers/create')"
         >
-          Learn more <ArrowRight class="w-4 h-4" />
+          Start listing <ArrowRight class="w-4 h-4" />
         </button>
       </div>
     </section>
