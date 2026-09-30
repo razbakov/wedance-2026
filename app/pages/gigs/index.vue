@@ -21,26 +21,27 @@ useHead({
   ],
 })
 
-const client = useTRPC()
-const user = await useAuth()
+// tRPC client is provided by app/plugins/01.trpc.ts as `$trpc` (there is no
+// `useTRPC` composable — calling it threw "useTRPC is not defined" on load).
+const { $trpc } = useNuxtApp()
+const { isSignedIn } = useAuth()
 
 const route = useRoute()
 const kindParam = (Array.isArray(route.query.kind) ? route.query.kind[0] : route.query.kind) || ''
 const kindFilter = ref<'role' | 'offer' | ''>(kindParam === 'role' || kindParam === 'offer' ? kindParam : '')
 const categoryFilter = ref('')
 
-// Fetch gigs from API
-const { data: gigs, pending: loadingGigs, refresh: refreshGigs } = await useFetch(() => {
-  return $fetch('/api/trpc/gigs.list', {
-    method: 'POST',
-    body: {
-      kind: kindFilter.value || undefined,
-      category: categoryFilter.value || undefined,
-    },
-  })
-}, { watch: [kindFilter, categoryFilter] })
+// Fetch gigs via the tRPC client (queries are GET; a raw POST to a query 405s).
+const { data: gigs, pending: loadingGigs, refresh: refreshGigs } = await useAsyncData(
+  'gigs-list',
+  () => $trpc.gigs.list.query({
+    kind: kindFilter.value || undefined,
+    category: categoryFilter.value || undefined,
+  }),
+  { watch: [kindFilter, categoryFilter] },
+)
 
-const allGigs = computed(() => gigs.value?.result?.data || [])
+const allGigs = computed(() => gigs.value || [])
 const categories = computed(() => Array.from(new Set(allGigs.value.map((g: any) => g.category))))
 
 function daysUntil(dateStr?: string | Date): { text: string; urgent: boolean } | null {
@@ -66,7 +67,7 @@ const formData = reactive({
   when: '',
   compensation: '',
   deadline: '',
-  contactEmail: user.value?.email || '',
+  contactEmail: '',
   contactUrl: '',
   entityUrl: '',
 })
@@ -88,7 +89,7 @@ function removeStyle(index: number) {
 }
 
 async function submitForm() {
-  if (!user.value) {
+  if (!isSignedIn.value) {
     formError.value = 'Please sign in to post a gig'
     return
   }
@@ -97,9 +98,14 @@ async function submitForm() {
   submittingForm.value = true
 
   try {
-    const result = await $fetch('/api/trpc/gigs.create', {
-      method: 'POST',
-      body: formData,
+    // Mutation through the tRPC client so the session Bearer token is sent.
+    // Empty optional fields become undefined (zod rejects '' for .url()).
+    await $trpc.gigs.create.mutate({
+      ...formData,
+      styles: [...formData.styles],
+      deadline: formData.deadline || undefined,
+      contactUrl: formData.contactUrl || undefined,
+      entityUrl: formData.entityUrl || undefined,
     })
 
     formSuccess.value = true
@@ -124,7 +130,7 @@ async function submitForm() {
     }, 2000)
   }
   catch (error: any) {
-    formError.value = error.data?.message || 'Failed to create gig. Please try again.'
+    formError.value = error?.message || 'Failed to create gig. Please try again.'
   }
   finally {
     submittingForm.value = false
@@ -175,7 +181,7 @@ function getAccent(category: string): string {
 
         <div class="mt-7 flex flex-col sm:flex-row items-center justify-center gap-3">
           <button
-            v-if="user"
+            v-if="isSignedIn"
             type="button"
             class="inline-flex items-center gap-2 px-6 py-3 rounded-full text-white text-sm font-bold uppercase tracking-wider"
             style="background:linear-gradient(135deg, #dc2626, #f97316); box-shadow: 0 4px 0 -1px #b91c1c;"
