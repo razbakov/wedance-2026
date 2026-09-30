@@ -6,10 +6,12 @@ import * as schema from '../../database/schema'
 import { appRouter } from '../index'
 
 const DATABASE_URL = process.env.DATABASE_URL
-if (!DATABASE_URL) throw new Error('DATABASE_URL required for tests')
 
-const sql = neon(DATABASE_URL)
-const db = drizzle(sql, { schema })
+let db: any = null
+if (DATABASE_URL) {
+  const sql = neon(DATABASE_URL)
+  db = drizzle(sql, { schema })
+}
 
 // Helper to create a caller with a specific context
 function createCaller(opts: { dancerId?: string; isAdmin?: boolean } = {}) {
@@ -39,7 +41,7 @@ async function getTestDinners() {
   return db.select().from(schema.dinners).where(eq(schema.dinners.festivalId, festival.id))
 }
 
-describe('dinner.list', () => {
+describe.skipIf(!DATABASE_URL)('dinner.list', () => {
   it('returns dinners for a valid festival slug', async () => {
     const caller = createCaller()
     const dinners = await caller.dinner.list({ festivalSlug: 'salsa-open-berlin-2026' })
@@ -133,7 +135,7 @@ describe('dinner.list', () => {
   })
 })
 
-describe('dinner.join', () => {
+describe.skipIf(!DATABASE_URL)('dinner.join', () => {
   it('rejects unauthenticated users', async () => {
     const caller = createCaller()
     const testDinners = await getTestDinners()
@@ -180,7 +182,7 @@ describe('dinner.join', () => {
   })
 })
 
-describe('dinner.leave', () => {
+describe.skipIf(!DATABASE_URL)('dinner.leave', () => {
   it('removes signup and group membership', async () => {
     const dancers = await getTestDancers()
     const testDinners = await getTestDinners()
