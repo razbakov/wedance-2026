@@ -408,7 +408,21 @@ export const authRouter = router({
       }
 
       try {
-        // Get dependent IDs first (before batch, since batch doesn't support dependent queries)
+        // Get dancer email and dependent IDs first (before batch, since batch doesn't support dependent queries)
+        const [dancer] = await ctx.db
+          .select({ email: dancers.email })
+          .from(dancers)
+          .where(eq(dancers.id, dancerId))
+
+        if (!dancer) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'User not found.',
+          })
+        }
+
+        const dancerEmail = dancer.email
+
         const candidateIds = await ctx.db
           .select({ id: electionCandidates.id })
           .from(electionCandidates)
@@ -425,10 +439,10 @@ export const authRouter = router({
           ctx.db.delete(electionVoteHistory).where(eq(electionVoteHistory.voterDancerId, dancerId)),
           ctx.db.delete(electionVotes).where(eq(electionVotes.voterDancerId, dancerId)),
 
-          // 2. Delete votes that target those candidates
+          // 2. Delete votes that target those candidates (FIXED: use toCandidateId not candidateId)
           ...candidateIds.flatMap(candidate => [
             ctx.db.delete(electionVotes).where(eq(electionVotes.candidateId, candidate.id)),
-            ctx.db.delete(electionVoteHistory).where(eq(electionVoteHistory.candidateId, candidate.id)),
+            ctx.db.delete(electionVoteHistory).where(eq(electionVoteHistory.toCandidateId, candidate.id)),
           ]),
 
           // 3. Null out winner_candidate_id references for candidates from this dancer
@@ -479,8 +493,11 @@ export const authRouter = router({
             .set({ dancerId: null, submittedByEmail: 'anonymized@wedance.local' })
             .where(eq(cityVideos.dancerId, dancerId)),
 
-          // 13. Delete festivalSubmissions
+          // 13. Delete festivalSubmissions by submittedById, also clear email where submittedByEmail matches (FIXED)
           ctx.db.delete(festivalSubmissions).where(eq(festivalSubmissions.submittedById, dancerId)),
+          ctx.db.update(festivalSubmissions)
+            .set({ submittedByEmail: 'anonymized@wedance.local' })
+            .where(eq(festivalSubmissions.submittedByEmail, dancerEmail)),
 
           // 14. Delete sessions and the dancer row
           ctx.db.delete(sessions).where(eq(sessions.dancerId, dancerId)),

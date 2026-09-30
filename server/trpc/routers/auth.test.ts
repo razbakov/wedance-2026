@@ -682,4 +682,68 @@ describe('auth.deleteAccount', () => {
     expect(gigAfter).toBeDefined()
     expect(gigAfter?.dancerId).toBeNull()
   })
+
+  it('validates that schema columns used in deleteAccount exist', () => {
+    // This test ensures the deletion logic uses correct column names
+    // It fails at import time if any referenced column doesn't exist
+
+    // Verify electionVoteHistory has the correct columns
+    expect(electionVoteHistory.toCandidateId).toBeDefined()
+    expect(electionVoteHistory.fromCandidateId).toBeDefined()
+    expect(electionVoteHistory.voterDancerId).toBeDefined()
+
+    // Verify festivalSubmissions has the email column
+    expect(festivalSubmissions.submittedByEmail).toBeDefined()
+    expect(festivalSubmissions.submittedById).toBeDefined()
+
+    // Verify other critical columns
+    expect(cityVideos.submittedByEmail).toBeDefined()
+    expect(festivalSignups.tickettailorBuyerEmail).toBeDefined()
+  })
+
+  it('clears festivalSubmissions email when deleting by email address', async () => {
+    const db = new FakeDb()
+    const reg = await createCaller(db).auth.register({
+      name: 'Festival User',
+      email: 'festival@example.com',
+      password: 'password123',
+    })
+    const dancerId = reg.dancerId
+    const dancerEmail = 'festival@example.com'
+
+    // Seed festivalSubmissions where dancerId is null but email matches
+    db.festivalSubmissions.push({
+      id: 'submission-1',
+      slug: 'test-festival',
+      name: 'My Festival',
+      submittedById: dancerId,
+      submittedByEmail: null,
+      payload: { test: 'data' },
+      status: 'pending',
+    })
+
+    // Seed festivalSubmissions where only email matches (no dancerId)
+    db.festivalSubmissions.push({
+      id: 'submission-2',
+      slug: 'another-festival',
+      name: 'Another Festival',
+      submittedById: null,
+      submittedByEmail: dancerEmail,
+      payload: { test: 'data' },
+      status: 'pending',
+    })
+
+    const caller = createCaller(db, { dancerId })
+
+    // Delete the account
+    await caller.auth.deleteAccount()
+
+    // submission-1 should be deleted (because submittedById matches)
+    expect(db.festivalSubmissions.find(s => s.id === 'submission-1')).toBeUndefined()
+
+    // submission-2 should have email cleared (because submittedByEmail matches)
+    const submission2After = db.festivalSubmissions.find(s => s.id === 'submission-2')
+    expect(submission2After).toBeDefined()
+    expect(submission2After?.submittedByEmail).toBe('anonymized@wedance.local')
+  })
 })
