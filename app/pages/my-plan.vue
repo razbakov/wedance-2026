@@ -339,7 +339,7 @@ function persistProgress() {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(progressStore.value)) } catch { /* quota */ }
 }
 
-onMounted(() => {
+onMounted(async () => {
   // Real user: load persisted state. Preview mode skips localStorage.
   if (previewMode.value) return
   if (typeof localStorage === 'undefined') return
@@ -347,6 +347,23 @@ onMounted(() => {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) progressStore.value = JSON.parse(raw)
   } catch { /* corrupt payload — will be overwritten on next toggle */ }
+
+  // Sync ticket status from backend — a purchased ticket overrides localStorage
+  if (isSignedIn.value) {
+    try {
+      const paidSlugs = await $trpc.festivalSignup.myTickets.query()
+      for (const slug of paidSlugs) {
+        const current = progressStore.value[slug] ?? {}
+        if (!current.ticketBought) {
+          progressStore.value = {
+            ...progressStore.value,
+            [slug]: { ...current, ticketBought: true },
+          }
+        }
+      }
+      persistProgress()
+    } catch { /* non-critical — local state is the fallback */ }
+  }
 })
 
 function getProgress(slug: string): Progress {

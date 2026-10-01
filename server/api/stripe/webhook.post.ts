@@ -1,5 +1,5 @@
 import Stripe from 'stripe'
-import { eq } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
 import { useDb } from '../../utils/db'
 import { festivals, festivalSignups } from '../../database/schema'
 
@@ -45,26 +45,37 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 400, statusMessage: 'Festival not found' })
     }
 
-    // Idempotent insert — ignore conflict on unique(festivalId, dancerId)
-    try {
+    // Real amount from Stripe (in cents), not hardcoded
+    const paidAmount = session.amount_total ?? 0
+    const isTicketPurchase = session.metadata?.type === 'ticket'
+
+    // Check for existing signup — update if exists, insert if not
+    const [existing] = await db
+      .select({ id: festivalSignups.id })
+      .from(festivalSignups)
+      .where(and(
+        eq(festivalSignups.festivalId, festival.id),
+        eq(festivalSignups.dancerId, dancerId),
+      ))
+
+    if (existing) {
+      // Upgrade the existing free signup to a paid one
+      await db.update(festivalSignups)
+        .set({
+          paidAmount,
+          stripeSessionId: session.id,
+          ...(isTicketPurchase ? { verifiedTicketHolder: true, verifiedAt: new Date() } : {}),
+        })
+        .where(eq(festivalSignups.id, existing.id))
+    } else {
       await db.insert(festivalSignups).values({
         festivalId: festival.id,
         dancerId,
-        paidAmount: 100,
+        paidAmount,
         stripeSessionId: session.id,
+        verifiedTicketHolder: isTicketPurchase,
+        ...(isTicketPurchase ? { verifiedAt: new Date() } : {}),
       })
-    } catch (e: any) {
-      const msg = e.message || ''
-      const causeMsg = e.cause?.message || ''
-      const code = e.cause?.code || ''
-      if (msg.includes('unique') || msg.includes('duplicate') ||
-          causeMsg.includes('unique') || causeMsg.includes('duplicate') ||
-          code === '23505') {
-        // Already signed up — idempotent, just return OK
-        console.log('Stripe webhook: duplicate signup ignored for', dancerId, festivalSlug)
-      } else {
-        throw e
-      }
     }
   }
 

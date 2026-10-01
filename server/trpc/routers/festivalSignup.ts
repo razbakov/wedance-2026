@@ -4,6 +4,7 @@ import Stripe from 'stripe'
 import { TRPCError } from '@trpc/server'
 import { router, publicProcedure, protectedProcedure } from '../trpc'
 import { festivals, festivalSignups, dancers } from '../../database/schema'
+import { findTicket } from '../../data/ticket-catalog'
 
 function getStripe() {
   const config = useRuntimeConfig()
@@ -162,6 +163,78 @@ export const festivalSignupRouter = router({
       return { checkoutUrl: session.url }
     }),
 
+  // Buy a festival ticket (full-price pass). The price comes from the
+  // server-side ticket catalog — never from the client.
+  ticketCheckout: protectedProcedure
+    .input(z.object({
+      festivalSlug: z.string().min(1),
+      ticketName: z.string().min(1),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const ticket = findTicket(input.festivalSlug, input.ticketName)
+      if (!ticket) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Unknown ticket type for this festival.',
+        })
+      }
+
+      const [festival] = await ctx.db
+        .select({ id: festivals.id, name: festivals.name })
+        .from(festivals)
+        .where(eq(festivals.slug, input.festivalSlug))
+
+      if (!festival) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Festival not found.' })
+      }
+
+      // Prevent duplicate ticket purchases
+      const [existing] = await ctx.db
+        .select({ id: festivalSignups.id })
+        .from(festivalSignups)
+        .where(and(
+          eq(festivalSignups.festivalId, festival.id),
+          eq(festivalSignups.dancerId, ctx.dancerId),
+        ))
+
+      if (existing) {
+        throw new TRPCError({
+          code: 'CONFLICT',
+          message: 'You already have a ticket for this festival.',
+        })
+      }
+
+      const config = useRuntimeConfig()
+      const stripe = getStripe()
+
+      const session = await stripe.checkout.sessions.create({
+        mode: 'payment',
+        line_items: [
+          {
+            price_data: {
+              currency: 'eur',
+              product_data: {
+                name: `${ticket.name} — ${festival.name}`,
+                description: ticket.description,
+              },
+              unit_amount: ticket.priceInCents,
+            },
+            quantity: 1,
+          },
+        ],
+        metadata: {
+          festivalSlug: input.festivalSlug,
+          ticketName: input.ticketName,
+          dancerId: ctx.dancerId,
+          type: 'ticket',
+        },
+        success_url: `${config.siteUrl}/festivals/${input.festivalSlug}?payment=success`,
+        cancel_url: `${config.siteUrl}/festivals/${input.festivalSlug}?payment=cancel`,
+      })
+
+      return { checkoutUrl: session.url }
+    }),
+
   // Public verified-attendee roster for a festival.
   //
   // Filters to verified ticket holders only and respects each row's
@@ -304,5 +377,23 @@ export const festivalSignupRouter = router({
         ))
 
       return { level: (row?.level ?? null) as RosterVisibility | null }
+    }),
+
+  // Return all festivals where the current user has a paid ticket signup.
+  // Used by /my-plan to show the "Ticket: Bought" state from the backend.
+  myTickets: protectedProcedure
+    .query(async ({ ctx }) => {
+      const rows = await ctx.db
+        .select({
+          festivalSlug: festivals.slug,
+        })
+        .from(festivalSignups)
+        .innerJoin(festivals, eq(festivalSignups.festivalId, festivals.id))
+        .where(and(
+          eq(festivalSignups.dancerId, ctx.dancerId),
+          sql`${festivalSignups.paidAmount} > 0`,
+        ))
+
+      return rows.map(r => r.festivalSlug)
     }),
 })

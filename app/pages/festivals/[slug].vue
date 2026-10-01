@@ -715,19 +715,24 @@ function chooseTicket(ticket: TicketOption) {
 async function startTicketCheckout() {
   if (!selectedTicket.value) return
   if (!isSignedIn.value) {
-    // Buying = joining the wall, so we need an account first.
     signUpAction.value = 'ticket'
     showSignUp.value = true
     return
   }
   checkoutLoading.value = true
   try {
-    // TODO(backend): swap for the real ticket checkout session.
-    // const res = await $trpc.tickets.createCheckoutSession.mutate({
-    //   festivalSlug: festival.slug, ticketName: selectedTicket.value.name,
-    // })
-    // window.location.href = res.checkoutUrl
-    await new Promise((r) => setTimeout(r, 900))
+    const res = await $trpc.festivalSignup.ticketCheckout.mutate({
+      festivalSlug: festival.slug,
+      ticketName: selectedTicket.value.name,
+    })
+    if (res.checkoutUrl) {
+      window.location.href = res.checkoutUrl
+    } else {
+      alert('Could not start checkout. Please try again.')
+    }
+  } catch (error: any) {
+    console.error('Checkout error:', error)
+    alert('Something went wrong. Please try again.')
   } finally {
     checkoutLoading.value = false
   }
