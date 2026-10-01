@@ -106,7 +106,7 @@ function badgeFor(key: string): string | null {
 
       <!-- RIDES -->
       <div v-if="sec.key === 'rides' && expandedSections.has('rides')" class="px-4 pb-4 grid gap-3">
-        <div class="rounded-xl border p-3 grid gap-2" style="border-color:#3b1f0d15; background:#3b1f0d05;">
+        <div v-if="isSignedIn" class="rounded-xl border p-3 grid gap-2" style="border-color:#3b1f0d15; background:#3b1f0d05;">
           <div class="flex gap-2">
             <button
               type="button"
@@ -147,6 +147,15 @@ function badgeFor(key: string): string | null {
             >Post my ride</button>
           </div>
         </div>
+        <div v-else class="rounded-xl border p-3 text-center" style="border-color:#3b1f0d15; background:#3b1f0d05;">
+          <p class="text-sm mb-2" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Sign in to share or find a ride</p>
+          <button
+            type="button"
+            class="px-4 py-2 rounded-full text-white text-xs font-bold uppercase tracking-wider"
+            style="background:#0891b2; box-shadow: 0 3px 0 -1px #0e7490;"
+            @click="emit('sign-in')"
+          >Sign in</button>
+        </div>
 
         <div v-if="rideShares.length" class="grid gap-1.5">
           <p class="text-[10px] font-bold uppercase tracking-widest" :style="labelStyle">Others sharing rides</p>
@@ -168,7 +177,16 @@ function badgeFor(key: string): string | null {
 
       <!-- ROOMS -->
       <div v-if="sec.key === 'rooms' && expandedSections.has('rooms')" class="px-4 pb-4">
-        <div class="rounded-xl border p-3 grid gap-2" style="border-color:#3b1f0d15; background:#3b1f0d05;">
+        <div v-if="!isSignedIn" class="rounded-xl border p-3 text-center" style="border-color:#3b1f0d15; background:#3b1f0d05;">
+          <p class="text-sm mb-2" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Sign in to find a roommate</p>
+          <button
+            type="button"
+            class="px-4 py-2 rounded-full text-white text-xs font-bold uppercase tracking-wider"
+            style="background:#16a34a; box-shadow: 0 3px 0 -1px #15803d;"
+            @click="emit('sign-in')"
+          >Sign in</button>
+        </div>
+        <div v-else class="rounded-xl border p-3 grid gap-2" style="border-color:#3b1f0d15; background:#3b1f0d05;">
           <button type="button" class="w-full flex items-center justify-between" @click="emit('toggle-roommate')">
             <span class="flex items-center gap-2 text-sm font-bold" style="color:#3b1f0d; font-family: system-ui, sans-serif;">
               <BedDouble class="w-4 h-4" :style="{ color: lookingForRoommate ? '#16a34a' : '#9a5614' }" />
