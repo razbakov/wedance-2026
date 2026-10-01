@@ -390,23 +390,8 @@ describe('festivalSignup.ticketCheckout', () => {
       caller.festivalSignup.ticketCheckout({
         festivalSlug: SLUG,
         ticketName: 'Full Pass',
-        amount: 12900,
       }),
     ).rejects.toThrow(/not signed in/i)
-  })
-
-  it('rejects amount below minimum (100 cents)', async () => {
-    const db = new FakeDb()
-    db.seedFestival(SLUG)
-    const me = db.seedDancer({ name: 'Me' })
-    const caller = makeCaller(db, { dancerId: me })
-    await expect(
-      caller.festivalSignup.ticketCheckout({
-        festivalSlug: SLUG,
-        ticketName: 'Full Pass',
-        amount: 50,
-      }),
-    ).rejects.toThrow()
   })
 
   it('rejects empty ticket name', async () => {
@@ -418,8 +403,20 @@ describe('festivalSignup.ticketCheckout', () => {
       caller.festivalSignup.ticketCheckout({
         festivalSlug: SLUG,
         ticketName: '',
-        amount: 12900,
       }),
     ).rejects.toThrow()
+  })
+
+  it('rejects unknown ticket names (server-side price lookup)', async () => {
+    const db = new FakeDb()
+    db.seedFestival(SLUG)
+    const me = db.seedDancer({ name: 'Me' })
+    const caller = makeCaller(db, { dancerId: me })
+    await expect(
+      caller.festivalSignup.ticketCheckout({
+        festivalSlug: SLUG,
+        ticketName: 'Fake VIP Pass',
+      }),
+    ).rejects.toThrow(/not found/i)
   })
 })
