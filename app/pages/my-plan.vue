@@ -11,6 +11,9 @@
 import { ArrowRight, MapPin, Calendar, Search, Ticket, Plane, Home, GraduationCap, Heart, Coffee, CalendarPlus, Check, ExternalLink, ChevronDown, Target, Flame, Sparkles, MoonStar, UtensilsCrossed, GlassWater, Car, X, Star, Users as UsersIcon, Undo2 } from 'lucide-vue-next'
 import * as salsaOpen from '~/data/mock-festival'
 import * as meneate from '~/data/mock-meneate'
+import * as cityMunich from '~/data/mock-city-munich'
+import * as cityBerlin from '~/data/mock-city-berlin'
+import type { CityEvent } from '~/types/city'
 import * as cubanFire from '~/data/mock-cuban-fire'
 import * as caribbeanUrbanFire from '~/data/mock-caribbean-urban-fire'
 
@@ -197,35 +200,83 @@ const picked = computed(() =>
     .sort((a, b) => a.startDate.localeCompare(b.startDate))
 )
 
+// City events by slug — used by autoFillPlan to seed courses and socials.
+const cityEventsMap: Record<string, CityEvent[]> = {
+  munich: cityMunich.events,
+  berlin: cityBerlin.events,
+}
+
 // Auto-fill the plan based on user preferences after onboarding.
-// Match festivals by dance styles and city when user completes onboarding.
+// Seeds festivals (year), courses (month) and socials (week) that match the
+// dancer's selected dance styles and city.
 function autoFillPlan() {
   if (previewMode.value) return
-  if (!isSignedIn.value || yearPlanIds.value.size > 0) return
+  if (!isSignedIn.value) return
   const styles = dancerStyles.value
   const city = dancerCity.value
-
   if (!styles.length) return
 
-  // Match festivals: find ones that match at least one of the user's dance styles.
-  // For mock data, we'll match by looking at the festival's name for relevant styles.
+  const alreadyFilled = yearPlanIds.value.size > 0 || courses.value.length > 0 || socials.value.length > 0
+  if (alreadyFilled) return
+
+  const upperStyles = styles.map(s => s.toUpperCase())
+
+  // --- Festivals (year plan) ---
   const matchedFestivals = catalogue.filter(f => {
     const nameUpper = f.name.toUpperCase()
-    return styles.some(s => nameUpper.includes(s.toUpperCase()))
+    return upperStyles.some(s => nameUpper.includes(s))
+  })
+  matchedFestivals.slice(0, 4).forEach(f => {
+    if (!yearPlanIds.value.has(f.slug)) addFestival(f.slug)
   })
 
-  // Add up to 3-4 matching festivals to give a good starting point.
-  matchedFestivals.slice(0, 4).forEach(f => {
-    if (!yearPlanIds.value.has(f.slug)) {
-      addFestival(f.slug)
-    }
-  })
+  // --- City events → courses + socials ---
+  const citySlug = (city || '').trim().toLowerCase()
+  const cityEvents = cityEventsMap[citySlug] || []
+  const matchedEvents = cityEvents.filter(e =>
+    upperStyles.some(s => e.style.toUpperCase().includes(s)),
+  )
+
+  // Courses from type 'class' events (up to 3).
+  const classEvents = matchedEvents.filter(e => e.type === 'class')
+  const WEEKDAY_SHORT: Record<string, string> = { Monday: 'Mon', Tuesday: 'Tue', Wednesday: 'Wed', Thursday: 'Thu', Friday: 'Fri', Saturday: 'Sat', Sunday: 'Sun' }
+  const STYLE_COLORS: Record<string, string> = { Salsa: '#dc2626', Bachata: '#7c3aed', Kizomba: '#ec4899', Timba: '#0891b2' }
+  courses.value = classEvents.slice(0, 3).map(e => ({
+    id: e.id,
+    school: e.organizer,
+    teacher: '',
+    style: e.style,
+    level: e.level || 'All levels',
+    weekday: WEEKDAY_SHORT[e.day] || e.day,
+    time: e.time,
+    venue: e.venue,
+    nextClassDate: '',
+    attended: 0,
+    total: 0,
+    paidThroughMonth: false,
+    color: STYLE_COLORS[e.style] || '#6b7280',
+  }))
+
+  // Socials from type 'social' or 'practica' events (up to 4).
+  const socialEvents = matchedEvents.filter(e => e.type === 'social' || e.type === 'practica')
+  socials.value = socialEvents.slice(0, 4).map(e => ({
+    id: e.id,
+    name: e.name,
+    dayLabel: WEEKDAY_SHORT[e.day] || e.day,
+    dateISO: e.date || '',
+    time: e.time,
+    venue: e.venue,
+    city: city || '',
+    style: e.style,
+    friendsGoing: 0,
+    rsvpd: false,
+    color: STYLE_COLORS[e.style] || '#6b7280',
+  }))
 }
 
 // Trigger auto-fill when user lands on my-plan for the first time after onboarding.
 watch([isSignedIn, onboardedAtReal, yearPlanIds], () => {
-  // Only auto-fill if: signed in, onboarded, and plan is empty (first visit after onboarding)
-  if (isSignedIn.value && onboardedAtReal.value && yearPlanIds.value.size === 0) {
+  if (isSignedIn.value && onboardedAtReal.value && yearPlanIds.value.size === 0 && courses.value.length === 0 && socials.value.length === 0) {
     nextTick(() => autoFillPlan())
   }
 }, { immediate: true })
