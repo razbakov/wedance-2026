@@ -56,7 +56,7 @@ const sections = [
     items: [
       'By sending a booking request you consent to WeDance sharing your <b>name, email address, and request details</b> (event type, preferred date, number of guests, and any message you include) with the venue so they can respond.',
       'WeDance will not share your data with any party other than the venue you are enquiring with, unless required by law.',
-      'For full details on how we handle personal data, see our <a href="/datenschutz" class="underline font-bold" style="color:#dc2626;">Privacy Policy</a>.',
+      'For full details on how we handle personal data, see our <a href="/privacy-policy" class="underline font-bold" style="color:#dc2626;">Privacy Policy</a>.',
     ],
   },
   {

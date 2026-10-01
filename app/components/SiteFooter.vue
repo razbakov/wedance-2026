@@ -70,11 +70,11 @@ const year = 2026
         </div>
       </div>
 
-      <!-- Legal (Germany/EU: Impressum + Datenschutz mandatory; AGB for ticket sales) -->
+      <!-- Legal (Germany/EU: Imprint + Privacy Policy mandatory; Terms for ticket sales) -->
       <div class="mt-10 pt-6 border-t flex flex-wrap items-center gap-x-4 gap-y-2" style="border-color:#3b1f0d15;">
-        <NuxtLink to="/impressum" class="text-xs hover:underline" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Imprint</NuxtLink>
-        <NuxtLink to="/datenschutz" class="text-xs hover:underline" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Privacy Policy</NuxtLink>
-        <NuxtLink to="/agb" class="text-xs hover:underline" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Terms</NuxtLink>
+        <NuxtLink to="/imprint" class="text-xs hover:underline" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Imprint</NuxtLink>
+        <NuxtLink to="/privacy-policy" class="text-xs hover:underline" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Privacy Policy</NuxtLink>
+        <NuxtLink to="/terms" class="text-xs hover:underline" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Terms</NuxtLink>
         <NuxtLink to="/booking-terms" class="text-xs hover:underline" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Booking Terms</NuxtLink>
       </div>
 

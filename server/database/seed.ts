@@ -189,7 +189,7 @@ async function seedGiveaways() {
     prizeDescription: '2× full-weekend festival passes',
     ctaUrl: '/festivals/cuban-fire-munich-2026',
     imageUrl: null,
-    termsUrl: '/agb',
+    termsUrl: '/terms',
     startsAt: now,
     endsAt,
     status: 'active',

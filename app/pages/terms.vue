@@ -1,7 +1,6 @@
 <script setup lang="ts">
 /**
- * /agb — terms of sale for ticketing. PLACEHOLDER.
- * Route: /agb (German for legacy; content is English).
+ * /terms — terms of sale for ticketing. PLACEHOLDER.
  * Needs real content + legal review before ticket sales go live
  * (parties: WeDance vs organizer, payment, delivery, cancellation,
  * withdrawal-right exemption for dated events §312g BGB).

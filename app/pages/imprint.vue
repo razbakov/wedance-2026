@@ -1,7 +1,6 @@
 <script setup lang="ts">
 /**
- * /impressum — legally required imprint (§5 DDG). PLACEHOLDER.
- * Route: /impressum (German for legacy; content is English).
+ * /imprint — legally required imprint (§5 DDG). PLACEHOLDER.
  * The fields below must be filled with the real operator details before
  * launch. Do not ship ticket sales without a complete, accurate imprint.
  */
@@ -38,7 +37,7 @@ const rows = [
       <h1 class="text-4xl sm:text-5xl leading-tight" style="color:#3b1f0d;">Imprint</h1>
 
       <div class="mt-6 rounded-xl p-4 text-sm" style="background:#dc262610; border:1px solid #dc262633; color:#5b3a1d; font-family: system-ui, sans-serif;">
-        ⚠️ Draft. Replace the placeholders below with the real operator details before launch — an incomplete imprint is a legal risk.
+        ⚠️ Draft. Replace the placeholders below with the real operator details before launch — an incomplete imprint is an Abmahnung risk under §5 DDG.
       </div>
 
       <dl class="mt-6 grid sm:grid-cols-[200px_1fr] gap-x-6 gap-y-3 text-sm" style="color:#3b1f0d; font-family: system-ui, sans-serif;">
