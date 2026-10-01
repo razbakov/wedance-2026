@@ -731,13 +731,21 @@ async function startTicketCheckout() {
     return
   }
   checkoutLoading.value = true
+  useTrack().track('ticket_cta_click', {
+    festival: festival.slug,
+    ticket: selectedTicket.value.name,
+    amount: selectedTicket.value.price,
+  })
   try {
-    // TODO(backend): swap for the real ticket checkout session.
-    // const res = await $trpc.tickets.createCheckoutSession.mutate({
-    //   festivalSlug: festival.slug, ticketName: selectedTicket.value.name,
-    // })
-    // window.location.href = res.checkoutUrl
-    await new Promise((r) => setTimeout(r, 900))
+    const { $trpc: trpc } = useNuxtApp()
+    const res = await trpc.festivalSignup.ticketCheckout.mutate({
+      festivalSlug: festival.slug,
+      ticketName: selectedTicket.value.name,
+      amount: selectedTicket.value.price * 100, // euros to cents
+    })
+    if (res.checkoutUrl) {
+      window.location.href = res.checkoutUrl
+    }
   } finally {
     checkoutLoading.value = false
   }
