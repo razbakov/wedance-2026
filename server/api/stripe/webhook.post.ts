@@ -33,6 +33,18 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 400, statusMessage: 'Missing metadata' })
     }
 
+    // Ticket checkouts carry an amountCents metadata field with the
+    // server-validated price. Fall back to the Stripe session total
+    // (which equals the line-item sum), then to 100 (the €1 social
+    // unlock amount) for backwards-compat with old sessions.
+    const paidAmount = session.metadata?.amountCents
+      ? Number(session.metadata.amountCents)
+      : session.amount_total ?? 100
+
+    // Ticket checkouts should mark the buyer as a verified ticket holder
+    // so they appear on the attendee roster.
+    const isTicketCheckout = !!session.metadata?.ticketName
+
     const db = useDb()
 
     const [festival] = await db
@@ -50,8 +62,9 @@ export default defineEventHandler(async (event) => {
       await db.insert(festivalSignups).values({
         festivalId: festival.id,
         dancerId,
-        paidAmount: 100,
+        paidAmount,
         stripeSessionId: session.id,
+        ...(isTicketCheckout ? { verifiedTicketHolder: true } : {}),
       })
     } catch (e: any) {
       const msg = e.message || ''

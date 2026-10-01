@@ -4,6 +4,7 @@ import Stripe from 'stripe'
 import { TRPCError } from '@trpc/server'
 import { router, publicProcedure, protectedProcedure } from '../trpc'
 import { festivals, festivalSignups, dancers } from '../../database/schema'
+import { getTicketPriceCents } from '../../utils/ticket-prices'
 
 function getStripe() {
   const config = useRuntimeConfig()
@@ -165,13 +166,25 @@ export const festivalSignupRouter = router({
   // One-tap ticket checkout — creates a Stripe Checkout session for a
   // specific ticket pass. Pre-fills the buyer's email from their account so
   // signed-in dancers don't re-enter details (AC3 of P713).
+  //
+  // The price is resolved SERVER-SIDE from the ticket-prices registry —
+  // the client sends only the ticket name, never the amount.  This
+  // prevents price-tampering.
   ticketCheckout: protectedProcedure
     .input(z.object({
       festivalSlug: z.string(),
       ticketName: z.string().min(1).max(200),
-      amount: z.number().int().min(100), // cents, minimum €1
     }))
     .mutation(async ({ ctx, input }) => {
+      // Resolve the ticket price server-side.
+      const ticket = getTicketPriceCents(input.festivalSlug, input.ticketName)
+      if (!ticket) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Ticket not found' })
+      }
+      if (ticket.soldOut) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'This ticket is sold out' })
+      }
+
       const [festival] = await ctx.db
         .select({ id: festivals.id, name: festivals.name })
         .from(festivals)
@@ -204,7 +217,7 @@ export const festivalSignupRouter = router({
               product_data: {
                 name: `${festival.name} — ${input.ticketName}`,
               },
-              unit_amount: input.amount,
+              unit_amount: ticket.priceCents,
             },
             quantity: 1,
           },
@@ -213,6 +226,7 @@ export const festivalSignupRouter = router({
           festivalSlug: input.festivalSlug,
           ticketName: input.ticketName,
           dancerId: ctx.dancerId,
+          amountCents: String(ticket.priceCents),
         },
         success_url: `${config.siteUrl}/festivals/${input.festivalSlug}?payment=success`,
         cancel_url: `${config.siteUrl}/festivals/${input.festivalSlug}?payment=cancel`,

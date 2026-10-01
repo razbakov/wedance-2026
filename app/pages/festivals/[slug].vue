@@ -722,6 +722,8 @@ function chooseTicket(ticket: TicketOption) {
   showCheckout.value = true
 }
 
+const checkoutError = ref('')
+
 async function startTicketCheckout() {
   if (!selectedTicket.value) return
   if (!isSignedIn.value) {
@@ -731,6 +733,7 @@ async function startTicketCheckout() {
     return
   }
   checkoutLoading.value = true
+  checkoutError.value = ''
   useTrack().track('ticket_cta_click', {
     festival: festival.slug,
     ticket: selectedTicket.value.name,
@@ -741,11 +744,14 @@ async function startTicketCheckout() {
     const res = await trpc.festivalSignup.ticketCheckout.mutate({
       festivalSlug: festival.slug,
       ticketName: selectedTicket.value.name,
-      amount: selectedTicket.value.price * 100, // euros to cents
     })
     if (res.checkoutUrl) {
       window.location.href = res.checkoutUrl
     }
+  } catch (err: any) {
+    checkoutError.value = err?.message?.includes('sold out')
+      ? 'This ticket is sold out.'
+      : 'Something went wrong — please try again.'
   } finally {
     checkoutLoading.value = false
   }
@@ -1401,6 +1407,10 @@ useHead({
                   <span>Plan workshops, find a partner, share your plan</span>
                 </li>
               </ul>
+
+              <div v-if="checkoutError" class="mb-3 rounded-lg px-4 py-2 text-sm text-center" style="background:#fef2f2; color:#dc2626; font-family: system-ui, sans-serif;">
+                {{ checkoutError }}
+              </div>
 
               <button
                 type="button"
