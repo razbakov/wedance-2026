@@ -450,6 +450,11 @@ const rideShares = ref<RideShare[]>([
 ])
 
 function postRide(ride: { type: 'offering' | 'looking'; originCity: string; date: string; seats?: number }) {
+  if (!isSignedIn.value) {
+    signUpAction.value = 'social'
+    showSignUp.value = true
+    return
+  }
   rideShares.value.push({
     id: `r${Date.now()}`,
     dancerName: 'You',
@@ -465,6 +470,11 @@ function postRide(ride: { type: 'offering' | 'looking'; originCity: string; date
 const lookingForRoommate = ref(false)
 
 function toggleRoommate() {
+  if (!isSignedIn.value) {
+    signUpAction.value = 'social'
+    showSignUp.value = true
+    return
+  }
   lookingForRoommate.value = !lookingForRoommate.value
 }
 
