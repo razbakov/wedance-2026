@@ -261,6 +261,7 @@ async function publish() {
       slug: festival.slug || undefined,
       name: festival.name || undefined,
       payload: {
+        plan: selectedPlan.value,
         festival: { ...festival },
         venue: { ...venue },
         teachers: teachers.value,
@@ -271,7 +272,7 @@ async function publish() {
     })
     isPublished.value = true
     // CUJ: "List a festival" — draft submitted for review.
-    useTrack().track('festival_draft_submitted', { slug: festival.slug })
+    useTrack().track('festival_draft_submitted', { slug: festival.slug, plan: selectedPlan.value })
   } catch (e: any) {
     submitError.value = e?.message || 'Could not submit right now. Please try again.'
   } finally {
