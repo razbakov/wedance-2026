@@ -9,7 +9,12 @@
  * uses the same params that hash used.
  */
 import { describe, it, expect, vi, beforeAll } from 'vitest'
-import { dancers, sessions } from '../../database/schema'
+import {
+  dancers, sessions, electionVotes, electionVoteHistory, electionCandidates,
+  moderatorElections, festivalSignups, cityVideos, videoVotes, cityBattleVotes,
+  reviews, guidelineVersions, bookingRequests, dinnerSignups, dinnerGroupMembers,
+  giveawayEntries, recommendationRequests, festivalSubmissions, gigs, hangouts, hangoutRsvps,
+} from '../../database/schema'
 
 // ---------- mocks ----------
 // drizzle-orm's `eq` returns an opaque tagged object; replace it with a
@@ -42,9 +47,49 @@ import { appRouter } from '../index'
 
 interface FakeRow { [k: string]: any }
 
+// Query builder that can be awaited or executed via batch
+class FakeQuery {
+  private executeFn: () => Promise<void>
+
+  constructor(fn: () => Promise<void>) {
+    this.executeFn = fn
+  }
+
+  then(onFulfilled?: any, onRejected?: any) {
+    return this.executeFn().then(onFulfilled, onRejected)
+  }
+
+  catch(onRejected?: any) {
+    return this.executeFn().catch(onRejected)
+  }
+
+  _execute() {
+    return this.executeFn()
+  }
+}
+
 class FakeDb {
   dancers: FakeRow[] = []
   sessions: FakeRow[] = []
+  electionVotes: FakeRow[] = []
+  electionVoteHistory: FakeRow[] = []
+  electionCandidates: FakeRow[] = []
+  moderatorElections: FakeRow[] = []
+  festivalSignups: FakeRow[] = []
+  cityVideos: FakeRow[] = []
+  videoVotes: FakeRow[] = []
+  cityBattleVotes: FakeRow[] = []
+  reviews: FakeRow[] = []
+  guidelineVersions: FakeRow[] = []
+  bookingRequests: FakeRow[] = []
+  dinnerSignups: FakeRow[] = []
+  dinnerGroupMembers: FakeRow[] = []
+  giveawayEntries: FakeRow[] = []
+  recommendationRequests: FakeRow[] = []
+  festivalSubmissions: FakeRow[] = []
+  gigs: FakeRow[] = []
+  hangouts: FakeRow[] = []
+  hangoutRsvps: FakeRow[] = []
 
   seedDancer(row: Partial<FakeRow> & { email: string }) {
     const id = row.id ?? 'dancer-' + this.dancers.length
@@ -97,18 +142,65 @@ class FakeDb {
     return {
       set: (patch: FakeRow) => ({
         where: (filter: FilterFn) => {
-          for (const row of this.tableFor(table)) {
-            if (filter(row)) Object.assign(row, patch)
-          }
-          return Promise.resolve()
+          return new FakeQuery(async () => {
+            for (const row of this.tableFor(table)) {
+              if (filter(row)) Object.assign(row, patch)
+            }
+          })
         },
       }),
     }
   }
 
+  delete(table: any) {
+    return {
+      where: (filter: FilterFn) => {
+        return new FakeQuery(async () => {
+          const target = this.tableFor(table)
+          const indices = []
+          for (let i = target.length - 1; i >= 0; i--) {
+            if (filter(target[i])) indices.push(i)
+          }
+          // Delete in reverse order to avoid index shifting
+          for (const i of indices) target.splice(i, 1)
+        })
+      },
+    }
+  }
+
+  batch(statements: any[]) {
+    // Execute all statements in order (atomic on neon-http)
+    // Each statement is either a FakeQuery or a Promise
+    return Promise.all(statements.map(s => s._execute ? s._execute() : s))
+  }
+
+  transaction(fn: (tx: any) => Promise<void>): Promise<void> {
+    // transaction() is no longer supported; db.batch() should be used instead
+    throw new Error('transaction() is not supported by neon-http driver. Use db.batch() instead.')
+  }
+
   private tableFor(table: any): FakeRow[] {
     if (table === dancers) return this.dancers
     if (table === sessions) return this.sessions
+    if (table === electionVotes) return this.electionVotes
+    if (table === electionVoteHistory) return this.electionVoteHistory
+    if (table === electionCandidates) return this.electionCandidates
+    if (table === moderatorElections) return this.moderatorElections
+    if (table === festivalSignups) return this.festivalSignups
+    if (table === cityVideos) return this.cityVideos
+    if (table === videoVotes) return this.videoVotes
+    if (table === cityBattleVotes) return this.cityBattleVotes
+    if (table === reviews) return this.reviews
+    if (table === guidelineVersions) return this.guidelineVersions
+    if (table === bookingRequests) return this.bookingRequests
+    if (table === dinnerSignups) return this.dinnerSignups
+    if (table === dinnerGroupMembers) return this.dinnerGroupMembers
+    if (table === giveawayEntries) return this.giveawayEntries
+    if (table === recommendationRequests) return this.recommendationRequests
+    if (table === festivalSubmissions) return this.festivalSubmissions
+    if (table === gigs) return this.gigs
+    if (table === hangouts) return this.hangouts
+    if (table === hangoutRsvps) return this.hangoutRsvps
     throw new Error('unexpected table in FakeDb')
   }
 }
@@ -423,5 +515,235 @@ describe('auth.changePassword', () => {
     const db = new FakeDb()
     await expect(createCaller(db).auth.changePassword({ currentPassword: 'a', newPassword: 'newpassword1' }))
       .rejects.toMatchObject({ code: 'UNAUTHORIZED' })
+  })
+})
+
+// ---------- deleteAccount ----------
+
+describe('auth.deleteAccount', () => {
+  it('requires authentication', async () => {
+    const db = new FakeDb()
+    await expect(createCaller(db).auth.deleteAccount())
+      .rejects.toMatchObject({ code: 'UNAUTHORIZED' })
+  })
+
+  it('deletes a dancer and their sessions in a transaction', async () => {
+    const db = new FakeDb()
+    const reg = await createCaller(db).auth.register({
+      name: 'Delete User',
+      email: 'delete@example.com',
+      password: 'password123',
+    })
+    const dancerId = reg.dancerId
+    const caller = createCaller(db, { dancerId })
+
+    // Verify the dancer exists
+    const dancersBefore = db.dancers.length
+    const sessionsBefore = db.sessions.length
+    expect(dancersBefore).toBeGreaterThan(0)
+    expect(sessionsBefore).toBeGreaterThan(0)
+
+    // Delete the account
+    const result = await caller.auth.deleteAccount()
+    expect(result.ok).toBe(true)
+    expect(result.deleted).toBe(true)
+
+    // Verify the dancer is deleted
+    const dancersAfter = db.dancers.filter(d => d.id === dancerId)
+    expect(dancersAfter).toHaveLength(0)
+
+    // Verify the sessions are deleted
+    const sessionsAfter = db.sessions.filter(s => s.dancerId === dancerId)
+    expect(sessionsAfter).toHaveLength(0)
+  })
+
+  it('atomically deletes all related data (votes, signups, etc)', async () => {
+    const db = new FakeDb()
+    const reg = await createCaller(db).auth.register({
+      name: 'Complex Delete User',
+      email: 'complex@example.com',
+      password: 'password123',
+    })
+    const dancerId = reg.dancerId
+
+    // Seed some related data
+    db.electionCandidates.push({
+      id: 'candidate-1',
+      dancerId,
+      electionId: 'election-1',
+      guidelines: 'test',
+    })
+    db.festivalSignups.push({
+      id: 'signup-1',
+      dancerId,
+      festivalId: 'fest-1',
+      tickettailorBuyerEmail: 'test@example.com',
+    })
+    db.videoVotes.push({
+      id: 'vote-1',
+      voterDancerId: dancerId,
+      winnerVideoId: 'vid-1',
+      loserVideoId: 'vid-2',
+      citySlug: 'berlin',
+      voterSessionId: 'sess-1',
+    })
+    db.reviews.push({
+      id: 'review-1',
+      dancerId,
+      profileId: 'prof-1',
+      rating: 5,
+      comment: 'test',
+    })
+
+    const caller = createCaller(db, { dancerId })
+
+    // Delete the account
+    await caller.auth.deleteAccount()
+
+    // Verify all related data is deleted or anonymized
+    expect(db.dancers.find(d => d.id === dancerId)).toBeUndefined()
+    expect(db.electionCandidates.find(c => c.dancerId === dancerId)).toBeUndefined()
+    expect(db.videoVotes.find(v => v.voterDancerId === dancerId)).toBeUndefined()
+    expect(db.reviews.find(r => r.dancerId === dancerId)).toBeUndefined()
+
+    // Festival signups should be anonymized (dancerId nulled, email cleared)
+    const signupsAfter = db.festivalSignups.find(s => s.id === 'signup-1')
+    expect(signupsAfter?.dancerId).toBeNull()
+    expect(signupsAfter?.tickettailorBuyerEmail).toBeNull()
+  })
+
+  it('deletes hangout RSVPs and owned hangouts, anonymizes gigs', async () => {
+    const db = new FakeDb()
+    const reg = await createCaller(db).auth.register({
+      name: 'Hangout User',
+      email: 'hangout@example.com',
+      password: 'password123',
+    })
+    const dancerId = reg.dancerId
+
+    // Seed hangout and RSVP data
+    const hangoutId = 'hangout-1'
+    db.hangouts.push({
+      id: hangoutId,
+      kind: 'dinner',
+      title: 'Dinner Hangout',
+      time: '19:00',
+      venue: 'Restaurant',
+      host: 'organizer',
+      citySlug: 'munich',
+      peopleCount: 5,
+      status: 'active',
+      dancerId, // This user created the hangout
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+
+    // Other dancer RSVP'd to this user's hangout
+    db.hangoutRsvps.push({
+      id: 'rsvp-1',
+      hangoutId,
+      dancerId: 'other-dancer-1',
+      createdAt: new Date(),
+    })
+
+    // This user RSVP'd to another hangout
+    db.hangoutRsvps.push({
+      id: 'rsvp-2',
+      hangoutId: 'hangout-2',
+      dancerId,
+      createdAt: new Date(),
+    })
+
+    // Posted gigs
+    db.gigs.push({
+      id: 'gig-1',
+      kind: 'role',
+      category: 'Teacher',
+      title: 'Salsa Class',
+      posterName: 'Test User',
+      dancerId, // Gig posted by this user
+      status: 'open',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+
+    const caller = createCaller(db, { dancerId })
+
+    // Delete the account
+    await caller.auth.deleteAccount()
+
+    // Verify hangouts and RSVPs are deleted
+    expect(db.hangouts.find(h => h.id === hangoutId)).toBeUndefined()
+    expect(db.hangoutRsvps.find(r => r.dancerId === dancerId)).toBeUndefined()
+    expect(db.hangoutRsvps.find(r => r.hangoutId === hangoutId)).toBeUndefined()
+
+    // Verify gigs are anonymized (dancerId nulled)
+    const gigAfter = db.gigs.find(g => g.id === 'gig-1')
+    expect(gigAfter).toBeDefined()
+    expect(gigAfter?.dancerId).toBeNull()
+  })
+
+  it('validates that schema columns used in deleteAccount exist', () => {
+    // This test ensures the deletion logic uses correct column names
+    // It fails at import time if any referenced column doesn't exist
+
+    // Verify electionVoteHistory has the correct columns
+    expect(electionVoteHistory.toCandidateId).toBeDefined()
+    expect(electionVoteHistory.fromCandidateId).toBeDefined()
+    expect(electionVoteHistory.voterDancerId).toBeDefined()
+
+    // Verify festivalSubmissions has the email column
+    expect(festivalSubmissions.submittedByEmail).toBeDefined()
+    expect(festivalSubmissions.submittedById).toBeDefined()
+
+    // Verify other critical columns
+    expect(cityVideos.submittedByEmail).toBeDefined()
+    expect(festivalSignups.tickettailorBuyerEmail).toBeDefined()
+  })
+
+  it('clears festivalSubmissions email when deleting by email address', async () => {
+    const db = new FakeDb()
+    const reg = await createCaller(db).auth.register({
+      name: 'Festival User',
+      email: 'festival@example.com',
+      password: 'password123',
+    })
+    const dancerId = reg.dancerId
+    const dancerEmail = 'festival@example.com'
+
+    // Seed festivalSubmissions where dancerId is null but email matches
+    db.festivalSubmissions.push({
+      id: 'submission-1',
+      slug: 'test-festival',
+      name: 'My Festival',
+      submittedById: dancerId,
+      submittedByEmail: null,
+      payload: { test: 'data' },
+      status: 'pending',
+    })
+
+    // Seed festivalSubmissions where only email matches (no dancerId)
+    db.festivalSubmissions.push({
+      id: 'submission-2',
+      slug: 'another-festival',
+      name: 'Another Festival',
+      submittedById: null,
+      submittedByEmail: dancerEmail,
+      payload: { test: 'data' },
+      status: 'pending',
+    })
+
+    const caller = createCaller(db, { dancerId })
+
+    // Delete the account
+    await caller.auth.deleteAccount()
+
+    // submission-1 should be deleted (because submittedById matches)
+    expect(db.festivalSubmissions.find(s => s.id === 'submission-1')).toBeUndefined()
+
+    // submission-2 should have email cleared (because submittedByEmail matches)
+    const submission2After = db.festivalSubmissions.find(s => s.id === 'submission-2')
+    expect(submission2After).toBeDefined()
+    expect(submission2After?.submittedByEmail).toBe('anonymized@wedance.local')
   })
 })

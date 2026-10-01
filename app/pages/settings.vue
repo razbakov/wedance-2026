@@ -2,10 +2,10 @@
 /**
  * /settings — the signed-in dancer manages their profile + account.
  *   - Profile: name, city, role, styles, bio, socials, photo URL, privacy.
- *   - Account: change password.
+ *   - Account: change password, delete account.
  * Protected: signed-out users are sent home. 2026 tropical style.
  */
-import { Check, ExternalLink } from 'lucide-vue-next'
+import { Check, ExternalLink, AlertTriangle } from 'lucide-vue-next'
 
 definePageMeta({ layout: false })
 
@@ -22,7 +22,7 @@ const {
   isSignedIn, isLoading, username,
   dancerName, city: meCity, danceStyles: meStyles, role: meRole,
   bio: meBio, instagram: meIg, youtube: meYt, website: meSite, profilePublic: mePublic,
-  updateProfile, changePassword,
+  updateProfile, changePassword, deleteAccount,
 } = useAuth()
 
 const DANCE_STYLES = ['Salsa', 'Bachata', 'Kizomba', 'Zouk', 'Timba', 'Semba', 'Afro-Cuban', 'Reggaeton', 'Cha-Cha']
@@ -44,6 +44,12 @@ const pw = reactive({ current: '', next: '' })
 const pwLoading = ref(false)
 const pwError = ref('')
 const pwSaved = ref(false)
+
+// Account deletion confirmation.
+const showDeleteConfirm = ref(false)
+const deleteLoading = ref(false)
+const deleteError = ref('')
+const deleteConfirmInput = ref('')
 
 watch([isLoading, isSignedIn], ([loadingNow, signedIn]) => {
   if (!loadingNow && !signedIn) navigateTo('/')
@@ -110,6 +116,23 @@ async function submitPassword() {
     pwError.value = (e as { message?: string })?.message || 'Could not change password.'
   } finally {
     pwLoading.value = false
+  }
+}
+
+async function submitDelete() {
+  deleteError.value = ''
+  if (deleteConfirmInput.value !== dancerName.value) {
+    deleteError.value = `Please type "${dancerName.value}" to confirm.`
+    return
+  }
+  deleteLoading.value = true
+  try {
+    await deleteAccount()
+    // On success, deleteAccount() calls signOut() which redirects to home via auth guard
+    await navigateTo('/')
+  } catch (e: unknown) {
+    deleteError.value = (e as { message?: string })?.message || 'Could not delete account. Please try again or contact support.'
+    deleteLoading.value = false
   }
 }
 
@@ -237,6 +260,69 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
           style="background:white; color:#dc2626; border:1px solid #dc262655;"
           @click="submitPassword"
         >{{ pwLoading ? 'Changing…' : 'Change password' }}</button>
+      </div>
+
+      <!-- DANGER ZONE -->
+      <h2 class="mt-12 text-lg font-bold" style="color:#dc2626; font-family:'Playfair Display', serif;">Danger Zone</h2>
+      <div class="mt-4 p-4 rounded-xl" style="background:#fecaca33; border:1px solid #dc262666;">
+        <div class="flex gap-3">
+          <AlertTriangle class="w-5 h-5 flex-shrink-0 mt-0.5" style="color:#dc2626;" />
+          <div class="flex-1">
+            <h3 class="font-bold text-sm mb-2" style="color:#dc2626;">Permanently delete your account</h3>
+            <p class="text-xs mb-4" style="color:#7f1d1d;">
+              This action cannot be undone. Your profile will be removed, your account deleted, and you will be signed out immediately.
+              <br><br>
+              <strong>What happens to your data:</strong>
+              <br>• Your profile (name, email, photo, bio) is permanently deleted
+              <br>• Election votes are permanently deleted
+              <br>• Other voting records (video/city battles) are anonymized (votes kept, voter identity removed)
+              <br>• Festival signups are anonymized (kept for attendance, emails cleared)
+              <br>• Your submitted reviews are deleted
+              <br>• Your submitted videos are anonymized (emails cleared)
+              <br>• Your recommendations are permanently deleted
+              <br>• Hangouts you created and RSVPs are permanently deleted
+              <br>• Gigs you posted are anonymized (record kept, your identity removed)
+            </p>
+
+            <button
+              v-if="!showDeleteConfirm"
+              type="button"
+              class="w-full h-11 rounded-full text-sm font-bold uppercase tracking-wider"
+              style="background:#dc2626; color:white; box-shadow:0 3px 0 -1px #b91c1c;"
+              @click="showDeleteConfirm = true"
+            >Delete my account</button>
+
+            <div v-else class="space-y-4">
+              <div>
+                <label class="block text-xs font-bold uppercase tracking-wider mb-1.5" style="color:#dc2626;">Confirm by typing your name</label>
+                <input
+                  v-model="deleteConfirmInput"
+                  type="text"
+                  :placeholder="`Type: ${dancerName}`"
+                  class="w-full h-11 rounded-xl px-3.5 text-sm outline-none"
+                  :style="inputStyle"
+                >
+              </div>
+              <p v-if="deleteError" class="text-sm font-bold" style="color:#dc2626;">{{ deleteError }}</p>
+              <div class="flex gap-2">
+                <button
+                  type="button"
+                  :disabled="deleteLoading"
+                  class="flex-1 h-11 rounded-full text-sm font-bold uppercase tracking-wider disabled:opacity-50"
+                  style="background:white; color:#dc2626; border:1px solid #dc262655;"
+                  @click="showDeleteConfirm = false; deleteConfirmInput = ''; deleteError = ''"
+                >Cancel</button>
+                <button
+                  type="button"
+                  :disabled="deleteLoading || deleteConfirmInput !== dancerName"
+                  class="flex-1 h-11 rounded-full text-sm font-bold uppercase tracking-wider disabled:opacity-50"
+                  style="background:#dc2626; color:white; box-shadow:0 3px 0 -1px #b91c1c;"
+                  @click="submitDelete"
+                >{{ deleteLoading ? 'Deleting…' : 'Permanently delete' }}</button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
