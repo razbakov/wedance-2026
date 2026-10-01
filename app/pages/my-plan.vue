@@ -1639,7 +1639,7 @@ function cardSummary(f: CatalogueEntry) {
                         <input
                           type="checkbox"
                           :checked="getSelectedWorkshops(f.slug).has(w.id)"
-                          :aria-label="`Select ${w.title}`"
+                          :aria-label="`Select ${w.time} ${w.title}`"
                           class="mt-0.5 cursor-pointer"
                           @click.stop="toggleWorkshop(f.slug, w.id)"
                         >
