@@ -162,6 +162,65 @@ export const festivalSignupRouter = router({
       return { checkoutUrl: session.url }
     }),
 
+  // One-tap ticket checkout — creates a Stripe Checkout session for a
+  // specific ticket pass. Pre-fills the buyer's email from their account so
+  // signed-in dancers don't re-enter details (AC3 of P713).
+  ticketCheckout: protectedProcedure
+    .input(z.object({
+      festivalSlug: z.string(),
+      ticketName: z.string().min(1).max(200),
+      amount: z.number().int().min(100), // cents, minimum €1
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const [festival] = await ctx.db
+        .select({ id: festivals.id, name: festivals.name })
+        .from(festivals)
+        .where(eq(festivals.slug, input.festivalSlug))
+
+      if (!festival) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Festival not found' })
+      }
+
+      // Look up the dancer's email so Stripe can pre-fill the checkout form.
+      const [dancer] = await ctx.db
+        .select({ email: dancers.email, name: dancers.name })
+        .from(dancers)
+        .where(eq(dancers.id, ctx.dancerId))
+
+      if (!dancer) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Dancer not found' })
+      }
+
+      const config = useRuntimeConfig()
+      const stripe = getStripe()
+
+      const session = await stripe.checkout.sessions.create({
+        mode: 'payment',
+        customer_email: dancer.email,
+        line_items: [
+          {
+            price_data: {
+              currency: 'eur',
+              product_data: {
+                name: `${festival.name} — ${input.ticketName}`,
+              },
+              unit_amount: input.amount,
+            },
+            quantity: 1,
+          },
+        ],
+        metadata: {
+          festivalSlug: input.festivalSlug,
+          ticketName: input.ticketName,
+          dancerId: ctx.dancerId,
+        },
+        success_url: `${config.siteUrl}/festivals/${input.festivalSlug}?payment=success`,
+        cancel_url: `${config.siteUrl}/festivals/${input.festivalSlug}?payment=cancel`,
+      })
+
+      return { checkoutUrl: session.url }
+    }),
+
   // Public verified-attendee roster for a festival.
   //
   // Filters to verified ticket holders only and respects each row's

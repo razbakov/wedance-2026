@@ -376,3 +376,50 @@ describe('festivalSignup.setMyVisibility', () => {
     ).rejects.toThrow()
   })
 })
+
+// =====================================================================
+// ticketCheckout
+// =====================================================================
+
+describe('festivalSignup.ticketCheckout', () => {
+  it('rejects unauthenticated callers', async () => {
+    const db = new FakeDb()
+    db.seedFestival(SLUG)
+    const caller = makeCaller(db) // no dancerId
+    await expect(
+      caller.festivalSignup.ticketCheckout({
+        festivalSlug: SLUG,
+        ticketName: 'Full Pass',
+        amount: 12900,
+      }),
+    ).rejects.toThrow(/not signed in/i)
+  })
+
+  it('rejects amount below minimum (100 cents)', async () => {
+    const db = new FakeDb()
+    db.seedFestival(SLUG)
+    const me = db.seedDancer({ name: 'Me' })
+    const caller = makeCaller(db, { dancerId: me })
+    await expect(
+      caller.festivalSignup.ticketCheckout({
+        festivalSlug: SLUG,
+        ticketName: 'Full Pass',
+        amount: 50,
+      }),
+    ).rejects.toThrow()
+  })
+
+  it('rejects empty ticket name', async () => {
+    const db = new FakeDb()
+    db.seedFestival(SLUG)
+    const me = db.seedDancer({ name: 'Me' })
+    const caller = makeCaller(db, { dancerId: me })
+    await expect(
+      caller.festivalSignup.ticketCheckout({
+        festivalSlug: SLUG,
+        ticketName: '',
+        amount: 12900,
+      }),
+    ).rejects.toThrow()
+  })
+})
