@@ -25,6 +25,7 @@ const columns = [
     title: 'Work with us',
     links: [
       { to: '/for-organizers', label: 'For organizers' },
+      { to: '/for-venues', label: 'For venues' },
       { to: '/for-sponsors', label: 'For sponsors' },
       { to: '/press', label: 'Press' },
     ],
@@ -74,6 +75,7 @@ const year = 2026
         <NuxtLink to="/impressum" class="text-xs hover:underline" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Imprint</NuxtLink>
         <NuxtLink to="/datenschutz" class="text-xs hover:underline" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Privacy Policy</NuxtLink>
         <NuxtLink to="/agb" class="text-xs hover:underline" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Terms</NuxtLink>
+        <NuxtLink to="/booking-terms" class="text-xs hover:underline" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Booking Terms</NuxtLink>
       </div>
 
       <!-- Bottom bar -->

@@ -87,8 +87,8 @@ const props_ = [
       </div>
     </section>
 
-    <!-- CROSS-LINK to done-for-you -->
-    <section class="max-w-3xl mx-auto px-4 pb-16">
+    <!-- CROSS-LINKS -->
+    <section class="max-w-3xl mx-auto px-4 pb-16 space-y-3">
       <NuxtLink
         to="/for-events"
         class="rounded-2xl bg-white p-6 border flex items-center justify-between gap-4 transition-all hover:-translate-y-0.5"
@@ -102,6 +102,21 @@ const props_ = [
         </div>
         <span class="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider whitespace-nowrap" style="color:#dc2626; font-family: system-ui, sans-serif;">
           For events <ArrowRight class="w-3.5 h-3.5" />
+        </span>
+      </NuxtLink>
+      <NuxtLink
+        to="/for-venues"
+        class="rounded-2xl bg-white p-6 border flex items-center justify-between gap-4 transition-all hover:-translate-y-0.5"
+        style="border-color:#3b1f0d22;"
+      >
+        <div>
+          <div class="text-lg font-bold" style="color:#3b1f0d;">Have a venue? List it on WeDance.</div>
+          <div class="mt-1 text-sm leading-relaxed" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+            Get booking requests from dance organizers looking for a space.
+          </div>
+        </div>
+        <span class="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider whitespace-nowrap" style="color:#dc2626; font-family: system-ui, sans-serif;">
+          For venues <ArrowRight class="w-3.5 h-3.5" />
         </span>
       </NuxtLink>
     </section>
