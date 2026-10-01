@@ -613,6 +613,15 @@ function onSignedIn() {
   loadFreemiumStatus()
 }
 
+function onPick() {
+  if (!isSignedIn.value) {
+    signUpAction.value = 'plan'
+    showSignUp.value = true
+    return
+  }
+  toggleFestival(festival.slug)
+}
+
 function onSave() {
   if (!isSignedIn.value) {
     signUpAction.value = 'save'
@@ -938,7 +947,7 @@ useHead({
     <SiteHeader />
 
     <div ref="heroRef">
-      <FestivalHero :festival="festival" :picked="yearPlanIds.has(festival.slug)" @pick="toggleFestival(festival.slug)" />
+      <FestivalHero :festival="festival" :picked="yearPlanIds.has(festival.slug)" @pick="onPick" />
     </div>
 
     <!-- Section anchor nav — V3 restyled. Festival identity slides in on

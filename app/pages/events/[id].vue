@@ -14,6 +14,18 @@ const route = useRoute()
 const { $trpc } = useNuxtApp()
 const { weekPlanIds, toggleEvent } = useWeekPlan()
 
+// Auth gate — "Going?" requires sign-in
+const { isSignedIn } = useAuth()
+const showSignUp = ref(false)
+
+function onPick() {
+  if (!isSignedIn.value) {
+    showSignUp.value = true
+    return
+  }
+  toggleEvent(ev.value.id)
+}
+
 const id = computed(() => String(route.params.id))
 const ev = ref<any>(null)
 const pending = ref(true)
@@ -101,7 +113,7 @@ useHead(() => ({
       </NuxtLink>
 
       <!-- Same hero as festivals -->
-      <FestivalHero :festival="asFestival" review-target-type="event" :picked="picked" @pick="toggleEvent(ev.id)" />
+      <FestivalHero :festival="asFestival" review-target-type="event" :picked="picked" @pick="onPick" />
 
       <!-- Section anchor nav (festival-style) -->
       <nav class="sticky top-0 z-20 border-b" style="background:rgba(251, 245, 234, 0.95); backdrop-filter: blur(8px); border-color:#3b1f0d22;">
@@ -148,5 +160,7 @@ useHead(() => ({
     </template>
 
     <SiteFooter />
+
+    <SignUpModal v-model:open="showSignUp" action="plan" />
   </div>
 </template>
