@@ -323,6 +323,14 @@ type TrackKey = 'ticketBought' | 'travelBooked' | 'stayBooked' | 'partnerFound' 
 type Progress = Partial<Record<TrackKey, boolean>>
 const STORAGE_KEY = 'wedance-plan-progress'
 
+// -----------------------------------------------------------------------
+// Workshop picker store — per-festival workshop selections in localStorage.
+// Maps festival slug to a set of selected workshop IDs.
+// -----------------------------------------------------------------------
+const WORKSHOPS_STORAGE_KEY = 'wedance-plan-workshops'
+type WorkshopSelections = Record<string, Set<string>>
+const workshopSelections = ref<WorkshopSelections>({})
+
 // Preview seed — applied synchronously during setup so the SSR paint
 // already shows a rich mix of done/urgent/todo states in demo mode.
 const PREVIEW_SEED: Record<string, Progress> = {
@@ -339,6 +347,31 @@ function persistProgress() {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(progressStore.value)) } catch { /* quota */ }
 }
 
+function loadWorkshopSelections() {
+  if (typeof localStorage === 'undefined') return
+  try {
+    const raw = localStorage.getItem(WORKSHOPS_STORAGE_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      // Convert arrays back to Sets
+      workshopSelections.value = Object.fromEntries(
+        Object.entries(parsed).map(([key, val]) => [key, new Set(val as string[])])
+      )
+    }
+  } catch { /* corrupt payload — will be overwritten on next toggle */ }
+}
+
+function persistWorkshopSelections() {
+  if (typeof localStorage === 'undefined') return
+  try {
+    // Convert Sets to arrays for JSON serialization
+    const toSave = Object.fromEntries(
+      Object.entries(workshopSelections.value).map(([key, set]) => [key, Array.from(set)])
+    )
+    localStorage.setItem(WORKSHOPS_STORAGE_KEY, JSON.stringify(toSave))
+  } catch { /* quota */ }
+}
+
 onMounted(() => {
   // Real user: load persisted state. Preview mode skips localStorage.
   if (previewMode.value) return
@@ -347,10 +380,80 @@ onMounted(() => {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) progressStore.value = JSON.parse(raw)
   } catch { /* corrupt payload — will be overwritten on next toggle */ }
+
+  // Load workshop selections
+  loadWorkshopSelections()
 })
 
 function getProgress(slug: string): Progress {
   return progressStore.value[slug] ?? {}
+}
+
+// Get workshops for a festival by slug
+function getWorkshopsForFestival(slug: string): typeof meneate.mockWorkshops {
+  if (slug === 'meneate-viena-2026') return meneate.mockWorkshops
+  if (slug === 'salsa-open-berlin-2026') return salsaOpen.mockWorkshops
+  if (slug === 'cuban-fire-munich-2026') return cubanFire.mockWorkshops
+  if (slug === 'caribbean-urban-fire-munich-2026') return caribbeanUrbanFire.mockWorkshops
+  return []
+}
+
+function getTeacherName(slug: string, teacherId: string): string {
+  const teachers = {
+    'meneate-viena-2026': meneate.mockTeachers,
+    'salsa-open-berlin-2026': salsaOpen.mockTeachers,
+    'cuban-fire-munich-2026': cubanFire.mockTeachers,
+    'caribbean-urban-fire-munich-2026': caribbeanUrbanFire.mockTeachers,
+  }
+  const festivalTeachers = teachers[slug as keyof typeof teachers]
+  if (!festivalTeachers) return ''
+  const teacher = festivalTeachers.find((t: any) => t.id === teacherId)
+  return teacher?.name || ''
+}
+
+function getSelectedWorkshops(slug: string): Set<string> {
+  return workshopSelections.value[slug] ?? new Set()
+}
+
+function removeConflicting(slug: string, newWorkshopId: string) {
+  // Remove any existing pick at the same day+time (different room)
+  const allWorkshops = getWorkshopsForFestival(slug)
+  const newWorkshop = allWorkshops.find((w: any) => w.id === newWorkshopId)
+  if (!newWorkshop || newWorkshop.type === 'party') return
+
+  const selected = getSelectedWorkshops(slug)
+  const toRemove: string[] = []
+  for (const existingId of selected) {
+    const existing = allWorkshops.find((w: any) => w.id === existingId)
+    if (existing && existing.id !== newWorkshop.id && existing.type !== 'party' && existing.day === newWorkshop.day && existing.time === newWorkshop.time) {
+      toRemove.push(existingId)
+    }
+  }
+  toRemove.forEach(id => selected.delete(id))
+}
+
+function toggleWorkshop(slug: string, workshopId: string) {
+  if (!workshopSelections.value[slug]) {
+    workshopSelections.value[slug] = new Set()
+  }
+  const selected = workshopSelections.value[slug]
+  if (selected.has(workshopId)) {
+    selected.delete(workshopId)
+  } else {
+    removeConflicting(slug, workshopId)
+    selected.add(workshopId)
+  }
+  workshopSelections.value = { ...workshopSelections.value }
+  if (!previewMode.value) persistWorkshopSelections()
+}
+
+function removeSelectedWorkshop(slug: string, workshopId: string) {
+  const selected = getSelectedWorkshops(slug)
+  if (selected.has(workshopId)) {
+    selected.delete(workshopId)
+    workshopSelections.value = { ...workshopSelections.value }
+    if (!previewMode.value) persistWorkshopSelections()
+  }
 }
 
 function toggleTrack(slug: string, key: TrackKey) {
@@ -478,9 +581,9 @@ function tracks(f: CatalogueEntry): Track[] {
       key: 'workshops',
       icon: GraduationCap,
       label: 'Workshops',
-      state: { text: `${f.workshopCount} on the schedule`, tone: 'todo' },
-      action: { label: 'Pick some', href: `/festivals/${f.slug}#schedule`, external: false },
-      done: false,
+      state: { text: `${f.workshopCount} on the schedule · ${getSelectedWorkshops(f.slug).size} picked`, tone: getSelectedWorkshops(f.slug).size > 0 ? 'done' : 'todo' },
+      action: getWorkshopsForFestival(f.slug).length === 0 ? { label: 'Browse workshops', href: `/festivals/${f.slug}#schedule`, external: false } : null,
+      done: getSelectedWorkshops(f.slug).size > 0,
     },
     // Partner
     {
@@ -1504,6 +1607,92 @@ function cardSummary(f: CatalogueEntry) {
                 >
                   {{ t.done ? 'Undo' : 'Mark done' }}
                 </button>
+              </div>
+            </div>
+
+            <!-- WORKSHOP PICKER -->
+            <div v-if="getWorkshopsForFestival(f.slug).length > 0" class="mt-6 pt-6 border-t" style="border-color:#3b1f0d0d;">
+              <div class="mb-4">
+                <h4 class="text-sm font-bold mb-3" style="color:#3b1f0d;">
+                  Pick workshops ({{ getSelectedWorkshops(f.slug).size }} selected)
+                </h4>
+
+                <!-- Group workshops by day -->
+                <div
+                  v-for="day in ['Friday', 'Saturday', 'Sunday', 'Monday', 'Tuesday']"
+                  :key="day"
+                  class="mb-4"
+                >
+                  <div
+                    v-if="getWorkshopsForFestival(f.slug).filter(w => w.day === day).length > 0"
+                  >
+                    <div class="text-xs font-bold uppercase tracking-widest mb-2" style="color:#9a5614;">
+                      {{ day }}
+                    </div>
+                    <div class="space-y-2">
+                      <div
+                        v-for="w in getWorkshopsForFestival(f.slug).filter(ws => ws.day === day && ws.type !== 'party')"
+                        :key="w.id"
+                        class="flex items-start gap-3 p-2.5 rounded-lg hover:bg-black/[0.02] cursor-pointer"
+                        @click.stop="toggleWorkshop(f.slug, w.id)"
+                      >
+                        <input
+                          type="checkbox"
+                          :checked="getSelectedWorkshops(f.slug).has(w.id)"
+                          :aria-label="`Select ${w.time} ${w.title}`"
+                          class="mt-0.5 cursor-pointer"
+                          @click.stop="toggleWorkshop(f.slug, w.id)"
+                        >
+                        <div class="flex-1 min-w-0">
+                          <div class="text-sm font-bold leading-tight" style="color:#3b1f0d;">
+                            {{ w.time }} · {{ w.title }}
+                          </div>
+                          <div class="text-xs mt-0.5" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+                            <template v-if="w.teacherId">
+                              {{ getTeacherName(f.slug, w.teacherId) }}
+                            </template>
+                            {{ w.level }}
+                            <template v-if="w.room">
+                              · {{ w.room }}
+                            </template>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Selected workshops summary -->
+              <div v-if="getSelectedWorkshops(f.slug).size > 0" class="mt-4 pt-4 border-t" style="border-color:#3b1f0d0d;">
+                <div class="text-xs font-bold uppercase tracking-widest mb-3" style="color:#9a5614;">
+                  Your picks
+                </div>
+                <div class="space-y-2">
+                  <div
+                    v-for="w in getWorkshopsForFestival(f.slug).filter(ws => getSelectedWorkshops(f.slug).has(ws.id))"
+                    :key="w.id"
+                    class="flex items-start gap-2 p-2.5 rounded-lg bg-green-50"
+                  >
+                    <Check class="w-4 h-4 mt-0.5 shrink-0" style="color:#16a34a;" />
+                    <div class="flex-1 min-w-0">
+                      <div class="text-sm font-bold leading-tight" style="color:#3b1f0d;">
+                        {{ w.time }} · {{ w.title }}
+                      </div>
+                      <div class="text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+                        {{ w.day }} · {{ w.level }}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      class="text-xs font-bold italic hover:underline shrink-0"
+                      style="color:#dc2626;"
+                      @click.stop="removeSelectedWorkshop(f.slug, w.id)"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
 
