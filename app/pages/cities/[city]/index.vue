@@ -51,8 +51,9 @@ const dbVenues = computed<Teacher[]>(() => (dir.value?.venues ?? []).map(toPerso
 const events: any[] = []
 
 const bookedEvents = ref<any[]>([])
+const bookedEventsLoaded = ref(false)
 onMounted(async () => {
-  try { bookedEvents.value = await $trpc.booking.upcomingByCity.query({ citySlug: slug }) } catch { /* ignore */ }
+  try { bookedEvents.value = await $trpc.booking.upcomingByCity.query({ citySlug: slug }) } finally { bookedEventsLoaded.value = true }
 })
 const bookedTypeMap: Record<string, string> = { Social: 'social', Party: 'social', Workshop: 'workshop', Class: 'class', Practica: 'practica' }
 // Local YYYY-MM-DD (never toISOString — that shifts to UTC and, in a positive
@@ -450,6 +451,11 @@ onMounted(() => {
         </div>
       </div>
     </section>
+
+    <!-- LOCAL COMMUNITY GROUPS — cold-start filler when there are few/no events -->
+    <ClientOnly v-if="bookedEventsLoaded && bookedThisWeek.length === 0">
+      <CommunityGroupsSection :city-slug="slug" :city-name="city.name" />
+    </ClientOnly>
 
     <!-- WEEKLY SCHEDULE -->
     <section class="max-w-4xl mx-auto px-4 py-12">
