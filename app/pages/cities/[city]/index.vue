@@ -22,6 +22,18 @@ const slug = route.params.city as string
 // nudge pill and the full view lives on /my-plan.
 const { weekPlanIds, toggleEvent, weekCount } = useWeekPlan()
 
+// Auth gate — "Going?" requires sign-in
+const { isSignedIn } = useAuth()
+const showSignUp = ref(false)
+
+function onToggleEvent(id: string) {
+  if (!isSignedIn.value) {
+    showSignUp.value = true
+    return
+  }
+  toggleEvent(id)
+}
+
 // People + venues from real migrated profiles (entity.cityDirectory), kept as
 // refs and populated on mount (tRPC client is client-only). Same tabbed Lineup
 // interface — only the data source changed (mock → DB).
@@ -484,7 +496,7 @@ onMounted(() => {
         :events="filteredEvents"
         :week-plan-ids="weekPlanIds"
         :teachers="[...teachers, ...djs, ...organisers]"
-        @toggle="toggleEvent"
+        @toggle="onToggleEvent"
         @select-teacher="onSelectPerson"
       />
     </section>
@@ -700,5 +712,7 @@ onMounted(() => {
         </NuxtLink>
       </Transition>
     </Teleport>
+
+    <SignUpModal v-model:open="showSignUp" action="plan" />
   </div>
 </template>

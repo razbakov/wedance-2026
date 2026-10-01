@@ -43,6 +43,18 @@ const router = useRouter()
 // nudge pill and the full view lives on /my-plan.
 const { yearPlanIds, toggleFestival, yearCount } = useYearPlan()
 
+// Auth gate — "Going?" requires sign-in
+const { isSignedIn } = useAuth()
+const showSignUp = ref(false)
+
+function onPick(slug: string) {
+  if (!isSignedIn.value) {
+    showSignUp.value = true
+    return
+  }
+  toggleFestival(slug)
+}
+
 // Search
 const searchQuery = ref('')
 
@@ -370,7 +382,7 @@ const styleChips = ['Salsa', 'Bachata', 'Timba', 'Kizomba', 'Son']
                     :style="yearPlanIds.has(f.slug)
                       ? { background: f.accentColor, color: 'white' }
                       : { background: 'white', color: f.accentColor, border: '1.5px solid ' + f.accentColor + '55' }"
-                    @click.prevent="toggleFestival(f.slug)"
+                    @click.prevent="onPick(f.slug)"
                   >
                     {{ yearPlanIds.has(f.slug) ? 'Going!' : 'Going?' }}
                   </button>
@@ -436,5 +448,7 @@ const styleChips = ['Salsa', 'Bachata', 'Timba', 'Kizomba', 'Son']
         </NuxtLink>
       </Transition>
     </Teleport>
+
+    <SignUpModal v-model:open="showSignUp" action="plan" />
   </div>
 </template>
