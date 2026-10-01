@@ -50,16 +50,79 @@ type StepId = typeof steps[number]['id']
 const currentStep = ref<StepId>('basics')
 const currentStepIndex = computed(() => steps.findIndex(s => s.id === currentStep.value))
 
+// Per-step validation
+const stepErrors = ref<string[]>([])
+
+function validateStep(stepId: StepId): string[] {
+  const errors: string[] = []
+  switch (stepId) {
+    case 'basics':
+      if (!festival.name.trim()) errors.push('Festival name is required.')
+      if (!festival.startDate) errors.push('Start date is required.')
+      if (!festival.endDate) errors.push('End date is required.')
+      if (festival.startDate && festival.endDate && festival.endDate < festival.startDate)
+        errors.push('End date must be on or after start date.')
+      break
+    case 'venue':
+      if (!venue.name.trim()) errors.push('Venue name is required.')
+      if (!venue.address.trim()) errors.push('Venue address is required.')
+      break
+    case 'lineup':
+      teachers.value.forEach((t, i) => {
+        if (!t.name.trim()) errors.push(`Artist ${i + 1}: name is required.`)
+      })
+      break
+    case 'schedule':
+      workshops.value.forEach((w, i) => {
+        if (!w.title.trim()) errors.push(`Workshop ${i + 1}: title is required.`)
+      })
+      break
+    case 'tickets':
+      tickets.value.forEach((t, i) => {
+        if (!t.name.trim()) errors.push(`Ticket ${i + 1}: name is required.`)
+      })
+      break
+  }
+  return errors
+}
+
 function goToStep(stepId: StepId) {
+  const targetIndex = steps.findIndex(s => s.id === stepId)
+  // Going backwards is always allowed
+  if (targetIndex <= currentStepIndex.value) {
+    stepErrors.value = []
+    currentStep.value = stepId
+    return
+  }
+  // Going forward: validate every step between current and target
+  for (let i = currentStepIndex.value; i < targetIndex; i++) {
+    const step = steps[i]!
+    const errors = validateStep(step.id)
+    if (errors.length) {
+      stepErrors.value = errors
+      currentStep.value = step.id
+      window.scrollTo(0, 0)
+      return
+    }
+  }
+  stepErrors.value = []
   currentStep.value = stepId
 }
 function nextStep() {
+  const errors = validateStep(currentStep.value)
+  if (errors.length) {
+    stepErrors.value = errors
+    window.scrollTo(0, 0)
+    return
+  }
+  stepErrors.value = []
   if (currentStepIndex.value < steps.length - 1) {
     currentStep.value = steps[currentStepIndex.value + 1].id
     window.scrollTo(0, 0)
   }
 }
 function prevStep() {
+  stepErrors.value = []
   if (currentStepIndex.value > 0) {
     currentStep.value = steps[currentStepIndex.value - 1].id
     window.scrollTo(0, 0)
@@ -354,6 +417,14 @@ const labelClass = 'text-[10px] uppercase tracking-[0.25em] font-bold mb-2 block
 
     <!-- Form content -->
     <div class="max-w-3xl mx-auto px-4 py-8 pb-32">
+
+      <!-- Validation errors -->
+      <div v-if="stepErrors.length" class="rounded-xl border border-red-300 bg-red-50 px-4 py-3 mb-6">
+        <p class="text-sm font-semibold text-red-700 mb-1">Please fix the following before continuing:</p>
+        <ul class="list-disc list-inside text-sm text-red-600 space-y-0.5">
+          <li v-for="(err, i) in stepErrors" :key="i">{{ err }}</li>
+        </ul>
+      </div>
 
       <!-- Step 1: Basics -->
       <div v-if="currentStep === 'basics'" class="space-y-6">
