@@ -1,7 +1,6 @@
 <script setup lang="ts">
 /**
- * /datenschutz — GDPR privacy policy. PLACEHOLDER.
- * Route: /datenschutz (German for legacy; content is English).
+ * /privacy-policy — GDPR privacy policy. PLACEHOLDER.
  * Needs real content + legal review before launch (covers Stripe,
  * analytics, cookies, hosting, user rights, data retention).
  */
@@ -17,7 +16,7 @@ useHead({
 })
 
 const willCover = [
-  'Who the controller is (see Impressum) and how to reach them.',
+  'Who the controller is (see Imprint) and how to reach them.',
   'What data we collect (account, tickets, payments, plan) and why.',
   'Payment processing via Stripe (data shared, their role).',
   'Hosting (Vercel) and any analytics — with cookie/consent basis.',

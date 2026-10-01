@@ -18,6 +18,11 @@ export default defineNuxtConfig({
       ],
     },
   },
+  routeRules: {
+    '/datenschutz': { redirect: { to: '/privacy-policy', statusCode: 301 } },
+    '/impressum': { redirect: { to: '/imprint', statusCode: 301 } },
+    '/agb': { redirect: { to: '/terms', statusCode: 301 } },
+  },
   nitro: {
     preset: 'vercel',
   },
