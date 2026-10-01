@@ -21,26 +21,36 @@ useHead({
   ],
 })
 
-const client = useTRPC()
-const user = await useAuth()
+// tRPC client is provided by app/plugins/01.trpc.ts as `$trpc` (there is no
+// `useTRPC` composable — calling it threw "useTRPC is not defined" on load).
+const { $trpc } = useNuxtApp()
+const { isSignedIn } = useAuth()
 
 const route = useRoute()
 const kindParam = (Array.isArray(route.query.kind) ? route.query.kind[0] : route.query.kind) || ''
 const kindFilter = ref<'role' | 'offer' | ''>(kindParam === 'role' || kindParam === 'offer' ? kindParam : '')
 const categoryFilter = ref('')
 
-// Fetch gigs from API
-const { data: gigs, pending: loadingGigs, refresh: refreshGigs } = await useFetch(() => {
-  return $fetch('/api/trpc/gigs.list', {
-    method: 'POST',
-    body: {
-      kind: kindFilter.value || undefined,
-      category: categoryFilter.value || undefined,
-    },
-  })
-}, { watch: [kindFilter, categoryFilter] })
+// Fetch gigs via the tRPC client (queries are GET; a raw POST to a query 405s).
+// The tRPC client is client-only (relative '/api/trpc' URL, no SSR base — see
+// app/pages/u/[username].vue), so this must never run during SSR: an SSR fetch
+// fails with "Failed to parse URL", the error is hydrated, and the board stays
+// empty until a filter changes. `server: false` runs it after hydration on the
+// client, and `watch` refetches on every filter change.
+const { data: gigs, status: gigsStatus, refresh: refreshGigs } = useAsyncData(
+  'gigs-list',
+  () => $trpc.gigs.list.query({
+    kind: kindFilter.value || undefined,
+    category: categoryFilter.value || undefined,
+  }),
+  { server: false, watch: [kindFilter, categoryFilter] },
+)
+// With server:false the SSR/hydration status is 'idle' — treat it as loading so
+// the page never flashes "No gigs match" before the client fetch starts.
+const loadingGigs = computed(() => gigsStatus.value === 'idle' || gigsStatus.value === 'pending')
+const gigsFailed = computed(() => gigsStatus.value === 'error')
 
-const allGigs = computed(() => gigs.value?.result?.data || [])
+const allGigs = computed(() => gigs.value || [])
 const categories = computed(() => Array.from(new Set(allGigs.value.map((g: any) => g.category))))
 
 function daysUntil(dateStr?: string | Date): { text: string; urgent: boolean } | null {
@@ -66,7 +76,7 @@ const formData = reactive({
   when: '',
   compensation: '',
   deadline: '',
-  contactEmail: user.value?.email || '',
+  contactEmail: '',
   contactUrl: '',
   entityUrl: '',
 })
@@ -88,7 +98,7 @@ function removeStyle(index: number) {
 }
 
 async function submitForm() {
-  if (!user.value) {
+  if (!isSignedIn.value) {
     formError.value = 'Please sign in to post a gig'
     return
   }
@@ -97,9 +107,14 @@ async function submitForm() {
   submittingForm.value = true
 
   try {
-    const result = await $fetch('/api/trpc/gigs.create', {
-      method: 'POST',
-      body: formData,
+    // Mutation through the tRPC client so the session Bearer token is sent.
+    // Empty optional fields become undefined (zod rejects '' for .url()).
+    await $trpc.gigs.create.mutate({
+      ...formData,
+      styles: [...formData.styles],
+      deadline: formData.deadline || undefined,
+      contactUrl: formData.contactUrl || undefined,
+      entityUrl: formData.entityUrl || undefined,
     })
 
     formSuccess.value = true
@@ -124,7 +139,7 @@ async function submitForm() {
     }, 2000)
   }
   catch (error: any) {
-    formError.value = error.data?.message || 'Failed to create gig. Please try again.'
+    formError.value = error?.message || 'Failed to create gig. Please try again.'
   }
   finally {
     submittingForm.value = false
@@ -175,7 +190,7 @@ function getAccent(category: string): string {
 
         <div class="mt-7 flex flex-col sm:flex-row items-center justify-center gap-3">
           <button
-            v-if="user"
+            v-if="isSignedIn"
             type="button"
             class="inline-flex items-center gap-2 px-6 py-3 rounded-full text-white text-sm font-bold uppercase tracking-wider"
             style="background:linear-gradient(135deg, #dc2626, #f97316); box-shadow: 0 4px 0 -1px #b91c1c;"
@@ -429,6 +444,10 @@ function getAccent(category: string): string {
 
       <div v-if="loadingGigs" class="text-center py-14">
         <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Loading gigs...</p>
+      </div>
+
+      <div v-else-if="gigsFailed" class="text-center py-14">
+        <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Couldn't load gigs. <button type="button" class="underline" @click="refreshGigs()">Try again</button></p>
       </div>
 
       <div v-else-if="!allGigs.length" class="text-center py-14 rounded-2xl border-2 border-dashed" style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);">
