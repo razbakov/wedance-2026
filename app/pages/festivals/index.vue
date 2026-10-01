@@ -6,6 +6,9 @@
  * the default layout are unaffected. YearCanvas sidebar + mobile
  * year drawer preserved. Fake stats bar (12k+ dancers / 180+ / 35)
  * removed — same "no fake friends" rule the homepage runs.
+ *
+ * RAZ-105: data now fetched from /api/festivals (DB-driven, SSR) instead
+ * of hardcoded mock imports. Past festivals filtered server-side.
  */
 import {
   Search,
@@ -13,14 +16,23 @@ import {
   Calendar,
   Users,
   ArrowRight,
-  Heart,
 } from 'lucide-vue-next'
-import * as salsaOpen from '~/data/mock-festival'
-import * as meneate from '~/data/mock-meneate'
-import * as cubanFire from '~/data/mock-cuban-fire'
-import * as caribbeanUrbanFire from '~/data/mock-caribbean-urban-fire'
-import * as aguaPichi from '~/data/mock-agua-pichi'
-import { hasEventEnded, daysUntil } from '#shared/utils/festivalDateFormatter'
+import { daysUntil } from '#shared/utils/festivalDateFormatter'
+
+interface FestivalRow {
+  slug: string
+  name: string
+  startDate: string | null
+  endDate: string | null
+  city: string | null
+  country: string | null
+  description: string | null
+  styles: string[]
+  logo: string | null
+  accentColor: string | null
+  ticketUrl: string | null
+  signupCount: number
+}
 
 definePageMeta({ layout: false })
 
@@ -38,7 +50,6 @@ useHead({
 
 const router = useRouter()
 
-// Year plan state (unchanged)
 // Year plan — sidebar retired; picks now surface via the floating
 // nudge pill and the full view lives on /my-plan.
 const { yearPlanIds, toggleFestival, yearCount } = useYearPlan()
@@ -55,134 +66,20 @@ function onPick(slug: string) {
   toggleFestival(slug)
 }
 
+// Festivals from DB (SSR — no spinner). Past festivals already excluded
+// server-side, sorted by startDate ascending.
+const { data: allFestivals } = await useFetch<FestivalRow[]>('/api/festivals', {
+  key: 'festivals-directory',
+})
+
 // Search
 const searchQuery = ref('')
 
-const allFestivals = [
-  {
-    slug: aguaPichi.mockFestival.slug,
-    name: aguaPichi.mockFestival.name,
-    startDate: aguaPichi.mockFestival.startDate,
-    endDate: aguaPichi.mockFestival.endDate,
-    location: 'Munich, Germany',
-    logo: aguaPichi.mockFestival.logo,
-    accentColor: aguaPichi.mockFestival.accentColor,
-    styles: ['Timba', 'Casino', 'Rumba', 'Son', 'Afro'],
-    attendeeCount: aguaPichi.mockFestival.attendeeCount,
-    friendsGoing: 0,
-    workshopCount: aguaPichi.mockWorkshops.filter(w => w.type !== 'party').length,
-    partyCount: aguaPichi.mockWorkshops.filter(w => w.type === 'party').length,
-    description: aguaPichi.mockFestival.description,
-    earlyBirdDeadline: '2026-11-30',
-  },
-  {
-    slug: meneate.mockFestival.slug,
-    name: meneate.mockFestival.name,
-    startDate: meneate.mockFestival.startDate,
-    endDate: meneate.mockFestival.endDate,
-    location: 'Vienna, Austria',
-    logo: meneate.mockFestival.logo,
-    accentColor: meneate.mockFestival.accentColor,
-    styles: ['Timba', 'Salsa', 'Son', 'Rumba'],
-    attendeeCount: meneate.mockFestival.attendeeCount,
-    friendsGoing: 3,
-    workshopCount: meneate.mockWorkshops.filter(w => w.type !== 'party').length,
-    partyCount: meneate.mockWorkshops.filter(w => w.type === 'party').length,
-    description: meneate.mockFestival.description,
-  },
-  {
-    slug: cubanFire.mockFestival.slug,
-    name: cubanFire.mockFestival.name,
-    startDate: cubanFire.mockFestival.startDate,
-    endDate: cubanFire.mockFestival.endDate,
-    location: 'Munich, Germany',
-    logo: '',
-    accentColor: cubanFire.mockFestival.accentColor,
-    styles: ['Timba', 'Salsa', 'Son', 'Rumba'],
-    attendeeCount: cubanFire.mockFestival.attendeeCount,
-    friendsGoing: 1,
-    workshopCount: cubanFire.mockWorkshops.filter(w => w.type !== 'party').length,
-    partyCount: cubanFire.mockWorkshops.filter(w => w.type === 'party').length,
-    description: cubanFire.mockFestival.description,
-  },
-  {
-    slug: caribbeanUrbanFire.mockFestival.slug,
-    name: caribbeanUrbanFire.mockFestival.name,
-    startDate: caribbeanUrbanFire.mockFestival.startDate,
-    endDate: caribbeanUrbanFire.mockFestival.endDate,
-    location: 'Munich, Germany',
-    logo: '',
-    accentColor: caribbeanUrbanFire.mockFestival.accentColor,
-    styles: ['Salsa', 'Bachata', 'Hip Hop'],
-    attendeeCount: caribbeanUrbanFire.mockFestival.attendeeCount,
-    friendsGoing: 0,
-    workshopCount: caribbeanUrbanFire.mockWorkshops.filter(w => w.type !== 'party').length,
-    partyCount: caribbeanUrbanFire.mockWorkshops.filter(w => w.type === 'party').length,
-    description: caribbeanUrbanFire.mockFestival.description,
-  },
-  {
-    slug: salsaOpen.mockFestival.slug,
-    name: salsaOpen.mockFestival.name,
-    startDate: salsaOpen.mockFestival.startDate,
-    endDate: salsaOpen.mockFestival.endDate,
-    location: 'Berlin, Germany',
-    logo: salsaOpen.mockFestival.logo,
-    accentColor: salsaOpen.mockFestival.accentColor,
-    styles: ['Salsa', 'Bachata'],
-    attendeeCount: salsaOpen.mockFestival.attendeeCount,
-    friendsGoing: 2,
-    workshopCount: salsaOpen.mockWorkshops.length,
-    partyCount: 0,
-    description: salsaOpen.mockFestival.description,
-    earlyBirdDeadline: '2026-06-01',
-  },
-  {
-    slug: 'bachata-stars-barcelona-2026',
-    name: 'Bachata Stars Barcelona',
-    startDate: '2026-11-03',
-    endDate: '2026-11-06',
-    location: 'Barcelona, Spain',
-    logo: 'https://ui-avatars.com/api/?name=BSB&size=80&background=7c3aed&color=fff&bold=true&rounded=true',
-    accentColor: '#7c3aed',
-    styles: ['Bachata', 'Bachata Sensual'],
-    attendeeCount: 620,
-    friendsGoing: 1,
-    workshopCount: 24,
-    partyCount: 4,
-    description: 'The biggest Bachata event in Southern Europe.',
-    earlyBirdDeadline: '2026-10-15',
-  },
-  {
-    slug: 'timba-fest-london-2026',
-    name: 'Timba Fest London',
-    startDate: '2026-12-18',
-    endDate: '2026-12-21',
-    location: 'London, UK',
-    logo: 'https://ui-avatars.com/api/?name=TFL&size=80&background=0ea5e9&color=fff&bold=true&rounded=true',
-    accentColor: '#0ea5e9',
-    styles: ['Timba', 'Son', 'Rumba'],
-    attendeeCount: 310,
-    friendsGoing: 0,
-    workshopCount: 18,
-    partyCount: 3,
-    description: 'Cuban music and dance in the heart of London.',
-  },
-  {
-    slug: 'kizomba-prague-2026',
-    name: 'Kizomba & Urban Kiz Prague',
-    startDate: '2026-10-10',
-    endDate: '2026-10-12',
-    location: 'Prague, Czech Republic',
-    logo: 'https://ui-avatars.com/api/?name=KPR&size=80&background=ec4899&color=fff&bold=true&rounded=true',
-    accentColor: '#ec4899',
-    styles: ['Kizomba', 'Urban Kiz', 'Semba'],
-    attendeeCount: 275,
-    friendsGoing: 0,
-    workshopCount: 16,
-    partyCount: 3,
-    description: 'Kizomba, Urban Kiz and Semba in beautiful Prague.',
-  },
-]
+const DEFAULT_ACCENT = '#9a5614'
+
+function location(f: FestivalRow): string {
+  return [f.city, f.country].filter(Boolean).join(', ') || 'TBA'
+}
 
 function formatDateRange(start: string, end: string) {
   const s = new Date(start)
@@ -194,26 +91,21 @@ function formatDateRange(start: string, end: string) {
   return `${s.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${e.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, ${e.getFullYear()}`
 }
 
+function accent(f: FestivalRow): string {
+  return f.accentColor || DEFAULT_ACCENT
+}
 
 const filteredFestivals = computed(() => {
-  // Filter out past festivals (where end date has passed)
-  const upcomingFestivals = allFestivals.filter(f => !hasEventEnded(f.endDate))
+  const festivals = allFestivals.value ?? []
 
-  // Apply search filter
-  if (!searchQuery.value.trim()) {
-    // Sort by start date ascending (nearest first)
-    return upcomingFestivals.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
-  }
+  if (!searchQuery.value.trim()) return festivals
 
   const q = searchQuery.value.toLowerCase()
-  const results = upcomingFestivals.filter(f =>
+  return festivals.filter(f =>
     f.name.toLowerCase().includes(q)
-    || f.location.toLowerCase().includes(q)
-    || f.styles.some(s => s.toLowerCase().includes(q))
+    || location(f).toLowerCase().includes(q)
+    || f.styles.some((s: string) => s.toLowerCase().includes(q)),
   )
-
-  // Sort by start date ascending when search results are returned
-  return results.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
 })
 
 const styleChips = ['Salsa', 'Bachata', 'Timba', 'Kizomba', 'Son']
@@ -294,10 +186,10 @@ const styleChips = ['Salsa', 'Bachata', 'Timba', 'Kizomba', 'Son']
           :key="f.slug"
           :to="`/festivals/${f.slug}`"
           class="group block rounded-2xl overflow-hidden bg-white border transition-all hover:-translate-y-1"
-          :style="{ borderColor: f.accentColor + '55', boxShadow: '0 1px 0 ' + f.accentColor + '22, 0 8px 22px rgba(59,31,18,0.05)' }"
+          :style="{ borderColor: accent(f) + '55', boxShadow: '0 1px 0 ' + accent(f) + '22, 0 8px 22px rgba(59,31,18,0.05)' }"
         >
           <!-- Color accent bar -->
-          <div class="h-1.5" :style="{ background: f.accentColor }" />
+          <div class="h-1.5" :style="{ background: accent(f) }" />
 
           <div class="p-5">
             <div class="flex items-start gap-4">
@@ -311,7 +203,7 @@ const styleChips = ['Salsa', 'Bachata', 'Timba', 'Kizomba', 'Son']
               <div
                 v-else
                 class="w-14 h-14 rounded-full shrink-0 flex items-center justify-center text-xl font-bold text-white shadow-sm"
-                :style="{ background: f.accentColor }"
+                :style="{ background: accent(f) }"
               >
                 {{ f.name.charAt(0) }}
               </div>
@@ -322,22 +214,23 @@ const styleChips = ['Salsa', 'Bachata', 'Timba', 'Kizomba', 'Son']
                     {{ f.name }}
                   </h3>
                   <span
+                    v-if="f.startDate"
                     class="text-[10px] uppercase tracking-widest font-bold shrink-0 mt-1"
                     style="font-family:'Caveat', cursive; font-size:15px; text-transform:none; letter-spacing:normal;"
-                    :style="{ color: f.accentColor }"
+                    :style="{ color: accent(f) }"
                   >
                     {{ daysUntil(f.startDate) }}
                   </span>
                 </div>
 
                 <div class="flex items-center gap-4 mt-1 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
-                  <span class="flex items-center gap-1">
+                  <span v-if="f.startDate && f.endDate" class="flex items-center gap-1">
                     <Calendar class="w-3 h-3" style="color:#9a5614;" />
                     {{ formatDateRange(f.startDate, f.endDate) }}
                   </span>
                   <span class="flex items-center gap-1">
                     <MapPin class="w-3 h-3" style="color:#9a5614;" />
-                    {{ f.location }}
+                    {{ location(f) }}
                   </span>
                 </div>
 
@@ -347,7 +240,7 @@ const styleChips = ['Salsa', 'Bachata', 'Timba', 'Kizomba', 'Son']
                     v-for="style in f.styles.slice(0, 4)"
                     :key="style"
                     class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
-                    :style="{ background: f.accentColor + '18', color: f.accentColor }"
+                    :style="{ background: accent(f) + '18', color: accent(f) }"
                   >
                     {{ style }}
                   </span>
@@ -362,26 +255,16 @@ const styleChips = ['Salsa', 'Bachata', 'Timba', 'Kizomba', 'Son']
 
                 <!-- Stats row -->
                 <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
-                  <span class="flex items-center gap-1">
+                  <span v-if="f.signupCount" class="flex items-center gap-1">
                     <Users class="w-3 h-3" style="color:#9a5614;" />
-                    {{ f.attendeeCount }} planning
-                  </span>
-                  <span>{{ f.workshopCount }} workshops</span>
-                  <span v-if="f.partyCount">{{ f.partyCount }} {{ f.partyCount === 1 ? 'party' : 'parties' }}</span>
-                  <span
-                    v-if="f.friendsGoing"
-                    class="flex items-center gap-1 font-bold"
-                    :style="{ color: f.accentColor }"
-                  >
-                    <Heart class="w-3 h-3" />
-                    {{ f.friendsGoing }} friend{{ f.friendsGoing === 1 ? '' : 's' }} going
+                    {{ f.signupCount }} planning
                   </span>
                   <button
                     type="button"
                     class="ml-auto text-xs font-bold px-3 py-1.5 rounded-full transition-all"
                     :style="yearPlanIds.has(f.slug)
-                      ? { background: f.accentColor, color: 'white' }
-                      : { background: 'white', color: f.accentColor, border: '1.5px solid ' + f.accentColor + '55' }"
+                      ? { background: accent(f), color: 'white' }
+                      : { background: 'white', color: accent(f), border: '1.5px solid ' + accent(f) + '55' }"
                     @click.prevent="onPick(f.slug)"
                   >
                     {{ yearPlanIds.has(f.slug) ? 'Going!' : 'Going?' }}

@@ -56,6 +56,13 @@ export const festivals = pgTable('festivals', {
   maxFreeSpots: integer('max_free_spots').notNull().default(10),
   stripePaymentLink: text('stripe_payment_link'),
   ticketUrl: text('ticket_url'),
+  // Listing-page fields (RAZ-105: DB-driven festival directory).
+  city: text('city'),
+  country: text('country'),
+  description: text('description'),
+  styles: json('styles').$type<string[]>().default([]),
+  logo: text('logo'),
+  accentColor: text('accent_color'),
 })
 
 export const festivalSignups = pgTable('festival_signups', {
