@@ -10,7 +10,7 @@ import {
   recommendationRequests, festivalSubmissions, festivalSignups, cityVideos,
   guidelineVersions, moderatorElections, gigs, hangouts, hangoutRsvps,
 } from '../../database/schema'
-import { sendMagicLinkEmail } from '../../utils/email'
+import { sendMagicLinkEmail, sendPasswordResetEmail } from '../../utils/email'
 import { generateUsername } from '../../utils/slug'
 
 // FirebaseScrypt parameters, ported verbatim from wedance-v4
@@ -62,6 +62,7 @@ export const authRouter = router({
       danceStyles: z.array(z.string()).default([]),
       role: z.enum(['lead', 'follow', 'both']).optional(),
       city: z.string().optional(),
+      purpose: z.enum(['login', 'recovery']).default('login'),
     }))
     .mutation(async ({ ctx, input }) => {
       const magicToken = crypto.randomUUID()
@@ -100,9 +101,15 @@ export const authRouter = router({
 
       const config = useRuntimeConfig()
       const siteUrl = config.siteUrl || 'http://localhost:3000'
-      const magicLinkUrl = `${siteUrl}/auth/verify?token=${magicToken}`
+      const magicLinkUrl = input.purpose === 'recovery'
+        ? `${siteUrl}/auth/verify?token=${magicToken}&mode=reset`
+        : `${siteUrl}/auth/verify?token=${magicToken}`
 
-      await sendMagicLinkEmail(input.email, dancer?.name || 'Dancer', magicLinkUrl)
+      if (input.purpose === 'recovery') {
+        await sendPasswordResetEmail(input.email, dancer?.name || 'Dancer', magicLinkUrl)
+      } else {
+        await sendMagicLinkEmail(input.email, dancer?.name || 'Dancer', magicLinkUrl)
+      }
 
       return { sent: true }
     }),
@@ -140,6 +147,51 @@ export const authRouter = router({
       await ctx.db
         .update(dancers)
         .set({ magicToken: null, magicTokenExpiresAt: null })
+        .where(eq(dancers.id, dancer.id))
+
+      return createSession(ctx.db, dancer)
+    }),
+
+  // Reset password via magic-link token. The "forgot password" flow sends a
+  // magic link with `mode=reset`; this procedure consumes the token, sets a new
+  // password, and mints a session — so the user is logged in with their new
+  // credentials in one step.
+  resetPassword: publicProcedure
+    .input(z.object({
+      token: z.string().min(1),
+      newPassword: z.string().min(8, 'Password must be at least 8 characters.'),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const [dancer] = await ctx.db
+        .select({
+          id: dancers.id,
+          name: dancers.name,
+          isAdmin: dancers.isAdmin,
+        })
+        .from(dancers)
+        .where(
+          and(
+            eq(dancers.magicToken, input.token),
+            gt(dancers.magicTokenExpiresAt, new Date()),
+          ),
+        )
+
+      if (!dancer) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Invalid or expired link. Please request a new one.',
+        })
+      }
+
+      // Hash the new password with a fresh salt (same FirebaseScrypt scheme).
+      const salt = Buffer.from(String(Math.random()).slice(7)).toString('base64')
+      const scrypt = new FirebaseScrypt(firebaseScryptParameters)
+      const hash = await scrypt.hash(input.newPassword, salt)
+
+      // Update password and clear magic token (single-use).
+      await ctx.db
+        .update(dancers)
+        .set({ salt, hash, magicToken: null, magicTokenExpiresAt: null })
         .where(eq(dancers.id, dancer.id))
 
       return createSession(ctx.db, dancer)

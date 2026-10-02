@@ -38,7 +38,17 @@ vi.mock('drizzle-orm', async () => {
 
   const and = (...preds: FilterFn[]): FilterFn => (row) => preds.every(p => p(row))
 
-  return { eq, and, gt: () => () => false, sql: (..._args: any[]) => ({}) }
+  const gt = (col: any, val: any): FilterFn => {
+    const jsKey = resolveKey(col)
+    return (row) => {
+      if (!jsKey) return false
+      const rowVal = row[jsKey]
+      if (rowVal == null || val == null) return false
+      return rowVal > val
+    }
+  }
+
+  return { eq, and, gt, sql: (..._args: any[]) => ({}) }
 })
 
 import { appRouter } from '../index'
@@ -485,6 +495,78 @@ describe('auth.me', () => {
     expect(me?.onboardedAt).toBeNull()
     expect(me?.intent).toBeNull()
     expect(me?.danceStyles).toEqual([])
+  })
+})
+
+// ---------- resetPassword (via magic-link token) ----------
+
+describe('auth.resetPassword', () => {
+  it('sets a new password via a valid magic token and returns a session', async () => {
+    const db = new FakeDb()
+    // Register a user with a known password.
+    await createCaller(db).auth.register({ name: 'Reset User', email: 'reset@example.com', password: 'oldpassword' })
+
+    // Simulate a magic token being set (as requestMagicLink would do).
+    db.dancers[0].magicToken = 'reset-token-123'
+    db.dancers[0].magicTokenExpiresAt = new Date(Date.now() + 15 * 60 * 1000) // 15 min from now
+
+    const caller = createCaller(db)
+    const result = await caller.auth.resetPassword({ token: 'reset-token-123', newPassword: 'newpassword1' })
+
+    expect(result.name).toBe('Reset User')
+    expect(result.sessionToken).toBeTruthy()
+
+    // Old password should no longer work.
+    await expect(createCaller(db).auth.login({ email: 'reset@example.com', password: 'oldpassword' })).rejects.toBeTruthy()
+
+    // New password should work.
+    const loginResult = await createCaller(db).auth.login({ email: 'reset@example.com', password: 'newpassword1' })
+    expect(loginResult.dancerId).toBe(result.dancerId)
+  })
+
+  it('clears the magic token after use (single-use)', async () => {
+    const db = new FakeDb()
+    db.seedDancer({ email: 'single-use@example.com', name: 'Single Use' })
+    db.dancers[0].magicToken = 'one-time-token'
+    db.dancers[0].magicTokenExpiresAt = new Date(Date.now() + 15 * 60 * 1000)
+
+    const caller = createCaller(db)
+    await caller.auth.resetPassword({ token: 'one-time-token', newPassword: 'brandnew1' })
+
+    // Token is cleared — second attempt fails.
+    await expect(caller.auth.resetPassword({ token: 'one-time-token', newPassword: 'another12' }))
+      .rejects.toThrow(/Invalid or expired/)
+  })
+
+  it('rejects an invalid token', async () => {
+    const db = new FakeDb()
+    const caller = createCaller(db)
+
+    await expect(caller.auth.resetPassword({ token: 'bogus-token', newPassword: 'newpassword1' }))
+      .rejects.toThrow(/Invalid or expired/)
+  })
+
+  it('rejects a short password (< 8 chars)', async () => {
+    const db = new FakeDb()
+    const caller = createCaller(db)
+
+    await expect(caller.auth.resetPassword({ token: 'any-token', newPassword: 'short' }))
+      .rejects.toThrow()
+  })
+
+  it('sets a password for a dancer that previously had none (magic-link-only account)', async () => {
+    const db = new FakeDb()
+    // A passwordless dancer (created via magic link / festival flow).
+    db.seedDancer({ email: 'nopass@example.com', name: 'No Pass', salt: '', hash: '' })
+    db.dancers[0].magicToken = 'first-password-token'
+    db.dancers[0].magicTokenExpiresAt = new Date(Date.now() + 15 * 60 * 1000)
+
+    const caller = createCaller(db)
+    await caller.auth.resetPassword({ token: 'first-password-token', newPassword: 'myfirstpw' })
+
+    // Can now log in with the new password.
+    const loginResult = await createCaller(db).auth.login({ email: 'nopass@example.com', password: 'myfirstpw' })
+    expect(loginResult.name).toBe('No Pass')
   })
 })
 

@@ -13,10 +13,11 @@
  * forwards prefilled values but never renders inputs for them.
  *
  * Recovery ("Forgot password?") reuses the existing magic-link plumbing: it
- * calls auth.requestMagicLink with just the email; the emailed link points to
- * /auth/verify?token=… which mints a session. requestMagicLink shows the same
- * "check your email" confirmation whether or not the address is registered, so
- * the recovery view never reveals which emails exist.
+ * calls auth.requestMagicLink with purpose='recovery'; the emailed link points
+ * to /auth/verify?token=…&mode=reset which shows a "set new password" form.
+ * requestMagicLink shows the same "check your email" confirmation whether or
+ * not the address is registered, so the recovery view never reveals which
+ * emails exist.
  */
 const props = defineProps<{
   open: boolean
@@ -176,9 +177,9 @@ async function handleRecovery() {
 
   loading.value = true
   try {
-    // Reuse the existing magic-link plumbing. requestMagicLink returns the
-    // same result whether or not the email exists → no user enumeration.
-    await requestMagicLink({ email })
+    // Send a password-reset magic link. requestMagicLink returns the same
+    // result whether or not the email exists → no user enumeration.
+    await requestMagicLink({ email, purpose: 'recovery' })
     recoverySent.value = true
   } catch (e: any) {
     error.value = e?.message || 'Something went wrong. Please try again.'
@@ -213,8 +214,8 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
             </DialogTitle>
             <DialogDescription style="color:#5b3a1d; font-family: system-ui, sans-serif;">
               {{ recoverySent
-                ? 'We sent you a login link. Click it to get back into your account.'
-                : 'Enter your email and we\'ll send you a link to log in — no password needed.' }}
+                ? 'We sent you a password reset link. Click it to set a new password.'
+                : 'Enter your email and we\'ll send you a link to reset your password.' }}
             </DialogDescription>
           </DialogHeader>
 
@@ -245,7 +246,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
               class="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-white text-sm font-bold uppercase tracking-wider disabled:opacity-60"
               style="background:#dc2626; box-shadow: 0 3px 0 -1px #b91c1c; font-family: system-ui, sans-serif;"
             >
-              {{ loading ? 'Sending…' : 'Send me a login link' }}
+              {{ loading ? 'Sending…' : 'Send me a reset link' }}
             </button>
 
             <p class="text-center text-sm pt-1" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
@@ -261,7 +262,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
               class="rounded-2xl px-4 py-4 text-sm"
               style="background:white; border:1px solid #16a34a55; color:#3b1f0d; font-family: system-ui, sans-serif;"
             >
-              If <span class="font-bold">{{ form.email.trim() }}</span> has an account, a login link is on its way.
+              If <span class="font-bold">{{ form.email.trim() }}</span> has an account, a password reset link is on its way.
               The link expires in 15 minutes.
             </div>
             <p class="text-center text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
