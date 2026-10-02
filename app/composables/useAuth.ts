@@ -84,6 +84,12 @@ export function useAuth() {
     return result
   }
 
+  async function resetPassword(token: string, newPassword: string) {
+    const result = await $trpc.auth.resetPassword.mutate({ token, newPassword })
+    setSession(result)
+    return result
+  }
+
   async function login(data: { email: string; password: string }) {
     const result = await $trpc.auth.login.mutate({
       email: data.email,
@@ -254,6 +260,7 @@ export function useAuth() {
     refreshMe,
     requestMagicLink,
     verifyMagicLink,
+    resetPassword,
     signOut,
   }
 }
