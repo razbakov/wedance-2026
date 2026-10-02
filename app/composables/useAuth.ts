@@ -68,6 +68,7 @@ export function useAuth() {
     danceStyles?: string[]
     role?: 'lead' | 'follow' | 'both'
     city?: string
+    purpose?: 'login' | 'recovery'
   }) {
     return await $trpc.auth.requestMagicLink.mutate({
       name: data.name,
@@ -75,6 +76,7 @@ export function useAuth() {
       danceStyles: data.danceStyles ?? [],
       role: data.role,
       city: data.city,
+      purpose: data.purpose,
     })
   }
 
