@@ -5,6 +5,7 @@
  */
 const { isSignedIn, dancerName, username, signOut } = useAuth()
 const showSignIn = ref(false)
+const showSignOutConfirm = ref(false)
 
 const links = [
   { to: '/festivals', label: 'Festivals', always: true },
@@ -45,7 +46,7 @@ const links = [
             type="button"
             class="italic hover:underline"
             style="color:#9a5614;"
-            @click="signOut"
+            @click="showSignOutConfirm = true"
           >Sign out</button>
         </template>
         <button
@@ -59,5 +60,6 @@ const links = [
     </div>
 
     <SignUpModal v-model:open="showSignIn" action="signin" />
+    <SignOutConfirmDialog v-model:open="showSignOutConfirm" @confirm="signOut" />
   </header>
 </template>

@@ -8,6 +8,7 @@ const { weekCount, weekDrawerOpen, toggleDrawer: toggleWeekDrawer } = useWeekPla
 
 const { isSignedIn, dancerName, signOut } = useAuth()
 const showSignUp = ref(false)
+const showSignOutConfirm = ref(false)
 
 // First-visit tooltip for sidebar icon on mobile
 const showSidebarHint = ref(false)
@@ -131,7 +132,7 @@ function onSignIn() {
             <span class="text-xs font-medium text-foreground">{{ dancerName }}</span>
             <button
               class="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-              @click="signOut"
+              @click="showSignOutConfirm = true"
             >
               Sign out
             </button>
@@ -153,5 +154,6 @@ function onSignIn() {
     </main>
 
     <SignUpModal v-model:open="showSignUp" action="signin" />
+    <SignOutConfirmDialog v-model:open="showSignOutConfirm" @confirm="signOut" />
   </div>
 </template>
