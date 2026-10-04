@@ -42,6 +42,7 @@ const { yearPlanIds, removeFestival, toggleFestival, addFestival } = useYearPlan
 // eyeball the strip + cards without running the real magic-link flow.
 // Doesn't mutate real auth or year-plan state.
 const route = useRoute()
+const { $trpc } = useNuxtApp()
 const previewMode = computed(() => route.query.preview === '1')
 const PREVIEW_PICK_SLUGS = new Set([
   'meneate-viena-2026',
@@ -423,7 +424,7 @@ function persistWorkshopSelections() {
   } catch { /* quota */ }
 }
 
-onMounted(() => {
+onMounted(async () => {
   // Real user: load persisted state. Preview mode skips localStorage.
   if (previewMode.value) return
   if (typeof localStorage === 'undefined') return
@@ -434,6 +435,23 @@ onMounted(() => {
 
   // Load workshop selections
   loadWorkshopSelections()
+
+  // Sync ticket status from backend — a purchased ticket overrides localStorage
+  if (isSignedIn.value) {
+    try {
+      const paidSlugs = await $trpc.festivalSignup.myTickets.query()
+      for (const slug of paidSlugs) {
+        const current = progressStore.value[slug] ?? {}
+        if (!current.ticketBought) {
+          progressStore.value = {
+            ...progressStore.value,
+            [slug]: { ...current, ticketBought: true },
+          }
+        }
+      }
+      persistProgress()
+    } catch { /* non-critical — local state is the fallback */ }
+  }
 })
 
 function getProgress(slug: string): Progress {

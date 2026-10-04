@@ -384,4 +384,20 @@ export const festivalSignupRouter = router({
 
       return { level: (row?.level ?? null) as RosterVisibility | null }
     }),
+
+  // Return all festival slugs where the current user has a paid ticket.
+  // Used by /my-plan to sync ticket-bought state from the backend.
+  myTickets: protectedProcedure
+    .query(async ({ ctx }) => {
+      const rows = await ctx.db
+        .select({ festivalSlug: festivals.slug })
+        .from(festivalSignups)
+        .innerJoin(festivals, eq(festivalSignups.festivalId, festivals.id))
+        .where(and(
+          eq(festivalSignups.dancerId, ctx.dancerId),
+          sql`${festivalSignups.paidAmount} > 0`,
+        ))
+
+      return rows.map(r => r.festivalSlug)
+    }),
 })
