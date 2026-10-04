@@ -21,7 +21,7 @@ export function useRoommates(festivalSlug: string) {
       lookingForRoommate.value = result.looking
     } catch (e) {
       lookingForRoommate.value = prev
-      throw e
+      console.warn('Failed to toggle roommate:', e)
     }
   }
 
