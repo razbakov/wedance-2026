@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { eq, and } from 'drizzle-orm'
+import { TRPCError } from '@trpc/server'
 import { router, publicProcedure, protectedProcedure } from '../trpc'
 import { festivalRideShares, festivals, dancers } from '../../database/schema'
 
@@ -55,7 +56,7 @@ export const rideShareRouter = router({
         .from(festivals)
         .where(eq(festivals.slug, input.festivalSlug))
 
-      if (!festival) throw new Error('Festival not found')
+      if (!festival) throw new TRPCError({ code: 'NOT_FOUND', message: 'Festival not found' })
 
       // Check for existing ride share by this dancer
       const [existing] = await ctx.db
@@ -100,7 +101,7 @@ export const rideShareRouter = router({
         .from(festivals)
         .where(eq(festivals.slug, input.festivalSlug))
 
-      if (!festival) throw new Error('Festival not found')
+      if (!festival) throw new TRPCError({ code: 'NOT_FOUND', message: 'Festival not found' })
 
       await ctx.db
         .delete(festivalRideShares)
