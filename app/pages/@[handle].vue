@@ -11,6 +11,7 @@
  *     a FREE "book a slot" flow (accept the guidelines).
  *   - 'commercial' → a rentable venue: bookable spaces with a request flow.
  */
+import { eventLocalDate, eventLocalTime } from '#shared/utils/eventTime'
 import { MapPin, Instagram, Youtube, Globe, Facebook, LayoutGrid, ArrowLeft, Check, Calendar, ScrollText, ShieldCheck, Trees, Plus } from 'lucide-vue-next'
 
 definePageMeta({ layout: false })
@@ -24,6 +25,8 @@ const handle = computed(() => String(route.params.handle))
 const pending = ref(true)
 const data = ref<Awaited<ReturnType<typeof $trpc.entity.getByHandle.query>> | null>(null)
 const schedule = ref<any[]>([])
+// Dated public events (wedance.vip mirror) this profile hosts / runs / plays at.
+const syncedEvents = ref<any[]>([])
 const isStub = ref(false)
 
 async function resolve() {
@@ -34,7 +37,12 @@ async function resolve() {
     if (pro) {
       data.value = pro
       pending.value = false
-      try { schedule.value = await $trpc.booking.scheduleForProfile.query({ profileId: pro.profile.id }) } catch { /* empty */ }
+      const [sched, synced] = await Promise.all([
+        $trpc.booking.scheduleForProfile.query({ profileId: pro.profile.id }).catch(() => []),
+        $trpc.events.byProfile.query({ username: pro.profile.username }).catch(() => []),
+      ])
+      schedule.value = sched as any[]
+      syncedEvents.value = synced as any[]
       return
     }
     try {
@@ -52,9 +60,30 @@ const spaces = computed(() => data.value?.spaces ?? [])
 const isFree = computed(() => profile.value?.bookingModel === 'free')
 const spaceName = (id: string) => spaces.value.find((s: any) => s.id === id)?.name ?? 'Area'
 // Schedule mapped to the shared EventSchedule card shape (area as location).
-const scheduleCards = computed(() => (schedule.value ?? []).map((ev: any) => ({
-  ...ev, location: spaceName(ev.spaceId), href: `/events/${ev.id}`,
-})))
+const v3TypeLabel: Record<string, string> = { Course: 'Class', Party: 'Party', Workshop: 'Workshop', Concert: 'Social', Show: 'Social' }
+const scheduleCards = computed(() => [
+  ...(schedule.value ?? []).map((ev: any) => ({ ...ev, location: spaceName(ev.spaceId), href: `/events/${ev.id}` })),
+  ...syncedEvents.value.map((e: any) => ({
+    id: e.id, title: e.name, eventType: v3TypeLabel[e.type] ?? e.type, styles: e.styles || [], artists: [],
+    eventDate: eventLocalDate(e.startDate, e.timezone), startTime: eventLocalTime(e.startDate, e.timezone),
+    endTime: e.endDate ? eventLocalTime(e.endDate, e.timezone) : undefined,
+    location: e.venueUsername === profile.value?.username ? (e.organizerName || '') : (e.venueName || ''),
+    href: `/events/${e.id}`,
+  })),
+])
+// Busy schools have 100+ dated classes — show the next ones, expand on demand.
+const scheduleLimit = ref(12)
+const visibleScheduleCards = computed(() => [...scheduleCards.value]
+  .sort((a: any, b: any) => `${a.eventDate ?? ''} ${a.startTime ?? ''}`.localeCompare(`${b.eventDate ?? ''} ${b.startTime ?? ''}`))
+  .slice(0, scheduleLimit.value))
+// v4-imported venues carry a Google Maps LINK in map_url, not a drawn map image.
+const mapIsImage = computed(() => !!profile.value?.mapUrl && !/(maps\.google\.|google\.[a-z.]+\/maps|goo\.gl\/maps)/i.test(profile.value.mapUrl))
+const directionsUrl = computed(() => {
+  const p = profile.value
+  if (!p) return ''
+  if (p.mapUrl && !mapIsImage.value) return p.mapUrl
+  return p.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.address)}` : ''
+})
 
 const typeLabel: Record<string, string> = { venue: 'Venue', artist: 'Artist', organizer: 'Organizer' }
 const socialIcon: Record<string, any> = { instagram: Instagram, youtube: Youtube, facebook: Facebook, website: Globe }
@@ -158,10 +187,14 @@ useHead(() => ({
                 </div>
                 <h1 class="text-3xl leading-tight mt-0.5" style="color:#3b1f0d;">{{ profile.name }}</h1>
                 <div class="text-sm mt-0.5" style="color:#9a5614; font-family:'Caveat', cursive; font-size:18px;">@{{ profile.username }}</div>
-                <div v-if="profile.address" class="flex items-start gap-1 mt-2 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;"><MapPin class="w-3 h-3 mt-0.5 shrink-0" style="color:#9a5614;" /> {{ profile.address }}</div>
+                <div v-if="profile.address" class="flex items-start gap-1 mt-2 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;"><MapPin class="w-3 h-3 mt-0.5 shrink-0" style="color:#9a5614;" /> <span>{{ profile.address }}<a v-if="directionsUrl" :href="directionsUrl" target="_blank" rel="noopener noreferrer" class="ml-1.5 font-bold underline" style="color:#dc2626;">Map</a></span></div>
+                <NuxtLink v-if="profile.citySlug && profile.city" :to="`/cities/${profile.citySlug}`" class="inline-block mt-1 text-xs font-bold hover:underline" style="color:#9a5614; font-family: system-ui, sans-serif;">{{ profile.city }} →</NuxtLink>
               </div>
             </div>
             <p v-if="profile.bio" class="mt-5 text-sm leading-relaxed" style="color:#5b3a1d; font-family: system-ui, sans-serif;">{{ profile.bio }}</p>
+            <div v-if="profile.styles?.length" class="mt-3 flex flex-wrap gap-1.5">
+              <span v-for="st in profile.styles" :key="st" class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider" style="background:#dc262614; color:#dc2626; font-family: system-ui, sans-serif;">{{ st }}</span>
+            </div>
             <div v-if="profile.socials?.length" class="mt-4 flex items-center gap-2">
               <a v-for="s in profile.socials" :key="s.platform" :href="s.url" target="_blank" rel="noopener" class="inline-flex items-center justify-center w-9 h-9 rounded-full" style="background:#dc262614; color:#dc2626;" :aria-label="s.platform"><component :is="socialIcon[s.platform] || Globe" class="w-4 h-4" /></a>
             </div>
@@ -176,7 +209,7 @@ useHead(() => ({
       </section>
 
       <!-- Map -->
-      <section v-if="profile.mapUrl" class="max-w-2xl mx-auto px-4 pb-6" style="font-family: system-ui, sans-serif;">
+      <section v-if="mapIsImage" class="max-w-2xl mx-auto px-4 pb-6" style="font-family: system-ui, sans-serif;">
         <div class="flex items-center gap-2 mb-2"><LayoutGrid class="w-5 h-5" style="color:#dc2626;" /><h2 class="text-2xl" style="font-family:'Playfair Display', serif; color:#3b1f0d;">The map</h2></div>
         <img :src="profile.mapUrl" alt="Map of the dance areas" class="w-full rounded-2xl border" style="border-color:#3b1f0d1a;">
       </section>
@@ -184,8 +217,9 @@ useHead(() => ({
       <!-- Scheduled events (first) -->
       <section class="max-w-2xl mx-auto px-4 pb-6" style="font-family: system-ui, sans-serif;">
         <div class="flex items-center gap-2 mb-3"><Calendar class="w-5 h-5" style="color:#dc2626;" /><h2 class="text-2xl" style="font-family:'Playfair Display', serif; color:#3b1f0d;">Scheduled</h2></div>
-        <EventSchedule v-if="scheduleCards.length" :events="scheduleCards" />
-        <p v-else class="mt-3 text-sm italic" style="color:#9a5614;">Nothing scheduled yet — book the first slot.</p>
+        <EventSchedule v-if="scheduleCards.length" :events="visibleScheduleCards" />
+        <button v-if="scheduleCards.length > scheduleLimit" type="button" class="mt-4 text-xs font-bold underline" style="color:#dc2626;" @click="scheduleLimit += 24">Show more ({{ scheduleCards.length - scheduleLimit }} more)</button>
+        <p v-else class="mt-3 text-sm italic" style="color:#9a5614;">{{ spaces.length ? 'Nothing scheduled yet — book the first slot.' : 'Nothing scheduled yet.' }}</p>
       </section>
 
       <!-- Book a (free) slot -->

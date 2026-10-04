@@ -14,7 +14,7 @@
  *   - org: object | JSON string
  */
 import { createSign } from 'node:crypto'
-import { and, eq, gte, inArray, isNotNull, sql } from 'drizzle-orm'
+import { and, eq, getTableColumns, gte, inArray, isNotNull, sql } from 'drizzle-orm'
 import { events, profiles } from '../database/schema'
 import cityImages from '../data/city-images.json'
 
@@ -79,6 +79,7 @@ export type Venue = {
   locality: string | null
   country: string | null
   countryCode: string | null
+  placeId: string | null
 }
 
 export function parseVenue(raw: unknown): Venue | null {
@@ -86,7 +87,7 @@ export function parseVenue(raw: unknown): Venue | null {
   if (!v) return null
   if (typeof v === 'string') {
     // Plain address string — no geo, no components; locality guessed later.
-    return { name: v.split(',')[0]!.trim() || null, address: v, lat: null, lng: null, locality: null, country: null, countryCode: null }
+    return { name: v.split(',')[0]!.trim() || null, address: v, lat: null, lng: null, locality: cityFromAddress(v), country: null, countryCode: null, placeId: null }
   }
   const comps: any[] = Array.isArray(v.address_components) ? v.address_components : []
   const comp = (type: string) => comps.find(c => Array.isArray(c?.types) && c.types.includes(type))
@@ -104,6 +105,7 @@ export function parseVenue(raw: unknown): Venue | null {
     locality: locality?.long_name ?? cityFromAddress(address),
     country: country?.long_name ?? null,
     countryCode: country?.short_name ?? null,
+    placeId: typeof v.place_id === 'string' && v.place_id ? v.place_id : null,
   }
 }
 
@@ -255,6 +257,8 @@ export type MappedEvent = {
   venueLng: number | null
   organizerUsername: string | null
   organizerName: string | null
+  venueUsername: string | null
+  artists: string[]
   link: string | null
   seriesId: string | null
   styles: string[]
@@ -279,7 +283,7 @@ const url = (v: unknown) => (typeof v === 'string' && /^https?:\/\//i.test(v.tri
 
 export function mapV3Event(
   doc: V3Doc,
-  ctx: { now: number; cityIndex: CityIndex; placeLocality: Map<string, string>; knownProfiles: Map<string, string> },
+  ctx: { now: number; cityIndex: CityIndex; placeLocality: Map<string, string>; knownProfiles: Map<string, string>; links?: Map<string, EventLinks> },
 ): { ok: true; row: MappedEvent; unmappedStyles: string[] } | { ok: false; reason: SkipReason } {
   if (doc.type !== 'event') return { ok: false, reason: 'not-event' }
   if (doc.visibility === 'Unlisted') return { ok: false, reason: 'unlisted' }
@@ -333,12 +337,29 @@ export function mapV3Event(
       venueLat: venue?.lat ?? null,
       venueLng: venue?.lng ?? null,
       // Only link organisers that exist as a 2026 profile (else /@handle 404s).
-      organizerUsername: orgUser && ctx.knownProfiles.has(orgUser) ? orgUser : null,
-      organizerName: (orgUser && ctx.knownProfiles.get(orgUser)) || org.name || (orgUser ? org.username : null),
+      ...linkedPeople(doc.id, orgUser, org, ctx),
       link: url(doc.link) ?? url(doc.sourceUrl) ?? url(doc.facebook) ?? url(doc.source),
       seriesId: typeof doc.seriesId === 'string' && doc.seriesId ? doc.seriesId : null,
       styles,
     },
+  }
+}
+
+/** Profile links for one event, resolved by the profile sync (server/utils/v3ProfileSync.ts). */
+export type EventLinks = { venueUsername: string | null; organizerUsername: string | null; artists: string[] }
+
+function linkedPeople(
+  id: string, orgUser: string | null, org: { username: string | null; name: string | null },
+  ctx: { knownProfiles: Map<string, string>; links?: Map<string, EventLinks> },
+) {
+  const l = ctx.links?.get(id)
+  // Only link organisers that exist (or are about to) as a 2026 profile, else /@handle 404s.
+  const organizerUsername = l?.organizerUsername ?? (orgUser && ctx.knownProfiles.has(orgUser) ? orgUser : null)
+  return {
+    organizerUsername,
+    organizerName: (organizerUsername && ctx.knownProfiles.get(organizerUsername)) || org.name || (orgUser ? org.username : null),
+    venueUsername: l?.venueUsername ?? null,
+    artists: l?.artists ?? [],
   }
 }
 
@@ -363,7 +384,7 @@ export function learnPlaceLocalities(docs: V3Doc[]): Map<string, string> {
 
 export type ServiceAccount = { project_id: string; client_email: string; private_key: string; token_uri?: string }
 
-async function accessToken(sa: ServiceAccount): Promise<string> {
+export async function accessToken(sa: ServiceAccount): Promise<string> {
   const now = Math.floor(Date.now() / 1000)
   const b64 = (o: object) => Buffer.from(JSON.stringify(o)).toString('base64url')
   const unsigned = `${b64({ alg: 'RS256', typ: 'JWT' })}.${b64({
@@ -452,7 +473,7 @@ export type SyncSummary = {
 }
 
 // Columns compared to decide created / updated / unchanged.
-const COMPARE: (keyof MappedEvent)[] = ['name', 'type', 'description', 'cover', 'startDate', 'endDate', 'isFestival', 'price', 'city', 'citySlug', 'country', 'timezone', 'venueName', 'venueAddress', 'venueLat', 'venueLng', 'organizerUsername', 'organizerName', 'link', 'seriesId', 'styles']
+const COMPARE: (keyof MappedEvent)[] = ['name', 'type', 'description', 'cover', 'startDate', 'endDate', 'isFestival', 'price', 'city', 'citySlug', 'country', 'timezone', 'venueName', 'venueAddress', 'venueLat', 'venueLng', 'organizerUsername', 'organizerName', 'venueUsername', 'artists', 'link', 'seriesId', 'styles']
 const same = (a: unknown, b: unknown) =>
   a instanceof Date || b instanceof Date
     ? new Date(a as any).getTime() === new Date(b as any).getTime()
@@ -471,6 +492,10 @@ export async function syncV3Events(opts: {
   write: boolean
   now?: number
   log?: (s: string) => void
+  /** Per-event venue/organiser/artist handles from syncV3Profiles. */
+  links?: Map<string, EventLinks>
+  /** Profiles the profile sync creates in this run (username → name) — known before they exist in a dry-run. */
+  extraProfiles?: Map<string, string>
 }): Promise<SyncSummary> {
   const { db, docs, write } = opts
   const now = opts.now ?? Date.now()
@@ -479,12 +504,13 @@ export async function syncV3Events(opts: {
   const profileRows = await db.select({ city: profiles.city, citySlug: profiles.citySlug, username: profiles.username, name: profiles.name }).from(profiles)
   const cityIndex = buildCityIndex(profileRows)
   const knownProfiles = new Map<string, string>(profileRows.map((r: any) => [String(r.username).toLowerCase(), r.name]))
+  for (const [u, n] of opts.extraProfiles ?? []) if (!knownProfiles.has(u)) knownProfiles.set(u, n)
   const placeLocality = learnPlaceLocalities(docs)
 
   const summary: SyncSummary = { mode: write ? 'write' : 'dry-run', fetched: docs.length, eligible: 0, created: 0, updated: 0, unchanged: 0, archived: 0, skipped: {}, byCity: {}, unmappedStyles: {}, schemaReady: true }
   const rows: MappedEvent[] = []
   for (const d of docs) {
-    const r = mapV3Event(d, { now, cityIndex, placeLocality, knownProfiles })
+    const r = mapV3Event(d, { now, cityIndex, placeLocality, knownProfiles, links: opts.links })
     if (!r.ok) { summary.skipped[r.reason] = (summary.skipped[r.reason] ?? 0) + 1; continue }
     rows.push(r.row)
     summary.byCity[r.row.citySlug!] = (summary.byCity[r.row.citySlug!] ?? 0) + 1
@@ -499,7 +525,14 @@ export async function syncV3Events(opts: {
   } catch (e: any) {
     if (write) throw e
     summary.schemaReady = false
-    log(`  (events table lacks the 0021 columns — counting every row as "created")`)
+    try {
+      // Pre-0022 DB (no events.artists yet): diff against everything else.
+      const { artists: _a, ...cols } = getTableColumns(events)
+      existing = (await db.select(cols).from(events).where(eq(events.source, V3_SOURCE))).map((r: any) => ({ ...r, artists: [] }))
+      log(`  (events table lacks migration 0022 — artists links count as updates)`)
+    } catch {
+      log(`  (events table lacks the 0021 columns — counting every row as "created")`)
+    }
   }
   const bySource = new Map(existing.map((r: any) => [r.sourceId, r]))
   const syncedAt = new Date(now)
