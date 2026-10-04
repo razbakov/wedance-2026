@@ -19,6 +19,8 @@ import { gigsRouter } from './routers/gigs'
 import { hangoutsRouter } from './routers/hangouts'
 import { eventsRouter } from './routers/events'
 import { planRouter } from './routers/plan'
+import { rideShareRouter } from './routers/rideShare'
+import { roommateRouter } from './routers/roommate'
 
 export const appRouter = router({
   auth: authRouter,
@@ -41,6 +43,8 @@ export const appRouter = router({
   hangouts: hangoutsRouter,
   events: eventsRouter,
   plan: planRouter,
+  rideShare: rideShareRouter,
+  roommate: roommateRouter,
 })
 
 export type AppRouter = typeof appRouter

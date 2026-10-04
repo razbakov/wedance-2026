@@ -600,3 +600,25 @@ export const events = pgTable('events', {
   uniqueIndex('events_source_uidx').on(t.source, t.sourceId).where(sql`${t.sourceId} IS NOT NULL`),
   index('events_city_start_idx').on(t.citySlug, t.startDate),
 ])
+
+export const festivalRideShares = pgTable('festival_ride_shares', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  festivalId: uuid('festival_id').notNull().references(() => festivals.id),
+  dancerId: uuid('dancer_id').notNull().references(() => dancers.id),
+  type: text('type').notNull().$type<'offering' | 'looking'>(),
+  originCity: text('origin_city').notNull(),
+  date: date('date').notNull(),
+  seatsAvailable: integer('seats_available'),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (t) => [
+  unique('festival_ride_dancer_unique').on(t.festivalId, t.dancerId),
+])
+
+export const festivalRoommateLookups = pgTable('festival_roommate_lookups', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  festivalId: uuid('festival_id').notNull().references(() => festivals.id),
+  dancerId: uuid('dancer_id').notNull().references(() => dancers.id),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (t) => [
+  unique('festival_roommate_dancer_unique').on(t.festivalId, t.dancerId),
+])
