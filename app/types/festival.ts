@@ -206,11 +206,12 @@ export interface YearStats {
 export interface RideShare {
   id: string
   dancerName: string
-  dancerPhoto: string
+  dancerPhoto: string | null
   type: 'offering' | 'looking'
   originCity: string
   date: string
   seatsAvailable?: number
+  isOwn?: boolean
 }
 
 export interface RoomShare {

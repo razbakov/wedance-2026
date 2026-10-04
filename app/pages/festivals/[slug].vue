@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { PlanEntry, DanceRole, DancePartner, FestivalFriend, PartnerMatch, DiscoverDancer, ExtraActivity, RideShare, SwipeCard, FreemiumState } from '~/types/festival'
+import type { PlanEntry, DanceRole, DancePartner, FestivalFriend, PartnerMatch, DiscoverDancer, ExtraActivity, SwipeCard, FreemiumState } from '~/types/festival'
 import { ArrowRight, Sparkles, Check } from 'lucide-vue-next'
 import { artistPlaces, artistLanguages } from '~/data/artists'
 import * as salsaOpen from '~/data/mock-festival'
@@ -407,6 +407,8 @@ const { dinners: groupDinners, loadDinners, joinDinner: doJoinDinner, leaveDinne
 
 onMounted(async () => {
   loadDinners()
+  loadRideShares()
+  loadRoommateStatus()
   await loadFreemiumStatus()
 
   // Handle redirect back from Stripe Checkout
@@ -465,12 +467,8 @@ function joinActivity(id: string) {
   })
 }
 
-// Ride shares
-const rideShares = ref<RideShare[]>([
-  { id: 'r1', dancerName: 'Maria G.', dancerPhoto: 'https://i.pravatar.cc/150?u=maria', type: 'offering', originCity: 'Munich', date: '2026-04-10', seatsAvailable: 3 },
-  { id: 'r2', dancerName: 'Carlos R.', dancerPhoto: 'https://i.pravatar.cc/150?u=carlos', type: 'looking', originCity: 'Berlin', date: '2026-04-10' },
-  { id: 'r3', dancerName: 'Sophie L.', dancerPhoto: 'https://i.pravatar.cc/150?u=sophie', type: 'offering', originCity: 'Vienna', date: '2026-04-09', seatsAvailable: 1 },
-])
+// Ride shares — persisted in database
+const { rideShares, loadRideShares, postRide: doPostRide } = useRideShares(festival.slug)
 
 function postRide(ride: { type: 'offering' | 'looking'; originCity: string; date: string; seats?: number }) {
   if (!isSignedIn.value) {
@@ -478,19 +476,11 @@ function postRide(ride: { type: 'offering' | 'looking'; originCity: string; date
     showSignUp.value = true
     return
   }
-  rideShares.value.push({
-    id: `r${Date.now()}`,
-    dancerName: 'You',
-    dancerPhoto: 'https://i.pravatar.cc/150?u=me',
-    type: ride.type,
-    originCity: ride.originCity,
-    date: ride.date,
-    seatsAvailable: ride.seats,
-  })
+  doPostRide(ride).catch(() => {})
 }
 
-// Roommate toggle
-const lookingForRoommate = ref(false)
+// Roommate toggle — persisted in database
+const { lookingForRoommate, loadRoommateStatus, toggleRoommate: doToggleRoommate } = useRoommates(festival.slug)
 
 function toggleRoommate() {
   if (!isSignedIn.value) {
@@ -498,7 +488,7 @@ function toggleRoommate() {
     showSignUp.value = true
     return
   }
-  lookingForRoommate.value = !lookingForRoommate.value
+  doToggleRoommate().catch(() => {})
 }
 
 // Freemium state — loaded from backend
@@ -638,6 +628,8 @@ function onOnboardingComplete(role: DanceRole, styles: string[], name: string, c
 
 function onSignedIn() {
   loadDinners()
+  loadRideShares()
+  loadRoommateStatus()
   loadFreemiumStatus()
 }
 
