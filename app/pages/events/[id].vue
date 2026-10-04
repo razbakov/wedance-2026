@@ -5,8 +5,9 @@
  * festival section language; sections appear only when the event has that
  * content, so an event can grow into a full festival-grade page over time.
  */
-import { Check, Plus, ArrowLeft, MapPin } from 'lucide-vue-next'
+import { Check, Plus, ArrowLeft, MapPin, Globe, User, Euro } from 'lucide-vue-next'
 import { findMockEvent } from '~/lib/mockEvents'
+import { formatEventWhen, eventLocalDate } from '#shared/utils/eventTime'
 
 definePageMeta({ layout: false })
 
@@ -36,13 +37,49 @@ async function load() {
   try {
     ev.value = await $trpc.booking.getEvent.query({ id: id.value })
   } catch {
-    // Not a DB booking — fall back to a mock city event so it still has a page.
-    const mock = findMockEvent(id.value)
-    if (mock) ev.value = mock
-    else failed.value = true
+    try {
+      // A dated public event (wedance.vip mirror) — adapt to the booking shape.
+      ev.value = fromSyncedEvent(await $trpc.events.get.query({ id: id.value }))
+    } catch {
+      // Neither — fall back to a mock city event so it still has a page.
+      const mock = findMockEvent(id.value)
+      if (mock) ev.value = mock
+      else failed.value = true
+    }
   } finally { pending.value = false }
 }
 onMounted(load)
+
+function fromSyncedEvent(e: any) {
+  return {
+    id: e.id,
+    title: e.name,
+    eventType: e.type,
+    styles: e.styles || [],
+    artists: [],
+    eventDate: eventLocalDate(e.startDate, e.timezone),
+    startDate: e.startDate,
+    endDate: e.endDate,
+    when: formatEventWhen(e.startDate, e.endDate, e.timezone),
+    timezone: e.timezone,
+    message: e.description || '',
+    ticketUrl: e.ticketUrl || '',
+    link: e.link || '',
+    price: e.price || '',
+    cover: e.cover || '',
+    venueName: e.venueName || '',
+    venueAddress: e.venueAddress || '',
+    venueCity: e.city || '',
+    citySlug: e.citySlug || '',
+    mapUrl: e.venueLat != null && e.venueLng != null
+      ? `https://www.google.com/maps/search/?api=1&query=${e.venueLat},${e.venueLng}`
+      : (e.venueAddress ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(e.venueAddress)}` : ''),
+    organizerName: e.organizerName || '',
+    organizerHandle: e.organizerUsername || '',
+    archived: !!e.archived,
+    synced: e.source === 'wedance-v3',
+  }
+}
 
 const styleColor: Record<string, string> = {
   salsa: '#dc2626', bachata: '#a855f7', kizomba: '#ec4899', timba: '#f59e0b',
@@ -58,8 +95,8 @@ const asFestival = computed(() => ({
   name: ev.value.title || 'Event',
   logo: '',
   accentColor: accent.value,
-  startDate: ev.value.eventDate,
-  endDate: ev.value.eventDate,
+  startDate: ev.value.startDate || ev.value.eventDate,
+  endDate: ev.value.endDate || ev.value.eventDate,
   venue: { name: [ev.value.spaceName, ev.value.venueName].filter(Boolean).join(' · ') },
   attendeeCount: ev.value.headcount || 0,
   socialLinks: [] as any[],
@@ -70,7 +107,7 @@ const asFestival = computed(() => ({
 // Which sections have content (so nav + page grow with the event).
 const sections = computed(() => {
   const s: { id: string; label: string }[] = []
-  if (ev.value?.message) s.push({ id: 'about', label: 'About' })
+  if (ev.value?.message || ev.value?.cover || ev.value?.link || ev.value?.price) s.push({ id: 'about', label: 'About' })
   if (ev.value?.artists?.length) s.push({ id: 'lineup', label: 'Lineup' })
   s.push({ id: 'venue', label: 'Venue' })
   s.push({ id: 'reviews', label: 'Reviews' })
@@ -113,7 +150,11 @@ useHead(() => ({
       </NuxtLink>
 
       <!-- Same hero as festivals -->
-      <FestivalHero :festival="asFestival" review-target-type="event" :picked="picked" @pick="onPick" />
+      <FestivalHero :festival="asFestival" review-target-type="event" :picked="picked" :date-label="ev.when" @pick="onPick" />
+
+      <div v-if="ev.archived" class="max-w-3xl mx-auto px-4 pt-4" style="font-family: system-ui, sans-serif;">
+        <p class="rounded-xl px-4 py-3 text-sm" style="background:#f59e0b1f; color:#92400e;">This event is no longer listed by its organiser — it may have been cancelled or moved.</p>
+      </div>
 
       <!-- Section anchor nav (festival-style) -->
       <nav class="sticky top-0 z-20 border-b" style="background:rgba(251, 245, 234, 0.95); backdrop-filter: blur(8px); border-color:#3b1f0d22;">
@@ -124,9 +165,26 @@ useHead(() => ({
 
       <div class="max-w-3xl mx-auto px-4 space-y-14 pt-8 pb-20" style="font-family: system-ui, sans-serif;">
         <!-- About -->
-        <section v-if="ev.message" id="about" class="scroll-mt-16">
-          <h2 class="text-2xl font-black leading-tight mb-2" style="font-family:'Playfair Display', serif; color:#3b1f0d;">About</h2>
-          <p class="text-sm leading-relaxed whitespace-pre-line" style="color:#5b3a1d;">{{ ev.message }}</p>
+        <section v-if="ev.message || ev.cover || ev.link || ev.price" id="about" class="scroll-mt-16">
+          <h2 class="text-2xl font-black leading-tight mb-3" style="font-family:'Playfair Display', serif; color:#3b1f0d;">About</h2>
+          <img v-if="ev.cover" :src="ev.cover" :alt="ev.title" class="w-full max-h-[28rem] object-contain rounded-2xl mb-4" style="background:#3b1f0d0a;" loading="lazy">
+          <div class="flex flex-wrap items-center gap-2 mb-4">
+            <span v-if="ev.eventType" class="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded" style="background:#9a561418; color:#9a5614;">{{ ev.eventType }}</span>
+            <span v-for="s in (ev.styles || [])" :key="s" class="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full" :style="{ background: accent + '14', color: accent }">{{ s }}</span>
+          </div>
+          <ul class="space-y-1.5 text-sm mb-4" style="color:#3b1f0d;">
+            <li v-if="ev.price" class="flex items-start gap-2"><Euro class="w-4 h-4 mt-0.5 shrink-0" style="color:#9a5614;" /> {{ ev.price }}</li>
+            <li v-if="ev.organizerName" class="flex items-start gap-2">
+              <User class="w-4 h-4 mt-0.5 shrink-0" style="color:#9a5614;" />
+              <NuxtLink v-if="ev.organizerHandle" :to="`/@${ev.organizerHandle}`" class="font-bold hover:underline">{{ ev.organizerName }}</NuxtLink>
+              <span v-else class="font-bold">{{ ev.organizerName }}</span>
+            </li>
+            <li v-if="ev.link" class="flex items-start gap-2">
+              <Globe class="w-4 h-4 mt-0.5 shrink-0" style="color:#9a5614;" />
+              <a :href="ev.link" target="_blank" rel="noopener noreferrer" class="font-bold hover:underline break-all" :style="{ color: accent }">Event website</a>
+            </li>
+          </ul>
+          <p v-if="ev.message" class="text-sm leading-relaxed whitespace-pre-line break-words" style="color:#5b3a1d;">{{ ev.message }}</p>
         </section>
 
         <!-- Lineup -->
@@ -144,12 +202,14 @@ useHead(() => ({
         <section id="venue" class="scroll-mt-16">
           <h2 class="text-2xl font-black leading-tight mb-2" style="font-family:'Playfair Display', serif; color:#3b1f0d;">Venue</h2>
           <NuxtLink v-if="ev.venueHandle" :to="`/@${ev.venueHandle}`" class="inline-flex items-center gap-2 text-sm font-bold hover:underline" style="color:#3b1f0d;">
-            <MapPin class="w-4 h-4" style="color:#9a5614;" /> {{ ev.venueName }}<span v-if="ev.venueCity">, {{ ev.venueCity }}</span>
+            <MapPin class="w-4 h-4" style="color:#9a5614;" /> <span>{{ ev.venueName }}<template v-if="ev.venueCity">, {{ ev.venueCity }}</template></span>
           </NuxtLink>
           <span v-else-if="ev.venueName" class="inline-flex items-center gap-2 text-sm font-bold" style="color:#3b1f0d;">
-            <MapPin class="w-4 h-4" style="color:#9a5614;" /> {{ ev.venueName }}<span v-if="ev.venueCity">, {{ ev.venueCity }}</span>
+            <MapPin class="w-4 h-4" style="color:#9a5614;" /> <span>{{ ev.venueName }}<template v-if="ev.venueCity">, {{ ev.venueCity }}</template></span>
           </span>
           <p v-if="ev.venueAddress" class="mt-1 text-xs" style="color:#9a5614;">{{ ev.venueAddress }}</p>
+          <a v-if="ev.mapUrl" :href="ev.mapUrl" target="_blank" rel="noopener noreferrer" class="inline-block mt-2 text-xs font-bold underline" :style="{ color: accent }">Open in Google Maps</a>
+          <p v-if="ev.citySlug" class="mt-3 text-xs"><NuxtLink :to="`/cities/${ev.citySlug}`" class="font-bold hover:underline" style="color:#9a5614;">More dancing in {{ ev.venueCity }} →</NuxtLink></p>
         </section>
 
         <!-- Reviews (same component as venues/festivals) -->

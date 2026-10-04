@@ -10,8 +10,9 @@
  * WeekDrawer) still carry shadcn styling and will get restyled in a
  * follow-up pass.
  */
-import { MapPin, Calendar, ArrowRight, Users } from 'lucide-vue-next'
+import { MapPin, Calendar, ArrowRight } from 'lucide-vue-next'
 import type { Teacher } from '~/types/festival'
+import { eventLocalDate, eventLocalTime, eventLocalWeekday, formatEventWhen } from '#shared/utils/eventTime'
 
 definePageMeta({ layout: false })
 
@@ -64,8 +65,17 @@ const events: any[] = []
 
 const bookedEvents = ref<any[]>([])
 const bookedEventsLoaded = ref(false)
+// Dated public events (the wedance.vip mirror — scripts/sync-v3-events.ts).
+const syncedEvents = ref<any[]>([])
 onMounted(async () => {
-  try { bookedEvents.value = await $trpc.booking.upcomingByCity.query({ citySlug: slug }) } finally { bookedEventsLoaded.value = true }
+  try {
+    const [booked, synced] = await Promise.all([
+      $trpc.booking.upcomingByCity.query({ citySlug: slug }),
+      $trpc.events.byCity.query({ citySlug: slug }).catch(() => []),
+    ])
+    bookedEvents.value = booked
+    syncedEvents.value = synced as any[]
+  } finally { bookedEventsLoaded.value = true }
 })
 const bookedTypeMap: Record<string, string> = { Social: 'social', Party: 'social', Workshop: 'workshop', Class: 'class', Practica: 'practica' }
 // Local YYYY-MM-DD (never toISOString — that shifts to UTC and, in a positive
@@ -88,6 +98,45 @@ const bookedThisWeek = computed(() => bookedEvents.value
     accentColor: '#dc2626', attendeeCount: 0, recurring: false, date: b.eventDate,
   })))
 
+// v3 eventType → WeeklyCalendar type badge.
+const syncedTypeMap: Record<string, string> = { Course: 'class', Workshop: 'workshop', Party: 'social', Concert: 'social', Show: 'social' }
+const toCityEvent = (e: any) => ({
+  id: e.id, name: e.name || 'Event', type: syncedTypeMap[e.type] || 'social',
+  style: e.styles?.[0] || '', styles: e.styles || [],
+  day: eventLocalWeekday(e.startDate, e.timezone), time: eventLocalTime(e.startDate, e.timezone),
+  duration: e.endDate ? Math.round((new Date(e.endDate).getTime() - new Date(e.startDate).getTime()) / 60000) : 0,
+  venue: e.venueName || '', address: e.venueAddress || '', organizer: e.organizerName || '',
+  organizerId: e.organizerUsername || undefined,
+  accentColor: '#dc2626', attendeeCount: 0, recurring: false,
+  date: eventLocalDate(e.startDate, e.timezone),
+})
+// Festivals get their own section below — the week list is classes & socials.
+const syncedNonFestival = computed(() => syncedEvents.value.filter(e => !e.isFestival))
+const syncedThisWeek = computed(() => syncedNonFestival.value
+  .filter(e => thisWeekDates.value.has(eventLocalDate(e.startDate, e.timezone)))
+  .map(toCityEvent))
+// After this week: the next weeks, grouped by local date (capped; "show more").
+const upcomingLimit = ref(24)
+const syncedLater = computed(() => {
+  const weekEnd = [...thisWeekDates.value].sort().at(-1) ?? ''
+  return syncedNonFestival.value
+    .filter(e => eventLocalDate(e.startDate, e.timezone) > weekEnd)
+    .filter(e => !selectedStyle.value || (e.styles || []).includes(selectedStyle.value))
+})
+const upcomingGroups = computed(() => {
+  const groups: { date: string; label: string; items: any[] }[] = []
+  for (const e of syncedLater.value.slice(0, upcomingLimit.value)) {
+    const date = eventLocalDate(e.startDate, e.timezone)
+    let g = groups.find(x => x.date === date)
+    if (!g) {
+      g = { date, label: new Date(`${date}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', timeZone: 'UTC' }), items: [] }
+      groups.push(g)
+    }
+    g.items.push({ ...e, time: eventLocalTime(e.startDate, e.timezone) })
+  }
+  return groups
+})
+
 const cityAccent: Record<string, string> = {
   munich: '#dc2626',
   berlin: '#0891b2',
@@ -98,8 +147,11 @@ const accent = cityAccent[slug] || '#a855f7'
 const city = computed(() => ({
   name: cityName.value,
   country: dir.value?.country || '',
-  eventCount: bookedThisWeek.value.length,
-  styles: Array.from(new Set(teachers.value.flatMap((t: any) => t.styles || []))).slice(0, 12),
+  eventCount: bookedThisWeek.value.length + syncedThisWeek.value.length,
+  styles: Array.from(new Set([
+    ...teachers.value.flatMap((t: any) => t.styles || []),
+    ...syncedEvents.value.flatMap((e: any) => e.styles || []),
+  ])).slice(0, 12),
 }))
 
 // Intent-first, data-driven SEO. Dancers search by style ("salsa munich"), so
@@ -152,7 +204,10 @@ const rawThisWeek = computed(() => bookedEvents.value.filter(
   b => b.eventDate && thisWeekDates.value.has(String(b.eventDate).slice(0, 10)),
 ))
 const activeVenueIds = computed(() => new Set(rawThisWeek.value.map((b: any) => b.venueHandle).filter(Boolean)))
-const activeOrganiserIds = computed(() => new Set(rawThisWeek.value.map((b: any) => b.organizerHandle).filter(Boolean)))
+const activeOrganiserIds = computed(() => new Set([
+  ...rawThisWeek.value.map((b: any) => b.organizerHandle),
+  ...syncedThisWeek.value.map((e: any) => e.organizerId),
+].filter(Boolean)))
 const activeArtistTokens = computed(() => {
   const s = new Set<string>()
   for (const b of rawThisWeek.value) {
@@ -223,9 +278,9 @@ const roleSlugFor = (tab: PeopleTab) =>
 const seeAllHref = computed(() => `/cities/${slug}/${roleSlugFor(activeTab.value)}`)
 
 const filteredEvents = computed(() => {
-  let result: any[] = [...events, ...bookedThisWeek.value]
+  let result: any[] = [...events, ...bookedThisWeek.value, ...syncedThisWeek.value]
   if (selectedStyle.value) {
-    result = result.filter(e => e.style === selectedStyle.value)
+    result = result.filter(e => e.style === selectedStyle.value || (e.styles || []).includes(selectedStyle.value))
   }
   if (selectedPersonId.value) {
     const id = selectedPersonId.value
@@ -243,19 +298,14 @@ const filteredEvents = computed(() => {
   return result
 })
 
-// Upcoming festivals in this city — none in the migrated (historical) set, so
-// the section hides itself until real upcoming festivals exist.
-const cityFestivals = computed(() => [] as any[])
-
-function formatDateRange(start: string, end: string) {
-  const s = new Date(start)
-  const e = new Date(end)
-  const sameMonth = s.getMonth() === e.getMonth()
-  if (sameMonth) {
-    return `${s.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}–${e.getDate()}, ${e.getFullYear()}`
-  }
-  return `${s.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${e.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, ${e.getFullYear()}`
-}
+// Upcoming festivals / congresses / weekenders in this city (synced events).
+const cityFestivals = computed(() => syncedEvents.value
+  .filter(e => e.isFestival)
+  .map(e => ({
+    id: e.id, name: e.name || 'Festival', logo: e.cover || '', accentColor: '#dc2626',
+    styles: e.styles || [], type: e.type, venueName: e.venueName,
+    when: formatEventWhen(e.startDate, e.endDate, e.timezone),
+  })))
 
 const styleChipColors = ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b', '#ec4899', '#7c3aed']
 
@@ -465,7 +515,7 @@ onMounted(() => {
     </section>
 
     <!-- LOCAL COMMUNITY GROUPS — cold-start filler when there are few/no events -->
-    <ClientOnly v-if="bookedEventsLoaded && bookedThisWeek.length === 0">
+    <ClientOnly v-if="bookedEventsLoaded && bookedThisWeek.length === 0 && syncedThisWeek.length === 0">
       <CommunityGroupsSection :city-slug="slug" :city-name="city.name" />
     </ClientOnly>
 
@@ -499,6 +549,50 @@ onMounted(() => {
         @toggle="onToggleEvent"
         @select-teacher="onSelectPerson"
       />
+    </section>
+
+    <!-- COMING UP — dated events after this week (wedance.vip mirror) -->
+    <section v-if="upcomingGroups.length" class="max-w-4xl mx-auto px-4 pb-12">
+      <div class="mb-6">
+        <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">After this week</div>
+        <h2 class="mt-2 text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+          Coming <em class="italic" :style="{ color: accent }">up.</em>
+        </h2>
+      </div>
+      <div class="space-y-6">
+        <div v-for="g in upcomingGroups" :key="g.date">
+          <h3 class="text-sm font-black mb-2" style="color:#3b1f0d; font-family:'Playfair Display', serif;">{{ g.label }}</h3>
+          <div class="grid gap-2">
+            <NuxtLink
+              v-for="e in g.items"
+              :key="e.id"
+              :to="`/events/${e.id}`"
+              class="group rounded-xl bg-white p-3 border flex items-center gap-3 hover:-translate-y-0.5 transition-all"
+              style="border-color:#3b1f0d1f; box-shadow:0 1px 0 #3b1f0d0d;"
+            >
+              <div class="w-12 shrink-0 text-center text-base font-black tabular-nums" :style="{ color: accent, fontFamily: 'Playfair Display, serif' }">{{ e.time }}</div>
+              <div class="flex-1 min-w-0" style="font-family: system-ui, sans-serif;">
+                <p class="text-sm font-bold truncate group-hover:underline" style="color:#3b1f0d; font-family:'Playfair Display', serif;">{{ e.name }}</p>
+                <p class="text-xs truncate" style="color:#5b3a1d;">
+                  <span class="font-bold uppercase tracking-wider text-[10px]" style="color:#9a5614;">{{ e.type }}</span>
+                  <span v-if="e.styles?.length"> · {{ e.styles.slice(0, 3).join(', ') }}</span>
+                  <span v-if="e.venueName"> · {{ e.venueName }}</span>
+                </p>
+              </div>
+              <ArrowRight class="w-4 h-4 shrink-0" style="color:#9a5614;" />
+            </NuxtLink>
+          </div>
+        </div>
+      </div>
+      <button
+        v-if="syncedLater.length > upcomingLimit"
+        type="button"
+        class="mt-6 text-xs font-bold underline"
+        :style="{ color: accent, fontFamily: 'system-ui, sans-serif' }"
+        @click="upcomingLimit += 24"
+      >
+        Show more ({{ syncedLater.length - upcomingLimit }} more)
+      </button>
     </section>
 
     <!-- VIDEO OF THE DAY — pairwise vote -->
@@ -622,8 +716,8 @@ onMounted(() => {
         <div class="grid gap-4">
           <NuxtLink
             v-for="f in cityFestivals"
-            :key="f.slug"
-            :to="`/festivals/${f.slug}`"
+            :key="f.id"
+            :to="`/events/${f.id}`"
             class="group block rounded-2xl overflow-hidden bg-white border transition-all hover:-translate-y-1"
             :style="{ borderColor: f.accentColor + '55', boxShadow: '0 1px 0 ' + f.accentColor + '22, 0 8px 22px rgba(59,31,18,0.05)' }"
           >
@@ -634,7 +728,8 @@ onMounted(() => {
                   v-if="f.logo"
                   :src="f.logo"
                   :alt="f.name"
-                  class="w-14 h-14 rounded-full shrink-0 shadow-sm"
+                  class="w-14 h-14 rounded-full shrink-0 shadow-sm object-cover"
+                  loading="lazy"
                 >
                 <div
                   v-else
@@ -650,11 +745,11 @@ onMounted(() => {
                   <div class="flex items-center gap-4 mt-1 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
                     <span class="inline-flex items-center gap-1">
                       <Calendar class="w-3 h-3" style="color:#9a5614;" />
-                      {{ formatDateRange(f.startDate, f.endDate) }}
+                      {{ f.when }}
                     </span>
-                    <span class="inline-flex items-center gap-1">
-                      <Users class="w-3 h-3" style="color:#9a5614;" />
-                      {{ f.workshopCount }} workshops
+                    <span v-if="f.venueName" class="inline-flex items-center gap-1 min-w-0">
+                      <MapPin class="w-3 h-3 shrink-0" style="color:#9a5614;" />
+                      <span class="truncate">{{ f.venueName }}</span>
                     </span>
                   </div>
                   <div class="flex flex-wrap gap-1.5 mt-3">

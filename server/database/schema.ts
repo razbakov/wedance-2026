@@ -1,4 +1,5 @@
-import { pgTable, uuid, text, integer, boolean, timestamp, date, unique, index, json } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, text, integer, boolean, timestamp, date, unique, index, json, jsonb, doublePrecision, uniqueIndex } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
 
 export const dancers = pgTable('dancers', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -526,4 +527,59 @@ export const hangoutRsvps = pgTable('hangout_rsvps', {
   createdAt: timestamp('created_at').defaultNow(),
 }, (t) => [
   unique('hangout_rsvp_unique').on(t.hangoutId, t.dancerId),
+])
+
+// ---------------------------------------------------------------------------
+// Events — dated, public dance events (socials, classes, workshops, festivals).
+// Created outside Drizzle on 2026-07-15 by scripts/migrate/00-schema.mjs to hold
+// the 9,580 historical v4 events (archived=true, hidden). Since 2026-10 it also
+// holds the LIVE upcoming events mirrored from wedance.vip (v3 Firestore) by
+// scripts/sync-v3-events.ts — those carry source='wedance-v3' + source_id=<post id>
+// and archived=false, published=true while still upcoming in v3.
+//
+// Times: start_date / end_date are `timestamp without time zone` holding UTC
+// (the convention 04-events.mjs established). `timezone` is the IANA zone the
+// event happens in — render wall-clock times in it, never in the viewer's zone.
+// Rollback for synced rows: DELETE FROM events WHERE source = 'wedance-v3'.
+// ---------------------------------------------------------------------------
+export const events = pgTable('events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  slug: text('slug'),
+  name: text('name'),
+  type: text('type'), // v3 eventType: Party · Workshop · Course · Festival · Congress · Weekender · Concert · Show
+  description: text('description').default(''),
+  cover: text('cover').default(''),
+  startDate: timestamp('start_date'),
+  endDate: timestamp('end_date'),
+  isFestival: boolean('is_festival').default(false),
+  ticketUrl: text('ticket_url'),
+  price: text('price').default(''),
+  city: text('city'),
+  venueUsername: text('venue_username'),
+  organizerUsername: text('organizer_username'),
+  styles: jsonb('styles').$type<string[]>().default([]),
+  archived: boolean('archived').notNull().default(true),
+  published: boolean('published').notNull().default(false),
+  sourceRef: jsonb('source_ref').$type<Record<string, unknown>>(),
+  createdAt: timestamp('created_at').defaultNow(),
+  // --- added 2026-10 (migration 0021) for the v3 → 2026 event sync ---
+  source: text('source'),
+  sourceId: text('source_id'),
+  citySlug: text('city_slug'),
+  country: text('country'),
+  timezone: text('timezone'),
+  venueName: text('venue_name'),
+  venueAddress: text('venue_address'),
+  venueLat: doublePrecision('venue_lat'),
+  venueLng: doublePrecision('venue_lng'),
+  organizerName: text('organizer_name'),
+  link: text('link'),
+  seriesId: text('series_id'),
+  syncedAt: timestamp('synced_at'),
+  updatedAt: timestamp('updated_at').defaultNow(),
+}, (t) => [
+  uniqueIndex('events_slug_uidx').on(t.slug).where(sql`${t.slug} IS NOT NULL`),
+  index('events_archived_idx').on(t.archived),
+  uniqueIndex('events_source_uidx').on(t.source, t.sourceId).where(sql`${t.sourceId} IS NOT NULL`),
+  index('events_city_start_idx').on(t.citySlug, t.startDate),
 ])
