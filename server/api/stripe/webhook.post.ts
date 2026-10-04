@@ -5,6 +5,9 @@ import { festivals, festivalSignups } from '../../database/schema'
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
+  if (!config.stripeSecretKey) {
+    throw createError({ statusCode: 503, statusMessage: 'Stripe is not configured' })
+  }
   const stripe = new Stripe(config.stripeSecretKey)
 
   const body = await readRawBody(event)
