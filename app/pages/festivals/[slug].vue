@@ -391,6 +391,17 @@ const mockDiscoverDancers: DiscoverDancer[] = [
 
 const discoverDancers = computed<DiscoverDancer[]>(() => mockDiscoverDancers)
 
+// Payment success confirmation
+const showPaymentSuccess = ref(false)
+const paymentSuccessInfo = ref<{ festivalName: string; ticketName: string; amount: number } | null>(null)
+let paymentSuccessTimer: ReturnType<typeof setTimeout> | undefined
+
+function dismissPaymentSuccess() {
+  showPaymentSuccess.value = false
+  paymentSuccessInfo.value = null
+  if (paymentSuccessTimer) clearTimeout(paymentSuccessTimer)
+}
+
 // Group dinners — fetched from database via composable
 const { dinners: groupDinners, loadDinners, joinDinner: doJoinDinner, leaveDinner: doLeaveDinner } = useDinners(festival.slug)
 
@@ -407,6 +418,18 @@ onMounted(async () => {
       await loadFreemiumStatus()
       attempts++
     }
+
+    // Show success confirmation
+    const stored = sessionStorage.getItem('wedance_checkout')
+    if (stored) {
+      paymentSuccessInfo.value = JSON.parse(stored)
+      sessionStorage.removeItem('wedance_checkout')
+    } else {
+      paymentSuccessInfo.value = { festivalName: festival.name, ticketName: 'Festival Pass', amount: 0 }
+    }
+    showPaymentSuccess.value = true
+    paymentSuccessTimer = setTimeout(dismissPaymentSuccess, 8000)
+
     // Clean up URL
     router.replace({ query: { ...route.query, payment: undefined } })
   } else if (route.query.payment === 'cancel') {
@@ -540,6 +563,11 @@ async function startCheckout() {
   try {
     const result = await $trpc.festivalSignup.createCheckoutSession.mutate({ festivalSlug: festival.slug })
     if (result.checkoutUrl) {
+      sessionStorage.setItem('wedance_checkout', JSON.stringify({
+        festivalName: festival.name,
+        ticketName: 'Social Activities Unlock',
+        amount: 1,
+      }))
       window.location.href = result.checkoutUrl
     }
   } catch (e: any) {
@@ -709,6 +737,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   heroObserver?.disconnect()
   sectionObserver?.disconnect()
+  if (paymentSuccessTimer) clearTimeout(paymentSuccessTimer)
 })
 
 // ── WeDance ticketing ─────────────────────────────────────────────
@@ -755,6 +784,11 @@ async function startTicketCheckout() {
       ticketName: selectedTicket.value.name,
     })
     if (res.checkoutUrl) {
+      sessionStorage.setItem('wedance_checkout', JSON.stringify({
+        festivalName: festival.name,
+        ticketName: selectedTicket.value!.name,
+        amount: selectedTicket.value!.price,
+      }))
       window.location.href = res.checkoutUrl
     }
   } catch (err: any) {
@@ -1444,6 +1478,74 @@ useHead({
                 @click="showCheckout = false"
               >
                 Maybe later
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- Payment success confirmation -->
+    <Teleport to="body">
+      <Transition
+        enter-active-class="transition duration-300 ease-out"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="transition duration-200 ease-in"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <div
+          v-if="showPaymentSuccess && paymentSuccessInfo"
+          class="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm px-0 sm:px-4"
+          @click.self="dismissPaymentSuccess"
+        >
+          <div
+            class="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl"
+            style="background:#fbf5ea;"
+          >
+            <!-- Success header -->
+            <div class="p-6 sm:p-8 text-center" style="background:linear-gradient(135deg, #16a34a, #22c55e);">
+              <div class="w-16 h-16 rounded-full mx-auto mb-3 flex items-center justify-center" style="background:rgba(255,255,255,0.25);">
+                <Check class="w-8 h-8 text-white" />
+              </div>
+              <div class="text-2xl font-black text-white" style="font-family:'Playfair Display', serif;">
+                You're in!
+              </div>
+              <div class="text-sm text-white/90 mt-1" style="font-family: system-ui, sans-serif;">
+                Payment confirmed
+              </div>
+            </div>
+
+            <div class="p-5 sm:p-6">
+              <!-- Purchase details -->
+              <div class="space-y-3 pb-4 mb-4 border-b" style="border-color:#3b1f0d15;">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs uppercase tracking-wider font-bold" style="color:#9a5614;">Festival</span>
+                  <span class="text-sm font-bold" style="color:#3b1f0d; font-family:'Playfair Display', serif;">{{ paymentSuccessInfo.festivalName }}</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-xs uppercase tracking-wider font-bold" style="color:#9a5614;">Pass</span>
+                  <span class="text-sm font-bold" style="color:#3b1f0d; font-family:'Playfair Display', serif;">{{ paymentSuccessInfo.ticketName }}</span>
+                </div>
+                <div v-if="paymentSuccessInfo.amount > 0" class="flex items-center justify-between">
+                  <span class="text-xs uppercase tracking-wider font-bold" style="color:#9a5614;">Paid</span>
+                  <span class="text-sm font-bold" style="color:#3b1f0d; font-family:'Playfair Display', serif;">&euro;{{ paymentSuccessInfo.amount }}</span>
+                </div>
+              </div>
+
+              <p class="text-xs text-center mb-4" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+                A confirmation email is on its way. Start planning your workshops and connect with other dancers!
+              </p>
+
+              <button
+                type="button"
+                class="inline-flex items-center justify-center gap-2 w-full py-3.5 rounded-full text-white text-sm font-bold uppercase tracking-wider"
+                style="background:linear-gradient(135deg, #16a34a, #22c55e); box-shadow: 0 4px 0 -1px #15803d;"
+                @click="dismissPaymentSuccess"
+              >
+                Let's go
+                <ArrowRight class="w-4 h-4" />
               </button>
             </div>
           </div>
