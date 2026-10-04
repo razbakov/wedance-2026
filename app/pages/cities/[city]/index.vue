@@ -107,6 +107,8 @@ const toCityEvent = (e: any) => ({
   duration: e.endDate ? Math.round((new Date(e.endDate).getTime() - new Date(e.startDate).getTime()) / 60000) : 0,
   venue: e.venueName || '', address: e.venueAddress || '', organizer: e.organizerName || '',
   organizerId: e.organizerUsername || undefined,
+  venueId: e.venueUsername || undefined,
+  artists: e.artists || [],
   accentColor: '#dc2626', attendeeCount: 0, recurring: false,
   date: eventLocalDate(e.startDate, e.timezone),
 })
@@ -203,21 +205,25 @@ const peopleTabs: { key: PeopleTab; label: string }[] = [
 const rawThisWeek = computed(() => bookedEvents.value.filter(
   b => b.eventDate && thisWeekDates.value.has(String(b.eventDate).slice(0, 10)),
 ))
-const activeVenueIds = computed(() => new Set(rawThisWeek.value.map((b: any) => b.venueHandle).filter(Boolean)))
+const activeVenueIds = computed(() => new Set([
+  ...rawThisWeek.value.map((b: any) => b.venueHandle),
+  ...syncedThisWeek.value.map((e: any) => e.venueId),
+].filter(Boolean)))
 const activeOrganiserIds = computed(() => new Set([
   ...rawThisWeek.value.map((b: any) => b.organizerHandle),
   ...syncedThisWeek.value.map((e: any) => e.organizerId),
 ].filter(Boolean)))
 const activeArtistTokens = computed(() => {
   const s = new Set<string>()
-  for (const b of rawThisWeek.value) {
+  for (const b of [...rawThisWeek.value, ...syncedThisWeek.value]) {
     for (const a of ((b as any).artists || [])) s.add(String(a).trim().replace(/^@/, '').toLowerCase())
   }
   return s
 })
 function personActiveThisWeek(tab: PeopleTab, p: any): boolean {
-  if (tab === 'venues') return activeVenueIds.value.has(p.id)
-  if (tab === 'organisers') return activeOrganiserIds.value.has(p.id)
+  // A handle counts in whichever role the event names it: many schools are typed
+  // "venue" in 2026 but run the events as organiser (and vice versa).
+  if (tab === 'venues' || tab === 'organisers') return activeVenueIds.value.has(p.id) || activeOrganiserIds.value.has(p.id)
   if (tab === 'teachers') {
     const t = activeArtistTokens.value
     return t.has(String(p.id).toLowerCase()) || t.has(String(p.name).trim().toLowerCase())
@@ -285,14 +291,14 @@ const filteredEvents = computed(() => {
   if (selectedPersonId.value) {
     const id = selectedPersonId.value
     if (activeTab.value === 'teachers') {
-      result = result.filter(e => e.teacherId === id)
+      result = result.filter(e => e.teacherId === id || (e.artists || []).some((a: string) => String(a).replace(/^@/, '').toLowerCase() === String(id).toLowerCase()))
     } else if (activeTab.value === 'djs') {
       result = result.filter(e => e.djId === id)
     } else if (activeTab.value === 'organisers') {
       result = result.filter(e => e.organizerId === id)
     } else {
       const venueName = id.replace(/^venue:/, '')
-      result = result.filter(e => e.venue === venueName)
+      result = result.filter(e => e.venue === venueName || e.venueId === id)
     }
   }
   return result

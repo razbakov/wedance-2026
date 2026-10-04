@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { and, asc, eq, gte, lt } from 'drizzle-orm'
+import { and, asc, eq, gte, lt, or, sql, type SQL } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { router, publicProcedure } from '../trpc'
 import { events } from '../../database/schema'
@@ -26,11 +26,34 @@ const cardColumns = {
   price: events.price,
   venueName: events.venueName,
   venueAddress: events.venueAddress,
+  venueUsername: events.venueUsername,
   organizerName: events.organizerName,
   organizerUsername: events.organizerUsername,
   city: events.city,
   citySlug: events.citySlug,
 }
+
+const missingColumn = (e: any) => e?.code === '42703' || /column .* does not exist/.test(String(e?.message ?? e?.cause?.message))
+
+/**
+ * Card rows for a filter. `events.artists` arrives with migration 0022; until a
+ * DB has it the query retries without (artists = []), and before 0021 it
+ * returns [] — so a deploy that runs ahead of the migration never blanks a page.
+ */
+async function selectCards(db: any, where: SQL | undefined, limit = 1000, extra: Record<string, any> = {}) {
+  const run = (cols: Record<string, any>) => db.select(cols).from(events).where(where).orderBy(asc(events.startDate)).limit(limit)
+  try {
+    return await run({ ...cardColumns, ...extra, artists: events.artists })
+  } catch (e: any) {
+    if (!missingColumn(e)) throw e
+    try { return (await run({ ...cardColumns, ...extra })).map((r: any) => ({ ...r, artists: [] as string[] })) } catch (e2: any) {
+      if (missingColumn(e2)) return []
+      throw e2
+    }
+  }
+}
+
+const live = () => and(eq(events.published, true), eq(events.archived, false))
 
 export const eventsRouter = router({
   // Upcoming + ongoing events in a city, soonest first.
@@ -39,43 +62,42 @@ export const eventsRouter = router({
     .query(async ({ ctx, input }) => {
       const now = new Date()
       const until = new Date(now.getTime() + input.days * 86400_000)
+      return selectCards(ctx.db, and(eq(events.citySlug, input.citySlug), live(), gte(events.endDate, now), lt(events.startDate, until)))
+    }),
+
+  // Upcoming events a venue hosts, an organiser runs or an artist plays — for /@handle.
+  byProfile: publicProcedure
+    .input(z.object({ username: z.string().min(1).max(200), days: z.number().int().min(1).max(366).default(120) }))
+    .query(async ({ ctx, input }) => {
+      const now = new Date()
+      const until = new Date(now.getTime() + input.days * 86400_000)
+      const who = (withArtists: boolean) => or(
+        eq(events.venueUsername, input.username),
+        eq(events.organizerUsername, input.username),
+        ...(withArtists ? [sql`${events.artists} @> ${JSON.stringify([input.username])}::jsonb`] : []),
+      )
+      const window = and(live(), gte(events.endDate, now), lt(events.startDate, until))
       try {
-        return await ctx.db
-          .select(cardColumns)
-          .from(events)
-          .where(and(
-            eq(events.citySlug, input.citySlug),
-            eq(events.published, true),
-            eq(events.archived, false),
-            gte(events.endDate, now),
-            lt(events.startDate, until),
-          ))
-          .orderBy(asc(events.startDate))
-          .limit(1000)
+        return await selectCards(ctx.db, and(window, who(true)), 200)
       } catch (e: any) {
-        // Before migration 0021 is applied the city page must still render.
-        if (e?.code === '42703' || /column .* does not exist/.test(String(e?.message ?? e?.cause?.message))) return []
-        throw e
+        if (!missingColumn(e)) throw e
+        return selectCards(ctx.db, and(window, who(false)), 200)
       }
     }),
 
   get: publicProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const [ev] = await ctx.db
-        .select({
-          ...cardColumns,
-          description: events.description,
-          link: events.link,
-          ticketUrl: events.ticketUrl,
-          country: events.country,
-          venueLat: events.venueLat,
-          venueLng: events.venueLng,
-          archived: events.archived,
-          source: events.source,
-        })
-        .from(events)
-        .where(and(eq(events.id, input.id), eq(events.published, true)))
+      const [ev] = await selectCards(ctx.db, and(eq(events.id, input.id), eq(events.published, true)), 1, {
+        description: events.description,
+        link: events.link,
+        ticketUrl: events.ticketUrl,
+        country: events.country,
+        venueLat: events.venueLat,
+        venueLng: events.venueLng,
+        archived: events.archived,
+        source: events.source,
+      })
       if (!ev) throw new TRPCError({ code: 'NOT_FOUND', message: 'Event not found.' })
       return ev
     }),

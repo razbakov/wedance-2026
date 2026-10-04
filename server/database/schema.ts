@@ -315,6 +315,9 @@ export const profiles = pgTable('profiles', {
   claimed: boolean('claimed').default(false),
   status: text('status').notNull().default('visible').$type<'visible' | 'hidden'>(),
   createdAt: timestamp('created_at').defaultNow(),
+  // Provenance (added by scripts/migrate/00-schema.mjs; in Drizzle since 0022).
+  // v4 imports: { v4ProfileId, firebaseId, v4Type }. v3 sync: { source: 'wedance-v3', sourceId, … }.
+  sourceRef: jsonb('source_ref').$type<Record<string, unknown>>(),
 })
 
 // A profile (venue) can offer N bookable areas — e.g. Pinakothek's 5 spaces.
@@ -592,6 +595,8 @@ export const events = pgTable('events', {
   organizerName: text('organizer_name'),
   link: text('link'),
   seriesId: text('series_id'),
+  // Artist / teacher / DJ profile handles on this event (migration 0022).
+  artists: jsonb('artists').$type<string[]>().default([]),
   syncedAt: timestamp('synced_at'),
   updatedAt: timestamp('updated_at').defaultNow(),
 }, (t) => [
@@ -599,6 +604,8 @@ export const events = pgTable('events', {
   index('events_archived_idx').on(t.archived),
   uniqueIndex('events_source_uidx').on(t.source, t.sourceId).where(sql`${t.sourceId} IS NOT NULL`),
   index('events_city_start_idx').on(t.citySlug, t.startDate),
+  index('events_venue_username_idx').on(t.venueUsername),
+  index('events_organizer_username_idx').on(t.organizerUsername),
 ])
 
 export const festivalRideShares = pgTable('festival_ride_shares', {

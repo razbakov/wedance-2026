@@ -97,6 +97,22 @@ firebase-admin). Code: `scripts/sync-v3-events.ts` (CLI) + `server/utils/v3Event
   (`shared/utils/eventTime.ts`). Festival/Congress/Weekender → `is_festival`.
 - **Shown on:** `/cities/[city]` (this-week calendar, "Coming up", festivals) and
   `/events/[id]` via the `events` tRPC router.
+- **Profiles (since 0022):** the same run also syncs the venues, organisers and
+  artists behind those events (`server/utils/v3ProfileSync.ts`) and links each event
+  (`venue_username`, `organizer_username`, `artists[]`), which feeds the city page's
+  "Who's on the floor" tabs and the schedule on `/@handle`. Dedupe order — people:
+  v3 profile id (`source_ref.firebaseId` from the v4 migration) → handle → name+city;
+  venues: Google place id (the v4 venue-handle convention) → name+city → contained
+  name → street+number → the organiser's own profile when the school hosts its
+  classes → ≤75 m from a venue this sync created. Unmatched venues are created
+  (address-only ones are named after the street). Claimed profiles are never
+  written; other unclaimed rows only get EMPTY fields filled; rows this sync created
+  (`source_ref.source='wedance-v3'`) follow v3. Only `visibility: Public` v3 profiles
+  are copied, and only public fields (name, handle, photo, bio, social links, city,
+  styles, venue address) — never email/phone. Rollback:
+  `DELETE FROM profiles WHERE source_ref->>'source'='wedance-v3'` (after clearing the
+  event links: `UPDATE events SET venue_username=NULL, artists='[]' WHERE source='wedance-v3'`).
+  Display check: `bun e2e/synced-profiles.check.ts <venueHandle> <organiserHandle>`.
 - **Env:** `DATABASE_URL` (target — check it before `--write`; the Vercel-pulled `.env`
   is PRODUCTION), `WEDANCE_V3_SERVICE_ACCOUNT` (JSON) or `WEDANCE_V3_SERVICE_ACCOUNT_FILE`
   (default `~/Secrets/wedance.json`).
