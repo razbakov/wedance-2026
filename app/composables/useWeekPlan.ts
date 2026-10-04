@@ -2,18 +2,40 @@ const weekPlanIds = ref(new Set<string>())
 const weekDrawerOpen = ref(false)
 
 export function useWeekPlan() {
+  function loadFromDb() {
+    const { $trpc } = useNuxtApp()
+    $trpc.plan.list
+      .query()
+      .then((rows) => {
+        const ids = new Set<string>()
+        for (const r of rows) {
+          if (r.itemType === 'event') ids.add(r.itemId)
+        }
+        weekPlanIds.value = ids
+      })
+      .catch(() => {
+        /* not signed in or network error — keep local state */
+      })
+  }
+
   function addEvent(id: string) {
     const next = new Set(weekPlanIds.value)
     next.add(id)
     weekPlanIds.value = next
     // CUJ: "Find a class" — Going! on a class/social (fires from any surface).
     useTrack().track('week_plan_add', { event_id: id, week_count: next.size })
+    const { $trpc } = useNuxtApp()
+    $trpc.plan.add.mutate({ itemType: 'event', itemId: id }).catch(() => {})
   }
 
   function removeEvent(id: string) {
     const next = new Set(weekPlanIds.value)
     next.delete(id)
     weekPlanIds.value = next
+    const { $trpc } = useNuxtApp()
+    $trpc.plan.remove
+      .mutate({ itemType: 'event', itemId: id })
+      .catch(() => {})
   }
 
   function toggleEvent(id: string) {
@@ -46,5 +68,6 @@ export function useWeekPlan() {
     toggleDrawer,
     openDrawer,
     closeDrawer,
+    loadFromDb,
   }
 }

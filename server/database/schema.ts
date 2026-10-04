@@ -520,6 +520,23 @@ export const hangouts = pgTable('hangouts', {
   updatedAt: timestamp('updated_at').defaultNow(),
 })
 
+export const planItems = pgTable(
+  'plan_items',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    dancerId: uuid('dancer_id')
+      .notNull()
+      .references(() => dancers.id),
+    itemType: text('item_type').notNull().$type<'festival' | 'event'>(),
+    itemId: text('item_id').notNull(),
+    createdAt: timestamp('created_at').defaultNow(),
+  },
+  (t) => [
+    unique('plan_items_dancer_item').on(t.dancerId, t.itemType, t.itemId),
+    index('plan_items_dancer_idx').on(t.dancerId),
+  ],
+)
+
 export const hangoutRsvps = pgTable('hangout_rsvps', {
   id: uuid('id').primaryKey().defaultRandom(),
   hangoutId: uuid('hangout_id').notNull().references(() => hangouts.id),
