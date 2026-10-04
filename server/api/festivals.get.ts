@@ -1,6 +1,6 @@
 import { gte, sql } from 'drizzle-orm'
 import { useDb } from '../utils/db'
-import { festivals, festivalSignups } from '../database/schema'
+import { festivals } from '../database/schema'
 
 /**
  * SSR-friendly festivals directory. Mirrors the cities.get.ts pattern so the
@@ -8,7 +8,7 @@ import { festivals, festivalSignups } from '../database/schema'
  *
  * Returns upcoming festivals sorted by start date ascending (nearest first).
  * Past festivals (endDate < today) are excluded server-side.
- * Signup counts are computed from festivalSignups.
+ * signupCount = number of dancers who clicked "Going" (plan_items).
  */
 export type FestivalRow = {
   slug: string
@@ -43,8 +43,9 @@ export default defineEventHandler(async (): Promise<FestivalRow[]> => {
       accentColor: festivals.accentColor,
       ticketUrl: festivals.ticketUrl,
       signupCount: sql<number>`coalesce((
-        select count(*)::int from festival_signups
-        where festival_signups.festival_id = ${festivals.id}
+        select count(*)::int from plan_items
+        where plan_items.item_type = 'festival'
+          and plan_items.item_id = ${festivals.slug}
       ), 0)`,
     })
     .from(festivals)
