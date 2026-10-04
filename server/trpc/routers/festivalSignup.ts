@@ -8,6 +8,12 @@ import { getTicketPriceCents } from '../../utils/ticket-prices'
 
 function getStripe() {
   const config = useRuntimeConfig()
+  if (!config.stripeSecretKey) {
+    throw new TRPCError({
+      code: 'PRECONDITION_FAILED',
+      message: 'Stripe is not configured',
+    })
+  }
   return new Stripe(config.stripeSecretKey)
 }
 
