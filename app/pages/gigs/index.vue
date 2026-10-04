@@ -157,6 +157,14 @@ function gigMailto(g: any): string {
   return 'mailto:' + (g.contactEmail || 'hello@wedance.vip') + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body)
 }
 
+// Track which gigs the user has clicked Apply/Contact on
+const appliedGigs = ref(new Set<string>())
+
+function handleApply(g: any) {
+  useTrack().track('gig_cta_click', { action: g.kind === 'role' ? 'apply' : 'contact', gig_id: g.id })
+  appliedGigs.value.add(g.id)
+}
+
 const accentColors: { [key: string]: string } = {
   'Teacher': '#dc2626',
   'DJ': '#0891b2',
@@ -504,6 +512,15 @@ function getAccent(category: string): string {
             >{{ s }}</span>
           </div>
 
+          <!-- Confirmation banner -->
+          <div
+            v-if="appliedGigs.has(g.id)"
+            class="mt-3 p-3 rounded-lg text-xs font-bold"
+            style="background:#16a34a14; color:#16a34a; font-family: system-ui, sans-serif; border: 1px solid #16a34a33;"
+          >
+            ✓ Your email client was opened — send the message to reach {{ g.posterName }}.
+          </div>
+
           <!-- Footer -->
           <div class="mt-auto pt-4 flex items-center justify-between gap-3">
             <span
@@ -518,7 +535,7 @@ function getAccent(category: string): string {
               :href="gigMailto(g)"
               class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-white text-xs font-bold uppercase tracking-wider"
               :style="{ background: getAccent(g.category), boxShadow: '0 3px 0 -1px ' + getAccent(g.category) + 'cc' }"
-              @click="useTrack().track('gig_cta_click', { action: g.kind === 'role' ? 'apply' : 'contact', gig_id: g.id })"
+              @click="handleApply(g)"
             >
               {{ g.kind === 'role' ? 'Apply' : 'Contact' }} <ArrowRight class="w-3.5 h-3.5" />
             </a>
