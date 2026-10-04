@@ -224,10 +224,8 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
       </div>
 
       <!-- Brand footer -->
-      <div class="text-center pt-4">
-        <NuxtLink to="/" class="text-sm font-bold" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
-          <span style="color:#dc2626;">We</span>Dance
-        </NuxtLink>
+      <div class="flex justify-center pt-4">
+        <Brand />
       </div>
     </div>
   </div>
