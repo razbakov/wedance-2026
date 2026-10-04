@@ -16,6 +16,8 @@ const props = withDefaults(defineProps<{
   // Add-to-plan ("Pick") state — shown alongside tickets. Parent owns the store
   // (year-plan for festivals, week-plan for events) and toggles on `pick`.
   picked?: boolean
+  // Pre-formatted date line (events pass wall-clock time in the event's zone).
+  dateLabel?: string
 }>(), { reviewTargetType: 'festival', entityLabel: 'festival', ctaAnchor: '#discover' })
 
 defineEmits<{ pick: [] }>()
@@ -38,6 +40,7 @@ const ctaHref = computed(() => props.festival.ticketUrl || props.ctaAnchor)
 const ctaLabel = computed(() => (props.festival.ticketUrl ? 'Get tickets' : (props.ctaFallbackLabel || `Join the ${props.entityLabel}`)))
 
 const dateRange = computed(() => {
+  if (props.dateLabel) return props.dateLabel
   const start = new Date(props.festival.startDate)
   const end = new Date(props.festival.endDate)
   // Single-day (events) → one date; multi-day (festivals) → a range.

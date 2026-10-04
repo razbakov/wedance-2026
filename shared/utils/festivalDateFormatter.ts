@@ -14,7 +14,13 @@ export function hasEventEnded(endDate: string): boolean {
 export function daysUntil(dateStr: string): string {
   const now = new Date()
   const target = new Date(dateStr)
-  const diff = Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+  let diff = Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+  // Datetimes (events, e.g. "2026-10-04T12:00:00Z"): count calendar days, so an
+  // event later today reads "Today", not "Tomorrow". Date-only strings unchanged.
+  if (dateStr.includes('T')) {
+    const day = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+    diff = target.getTime() < now.getTime() ? -1 : Math.round((day(target) - day(now)) / 86400000)
+  }
   if (diff < 0) return 'Past'
   if (diff === 0) return 'Today'
   if (diff === 1) return 'Tomorrow'

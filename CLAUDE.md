@@ -55,6 +55,10 @@ from wedance-v4 (Postgres) via `scripts/migrate/`, idempotent + reversible
   source (v3 Firestore ends 2022), so "this week"/upcoming feeds have no real data
   until organizers create events going forward.
 - **667 follow edges → `follows`**.
+**Update 2026-10-04:** the "no upcoming events" note above is obsolete — wedance.vip
+(v3 Firestore `posts`, type `event`) is actively maintained (~1,300 upcoming events,
+~1,000 of them in Munich). They are mirrored into `events` by the v3 sync below.
+
 Live DB-backed surfaces: sign-in, `/@handle` profiles, `/cities` + `/cities/[city]`,
 `/artists`, `/venues`, city video vote, ask-locals, community groups, festival
 submit-draft. Festivals list + my-plan/my-year remain partly mock/preview.
@@ -73,3 +77,44 @@ Kept in sync across three surfaces:
   "Landing Promises" tab (index + a Linear-link column per row).
 Split: 43 built · 60 partial (Todo) · 22 not-built (Backlog). Biggest gap = the
 flagship "see who's going / real faces" attendee roster (not built).
+
+## wedance.vip → 2026 event sync
+
+`bun run sync:v3-events` mirrors every **upcoming** wedance.vip event (Firestore
+`posts` where `type == "event"`, `startDate >= now`, all cities) into the `events`
+table. **Read-only against v3** — the only Firestore call is `:runQuery` (REST, no
+firebase-admin). Code: `scripts/sync-v3-events.ts` (CLI) + `server/utils/v3EventSync.ts`
+(mapping, Firestore client, upsert; unit-tested).
+
+- **Dry-run is the default.** `--write` applies migration `0021_events_v3_sync.sql`
+  (idempotent, additive) then upserts. `--json` prints a machine-readable summary.
+- **Key:** `source='wedance-v3'`, `source_id=<v3 post id>`; rows go `archived=false,
+  published=true`. Still-upcoming rows that v3 no longer lists → `archived=true`.
+  Re-running is a no-op (reports `unchanged`). Rollback: `DELETE FROM events WHERE source='wedance-v3'`.
+- **Mapping:** city = venue locality (→ 2026 `city_slug` via profiles + `city-images.json`
+  altNames, e.g. München→munich); styles = v3 StyleKeys → 2026 labels (`STYLE_MAP`);
+  times stored UTC + IANA `timezone`, always rendered in the event's zone
+  (`shared/utils/eventTime.ts`). Festival/Congress/Weekender → `is_festival`.
+- **Shown on:** `/cities/[city]` (this-week calendar, "Coming up", festivals) and
+  `/events/[id]` via the `events` tRPC router.
+- **Env:** `DATABASE_URL` (target — check it before `--write`; the Vercel-pulled `.env`
+  is PRODUCTION), `WEDANCE_V3_SERVICE_ACCOUNT` (JSON) or `WEDANCE_V3_SERVICE_ACCOUNT_FILE`
+  (default `~/Secrets/wedance.json`).
+- **Display check:** `BASE_URL=http://localhost:3000 bun e2e/synced-events.check.ts <eventId:HH:MM>…`
+  (asserts no digit-only style tags / epoch numbers / timezone shifts; screenshots →
+  `docs/screenshots/v3-sync/`).
+
+### Local Postgres (never test writes against prod)
+
+There is only one Neon database (production). For local work, restore a copy into
+Docker and point the Neon HTTP driver at a local stand-in:
+
+```
+docker run -d --name wedance-2026-dev-db -e POSTGRES_USER=dev -e POSTGRES_PASSWORD=dev \
+  -e POSTGRES_DB=wedance -p 5441:5432 postgres:17-alpine
+pg_dump "$PROD_DIRECT_URL" --no-owner --no-privileges --exclude-table-data=dancers \
+  --exclude-table-data=sessions | psql postgresql://dev:dev@localhost:5441/wedance
+bun run dev:db-proxy          # Neon-HTTP-compatible proxy on :4444
+# .env: DATABASE_URL=postgresql://dev:dev@localhost:5441/wedance
+#       NEON_FETCH_ENDPOINT=http://localhost:4444/sql
+```
