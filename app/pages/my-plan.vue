@@ -275,13 +275,6 @@ function autoFillPlan() {
   }))
 }
 
-// Trigger auto-fill when user lands on my-plan for the first time after onboarding.
-watch([isSignedIn, onboardedAtReal, yearPlanIds], () => {
-  if (isSignedIn.value && onboardedAtReal.value && yearPlanIds.value.size === 0 && courses.value.length === 0 && socials.value.length === 0) {
-    nextTick(() => autoFillPlan())
-  }
-}, { immediate: true })
-
 function onRemove(slug: string) {
   // In preview mode we don't mutate real state.
   if (previewMode.value) return
@@ -801,6 +794,15 @@ const previewSocials: Social[] = [
   { id: 's5', name: 'Thursday warmup',        dayLabel: 'Thu', dateISO: '2026-07-09', time: '20:30', venue: 'La Rumba',   city: 'Munich', style: 'All',     friendsGoing: 2, rsvpd: false, color: '#0891b2' },
 ]
 const socials = ref<Social[]>(isPreviewInitial ? previewSocials : [])
+
+// Trigger auto-fill when user lands on my-plan for the first time after onboarding.
+// Must be placed after courses + socials refs to avoid TDZ errors in production builds.
+watch([isSignedIn, onboardedAtReal, yearPlanIds], () => {
+  if (isSignedIn.value && onboardedAtReal.value && yearPlanIds.value.size === 0 && courses.value.length === 0 && socials.value.length === 0) {
+    nextTick(() => autoFillPlan())
+  }
+}, { immediate: true })
+
 function toggleSocialRsvp(id: string) {
   socials.value = socials.value.map(s => s.id === id ? { ...s, rsvpd: !s.rsvpd } : s)
 }
