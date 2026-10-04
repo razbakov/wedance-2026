@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { eq, and, ne } from 'drizzle-orm'
+import { TRPCError } from '@trpc/server'
 import { router, publicProcedure, protectedProcedure } from '../trpc'
 import { festivalRoommateLookups, festivals, dancers } from '../../database/schema'
 
@@ -61,7 +62,7 @@ export const roommateRouter = router({
         .from(festivals)
         .where(eq(festivals.slug, input.festivalSlug))
 
-      if (!festival) throw new Error('Festival not found')
+      if (!festival) throw new TRPCError({ code: 'NOT_FOUND', message: 'Festival not found' })
 
       const [existing] = await ctx.db
         .select({ id: festivalRoommateLookups.id })

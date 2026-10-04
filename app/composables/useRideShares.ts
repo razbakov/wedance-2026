@@ -23,14 +23,18 @@ export function useRideShares(festivalSlug: string) {
   }
 
   async function postRide(ride: { type: 'offering' | 'looking'; originCity: string; date: string; seats?: number }) {
-    await $trpc.rideShare.create.mutate({
-      festivalSlug,
-      type: ride.type,
-      originCity: ride.originCity,
-      date: ride.date,
-      seatsAvailable: ride.seats,
-    })
-    await loadRideShares()
+    try {
+      await $trpc.rideShare.create.mutate({
+        festivalSlug,
+        type: ride.type,
+        originCity: ride.originCity,
+        date: ride.date,
+        seatsAvailable: ride.seats,
+      })
+      await loadRideShares()
+    } catch (e) {
+      console.warn('Failed to post ride:', e)
+    }
   }
 
   async function deleteRide() {
