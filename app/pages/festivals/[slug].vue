@@ -29,6 +29,19 @@ const festival = data.festival
 const workshops = data.workshops
 const teachers = data.teachers
 
+// Live "planning" count from the DB — replaces the hardcoded mock value.
+const liveAttendeeCount = ref(festival.attendeeCount)
+const heroFestival = computed(() => ({ ...festival, attendeeCount: liveAttendeeCount.value }))
+
+// Fetch the real count client-side (public, no auth required).
+const { $trpc } = useNuxtApp()
+onMounted(async () => {
+  try {
+    const count = await $trpc.plan.count.query({ itemType: 'festival', itemId: festival.slug })
+    liveAttendeeCount.value = count
+  } catch { /* keep mock fallback */ }
+})
+
 // Festival-level "Pick" — adds the whole festival to the year plan (distinct
 // from the per-workshop picks below).
 const { yearPlanIds, toggleFestival } = useYearPlan()
@@ -639,6 +652,8 @@ function onPick() {
     showSignUp.value = true
     return
   }
+  const wasGoing = yearPlanIds.value.has(festival.slug)
+  liveAttendeeCount.value = Math.max(0, liveAttendeeCount.value + (wasGoing ? -1 : 1))
   toggleFestival(festival.slug)
 }
 
@@ -973,7 +988,7 @@ useHead({
     <SiteHeader />
 
     <div ref="heroRef">
-      <FestivalHero :festival="festival" :picked="yearPlanIds.has(festival.slug)" @pick="onPick" />
+      <FestivalHero :festival="heroFestival" :picked="yearPlanIds.has(festival.slug)" @pick="onPick" />
     </div>
 
     <!-- Section anchor nav — V3 restyled. Festival identity slides in on
