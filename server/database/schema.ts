@@ -530,8 +530,9 @@ export const planItems = pgTable(
     dancerId: uuid('dancer_id')
       .notNull()
       .references(() => dancers.id),
-    itemType: text('item_type').notNull().$type<'festival' | 'event'>(),
+    itemType: text('item_type').notNull().$type<'festival' | 'event' | 'goal'>(),
     itemId: text('item_id').notNull(),
+    metadata: jsonb('metadata').$type<Record<string, string>>(),
     createdAt: timestamp('created_at').defaultNow(),
   },
   (t) => [
