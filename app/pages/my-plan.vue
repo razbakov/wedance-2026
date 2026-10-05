@@ -725,10 +725,8 @@ const goals = ref<Goal[]>(isPreviewInitial ? previewGoals : [])
 
 // Add a goal — quick capture. Persistence lands with the goals backend (#issue);
 // for now it adds to your list this session so the button does a real thing.
-function addGoal() {
-  const title = (globalThis.prompt('What are you working toward?') || '').trim()
-  if (!title) return
-  const why = (globalThis.prompt('Why does it matter? (optional)') || '').trim()
+const showAddGoal = ref(false)
+function onGoalConfirm(title: string, why: string) {
   goals.value.push({
     id: `g-${goals.value.length + 1}-${title.slice(0, 8)}`,
     title,
@@ -1297,7 +1295,7 @@ function cardSummary(f: CatalogueEntry) {
             type="button"
             class="text-xs italic hover:underline"
             style="color:#9a5614; font-family:'Playfair Display', serif;"
-            @click="addGoal"
+            @click="showAddGoal = true"
           >
             + Add a goal
           </button>
@@ -2189,5 +2187,7 @@ function cardSummary(f: CatalogueEntry) {
     </section>
 
     <SiteFooter />
+
+    <AddGoalDialog v-model:open="showAddGoal" @confirm="onGoalConfirm" />
   </div>
 </template>
