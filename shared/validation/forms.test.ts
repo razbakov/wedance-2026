@@ -39,6 +39,16 @@ describe('validateForm', () => {
       'Email is required.',
       'Password must be at least 8 characters.',
     ])
+    expect(result.fieldErrors).toEqual({
+      name: 'Name is required.',
+      email: 'Email is required.',
+      password: 'Password must be at least 8 characters.',
+    })
+  })
+
+  it('keys cross-field errors by the field they are forwarded to', () => {
+    const result = validateForm(ResetPasswordSchema, { password: '12345678', confirmPassword: 'nope' })
+    expect(result.success ? null : result.fieldErrors).toEqual({ confirmPassword: 'Passwords do not match.' })
   })
 })
 

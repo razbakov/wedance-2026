@@ -5,7 +5,7 @@
  * communityGroup.listAll / .create (adminProcedure).
  */
 import { Loader2, Plus, ExternalLink, RotateCcw, CheckCircle2 } from 'lucide-vue-next'
-import { CommunityGroupSchema, validateForm } from '#shared/validation'
+import { CommunityGroupSchema } from '#shared/validation'
 
 definePageMeta({ layout: 'admin' })
 useHead({ title: 'Admin: Community groups | WeDance' })
@@ -47,17 +47,16 @@ const saving = ref(false)
 const form = reactive({
   citySlug: '', name: '', platform: 'whatsapp' as Group['platform'], inviteUrl: '', styles: '', source: '', verified: false,
 })
+const { errors, validate, reset: resetValidation, fieldAttrs } = useFormValidation(CommunityGroupSchema, form)
 function resetForm() {
   Object.assign(form, { citySlug: '', name: '', platform: 'whatsapp', inviteUrl: '', styles: '', source: '', verified: false })
+  resetValidation()
 }
 
 async function submit() {
   error.value = null
-  const result = validateForm(CommunityGroupSchema, form)
-  if (!result.success) {
-    error.value = result.error
-    return
-  }
+  const result = validate()
+  if (!result.success) return
   saving.value = true
   try {
     await $trpc.communityGroup.create.mutate(result.data)
@@ -99,17 +98,29 @@ const inputStyle = 'background:#fbf5ea; border:1px solid #3b1f0d33; font-family:
     <div v-if="showForm" class="mt-6 rounded-2xl bg-white border p-5" style="border-color:#0891b233;">
       <h2 class="text-sm font-bold uppercase tracking-wider mb-4" style="color:#0891b2;">New group</h2>
       <div class="grid gap-3 sm:grid-cols-2">
-        <input v-model="form.citySlug" placeholder="City slug (e.g. munich)" :class="inputCls" :style="inputStyle">
-        <input v-model="form.name" placeholder="Group name" :class="inputCls" :style="inputStyle">
+        <div>
+          <input v-model="form.citySlug" placeholder="City slug (e.g. munich)" :class="inputCls" :style="inputStyle" v-bind="fieldAttrs('citySlug', 'group-citySlug-error')">
+          <FieldError id="group-citySlug-error" :message="errors.citySlug" />
+        </div>
+        <div>
+          <input v-model="form.name" placeholder="Group name" :class="inputCls" :style="inputStyle" v-bind="fieldAttrs('name', 'group-name-error')">
+          <FieldError id="group-name-error" :message="errors.name" />
+        </div>
         <select v-model="form.platform" :class="inputCls" :style="inputStyle">
           <option value="whatsapp">WhatsApp</option>
           <option value="telegram">Telegram</option>
           <option value="facebook">Facebook</option>
           <option value="other">Other</option>
         </select>
-        <input v-model="form.inviteUrl" placeholder="Invite URL (https://…)" :class="inputCls" :style="inputStyle">
+        <div>
+          <input v-model="form.inviteUrl" placeholder="Invite URL (https://…)" :class="inputCls" :style="inputStyle" v-bind="fieldAttrs('inviteUrl', 'group-inviteUrl-error')">
+          <FieldError id="group-inviteUrl-error" :message="errors.inviteUrl" />
+        </div>
         <input v-model="form.styles" placeholder="Styles (comma-separated)" :class="inputCls" :style="inputStyle">
-        <input v-model="form.source" placeholder="Source (optional)" :class="inputCls" :style="inputStyle">
+        <div>
+          <input v-model="form.source" placeholder="Source (optional)" :class="inputCls" :style="inputStyle" v-bind="fieldAttrs('source', 'group-source-error')">
+          <FieldError id="group-source-error" :message="errors.source" />
+        </div>
         <label class="flex items-center gap-2 text-xs sm:col-span-2" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
           <input v-model="form.verified" type="checkbox" class="w-4 h-4 accent-[#0891b2]"> Verified
         </label>

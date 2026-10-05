@@ -10,7 +10,7 @@
  * useReportContext). Styled in the 2026 tropical aesthetic to match SignUpModal.
  */
 import { Bug, X, Check, Loader2, ImageIcon } from 'lucide-vue-next'
-import { ReportProblemSchema, validateForm } from '#shared/validation'
+import { ReportProblemSchema } from '#shared/validation'
 
 const { collect } = useReportContext()
 const { isSignedIn } = useAuth()
@@ -25,6 +25,10 @@ const capturing = ref(false)
 const submitting = ref(false)
 const error = ref('')
 const doneUrl = ref<string | null>(null)
+const { errors, validate, reset: resetValidation, fieldAttrs } = useFormValidation(ReportProblemSchema, () => ({
+  description: description.value,
+  email: email.value,
+}))
 
 async function captureScreenshot(): Promise<string | null> {
   if (!import.meta.client) return null
@@ -67,6 +71,7 @@ function reset() {
   error.value = ''
   submitting.value = false
   doneUrl.value = null
+  resetValidation()
 }
 
 watch(open, (v) => {
@@ -75,11 +80,8 @@ watch(open, (v) => {
 
 async function submit() {
   error.value = ''
-  const result = validateForm(ReportProblemSchema, { description: description.value, email: email.value })
-  if (!result.success) {
-    error.value = result.error
-    return
-  }
+  const result = validate()
+  if (!result.success) return
   submitting.value = true
   try {
     const res = await $trpc.feedback.report.mutate({
@@ -167,7 +169,9 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
                 required
                 :class="inputClass"
                 :style="inputStyle"
+                v-bind="fieldAttrs('description', 'report-desc-error')"
               />
+              <FieldError id="report-desc-error" :message="errors.description" />
             </div>
 
             <div v-if="!isSignedIn" class="space-y-1.5">
@@ -182,7 +186,9 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
                 autocomplete="email"
                 :class="inputClass"
                 :style="inputStyle"
+                v-bind="fieldAttrs('email', 'report-email-error')"
               >
+              <FieldError id="report-email-error" :message="errors.email" />
             </div>
 
             <!-- Screenshot status -->

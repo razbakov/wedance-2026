@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ResetPasswordSchema, validateForm } from '#shared/validation'
+import { ResetPasswordSchema } from '#shared/validation'
 
 definePageMeta({ layout: false })
 
@@ -18,6 +18,10 @@ const confirmPassword = ref('')
 const showPassword = ref(false)
 const resetLoading = ref(false)
 const resetError = ref('')
+const { errors, validate, fieldAttrs } = useFormValidation(ResetPasswordSchema, () => ({
+  password: newPassword.value,
+  confirmPassword: confirmPassword.value,
+}))
 
 onMounted(async () => {
   const token = route.query.token as string
@@ -55,11 +59,8 @@ onMounted(async () => {
 async function handleResetPassword() {
   resetError.value = ''
 
-  const validation = validateForm(ResetPasswordSchema, { password: newPassword.value, confirmPassword: confirmPassword.value })
-  if (!validation.success) {
-    resetError.value = validation.error
-    return
-  }
+  const validation = validate()
+  if (!validation.success) return
 
   const token = route.query.token as string
   resetLoading.value = true
@@ -139,6 +140,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
                   required
                   :class="inputClass + ' pr-16'"
                   :style="inputStyle"
+                  v-bind="fieldAttrs('password', 'new-password-error')"
                 >
                 <button
                   type="button"
@@ -149,6 +151,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
                   {{ showPassword ? 'Hide' : 'Show' }}
                 </button>
               </div>
+              <FieldError id="new-password-error" :message="errors.password" />
             </div>
 
             <div class="space-y-1.5">
@@ -162,7 +165,9 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
                 required
                 :class="inputClass"
                 :style="inputStyle"
+                v-bind="fieldAttrs('confirmPassword', 'confirm-password-error')"
               >
+              <FieldError id="confirm-password-error" :message="errors.confirmPassword" />
             </div>
 
             <p v-if="resetError" class="text-sm font-bold" style="color:#dc2626; font-family: system-ui, sans-serif;">

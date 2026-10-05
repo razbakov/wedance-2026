@@ -6,7 +6,7 @@
  */
 import { CheckCircle2, Video, X } from 'lucide-vue-next'
 import { parseVideoUrl } from '~/lib/videoEmbed'
-import { VideoSubmissionSchema, validateForm } from '#shared/validation'
+import { VideoSubmissionSchema } from '#shared/validation'
 
 const props = defineProps<{
   citySlug: string
@@ -40,6 +40,12 @@ const email = ref('')
 const submitting = ref(false)
 const submitted = ref(false)
 const error = ref<string | null>(null)
+const { errors, validate, reset: resetValidation, fieldAttrs } = useFormValidation(VideoSubmissionSchema, () => ({
+  title: title.value,
+  videoUrl: videoUrl.value,
+  danceStyle: danceStyle.value,
+  email: email.value,
+}))
 
 async function reveal() {
   open.value = true
@@ -58,16 +64,8 @@ const urlLooksValid = computed(() => provider.value !== null && provider.value !
 
 async function submit() {
   error.value = null
-  const result = validateForm(VideoSubmissionSchema, {
-    title: title.value,
-    videoUrl: videoUrl.value,
-    danceStyle: danceStyle.value,
-    email: email.value,
-  })
-  if (!result.success) {
-    error.value = result.error
-    return
-  }
+  const result = validate()
+  if (!result.success) return
   submitting.value = true
   try {
     await $trpc.cityVideo.submit.mutate({ citySlug: props.citySlug, ...result.data })
@@ -89,6 +87,7 @@ function reset() {
   email.value = ''
   submitted.value = false
   error.value = null
+  resetValidation()
 }
 </script>
 
@@ -172,15 +171,19 @@ function reset() {
         </button>
       </div>
 
-      <input
-        ref="titleInput"
-        v-model="title"
-        type="text"
-        placeholder="Video title"
-        maxlength="120"
-        class="w-full rounded-lg border px-3 py-2 text-sm outline-none"
-        style="border-color:#3b1f0d33; font-family: system-ui, sans-serif; color:#3b1f0d;"
-      >
+      <div>
+        <input
+          ref="titleInput"
+          v-model="title"
+          type="text"
+          placeholder="Video title"
+          maxlength="120"
+          class="w-full rounded-lg border px-3 py-2 text-sm outline-none"
+          style="border-color:#3b1f0d33; font-family: system-ui, sans-serif; color:#3b1f0d;"
+          v-bind="fieldAttrs('title', 'video-title-error')"
+        >
+        <FieldError id="video-title-error" :message="errors.title" />
+      </div>
 
       <div>
         <input
@@ -189,9 +192,11 @@ function reset() {
           placeholder="https://youtube.com/watch?v=…"
           class="w-full rounded-lg border px-3 py-2 text-sm outline-none"
           style="border-color:#3b1f0d33; font-family: system-ui, sans-serif; color:#3b1f0d;"
+          v-bind="fieldAttrs('videoUrl', 'video-url-error')"
         >
+        <FieldError v-if="errors.videoUrl" id="video-url-error" :message="errors.videoUrl" />
         <p
-          v-if="videoUrl.trim() && !urlLooksValid"
+          v-else-if="videoUrl.trim() && !urlLooksValid"
           class="mt-1 text-[11px]"
           style="color:#b45309; font-family: system-ui, sans-serif;"
         >
@@ -206,22 +211,30 @@ function reset() {
         </p>
       </div>
 
-      <input
-        v-model="danceStyle"
-        type="text"
-        placeholder="Dance style (optional) — e.g. Bachata"
-        maxlength="60"
-        class="w-full rounded-lg border px-3 py-2 text-sm outline-none"
-        style="border-color:#3b1f0d33; font-family: system-ui, sans-serif; color:#3b1f0d;"
-      >
+      <div>
+        <input
+          v-model="danceStyle"
+          type="text"
+          placeholder="Dance style (optional) — e.g. Bachata"
+          maxlength="60"
+          class="w-full rounded-lg border px-3 py-2 text-sm outline-none"
+          style="border-color:#3b1f0d33; font-family: system-ui, sans-serif; color:#3b1f0d;"
+          v-bind="fieldAttrs('danceStyle', 'video-style-error')"
+        >
+        <FieldError id="video-style-error" :message="errors.danceStyle" />
+      </div>
 
-      <input
-        v-model="email"
-        type="email"
-        placeholder="Your email"
-        class="w-full rounded-lg border px-3 py-2 text-sm outline-none"
-        style="border-color:#3b1f0d33; font-family: system-ui, sans-serif; color:#3b1f0d;"
-      >
+      <div>
+        <input
+          v-model="email"
+          type="email"
+          placeholder="Your email"
+          class="w-full rounded-lg border px-3 py-2 text-sm outline-none"
+          style="border-color:#3b1f0d33; font-family: system-ui, sans-serif; color:#3b1f0d;"
+          v-bind="fieldAttrs('email', 'video-email-error')"
+        >
+        <FieldError id="video-email-error" :message="errors.email" />
+      </div>
 
       <p v-if="error" class="text-xs" style="color:#dc2626; font-family: system-ui, sans-serif;">
         {{ error }}

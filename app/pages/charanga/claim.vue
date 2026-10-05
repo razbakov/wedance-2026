@@ -19,7 +19,7 @@
  * fires automatically.
  */
 import { ArrowRight, Ticket, Mail, AlertCircle } from 'lucide-vue-next'
-import { ClaimTicketSchema, validateForm } from '#shared/validation'
+import { ClaimTicketSchema } from '#shared/validation'
 
 const { $trpc } = useNuxtApp()
 const route = useRoute()
@@ -53,6 +53,7 @@ const signInEmail = ref('')
 const signInError = ref('')
 const signInLoading = ref(false)
 const signInSent = ref(false)
+const { errors, validate, fieldAttrs } = useFormValidation(ClaimTicketSchema, () => ({ email: signInEmail.value }))
 
 async function refreshStatus() {
   status.value = { kind: 'loading' }
@@ -100,11 +101,8 @@ watch(authLoading, (loading) => {
 async function handleSignIn() {
   signInError.value = ''
 
-  const result = validateForm(ClaimTicketSchema, { email: signInEmail.value })
-  if (!result.success) {
-    signInError.value = result.error
-    return
-  }
+  const result = validate()
+  if (!result.success) return
 
   signInLoading.value = true
   try {
@@ -248,7 +246,9 @@ async function handleSignIn() {
                   required
                   autofocus
                   class="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  v-bind="fieldAttrs('email', 'claim-email-error')"
                 >
+                <FieldError id="claim-email-error" :message="errors.email" />
               </div>
               <p v-if="signInError" class="text-sm text-destructive">{{ signInError }}</p>
               <Button type="submit" class="w-full" :disabled="signInLoading">

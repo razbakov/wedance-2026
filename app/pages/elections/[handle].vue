@@ -6,7 +6,7 @@
  * and the winner's guidelines become the space's active ruleset.
  */
 import { ShieldCheck, ArrowLeft, Check, X, ScrollText, Clock, History, Trophy, Users, Plus, Inbox, Calendar } from 'lucide-vue-next'
-import { NominationSchema, validateForm } from '#shared/validation'
+import { NominationSchema } from '#shared/validation'
 
 definePageMeta({ layout: false })
 
@@ -39,6 +39,7 @@ const isSteward = computed(() => {
 })
 
 const nom = reactive({ open: false, guidelines: '', statement: '', busy: false, err: '' })
+const nomForm = reactive(useFormValidation(NominationSchema, nom))
 
 async function resolve() {
   pending.value = true
@@ -95,8 +96,8 @@ async function openElection() {
 async function submitNomination() {
   nom.err = ''
   if (!requireAuth()) return
-  const result = validateForm(NominationSchema, nom)
-  if (!result.success) { nom.err = result.error; return }
+  const result = nomForm.validate()
+  if (!result.success) return
   nom.busy = true
   try {
     await $trpc.election.nominate.mutate({ electionId: election.value.id, ...result.data })
@@ -260,13 +261,15 @@ onMounted(resolve)
           <h3 class="font-bold" style="color:#3b1f0d;">Your candidacy</h3>
           <p class="text-xs mt-1" style="color:#9a5614;">Propose the guidelines you'd run the space by. The community elects you on this.</p>
           <label class="block text-xs font-bold mt-4 mb-1" style="color:#5b3a1d;">Guidelines the space would run by</label>
-          <textarea v-model="nom.guidelines" rows="5" class="w-full rounded-lg border px-3 py-2 text-sm" style="border-color:#dc262633; background:#fbf5ea;" placeholder="e.g. Open to all levels; no reserved slots before 6pm; keep the volume neighbour-friendly after 22:00…" />
+          <textarea v-model="nom.guidelines" rows="5" class="w-full rounded-lg border px-3 py-2 text-sm" style="border-color:#dc262633; background:#fbf5ea;" placeholder="e.g. Open to all levels; no reserved slots before 6pm; keep the volume neighbour-friendly after 22:00…" v-bind="nomForm.fieldAttrs('guidelines', 'nom-guidelines-error')" />
+          <FieldError id="nom-guidelines-error" :message="nomForm.errors.guidelines" />
           <label class="block text-xs font-bold mt-3 mb-1" style="color:#5b3a1d;">Short pitch (optional)</label>
-          <input v-model="nom.statement" maxlength="600" class="w-full rounded-lg border px-3 py-2 text-sm" style="border-color:#dc262633; background:#fbf5ea;" placeholder="One line on why you'd steward it well.">
+          <input v-model="nom.statement" maxlength="600" class="w-full rounded-lg border px-3 py-2 text-sm" style="border-color:#dc262633; background:#fbf5ea;" placeholder="One line on why you'd steward it well." v-bind="nomForm.fieldAttrs('statement', 'nom-statement-error')">
+          <FieldError id="nom-statement-error" :message="nomForm.errors.statement" />
           <p v-if="nom.err" class="text-xs mt-2" style="color:#dc2626;">{{ nom.err }}</p>
           <div class="flex gap-2 mt-4">
             <button :disabled="nom.busy" class="rounded-full px-5 py-2 text-white text-sm font-bold uppercase tracking-wider disabled:opacity-50" style="background:linear-gradient(135deg,#dc2626,#f97316);" @click="submitNomination">Submit candidacy</button>
-            <button class="rounded-full px-4 py-2 text-sm font-bold" style="color:#9a5614;" @click="nom.open=false">Cancel</button>
+            <button class="rounded-full px-4 py-2 text-sm font-bold" style="color:#9a5614;" @click="nom.open = false; nomForm.reset()">Cancel</button>
           </div>
         </div>
       </section>

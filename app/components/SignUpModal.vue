@@ -19,7 +19,7 @@
  * not the address is registered, so the recovery view never reveals which
  * emails exist.
  */
-import { LoginSchema, RecoverySchema, RegisterSchema, validateForm } from '#shared/validation'
+import { LoginSchema, RecoverySchema, RegisterSchema } from '#shared/validation'
 
 const props = defineProps<{
   open: boolean
@@ -73,6 +73,22 @@ const hasPrefillName = ref(false)
 const emailInput = ref<HTMLInputElement | null>(null)
 const recoveryEmailInput = ref<HTMLInputElement | null>(null)
 
+// Login and register share the inputs above; `authForm` is whichever is showing.
+// A prefilled name has no visible input, so register falls back to it.
+const loginForm = reactive(useFormValidation(LoginSchema, form))
+const registerForm = reactive(useFormValidation(RegisterSchema, () => ({
+  ...form,
+  name: form.name.trim() || props.prefill?.name || '',
+})))
+const authForm = computed(() => (isRegister.value ? registerForm : loginForm))
+const recoveryForm = reactive(useFormValidation(RecoverySchema, form))
+
+function resetValidation() {
+  loginForm.reset()
+  registerForm.reset()
+  recoveryForm.reset()
+}
+
 function resetForm() {
   form.name = ''
   form.email = ''
@@ -81,6 +97,7 @@ function resetForm() {
   showPassword.value = false
   recoverySent.value = false
   hasPrefillName.value = false
+  resetValidation()
 }
 
 function applyPrefill() {
@@ -102,6 +119,7 @@ function switchMode(next: Mode) {
   mode.value = next
   error.value = ''
   recoverySent.value = false
+  resetValidation()
 }
 
 function openRecovery() {
@@ -119,12 +137,8 @@ async function handleSubmit() {
   error.value = ''
 
   if (isRegister.value) {
-    // A prefilled name has no visible input, so fall back to it here.
-    const result = validateForm(RegisterSchema, { ...form, name: form.name.trim() || props.prefill?.name || '' })
-    if (!result.success) {
-      error.value = result.error
-      return
-    }
+    const result = registerForm.validate()
+    if (!result.success) return
     await submitWith(async () => {
       // Fast register: name + email + password only. Dance styles / role /
       // city are forwarded ONLY when a caller pre-filled them from its own
@@ -141,11 +155,8 @@ async function handleSubmit() {
       await navigateTo('/onboarding')
     })
   } else {
-    const result = validateForm(LoginSchema, form)
-    if (!result.success) {
-      error.value = result.error
-      return
-    }
+    const result = loginForm.validate()
+    if (!result.success) return
     await submitWith(async () => {
       await login(result.data)
       emit('update:open', false)
@@ -167,11 +178,8 @@ async function submitWith(action: () => Promise<void>) {
 async function handleRecovery() {
   error.value = ''
 
-  const result = validateForm(RecoverySchema, form)
-  if (!result.success) {
-    error.value = result.error
-    return
-  }
+  const result = recoveryForm.validate()
+  if (!result.success) return
 
   loading.value = true
   try {
@@ -231,7 +239,9 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
                 required
                 :class="inputClass"
                 :style="inputStyle"
+                v-bind="recoveryForm.fieldAttrs('email', 'recovery-email-error')"
               >
+              <FieldError id="recovery-email-error" :message="recoveryForm.errors.email" />
             </div>
 
             <p v-if="error" class="text-sm font-bold" style="color:#dc2626; font-family: system-ui, sans-serif;">
@@ -297,7 +307,9 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
                 autocomplete="name"
                 :class="inputClass"
                 :style="inputStyle"
+                v-bind="authForm.fieldAttrs('name', 'auth-name-error')"
               >
+              <FieldError id="auth-name-error" :message="authForm.errors.name" />
             </div>
 
             <!-- Email -->
@@ -313,7 +325,9 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
                 required
                 :class="inputClass"
                 :style="inputStyle"
+                v-bind="authForm.fieldAttrs('email', 'auth-email-error')"
               >
+              <FieldError id="auth-email-error" :message="authForm.errors.email" />
             </div>
 
             <!-- Password -->
@@ -340,6 +354,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
                   required
                   :class="inputClass + ' pr-16'"
                   :style="inputStyle"
+                  v-bind="authForm.fieldAttrs('password', 'auth-password-error')"
                 >
                 <button
                   type="button"
@@ -350,6 +365,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
                   {{ showPassword ? 'Hide' : 'Show' }}
                 </button>
               </div>
+              <FieldError id="auth-password-error" :message="authForm.errors.password" />
             </div>
 
             <p v-if="error" class="text-sm font-bold" style="color:#dc2626; font-family: system-ui, sans-serif;">

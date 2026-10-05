@@ -1,14 +1,17 @@
 import * as v from 'valibot'
 
+/** First message per invalid field, keyed by dot path (`email`, `rows.0.name`). */
+export type FieldErrors = Partial<Record<string, string>>
+
 export type FormResult<TSchema extends v.GenericSchema> =
   | { success: true; data: v.InferOutput<TSchema> }
-  | { success: false; error: string; errors: string[] }
+  | { success: false; error: string; errors: string[]; fieldErrors: FieldErrors }
 
 /**
  * Validate form state against a schema. On success `data` is the parsed,
- * trimmed payload, ready to send. On failure `error` is the first message (for
- * forms with a single error slot) and `errors` holds one message per invalid
- * field, in schema order.
+ * trimmed payload, ready to send. On failure `fieldErrors` maps each invalid
+ * field to its first message; `errors` lists those messages in schema order and
+ * `error` is the first of them.
  */
 export function validateForm<TSchema extends v.GenericSchema>(
   schema: TSchema,
@@ -17,13 +20,13 @@ export function validateForm<TSchema extends v.GenericSchema>(
   const result = v.safeParse(schema, input)
   if (result.success) return { success: true, data: result.output }
 
-  const seen = new Set<string>()
+  const fieldErrors: FieldErrors = {}
   const errors: string[] = []
   for (const issue of result.issues) {
     const path = v.getDotPath(issue) ?? ''
-    if (seen.has(path)) continue
-    seen.add(path)
+    if (path in fieldErrors) continue
+    fieldErrors[path] = issue.message
     errors.push(issue.message)
   }
-  return { success: false, error: errors[0]!, errors }
+  return { success: false, error: errors[0]!, errors, fieldErrors }
 }

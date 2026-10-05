@@ -5,7 +5,7 @@
  * no payment. Links to the sponsor's promoted event (ctaUrl) and a T&C stub.
  */
 import { Gift, ExternalLink, CheckCircle2 } from 'lucide-vue-next'
-import { GiveawayEntrySchema, validateForm } from '#shared/validation'
+import { GiveawayEntrySchema } from '#shared/validation'
 
 interface Giveaway {
   id: string
@@ -33,14 +33,12 @@ const entering = ref(false)
 const entered = ref(false)
 const already = ref(false)
 const error = ref<string | null>(null)
+const { errors, validate, fieldAttrs } = useFormValidation(GiveawayEntrySchema, () => ({ email: email.value }))
 
 async function enter() {
   error.value = null
-  const result = validateForm(GiveawayEntrySchema, { email: email.value })
-  if (!result.success) {
-    error.value = result.error
-    return
-  }
+  const result = validate()
+  if (!result.success) return
   entering.value = true
   try {
     const res = await $trpc.giveaway.enter.mutate({
@@ -119,6 +117,7 @@ const endsLabel = computed(() => {
             placeholder="Your email"
             class="min-w-0 flex-1 rounded-full border px-4 py-2.5 text-sm outline-none"
             style="border-color:#3b1f0d33; font-family: system-ui, sans-serif; color:#3b1f0d;"
+            v-bind="fieldAttrs('email', `giveaway-${giveaway.id}-email-error`)"
           >
           <button
             type="submit"
@@ -129,6 +128,7 @@ const endsLabel = computed(() => {
             {{ entering ? 'Entering…' : 'Enter free' }}
           </button>
         </form>
+        <FieldError :id="`giveaway-${giveaway.id}-email-error`" :message="errors.email" />
         <p v-if="error" class="mt-1 text-xs" style="color:#dc2626; font-family: system-ui, sans-serif;">
           {{ error }}
         </p>
