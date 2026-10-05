@@ -5,6 +5,7 @@
  */
 import type { RideShare, GroupDinner, ExtraActivity } from '~/types/festival'
 import { Car, BedDouble, UtensilsCrossed, Compass, ChevronDown, Check, MessageCircle } from 'lucide-vue-next'
+import { RidePostSchema, validateForm } from '#shared/validation'
 
 const props = defineProps<{
   rideShares: RideShare[]
@@ -34,19 +35,26 @@ const rideMode = ref<'offering' | 'looking' | null>(null)
 const rideOriginCity = ref('')
 const rideDate = ref('')
 const rideSeats = ref(2)
+const rideError = ref('')
 
 function submitRide() {
-  if (!rideOriginCity.value || !rideDate.value) return
-  emit('post-ride', {
-    type: rideMode.value!,
+  if (!rideMode.value) return
+  const result = validateForm(RidePostSchema, {
+    type: rideMode.value,
     originCity: rideOriginCity.value,
     date: rideDate.value,
     seats: rideMode.value === 'offering' ? rideSeats.value : undefined,
   })
+  if (!result.success) {
+    rideError.value = result.error
+    return
+  }
+  emit('post-ride', result.data)
   rideOriginCity.value = ''
   rideDate.value = ''
   rideSeats.value = 2
   rideMode.value = null
+  rideError.value = ''
 }
 
 const totalEvents = computed(() => props.groupDinners.length + props.extraActivities.length)
@@ -139,6 +147,7 @@ function badgeFor(key: string): string | null {
               <label class="text-[10px] font-bold uppercase tracking-widest" :style="labelStyle">Seats available</label>
               <input v-model.number="rideSeats" type="number" min="1" max="6" :class="fieldClass" :style="fieldStyle">
             </div>
+            <p v-if="rideError" class="text-xs font-bold" style="color:#dc2626; font-family: system-ui, sans-serif;">{{ rideError }}</p>
             <button
               type="button"
               class="w-full py-2.5 rounded-full text-white text-xs font-bold uppercase tracking-wider"

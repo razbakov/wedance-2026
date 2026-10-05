@@ -5,6 +5,7 @@
  * giveaway.listAll / giveaway.create (adminProcedure).
  */
 import { Loader2, Plus, ExternalLink, RotateCcw } from 'lucide-vue-next'
+import { GiveawaySchema, validateForm } from '#shared/validation'
 
 definePageMeta({ layout: 'admin' })
 useHead({ title: 'Admin: Giveaways | WeDance' })
@@ -59,25 +60,14 @@ function resetForm() {
 
 async function submit() {
   error.value = null
-  if (!form.citySlug || !form.sponsorName || !form.title || !form.ctaUrl || !form.startsAt || !form.endsAt) {
-    error.value = 'Fill city, sponsor, title, CTA URL and the date window.'
+  const result = validateForm(GiveawaySchema, form)
+  if (!result.success) {
+    error.value = result.error
     return
   }
   saving.value = true
   try {
-    await $trpc.giveaway.create.mutate({
-      citySlug: form.citySlug.trim(),
-      sponsorName: form.sponsorName.trim(),
-      title: form.title.trim(),
-      description: form.description.trim(),
-      prizeDescription: form.prizeDescription.trim(),
-      ctaUrl: form.ctaUrl.trim(),
-      imageUrl: form.imageUrl.trim() || undefined,
-      termsUrl: form.termsUrl.trim() || undefined,
-      startsAt: form.startsAt,
-      endsAt: form.endsAt,
-      status: form.status,
-    })
+    await $trpc.giveaway.create.mutate(result.data)
     resetForm()
     showForm.value = false
     await load()

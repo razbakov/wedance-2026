@@ -6,6 +6,7 @@
  * and the winner's guidelines become the space's active ruleset.
  */
 import { ShieldCheck, ArrowLeft, Check, X, ScrollText, Clock, History, Trophy, Users, Plus, Inbox, Calendar } from 'lucide-vue-next'
+import { NominationSchema, validateForm } from '#shared/validation'
 
 definePageMeta({ layout: false })
 
@@ -94,10 +95,11 @@ async function openElection() {
 async function submitNomination() {
   nom.err = ''
   if (!requireAuth()) return
-  if (nom.guidelines.trim().length < 20) { nom.err = 'Describe the guidelines you would run on (at least a sentence or two).'; return }
+  const result = validateForm(NominationSchema, nom)
+  if (!result.success) { nom.err = result.error; return }
   nom.busy = true
   try {
-    await $trpc.election.nominate.mutate({ electionId: election.value.id, guidelines: nom.guidelines.trim(), statement: nom.statement.trim() || undefined })
+    await $trpc.election.nominate.mutate({ electionId: election.value.id, ...result.data })
     nom.open = false; nom.guidelines = ''; nom.statement = ''
     await loadElection()
   } catch (e: any) { nom.err = e?.message || 'Could not submit your candidacy.' }

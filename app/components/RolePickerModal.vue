@@ -2,6 +2,7 @@
 import type { DanceRole, DancePartner } from '~/types/festival'
 import { Button } from '~/components/ui/button'
 import { Plus } from 'lucide-vue-next'
+import { PartnerNameSchema, validateForm } from '#shared/validation'
 
 const props = defineProps<{
   open: boolean
@@ -20,6 +21,7 @@ const step = ref<'role' | 'partner' | 'pick-partner'>('role')
 const selectedRole = ref<DanceRole | null>(null)
 const remember = ref(true)
 const newPartnerName = ref('')
+const newPartner = computed(() => validateForm(PartnerNameSchema, { name: newPartnerName.value }))
 
 watch(() => props.open, (val) => {
   if (val) {
@@ -56,8 +58,8 @@ function selectPartner(partnerId: string) {
 }
 
 function createAndSelect() {
-  const name = newPartnerName.value.trim()
-  if (!name) return
+  if (!newPartner.value.success) return
+  const { name } = newPartner.value.data
   emit('add-partner', name)
   // Find the partner by name after it's added (next tick)
   nextTick(() => {
@@ -148,7 +150,7 @@ function createAndSelect() {
             variant="outline"
             size="sm"
             class="h-10 px-3"
-            :disabled="!newPartnerName.trim()"
+            :disabled="!newPartner.success"
             @click="createAndSelect"
           >
             <Plus class="w-4 h-4 mr-1" />

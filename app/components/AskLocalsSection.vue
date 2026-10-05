@@ -5,6 +5,7 @@
  * target. Client-side fetch. 2026 tropical style.
  */
 import { MessagesSquare, Send, ThumbsUp } from 'lucide-vue-next'
+import { AskLocalsSchema, RecommendPlaceSchema, validateForm } from '#shared/validation'
 
 const props = defineProps<{ citySlug: string; cityName?: string }>()
 const { $trpc } = useNuxtApp()
@@ -25,10 +26,11 @@ onMounted(load)
 
 async function ask() {
   asking.err = ''
-  if (asking.text.trim().length < 3) { asking.err = 'Ask a real question.'; return }
+  const result = validateForm(AskLocalsSchema, { question: asking.text })
+  if (!result.success) { asking.err = result.error; return }
   asking.busy = true
   try {
-    await $trpc.askLocals.ask.mutate({ citySlug: props.citySlug, question: asking.text.trim() })
+    await $trpc.askLocals.ask.mutate({ citySlug: props.citySlug, ...result.data })
     // CUJ: "Ask locals" — question posted.
     useTrack().track('ask_locals_post', { city: props.citySlug, kind: 'ask' })
     asking.text = ''; asking.open = false
@@ -38,13 +40,11 @@ async function ask() {
 
 async function recommend() {
   rec.err = ''; rec.done = false
-  if (rec.name.trim().length < 2) { rec.err = 'Name the organizer or venue.'; return }
+  const result = validateForm(RecommendPlaceSchema, { targetType: rec.type, targetName: rec.name, text: rec.text })
+  if (!result.success) { rec.err = result.error; return }
   rec.busy = true
   try {
-    await $trpc.askLocals.recommend.mutate({
-      citySlug: props.citySlug, targetType: rec.type,
-      targetName: rec.name.trim(), text: rec.text.trim() || undefined,
-    })
+    await $trpc.askLocals.recommend.mutate({ citySlug: props.citySlug, ...result.data })
     // CUJ: "Ask locals" — recommendation posted (auto 5-star review).
     useTrack().track('ask_locals_post', { city: props.citySlug, kind: 'recommend', target_type: rec.type })
     rec.done = true; rec.name = ''; rec.text = ''

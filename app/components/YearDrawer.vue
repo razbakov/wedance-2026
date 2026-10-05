@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { X, CalendarDays, Save, MapPin, Calendar, Check, ChevronDown, Target, Wallet, Clock, Users, CalendarPlus, ExternalLink, Footprints, GraduationCap, Video } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
+import { GoalSchema, validateForm } from '#shared/validation'
 
 interface FestivalSummary {
   slug: string
@@ -98,13 +99,12 @@ const hasBuddies = computed(() => festivalsWithFriends.value.length > 0)
 // Dance goals
 const danceGoals = ref<string[]>([])
 const newGoal = ref('')
+const newGoalResult = computed(() => validateForm(GoalSchema, { title: newGoal.value }))
 
 function addGoal() {
-  const text = newGoal.value.trim()
-  if (text) {
-    danceGoals.value.push(text)
-    newGoal.value = ''
-  }
+  if (!newGoalResult.value.success) return
+  danceGoals.value.push(newGoalResult.value.data.title)
+  newGoal.value = ''
 }
 
 function removeGoal(index: number) {
@@ -271,14 +271,14 @@ const simpleChecklistItems = [
                 <X class="w-3 h-3" />
               </button>
             </div>
-            <form class="flex gap-1.5" @submit.prevent="addGoal">
+            <form class="flex gap-1.5" novalidate @submit.prevent="addGoal">
               <input
                 v-model="newGoal"
                 type="text"
                 placeholder="e.g. Learn Bachata Sensual"
                 class="flex-1 rounded-md border border-input bg-background px-2 py-1.5 text-xs placeholder:text-muted-foreground"
               />
-              <Button type="submit" size="sm" variant="outline" class="text-xs px-2 shrink-0" :disabled="!newGoal.trim()">
+              <Button type="submit" size="sm" variant="outline" class="text-xs px-2 shrink-0" :disabled="!newGoalResult.success">
                 Add
               </Button>
             </form>

@@ -5,6 +5,7 @@
  * no payment. Links to the sponsor's promoted event (ctaUrl) and a T&C stub.
  */
 import { Gift, ExternalLink, CheckCircle2 } from 'lucide-vue-next'
+import { GiveawayEntrySchema, validateForm } from '#shared/validation'
 
 interface Giveaway {
   id: string
@@ -35,15 +36,16 @@ const error = ref<string | null>(null)
 
 async function enter() {
   error.value = null
-  if (!email.value.trim()) {
-    error.value = 'Enter your email to join.'
+  const result = validateForm(GiveawayEntrySchema, { email: email.value })
+  if (!result.success) {
+    error.value = result.error
     return
   }
   entering.value = true
   try {
     const res = await $trpc.giveaway.enter.mutate({
       giveawayId: props.giveaway.id,
-      email: email.value.trim(),
+      ...result.data,
     })
     entered.value = true
     already.value = res.alreadyEntered
@@ -110,7 +112,7 @@ const endsLabel = computed(() => {
           </p>
         </div>
 
-        <form v-else class="flex flex-col gap-2 sm:flex-row" @submit.prevent="enter">
+        <form v-else class="flex flex-col gap-2 sm:flex-row" novalidate @submit.prevent="enter">
           <input
             v-model="email"
             type="email"

@@ -6,6 +6,7 @@
  */
 import { CheckCircle2, Video, X } from 'lucide-vue-next'
 import { parseVideoUrl } from '~/lib/videoEmbed'
+import { VideoSubmissionSchema, validateForm } from '#shared/validation'
 
 const props = defineProps<{
   citySlug: string
@@ -57,22 +58,22 @@ const urlLooksValid = computed(() => provider.value !== null && provider.value !
 
 async function submit() {
   error.value = null
-  if (!title.value.trim() || !videoUrl.value.trim() || !email.value.trim()) {
-    error.value = 'Please fill in title, video URL, and email.'
+  const result = validateForm(VideoSubmissionSchema, {
+    title: title.value,
+    videoUrl: videoUrl.value,
+    danceStyle: danceStyle.value,
+    email: email.value,
+  })
+  if (!result.success) {
+    error.value = result.error
     return
   }
   submitting.value = true
   try {
-    await $trpc.cityVideo.submit.mutate({
-      citySlug: props.citySlug,
-      title: title.value.trim(),
-      videoUrl: videoUrl.value.trim(),
-      danceStyle: danceStyle.value.trim() || undefined,
-      email: email.value.trim(),
-    })
+    await $trpc.cityVideo.submit.mutate({ citySlug: props.citySlug, ...result.data })
     submitted.value = true
     // CUJ: "Vote on videos" — a video was submitted to the competition.
-    useTrack().track('video_submit', { city: props.citySlug, dance_style: danceStyle.value.trim() || undefined })
+    useTrack().track('video_submit', { city: props.citySlug, dance_style: result.data.danceStyle })
     emit('submitted')
   } catch (e: any) {
     error.value = e?.message ?? 'Could not submit your video. Check the URL and try again.'
@@ -149,7 +150,7 @@ function reset() {
       </div>
     </div>
 
-    <form v-else class="space-y-3" @submit.prevent="submit">
+    <form v-else class="space-y-3" novalidate @submit.prevent="submit">
       <div class="flex items-start justify-between gap-3">
         <div>
           <div class="text-[10px] uppercase tracking-[0.3em] font-bold" :style="{ color: accent }">Enter the competition</div>

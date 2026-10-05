@@ -5,6 +5,7 @@
  * tRPC client is client-only). 2026 tropical style.
  */
 import { Star } from 'lucide-vue-next'
+import { ReviewSchema, validateForm } from '#shared/validation'
 
 const props = defineProps<{
   targetType: 'festival' | 'venue' | 'artist' | 'organizer' | 'event'
@@ -33,6 +34,8 @@ onMounted(load)
 
 async function submit() {
   err.value = ''
+  const result = validateForm(ReviewSchema, form)
+  if (!result.success) { err.value = result.error; return }
   submitting.value = true
   try {
     await $trpc.review.create.mutate({
@@ -40,8 +43,7 @@ async function submit() {
       targetSlug: props.targetSlug,
       targetName: props.targetName,
       citySlug: props.citySlug,
-      rating: form.rating,
-      text: form.text.trim() || undefined,
+      ...result.data,
     })
     showForm.value = false
     form.text = ''

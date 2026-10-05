@@ -10,6 +10,7 @@
  * useReportContext). Styled in the 2026 tropical aesthetic to match SignUpModal.
  */
 import { Bug, X, Check, Loader2, ImageIcon } from 'lucide-vue-next'
+import { ReportProblemSchema, validateForm } from '#shared/validation'
 
 const { collect } = useReportContext()
 const { isSignedIn } = useAuth()
@@ -74,16 +75,15 @@ watch(open, (v) => {
 
 async function submit() {
   error.value = ''
-  const desc = description.value.trim()
-  if (!desc) {
-    error.value = 'Please describe what went wrong.'
+  const result = validateForm(ReportProblemSchema, { description: description.value, email: email.value })
+  if (!result.success) {
+    error.value = result.error
     return
   }
   submitting.value = true
   try {
     const res = await $trpc.feedback.report.mutate({
-      description: desc,
-      email: email.value.trim() || undefined,
+      ...result.data,
       context: collect(),
       screenshot: screenshot.value || undefined,
     })
@@ -156,7 +156,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
             </DialogDescription>
           </DialogHeader>
 
-          <form class="space-y-4 pt-4" @submit.prevent="submit">
+          <form class="space-y-4 pt-4" novalidate @submit.prevent="submit">
             <div class="space-y-1.5">
               <label for="report-desc" class="text-sm font-bold" style="color:#3b1f0d;">What happened?</label>
               <textarea

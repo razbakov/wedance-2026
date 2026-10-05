@@ -18,6 +18,15 @@ import {
   Youtube,
   Image,
 } from 'lucide-vue-next'
+import type { GenericSchema, InferInput } from 'valibot'
+import {
+  FestivalArtistSchema,
+  FestivalBasicsSchema,
+  FestivalTicketSchema,
+  FestivalVenueSchema,
+  FestivalWorkshopSchema,
+  validateForm,
+} from '#shared/validation'
 
 definePageMeta({ layout: false })
 
@@ -53,37 +62,25 @@ const currentStepIndex = computed(() => steps.findIndex(s => s.id === currentSte
 // Per-step validation
 const stepErrors = ref<string[]>([])
 
+function formErrors<S extends GenericSchema>(schema: S, input: InferInput<S>): string[] {
+  const result = validateForm(schema, input)
+  return result.success ? [] : result.errors
+}
+
+// "Artist 2: name is required."
+function rowErrors<S extends GenericSchema>(label: string, schema: S, rows: InferInput<S>[]): string[] {
+  return rows.flatMap((row, i) => formErrors(schema, row).map(message => `${label} ${i + 1}: ${message}`))
+}
+
 function validateStep(stepId: StepId): string[] {
-  const errors: string[] = []
   switch (stepId) {
-    case 'basics':
-      if (!festival.name.trim()) errors.push('Festival name is required.')
-      if (!festival.startDate) errors.push('Start date is required.')
-      if (!festival.endDate) errors.push('End date is required.')
-      if (festival.startDate && festival.endDate && festival.endDate < festival.startDate)
-        errors.push('End date must be on or after start date.')
-      break
-    case 'venue':
-      if (!venue.name.trim()) errors.push('Venue name is required.')
-      if (!venue.address.trim()) errors.push('Venue address is required.')
-      break
-    case 'lineup':
-      teachers.value.forEach((t, i) => {
-        if (!t.name.trim()) errors.push(`Artist ${i + 1}: name is required.`)
-      })
-      break
-    case 'schedule':
-      workshops.value.forEach((w, i) => {
-        if (!w.title.trim()) errors.push(`Workshop ${i + 1}: title is required.`)
-      })
-      break
-    case 'tickets':
-      tickets.value.forEach((t, i) => {
-        if (!t.name.trim()) errors.push(`Ticket ${i + 1}: name is required.`)
-      })
-      break
+    case 'basics': return formErrors(FestivalBasicsSchema, festival)
+    case 'venue': return formErrors(FestivalVenueSchema, venue)
+    case 'lineup': return rowErrors('Artist', FestivalArtistSchema, teachers.value)
+    case 'schedule': return rowErrors('Workshop', FestivalWorkshopSchema, workshops.value)
+    case 'tickets': return rowErrors('Ticket', FestivalTicketSchema, tickets.value)
+    default: return []
   }
-  return errors
 }
 
 function goToStep(stepId: StepId) {

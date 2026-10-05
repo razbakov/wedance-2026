@@ -6,6 +6,7 @@
  * Protected: signed-out users are sent home. 2026 tropical style.
  */
 import { Check, ExternalLink, AlertTriangle } from 'lucide-vue-next'
+import { ChangePasswordSchema, ProfileSettingsSchema, deleteAccountSchema, validateForm } from '#shared/validation'
 
 definePageMeta({ layout: false })
 
@@ -79,21 +80,11 @@ function toggleStyle(style: string) {
 async function save() {
   error.value = ''
   saved.value = false
-  if (!form.name.trim()) { error.value = 'Name is required.'; return }
+  const result = validateForm(ProfileSettingsSchema, form)
+  if (!result.success) { error.value = result.error; return }
   loading.value = true
   try {
-    await updateProfile({
-      name: form.name.trim(),
-      city: form.city.trim(),
-      danceStyles: form.danceStyles,
-      role: form.role || undefined,
-      photo: form.photo.trim(),
-      bio: form.bio.trim(),
-      instagram: form.instagram.trim(),
-      youtube: form.youtube.trim(),
-      website: form.website.trim(),
-      profilePublic: form.profilePublic,
-    })
+    await updateProfile(result.data)
     saved.value = true
   } catch (e: unknown) {
     error.value = (e as { message?: string })?.message || 'Could not save. Please try again.'
@@ -105,10 +96,11 @@ async function save() {
 async function submitPassword() {
   pwError.value = ''
   pwSaved.value = false
-  if (pw.next.length < 8) { pwError.value = 'New password must be at least 8 characters.'; return }
+  const result = validateForm(ChangePasswordSchema, pw)
+  if (!result.success) { pwError.value = result.error; return }
   pwLoading.value = true
   try {
-    await changePassword({ currentPassword: pw.current, newPassword: pw.next })
+    await changePassword({ currentPassword: result.data.current, newPassword: result.data.next })
     pwSaved.value = true
     pw.current = ''
     pw.next = ''
@@ -121,8 +113,9 @@ async function submitPassword() {
 
 async function submitDelete() {
   deleteError.value = ''
-  if (deleteConfirmInput.value !== dancerName.value) {
-    deleteError.value = `Please type "${dancerName.value}" to confirm.`
+  const result = validateForm(deleteAccountSchema(dancerName.value), { confirmation: deleteConfirmInput.value })
+  if (!result.success) {
+    deleteError.value = result.error
     return
   }
   deleteLoading.value = true

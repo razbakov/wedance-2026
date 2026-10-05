@@ -5,6 +5,7 @@
  * communityGroup.listAll / .create (adminProcedure).
  */
 import { Loader2, Plus, ExternalLink, RotateCcw, CheckCircle2 } from 'lucide-vue-next'
+import { CommunityGroupSchema, validateForm } from '#shared/validation'
 
 definePageMeta({ layout: 'admin' })
 useHead({ title: 'Admin: Community groups | WeDance' })
@@ -52,21 +53,14 @@ function resetForm() {
 
 async function submit() {
   error.value = null
-  if (!form.citySlug || !form.name || !form.inviteUrl) {
-    error.value = 'Fill city, name and invite URL.'
+  const result = validateForm(CommunityGroupSchema, form)
+  if (!result.success) {
+    error.value = result.error
     return
   }
   saving.value = true
   try {
-    await $trpc.communityGroup.create.mutate({
-      citySlug: form.citySlug.trim(),
-      name: form.name.trim(),
-      platform: form.platform,
-      inviteUrl: form.inviteUrl.trim(),
-      styles: form.styles.split(',').map(s => s.trim()).filter(Boolean),
-      source: form.source.trim() || undefined,
-      verified: form.verified,
-    })
+    await $trpc.communityGroup.create.mutate(result.data)
     resetForm()
     showForm.value = false
     await load()

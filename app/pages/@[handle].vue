@@ -12,6 +12,7 @@
  *   - 'commercial' → a rentable venue: bookable spaces with a request flow.
  */
 import { eventLocalDate, eventLocalTime } from '#shared/utils/eventTime'
+import { bookingRequestSchema, validateForm } from '#shared/validation'
 import { MapPin, Instagram, Youtube, Globe, Facebook, LayoutGrid, ArrowLeft, Check, Calendar, ScrollText, ShieldCheck, Trees, Plus } from 'lucide-vue-next'
 
 definePageMeta({ layout: false })
@@ -121,20 +122,12 @@ function onCalendarBook(slot: { spaceId: string; spaceName: string; date: string
 }
 async function submitBooking() {
   booking.err = ''
-  if (!booking.title.trim()) { booking.err = 'Give your event a name.'; return }
-  if (!booking.email.trim()) { booking.err = 'Add an email so the moderator can reply.'; return }
-  if (!booking.terms) { booking.err = isFree.value ? 'Please agree to the community guidelines.' : 'Please accept the booking terms.'; return }
+  const result = validateForm(bookingRequestSchema({ free: isFree.value }), booking)
+  if (!result.success) { booking.err = result.error; return }
   booking.busy = true
   try {
-    await $trpc.booking.request.mutate({
-      spaceId: booking.spaceId, email: booking.email.trim(), name: booking.name.trim() || undefined,
-      title: booking.title.trim(), eventType: booking.eventType, styles: booking.styles,
-      artists: booking.artists.split(',').map(a => a.trim()).filter(Boolean),
-      organizerHandle: booking.organizerHandle.trim() || undefined,
-      eventDate: booking.eventDate || undefined, startTime: booking.startTime || undefined, endTime: booking.endTime || undefined,
-      headcount: booking.headcount ? Number(booking.headcount) : undefined,
-      message: booking.message.trim() || undefined, termsAccepted: booking.terms,
-    })
+    const { terms, ...request } = result.data
+    await $trpc.booking.request.mutate({ ...request, termsAccepted: terms })
     booking.done = true
     // CUJ: "Book a venue space" — request submitted.
     useTrack().track('booking_request_submitted', { space_id: booking.spaceId, event_type: booking.eventType, free: isFree.value })

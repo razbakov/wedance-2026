@@ -6,6 +6,7 @@
  * gigs is post-driven — "I need X" or "I offer Y".
  */
 import { ArrowRight, MapPin, Calendar, Wallet, Plus, Megaphone, Hand, X } from 'lucide-vue-next'
+import { GigSchema, validateForm } from '#shared/validation'
 
 definePageMeta({ layout: false })
 
@@ -104,18 +105,17 @@ async function submitForm() {
   }
 
   formError.value = ''
+  // The schema trims text and turns blank optional fields into undefined.
+  const result = validateForm(GigSchema, formData)
+  if (!result.success) {
+    formError.value = result.error
+    return
+  }
   submittingForm.value = true
 
   try {
     // Mutation through the tRPC client so the session Bearer token is sent.
-    // Empty optional fields become undefined (zod rejects '' for .url()).
-    await $trpc.gigs.create.mutate({
-      ...formData,
-      styles: [...formData.styles],
-      deadline: formData.deadline || undefined,
-      contactUrl: formData.contactUrl || undefined,
-      entityUrl: formData.entityUrl || undefined,
-    })
+    await $trpc.gigs.create.mutate(result.data)
 
     formSuccess.value = true
     formData.kind = 'offer'
@@ -267,7 +267,7 @@ function getAccent(category: string): string {
         </button>
       </div>
 
-      <form class="space-y-4" @submit.prevent="submitForm">
+      <form class="space-y-4" novalidate @submit.prevent="submitForm">
         <!-- Category -->
         <div>
           <label class="block text-sm font-bold mb-1" style="color:#5b3a1d;">Service category</label>

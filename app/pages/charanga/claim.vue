@@ -19,6 +19,7 @@
  * fires automatically.
  */
 import { ArrowRight, Ticket, Mail, AlertCircle } from 'lucide-vue-next'
+import { ClaimTicketSchema, validateForm } from '#shared/validation'
 
 const { $trpc } = useNuxtApp()
 const route = useRoute()
@@ -99,14 +100,15 @@ watch(authLoading, (loading) => {
 async function handleSignIn() {
   signInError.value = ''
 
-  if (!signInEmail.value.trim() || !signInEmail.value.includes('@')) {
-    signInError.value = 'Please enter the email you used to buy your ticket.'
+  const result = validateForm(ClaimTicketSchema, { email: signInEmail.value })
+  if (!result.success) {
+    signInError.value = result.error
     return
   }
 
   signInLoading.value = true
   try {
-    await requestMagicLink({ email: signInEmail.value.trim() })
+    await requestMagicLink(result.data)
     signInSent.value = true
   } catch (e: any) {
     signInError.value = e?.message || 'Failed to send magic link. Please try again.'
@@ -235,7 +237,7 @@ async function handleSignIn() {
         <!-- Sign-in form -->
         <div class="rounded-lg border bg-card p-5 shadow-sm">
           <template v-if="!signInSent">
-            <form class="space-y-4" @submit.prevent="handleSignIn">
+            <form class="space-y-4" novalidate @submit.prevent="handleSignIn">
               <div class="space-y-2">
                 <label for="claim-email" class="text-sm font-medium">Email</label>
                 <input

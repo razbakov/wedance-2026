@@ -14,6 +14,7 @@
  * 2026 tropical style: Playfair/Caveat, #fbf5ea / #3b1f0d / #dc2626.
  */
 import { ArrowRight, ArrowLeft, Check } from 'lucide-vue-next'
+import { onboardingDetailsSchema, validateForm } from '#shared/validation'
 
 definePageMeta({ layout: false })
 
@@ -113,31 +114,18 @@ function toggleStyle(style: string) {
 
 async function finish() {
   if (!chosen.value) return
-  const c = chosen.value.collects
 
-  // Light validation only on fields this persona collects.
-  if (c.city && !form.city.trim()) {
-    error.value = 'Please tell us your city.'
-    return
-  }
-  if (c.styles && form.danceStyles.length === 0) {
-    error.value = 'Pick at least one dance style.'
-    return
-  }
-  if (c.role && !form.role) {
-    error.value = 'Choose lead, follow, or both.'
+  // Validates only the fields this persona collects; the rest come back undefined.
+  const result = validateForm(onboardingDetailsSchema(chosen.value.collects), form)
+  if (!result.success) {
+    error.value = result.error
     return
   }
 
   loading.value = true
   error.value = ''
   try {
-    await completeOnboarding({
-      intent: chosen.value.key,
-      city: c.city ? form.city.trim() : undefined,
-      danceStyles: c.styles ? [...form.danceStyles] : undefined,
-      role: c.role ? (form.role || undefined) : undefined,
-    })
+    await completeOnboarding({ intent: chosen.value.key, ...result.data })
     await navigateTo(chosen.value.landing)
   } catch (e: any) {
     error.value = e?.message || 'Something went wrong. Please try again.'
@@ -250,7 +238,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
           </p>
         </div>
 
-        <form class="space-y-6" @submit.prevent="finish">
+        <form class="space-y-6" novalidate @submit.prevent="finish">
           <!-- City -->
           <div v-if="chosen?.collects.city" class="space-y-1.5">
             <label for="onb-city" class="text-sm font-bold" style="color:#3b1f0d;">Your city</label>

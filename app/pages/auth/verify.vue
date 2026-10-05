@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ResetPasswordSchema, validateForm } from '#shared/validation'
+
 definePageMeta({ layout: false })
 
 const route = useRoute()
@@ -53,23 +55,16 @@ onMounted(async () => {
 async function handleResetPassword() {
   resetError.value = ''
 
-  if (!newPassword.value) {
-    resetError.value = 'Password is required.'
-    return
-  }
-  if (newPassword.value.length < 8) {
-    resetError.value = 'Password must be at least 8 characters.'
-    return
-  }
-  if (newPassword.value !== confirmPassword.value) {
-    resetError.value = 'Passwords do not match.'
+  const validation = validateForm(ResetPasswordSchema, { password: newPassword.value, confirmPassword: confirmPassword.value })
+  if (!validation.success) {
+    resetError.value = validation.error
     return
   }
 
   const token = route.query.token as string
   resetLoading.value = true
   try {
-    const result = await resetPassword(token, newPassword.value)
+    const result = await resetPassword(token, validation.data.password)
     dancerName.value = result.name
     status.value = 'success'
 
@@ -131,7 +126,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
             </p>
           </div>
 
-          <form class="space-y-4 pt-2" @submit.prevent="handleResetPassword">
+          <form class="space-y-4 pt-2" novalidate @submit.prevent="handleResetPassword">
             <div class="space-y-1.5">
               <label for="new-password" class="text-sm font-bold" style="color:#3b1f0d;">New password</label>
               <div class="relative">
