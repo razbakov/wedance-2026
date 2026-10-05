@@ -9,6 +9,7 @@ export const planRouter = router({
       .select({
         itemType: planItems.itemType,
         itemId: planItems.itemId,
+        metadata: planItems.metadata,
       })
       .from(planItems)
       .where(eq(planItems.dancerId, ctx.dancerId))
@@ -17,8 +18,9 @@ export const planRouter = router({
   add: protectedProcedure
     .input(
       z.object({
-        itemType: z.enum(['festival', 'event']),
+        itemType: z.enum(['festival', 'event', 'goal']),
         itemId: z.string(),
+        metadata: z.record(z.string(), z.string()).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -28,6 +30,7 @@ export const planRouter = router({
           dancerId: ctx.dancerId,
           itemType: input.itemType,
           itemId: input.itemId,
+          metadata: input.metadata ?? null,
         })
         .onConflictDoNothing()
     }),
@@ -35,7 +38,7 @@ export const planRouter = router({
   remove: protectedProcedure
     .input(
       z.object({
-        itemType: z.enum(['festival', 'event']),
+        itemType: z.enum(['festival', 'event', 'goal']),
         itemId: z.string(),
       }),
     )
