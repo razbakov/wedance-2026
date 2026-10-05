@@ -46,10 +46,10 @@ async function selectCards(db: any, where: SQL | undefined, limit = 1000, extra:
     return await run({ ...cardColumns, ...extra, artists: events.artists })
   } catch (e: any) {
     if (!missingColumn(e)) throw e
-    try { return (await run({ ...cardColumns, ...extra })).map((r: any) => ({ ...r, artists: [] as string[] })) } catch (e2: any) {
-      if (missingColumn(e2)) return []
-      throw e2
-    }
+    // Retry without the `artists` SELECT column. If this still fails (e.g. the
+    // WHERE clause references a missing column), let it throw so the caller can
+    // handle it (byProfile retries with who(false)).
+    return (await run({ ...cardColumns, ...extra })).map((r: any) => ({ ...r, artists: [] as string[] }))
   }
 }
 

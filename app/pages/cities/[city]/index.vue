@@ -295,10 +295,10 @@ const filteredEvents = computed(() => {
     } else if (activeTab.value === 'djs') {
       result = result.filter(e => e.djId === id)
     } else if (activeTab.value === 'organisers') {
-      result = result.filter(e => e.organizerId === id)
+      result = result.filter(e => e.organizerId === id || e.venueId === id)
     } else {
       const venueName = id.replace(/^venue:/, '')
-      result = result.filter(e => e.venue === venueName || e.venueId === id)
+      result = result.filter(e => e.venue === venueName || e.venueId === id || e.organizerId === id)
     }
   }
   return result
