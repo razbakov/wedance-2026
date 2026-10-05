@@ -219,7 +219,7 @@ useHead(() => ({
         <div class="flex items-center gap-2 mb-3"><Calendar class="w-5 h-5" style="color:#dc2626;" /><h2 class="text-2xl" style="font-family:'Playfair Display', serif; color:#3b1f0d;">Scheduled</h2></div>
         <EventSchedule v-if="scheduleCards.length" :events="visibleScheduleCards" />
         <button v-if="scheduleCards.length > scheduleLimit" type="button" class="mt-4 text-xs font-bold underline" style="color:#dc2626;" @click="scheduleLimit += 24">Show more ({{ scheduleCards.length - scheduleLimit }} more)</button>
-        <p v-else class="mt-3 text-sm italic" style="color:#9a5614;">{{ spaces.length ? 'Nothing scheduled yet — book the first slot.' : 'Nothing scheduled yet.' }}</p>
+        <p v-if="!scheduleCards.length" class="mt-3 text-sm italic" style="color:#9a5614;">{{ spaces.length ? 'Nothing scheduled yet — book the first slot.' : 'Nothing scheduled yet.' }}</p>
       </section>
 
       <!-- Book a (free) slot -->
