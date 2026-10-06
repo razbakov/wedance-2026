@@ -220,7 +220,7 @@ function toggleTeacherFilter(id: string) {
 }
 
 // Auth state
-const { isSignedIn } = useAuth()
+const { isSignedIn, danceStyles: myDanceStyles, role: myRole, city: myCity, onboardedAt, completeOnboarding, updateProfile } = useAuth()
 
 // Mock friends (shown after sign-in)
 const mockFriends: FestivalFriend[] = [
@@ -421,10 +421,50 @@ const showPaymentSuccess = ref(false)
 const paymentSuccessInfo = ref<{ festivalName: string; ticketName: string; amount: number } | null>(null)
 let paymentSuccessTimer: ReturnType<typeof setTimeout> | undefined
 
+// Profile nudge after ticket purchase
+const NUDGE_DANCE_STYLES = ['Salsa', 'Bachata', 'Kizomba', 'Zouk', 'Timba', 'Semba', 'Afro-Cuban', 'Reggaeton', 'Cha-Cha']
+const profileIncomplete = computed(() =>
+  isSignedIn.value && (!myDanceStyles.value?.length || !myRole.value),
+)
+const showProfileNudge = ref(false)
+const nudgeForm = reactive({
+  danceStyles: [] as string[],
+  role: '' as '' | 'lead' | 'follow' | 'both',
+})
+const nudgeSaving = ref(false)
+
+function toggleNudgeStyle(style: string) {
+  const i = nudgeForm.danceStyles.indexOf(style)
+  if (i >= 0) nudgeForm.danceStyles.splice(i, 1)
+  else nudgeForm.danceStyles.push(style)
+}
+
+async function submitNudge() {
+  if (!nudgeForm.danceStyles.length || !nudgeForm.role) return
+  nudgeSaving.value = true
+  try {
+    if (onboardedAt.value) {
+      await updateProfile({ danceStyles: [...nudgeForm.danceStyles], role: nudgeForm.role })
+    } else {
+      await completeOnboarding({ intent: 'festivals', danceStyles: [...nudgeForm.danceStyles], role: nudgeForm.role })
+    }
+    showProfileNudge.value = false
+  } catch {
+    // best-effort — let the user continue to the festival page
+    showProfileNudge.value = false
+  } finally {
+    nudgeSaving.value = false
+  }
+}
+
 function dismissPaymentSuccess() {
   showPaymentSuccess.value = false
   paymentSuccessInfo.value = null
   if (paymentSuccessTimer) clearTimeout(paymentSuccessTimer)
+  // After dismissing payment success, show the profile nudge if incomplete
+  if (profileIncomplete.value) {
+    showProfileNudge.value = true
+  }
 }
 
 // Group dinners — fetched from database via composable
@@ -455,7 +495,11 @@ onMounted(async () => {
       paymentSuccessInfo.value = { festivalName: festival.name, ticketName: 'Festival Pass', amount: 0 }
     }
     showPaymentSuccess.value = true
-    paymentSuccessTimer = setTimeout(dismissPaymentSuccess, 8000)
+    // Don't auto-dismiss when profile is incomplete — let the user see the
+    // success, then tap "Let's go" to reach the profile nudge.
+    if (!profileIncomplete.value) {
+      paymentSuccessTimer = setTimeout(dismissPaymentSuccess, 8000)
+    }
 
     // Clean up URL
     router.replace({ query: { ...route.query, payment: undefined } })
@@ -1566,6 +1610,100 @@ useHead({
                 Let's go
                 <ArrowRight class="w-4 h-4" />
               </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- Profile completion nudge (shown after payment success when profile is incomplete) -->
+    <Teleport to="body">
+      <Transition
+        enter-active-class="transition duration-300 ease-out"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="transition duration-200 ease-in"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <div
+          v-if="showProfileNudge"
+          class="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm px-0 sm:px-4"
+        >
+          <div
+            class="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl"
+            style="background:#fbf5ea;"
+          >
+            <!-- Nudge header -->
+            <div class="p-6 sm:p-8 text-center" style="background:linear-gradient(135deg, #dc2626, #ef4444);">
+              <div class="text-2xl font-black text-white" style="font-family:'Playfair Display', serif;">
+                One more step
+              </div>
+              <div class="text-sm text-white/90 mt-1" style="font-family: system-ui, sans-serif;">
+                Help us match you with the right people
+              </div>
+            </div>
+
+            <div class="p-5 sm:p-6">
+              <!-- Dance styles -->
+              <div class="mb-5">
+                <span class="text-sm font-bold block mb-2" style="color:#3b1f0d;">Which dances?</span>
+                <div class="flex flex-wrap gap-2">
+                  <button
+                    v-for="style in NUDGE_DANCE_STYLES"
+                    :key="style"
+                    type="button"
+                    class="inline-flex items-center gap-1 rounded-full px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider transition-colors"
+                    :style="nudgeForm.danceStyles.includes(style)
+                      ? 'background:#dc2626; color:white; border:1px solid #dc2626;'
+                      : 'background:white; color:#5b3a1d; border:1px solid #3b1f0d33;'"
+                    @click="toggleNudgeStyle(style)"
+                  >
+                    <Check v-if="nudgeForm.danceStyles.includes(style)" class="w-3 h-3" />
+                    {{ style }}
+                  </button>
+                </div>
+              </div>
+
+              <!-- Role -->
+              <div class="mb-5">
+                <span class="text-sm font-bold block mb-2" style="color:#3b1f0d;">Do you lead or follow?</span>
+                <div class="flex gap-3">
+                  <label
+                    v-for="r in [{ value: 'lead', label: 'Lead' }, { value: 'follow', label: 'Follow' }, { value: 'both', label: 'Both' }]"
+                    :key="r.value"
+                    class="flex-1 flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-bold cursor-pointer transition-colors"
+                    :style="nudgeForm.role === r.value
+                      ? 'background:#dc2626; color:white; border:1px solid #dc2626;'
+                      : 'background:white; color:#5b3a1d; border:1px solid #3b1f0d33;'"
+                  >
+                    <input v-model="nudgeForm.role" type="radio" name="nudge-role" :value="r.value" class="sr-only">
+                    {{ r.label }}
+                  </label>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                :disabled="!nudgeForm.danceStyles.length || !nudgeForm.role || nudgeSaving"
+                class="inline-flex items-center justify-center gap-2 w-full py-3.5 rounded-full text-white text-sm font-bold uppercase tracking-wider disabled:opacity-60"
+                style="background:#dc2626; box-shadow: 0 3px 0 -1px #b91c1c;"
+                @click="submitNudge"
+              >
+                {{ nudgeSaving ? 'Saving…' : 'Save & start planning' }}
+                <ArrowRight v-if="!nudgeSaving" class="w-4 h-4" />
+              </button>
+
+              <div class="text-center mt-3">
+                <button
+                  type="button"
+                  class="text-sm underline"
+                  style="color:#9a5614; font-family: system-ui, sans-serif;"
+                  @click="showProfileNudge = false"
+                >
+                  Skip for now
+                </button>
+              </div>
             </div>
           </div>
         </div>
