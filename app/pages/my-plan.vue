@@ -836,7 +836,9 @@ function enrollClass(e: CityEvent) {
   const { $trpc } = useNuxtApp()
   $trpc.plan.add
     .mutate({ itemType: 'event', itemId: e.id, metadata: { type: 'class', style: e.style, school: e.organizer, venue: e.venue, weekday: e.day, time: e.time } })
-    .catch(() => {})
+    .catch((err) => {
+      console.warn('[my-plan] enrollCourse failed:', err)
+    })
 
   // Auto-close picker if no more classes available
   if (availableClasses.value.length === 0) {
@@ -849,13 +851,15 @@ function unenrollCourse(id: string) {
   const { $trpc } = useNuxtApp()
   $trpc.plan.remove
     .mutate({ itemType: 'event', itemId: id })
-    .catch(() => {})
+    .catch((err) => {
+      console.warn('[my-plan] unenrollCourse failed:', err)
+    })
 }
 
 // Load enrolled courses from the DB on mount.
 function loadCoursesFromDb() {
   const { $trpc } = useNuxtApp()
-  $trpc.plan.list
+  $trpc.plan.listDetailed
     .query()
     .then((rows) => {
       const dbCourses: Course[] = []
@@ -883,7 +887,9 @@ function loadCoursesFromDb() {
         courses.value = dbCourses
       }
     })
-    .catch(() => {})
+    .catch((err) => {
+      console.warn('[my-plan] loadCoursesFromDb failed:', err)
+    })
 }
 
 // -----------------------------------------------------------------------

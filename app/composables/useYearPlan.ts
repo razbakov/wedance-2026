@@ -4,7 +4,7 @@ const yearDrawerOpen = ref(false)
 export function useYearPlan() {
   function loadFromDb() {
     const { $trpc } = useNuxtApp()
-    $trpc.plan.list
+    return $trpc.plan.list
       .query()
       .then((rows) => {
         const ids = new Set<string>()
@@ -13,8 +13,8 @@ export function useYearPlan() {
         }
         yearPlanIds.value = ids
       })
-      .catch(() => {
-        /* not signed in or network error — keep local state */
+      .catch((err) => {
+        console.warn('[useYearPlan] loadFromDb failed:', err)
       })
   }
 
@@ -30,7 +30,9 @@ export function useYearPlan() {
     const { $trpc } = useNuxtApp()
     $trpc.plan.add
       .mutate({ itemType: 'festival', itemId: slug })
-      .catch(() => {})
+      .catch((err) => {
+        console.warn('[useYearPlan] addFestival failed:', err)
+      })
   }
 
   function removeFestival(slug: string) {
@@ -40,7 +42,9 @@ export function useYearPlan() {
     const { $trpc } = useNuxtApp()
     $trpc.plan.remove
       .mutate({ itemType: 'festival', itemId: slug })
-      .catch(() => {})
+      .catch((err) => {
+        console.warn('[useYearPlan] removeFestival failed:', err)
+      })
   }
 
   function toggleFestival(slug: string) {
