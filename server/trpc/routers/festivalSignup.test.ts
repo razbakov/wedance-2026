@@ -389,12 +389,12 @@ describe('festivalSignup.ticketCheckout', () => {
     await expect(
       caller.festivalSignup.ticketCheckout({
         festivalSlug: SLUG,
-        ticketName: 'Full Pass',
+        ticketNames: ['Full Pass'],
       }),
     ).rejects.toThrow(/not signed in/i)
   })
 
-  it('rejects empty ticket name', async () => {
+  it('rejects empty ticket names array', async () => {
     const db = new FakeDb()
     db.seedFestival(SLUG)
     const me = db.seedDancer({ name: 'Me' })
@@ -402,7 +402,20 @@ describe('festivalSignup.ticketCheckout', () => {
     await expect(
       caller.festivalSignup.ticketCheckout({
         festivalSlug: SLUG,
-        ticketName: '',
+        ticketNames: [],
+      }),
+    ).rejects.toThrow()
+  })
+
+  it('rejects empty string in ticket names', async () => {
+    const db = new FakeDb()
+    db.seedFestival(SLUG)
+    const me = db.seedDancer({ name: 'Me' })
+    const caller = makeCaller(db, { dancerId: me })
+    await expect(
+      caller.festivalSignup.ticketCheckout({
+        festivalSlug: SLUG,
+        ticketNames: [''],
       }),
     ).rejects.toThrow()
   })
@@ -415,7 +428,7 @@ describe('festivalSignup.ticketCheckout', () => {
     await expect(
       caller.festivalSignup.ticketCheckout({
         festivalSlug: SLUG,
-        ticketName: 'Fake VIP Pass',
+        ticketNames: ['Fake VIP Pass'],
       }),
     ).rejects.toThrow(/not found/i)
   })

@@ -814,19 +814,22 @@ onBeforeUnmount(() => {
 // the value prop; `startTicketCheckout` is the single place to plug
 // the real createCheckoutSession call.
 type TicketOption = NonNullable<typeof festival.tickets>[number]
-const selectedTicket = ref<TicketOption | null>(null)
+const selectedTickets = ref<TicketOption[]>([])
 const showCheckout = ref(false)
 const checkoutLoading = ref(false)
 
+const checkoutTotal = computed(() => selectedTickets.value.reduce((s, t) => s + t.price, 0))
+const checkoutLabel = computed(() => selectedTickets.value.map(t => t.name).join(' + '))
+
 function chooseTicket(ticket: TicketOption) {
-  selectedTicket.value = ticket
+  selectedTickets.value = [ticket]
   showCheckout.value = true
 }
 
 const checkoutError = ref('')
 
 async function startTicketCheckout() {
-  if (!selectedTicket.value) return
+  if (selectedTickets.value.length === 0) return
   if (!isSignedIn.value) {
     // Buying = joining the wall, so we need an account first.
     signUpAction.value = 'ticket'
@@ -837,20 +840,20 @@ async function startTicketCheckout() {
   checkoutError.value = ''
   useTrack().track('ticket_cta_click', {
     festival: festival.slug,
-    ticket: selectedTicket.value.name,
-    amount: selectedTicket.value.price,
+    ticket: checkoutLabel.value,
+    amount: checkoutTotal.value,
   })
   try {
     const { $trpc: trpc } = useNuxtApp()
     const res = await trpc.festivalSignup.ticketCheckout.mutate({
       festivalSlug: festival.slug,
-      ticketName: selectedTicket.value.name,
+      ticketNames: selectedTickets.value.map(t => t.name),
     })
     if (res.checkoutUrl) {
       sessionStorage.setItem('wedance_checkout', JSON.stringify({
         festivalName: festival.name,
-        ticketName: selectedTicket.value!.name,
-        amount: selectedTicket.value!.price,
+        ticketName: checkoutLabel.value,
+        amount: checkoutTotal.value,
       }))
       window.location.href = res.checkoutUrl
     }
@@ -989,8 +992,10 @@ const recommendedNames = computed(() => new Set((recommendation.value?.tickets ?
 function getRecommendedPass() {
   const rec = recommendation.value
   if (!rec) return
-  const buyable = rec.tickets.find((t) => !t.soldOut) ?? rec.tickets[0]
-  if (buyable) chooseTicket(buyable)
+  const buyable = rec.tickets.filter((t) => !t.soldOut)
+  if (buyable.length === 0) return
+  selectedTickets.value = buyable
+  showCheckout.value = true
 }
 
 // Which grid card gets the highlight: the recommended pass(es) once the
@@ -1464,7 +1469,7 @@ useHead({
         leave-to-class="opacity-0"
       >
         <div
-          v-if="showCheckout && selectedTicket"
+          v-if="showCheckout && selectedTickets.length > 0"
           class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm px-0 sm:px-4"
           @click.self="showCheckout = false"
         >
@@ -1482,18 +1487,40 @@ useHead({
                 {{ festival.name }}
               </div>
               <div class="text-xs text-white/85 mt-0.5" style="font-family: system-ui, sans-serif;">
-                {{ selectedTicket.name }}
+                {{ checkoutLabel }}
               </div>
             </div>
 
             <div class="p-5 sm:p-6">
-              <!-- Price row -->
-              <div class="flex items-baseline justify-between pb-4 mb-4 border-b" style="border-color:#3b1f0d15;">
+              <!-- Price rows -->
+              <div
+                v-for="t in selectedTickets"
+                :key="t.name"
+                class="flex items-baseline justify-between"
+                :class="selectedTickets.length > 1 ? 'pb-2' : 'pb-4 mb-4 border-b'"
+                :style="selectedTickets.length > 1 ? '' : 'border-color:#3b1f0d15;'"
+              >
                 <div class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
-                  {{ selectedTicket.name }}
+                  {{ t.name }}
+                </div>
+                <div
+                  :class="selectedTickets.length > 1 ? 'text-lg font-bold' : 'text-3xl font-black'"
+                  style="color:#3b1f0d; font-family:'Playfair Display', serif;"
+                >
+                  €{{ t.price }}
+                </div>
+              </div>
+              <!-- Combo total -->
+              <div
+                v-if="selectedTickets.length > 1"
+                class="flex items-baseline justify-between pt-2 pb-4 mb-4 border-t border-b"
+                style="border-color:#3b1f0d15;"
+              >
+                <div class="text-sm font-bold" style="color:#3b1f0d; font-family: system-ui, sans-serif;">
+                  Total
                 </div>
                 <div class="text-3xl font-black" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
-                  €{{ selectedTicket.price }}
+                  €{{ checkoutTotal }}
                 </div>
               </div>
 
@@ -1501,7 +1528,7 @@ useHead({
               <ul class="space-y-2 mb-5 text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
                 <li class="flex items-start gap-2">
                   <Check class="w-4 h-4 shrink-0 mt-0.5" style="color:#16a34a;" />
-                  <span v-if="selectedTicket.description">{{ selectedTicket.description }}</span>
+                  <span v-if="selectedTickets.length === 1 && selectedTickets[0].description">{{ selectedTickets[0].description }}</span>
                   <span v-else>Access to {{ festival.name }}</span>
                 </li>
                 <li class="flex items-start gap-2">
@@ -1526,8 +1553,8 @@ useHead({
                 @click="startTicketCheckout"
               >
                 <template v-if="checkoutLoading">Taking you to payment…</template>
-                <template v-else-if="!isSignedIn">Sign in &amp; pay €{{ selectedTicket.price }}</template>
-                <template v-else>Pay €{{ selectedTicket.price }} <ArrowRight class="w-4 h-4" /></template>
+                <template v-else-if="!isSignedIn">Sign in &amp; pay €{{ checkoutTotal }}</template>
+                <template v-else>Pay €{{ checkoutTotal }} <ArrowRight class="w-4 h-4" /></template>
               </button>
 
               <div class="mt-3 text-center text-xs" style="color:#9a5614; font-family:'Caveat', cursive; font-size:16px;">

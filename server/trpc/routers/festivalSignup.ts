@@ -169,27 +169,32 @@ export const festivalSignupRouter = router({
       return { checkoutUrl: session.url }
     }),
 
-  // One-tap ticket checkout — creates a Stripe Checkout session for a
-  // specific ticket pass. Pre-fills the buyer's email from their account so
-  // signed-in dancers don't re-enter details (AC3 of P713).
+  // One-tap ticket checkout — creates a Stripe Checkout session for one
+  // or more ticket passes (combo support). Pre-fills the buyer's email
+  // from their account so signed-in dancers don't re-enter details.
   //
-  // The price is resolved SERVER-SIDE from the ticket-prices registry —
-  // the client sends only the ticket name, never the amount.  This
-  // prevents price-tampering.
+  // Prices are resolved SERVER-SIDE from the ticket-prices registry —
+  // the client sends only ticket names, never amounts.  This prevents
+  // price-tampering.
   ticketCheckout: protectedProcedure
     .input(z.object({
       festivalSlug: z.string(),
-      ticketName: z.string().min(1).max(200),
+      ticketNames: z.array(z.string().min(1).max(200)).min(1).max(10),
     }))
     .mutation(async ({ ctx, input }) => {
-      // Resolve the ticket price server-side.
-      const ticket = getTicketPriceCents(input.festivalSlug, input.ticketName)
-      if (!ticket) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Ticket not found' })
-      }
-      if (ticket.soldOut) {
-        throw new TRPCError({ code: 'BAD_REQUEST', message: 'This ticket is sold out' })
-      }
+      // Resolve each ticket price server-side.
+      const resolved = input.ticketNames.map((name) => {
+        const ticket = getTicketPriceCents(input.festivalSlug, name)
+        if (!ticket) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: `Ticket not found: ${name}` })
+        }
+        if (ticket.soldOut) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: `This ticket is sold out: ${name}` })
+        }
+        return { name, priceCents: ticket.priceCents }
+      })
+
+      const totalCents = resolved.reduce((sum, t) => sum + t.priceCents, 0)
 
       const [festival] = await ctx.db
         .select({ id: festivals.id, name: festivals.name })
@@ -216,23 +221,21 @@ export const festivalSignupRouter = router({
       const session = await stripe.checkout.sessions.create({
         mode: 'payment',
         customer_email: dancer.email,
-        line_items: [
-          {
-            price_data: {
-              currency: 'eur',
-              product_data: {
-                name: `${festival.name} — ${input.ticketName}`,
-              },
-              unit_amount: ticket.priceCents,
+        line_items: resolved.map((t) => ({
+          price_data: {
+            currency: 'eur',
+            product_data: {
+              name: `${festival.name} — ${t.name}`,
             },
-            quantity: 1,
+            unit_amount: t.priceCents,
           },
-        ],
+          quantity: 1,
+        })),
         metadata: {
           festivalSlug: input.festivalSlug,
-          ticketName: input.ticketName,
+          ticketName: input.ticketNames.join(', '),
           dancerId: ctx.dancerId,
-          amountCents: String(ticket.priceCents),
+          amountCents: String(totalCents),
         },
         success_url: `${config.siteUrl}/festivals/${input.festivalSlug}?payment=success`,
         cancel_url: `${config.siteUrl}/festivals/${input.festivalSlug}?payment=cancel`,
