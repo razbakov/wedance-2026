@@ -258,6 +258,14 @@ function autoFillPlan() {
     color: STYLE_COLORS[e.style] || '#6b7280',
   }))
 
+  // Persist seeded courses
+  const { $trpc: trpc } = useNuxtApp()
+  for (const e of classEvents.slice(0, 3)) {
+    trpc.plan.add
+      .mutate({ itemType: 'event', itemId: e.id, metadata: { type: 'class', style: e.style, school: e.organizer, venue: e.venue, weekday: e.day, time: e.time } })
+      .catch((err) => { console.warn('[my-plan] autoFill persist course failed:', err) })
+  }
+
   // Socials from type 'social' or 'practica' events (up to 4).
   const socialEvents = matchedEvents.filter(e => e.type === 'social' || e.type === 'practica')
   socials.value = socialEvents.slice(0, 4).map(e => ({
@@ -273,6 +281,13 @@ function autoFillPlan() {
     rsvpd: false,
     color: STYLE_COLORS[e.style] || '#6b7280',
   }))
+
+  // Persist seeded socials
+  for (const e of socialEvents.slice(0, 4)) {
+    trpc.plan.add
+      .mutate({ itemType: 'event', itemId: e.id, metadata: { type: 'social', name: e.name, style: e.style, venue: e.venue, weekday: e.day, time: e.time } })
+      .catch((err) => { console.warn('[my-plan] autoFill persist social failed:', err) })
+  }
 }
 
 function onRemove(slug: string) {
@@ -349,10 +364,11 @@ onMounted(() => {
   if (isSignedIn.value && !previewMode.value && dancerCity.value) {
     fetchHangouts()
   }
-  // Load persisted goals and enrolled courses from DB
+  // Load persisted goals, enrolled courses and socials from DB
   if (isSignedIn.value && !previewMode.value) {
     loadGoalsFromDb()
     loadCoursesFromDb()
+    loadSocialsFromDb()
   }
 })
 
@@ -892,6 +908,40 @@ function loadCoursesFromDb() {
     })
 }
 
+// Load persisted socials from the DB on mount.
+function loadSocialsFromDb() {
+  const { $trpc } = useNuxtApp()
+  $trpc.plan.listDetailed
+    .query()
+    .then((rows) => {
+      const dbSocials: Social[] = []
+      for (const r of rows) {
+        if (r.itemType === 'event' && r.metadata && (r.metadata as Record<string, string>).type === 'social') {
+          const m = r.metadata as Record<string, string>
+          dbSocials.push({
+            id: r.itemId,
+            name: m.name || '',
+            dayLabel: (m.weekday && WEEKDAY_SHORT_ENROLL[m.weekday]) || m.weekday || '',
+            dateISO: '',
+            time: m.time || '',
+            venue: m.venue || '',
+            city: dancerCity.value || '',
+            style: m.style || '',
+            friendsGoing: 0,
+            rsvpd: false,
+            color: (m.style && STYLE_COLORS_ENROLL[m.style]) || '#6b7280',
+          })
+        }
+      }
+      if (dbSocials.length > 0) {
+        socials.value = dbSocials
+      }
+    })
+    .catch((err) => {
+      console.warn('[my-plan] loadSocialsFromDb failed:', err)
+    })
+}
+
 // -----------------------------------------------------------------------
 // SOCIALS · this-week horizon. Fri/Sat/Sun parties + practicas.
 // -----------------------------------------------------------------------
@@ -1398,7 +1448,7 @@ function cardSummary(f: CatalogueEntry) {
     </section>
 
     <!-- SIGNED IN, EMPTY -->
-    <section v-else-if="picked.length === 0" class="max-w-2xl mx-auto px-4 py-10">
+    <section v-else-if="picked.length === 0 && courses.length === 0 && socials.length === 0" class="max-w-2xl mx-auto px-4 py-10">
       <div class="rounded-2xl p-10 text-center border-2 border-dashed" style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);">
         <Search class="w-10 h-10 mx-auto mb-4" style="color:#9a5614;" />
         <p class="text-lg" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
