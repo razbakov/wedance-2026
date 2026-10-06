@@ -2,8 +2,46 @@ import { z } from 'zod'
 import { eq, and, inArray } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import { TRPCError } from '@trpc/server'
-import { router, publicProcedure } from '../trpc'
-import { bookableSpaces, bookingRequests, profiles, availabilitySlots } from '../../database/schema'
+import { router, publicProcedure, protectedProcedure } from '../trpc'
+import { bookableSpaces, bookingRequests, profiles, availabilitySlots, dancers } from '../../database/schema'
+
+// Validates a HH:MM string has realistic hour (00–23) and minute (00–59).
+const timeString = z.string().regex(/^\d{2}:\d{2}$/).refine((v) => {
+  const [h, m] = v.split(':').map(Number)
+  return h >= 0 && h <= 23 && m >= 0 && m <= 59
+}, { message: 'Invalid time — hours must be 00–23, minutes 00–59' })
+
+// Only an admin or the space's elected moderator may manage availability.
+// Always verifies the space exists, even for admins.
+async function requireSpaceOwner(ctx: any, spaceId: string) {
+  const [space] = await ctx.db
+    .select({ profileId: bookableSpaces.profileId })
+    .from(bookableSpaces)
+    .where(eq(bookableSpaces.id, spaceId))
+  if (!space) throw new TRPCError({ code: 'NOT_FOUND', message: 'Space not found.' })
+  if (ctx.isAdmin) return
+  const [profile] = await ctx.db
+    .select({ moderatorHandle: profiles.moderatorHandle })
+    .from(profiles)
+    .where(eq(profiles.id, space.profileId))
+  const [d] = await ctx.db
+    .select({ username: dancers.username })
+    .from(dancers)
+    .where(eq(dancers.id, ctx.dancerId))
+  const handle = (profile?.moderatorHandle || '').replace(/^@/, '')
+  if (!handle || !d?.username || handle !== d.username) {
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'Only an admin or the space moderator can manage availability.' })
+  }
+}
+
+// Parse a YYYY-MM-DD string as a UTC date to get a stable weekday regardless of
+// the server's local timezone.
+function utcDayOfWeek(dateStr: string): number {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const utc = new Date(Date.UTC(y, m - 1, d))
+  const dow = utc.getUTCDay() // 0=Sun
+  return dow === 0 ? 7 : dow   // ISO: 1=Mon … 7=Sun
+}
 
 /**
  * Booking requests — connector model (WeDance holds no money). An organizer
@@ -122,8 +160,8 @@ export const bookingRouter = router({
       // Resolved to organizerId below; unknown/blank handles are simply ignored.
       organizerHandle: z.string().max(160).optional(),
       eventDate: z.string().optional(), // YYYY-MM-DD
-      startTime: z.string().max(5).optional(), // HH:MM
-      endTime: z.string().max(5).optional(),
+      startTime: timeString.optional(), // HH:MM (00:00–23:59)
+      endTime: timeString.optional(),
       headcount: z.number().int().positive().max(100000).optional(),
       message: z.string().max(2000).optional(),
       termsAccepted: z.boolean(),
@@ -143,20 +181,29 @@ export const bookingRouter = router({
       }
 
       // Check availability: if the space has published slots, the requested day
-      // must fall on an active slot's day-of-week.
+      // must fall on an active slot's day-of-week AND the requested time window
+      // must fit within at least one matching slot's start/end times.
       if (input.eventDate) {
         const slots = await ctx.db
-          .select({ dayOfWeek: availabilitySlots.dayOfWeek })
+          .select({ dayOfWeek: availabilitySlots.dayOfWeek, startTime: availabilitySlots.startTime, endTime: availabilitySlots.endTime })
           .from(availabilitySlots)
           .where(and(eq(availabilitySlots.spaceId, input.spaceId), eq(availabilitySlots.isActive, true)))
 
         if (slots.length) {
-          // ISO day: 1=Mon … 7=Sun
-          const d = new Date(input.eventDate)
-          const isoDay = d.getDay() === 0 ? 7 : d.getDay()
-          const allowed = slots.map(s => s.dayOfWeek)
-          if (!allowed.includes(isoDay)) {
+          const isoDay = utcDayOfWeek(input.eventDate)
+          const daySlots = slots.filter(s => s.dayOfWeek === isoDay)
+          if (!daySlots.length) {
             throw new TRPCError({ code: 'BAD_REQUEST', message: 'This space is not available on that day.' })
+          }
+
+          // If a start time is provided, verify it falls within at least one slot's window.
+          if (input.startTime) {
+            const reqStart = input.startTime
+            const reqEnd = input.endTime || input.startTime
+            const fits = daySlots.some(s => reqStart >= s.startTime && reqEnd <= s.endTime)
+            if (!fits) {
+              throw new TRPCError({ code: 'BAD_REQUEST', message: 'The requested time is outside this space\'s available hours.' })
+            }
           }
         }
       }
@@ -227,36 +274,35 @@ export const bookingRouter = router({
     }),
 
   // Set availability for a space — replaces all existing slots for that space.
-  setAvailability: publicProcedure
+  // Protected: only an admin or the space's elected moderator may manage slots.
+  setAvailability: protectedProcedure
     .input(z.object({
       spaceId: z.string().uuid(),
       slots: z.array(z.object({
         dayOfWeek: z.number().int().min(1).max(7),
-        startTime: z.string().regex(/^\d{2}:\d{2}$/),
-        endTime: z.string().regex(/^\d{2}:\d{2}$/),
+        startTime: timeString,
+        endTime: timeString,
       })),
     }))
     .mutation(async ({ ctx, input }) => {
-      // Verify space exists
-      const [space] = await ctx.db
-        .select({ id: bookableSpaces.id })
-        .from(bookableSpaces)
-        .where(eq(bookableSpaces.id, input.spaceId))
-      if (!space) throw new TRPCError({ code: 'NOT_FOUND', message: 'Space not found.' })
+      await requireSpaceOwner(ctx, input.spaceId)
 
-      // Delete existing slots for this space, then insert new ones
-      await ctx.db.delete(availabilitySlots).where(eq(availabilitySlots.spaceId, input.spaceId))
+      // Atomic replace: delete + insert inside a transaction so a failed insert
+      // doesn't leave the space with zero slots.
+      await ctx.db.transaction(async (tx) => {
+        await tx.delete(availabilitySlots).where(eq(availabilitySlots.spaceId, input.spaceId))
 
-      if (input.slots.length) {
-        await ctx.db.insert(availabilitySlots).values(
-          input.slots.map(s => ({
-            spaceId: input.spaceId,
-            dayOfWeek: s.dayOfWeek,
-            startTime: s.startTime,
-            endTime: s.endTime,
-          })),
-        )
-      }
+        if (input.slots.length) {
+          await tx.insert(availabilitySlots).values(
+            input.slots.map(s => ({
+              spaceId: input.spaceId,
+              dayOfWeek: s.dayOfWeek,
+              startTime: s.startTime,
+              endTime: s.endTime,
+            })),
+          )
+        }
+      })
 
       return { ok: true }
     }),
