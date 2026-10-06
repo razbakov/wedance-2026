@@ -1,7 +1,8 @@
 import Stripe from 'stripe'
 import { eq } from 'drizzle-orm'
 import { useDb } from '../../utils/db'
-import { festivals, festivalSignups } from '../../database/schema'
+import { festivals, festivalSignups, dancers } from '../../database/schema'
+import { sendTicketConfirmationEmail } from '../../utils/email'
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
@@ -51,7 +52,7 @@ export default defineEventHandler(async (event) => {
     const db = useDb()
 
     const [festival] = await db
-      .select({ id: festivals.id })
+      .select({ id: festivals.id, name: festivals.name, startDate: festivals.startDate, endDate: festivals.endDate })
       .from(festivals)
       .where(eq(festivals.slug, festivalSlug))
 
@@ -61,6 +62,7 @@ export default defineEventHandler(async (event) => {
     }
 
     // Idempotent insert — ignore conflict on unique(festivalId, dancerId)
+    let isDuplicate = false
     try {
       await db.insert(festivalSignups).values({
         festivalId: festival.id,
@@ -78,8 +80,35 @@ export default defineEventHandler(async (event) => {
           code === '23505') {
         // Already signed up — idempotent, just return OK
         console.log('Stripe webhook: duplicate signup ignored for', dancerId, festivalSlug)
+        isDuplicate = true
       } else {
         throw e
+      }
+    }
+
+    // Send confirmation email after a NEW signup is persisted.
+    // Fire-and-forget: a Resend failure must not break the webhook.
+    if (!isDuplicate) {
+      try {
+        const [dancer] = await db
+          .select({ email: dancers.email, name: dancers.name })
+          .from(dancers)
+          .where(eq(dancers.id, dancerId))
+
+        if (dancer?.email) {
+          await sendTicketConfirmationEmail({
+            to: dancer.email,
+            buyerName: dancer.name || 'Dancer',
+            festivalName: festival.name,
+            festivalSlug,
+            startDate: festival.startDate,
+            endDate: festival.endDate,
+            ticketName: session.metadata?.ticketName ?? null,
+            amountCents: paidAmount,
+          })
+        }
+      } catch (emailErr) {
+        console.error('Stripe webhook: confirmation email failed:', emailErr)
       }
     }
   }
