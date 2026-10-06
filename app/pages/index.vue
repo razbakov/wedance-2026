@@ -71,7 +71,7 @@ const stages = [
   {
     label: 'Business',
     title: 'Take the stage',
-    detail: 'Teach, DJ, host, open a venue.',
+    detail: 'Teach, DJ, host events, or open a venue. Tools for running the scene, not just dancing in it.',
     icon: Mic,
     horizon: 'the rest of your life',
     href: '/organizers',
