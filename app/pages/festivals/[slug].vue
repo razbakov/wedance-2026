@@ -46,25 +46,37 @@ onMounted(async () => {
 // from the per-workshop picks below).
 const { yearPlanIds, toggleFestival } = useYearPlan()
 
-// Shared plan view detection
-const isSharedView = computed(() => route.query.plan === 'shared')
+// Shared plan view detection — supports both the new `?invite=<encoded>` token
+// and the legacy `?plan=shared` query for backward compatibility.
+const { decode: decodeSharePlan } = useSharePlan()
+
+const decodedShare = computed(() => {
+  const token = route.query.invite as string | undefined
+  if (token) return decodeSharePlan(token)
+  return null
+})
+
+const isSharedView = computed(() => !!decodedShare.value || route.query.plan === 'shared')
 const hasReferral = computed(() => !!route.query.ref)
 
-// Mock sharer data (would come from backend in real app)
-const mockSharer = {
-  name: 'Ana Rodriguez',
-  photo: 'https://i.pravatar.cc/150?u=ana',
-  role: 'follow' as DanceRole,
-}
-const mockSharerPlan: { workshopId: string; role: DanceRole | null; partnerStatus: string }[] = [
-  { workshopId: 'fri-1', role: 'follow', partnerStatus: 'with-partner' },
-  { workshopId: 'fri-party', role: null, partnerStatus: 'solo' },
-  { workshopId: 'sat-1', role: 'follow', partnerStatus: 'looking' },
-  { workshopId: 'sat-7', role: 'follow', partnerStatus: 'with-partner' },
-  { workshopId: 'sat-party', role: null, partnerStatus: 'solo' },
-  { workshopId: 'sun-4', role: 'follow', partnerStatus: 'looking' },
-  { workshopId: 'sun-7', role: 'follow', partnerStatus: 'with-partner' },
-]
+// Shared-plan data: decoded from the invite token when available, otherwise
+// a lightweight fallback so the legacy `?plan=shared` URL still renders.
+const sharer = computed(() => {
+  if (decodedShare.value) {
+    return {
+      name: decodedShare.value.name,
+      photo: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(decodedShare.value.name)}`,
+      role: decodedShare.value.role,
+    }
+  }
+  // Legacy fallback
+  return { name: 'A dancer', photo: 'https://api.dicebear.com/7.x/initials/svg?seed=WD', role: 'follow' as DanceRole }
+})
+
+const sharerPlan = computed(() => {
+  if (decodedShare.value) return decodedShare.value.plan
+  return [] as { workshopId: string; role: DanceRole | null; partnerStatus: string }[]
+})
 
 function onCreatePlan() {
   router.replace({ query: {} })
@@ -973,12 +985,12 @@ useHead({
     :festival-name="festival.name"
     :workshops="workshops"
     :teachers="teachers"
-    :sharer="mockSharer"
-    :sharer-plan="mockSharerPlan"
+    :sharer="sharer"
+    :sharer-plan="sharerPlan"
     :has-referral="hasReferral"
     @create-plan="onCreatePlan"
     @be-partner="onBePartner"
-    @add-friend="() => { useTrack().track('shared_plan_signup', { surface: 'festival', slug: festival.slug }); onSignIn('friend') }"
+    @add-friend="() => { useTrack().track('shared_plan_signup', { surface: 'festival', slug: festival.slug, sharer: sharer.name }); onSignIn('friend') }"
     @sign-in="onSignIn"
   />
 

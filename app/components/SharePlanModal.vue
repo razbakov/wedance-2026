@@ -21,15 +21,20 @@ const emit = defineEmits<{
 const copied = ref(false)
 const activeTab = ref<'link' | 'preview'>('link')
 
+const { dancerName, role } = useAuth()
+const { buildShareUrl } = useSharePlan()
+
+const shareUrl = computed(() => {
+  const name = dancerName.value || 'A dancer'
+  const danceRole = (role.value === 'lead' || role.value === 'follow') ? role.value : 'follow'
+  return buildShareUrl(props.festivalSlug, name, danceRole as DanceRole, props.plan)
+})
+
 const baseUrl = computed(() => {
   if (import.meta.client) {
     return window.location.origin
   }
   return ''
-})
-
-const shareUrl = computed(() => {
-  return `${baseUrl.value}/festivals/${props.festivalSlug}?plan=shared`
 })
 
 const referralUrl = computed(() => {
@@ -86,6 +91,12 @@ async function copyLink(url: string) {
 }
 
 async function nativeShare() {
+  useTrack().track('shared_plan_signup', {
+    surface: 'share-modal',
+    slug: props.festivalSlug,
+    workshopCount: planned.value.length,
+    method: navigator.share ? 'native' : 'clipboard',
+  })
   if (navigator.share) {
     try {
       await navigator.share({
