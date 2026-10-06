@@ -431,7 +431,7 @@ const labelClass = 'text-[10px] uppercase tracking-[0.25em] font-bold mb-2 block
     <div class="max-w-3xl mx-auto px-4 py-8 pb-32">
 
       <!-- Validation errors -->
-      <div v-if="stepErrors.length" class="rounded-xl border border-red-300 bg-red-50 px-4 py-3 mb-6">
+      <div v-if="stepErrors.length" role="alert" class="rounded-xl border border-red-300 bg-red-50 px-4 py-3 mb-6">
         <p class="text-sm font-semibold text-red-700 mb-1">Please fix the following before continuing:</p>
         <ul class="list-disc list-inside text-sm text-red-600 space-y-0.5">
           <li v-for="(err, i) in stepErrors" :key="i">{{ err }}</li>
