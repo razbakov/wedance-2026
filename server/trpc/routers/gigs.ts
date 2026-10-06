@@ -71,8 +71,8 @@ export const gigsRouter = router({
       compensation: z.string().min(1),
       deadline: z.string().optional(),
       contactEmail: z.string().email(),
-      contactUrl: z.string().url().optional(),
-      entityUrl: z.string().url().optional(),
+      contactUrl: z.string().url().refine(u => /^https?:\/\//i.test(u), { message: 'Only http or https URLs allowed' }).optional(),
+      entityUrl: z.string().url().refine(u => /^https?:\/\//i.test(u), { message: 'Only http or https URLs allowed' }).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const [result] = await ctx.db
