@@ -7,7 +7,7 @@ audience: Organizer
 p: P701
 cuj: "C7 — Organizer — Run a festival (list, ticket, insights)"
 jtbd: "J6 — Run a great event / throw a great night"
-status: partial
+status: done
 wsjf_business_value: 5
 wsjf_time_criticality: 5
 wsjf_risk_opportunity: 3
