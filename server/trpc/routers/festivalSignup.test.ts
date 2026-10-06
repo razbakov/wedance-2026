@@ -432,4 +432,38 @@ describe('festivalSignup.ticketCheckout', () => {
       }),
     ).rejects.toThrow(/not found/i)
   })
+
+  it('rejects when user already has a verified ticket', async () => {
+    const TICKET_SLUG = 'meneate-viena-2026'
+    const db = new FakeDb()
+    const festivalId = db.seedFestival(TICKET_SLUG)
+    const me = db.seedDancer({ name: 'Already Bought' })
+    db.seedSignup({ festivalId, dancerId: me, verifiedTicketHolder: true, paidAmount: 21000 })
+
+    const caller = makeCaller(db, { dancerId: me })
+    await expect(
+      caller.festivalSignup.ticketCheckout({
+        festivalSlug: TICKET_SLUG,
+        ticketNames: ['Friday Pass'],
+      }),
+    ).rejects.toThrow(/already have a ticket/i)
+  })
+
+  it('allows checkout when user has social unlock but no verified ticket', async () => {
+    const TICKET_SLUG = 'meneate-viena-2026'
+    const db = new FakeDb()
+    const festivalId = db.seedFestival(TICKET_SLUG)
+    const me = db.seedDancer({ name: 'Social User', email: 'social@example.com' })
+    db.seedSignup({ festivalId, dancerId: me, verifiedTicketHolder: false, paidAmount: 100 })
+
+    const caller = makeCaller(db, { dancerId: me })
+    // Should NOT reject — the user has a social unlock, not a verified ticket.
+    // It will fail later at Stripe (dummy key), but should pass the guard.
+    await expect(
+      caller.festivalSignup.ticketCheckout({
+        festivalSlug: TICKET_SLUG,
+        ticketNames: ['Friday Pass'],
+      }),
+    ).rejects.not.toThrow(/already have a ticket/i)
+  })
 })
