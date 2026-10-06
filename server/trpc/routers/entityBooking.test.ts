@@ -2,7 +2,7 @@
  * Hermetic tests for the entity (pro profiles) + booking routers.
  */
 import { describe, it, expect, vi } from 'vitest'
-import { profiles, bookableSpaces, bookingRequests } from '../../database/schema'
+import { profiles, bookableSpaces, bookingRequests, availabilitySlots } from '../../database/schema'
 
 type FilterFn = (row: Record<string, any>) => boolean
 
@@ -11,7 +11,8 @@ vi.mock('drizzle-orm', async () => {
   const resolveKey = (col: any): string | undefined => (col?.name ? snakeToCamel(col.name) : undefined)
   const eq = (col: any, val: any): FilterFn => { const k = resolveKey(col); return (r) => (k ? r[k] === val : false) }
   const and = (...p: FilterFn[]): FilterFn => (r) => p.every(f => f(r))
-  return { eq, and, gt: () => () => false, sql: (..._a: any[]) => ({}) }
+  const inArray = (col: any, vals: any[]): FilterFn => { const k = resolveKey(col); return (r) => (k ? vals.includes(r[k]) : false) }
+  return { eq, and, inArray, gt: () => () => false, sql: (..._a: any[]) => ({}) }
 })
 
 import { appRouter } from '../index'
@@ -21,21 +22,36 @@ class FakeDb {
   profiles: Row[] = []
   bookableSpaces: Row[] = []
   bookingRequests: Row[] = []
+  availabilitySlots: Row[] = []
   select(_c: any) { return { from: (t: any) => ({ where: (f: FilterFn) => Promise.resolve(this.tableFor(t).filter(f)) }) } }
   insert(t: any) {
-    return { values: (row: Row) => {
-      const id = row.id ?? 'row-' + this.tableFor(t).length
-      const inserted = { id, status: row.status ?? 'pending', ...row }
-      this.tableFor(t).push(inserted)
+    return { values: (rows: Row | Row[]) => {
+      const arr = Array.isArray(rows) ? rows : [rows]
+      const inserted = arr.map((row, i) => {
+        const id = row.id ?? 'row-' + (this.tableFor(t).length + i)
+        const ins = { id, status: row.status ?? 'pending', ...row }
+        this.tableFor(t).push(ins)
+        return ins
+      })
       const chain: any = Promise.resolve(undefined)
-      chain.returning = () => Promise.resolve([inserted])
+      chain.returning = () => Promise.resolve(inserted)
       return chain
+    } }
+  }
+  delete(t: any) {
+    return { where: (f: FilterFn) => {
+      const tbl = this.tableFor(t)
+      const keep = tbl.filter(r => !f(r))
+      tbl.length = 0
+      keep.forEach(r => tbl.push(r))
+      return Promise.resolve(undefined)
     } }
   }
   private tableFor(t: any): Row[] {
     if (t === profiles) return this.profiles
     if (t === bookableSpaces) return this.bookableSpaces
     if (t === bookingRequests) return this.bookingRequests
+    if (t === availabilitySlots) return this.availabilitySlots
     throw new Error('unexpected table')
   }
 }
@@ -96,6 +112,73 @@ describe('booking.request', () => {
     await expect(caller(db).booking.request({
       spaceId: '22222222-2222-4222-8222-222222222222',
       email: 'org@example.com', termsAccepted: true,
+    })).rejects.toMatchObject({ code: 'NOT_FOUND' })
+  })
+
+  it('rejects when eventDate falls outside published availability', async () => {
+    const db = new FakeDb()
+    const spaceId = '11111111-1111-4111-8111-111111111111'
+    db.bookableSpaces.push({ id: spaceId, profileId: 'p1', name: 'A' })
+    // Slot on Monday (1) only
+    db.availabilitySlots.push({ id: 'av1', spaceId, dayOfWeek: 1, startTime: '18:00', endTime: '23:00', isActive: true })
+    // 2026-10-07 is a Wednesday (dayOfWeek=3)
+    await expect(caller(db).booking.request({
+      spaceId, email: 'org@example.com', termsAccepted: true,
+      eventDate: '2026-10-07',
+    })).rejects.toMatchObject({ code: 'BAD_REQUEST' })
+  })
+
+  it('accepts when eventDate matches published availability', async () => {
+    const db = new FakeDb()
+    const spaceId = '11111111-1111-4111-8111-111111111111'
+    db.bookableSpaces.push({ id: spaceId, profileId: 'p1', name: 'A' })
+    // Slot on Monday (1)
+    db.availabilitySlots.push({ id: 'av1', spaceId, dayOfWeek: 1, startTime: '18:00', endTime: '23:00', isActive: true })
+    // 2026-10-05 is a Monday
+    const out = await caller(db).booking.request({
+      spaceId, email: 'org@example.com', termsAccepted: true,
+      eventDate: '2026-10-05',
+    })
+    expect(out.ok).toBe(true)
+  })
+
+  it('allows booking on any day when no availability slots are published', async () => {
+    const db = new FakeDb()
+    const spaceId = '11111111-1111-4111-8111-111111111111'
+    db.bookableSpaces.push({ id: spaceId, profileId: 'p1', name: 'A' })
+    // No availability slots — space is fully open
+    const out = await caller(db).booking.request({
+      spaceId, email: 'org@example.com', termsAccepted: true,
+      eventDate: '2026-10-07',
+    })
+    expect(out.ok).toBe(true)
+  })
+})
+
+describe('booking.setAvailability', () => {
+  it('replaces all slots for a space', async () => {
+    const db = new FakeDb()
+    const spaceId = '11111111-1111-4111-8111-111111111111'
+    db.bookableSpaces.push({ id: spaceId, profileId: 'p1', name: 'A' })
+    db.availabilitySlots.push({ id: 'old', spaceId, dayOfWeek: 3, startTime: '10:00', endTime: '18:00', isActive: true })
+
+    const out = await caller(db).booking.setAvailability({
+      spaceId,
+      slots: [
+        { dayOfWeek: 1, startTime: '18:00', endTime: '23:00' },
+        { dayOfWeek: 5, startTime: '19:00', endTime: '02:00' },
+      ],
+    })
+    expect(out.ok).toBe(true)
+    expect(db.availabilitySlots.filter(s => s.spaceId === spaceId)).toHaveLength(2)
+    expect(db.availabilitySlots.find(s => s.dayOfWeek === 3)).toBeUndefined()
+  })
+
+  it('404s for unknown space', async () => {
+    const db = new FakeDb()
+    await expect(caller(db).booking.setAvailability({
+      spaceId: '22222222-2222-4222-8222-222222222222',
+      slots: [],
     })).rejects.toMatchObject({ code: 'NOT_FOUND' })
   })
 })
