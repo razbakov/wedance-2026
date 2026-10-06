@@ -677,34 +677,6 @@ function onShare() {
   }
 }
 
-async function onInviteFriends() {
-  if (!isSignedIn.value) {
-    signUpAction.value = 'share'
-    showSignUp.value = true
-    return
-  }
-
-  const festivalUrl = `${window.location.origin}/festivals/${festival.slug}`
-  if (navigator.share) {
-    try {
-      await navigator.share({
-        title: festival.name,
-        text: `Join me at ${festival.name}! Plan your workshops, find a partner, and let's go together.`,
-        url: festivalUrl,
-      })
-    } catch {
-      // user cancelled
-    }
-  } else {
-    // Fallback: copy link to clipboard
-    try {
-      await navigator.clipboard.writeText(festivalUrl)
-    } catch {
-      // clipboard not available
-    }
-  }
-}
-
 // Cart state — badge count only. The desktop sidebar + mobile drawer
 // were retired in favor of /my-plan; this keeps any global count badge
 // (e.g. a future nav pill) in sync.
@@ -1139,7 +1111,7 @@ useHead({
             :friends="friends"
             :partner-matches="partnerMatches"
             @sign-in="onSignIn"
-            @invite-friends="onInviteFriends"
+            @invite-friends="onShare"
             @add-workshop="toggleWorkshop"
           />
         </section>
