@@ -2,7 +2,7 @@
  * Hermetic tests for the entity (pro profiles) + booking routers.
  */
 import { describe, it, expect, vi } from 'vitest'
-import { profiles, bookableSpaces, bookingRequests, availabilitySlots } from '../../database/schema'
+import { profiles, bookableSpaces, bookingRequests, availabilitySlots, dancers } from '../../database/schema'
 
 type FilterFn = (row: Record<string, any>) => boolean
 
@@ -23,6 +23,7 @@ class FakeDb {
   bookableSpaces: Row[] = []
   bookingRequests: Row[] = []
   availabilitySlots: Row[] = []
+  dancers: Row[] = []
   select(_c: any) { return { from: (t: any) => ({ where: (f: FilterFn) => Promise.resolve(this.tableFor(t).filter(f)) }) } }
   insert(t: any) {
     return { values: (rows: Row | Row[]) => {
@@ -47,16 +48,18 @@ class FakeDb {
       return Promise.resolve(undefined)
     } }
   }
+  transaction(fn: (tx: FakeDb) => Promise<void>) { return fn(this) }
   private tableFor(t: any): Row[] {
     if (t === profiles) return this.profiles
     if (t === bookableSpaces) return this.bookableSpaces
     if (t === bookingRequests) return this.bookingRequests
     if (t === availabilitySlots) return this.availabilitySlots
+    if (t === dancers) return this.dancers
     throw new Error('unexpected table')
   }
 }
-function caller(db: any, opts: { dancerId?: string | null } = {}) {
-  return appRouter.createCaller({ db, dancerId: opts.dancerId ?? null, isAdmin: false })
+function caller(db: any, opts: { dancerId?: string | null; isAdmin?: boolean } = {}) {
+  return appRouter.createCaller({ db, dancerId: opts.dancerId ?? null, isAdmin: opts.isAdmin ?? false })
 }
 
 describe('entity.getByHandle', () => {
@@ -156,13 +159,13 @@ describe('booking.request', () => {
 })
 
 describe('booking.setAvailability', () => {
-  it('replaces all slots for a space', async () => {
+  it('replaces all slots for a space (admin)', async () => {
     const db = new FakeDb()
     const spaceId = '11111111-1111-4111-8111-111111111111'
     db.bookableSpaces.push({ id: spaceId, profileId: 'p1', name: 'A' })
     db.availabilitySlots.push({ id: 'old', spaceId, dayOfWeek: 3, startTime: '10:00', endTime: '18:00', isActive: true })
 
-    const out = await caller(db).booking.setAvailability({
+    const out = await caller(db, { dancerId: 'd1', isAdmin: true }).booking.setAvailability({
       spaceId,
       slots: [
         { dayOfWeek: 1, startTime: '18:00', endTime: '23:00' },
@@ -174,11 +177,41 @@ describe('booking.setAvailability', () => {
     expect(db.availabilitySlots.find(s => s.dayOfWeek === 3)).toBeUndefined()
   })
 
-  it('404s for unknown space', async () => {
+  it('rejects unauthenticated callers', async () => {
     const db = new FakeDb()
+    db.bookableSpaces.push({ id: '11111111-1111-4111-8111-111111111111', profileId: 'p1', name: 'A' })
     await expect(caller(db).booking.setAvailability({
+      spaceId: '11111111-1111-4111-8111-111111111111',
+      slots: [],
+    })).rejects.toMatchObject({ code: 'UNAUTHORIZED' })
+  })
+
+  it('rejects non-moderator callers', async () => {
+    const db = new FakeDb()
+    const spaceId = '11111111-1111-4111-8111-111111111111'
+    db.bookableSpaces.push({ id: spaceId, profileId: 'p1', name: 'A' })
+    db.profiles.push({ id: 'p1', username: 'pina', type: 'venue', name: 'Pina', status: 'visible', moderatorHandle: '@mod1' })
+    db.dancers.push({ id: 'd2', username: 'someone-else' })
+    await expect(caller(db, { dancerId: 'd2' }).booking.setAvailability({
+      spaceId,
+      slots: [],
+    })).rejects.toMatchObject({ code: 'FORBIDDEN' })
+  })
+
+  it('404s for unknown space (admin)', async () => {
+    const db = new FakeDb()
+    await expect(caller(db, { dancerId: 'd1', isAdmin: true }).booking.setAvailability({
       spaceId: '22222222-2222-4222-8222-222222222222',
       slots: [],
     })).rejects.toMatchObject({ code: 'NOT_FOUND' })
+  })
+
+  it('rejects invalid clock times like 29:99', async () => {
+    const db = new FakeDb()
+    db.bookableSpaces.push({ id: '11111111-1111-4111-8111-111111111111', profileId: 'p1', name: 'A' })
+    await expect(caller(db, { dancerId: 'd1', isAdmin: true }).booking.setAvailability({
+      spaceId: '11111111-1111-4111-8111-111111111111',
+      slots: [{ dayOfWeek: 1, startTime: '29:99', endTime: '23:00' }],
+    })).rejects.toThrow()
   })
 })

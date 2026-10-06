@@ -67,7 +67,11 @@ const availableDays = computed(() => {
 function isAvailable(spaceId: string, d: Date): boolean {
   const set = availableDays.value.get(spaceId)
   if (!set) return true // no slots published → fully open
-  const isoDay = d.getDay() === 0 ? 7 : d.getDay() // 1=Mon…7=Sun
+  // Use the date-only ISO string to derive a stable UTC weekday, avoiding
+  // timezone-dependent shifts near midnight.
+  const [y, m, day] = iso(d).split('-').map(Number)
+  const utcDow = new Date(Date.UTC(y, m - 1, day)).getUTCDay()
+  const isoDay = utcDow === 0 ? 7 : utcDow // 1=Mon…7=Sun
   return set.has(isoDay)
 }
 
