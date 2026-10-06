@@ -923,7 +923,7 @@ type Hangout = {
   id: string; kind: 'dinner' | 'bar' | 'ride' | 'floor'
   title: string; time: string; host?: string; venue?: string
   people: number; going: boolean
-  color: string
+  color: string; mine: boolean
 }
 
 // Color map for hangout kinds
@@ -935,10 +935,10 @@ const hangoutColors: Record<string, string> = {
 }
 
 const previewHangouts: Hangout[] = [
-  { id: 'h1', kind: 'dinner', title: 'Dinner before La Rumba', time: '19:00', host: 'Mark + Klaus', venue: 'Xoco', people: 6,  going: false, color: '#f59e0b' },
-  { id: 'h2', kind: 'floor',  title: 'La Rumba floor',         time: '22:00', venue: 'La Rumba',   people: 40, going: true,  color: '#dc2626' },
-  { id: 'h3', kind: 'bar',    title: 'Post-social mojitos',    time: '02:30', venue: 'Café con Leche', people: 8,  going: false, color: '#a855f7' },
-  { id: 'h4', kind: 'ride',   title: 'Ride to Diana Tempel',   time: '13:30', host: 'Egor',        people: 3,  going: false, color: '#0891b2' },
+  { id: 'h1', kind: 'dinner', title: 'Dinner before La Rumba', time: '19:00', host: 'Mark + Klaus', venue: 'Xoco', people: 6,  going: false, color: '#f59e0b', mine: false },
+  { id: 'h2', kind: 'floor',  title: 'La Rumba floor',         time: '22:00', venue: 'La Rumba',   people: 40, going: true,  color: '#dc2626', mine: true },
+  { id: 'h3', kind: 'bar',    title: 'Post-social mojitos',    time: '02:30', venue: 'Café con Leche', people: 8,  going: false, color: '#a855f7', mine: false },
+  { id: 'h4', kind: 'ride',   title: 'Ride to Diana Tempel',   time: '13:30', host: 'Egor',        people: 3,  going: false, color: '#0891b2', mine: false },
 ]
 
 const hangouts = ref<Hangout[]>(isPreviewInitial ? previewHangouts : [])
@@ -952,15 +952,10 @@ async function fetchHangouts() {
   loadingHangouts.value = true
   try {
     const citySlug = dancerCity.value?.toLowerCase() || 'munich'
-    const response = await $fetch('/api/trpc/hangouts.listTonight', {
-      method: 'POST',
-      body: { citySlug },
-    })
-
-    const result = response?.result?.data || []
+    const result = await $trpc.hangouts.listTonight.query({ citySlug })
     const currentDancerId = useAuth().dancerId?.value
 
-    hangouts.value = result.map((h: any) => ({
+    hangouts.value = (result as any[]).map((h: any) => ({
       id: h.id,
       kind: h.kind,
       title: h.title,
@@ -970,10 +965,11 @@ async function fetchHangouts() {
       people: h.rsvpCount || 0,
       going: h.rsvps?.includes(currentDancerId) || false,
       color: hangoutColors[h.kind] || '#3b1f0d',
+      mine: h.dancerId === currentDancerId,
     }))
 
     // Track which hangouts user has RSVPed to
-    userRsvpedHangouts.value = new Set(result.filter((h: any) => h.rsvps?.includes(currentDancerId)).map((h: any) => h.id))
+    userRsvpedHangouts.value = new Set((result as any[]).filter((h: any) => h.rsvps?.includes(currentDancerId)).map((h: any) => h.id))
   } catch (error) {
     console.error('Failed to fetch hangouts:', error)
   } finally {
@@ -988,10 +984,7 @@ async function toggleHangout(id: string) {
   }
 
   try {
-    await $fetch('/api/trpc/hangouts.toggleRsvp', {
-      method: 'POST',
-      body: { hangoutId: id },
-    })
+    await $trpc.hangouts.toggleRsvp.mutate({ hangoutId: id })
 
     // Update local state
     const wasGoing = userRsvpedHangouts.value.has(id)
@@ -1027,6 +1020,7 @@ async function createHangout() {
       people: 1,
       going: true,
       color: hangoutColors[newHangout.value.kind] || '#3b1f0d',
+      mine: true,
     }
     hangouts.value.unshift(fake)
     showHangoutForm.value = false
@@ -1038,15 +1032,12 @@ async function createHangout() {
   creatingHangout.value = true
   try {
     const citySlug = dancerCity.value?.toLowerCase() || 'munich'
-    await $fetch('/api/trpc/hangouts.create', {
-      method: 'POST',
-      body: {
-        kind: newHangout.value.kind,
-        title: newHangout.value.title.trim(),
-        time: newHangout.value.time,
-        venue: newHangout.value.venue.trim() || undefined,
-        citySlug,
-      },
+    await $trpc.hangouts.create.mutate({
+      kind: newHangout.value.kind,
+      title: newHangout.value.title.trim(),
+      time: newHangout.value.time,
+      venue: newHangout.value.venue.trim() || undefined,
+      citySlug,
     })
     showHangoutForm.value = false
     newHangout.value = { kind: 'dinner', title: '', time: '20:00', venue: '' }
@@ -1055,6 +1046,19 @@ async function createHangout() {
     console.error('Failed to create hangout:', error)
   } finally {
     creatingHangout.value = false
+  }
+}
+
+async function closeHangout(id: string) {
+  if (previewMode.value) {
+    hangouts.value = hangouts.value.filter(h => h.id !== id)
+    return
+  }
+  try {
+    await $trpc.hangouts.close.mutate({ id })
+    hangouts.value = hangouts.value.filter(h => h.id !== id)
+  } catch (error) {
+    console.error('Failed to close hangout:', error)
   }
 }
 
@@ -2325,6 +2329,16 @@ function cardSummary(f: CatalogueEntry) {
               @click="toggleHangout(h.id)"
             >
               {{ h.going ? '✓ In' : 'Join' }}
+            </button>
+            <button
+              v-if="h.mine"
+              type="button"
+              class="text-xs px-1.5 py-1 rounded-full"
+              style="color:#9a5614;"
+              title="Close this hangout"
+              @click="closeHangout(h.id)"
+            >
+              <X class="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
