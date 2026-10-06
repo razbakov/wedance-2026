@@ -74,6 +74,79 @@ export async function sendPasswordResetEmail(to: string, name: string, resetUrl:
   })
 }
 
+export interface TicketConfirmationParams {
+  to: string
+  buyerName: string
+  festivalName: string
+  festivalSlug: string
+  startDate: string | null
+  endDate: string | null
+  ticketName: string | null
+  amountCents: number
+}
+
+export async function sendTicketConfirmationEmail(params: TicketConfirmationParams) {
+  const config = useRuntimeConfig()
+
+  if (!config.resendApiKey) {
+    console.log(`\n🎟️ Ticket confirmation for ${params.to}: ${params.festivalName} — ${params.ticketName ?? 'Social Unlock'}\n`)
+    return
+  }
+
+  const resend = getResend()
+  const siteUrl = config.siteUrl || 'https://2026.wedance.vip'
+
+  const amountFormatted = `€${(params.amountCents / 100).toFixed(2)}`
+  const ticketLabel = params.ticketName ?? 'Social Unlock'
+
+  const dateRange = formatDateRange(params.startDate, params.endDate)
+
+  const festivalUrl = `${siteUrl}/festivals/${params.festivalSlug}`
+
+  await resend.emails.send({
+    from: config.resendFromEmail || 'WeDance <noreply@wedance.vip>',
+    to: params.to,
+    subject: `Your ticket for ${escapeHtml(params.festivalName)}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #333;">You&apos;re in, ${escapeHtml(params.buyerName)}! 🎉</h2>
+        <p>Your purchase for <strong>${escapeHtml(params.festivalName)}</strong> is confirmed.</p>
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+          <tr>
+            <td style="padding: 8px 0; color: #666;">Ticket</td>
+            <td style="padding: 8px 0; font-weight: bold;">${escapeHtml(ticketLabel)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #666;">Amount paid</td>
+            <td style="padding: 8px 0; font-weight: bold;">${amountFormatted}</td>
+          </tr>${dateRange ? `
+          <tr>
+            <td style="padding: 8px 0; color: #666;">Date</td>
+            <td style="padding: 8px 0; font-weight: bold;">${escapeHtml(dateRange)}</td>
+          </tr>` : ''}
+        </table>
+        <a href="${festivalUrl}"
+           style="display: inline-block; background: #000; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
+          View festival details
+        </a>
+        <p style="color: #666; font-size: 14px; margin-top: 20px;">
+          If you have any questions, reply to this email.
+        </p>
+      </div>
+    `,
+  })
+}
+
+function formatDateRange(start: string | null, end: string | null): string | null {
+  if (!start) return null
+  const fmt = (d: string) => {
+    const date = new Date(d + 'T00:00:00Z')
+    return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
+  }
+  if (!end || start === end) return fmt(start)
+  return `${fmt(start)} – ${fmt(end)}`
+}
+
 function escapeHtml(str: string): string {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
