@@ -1,26 +1,20 @@
 import { z } from 'zod'
-import { eq, and, desc, gte } from 'drizzle-orm'
+import { eq, and, desc } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { router, publicProcedure, protectedProcedure } from '../trpc'
 import { hangouts, hangoutRsvps, dancers } from '../../database/schema'
 
 /**
- * Hangouts — tonight's spontaneous activities.
- * Dancers can post where they're out (dinner, bar, ride, floor, etc.)
- * and mark themselves as going so others can join.
+ * Hangouts — spontaneous activities where dancers can mark they're out.
+ * Hangouts persist until the creator manually closes them.
  */
 export const hangoutsRouter = router({
-  // List today's active hangouts for a city
+  // List active hangouts for a city (persist until manually closed)
   listTonight: publicProcedure
     .input(z.object({
       citySlug: z.string(),
     }))
     .query(async ({ ctx, input }) => {
-      // Only show hangouts created today (midnight local — server runs UTC,
-      // but "tonight" is loose enough that UTC-midnight is fine).
-      const todayStart = new Date()
-      todayStart.setHours(0, 0, 0, 0)
-
       const rows = await ctx.db
         .select({
           id: hangouts.id,
@@ -39,7 +33,6 @@ export const hangoutsRouter = router({
           and(
             eq(hangouts.citySlug, input.citySlug),
             eq(hangouts.status, 'active'),
-            gte(hangouts.createdAt, todayStart),
           ),
         )
         .orderBy(desc(hangouts.createdAt))
