@@ -1,14 +1,13 @@
 export default defineNuxtPlugin({
   name: 'plan',
   dependsOn: ['auth'],
-  setup() {
+  async setup() {
     const { isSignedIn } = useAuth()
     const yearPlan = useYearPlan()
     const weekPlan = useWeekPlan()
 
     if (isSignedIn.value) {
-      yearPlan.loadFromDb()
-      weekPlan.loadFromDb()
+      await Promise.all([yearPlan.loadFromDb(), weekPlan.loadFromDb()])
     }
 
     watch(isSignedIn, (signedIn) => {

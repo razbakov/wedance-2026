@@ -4,7 +4,7 @@ const weekDrawerOpen = ref(false)
 export function useWeekPlan() {
   function loadFromDb() {
     const { $trpc } = useNuxtApp()
-    $trpc.plan.list
+    return $trpc.plan.list
       .query()
       .then((rows) => {
         const ids = new Set<string>()
@@ -13,8 +13,8 @@ export function useWeekPlan() {
         }
         weekPlanIds.value = ids
       })
-      .catch(() => {
-        /* not signed in or network error — keep local state */
+      .catch((err) => {
+        console.warn('[useWeekPlan] loadFromDb failed:', err)
       })
   }
 
@@ -25,7 +25,9 @@ export function useWeekPlan() {
     // CUJ: "Find a class" — Going! on a class/social (fires from any surface).
     useTrack().track('week_plan_add', { event_id: id, week_count: next.size })
     const { $trpc } = useNuxtApp()
-    $trpc.plan.add.mutate({ itemType: 'event', itemId: id }).catch(() => {})
+    $trpc.plan.add.mutate({ itemType: 'event', itemId: id }).catch((err) => {
+      console.warn('[useWeekPlan] addEvent failed:', err)
+    })
   }
 
   function removeEvent(id: string) {
@@ -35,7 +37,9 @@ export function useWeekPlan() {
     const { $trpc } = useNuxtApp()
     $trpc.plan.remove
       .mutate({ itemType: 'event', itemId: id })
-      .catch(() => {})
+      .catch((err) => {
+        console.warn('[useWeekPlan] removeEvent failed:', err)
+      })
   }
 
   function toggleEvent(id: string) {

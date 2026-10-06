@@ -11,7 +11,7 @@ const loaded = ref(false)
 export function useGoals() {
   function loadFromDb() {
     const { $trpc } = useNuxtApp()
-    $trpc.plan.list
+    $trpc.plan.listDetailed
       .query()
       .then((rows) => {
         const dbGoals: Goal[] = []
@@ -28,7 +28,8 @@ export function useGoals() {
         goals.value = dbGoals
         loaded.value = true
       })
-      .catch(() => {
+      .catch((err) => {
+        console.warn('[useGoals] loadFromDb failed:', err)
         loaded.value = true
       })
   }
@@ -45,7 +46,9 @@ export function useGoals() {
         itemId: id,
         metadata: { title, why, progress: '0' },
       })
-      .catch(() => {})
+      .catch((err) => {
+        console.warn('[useGoals] addGoal failed:', err)
+      })
   }
 
   function removeGoal(id: string) {
@@ -53,7 +56,9 @@ export function useGoals() {
     const { $trpc } = useNuxtApp()
     $trpc.plan.remove
       .mutate({ itemType: 'goal', itemId: id })
-      .catch(() => {})
+      .catch((err) => {
+        console.warn('[useGoals] removeGoal failed:', err)
+      })
   }
 
   return {
