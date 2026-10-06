@@ -8,7 +8,7 @@
  * pattern established by the Year cards. Data is currently local +
  * preview-seeded; wire real backend when the pieces exist.
  */
-import { ArrowRight, MapPin, Calendar, Search, Ticket, Plane, Home, GraduationCap, Heart, Coffee, CalendarPlus, Check, ExternalLink, ChevronDown, Target, Flame, Sparkles, MoonStar, UtensilsCrossed, GlassWater, Car, X, Star, Users as UsersIcon, Undo2 } from 'lucide-vue-next'
+import { ArrowRight, MapPin, Calendar, Search, Ticket, Plane, Home, GraduationCap, Heart, Coffee, CalendarPlus, Check, ExternalLink, ChevronDown, Target, Flame, Sparkles, MoonStar, UtensilsCrossed, GlassWater, Car, X, Star, Users as UsersIcon, Undo2, Plus } from 'lucide-vue-next'
 import * as salsaOpen from '~/data/mock-festival'
 import * as meneate from '~/data/mock-meneate'
 import * as cityMunich from '~/data/mock-city-munich'
@@ -1010,6 +1010,53 @@ async function toggleHangout(id: string) {
   }
 }
 const hangoutIcon = (kind: Hangout['kind']) => kind === 'dinner' ? UtensilsCrossed : kind === 'bar' ? GlassWater : kind === 'ride' ? Car : MoonStar
+
+// Create-hangout form state
+const showHangoutForm = ref(false)
+const newHangout = ref({ kind: 'dinner' as 'dinner' | 'bar' | 'ride' | 'floor', title: '', time: '20:00', venue: '' })
+const creatingHangout = ref(false)
+
+async function createHangout() {
+  if (previewMode.value) {
+    const fake: Hangout = {
+      id: `h-${Date.now()}`,
+      kind: newHangout.value.kind,
+      title: newHangout.value.title || `${newHangout.value.kind.charAt(0).toUpperCase() + newHangout.value.kind.slice(1)} hangout`,
+      time: newHangout.value.time,
+      venue: newHangout.value.venue || undefined,
+      people: 1,
+      going: true,
+      color: hangoutColors[newHangout.value.kind] || '#3b1f0d',
+    }
+    hangouts.value.unshift(fake)
+    showHangoutForm.value = false
+    newHangout.value = { kind: 'dinner', title: '', time: '20:00', venue: '' }
+    return
+  }
+
+  if (!newHangout.value.title.trim()) return
+  creatingHangout.value = true
+  try {
+    const citySlug = dancerCity.value?.toLowerCase() || 'munich'
+    await $fetch('/api/trpc/hangouts.create', {
+      method: 'POST',
+      body: {
+        kind: newHangout.value.kind,
+        title: newHangout.value.title.trim(),
+        time: newHangout.value.time,
+        venue: newHangout.value.venue.trim() || undefined,
+        citySlug,
+      },
+    })
+    showHangoutForm.value = false
+    newHangout.value = { kind: 'dinner', title: '', time: '20:00', venue: '' }
+    await fetchHangouts()
+  } catch (error) {
+    console.error('Failed to create hangout:', error)
+  } finally {
+    creatingHangout.value = false
+  }
+}
 
 // -----------------------------------------------------------------------
 // HEAT STRIP · the top 3 items across every scale, sorted by urgency.
@@ -2163,16 +2210,87 @@ function cardSummary(f: CatalogueEntry) {
               Who's <em class="italic" style="color:#dc2626;">out.</em>
             </h2>
           </div>
-          <span
-            class="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full"
-            style="background:#dc262618; color:#dc2626; font-family: system-ui, sans-serif;"
-          >
-            <span class="w-1.5 h-1.5 rounded-full animate-pulse" style="background:#dc2626;" />
-            Live
-          </span>
+          <div class="flex items-center gap-2">
+            <button
+              v-if="isSignedIn"
+              type="button"
+              class="inline-flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full"
+              style="background:#3b1f0d; color:white; font-family: system-ui, sans-serif;"
+              @click="showHangoutForm = !showHangoutForm"
+            >
+              <Plus class="w-3.5 h-3.5" />
+              I'm out
+            </button>
+            <span
+              class="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full"
+              style="background:#dc262618; color:#dc2626; font-family: system-ui, sans-serif;"
+            >
+              <span class="w-1.5 h-1.5 rounded-full animate-pulse" style="background:#dc2626;" />
+              Live
+            </span>
+          </div>
         </div>
 
-        <div v-if="!hangouts.length" class="rounded-2xl p-6 text-center border-2 border-dashed" style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);">
+        <!-- Create hangout form -->
+        <div v-if="showHangoutForm" class="rounded-2xl bg-white border p-4 mb-4" style="border-color:#3b1f0d22;">
+          <div class="flex flex-wrap gap-2 mb-3">
+            <button
+              v-for="k in (['dinner', 'bar', 'ride', 'floor'] as const)"
+              :key="k"
+              type="button"
+              class="text-xs font-bold px-3 py-1.5 rounded-full capitalize"
+              :style="newHangout.kind === k
+                ? { background: hangoutColors[k], color: 'white' }
+                : { background: 'white', color: hangoutColors[k], border: '1.5px solid ' + hangoutColors[k] + '55' }"
+              @click="newHangout.kind = k"
+            >
+              {{ k }}
+            </button>
+          </div>
+          <input
+            v-model="newHangout.title"
+            type="text"
+            placeholder="What's the plan? e.g. Dinner before La Rumba"
+            class="w-full text-sm rounded-lg border px-3 py-2 mb-2"
+            style="border-color:#3b1f0d22; color:#3b1f0d; font-family: system-ui, sans-serif;"
+          />
+          <div class="flex gap-2 mb-3">
+            <input
+              v-model="newHangout.time"
+              type="time"
+              class="text-sm rounded-lg border px-3 py-2"
+              style="border-color:#3b1f0d22; color:#3b1f0d; font-family: system-ui, sans-serif; width:110px;"
+            />
+            <input
+              v-model="newHangout.venue"
+              type="text"
+              placeholder="Where? (venue / address)"
+              class="flex-1 text-sm rounded-lg border px-3 py-2"
+              style="border-color:#3b1f0d22; color:#3b1f0d; font-family: system-ui, sans-serif;"
+            />
+          </div>
+          <div class="flex justify-end gap-2">
+            <button
+              type="button"
+              class="text-xs px-3 py-1.5 rounded-full"
+              style="color:#5b3a1d; font-family: system-ui, sans-serif;"
+              @click="showHangoutForm = false"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="text-xs font-bold px-4 py-1.5 rounded-full"
+              :style="{ background: '#3b1f0d', color: 'white', opacity: creatingHangout || !newHangout.title.trim() ? 0.5 : 1 }"
+              :disabled="creatingHangout || !newHangout.title.trim()"
+              @click="createHangout"
+            >
+              {{ creatingHangout ? 'Posting…' : 'Post' }}
+            </button>
+          </div>
+        </div>
+
+        <div v-if="!hangouts.length && !showHangoutForm" class="rounded-2xl p-6 text-center border-2 border-dashed" style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);">
           <MoonStar class="w-8 h-8 mx-auto mb-3" style="color:#9a5614;" />
           <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
             Nobody's out yet. Post a dinner, a bar hop, or a ride — dancers show up when someone starts.
