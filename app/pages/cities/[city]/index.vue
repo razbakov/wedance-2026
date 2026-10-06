@@ -125,16 +125,38 @@ const syncedLater = computed(() => {
     .filter(e => eventLocalDate(e.startDate, e.timezone) > weekEnd)
     .filter(e => !selectedStyle.value || (e.styles || []).includes(selectedStyle.value))
 })
+// Booked events beyond this week (same shape as toCityEvent output).
+const bookedLater = computed(() => {
+  const weekEnd = [...thisWeekDates.value].sort().at(-1) ?? ''
+  return bookedEvents.value
+    .filter(b => b.eventDate && String(b.eventDate).slice(0, 10) > weekEnd)
+    .filter(b => !selectedStyle.value || (b.styles || []).includes(selectedStyle.value))
+    .map(b => {
+      const date = String(b.eventDate).slice(0, 10)
+      return {
+        id: b.id, name: b.title || 'Social', type: bookedTypeMap[b.eventType] || 'social',
+        style: b.styles?.[0] || '', styles: b.styles || [],
+        time: b.startTime || '', venue: b.venueName || '', venueName: b.venueName || '',
+        date,
+      }
+    })
+})
 const upcomingGroups = computed(() => {
+  // Merge synced and booked future events, sorted by date then time.
+  const allLater: { date: string; time: string; [k: string]: any }[] = [
+    ...syncedLater.value.map(e => ({ ...e, date: eventLocalDate(e.startDate, e.timezone), time: eventLocalTime(e.startDate, e.timezone) })),
+    ...bookedLater.value,
+  ].sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
+
   const groups: { date: string; label: string; items: any[] }[] = []
-  for (const e of syncedLater.value.slice(0, upcomingLimit.value)) {
-    const date = eventLocalDate(e.startDate, e.timezone)
+  for (const e of allLater.slice(0, upcomingLimit.value)) {
+    const date = e.date
     let g = groups.find(x => x.date === date)
     if (!g) {
       g = { date, label: new Date(`${date}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', timeZone: 'UTC' }), items: [] }
       groups.push(g)
     }
-    g.items.push({ ...e, time: eventLocalTime(e.startDate, e.timezone) })
+    g.items.push(e)
   }
   return groups
 })
@@ -591,13 +613,13 @@ onMounted(() => {
         </div>
       </div>
       <button
-        v-if="syncedLater.length > upcomingLimit"
+        v-if="syncedLater.length + bookedLater.length > upcomingLimit"
         type="button"
         class="mt-6 text-xs font-bold underline"
         :style="{ color: accent, fontFamily: 'system-ui, sans-serif' }"
         @click="upcomingLimit += 24"
       >
-        Show more ({{ syncedLater.length - upcomingLimit }} more)
+        Show more ({{ syncedLater.length + bookedLater.length - upcomingLimit }} more)
       </button>
     </section>
 
