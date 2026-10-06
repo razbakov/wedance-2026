@@ -1,14 +1,25 @@
 import { z } from 'zod'
-import { eq, and } from 'drizzle-orm'
-import { router, protectedProcedure } from '../trpc'
+import { eq, and, sql } from 'drizzle-orm'
+import { router, publicProcedure, protectedProcedure } from '../trpc'
 import { planItems } from '../../database/schema'
 
 export const planRouter = router({
+  count: publicProcedure
+    .input(z.object({ itemType: z.enum(['festival', 'event', 'goal']), itemId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const [row] = await ctx.db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(planItems)
+        .where(and(eq(planItems.itemType, input.itemType), eq(planItems.itemId, input.itemId)))
+      return row?.count ?? 0
+    }),
+
   list: protectedProcedure.query(async ({ ctx }) => {
     return ctx.db
       .select({
         itemType: planItems.itemType,
         itemId: planItems.itemId,
+        metadata: planItems.metadata,
       })
       .from(planItems)
       .where(eq(planItems.dancerId, ctx.dancerId))
@@ -17,8 +28,9 @@ export const planRouter = router({
   add: protectedProcedure
     .input(
       z.object({
-        itemType: z.enum(['festival', 'event']),
+        itemType: z.enum(['festival', 'event', 'goal']),
         itemId: z.string(),
+        metadata: z.record(z.string(), z.string()).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -28,6 +40,7 @@ export const planRouter = router({
           dancerId: ctx.dancerId,
           itemType: input.itemType,
           itemId: input.itemId,
+          metadata: input.metadata ?? null,
         })
         .onConflictDoNothing()
     }),
@@ -35,7 +48,7 @@ export const planRouter = router({
   remove: protectedProcedure
     .input(
       z.object({
-        itemType: z.enum(['festival', 'event']),
+        itemType: z.enum(['festival', 'event', 'goal']),
         itemId: z.string(),
       }),
     )

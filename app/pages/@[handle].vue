@@ -26,6 +26,7 @@ const handle = computed(() => String(route.params.handle))
 const pending = ref(true)
 const data = ref<Awaited<ReturnType<typeof $trpc.entity.getByHandle.query>> | null>(null)
 const schedule = ref<any[]>([])
+const availability = ref<any[]>([])
 // Dated public events (wedance.vip mirror) this profile hosts / runs / plays at.
 const syncedEvents = ref<any[]>([])
 const isStub = ref(false)
@@ -38,11 +39,13 @@ async function resolve() {
     if (pro) {
       data.value = pro
       pending.value = false
-      const [sched, synced] = await Promise.all([
+      const [sched, avail, synced] = await Promise.all([
         $trpc.booking.scheduleForProfile.query({ profileId: pro.profile.id }).catch(() => []),
+        $trpc.booking.availabilityForProfile.query({ profileId: pro.profile.id }).catch(() => []),
         $trpc.events.byProfile.query({ username: pro.profile.username }).catch(() => []),
       ])
       schedule.value = sched as any[]
+      availability.value = avail as any[]
       syncedEvents.value = synced as any[]
       return
     }
@@ -224,7 +227,7 @@ useHead(() => ({
           <button type="button" class="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shrink-0" style="background:linear-gradient(135deg,#dc2626,#f97316);" @click="openBooking(spaces[0])"><Plus class="w-3.5 h-3.5" /> Propose an event</button>
         </div>
         <p class="mt-1 text-sm" style="color:#5b3a1d;">{{ isFree ? `Tap a free cell to reserve that area — it's free. A community moderator confirms it against the guidelines.` : `Tap an available slot in one of the ${spaces.length} areas.` }}</p>
-        <AvailabilityCalendar :spaces="spaces" :bookings="schedule" class="mt-4" @book="onCalendarBook" />
+        <AvailabilityCalendar :spaces="spaces" :bookings="schedule" :availability="availability" class="mt-4" @book="onCalendarBook" />
       </section>
 
       <!-- Guidelines -->

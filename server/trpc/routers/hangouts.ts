@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { eq, and, desc } from 'drizzle-orm'
+import { eq, and, desc, gte } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { router, publicProcedure, protectedProcedure } from '../trpc'
 import { hangouts, hangoutRsvps, dancers } from '../../database/schema'
@@ -16,6 +16,11 @@ export const hangoutsRouter = router({
       citySlug: z.string(),
     }))
     .query(async ({ ctx, input }) => {
+      // Only show hangouts created today (midnight local — server runs UTC,
+      // but "tonight" is loose enough that UTC-midnight is fine).
+      const todayStart = new Date()
+      todayStart.setHours(0, 0, 0, 0)
+
       const rows = await ctx.db
         .select({
           id: hangouts.id,
@@ -28,17 +33,13 @@ export const hangoutsRouter = router({
           status: hangouts.status,
           dancerId: hangouts.dancerId,
           createdAt: hangouts.createdAt,
-          // Count RSVPs
-          rsvpCount: (await ctx.db
-            .select()
-            .from(hangoutRsvps)
-            .where(eq(hangoutRsvps.hangoutId, hangouts.id))),
         })
         .from(hangouts)
         .where(
           and(
             eq(hangouts.citySlug, input.citySlug),
             eq(hangouts.status, 'active'),
+            gte(hangouts.createdAt, todayStart),
           ),
         )
         .orderBy(desc(hangouts.createdAt))

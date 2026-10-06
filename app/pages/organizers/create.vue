@@ -151,6 +151,8 @@ watch(() => festival.name, (name) => {
 })
 
 function addSocialLink() {
+  const last = festival.socialLinks[festival.socialLinks.length - 1]
+  if (last && !last.url.trim()) return
   festival.socialLinks.push({ platform: 'instagram', url: '' })
 }
 function removeSocialLink(index: number) {
@@ -173,6 +175,8 @@ const venue = reactive({
 })
 
 function addRoom() {
+  const last = venue.rooms[venue.rooms.length - 1]
+  if (last !== undefined && !last.trim()) return
   venue.rooms.push('')
 }
 function removeRoom(index: number) {
@@ -180,6 +184,8 @@ function removeRoom(index: number) {
 }
 
 function addPracticalInfo() {
+  const last = venue.practicalInfo[venue.practicalInfo.length - 1]
+  if (last !== undefined && !last.trim()) return
   venue.practicalInfo.push('')
 }
 function removePracticalInfo(index: number) {
@@ -200,6 +206,8 @@ interface EditorTeacher {
 const teachers = ref<EditorTeacher[]>([])
 
 function addTeacher() {
+  const last = teachers.value[teachers.value.length - 1]
+  if (last && !last.name.trim()) return
   teachers.value.push({
     id: crypto.randomUUID(),
     name: '',
@@ -252,6 +260,8 @@ const styles = computed(() => {
 })
 
 function addWorkshop() {
+  const last = workshops.value[workshops.value.length - 1]
+  if (last && !last.title.trim()) return
   workshops.value.push({
     id: crypto.randomUUID(),
     title: '',
@@ -286,6 +296,8 @@ const tickets = ref<EditorTicket[]>([])
 const ticketUrl = ref('')
 
 function addTicket() {
+  const last = tickets.value[tickets.value.length - 1]
+  if (last && !last.name.trim()) return
   tickets.value.push({
     id: crypto.randomUUID(),
     name: '',

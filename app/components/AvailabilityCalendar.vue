@@ -2,13 +2,18 @@
 /**
  * Availability calendar for a bookable space (Google-Calendar-ish): a week grid
  * of areas × days showing existing bookings, click an empty cell to book that
- * area on that day. Emits `book({ spaceId, spaceName, date })`.
+ * area on that day. When availability slots are provided, only days matching a
+ * published slot show the "+" — other days are greyed out. When no slots exist
+ * for a space the calendar stays fully open (backward-compat).
+ *
+ * Emits `book({ spaceId, spaceName, date })`.
  */
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-vue-next'
 
 const props = defineProps<{
   spaces: Array<{ id: string; name: string }>
   bookings: Array<{ spaceId: string; eventDate: string | null; title?: string | null; startTime?: string | null; status?: string }>
+  availability?: Array<{ spaceId: string; dayOfWeek: number }>
 }>()
 const emit = defineEmits<{ book: [{ spaceId: string; spaceName: string; date: string }] }>()
 
@@ -47,6 +52,25 @@ function bookingsFor(spaceId: string, d: Date) {
     .sort((a, b) => String(a.startTime ?? '').localeCompare(String(b.startTime ?? '')))
 }
 
+// Build a Set of available ISO-days per space from the availability prop.
+// When a space has no slots, it's treated as fully available (null = open).
+const availableDays = computed(() => {
+  const map = new Map<string, Set<number> | null>()
+  if (!props.availability?.length) return map
+  for (const slot of props.availability) {
+    if (!map.has(slot.spaceId)) map.set(slot.spaceId, new Set())
+    map.get(slot.spaceId)!.add(slot.dayOfWeek)
+  }
+  return map
+})
+
+function isAvailable(spaceId: string, d: Date): boolean {
+  const set = availableDays.value.get(spaceId)
+  if (!set) return true // no slots published → fully open
+  const isoDay = d.getDay() === 0 ? 7 : d.getDay() // 1=Mon…7=Sun
+  return set.has(isoDay)
+}
+
 const todayIso = iso(new Date())
 </script>
 
@@ -73,7 +97,7 @@ const todayIso = iso(new Date())
         <!-- Area rows -->
         <div v-for="sp in spaces" :key="sp.id" class="grid mt-1" style="grid-template-columns: 84px repeat(7, 1fr); gap:4px;">
           <div class="flex items-center text-[11px] font-bold pr-1" style="color:#3b1f0d;">{{ sp.name }}</div>
-          <div v-for="d in days" :key="d.toISOString()" class="min-h-[44px] rounded-lg border p-1" style="border-color:#3b1f0d12; background:white;">
+          <div v-for="d in days" :key="d.toISOString()" class="min-h-[44px] rounded-lg border p-1" :style="isAvailable(sp.id, d) ? 'border-color:#3b1f0d12; background:white;' : 'border-color:#3b1f0d08; background:#f5f0e8;'">
             <template v-if="bookingsFor(sp.id, d).length">
               <div v-for="(b, i) in bookingsFor(sp.id, d)" :key="i" class="rounded px-1 py-0.5 mb-0.5 text-[9px] leading-tight truncate"
                 :style="b.status === 'accepted' ? 'background:#16a34a1a; color:#166534;' : 'background:#f59e0b1a; color:#b45309;'"
@@ -81,9 +105,10 @@ const todayIso = iso(new Date())
                 <span v-if="b.startTime" class="font-bold">{{ b.startTime }}</span> {{ b.title || 'Event' }}
               </div>
             </template>
-            <button v-else type="button" class="w-full h-full min-h-[36px] rounded flex items-center justify-center border border-dashed transition-colors hover:text-white" style="border-color:#dc262655; color:#dc2626;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='transparent'" :aria-label="`Book ${sp.name} on ${iso(d)}`" @click="emit('book', { spaceId: sp.id, spaceName: sp.name, date: iso(d) })">
+            <button v-else-if="isAvailable(sp.id, d)" type="button" class="w-full h-full min-h-[36px] rounded flex items-center justify-center border border-dashed transition-colors hover:text-white" style="border-color:#dc262655; color:#dc2626;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='transparent'" :aria-label="`Book ${sp.name} on ${iso(d)}`" @click="emit('book', { spaceId: sp.id, spaceName: sp.name, date: iso(d) })">
               <Plus class="w-4 h-4" />
             </button>
+            <!-- unavailable + no bookings: empty greyed-out cell -->
           </div>
         </div>
       </div>

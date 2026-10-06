@@ -373,6 +373,22 @@ export const bookingRequests = pgTable('booking_requests', {
   createdAt: timestamp('created_at').defaultNow(),
 })
 
+// Recurring weekly availability windows per bookable space. A venue publishes
+// when each space is open for bookings (e.g. "Monday 18:00–23:00"). When slots
+// exist for a space, booking requests are validated against them; when none
+// exist the space is treated as always-available (backward-compat).
+export const availabilitySlots = pgTable('availability_slots', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  spaceId: uuid('space_id').notNull().references(() => bookableSpaces.id),
+  dayOfWeek: integer('day_of_week').notNull(), // 1=Monday … 7=Sunday (ISO-8601)
+  startTime: text('start_time').notNull(),     // 'HH:MM'
+  endTime: text('end_time').notNull(),         // 'HH:MM'
+  isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (t) => [
+  index('availability_slots_space_idx').on(t.spaceId),
+])
+
 // Festival submissions from the /organizers/create wizard. There is no live
 // self-serve publish yet — the wizard captures the full draft here for the
 // team to review and onboard, instead of pretending to go live. The whole
@@ -530,8 +546,9 @@ export const planItems = pgTable(
     dancerId: uuid('dancer_id')
       .notNull()
       .references(() => dancers.id),
-    itemType: text('item_type').notNull().$type<'festival' | 'event'>(),
+    itemType: text('item_type').notNull().$type<'festival' | 'event' | 'goal'>(),
     itemId: text('item_id').notNull(),
+    metadata: jsonb('metadata').$type<Record<string, string>>(),
     createdAt: timestamp('created_at').defaultNow(),
   },
   (t) => [

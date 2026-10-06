@@ -82,6 +82,11 @@ const formData = reactive({
   entityUrl: '',
 })
 
+// Reset posterType when kind changes so the default matches the available options
+watch(() => formData.kind, (newKind) => {
+  formData.posterType = newKind === 'role' ? 'Festival' : 'Artist'
+})
+
 const styleInput = ref('')
 const submittingForm = ref(false)
 const formError = ref('')
@@ -255,7 +260,7 @@ function getAccent(category: string): string {
     <!-- FORM (when user clicks Post a gig) -->
     <section v-if="showForm" class="max-w-2xl mx-auto px-4 mb-8 bg-white rounded-2xl p-6 border-2" style="border-color:#dc262633;">
       <div class="flex items-center justify-between mb-4">
-        <h2 class="text-2xl font-bold" style="color:#3b1f0d;">Post an offering</h2>
+        <h2 class="text-2xl font-bold" style="color:#3b1f0d;">{{ formData.kind === 'role' ? 'Post an open role' : 'Offer your services' }}</h2>
         <button
           type="button"
           class="p-2 rounded-full hover:bg-gray-100"
@@ -266,9 +271,56 @@ function getAccent(category: string): string {
       </div>
 
       <form class="space-y-4" novalidate @submit.prevent="submitForm">
+        <!-- Kind toggle -->
+        <div>
+          <label class="block text-sm font-bold mb-1" style="color:#5b3a1d;">What are you posting?</label>
+          <div class="inline-flex rounded-full p-1 w-full" style="background:#fbf5ea; border:1px solid #3b1f0d22;">
+            <button
+              v-for="opt in [{ v: 'role' as const, label: 'I need someone', icon: Megaphone }, { v: 'offer' as const, label: 'I offer my services', icon: Hand }]"
+              :key="opt.v"
+              type="button"
+              class="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all"
+              :style="formData.kind === opt.v
+                ? { background: opt.v === 'role' ? '#dc2626' : '#16a34a', color: 'white' }
+                : { background: 'transparent', color: '#5b3a1d' }"
+              @click="formData.kind = opt.v"
+            >
+              <component :is="opt.icon" class="w-3.5 h-3.5" />
+              {{ opt.label }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Poster type (who is posting) -->
+        <div>
+          <label class="block text-sm font-bold mb-1" style="color:#5b3a1d;">{{ formData.kind === 'role' ? 'You are a…' : 'You are a…' }}</label>
+          <select
+            v-model="formData.posterType"
+            v-bind="fieldAttrs('posterType', 'gig-posterType-error')"
+            required
+            class="w-full px-3 py-2 rounded-lg border"
+            style="border-color:#3b1f0d22; color:#3b1f0d;"
+          >
+            <template v-if="formData.kind === 'role'">
+              <option value="Festival">Festival</option>
+              <option value="Organizer">Organizer</option>
+              <option value="School">School</option>
+              <option value="Private event">Private event</option>
+            </template>
+            <template v-else>
+              <option value="Artist">Artist</option>
+              <option value="Teacher">Teacher</option>
+              <option value="DJ">DJ</option>
+              <option value="Photographer">Photographer</option>
+              <option value="MC">MC</option>
+            </template>
+          </select>
+          <FieldError id="gig-posterType-error" :message="errors.posterType" />
+        </div>
+
         <!-- Category -->
         <div>
-          <label class="block text-sm font-bold mb-1" style="color:#5b3a1d;">Service category</label>
+          <label class="block text-sm font-bold mb-1" style="color:#5b3a1d;">{{ formData.kind === 'role' ? 'Role needed' : 'Service category' }}</label>
           <select
             v-model="formData.category"
             v-bind="fieldAttrs('category', 'gig-category-error')"
@@ -290,13 +342,13 @@ function getAccent(category: string): string {
 
         <!-- Title -->
         <div>
-          <label class="block text-sm font-bold mb-1" style="color:#5b3a1d;">Service title</label>
+          <label class="block text-sm font-bold mb-1" style="color:#5b3a1d;">{{ formData.kind === 'role' ? 'Role title' : 'Service title' }}</label>
           <input
             v-model="formData.title"
             v-bind="fieldAttrs('title', 'gig-title-error')"
             type="text"
             required
-            placeholder="e.g., Timba workshops for European festivals"
+            :placeholder="formData.kind === 'role' ? 'e.g., Salsa teacher needed for weekend festival' : 'e.g., Timba workshops for European festivals'"
             class="w-full px-3 py-2 rounded-lg border"
             style="border-color:#3b1f0d22; color:#3b1f0d;"
           />
@@ -305,13 +357,13 @@ function getAccent(category: string): string {
 
         <!-- Your name -->
         <div>
-          <label class="block text-sm font-bold mb-1" style="color:#5b3a1d;">Your name</label>
+          <label class="block text-sm font-bold mb-1" style="color:#5b3a1d;">{{ formData.kind === 'role' ? 'Organisation / event name' : 'Your name' }}</label>
           <input
             v-model="formData.posterName"
             v-bind="fieldAttrs('posterName', 'gig-posterName-error')"
             type="text"
             required
-            placeholder="Your name or artist name"
+            :placeholder="formData.kind === 'role' ? 'e.g., Munich Salsa Festival' : 'Your name or artist name'"
             class="w-full px-3 py-2 rounded-lg border"
             style="border-color:#3b1f0d22; color:#3b1f0d;"
           />
@@ -373,15 +425,15 @@ function getAccent(category: string): string {
           </div>
         </div>
 
-        <!-- Availability -->
+        <!-- Availability / When -->
         <div>
-          <label class="block text-sm font-bold mb-1" style="color:#5b3a1d;">When available</label>
+          <label class="block text-sm font-bold mb-1" style="color:#5b3a1d;">{{ formData.kind === 'role' ? 'When is the event?' : 'When available' }}</label>
           <input
             v-model="formData.when"
             v-bind="fieldAttrs('when', 'gig-when-error')"
             type="text"
             required
-            placeholder="e.g., Weekends, Booking 2026–27"
+            :placeholder="formData.kind === 'role' ? 'e.g., May 23–25, 2027' : 'e.g., Weekends, Booking 2026–27'"
             class="w-full px-3 py-2 rounded-lg border"
             style="border-color:#3b1f0d22; color:#3b1f0d;"
           />
@@ -390,13 +442,13 @@ function getAccent(category: string): string {
 
         <!-- Compensation -->
         <div>
-          <label class="block text-sm font-bold mb-1" style="color:#5b3a1d;">Compensation / rate</label>
+          <label class="block text-sm font-bold mb-1" style="color:#5b3a1d;">{{ formData.kind === 'role' ? 'Budget / compensation offered' : 'Compensation / rate' }}</label>
           <input
             v-model="formData.compensation"
             v-bind="fieldAttrs('compensation', 'gig-compensation-error')"
             type="text"
             required
-            placeholder="e.g., From €200/hour, On request"
+            :placeholder="formData.kind === 'role' ? 'e.g., €500 + travel, Negotiable' : 'e.g., From €200/hour, On request'"
             class="w-full px-3 py-2 rounded-lg border"
             style="border-color:#3b1f0d22; color:#3b1f0d;"
           />
@@ -448,7 +500,7 @@ function getAccent(category: string): string {
           class="w-full px-6 py-3 rounded-full text-white font-bold uppercase tracking-wider"
           style="background:linear-gradient(135deg, #dc2626, #f97316); box-shadow: 0 4px 0 -1px #b91c1c;"
         >
-          {{ submittingForm ? 'Posting...' : 'Post your offering' }}
+          {{ submittingForm ? 'Posting...' : formData.kind === 'role' ? 'Post open role' : 'Post your offering' }}
         </button>
       </form>
     </section>

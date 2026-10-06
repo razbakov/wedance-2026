@@ -8,7 +8,7 @@
  * pattern established by the Year cards. Data is currently local +
  * preview-seeded; wire real backend when the pieces exist.
  */
-import { ArrowRight, MapPin, Calendar, Search, Ticket, Plane, Home, GraduationCap, Heart, Coffee, CalendarPlus, Check, ExternalLink, ChevronDown, Target, Flame, Sparkles, MoonStar, UtensilsCrossed, GlassWater, Car, X, Star, Users as UsersIcon, Undo2 } from 'lucide-vue-next'
+import { ArrowRight, MapPin, Calendar, Search, Ticket, Plane, Home, GraduationCap, Heart, Coffee, CalendarPlus, Check, ExternalLink, ChevronDown, Target, Flame, Sparkles, MoonStar, UtensilsCrossed, GlassWater, Car, X, Star, Users as UsersIcon, Undo2, Plus } from 'lucide-vue-next'
 import * as salsaOpen from '~/data/mock-festival'
 import * as meneate from '~/data/mock-meneate'
 import * as cityMunich from '~/data/mock-city-munich'
@@ -348,6 +348,11 @@ onMounted(() => {
   // Fetch real hangouts data for signed-in users with a city
   if (isSignedIn.value && !previewMode.value && dancerCity.value) {
     fetchHangouts()
+  }
+  // Load persisted goals and enrolled courses from DB
+  if (isSignedIn.value && !previewMode.value) {
+    loadGoalsFromDb()
+    loadCoursesFromDb()
   }
 })
 
@@ -715,27 +720,47 @@ function toggleExpanded(slug: string) {
 // GOALS · long arcs above the year. Editing not yet wired — content is
 // user-owned data that will live server-side. Preview seeds a mix.
 // -----------------------------------------------------------------------
-type Goal = { id: string; title: string; why: string; progress: number; nudge?: string; icon: any; color: string }
-const previewGoals: Goal[] = [
+// Preview goals for ?preview=1 mode.
+type PreviewGoal = { id: string; title: string; why: string; progress: number; nudge?: string; icon: any; color: string }
+const previewGoals: PreviewGoal[] = [
   { id: 'g1', title: 'Learn timba (advanced)',   why: 'Feel at home in a Cuban rueda.',             progress: 55, nudge: 'Book 2 more privates before Cuban Fire.', icon: Flame,     color: '#dc2626' },
   { id: 'g2', title: 'Perform at Cuban Fire',    why: 'Duet with Emilia — 3-minute son piece.',    progress: 20, nudge: 'Choose the song this week.',                icon: Sparkles,  color: '#f59e0b' },
   { id: 'g3', title: 'Teach my first class',     why: 'Kids salsa Saturdays at 15x4.',              progress: 10, nudge: 'Sit in on Anna\'s lesson Sunday.',           icon: GraduationCap, color: '#16a34a' },
 ]
-const goals = ref<Goal[]>(isPreviewInitial ? previewGoals : [])
 
-// Add a goal — quick capture. Persistence lands with the goals backend (#issue);
-// for now it adds to your list this session so the button does a real thing.
-const showAddGoal = ref(false)
-function onGoalConfirm(title: string, why: string) {
-  goals.value.push({
-    id: `g-${goals.value.length + 1}-${title.slice(0, 8)}`,
-    title,
-    why,
-    progress: 0,
-    nudge: '',
+// Real goals — persisted via TRPC plan router.
+const { goals: dbGoals, addGoal, removeGoal, loadFromDb: loadGoalsFromDb } = useGoals()
+
+// Unified view: preview mode shows hard-coded preview goals; real mode shows DB goals.
+const goalsList = computed(() => {
+  if (previewMode.value) return previewGoals
+  return dbGoals.value.map(g => ({
+    id: g.id,
+    title: g.title,
+    why: g.why,
+    progress: g.progress,
+    nudge: undefined as string | undefined,
     icon: Target,
     color: '#9a5614',
-  })
+  }))
+})
+
+// Inline add-goal form state.
+const showGoalForm = ref(false)
+const goalFormTitle = ref('')
+const goalFormWhy = ref('')
+function onGoalSubmit() {
+  const t = goalFormTitle.value.trim()
+  if (!t) return
+  addGoal(t, goalFormWhy.value.trim())
+  goalFormTitle.value = ''
+  goalFormWhy.value = ''
+  showGoalForm.value = false
+}
+function onGoalCancel() {
+  goalFormTitle.value = ''
+  goalFormWhy.value = ''
+  showGoalForm.value = false
 }
 
 // -----------------------------------------------------------------------
@@ -774,6 +799,92 @@ const previewCourses: Course[] = [
   },
 ]
 const courses = ref<Course[]>(isPreviewInitial ? previewCourses : [])
+
+// Enrollment picker — shows available classes from the city data.
+const showEnrollPicker = ref(false)
+const WEEKDAY_SHORT_ENROLL: Record<string, string> = { Monday: 'Mon', Tuesday: 'Tue', Wednesday: 'Wed', Thursday: 'Thu', Friday: 'Fri', Saturday: 'Sat', Sunday: 'Sun' }
+const STYLE_COLORS_ENROLL: Record<string, string> = { Salsa: '#dc2626', Bachata: '#7c3aed', Kizomba: '#ec4899', Timba: '#0891b2' }
+
+const availableClasses = computed(() => {
+  const citySlug = (dancerCity.value || '').trim().toLowerCase()
+  const cityEvents = cityEventsMap[citySlug] || []
+  const enrolledIds = new Set(courses.value.map(c => c.id))
+  return cityEvents
+    .filter(e => e.type === 'class' && !enrolledIds.has(e.id))
+})
+
+function enrollClass(e: CityEvent) {
+  const course: Course = {
+    id: e.id,
+    school: e.organizer,
+    teacher: '',
+    style: e.style,
+    level: e.level || 'All levels',
+    weekday: WEEKDAY_SHORT_ENROLL[e.day] || e.day,
+    time: e.time,
+    venue: e.venue,
+    nextClassDate: '',
+    attended: 0,
+    total: 0,
+    paidThroughMonth: false,
+    color: STYLE_COLORS_ENROLL[e.style] || '#6b7280',
+  }
+  courses.value.push(course)
+  useTrack().track('week_plan_add', { event_id: e.id, source: 'enroll_picker' })
+
+  // Persist the enrollment
+  const { $trpc } = useNuxtApp()
+  $trpc.plan.add
+    .mutate({ itemType: 'event', itemId: e.id, metadata: { type: 'class', style: e.style, school: e.organizer, venue: e.venue, weekday: e.day, time: e.time } })
+    .catch(() => {})
+
+  // Auto-close picker if no more classes available
+  if (availableClasses.value.length === 0) {
+    showEnrollPicker.value = false
+  }
+}
+
+function unenrollCourse(id: string) {
+  courses.value = courses.value.filter(c => c.id !== id)
+  const { $trpc } = useNuxtApp()
+  $trpc.plan.remove
+    .mutate({ itemType: 'event', itemId: id })
+    .catch(() => {})
+}
+
+// Load enrolled courses from the DB on mount.
+function loadCoursesFromDb() {
+  const { $trpc } = useNuxtApp()
+  $trpc.plan.list
+    .query()
+    .then((rows) => {
+      const dbCourses: Course[] = []
+      for (const r of rows) {
+        if (r.itemType === 'event' && r.metadata && (r.metadata as Record<string, string>).type === 'class') {
+          const m = r.metadata as Record<string, string>
+          dbCourses.push({
+            id: r.itemId,
+            school: m.school || '',
+            teacher: '',
+            style: m.style || '',
+            level: m.level || 'All levels',
+            weekday: (m.weekday && WEEKDAY_SHORT_ENROLL[m.weekday]) || m.weekday || '',
+            time: m.time || '',
+            venue: m.venue || '',
+            nextClassDate: '',
+            attended: 0,
+            total: 0,
+            paidThroughMonth: false,
+            color: (m.style && STYLE_COLORS_ENROLL[m.style]) || '#6b7280',
+          })
+        }
+      }
+      if (dbCourses.length > 0) {
+        courses.value = dbCourses
+      }
+    })
+    .catch(() => {})
+}
 
 // -----------------------------------------------------------------------
 // SOCIALS · this-week horizon. Fri/Sat/Sun parties + practicas.
@@ -899,6 +1010,53 @@ async function toggleHangout(id: string) {
   }
 }
 const hangoutIcon = (kind: Hangout['kind']) => kind === 'dinner' ? UtensilsCrossed : kind === 'bar' ? GlassWater : kind === 'ride' ? Car : MoonStar
+
+// Create-hangout form state
+const showHangoutForm = ref(false)
+const newHangout = ref({ kind: 'dinner' as 'dinner' | 'bar' | 'ride' | 'floor', title: '', time: '20:00', venue: '' })
+const creatingHangout = ref(false)
+
+async function createHangout() {
+  if (previewMode.value) {
+    const fake: Hangout = {
+      id: `h-${Date.now()}`,
+      kind: newHangout.value.kind,
+      title: newHangout.value.title || `${newHangout.value.kind.charAt(0).toUpperCase() + newHangout.value.kind.slice(1)} hangout`,
+      time: newHangout.value.time,
+      venue: newHangout.value.venue || undefined,
+      people: 1,
+      going: true,
+      color: hangoutColors[newHangout.value.kind] || '#3b1f0d',
+    }
+    hangouts.value.unshift(fake)
+    showHangoutForm.value = false
+    newHangout.value = { kind: 'dinner', title: '', time: '20:00', venue: '' }
+    return
+  }
+
+  if (!newHangout.value.title.trim()) return
+  creatingHangout.value = true
+  try {
+    const citySlug = dancerCity.value?.toLowerCase() || 'munich'
+    await $fetch('/api/trpc/hangouts.create', {
+      method: 'POST',
+      body: {
+        kind: newHangout.value.kind,
+        title: newHangout.value.title.trim(),
+        time: newHangout.value.time,
+        venue: newHangout.value.venue.trim() || undefined,
+        citySlug,
+      },
+    })
+    showHangoutForm.value = false
+    newHangout.value = { kind: 'dinner', title: '', time: '20:00', venue: '' }
+    await fetchHangouts()
+  } catch (error) {
+    console.error('Failed to create hangout:', error)
+  } finally {
+    creatingHangout.value = false
+  }
+}
 
 // -----------------------------------------------------------------------
 // HEAT STRIP · the top 3 items across every scale, sorted by urgency.
@@ -1292,26 +1450,78 @@ function cardSummary(f: CatalogueEntry) {
             </h2>
           </div>
           <button
+            v-if="!showGoalForm"
             type="button"
             class="text-xs italic hover:underline"
             style="color:#9a5614; font-family:'Playfair Display', serif;"
-            @click="showAddGoal = true"
+            @click="showGoalForm = true"
           >
             + Add a goal
           </button>
         </div>
 
-        <div v-if="!goals.length" class="rounded-2xl p-6 text-center border-2 border-dashed" style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);">
+        <!-- Inline add-goal form -->
+        <div v-if="showGoalForm" class="rounded-2xl bg-white p-6 border mb-4" style="border-color:#9a561455; box-shadow: 0 4px 16px rgba(59,31,18,0.06);">
+          <div class="text-sm font-bold mb-4" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+            What are you working toward this year?
+          </div>
+          <form class="space-y-4" @submit.prevent="onGoalSubmit">
+            <div>
+              <label for="goal-title" class="block text-xs font-bold uppercase tracking-widest mb-1.5" style="color:#9a5614;">Your goal</label>
+              <input
+                id="goal-title"
+                v-model="goalFormTitle"
+                type="text"
+                placeholder="e.g. Learn Bachata Sensual"
+                class="w-full rounded-lg border px-3 py-2.5 text-sm focus:outline-none focus:ring-2"
+                style="border-color:#3b1f0d22; background:#fbf5ea; color:#3b1f0d; font-family: system-ui, sans-serif;"
+              />
+            </div>
+            <div>
+              <label for="goal-why" class="block text-xs font-bold uppercase tracking-widest mb-1.5" style="color:#9a5614;">
+                Why does it matter? <span class="font-normal normal-case tracking-normal" style="color:#5b3a1d;">(optional)</span>
+              </label>
+              <input
+                id="goal-why"
+                v-model="goalFormWhy"
+                type="text"
+                placeholder="e.g. Feel confident on the dance floor"
+                class="w-full rounded-lg border px-3 py-2.5 text-sm focus:outline-none focus:ring-2"
+                style="border-color:#3b1f0d22; background:#fbf5ea; color:#3b1f0d; font-family: system-ui, sans-serif;"
+              />
+            </div>
+            <div class="flex items-center gap-3 pt-1">
+              <button
+                type="submit"
+                :disabled="!goalFormTitle.trim()"
+                class="px-5 py-2.5 rounded-full text-white text-sm font-bold uppercase tracking-wider disabled:opacity-40"
+                style="background:#dc2626;"
+              >
+                Add goal
+              </button>
+              <button
+                type="button"
+                class="px-4 py-2.5 rounded-full text-sm font-bold uppercase tracking-wider"
+                style="color:#5b3a1d; background:#3b1f0d11;"
+                @click="onGoalCancel"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <div v-if="!goalsList.length && !showGoalForm" class="rounded-2xl p-6 text-center border-2 border-dashed" style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);">
           <Target class="w-8 h-8 mx-auto mb-3" style="color:#9a5614;" />
           <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
             No goals yet. One year, one arc, one reason to keep showing up.
           </p>
         </div>
-        <div v-else class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div v-else-if="goalsList.length" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div
-            v-for="g in goals"
+            v-for="g in goalsList"
             :key="g.id"
-            class="rounded-2xl bg-white p-5 border"
+            class="rounded-2xl bg-white p-5 border group"
             :style="{ borderColor: g.color + '55', boxShadow: '0 1px 0 ' + g.color + '22, 0 8px 22px rgba(59,31,18,0.05)' }"
           >
             <div class="flex items-start gap-3 mb-3">
@@ -1324,6 +1534,15 @@ function cardSummary(f: CatalogueEntry) {
                   {{ g.why }}
                 </div>
               </div>
+              <button
+                v-if="!previewMode"
+                type="button"
+                class="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 p-1 rounded hover:bg-red-50"
+                title="Remove goal"
+                @click="removeGoal(g.id)"
+              >
+                <X class="w-3.5 h-3.5" style="color:#dc2626;" />
+              </button>
             </div>
             <!-- Progress bar -->
             <div class="mt-4">
@@ -1795,20 +2014,76 @@ function cardSummary(f: CatalogueEntry) {
               Where you <em class="italic" style="color:#dc2626;">show up.</em>
             </h2>
           </div>
-          <NuxtLink
-            to="/cities"
+          <button
+            v-if="!showEnrollPicker && availableClasses.length > 0"
+            type="button"
             class="text-xs italic hover:underline"
             style="color:#9a5614; font-family:'Playfair Display', serif;"
+            @click="showEnrollPicker = true"
           >
             + Enroll
-          </NuxtLink>
+          </button>
+          <button
+            v-else-if="showEnrollPicker"
+            type="button"
+            class="text-xs italic hover:underline"
+            style="color:#5b3a1d; font-family:'Playfair Display', serif;"
+            @click="showEnrollPicker = false"
+          >
+            Done
+          </button>
         </div>
 
-        <div v-if="!courses.length" class="rounded-2xl p-6 text-center border-2 border-dashed" style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);">
+        <!-- Enroll picker — available classes from the city -->
+        <div v-if="showEnrollPicker" class="rounded-2xl bg-white p-5 border mb-4" style="border-color:#9a561455; box-shadow: 0 4px 16px rgba(59,31,18,0.06);">
+          <div class="text-sm font-bold mb-3" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+            Weekly classes in {{ dancerCity || 'your city' }}
+          </div>
+          <div v-if="!availableClasses.length" class="text-xs py-2" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+            All available classes enrolled. Check your city page for more.
+          </div>
+          <div v-else class="space-y-2">
+            <div
+              v-for="cls in availableClasses"
+              :key="cls.id"
+              class="flex items-center gap-3 px-3 py-2.5 rounded-xl border hover:bg-amber-50/50 cursor-pointer transition-colors"
+              style="border-color:#3b1f0d11;"
+              @click="enrollClass(cls)"
+            >
+              <div class="w-2 h-2 rounded-full shrink-0" :style="{ background: STYLE_COLORS_ENROLL[cls.style] || '#6b7280' }" />
+              <div class="flex-1 min-w-0">
+                <div class="text-sm font-bold" style="color:#3b1f0d;">{{ cls.name }}</div>
+                <div class="text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+                  {{ cls.day }} {{ cls.time }} · {{ cls.venue }} · {{ cls.level || 'All levels' }}
+                </div>
+              </div>
+              <span class="text-xs font-bold italic shrink-0" style="color:#dc2626;">+ Add</span>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="!courses.length && !showEnrollPicker" class="rounded-2xl p-6 text-center border-2 border-dashed" style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);">
           <GraduationCap class="w-8 h-8 mx-auto mb-3" style="color:#9a5614;" />
-          <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+          <p class="text-sm mb-3" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
             No monthly cadence yet. A weekly class is the quickest way to keep momentum.
           </p>
+          <button
+            v-if="availableClasses.length > 0"
+            type="button"
+            class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-white text-sm font-bold uppercase tracking-wider"
+            style="background:#dc2626;"
+            @click="showEnrollPicker = true"
+          >
+            Browse classes <ArrowRight class="w-4 h-4" />
+          </button>
+          <NuxtLink
+            v-else
+            :to="citySocialsLink"
+            class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-white text-sm font-bold uppercase tracking-wider"
+            style="background:#dc2626;"
+          >
+            Browse city page <ArrowRight class="w-4 h-4" />
+          </NuxtLink>
         </div>
         <div v-else class="grid sm:grid-cols-2 gap-4">
           <div
@@ -1935,16 +2210,87 @@ function cardSummary(f: CatalogueEntry) {
               Who's <em class="italic" style="color:#dc2626;">out.</em>
             </h2>
           </div>
-          <span
-            class="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full"
-            style="background:#dc262618; color:#dc2626; font-family: system-ui, sans-serif;"
-          >
-            <span class="w-1.5 h-1.5 rounded-full animate-pulse" style="background:#dc2626;" />
-            Live
-          </span>
+          <div class="flex items-center gap-2">
+            <button
+              v-if="isSignedIn"
+              type="button"
+              class="inline-flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full"
+              style="background:#3b1f0d; color:white; font-family: system-ui, sans-serif;"
+              @click="showHangoutForm = !showHangoutForm"
+            >
+              <Plus class="w-3.5 h-3.5" />
+              I'm out
+            </button>
+            <span
+              class="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full"
+              style="background:#dc262618; color:#dc2626; font-family: system-ui, sans-serif;"
+            >
+              <span class="w-1.5 h-1.5 rounded-full animate-pulse" style="background:#dc2626;" />
+              Live
+            </span>
+          </div>
         </div>
 
-        <div v-if="!hangouts.length" class="rounded-2xl p-6 text-center border-2 border-dashed" style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);">
+        <!-- Create hangout form -->
+        <div v-if="showHangoutForm" class="rounded-2xl bg-white border p-4 mb-4" style="border-color:#3b1f0d22;">
+          <div class="flex flex-wrap gap-2 mb-3">
+            <button
+              v-for="k in (['dinner', 'bar', 'ride', 'floor'] as const)"
+              :key="k"
+              type="button"
+              class="text-xs font-bold px-3 py-1.5 rounded-full capitalize"
+              :style="newHangout.kind === k
+                ? { background: hangoutColors[k], color: 'white' }
+                : { background: 'white', color: hangoutColors[k], border: '1.5px solid ' + hangoutColors[k] + '55' }"
+              @click="newHangout.kind = k"
+            >
+              {{ k }}
+            </button>
+          </div>
+          <input
+            v-model="newHangout.title"
+            type="text"
+            placeholder="What's the plan? e.g. Dinner before La Rumba"
+            class="w-full text-sm rounded-lg border px-3 py-2 mb-2"
+            style="border-color:#3b1f0d22; color:#3b1f0d; font-family: system-ui, sans-serif;"
+          />
+          <div class="flex gap-2 mb-3">
+            <input
+              v-model="newHangout.time"
+              type="time"
+              class="text-sm rounded-lg border px-3 py-2"
+              style="border-color:#3b1f0d22; color:#3b1f0d; font-family: system-ui, sans-serif; width:110px;"
+            />
+            <input
+              v-model="newHangout.venue"
+              type="text"
+              placeholder="Where? (venue / address)"
+              class="flex-1 text-sm rounded-lg border px-3 py-2"
+              style="border-color:#3b1f0d22; color:#3b1f0d; font-family: system-ui, sans-serif;"
+            />
+          </div>
+          <div class="flex justify-end gap-2">
+            <button
+              type="button"
+              class="text-xs px-3 py-1.5 rounded-full"
+              style="color:#5b3a1d; font-family: system-ui, sans-serif;"
+              @click="showHangoutForm = false"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="text-xs font-bold px-4 py-1.5 rounded-full"
+              :style="{ background: '#3b1f0d', color: 'white', opacity: creatingHangout || !newHangout.title.trim() ? 0.5 : 1 }"
+              :disabled="creatingHangout || !newHangout.title.trim()"
+              @click="createHangout"
+            >
+              {{ creatingHangout ? 'Posting…' : 'Post' }}
+            </button>
+          </div>
+        </div>
+
+        <div v-if="!hangouts.length && !showHangoutForm" class="rounded-2xl p-6 text-center border-2 border-dashed" style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);">
           <MoonStar class="w-8 h-8 mx-auto mb-3" style="color:#9a5614;" />
           <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
             Nobody's out yet. Post a dinner, a bar hop, or a ride — dancers show up when someone starts.
@@ -2188,6 +2534,5 @@ function cardSummary(f: CatalogueEntry) {
 
     <SiteFooter />
 
-    <AddGoalDialog v-model:open="showAddGoal" @confirm="onGoalConfirm" />
   </div>
 </template>

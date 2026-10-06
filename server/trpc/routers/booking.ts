@@ -1,9 +1,9 @@
 import { z } from 'zod'
-import { eq, and } from 'drizzle-orm'
+import { eq, and, inArray } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import { TRPCError } from '@trpc/server'
 import { router, publicProcedure } from '../trpc'
-import { bookableSpaces, bookingRequests, profiles } from '../../database/schema'
+import { bookableSpaces, bookingRequests, profiles, availabilitySlots } from '../../database/schema'
 
 /**
  * Booking requests — connector model (WeDance holds no money). An organizer
@@ -142,6 +142,25 @@ export const bookingRouter = router({
         throw new TRPCError({ code: 'NOT_FOUND', message: 'That space no longer exists.' })
       }
 
+      // Check availability: if the space has published slots, the requested day
+      // must fall on an active slot's day-of-week.
+      if (input.eventDate) {
+        const slots = await ctx.db
+          .select({ dayOfWeek: availabilitySlots.dayOfWeek })
+          .from(availabilitySlots)
+          .where(and(eq(availabilitySlots.spaceId, input.spaceId), eq(availabilitySlots.isActive, true)))
+
+        if (slots.length) {
+          // ISO day: 1=Mon … 7=Sun
+          const d = new Date(input.eventDate)
+          const isoDay = d.getDay() === 0 ? 7 : d.getDay()
+          const allowed = slots.map(s => s.dayOfWeek)
+          if (!allowed.includes(isoDay)) {
+            throw new TRPCError({ code: 'BAD_REQUEST', message: 'This space is not available on that day.' })
+          }
+        }
+      }
+
       // Resolve the organiser handle (if given) to a visible 'organizer' profile.
       let organizerId: string | null = null
       const handle = input.organizerHandle?.trim().replace(/^@/, '')
@@ -177,5 +196,68 @@ export const bookingRouter = router({
         .returning({ id: bookingRequests.id })
 
       return { ok: true, id: row!.id }
+    }),
+
+  // --- Availability slots (venue-published weekly windows) ---
+
+  // All active slots for a profile (public — shown on the calendar).
+  availabilityForProfile: publicProcedure
+    .input(z.object({ profileId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const spaceIds = await ctx.db
+        .select({ id: bookableSpaces.id })
+        .from(bookableSpaces)
+        .where(eq(bookableSpaces.profileId, input.profileId))
+
+      if (!spaceIds.length) return []
+
+      return ctx.db
+        .select({
+          id: availabilitySlots.id,
+          spaceId: availabilitySlots.spaceId,
+          dayOfWeek: availabilitySlots.dayOfWeek,
+          startTime: availabilitySlots.startTime,
+          endTime: availabilitySlots.endTime,
+        })
+        .from(availabilitySlots)
+        .where(and(
+          inArray(availabilitySlots.spaceId, spaceIds.map(s => s.id)),
+          eq(availabilitySlots.isActive, true),
+        ))
+    }),
+
+  // Set availability for a space — replaces all existing slots for that space.
+  setAvailability: publicProcedure
+    .input(z.object({
+      spaceId: z.string().uuid(),
+      slots: z.array(z.object({
+        dayOfWeek: z.number().int().min(1).max(7),
+        startTime: z.string().regex(/^\d{2}:\d{2}$/),
+        endTime: z.string().regex(/^\d{2}:\d{2}$/),
+      })),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // Verify space exists
+      const [space] = await ctx.db
+        .select({ id: bookableSpaces.id })
+        .from(bookableSpaces)
+        .where(eq(bookableSpaces.id, input.spaceId))
+      if (!space) throw new TRPCError({ code: 'NOT_FOUND', message: 'Space not found.' })
+
+      // Delete existing slots for this space, then insert new ones
+      await ctx.db.delete(availabilitySlots).where(eq(availabilitySlots.spaceId, input.spaceId))
+
+      if (input.slots.length) {
+        await ctx.db.insert(availabilitySlots).values(
+          input.slots.map(s => ({
+            spaceId: input.spaceId,
+            dayOfWeek: s.dayOfWeek,
+            startTime: s.startTime,
+            endTime: s.endTime,
+          })),
+        )
+      }
+
+      return { ok: true }
     }),
 })
