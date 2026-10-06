@@ -37,7 +37,7 @@ export const festivalSignupRouter = router({
         .where(eq(festivals.slug, input.festivalSlug))
 
       if (!festival) {
-        return { totalSignups: 0, maxFreeSpots: 10, userSignedUp: false, stripePaymentLink: null }
+        return { totalSignups: 0, maxFreeSpots: 10, userSignedUp: false, verifiedTicketHolder: false, stripePaymentLink: null }
       }
 
       const [{ count }] = await ctx.db
@@ -46,21 +46,27 @@ export const festivalSignupRouter = router({
         .where(eq(festivalSignups.festivalId, festival.id))
 
       let userSignedUp = false
+      let verifiedTicketHolder = false
       if (ctx.dancerId) {
         const [signup] = await ctx.db
-          .select()
+          .select({
+            id: festivalSignups.id,
+            verifiedTicketHolder: festivalSignups.verifiedTicketHolder,
+          })
           .from(festivalSignups)
           .where(and(
             eq(festivalSignups.festivalId, festival.id),
             eq(festivalSignups.dancerId, ctx.dancerId),
           ))
         userSignedUp = !!signup
+        verifiedTicketHolder = signup?.verifiedTicketHolder ?? false
       }
 
       return {
         totalSignups: Number(count),
         maxFreeSpots: festival.maxFreeSpots,
         userSignedUp,
+        verifiedTicketHolder,
         stripePaymentLink: festival.stripePaymentLink,
       }
     }),
@@ -203,6 +209,25 @@ export const festivalSignupRouter = router({
 
       if (!festival) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Festival not found' })
+      }
+
+      // Prevent duplicate ticket purchase.
+      const [existingSignup] = await ctx.db
+        .select({
+          id: festivalSignups.id,
+          verifiedTicketHolder: festivalSignups.verifiedTicketHolder,
+        })
+        .from(festivalSignups)
+        .where(and(
+          eq(festivalSignups.festivalId, festival.id),
+          eq(festivalSignups.dancerId, ctx.dancerId),
+        ))
+
+      if (existingSignup?.verifiedTicketHolder) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'You already have a ticket for this festival.',
+        })
       }
 
       // Look up the dancer's email so Stripe can pre-fill the checkout form.

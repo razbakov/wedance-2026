@@ -251,5 +251,6 @@ export interface FreemiumState {
   totalSignups: number
   maxFreeSpots: number
   userUnlocked: boolean
+  verifiedTicketHolder: boolean
   paymentUrl: string
 }

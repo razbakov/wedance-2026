@@ -565,6 +565,7 @@ const freemiumState = ref<FreemiumState>({
   totalSignups: 0,
   maxFreeSpots: 10,
   userUnlocked: false,
+  verifiedTicketHolder: false,
   paymentUrl: 'https://buy.stripe.com/placeholder',
 })
 const freeSpotsLeft = computed(() => Math.max(0, freemiumState.value.maxFreeSpots - freemiumState.value.totalSignups))
@@ -576,6 +577,7 @@ async function loadFreemiumStatus() {
     freemiumState.value.totalSignups = result.totalSignups
     freemiumState.value.maxFreeSpots = result.maxFreeSpots
     freemiumState.value.userUnlocked = result.userSignedUp
+    freemiumState.value.verifiedTicketHolder = result.verifiedTicketHolder
     if (result.stripePaymentLink) {
       freemiumState.value.paymentUrl = result.stripePaymentLink
     }
@@ -818,10 +820,15 @@ const selectedTickets = ref<TicketOption[]>([])
 const showCheckout = ref(false)
 const checkoutLoading = ref(false)
 
+const selectedTicket = computed(() => selectedTickets.value[0] ?? null)
 const checkoutTotal = computed(() => selectedTickets.value.reduce((s, t) => s + t.price, 0))
 const checkoutLabel = computed(() => selectedTickets.value.map(t => t.name).join(' + '))
 
+// Whether the current user already holds a verified ticket for this festival.
+const hasTicket = computed(() => freemiumState.value.verifiedTicketHolder)
+
 function chooseTicket(ticket: TicketOption) {
+  if (hasTicket.value) return
   selectedTickets.value = [ticket]
   showCheckout.value = true
 }
@@ -830,6 +837,7 @@ const checkoutError = ref('')
 
 async function startTicketCheckout() {
   if (selectedTickets.value.length === 0) return
+  if (hasTicket.value) return
   if (!isSignedIn.value) {
     // Buying = joining the wall, so we need an account first.
     signUpAction.value = 'ticket'
@@ -990,6 +998,7 @@ const recommendation = computed<Recommendation | null>(() => {
 const recommendedNames = computed(() => new Set((recommendation.value?.tickets ?? []).map((t) => t.name)))
 
 function getRecommendedPass() {
+  if (hasTicket.value) return
   const rec = recommendation.value
   if (!rec) return
   const buyable = rec.tickets.filter((t) => !t.soldOut)
@@ -1237,14 +1246,41 @@ useHead({
         <section v-if="festival.tickets?.length" id="tickets" class="scroll-mt-16">
           <div class="mb-4">
             <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">Passes</div>
-            <h2 class="mt-2 text-2xl font-black leading-tight" style="color:#3b1f0d;">
+            <h2 v-if="hasTicket" class="mt-2 text-2xl font-black leading-tight" style="color:#3b1f0d;">
+              You're <em class="italic" style="color:#16a34a;">in.</em>
+            </h2>
+            <h2 v-else class="mt-2 text-2xl font-black leading-tight" style="color:#3b1f0d;">
               Pick your <em class="italic" style="color:#dc2626;">pass.</em>
             </h2>
           </div>
 
+          <!-- Already purchased — ticket holder confirmation -->
+          <div
+            v-if="hasTicket"
+            class="rounded-2xl p-5 sm:p-6 mb-6"
+            style="background:linear-gradient(135deg, #dcfce7, #d1fae5); border:1px solid #16a34a33;"
+          >
+            <div class="flex items-start gap-3">
+              <div class="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style="background:white;">
+                <Check class="w-5 h-5" style="color:#16a34a;" />
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="text-[10px] uppercase tracking-[0.3em] font-bold" style="color:#16a34a;">
+                  You have a ticket
+                </div>
+                <div class="mt-1 text-sm" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+                  Your pass for {{ festival.name }} is confirmed.
+                </div>
+                <div class="mt-1 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+                  Plan your workshops in the schedule above and connect with other dancers.
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Smart recommendation for the dancer's current plan -->
           <div
-            v-if="recommendation"
+            v-else-if="recommendation"
             class="rounded-2xl p-5 sm:p-6 mb-6"
             style="background:linear-gradient(135deg, #fef3c7, #fee2e2); border:1px solid #dc262633;"
           >
@@ -1389,8 +1425,16 @@ useHead({
                 </span>
               </div>
 
+              <div
+                v-if="hasTicket"
+                class="inline-flex items-center justify-center gap-2 w-full py-3 rounded-full text-xs font-bold uppercase tracking-wider"
+                style="background:#16a34a18; color:#16a34a;"
+              >
+                <Check class="w-3.5 h-3.5" />
+                You have a ticket
+              </div>
               <button
-                v-if="!t.soldOut"
+                v-else-if="!t.soldOut"
                 type="button"
                 class="inline-flex items-center justify-center gap-2 w-full py-3 rounded-full text-white text-xs font-bold uppercase tracking-wider transition-transform hover:-translate-y-0.5"
                 :style="i === 0
