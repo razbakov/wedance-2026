@@ -151,7 +151,8 @@ async function submitForm() {
   }
 }
 
-function gigMailto(g: any): string {
+function gigMailto(g: any): string | null {
+  if (!g.contactEmail) return null
   const applying = g.kind === 'role'
   const subject = applying
     ? `Applying: ${g.title} — ${g.posterName}`
@@ -159,7 +160,7 @@ function gigMailto(g: any): string {
   const body = applying
     ? `Hi ${g.posterName},\n\nI'd like to apply for "${g.title}" (${g.location}, ${g.when}).\n\nAbout me:\nExperience:\nLinks:\n`
     : `Hi ${g.posterName},\n\nI'd like to enquire about "${g.title}" (${g.location}, ${g.when}).\n\nMy event:\nDate:\nWhat I need:\n`
-  return 'mailto:' + (g.contactEmail || 'hello@wedance.vip') + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body)
+  return 'mailto:' + g.contactEmail + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body)
 }
 
 // Track which gigs the user has clicked Apply/Contact on
@@ -568,7 +569,10 @@ function getAccent(category: string): string {
             class="mt-3 p-3 rounded-lg text-xs font-bold"
             style="background:#16a34a14; color:#16a34a; font-family: system-ui, sans-serif; border: 1px solid #16a34a33;"
           >
-            ✓ Your email client was opened — send the message to reach {{ g.posterName }}.
+            ✓ Email draft opened — send it to reach {{ g.posterName }} directly.
+            <template v-if="g.contactUrl">
+              You can also visit <a :href="g.contactUrl" target="_blank" rel="noopener" class="underline">their profile</a>.
+            </template>
           </div>
 
           <!-- Footer -->
@@ -581,14 +585,27 @@ function getAccent(category: string): string {
               {{ daysUntil(g.deadline)!.text }}
             </span>
             <span v-else />
-            <a
-              :href="gigMailto(g)"
-              class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-white text-xs font-bold uppercase tracking-wider"
-              :style="{ background: getAccent(g.category), boxShadow: '0 3px 0 -1px ' + getAccent(g.category) + 'cc' }"
-              @click="handleApply(g)"
-            >
-              {{ g.kind === 'role' ? 'Apply' : 'Contact' }} <ArrowRight class="w-3.5 h-3.5" />
-            </a>
+            <div class="flex items-center gap-2">
+              <a
+                v-if="g.contactUrl"
+                :href="g.contactUrl"
+                target="_blank"
+                rel="noopener"
+                class="inline-flex items-center gap-1 px-3 py-2 rounded-full text-xs font-bold uppercase tracking-wider border"
+                :style="{ color: getAccent(g.category), borderColor: getAccent(g.category) + '55' }"
+              >
+                Profile
+              </a>
+              <a
+                v-if="gigMailto(g)"
+                :href="gigMailto(g)!"
+                class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-white text-xs font-bold uppercase tracking-wider"
+                :style="{ background: getAccent(g.category), boxShadow: '0 3px 0 -1px ' + getAccent(g.category) + 'cc' }"
+                @click="handleApply(g)"
+              >
+                {{ g.kind === 'role' ? 'Apply' : 'Contact' }} <ArrowRight class="w-3.5 h-3.5" />
+              </a>
+            </div>
           </div>
         </div>
       </div>

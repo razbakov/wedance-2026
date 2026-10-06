@@ -7,7 +7,7 @@ audience: All
 p: P103
 cuj: "C5 — Pro — Take the stage / get booked (artists, gigs)"
 jtbd: "J5 — Get discovered and booked as an artist"
-status: partial
+status: done
 wsjf_business_value: 8
 wsjf_time_criticality: 3
 wsjf_risk_opportunity: 3
