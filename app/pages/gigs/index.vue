@@ -53,6 +53,11 @@ const gigsFailed = computed(() => gigsStatus.value === 'error')
 const allGigs = computed(() => gigs.value || [])
 const categories = computed(() => Array.from(new Set(allGigs.value.map((g: any) => g.category))))
 
+function safeHref(url: string | null | undefined): string | undefined {
+  if (!url) return undefined
+  return /^https?:\/\//i.test(url) ? url : undefined
+}
+
 function daysUntil(dateStr?: string | Date): { text: string; urgent: boolean } | null {
   if (!dateStr) return null
   const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr
@@ -570,8 +575,8 @@ function getAccent(category: string): string {
             style="background:#16a34a14; color:#16a34a; font-family: system-ui, sans-serif; border: 1px solid #16a34a33;"
           >
             ✓ Email draft opened — send it to reach {{ g.posterName }} directly.
-            <template v-if="g.contactUrl">
-              You can also visit <a :href="g.contactUrl" target="_blank" rel="noopener" class="underline">their profile</a>.
+            <template v-if="safeHref(g.contactUrl)">
+              You can also visit <a :href="safeHref(g.contactUrl)" target="_blank" rel="noopener" class="underline">their profile</a>.
             </template>
           </div>
 
@@ -587,8 +592,8 @@ function getAccent(category: string): string {
             <span v-else />
             <div class="flex items-center gap-2">
               <a
-                v-if="g.contactUrl"
-                :href="g.contactUrl"
+                v-if="safeHref(g.contactUrl)"
+                :href="safeHref(g.contactUrl)"
                 target="_blank"
                 rel="noopener"
                 class="inline-flex items-center gap-1 px-3 py-2 rounded-full text-xs font-bold uppercase tracking-wider border"
