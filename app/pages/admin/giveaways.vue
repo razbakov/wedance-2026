@@ -5,6 +5,7 @@
  * giveaway.listAll / giveaway.create (adminProcedure).
  */
 import { Loader2, Plus, ExternalLink, RotateCcw } from 'lucide-vue-next'
+import { GiveawaySchema } from '#shared/validation'
 
 definePageMeta({ layout: 'admin' })
 useHead({ title: 'Admin: Giveaways | WeDance' })
@@ -50,7 +51,9 @@ const form = reactive({
   citySlug: '', sponsorName: '', title: '', description: '', prizeDescription: '',
   ctaUrl: '', imageUrl: '', termsUrl: '', startsAt: '', endsAt: '', status: 'active' as 'active' | 'ended' | 'draft',
 })
+const { errors, validate, reset: resetValidation, fieldAttrs } = useFormValidation(GiveawaySchema, form)
 function resetForm() {
+  resetValidation()
   Object.assign(form, {
     citySlug: '', sponsorName: '', title: '', description: '', prizeDescription: '',
     ctaUrl: '', imageUrl: '', termsUrl: '', startsAt: '', endsAt: '', status: 'active',
@@ -59,25 +62,11 @@ function resetForm() {
 
 async function submit() {
   error.value = null
-  if (!form.citySlug || !form.sponsorName || !form.title || !form.ctaUrl || !form.startsAt || !form.endsAt) {
-    error.value = 'Fill city, sponsor, title, CTA URL and the date window.'
-    return
-  }
+  const result = validate()
+  if (!result.success) return
   saving.value = true
   try {
-    await $trpc.giveaway.create.mutate({
-      citySlug: form.citySlug.trim(),
-      sponsorName: form.sponsorName.trim(),
-      title: form.title.trim(),
-      description: form.description.trim(),
-      prizeDescription: form.prizeDescription.trim(),
-      ctaUrl: form.ctaUrl.trim(),
-      imageUrl: form.imageUrl.trim() || undefined,
-      termsUrl: form.termsUrl.trim() || undefined,
-      startsAt: form.startsAt,
-      endsAt: form.endsAt,
-      status: form.status,
-    })
+    await $trpc.giveaway.create.mutate(result.data)
     resetForm()
     showForm.value = false
     await load()
@@ -118,23 +107,49 @@ const inputStyle = 'background:#fbf5ea; border:1px solid #3b1f0d33; font-family:
     <div v-if="showForm" class="mt-6 rounded-2xl bg-white border p-5" style="border-color:#a855f733;">
       <h2 class="text-sm font-bold uppercase tracking-wider mb-4" style="color:#a855f7;">New giveaway</h2>
       <div class="grid gap-3 sm:grid-cols-2">
-        <input v-model="form.citySlug" placeholder="City slug (e.g. munich)" :class="inputCls" :style="inputStyle">
-        <input v-model="form.sponsorName" placeholder="Sponsor name" :class="inputCls" :style="inputStyle">
-        <input v-model="form.title" placeholder="Title" :class="inputCls" :style="inputStyle">
-        <input v-model="form.prizeDescription" placeholder="Prize (e.g. 2 festival passes)" :class="inputCls" :style="inputStyle">
-        <input v-model="form.description" placeholder="Short description" :class="`${inputCls} sm:col-span-2`" :style="inputStyle">
-        <input v-model="form.ctaUrl" placeholder="CTA URL (https://…)" :class="inputCls" :style="inputStyle">
-        <input v-model="form.imageUrl" placeholder="Image URL (optional)" :class="inputCls" :style="inputStyle">
-        <input v-model="form.termsUrl" placeholder="Terms URL (optional)" :class="inputCls" :style="inputStyle">
+        <div>
+          <input v-model="form.citySlug" placeholder="City slug (e.g. munich)" :class="inputCls" :style="inputStyle" v-bind="fieldAttrs('citySlug', 'giveaway-citySlug-error')">
+          <FieldError id="giveaway-citySlug-error" :message="errors.citySlug" />
+        </div>
+        <div>
+          <input v-model="form.sponsorName" placeholder="Sponsor name" :class="inputCls" :style="inputStyle" v-bind="fieldAttrs('sponsorName', 'giveaway-sponsorName-error')">
+          <FieldError id="giveaway-sponsorName-error" :message="errors.sponsorName" />
+        </div>
+        <div>
+          <input v-model="form.title" placeholder="Title" :class="inputCls" :style="inputStyle" v-bind="fieldAttrs('title', 'giveaway-title-error')">
+          <FieldError id="giveaway-title-error" :message="errors.title" />
+        </div>
+        <div>
+          <input v-model="form.prizeDescription" placeholder="Prize (e.g. 2 festival passes)" :class="inputCls" :style="inputStyle" v-bind="fieldAttrs('prizeDescription', 'giveaway-prizeDescription-error')">
+          <FieldError id="giveaway-prizeDescription-error" :message="errors.prizeDescription" />
+        </div>
+        <div class="sm:col-span-2">
+          <input v-model="form.description" placeholder="Short description" :class="inputCls" :style="inputStyle" v-bind="fieldAttrs('description', 'giveaway-description-error')">
+          <FieldError id="giveaway-description-error" :message="errors.description" />
+        </div>
+        <div>
+          <input v-model="form.ctaUrl" placeholder="CTA URL (https://…)" :class="inputCls" :style="inputStyle" v-bind="fieldAttrs('ctaUrl', 'giveaway-ctaUrl-error')">
+          <FieldError id="giveaway-ctaUrl-error" :message="errors.ctaUrl" />
+        </div>
+        <div>
+          <input v-model="form.imageUrl" placeholder="Image URL (optional)" :class="inputCls" :style="inputStyle" v-bind="fieldAttrs('imageUrl', 'giveaway-imageUrl-error')">
+          <FieldError id="giveaway-imageUrl-error" :message="errors.imageUrl" />
+        </div>
+        <div>
+          <input v-model="form.termsUrl" placeholder="Terms URL (optional)" :class="inputCls" :style="inputStyle" v-bind="fieldAttrs('termsUrl', 'giveaway-termsUrl-error')">
+          <FieldError id="giveaway-termsUrl-error" :message="errors.termsUrl" />
+        </div>
         <select v-model="form.status" :class="inputCls" :style="inputStyle">
           <option value="active">active</option>
           <option value="draft">draft</option>
           <option value="ended">ended</option>
         </select>
         <label class="text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Starts
-          <input v-model="form.startsAt" type="date" :class="inputCls" :style="inputStyle"></label>
+          <input v-model="form.startsAt" type="date" :class="inputCls" :style="inputStyle" v-bind="fieldAttrs('startsAt', 'giveaway-startsAt-error')">
+          <FieldError id="giveaway-startsAt-error" :message="errors.startsAt" /></label>
         <label class="text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Ends
-          <input v-model="form.endsAt" type="date" :class="inputCls" :style="inputStyle"></label>
+          <input v-model="form.endsAt" type="date" :class="inputCls" :style="inputStyle" v-bind="fieldAttrs('endsAt', 'giveaway-endsAt-error')">
+          <FieldError id="giveaway-endsAt-error" :message="errors.endsAt" /></label>
       </div>
       <div class="mt-4 flex gap-2">
         <button type="button" class="inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-white text-xs font-bold uppercase tracking-wider disabled:opacity-50" style="background:#a855f7;" :disabled="saving" @click="submit">

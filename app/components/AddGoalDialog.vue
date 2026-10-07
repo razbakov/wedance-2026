@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { GoalSchema, validateForm } from '#shared/validation'
+
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{
   'update:open': [value: boolean]
@@ -8,6 +10,7 @@ const emit = defineEmits<{
 const title = ref('')
 const why = ref('')
 const titleInput = ref<HTMLInputElement | null>(null)
+const goal = computed(() => validateForm(GoalSchema, { title: title.value, why: why.value }))
 
 watch(() => props.open, (val) => {
   if (val) {
@@ -22,9 +25,8 @@ function cancel() {
 }
 
 function submit() {
-  const t = title.value.trim()
-  if (!t) return
-  emit('confirm', t, why.value.trim())
+  if (!goal.value.success) return
+  emit('confirm', goal.value.data.title, goal.value.data.why)
   emit('update:open', false)
 }
 </script>
@@ -38,7 +40,7 @@ function submit() {
           What are you working toward this year?
         </DialogDescription>
       </DialogHeader>
-      <form class="space-y-4 py-2" @submit.prevent="submit">
+      <form class="space-y-4 py-2" novalidate @submit.prevent="submit">
         <div class="space-y-1.5">
           <label for="goal-title" class="text-sm font-medium">Goal</label>
           <input
@@ -74,7 +76,7 @@ function submit() {
           <button
             type="submit"
             class="h-10 px-4 rounded-md text-sm font-medium text-white bg-primary hover:bg-primary/90 transition-colors disabled:opacity-50"
-            :disabled="!title.trim()"
+            :disabled="!goal.success"
           >
             Add goal
           </button>

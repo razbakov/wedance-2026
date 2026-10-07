@@ -12,6 +12,7 @@
  *   - 'commercial' → a rentable venue: bookable spaces with a request flow.
  */
 import { eventLocalDate, eventLocalTime } from '#shared/utils/eventTime'
+import { bookingRequestSchema } from '#shared/validation'
 import { MapPin, Instagram, Youtube, Globe, Facebook, LayoutGrid, ArrowLeft, Check, Calendar, ScrollText, ShieldCheck, Trees, Plus } from 'lucide-vue-next'
 
 definePageMeta({ layout: false })
@@ -105,7 +106,9 @@ const booking = reactive({
   email: '', name: '', eventDate: '', startTime: '', endTime: '',
   headcount: '' as string | number, message: '', terms: false, busy: false, err: '', done: false,
 })
+const bookingForm = reactive(useFormValidation(() => bookingRequestSchema({ free: isFree.value }), booking))
 function openBooking(space: any) {
+  bookingForm.reset()
   Object.assign(booking, {
     open: true, spaceId: space.id, spaceName: space.name,
     title: '', eventType: 'Social', styles: [], artists: '', organizerHandle: '',
@@ -124,20 +127,12 @@ function onCalendarBook(slot: { spaceId: string; spaceName: string; date: string
 }
 async function submitBooking() {
   booking.err = ''
-  if (!booking.title.trim()) { booking.err = 'Give your event a name.'; return }
-  if (!booking.email.trim()) { booking.err = 'Add an email so the moderator can reply.'; return }
-  if (!booking.terms) { booking.err = isFree.value ? 'Please agree to the community guidelines.' : 'Please accept the booking terms.'; return }
+  const result = bookingForm.validate()
+  if (!result.success) return
   booking.busy = true
   try {
-    await $trpc.booking.request.mutate({
-      spaceId: booking.spaceId, email: booking.email.trim(), name: booking.name.trim() || undefined,
-      title: booking.title.trim(), eventType: booking.eventType, styles: booking.styles,
-      artists: booking.artists.split(',').map(a => a.trim()).filter(Boolean),
-      organizerHandle: booking.organizerHandle.trim() || undefined,
-      eventDate: booking.eventDate || undefined, startTime: booking.startTime || undefined, endTime: booking.endTime || undefined,
-      headcount: booking.headcount ? Number(booking.headcount) : undefined,
-      message: booking.message.trim() || undefined, termsAccepted: booking.terms,
-    })
+    const { terms, ...request } = result.data
+    await $trpc.booking.request.mutate({ ...request, termsAccepted: terms })
     booking.done = true
     // CUJ: "Book a venue space" — request submitted.
     useTrack().track('booking_request_submitted', { space_id: booking.spaceId, event_type: booking.eventType, free: isFree.value })
@@ -265,32 +260,56 @@ useHead(() => ({
                 <option v-for="t in EVENT_TYPES" :key="t" :value="t">{{ t }}</option>
               </select>
             </div>
-            <input v-model="booking.title" type="text" maxlength="120" placeholder="Event name — e.g. Sunday Salsa Social" class="w-full h-10 rounded-xl px-3 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;">
+            <div>
+              <input v-model="booking.title" type="text" maxlength="120" placeholder="Event name — e.g. Sunday Salsa Social" class="w-full h-10 rounded-xl px-3 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;" v-bind="bookingForm.fieldAttrs('title', 'booking-title-error')">
+              <FieldError id="booking-title-error" :message="bookingForm.errors.title" />
+            </div>
             <div>
               <div class="text-[10px] uppercase tracking-wider font-bold mb-1.5" style="color:#9a5614;">Styles</div>
               <div class="flex flex-wrap gap-1.5">
                 <button v-for="s in DANCE_STYLES" :key="s" type="button" class="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider" :style="booking.styles.includes(s) ? 'background:#dc2626; color:white;' : 'background:#dc262614; color:#dc2626;'" @click="toggleBookingStyle(s)">{{ s }}</button>
               </div>
             </div>
-            <div class="flex gap-2">
-              <input v-model="booking.eventDate" type="date" class="flex-1 h-10 rounded-xl px-3 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;" aria-label="Date">
-              <input v-model="booking.startTime" type="time" class="w-28 h-10 rounded-xl px-2 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;" aria-label="Start">
-              <input v-model="booking.endTime" type="time" class="w-28 h-10 rounded-xl px-2 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;" aria-label="End">
+            <div>
+              <div class="flex gap-2">
+                <input v-model="booking.eventDate" type="date" class="flex-1 h-10 rounded-xl px-3 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;" aria-label="Date" v-bind="bookingForm.fieldAttrs('eventDate', 'booking-date-error')">
+                <input v-model="booking.startTime" type="time" class="w-28 h-10 rounded-xl px-2 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;" aria-label="Start" v-bind="bookingForm.fieldAttrs('startTime', 'booking-start-error')">
+                <input v-model="booking.endTime" type="time" class="w-28 h-10 rounded-xl px-2 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;" aria-label="End" v-bind="bookingForm.fieldAttrs('endTime', 'booking-end-error')">
+              </div>
+              <FieldError id="booking-date-error" :message="bookingForm.errors.eventDate" />
+              <FieldError id="booking-start-error" :message="bookingForm.errors.startTime" />
+              <FieldError id="booking-end-error" :message="bookingForm.errors.endTime" />
             </div>
             <input v-model="booking.artists" type="text" placeholder="Artists / DJs / teachers (comma-separated · @handle or name)" class="w-full h-10 rounded-xl px-3 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;">
-            <input v-model="booking.organizerHandle" type="text" placeholder="Organiser @handle (optional — who runs this event)" class="w-full h-10 rounded-xl px-3 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;">
-            <textarea v-model="booking.message" rows="2" maxlength="2000" placeholder="Anything the community should know (level, entry…)" class="w-full rounded-xl px-3 py-2 text-sm outline-none resize-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;" />
-            <div class="flex gap-2">
-              <input v-model="booking.name" type="text" placeholder="Your name" class="flex-1 h-10 rounded-xl px-3 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;">
-              <input v-model="booking.headcount" type="number" min="1" placeholder="Guests" class="w-24 h-10 rounded-xl px-3 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;">
+            <div>
+              <input v-model="booking.organizerHandle" type="text" placeholder="Organiser @handle (optional — who runs this event)" class="w-full h-10 rounded-xl px-3 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;" v-bind="bookingForm.fieldAttrs('organizerHandle', 'booking-organizer-error')">
+              <FieldError id="booking-organizer-error" :message="bookingForm.errors.organizerHandle" />
             </div>
-            <input v-model="booking.email" type="email" placeholder="Email (so the moderator can reply)" class="w-full h-10 rounded-xl px-3 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;">
-            <label class="flex items-start gap-2 text-xs cursor-pointer" style="color:#5b3a1d;">
-              <input v-model="booking.terms" type="checkbox" class="mt-0.5 w-4 h-4 accent-[#dc2626]">
-              <span v-if="isFree && profile.guidelines">I've read and will follow the <a href="#guidelines" class="underline font-bold" style="color:#dc2626;" @click.prevent="document.getElementById('guidelines')?.scrollIntoView({behavior:'smooth'})">community guidelines</a>.</span>
-              <span v-else-if="isFree">I'll respect this space and its community.</span>
-              <span v-else>I accept the <NuxtLink to="/booking-terms" target="_blank" class="underline font-bold" style="color:#dc2626;">booking terms</NuxtLink>.</span>
-            </label>
+            <div>
+              <textarea v-model="booking.message" rows="2" maxlength="2000" placeholder="Anything the community should know (level, entry…)" class="w-full rounded-xl px-3 py-2 text-sm outline-none resize-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;" v-bind="bookingForm.fieldAttrs('message', 'booking-message-error')" />
+              <FieldError id="booking-message-error" :message="bookingForm.errors.message" />
+            </div>
+            <div>
+              <div class="flex gap-2">
+                <input v-model="booking.name" type="text" placeholder="Your name" class="flex-1 h-10 rounded-xl px-3 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;" v-bind="bookingForm.fieldAttrs('name', 'booking-name-error')">
+                <input v-model="booking.headcount" type="number" min="1" placeholder="Guests" class="w-24 h-10 rounded-xl px-3 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;" v-bind="bookingForm.fieldAttrs('headcount', 'booking-headcount-error')">
+              </div>
+              <FieldError id="booking-name-error" :message="bookingForm.errors.name" />
+              <FieldError id="booking-headcount-error" :message="bookingForm.errors.headcount" />
+            </div>
+            <div>
+              <input v-model="booking.email" type="email" placeholder="Email (so the moderator can reply)" class="w-full h-10 rounded-xl px-3 text-sm outline-none" style="background:#fbf5ea; border:1px solid #3b1f0d33;" v-bind="bookingForm.fieldAttrs('email', 'booking-email-error')">
+              <FieldError id="booking-email-error" :message="bookingForm.errors.email" />
+            </div>
+            <div>
+              <label class="flex items-start gap-2 text-xs cursor-pointer" style="color:#5b3a1d;">
+                <input v-model="booking.terms" type="checkbox" class="mt-0.5 w-4 h-4 accent-[#dc2626]" v-bind="bookingForm.fieldAttrs('terms', 'booking-terms-error')">
+                <span v-if="isFree && profile.guidelines">I've read and will follow the <a href="#guidelines" class="underline font-bold" style="color:#dc2626;" @click.prevent="document.getElementById('guidelines')?.scrollIntoView({behavior:'smooth'})">community guidelines</a>.</span>
+                <span v-else-if="isFree">I'll respect this space and its community.</span>
+                <span v-else>I accept the <NuxtLink to="/booking-terms" target="_blank" class="underline font-bold" style="color:#dc2626;">booking terms</NuxtLink>.</span>
+              </label>
+              <FieldError id="booking-terms-error" :message="bookingForm.errors.terms" />
+            </div>
             <p v-if="booking.err" class="text-sm font-bold" style="color:#dc2626;">{{ booking.err }}</p>
           </div>
           <div class="mt-4 flex gap-2">

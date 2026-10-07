@@ -19,6 +19,7 @@
  * fires automatically.
  */
 import { ArrowRight, Ticket, Mail, AlertCircle } from 'lucide-vue-next'
+import { ClaimTicketSchema } from '#shared/validation'
 
 const { $trpc } = useNuxtApp()
 const route = useRoute()
@@ -52,6 +53,7 @@ const signInEmail = ref('')
 const signInError = ref('')
 const signInLoading = ref(false)
 const signInSent = ref(false)
+const { errors, validate, fieldAttrs } = useFormValidation(ClaimTicketSchema, () => ({ email: signInEmail.value }))
 
 async function refreshStatus() {
   status.value = { kind: 'loading' }
@@ -99,14 +101,12 @@ watch(authLoading, (loading) => {
 async function handleSignIn() {
   signInError.value = ''
 
-  if (!signInEmail.value.trim() || !signInEmail.value.includes('@')) {
-    signInError.value = 'Please enter the email you used to buy your ticket.'
-    return
-  }
+  const result = validate()
+  if (!result.success) return
 
   signInLoading.value = true
   try {
-    await requestMagicLink({ email: signInEmail.value.trim() })
+    await requestMagicLink(result.data)
     signInSent.value = true
   } catch (e: any) {
     signInError.value = e?.message || 'Failed to send magic link. Please try again.'
@@ -235,7 +235,7 @@ async function handleSignIn() {
         <!-- Sign-in form -->
         <div class="rounded-lg border bg-card p-5 shadow-sm">
           <template v-if="!signInSent">
-            <form class="space-y-4" @submit.prevent="handleSignIn">
+            <form class="space-y-4" novalidate @submit.prevent="handleSignIn">
               <div class="space-y-2">
                 <label for="claim-email" class="text-sm font-medium">Email</label>
                 <input
@@ -246,7 +246,9 @@ async function handleSignIn() {
                   required
                   autofocus
                   class="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  v-bind="fieldAttrs('email', 'claim-email-error')"
                 >
+                <FieldError id="claim-email-error" :message="errors.email" />
               </div>
               <p v-if="signInError" class="text-sm text-destructive">{{ signInError }}</p>
               <Button type="submit" class="w-full" :disabled="signInLoading">

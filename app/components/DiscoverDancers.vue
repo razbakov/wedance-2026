@@ -4,6 +4,7 @@ import { Heart, X, Sparkles, Check, ChevronDown, ChevronUp, RotateCcw, Star, Mes
 import { Button } from '~/components/ui/button'
 import { Badge } from '~/components/ui/badge'
 import { chilis } from '~/lib/levels'
+import { DanceCardSchema, DanceFeedbackSchema, DiscoverProfileSchema, validateForm } from '#shared/validation'
 
 const props = defineProps<{
   dancers: DiscoverDancer[]
@@ -108,7 +109,9 @@ function toggleStyleLevel(style: string, level: 'Beginner' | 'Intermediate' | 'A
   selectedStyles.value = next
 }
 
-const canSubmitDanceCard = computed(() => selectedRole.value !== null && selectedStyles.value.size > 0)
+const canSubmitDanceCard = computed(() =>
+  validateForm(DanceCardSchema, { role: selectedRole.value, styles: [...selectedStyles.value.keys()] }).success,
+)
 
 function submitDanceCard() {
   if (!canSubmitDanceCard.value) return
@@ -131,14 +134,16 @@ function onPhotoChange(e: Event) {
   }
 }
 
-const canSubmitProfile = computed(() => profileName.value.trim().length > 0 && profileCity.value.trim().length > 0)
+const profile = computed(() => validateForm(DiscoverProfileSchema, { name: profileName.value, city: profileCity.value }))
+const canSubmitProfile = computed(() => profile.value.success)
 
 function submitProfile() {
-  if (!canSubmitProfile.value) return
+  if (!profile.value.success) return
   if (currentCard.value) {
     liked.value = new Set([...liked.value, currentCard.value.id])
   }
-  emit('onboarding-complete', selectedRole.value!, [...selectedStyles.value.keys()], profileName.value.trim(), profileCity.value.trim())
+  const { name, city } = profile.value.data
+  emit('onboarding-complete', selectedRole.value!, [...selectedStyles.value.keys()], name, city)
   emit('sign-in', 'onboarding')
 }
 
@@ -324,9 +329,9 @@ function updateFeedbackDraft(dancerId: string, text: string) {
 }
 
 function sendFeedback(dancerId: string) {
-  const text = myFeedbackDraft.value.get(dancerId)
-  if (!text?.trim()) return
-  myFeedbackSent.value.set(dancerId, text)
+  const result = validateForm(DanceFeedbackSchema, { text: myFeedbackDraft.value.get(dancerId) ?? '' })
+  if (!result.success) return
+  myFeedbackSent.value.set(dancerId, result.data.text)
   myFeedbackSent.value = new Map(myFeedbackSent.value)
 }
 

@@ -6,6 +6,7 @@
  * Protected: signed-out users are sent home. 2026 tropical style.
  */
 import { Check, ExternalLink, AlertTriangle } from 'lucide-vue-next'
+import { ChangePasswordSchema, ProfileSettingsSchema, deleteAccountSchema, validateForm } from '#shared/validation'
 
 definePageMeta({ layout: false })
 
@@ -38,12 +39,14 @@ const form = reactive({
 const loading = ref(false)
 const error = ref('')
 const saved = ref(false)
+const profileForm = reactive(useFormValidation(ProfileSettingsSchema, form))
 
 // Change-password sub-form.
 const pw = reactive({ current: '', next: '' })
 const pwLoading = ref(false)
 const pwError = ref('')
 const pwSaved = ref(false)
+const passwordForm = reactive(useFormValidation(ChangePasswordSchema, pw))
 
 // Account deletion confirmation.
 const showDeleteConfirm = ref(false)
@@ -79,21 +82,11 @@ function toggleStyle(style: string) {
 async function save() {
   error.value = ''
   saved.value = false
-  if (!form.name.trim()) { error.value = 'Name is required.'; return }
+  const result = profileForm.validate()
+  if (!result.success) return
   loading.value = true
   try {
-    await updateProfile({
-      name: form.name.trim(),
-      city: form.city.trim(),
-      danceStyles: form.danceStyles,
-      role: form.role || undefined,
-      photo: form.photo.trim(),
-      bio: form.bio.trim(),
-      instagram: form.instagram.trim(),
-      youtube: form.youtube.trim(),
-      website: form.website.trim(),
-      profilePublic: form.profilePublic,
-    })
+    await updateProfile(result.data)
     saved.value = true
   } catch (e: unknown) {
     error.value = (e as { message?: string })?.message || 'Could not save. Please try again.'
@@ -105,10 +98,11 @@ async function save() {
 async function submitPassword() {
   pwError.value = ''
   pwSaved.value = false
-  if (pw.next.length < 8) { pwError.value = 'New password must be at least 8 characters.'; return }
+  const result = passwordForm.validate()
+  if (!result.success) return
   pwLoading.value = true
   try {
-    await changePassword({ currentPassword: pw.current, newPassword: pw.next })
+    await changePassword({ currentPassword: result.data.current, newPassword: result.data.next })
     pwSaved.value = true
     pw.current = ''
     pw.next = ''
@@ -121,8 +115,9 @@ async function submitPassword() {
 
 async function submitDelete() {
   deleteError.value = ''
-  if (deleteConfirmInput.value !== dancerName.value) {
-    deleteError.value = `Please type "${dancerName.value}" to confirm.`
+  const result = validateForm(deleteAccountSchema(dancerName.value), { confirmation: deleteConfirmInput.value })
+  if (!result.success) {
+    deleteError.value = result.error
     return
   }
   deleteLoading.value = true
@@ -159,7 +154,8 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
       <div class="mt-4 space-y-6">
         <div>
           <label class="block text-xs font-bold uppercase tracking-wider mb-1.5" style="color:#9a5614;">Name</label>
-          <input v-model="form.name" type="text" class="w-full h-11 rounded-xl px-3.5 text-sm outline-none" :style="inputStyle">
+          <input v-model="form.name" type="text" class="w-full h-11 rounded-xl px-3.5 text-sm outline-none" :style="inputStyle" v-bind="profileForm.fieldAttrs('name', 'settings-name-error')">
+          <FieldError id="settings-name-error" :message="profileForm.errors.name" />
         </div>
 
         <div>
@@ -169,7 +165,8 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
 
         <div>
           <label class="block text-xs font-bold uppercase tracking-wider mb-1.5" style="color:#9a5614;">Bio</label>
-          <textarea v-model="form.bio" rows="3" maxlength="500" placeholder="A line or two about you and your dancing." class="w-full rounded-xl px-3.5 py-2.5 text-sm outline-none resize-none" :style="inputStyle" />
+          <textarea v-model="form.bio" rows="3" maxlength="500" placeholder="A line or two about you and your dancing." class="w-full rounded-xl px-3.5 py-2.5 text-sm outline-none resize-none" :style="inputStyle" v-bind="profileForm.fieldAttrs('bio', 'settings-bio-error')" />
+          <FieldError id="settings-bio-error" :message="profileForm.errors.bio" />
         </div>
 
         <div>
@@ -204,21 +201,25 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
         <div class="grid gap-3">
           <div>
             <label class="block text-xs font-bold uppercase tracking-wider mb-1.5" style="color:#9a5614;">Instagram <span class="normal-case font-normal">(handle or URL)</span></label>
-            <input v-model="form.instagram" type="text" placeholder="@yourhandle" class="w-full h-11 rounded-xl px-3.5 text-sm outline-none" :style="inputStyle">
+            <input v-model="form.instagram" type="text" placeholder="@yourhandle" class="w-full h-11 rounded-xl px-3.5 text-sm outline-none" :style="inputStyle" v-bind="profileForm.fieldAttrs('instagram', 'settings-instagram-error')">
+            <FieldError id="settings-instagram-error" :message="profileForm.errors.instagram" />
           </div>
           <div>
             <label class="block text-xs font-bold uppercase tracking-wider mb-1.5" style="color:#9a5614;">YouTube <span class="normal-case font-normal">(handle or URL)</span></label>
-            <input v-model="form.youtube" type="text" placeholder="@yourchannel" class="w-full h-11 rounded-xl px-3.5 text-sm outline-none" :style="inputStyle">
+            <input v-model="form.youtube" type="text" placeholder="@yourchannel" class="w-full h-11 rounded-xl px-3.5 text-sm outline-none" :style="inputStyle" v-bind="profileForm.fieldAttrs('youtube', 'settings-youtube-error')">
+            <FieldError id="settings-youtube-error" :message="profileForm.errors.youtube" />
           </div>
           <div>
             <label class="block text-xs font-bold uppercase tracking-wider mb-1.5" style="color:#9a5614;">Website</label>
-            <input v-model="form.website" type="text" placeholder="yoursite.com" class="w-full h-11 rounded-xl px-3.5 text-sm outline-none" :style="inputStyle">
+            <input v-model="form.website" type="text" placeholder="yoursite.com" class="w-full h-11 rounded-xl px-3.5 text-sm outline-none" :style="inputStyle" v-bind="profileForm.fieldAttrs('website', 'settings-website-error')">
+            <FieldError id="settings-website-error" :message="profileForm.errors.website" />
           </div>
         </div>
 
         <div>
           <label class="block text-xs font-bold uppercase tracking-wider mb-1.5" style="color:#9a5614;">Photo URL <span class="normal-case font-normal">(optional)</span></label>
-          <input v-model="form.photo" type="url" placeholder="https://…" class="w-full h-11 rounded-xl px-3.5 text-sm outline-none" :style="inputStyle">
+          <input v-model="form.photo" type="url" placeholder="https://…" class="w-full h-11 rounded-xl px-3.5 text-sm outline-none" :style="inputStyle" v-bind="profileForm.fieldAttrs('photo', 'settings-photo-error')">
+          <FieldError id="settings-photo-error" :message="profileForm.errors.photo" />
         </div>
 
         <!-- Privacy -->
@@ -246,11 +247,13 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
       <div class="mt-4 space-y-4">
         <div>
           <label class="block text-xs font-bold uppercase tracking-wider mb-1.5" style="color:#9a5614;">Current password</label>
-          <input v-model="pw.current" type="password" autocomplete="current-password" class="w-full h-11 rounded-xl px-3.5 text-sm outline-none" :style="inputStyle">
+          <input v-model="pw.current" type="password" autocomplete="current-password" class="w-full h-11 rounded-xl px-3.5 text-sm outline-none" :style="inputStyle" v-bind="passwordForm.fieldAttrs('current', 'settings-pw-current-error')">
+          <FieldError id="settings-pw-current-error" :message="passwordForm.errors.current" />
         </div>
         <div>
           <label class="block text-xs font-bold uppercase tracking-wider mb-1.5" style="color:#9a5614;">New password</label>
-          <input v-model="pw.next" type="password" autocomplete="new-password" placeholder="At least 8 characters" class="w-full h-11 rounded-xl px-3.5 text-sm outline-none" :style="inputStyle">
+          <input v-model="pw.next" type="password" autocomplete="new-password" placeholder="At least 8 characters" class="w-full h-11 rounded-xl px-3.5 text-sm outline-none" :style="inputStyle" v-bind="passwordForm.fieldAttrs('next', 'settings-pw-next-error')">
+          <FieldError id="settings-pw-next-error" :message="passwordForm.errors.next" />
         </div>
         <p v-if="pwError" class="text-sm font-bold" style="color:#dc2626;">{{ pwError }}</p>
         <p v-if="pwSaved" class="inline-flex items-center gap-1.5 text-sm font-bold" style="color:#16a34a;"><Check class="w-4 h-4" /> Password changed</p>

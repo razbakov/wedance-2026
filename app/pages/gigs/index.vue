@@ -6,6 +6,7 @@
  * gigs is post-driven — "I need X" or "I offer Y".
  */
 import { ArrowRight, MapPin, Calendar, Wallet, Plus, Megaphone, Hand, X } from 'lucide-vue-next'
+import { GigSchema } from '#shared/validation'
 
 definePageMeta({ layout: false })
 
@@ -95,6 +96,7 @@ const styleInput = ref('')
 const submittingForm = ref(false)
 const formError = ref('')
 const formSuccess = ref(false)
+const { errors, validate, fieldAttrs } = useFormValidation(GigSchema, formData)
 
 function addStyle() {
   if (styleInput.value.trim()) {
@@ -114,18 +116,14 @@ async function submitForm() {
   }
 
   formError.value = ''
+  // The schema trims text and turns blank optional fields into undefined.
+  const result = validate()
+  if (!result.success) return
   submittingForm.value = true
 
   try {
     // Mutation through the tRPC client so the session Bearer token is sent.
-    // Empty optional fields become undefined (zod rejects '' for .url()).
-    await $trpc.gigs.create.mutate({
-      ...formData,
-      styles: [...formData.styles],
-      deadline: formData.deadline || undefined,
-      contactUrl: formData.contactUrl || undefined,
-      entityUrl: formData.entityUrl || undefined,
-    })
+    await $trpc.gigs.create.mutate(result.data)
 
     formSuccess.value = true
     formData.kind = 'offer'
@@ -278,7 +276,7 @@ function getAccent(category: string): string {
         </button>
       </div>
 
-      <form class="space-y-4" @submit.prevent="submitForm">
+      <form class="space-y-4" novalidate @submit.prevent="submitForm">
         <!-- Kind toggle -->
         <div>
           <label class="block text-sm font-bold mb-1" style="color:#5b3a1d;">What are you posting?</label>
@@ -304,6 +302,7 @@ function getAccent(category: string): string {
           <label class="block text-sm font-bold mb-1" style="color:#5b3a1d;">{{ formData.kind === 'role' ? 'You are a…' : 'You are a…' }}</label>
           <select
             v-model="formData.posterType"
+            v-bind="fieldAttrs('posterType', 'gig-posterType-error')"
             required
             class="w-full px-3 py-2 rounded-lg border"
             style="border-color:#3b1f0d22; color:#3b1f0d;"
@@ -322,6 +321,7 @@ function getAccent(category: string): string {
               <option value="MC">MC</option>
             </template>
           </select>
+          <FieldError id="gig-posterType-error" :message="errors.posterType" />
         </div>
 
         <!-- Category -->
@@ -329,6 +329,7 @@ function getAccent(category: string): string {
           <label class="block text-sm font-bold mb-1" style="color:#5b3a1d;">{{ formData.kind === 'role' ? 'Role needed' : 'Service category' }}</label>
           <select
             v-model="formData.category"
+            v-bind="fieldAttrs('category', 'gig-category-error')"
             required
             class="w-full px-3 py-2 rounded-lg border"
             style="border-color:#3b1f0d22; color:#3b1f0d;"
@@ -342,6 +343,7 @@ function getAccent(category: string): string {
             <option value="Photographer">Photographer</option>
             <option value="Organizer">Organizer</option>
           </select>
+          <FieldError id="gig-category-error" :message="errors.category" />
         </div>
 
         <!-- Title -->
@@ -349,12 +351,14 @@ function getAccent(category: string): string {
           <label class="block text-sm font-bold mb-1" style="color:#5b3a1d;">{{ formData.kind === 'role' ? 'Role title' : 'Service title' }}</label>
           <input
             v-model="formData.title"
+            v-bind="fieldAttrs('title', 'gig-title-error')"
             type="text"
             required
             :placeholder="formData.kind === 'role' ? 'e.g., Salsa teacher needed for weekend festival' : 'e.g., Timba workshops for European festivals'"
             class="w-full px-3 py-2 rounded-lg border"
             style="border-color:#3b1f0d22; color:#3b1f0d;"
           />
+          <FieldError id="gig-title-error" :message="errors.title" />
         </div>
 
         <!-- Your name -->
@@ -362,12 +366,14 @@ function getAccent(category: string): string {
           <label class="block text-sm font-bold mb-1" style="color:#5b3a1d;">{{ formData.kind === 'role' ? 'Organisation / event name' : 'Your name' }}</label>
           <input
             v-model="formData.posterName"
+            v-bind="fieldAttrs('posterName', 'gig-posterName-error')"
             type="text"
             required
             :placeholder="formData.kind === 'role' ? 'e.g., Munich Salsa Festival' : 'Your name or artist name'"
             class="w-full px-3 py-2 rounded-lg border"
             style="border-color:#3b1f0d22; color:#3b1f0d;"
           />
+          <FieldError id="gig-posterName-error" :message="errors.posterName" />
         </div>
 
         <!-- Location -->
@@ -375,12 +381,14 @@ function getAccent(category: string): string {
           <label class="block text-sm font-bold mb-1" style="color:#5b3a1d;">Location or base</label>
           <input
             v-model="formData.location"
+            v-bind="fieldAttrs('location', 'gig-location-error')"
             type="text"
             required
             placeholder="e.g., Munich, Germany"
             class="w-full px-3 py-2 rounded-lg border"
             style="border-color:#3b1f0d22; color:#3b1f0d;"
           />
+          <FieldError id="gig-location-error" :message="errors.location" />
         </div>
 
         <!-- Styles -->
@@ -428,12 +436,14 @@ function getAccent(category: string): string {
           <label class="block text-sm font-bold mb-1" style="color:#5b3a1d;">{{ formData.kind === 'role' ? 'When is the event?' : 'When available' }}</label>
           <input
             v-model="formData.when"
+            v-bind="fieldAttrs('when', 'gig-when-error')"
             type="text"
             required
             :placeholder="formData.kind === 'role' ? 'e.g., May 23–25, 2027' : 'e.g., Weekends, Booking 2026–27'"
             class="w-full px-3 py-2 rounded-lg border"
             style="border-color:#3b1f0d22; color:#3b1f0d;"
           />
+          <FieldError id="gig-when-error" :message="errors.when" />
         </div>
 
         <!-- Compensation -->
@@ -441,12 +451,14 @@ function getAccent(category: string): string {
           <label class="block text-sm font-bold mb-1" style="color:#5b3a1d;">{{ formData.kind === 'role' ? 'Budget / compensation offered' : 'Compensation / rate' }}</label>
           <input
             v-model="formData.compensation"
+            v-bind="fieldAttrs('compensation', 'gig-compensation-error')"
             type="text"
             required
             :placeholder="formData.kind === 'role' ? 'e.g., €500 + travel, Negotiable' : 'e.g., From €200/hour, On request'"
             class="w-full px-3 py-2 rounded-lg border"
             style="border-color:#3b1f0d22; color:#3b1f0d;"
           />
+          <FieldError id="gig-compensation-error" :message="errors.compensation" />
         </div>
 
         <!-- Contact email -->
@@ -454,11 +466,13 @@ function getAccent(category: string): string {
           <label class="block text-sm font-bold mb-1" style="color:#5b3a1d;">Contact email</label>
           <input
             v-model="formData.contactEmail"
+            v-bind="fieldAttrs('contactEmail', 'gig-contactEmail-error')"
             type="email"
             required
             class="w-full px-3 py-2 rounded-lg border"
             style="border-color:#3b1f0d22; color:#3b1f0d;"
           />
+          <FieldError id="gig-contactEmail-error" :message="errors.contactEmail" />
         </div>
 
         <!-- Website (optional) -->
@@ -466,11 +480,13 @@ function getAccent(category: string): string {
           <label class="block text-sm font-bold mb-1" style="color:#5b3a1d;">Website or portfolio (optional)</label>
           <input
             v-model="formData.contactUrl"
+            v-bind="fieldAttrs('contactUrl', 'gig-contactUrl-error')"
             type="url"
             placeholder="https://..."
             class="w-full px-3 py-2 rounded-lg border"
             style="border-color:#3b1f0d22; color:#3b1f0d;"
           />
+          <FieldError id="gig-contactUrl-error" :message="errors.contactUrl" />
         </div>
 
         <!-- Error message -->

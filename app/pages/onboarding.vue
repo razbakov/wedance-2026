@@ -14,6 +14,7 @@
  * 2026 tropical style: Playfair/Caveat, #fbf5ea / #3b1f0d / #dc2626.
  */
 import { ArrowRight, ArrowLeft, Check } from 'lucide-vue-next'
+import { onboardingDetailsSchema } from '#shared/validation'
 
 definePageMeta({ layout: false })
 
@@ -61,6 +62,9 @@ const form = reactive({
 
 const error = ref('')
 const loading = ref(false)
+// Validates only the fields the chosen persona collects; the rest come back undefined.
+const details = useFormValidation(() => onboardingDetailsSchema(chosen.value?.collects ?? {}), form)
+const { errors, fieldAttrs } = details
 
 // Refs for focus management.
 const firstIntentBtn = ref<HTMLButtonElement | null>(null)
@@ -90,6 +94,7 @@ const detailsNeeded = computed(() => {
 function pickIntent(p: Persona) {
   chosen.value = p
   error.value = ''
+  details.reset()
   if (detailsNeeded.value) {
     step.value = 'details'
     nextTick(() => (cityInput.value?.focus() ?? detailsHeading.value?.focus()))
@@ -113,31 +118,14 @@ function toggleStyle(style: string) {
 
 async function finish() {
   if (!chosen.value) return
-  const c = chosen.value.collects
 
-  // Light validation only on fields this persona collects.
-  if (c.city && !form.city.trim()) {
-    error.value = 'Please tell us your city.'
-    return
-  }
-  if (c.styles && form.danceStyles.length === 0) {
-    error.value = 'Pick at least one dance style.'
-    return
-  }
-  if (c.role && !form.role) {
-    error.value = 'Choose lead, follow, or both.'
-    return
-  }
+  const result = details.validate()
+  if (!result.success) return
 
   loading.value = true
   error.value = ''
   try {
-    await completeOnboarding({
-      intent: chosen.value.key,
-      city: c.city ? form.city.trim() : undefined,
-      danceStyles: c.styles ? [...form.danceStyles] : undefined,
-      role: c.role ? (form.role || undefined) : undefined,
-    })
+    await completeOnboarding({ intent: chosen.value.key, ...result.data })
     await navigateTo(chosen.value.landing)
   } catch (e: any) {
     error.value = e?.message || 'Something went wrong. Please try again.'
@@ -250,7 +238,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
           </p>
         </div>
 
-        <form class="space-y-6" @submit.prevent="finish">
+        <form class="space-y-6" novalidate @submit.prevent="finish">
           <!-- City -->
           <div v-if="chosen?.collects.city" class="space-y-1.5">
             <label for="onb-city" class="text-sm font-bold" style="color:#3b1f0d;">Your city</label>
@@ -263,13 +251,15 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
               autocomplete="address-level2"
               :class="inputClass"
               :style="inputStyle"
+              v-bind="fieldAttrs('city', 'onb-city-error')"
             >
+            <FieldError id="onb-city-error" :message="errors.city" />
           </div>
 
           <!-- Styles -->
           <div v-if="chosen?.collects.styles" class="space-y-2">
-            <span class="text-sm font-bold" style="color:#3b1f0d;">Which dances?</span>
-            <div class="flex flex-wrap gap-2">
+            <span id="onb-styles-label" class="text-sm font-bold" style="color:#3b1f0d;">Which dances?</span>
+            <div role="group" aria-labelledby="onb-styles-label" class="flex flex-wrap gap-2" v-bind="fieldAttrs('danceStyles', 'onb-styles-error')">
               <button
                 v-for="style in DANCE_STYLES"
                 :key="style"
@@ -285,6 +275,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
                 {{ style }}
               </button>
             </div>
+            <FieldError id="onb-styles-error" :message="errors.danceStyles" />
             <NuxtLink
               to="/find-your-dance"
               class="inline-block text-xs italic hover:underline pt-1"
@@ -296,8 +287,8 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
 
           <!-- Role -->
           <div v-if="chosen?.collects.role" class="space-y-2">
-            <span class="text-sm font-bold" style="color:#3b1f0d;">Do you lead or follow?</span>
-            <div class="flex gap-3">
+            <span id="onb-role-label" class="text-sm font-bold" style="color:#3b1f0d;">Do you lead or follow?</span>
+            <div role="radiogroup" aria-labelledby="onb-role-label" class="flex gap-3" v-bind="fieldAttrs('role', 'onb-role-error')">
               <label
                 v-for="r in [{ value: 'lead', label: 'Lead' }, { value: 'follow', label: 'Follow' }, { value: 'both', label: 'Both' }]"
                 :key="r.value"
@@ -310,6 +301,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
                 {{ r.label }}
               </label>
             </div>
+            <FieldError id="onb-role-error" :message="errors.role" />
           </div>
 
           <p v-if="error" class="text-sm font-bold" style="color:#dc2626; font-family: system-ui, sans-serif;">

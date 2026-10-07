@@ -54,6 +54,13 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Fields flagged by useFormValidation. !important beats the inline border
+     colours most form inputs set. */
+  input[aria-invalid="true"],
+  textarea[aria-invalid="true"],
+  select[aria-invalid="true"] {
+    border-color: #dc2626 !important;
+  }
 }
 
 @theme inline {

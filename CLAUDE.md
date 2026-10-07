@@ -41,6 +41,12 @@ Auto-deploys on push to `main` via Vercel + GitHub integration.
 - All agent work delivered via PRs
 - Code ownership: Engineer agent (dispatched from `~/Orgs/WeDance/`)
 - Work items tracked on org work board: `~/Orgs/WeDance/03_Coordination/Work_Board.md`
+- Client form validation uses **valibot**: add the form's schema to `shared/validation/forms.ts`
+  (field builders in `fields.ts`, limits mirroring the tRPC zod input), then
+  `const { errors, validate, fieldAttrs } = useFormValidation(schema, state)`. On submit,
+  `const result = validate(); if (!result.success) return` and send `result.data`. Each input
+  gets `v-bind="fieldAttrs('field', 'x-field-error')"` plus `<FieldError id="x-field-error" :message="errors.field" />`,
+  so a failed submit flags every invalid field at once. `<form>`s get `novalidate`.
 
 ## Data (migrated from v4 — 2026-07-15)
 

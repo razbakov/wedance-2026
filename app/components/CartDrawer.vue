@@ -3,6 +3,7 @@ import type { Workshop, Teacher, PlanEntry, DanceRole, TicketOption, DancePartne
 import { X, ClipboardList, Save, Check, Ticket, CalendarPlus, MapPin, Car, Shirt, UtensilsCrossed, Compass, ChevronDown, Users, Handshake, Sparkles, ExternalLink, BedDouble, Home, Search, MessageCircle } from 'lucide-vue-next'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
+import { RidePostSchema } from '#shared/validation'
 
 const props = defineProps<{
   workshops: Workshop[]
@@ -141,6 +142,13 @@ const rideMode = ref<'looking' | 'offering' | null>(null)
 const rideOriginCity = ref('')
 const rideDate = ref('')
 const rideSeats = ref(2)
+const rideForm = reactive(useFormValidation(RidePostSchema, () => ({
+  type: rideMode.value ?? 'offering',
+  originCity: rideOriginCity.value,
+  date: rideDate.value,
+  seats: rideMode.value === 'offering' ? rideSeats.value : undefined,
+})))
+watch(rideMode, () => rideForm.reset())
 
 // Use props from parent when available, fallback to empty
 const rides = computed(() => props.rideShares ?? [])
@@ -197,13 +205,10 @@ function joinActivity(id: string) {
 
 function submitRide() {
   tryJoinActivity(() => {
-    if (!rideOriginCity.value || !rideDate.value) return
-    emit('post-ride', {
-      type: rideMode.value!,
-      originCity: rideOriginCity.value,
-      date: rideDate.value,
-      seats: rideMode.value === 'offering' ? rideSeats.value : undefined,
-    })
+    if (!rideMode.value) return
+    const result = rideForm.validate()
+    if (!result.success) return
+    emit('post-ride', result.data)
     rideOriginCity.value = ''
     rideDate.value = ''
     rideSeats.value = 2
@@ -734,15 +739,18 @@ const googleMapsUrl = computed(() => {
               <div v-if="rideMode" class="space-y-2">
                 <div>
                   <label class="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">From city</label>
-                  <input v-model="rideOriginCity" type="text" placeholder="e.g. Munich" class="mt-0.5 w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs" />
+                  <input v-model="rideOriginCity" type="text" placeholder="e.g. Munich" class="mt-0.5 w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs" v-bind="rideForm.fieldAttrs('originCity', 'cart-ride-origin-error')" />
+                  <FieldError id="cart-ride-origin-error" :message="rideForm.errors.originCity" />
                 </div>
                 <div>
                   <label class="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{{ rideMode === 'offering' ? 'Departure date' : 'Preferred date' }}</label>
-                  <input v-model="rideDate" type="date" class="mt-0.5 w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs" />
+                  <input v-model="rideDate" type="date" class="mt-0.5 w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs" v-bind="rideForm.fieldAttrs('date', 'cart-ride-date-error')" />
+                  <FieldError id="cart-ride-date-error" :message="rideForm.errors.date" />
                 </div>
                 <div v-if="rideMode === 'offering'">
                   <label class="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Seats available</label>
-                  <input v-model.number="rideSeats" type="number" min="1" max="6" class="mt-0.5 w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs" />
+                  <input v-model.number="rideSeats" type="number" min="1" max="6" class="mt-0.5 w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs" v-bind="rideForm.fieldAttrs('seats', 'cart-ride-seats-error')" />
+                  <FieldError id="cart-ride-seats-error" :message="rideForm.errors.seats" />
                 </div>
                 <Button size="sm" variant="outline" class="w-full text-xs" @click="submitRide">
                   Post my ride

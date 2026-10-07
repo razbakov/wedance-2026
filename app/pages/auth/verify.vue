@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ResetPasswordSchema } from '#shared/validation'
+
 definePageMeta({ layout: false })
 
 const route = useRoute()
@@ -16,6 +18,10 @@ const confirmPassword = ref('')
 const showPassword = ref(false)
 const resetLoading = ref(false)
 const resetError = ref('')
+const { errors, validate, fieldAttrs } = useFormValidation(ResetPasswordSchema, () => ({
+  password: newPassword.value,
+  confirmPassword: confirmPassword.value,
+}))
 
 onMounted(async () => {
   const token = route.query.token as string
@@ -53,23 +59,13 @@ onMounted(async () => {
 async function handleResetPassword() {
   resetError.value = ''
 
-  if (!newPassword.value) {
-    resetError.value = 'Password is required.'
-    return
-  }
-  if (newPassword.value.length < 8) {
-    resetError.value = 'Password must be at least 8 characters.'
-    return
-  }
-  if (newPassword.value !== confirmPassword.value) {
-    resetError.value = 'Passwords do not match.'
-    return
-  }
+  const validation = validate()
+  if (!validation.success) return
 
   const token = route.query.token as string
   resetLoading.value = true
   try {
-    const result = await resetPassword(token, newPassword.value)
+    const result = await resetPassword(token, validation.data.password)
     dancerName.value = result.name
     status.value = 'success'
 
@@ -131,7 +127,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
             </p>
           </div>
 
-          <form class="space-y-4 pt-2" @submit.prevent="handleResetPassword">
+          <form class="space-y-4 pt-2" novalidate @submit.prevent="handleResetPassword">
             <div class="space-y-1.5">
               <label for="new-password" class="text-sm font-bold" style="color:#3b1f0d;">New password</label>
               <div class="relative">
@@ -144,6 +140,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
                   required
                   :class="inputClass + ' pr-16'"
                   :style="inputStyle"
+                  v-bind="fieldAttrs('password', 'new-password-error')"
                 >
                 <button
                   type="button"
@@ -154,6 +151,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
                   {{ showPassword ? 'Hide' : 'Show' }}
                 </button>
               </div>
+              <FieldError id="new-password-error" :message="errors.password" />
             </div>
 
             <div class="space-y-1.5">
@@ -167,7 +165,9 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
                 required
                 :class="inputClass"
                 :style="inputStyle"
+                v-bind="fieldAttrs('confirmPassword', 'confirm-password-error')"
               >
+              <FieldError id="confirm-password-error" :message="errors.confirmPassword" />
             </div>
 
             <p v-if="resetError" class="text-sm font-bold" style="color:#dc2626; font-family: system-ui, sans-serif;">
