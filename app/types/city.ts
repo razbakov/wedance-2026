@@ -22,6 +22,7 @@ export interface CityEvent {
   attendeeCount: number
   recurring: boolean
   date?: string
+  venueHandle?: string
 }
 
 export interface City {
