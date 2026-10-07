@@ -125,12 +125,12 @@ onMounted(loadPair)
     </div>
 
     <!-- Loading -->
-    <div v-if="loading" class="grid gap-3 sm:grid-cols-2">
+    <div v-if="loading" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <div v-for="i in 2" :key="i" class="aspect-video rounded-xl animate-pulse" style="background:#3b1f0d0d;" />
     </div>
 
     <!-- Voting pair -->
-    <div v-else-if="pair" class="grid gap-3 sm:grid-cols-2">
+    <div v-else-if="pair" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <div
         v-for="(v, idx) in pair"
         :key="v.id"

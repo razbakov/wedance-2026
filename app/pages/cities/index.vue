@@ -117,7 +117,7 @@ const accentFor = (slug: string) => accents[[...slug].reduce((a, c) => a + c.cha
         <button type="button" class="text-xs font-bold mt-2 underline" style="color:#dc2626; font-family: system-ui, sans-serif;" @click="searchQuery = ''">Clear search</button>
       </div>
 
-      <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div v-else class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <NuxtLink
           v-for="c in displayedCities"
           :key="c.citySlug"

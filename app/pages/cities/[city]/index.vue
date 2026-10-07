@@ -590,7 +590,7 @@ onMounted(() => {
       <div class="space-y-6">
         <div v-for="g in upcomingGroups" :key="g.date">
           <h3 class="text-sm font-black mb-2" style="color:#3b1f0d; font-family:'Playfair Display', serif;">{{ g.label }}</h3>
-          <div class="grid gap-2">
+          <div class="grid grid-cols-1 gap-2">
             <NuxtLink
               v-for="e in g.items"
               :key="e.id"
@@ -643,7 +643,7 @@ onMounted(() => {
         </p>
       </div>
 
-      <div class="grid gap-6 md:grid-cols-2">
+      <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
         <!-- Leaderboard -->
         <div>
           <ol v-if="leaderboard.length" class="space-y-2">
@@ -711,7 +711,7 @@ onMounted(() => {
             Local <em class="italic" :style="{ color: accent }">giveaways.</em>
           </h2>
         </div>
-        <div class="grid gap-4">
+        <div class="grid grid-cols-1 gap-4">
           <GiveawayCard
             v-for="g in giveaways"
             :key="g.id"
@@ -741,7 +741,7 @@ onMounted(() => {
           </NuxtLink>
         </div>
 
-        <div class="grid gap-4">
+        <div class="grid grid-cols-1 gap-4">
           <NuxtLink
             v-for="f in cityFestivals"
             :key="f.id"

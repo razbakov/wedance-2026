@@ -142,7 +142,7 @@ const isRealEvent = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(String(id))
       </div>
 
       <!-- Event rows -->
-      <div class="grid gap-2">
+      <div class="grid grid-cols-1 gap-2">
         <!-- Real UUID events link to /events/<id>; mock weekly and booked events don't. -->
         <component
           :is="isRealEvent(e.id) ? NuxtLinkC : 'div'"
@@ -181,7 +181,7 @@ const isRealEvent = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(String(id))
                 {{ e.style }}
               </span>
             </div>
-            <h4 class="text-sm sm:text-base font-bold leading-tight mt-1 group-hover:underline" style="color:#3b1f0d;">
+            <h4 class="text-sm sm:text-base font-bold leading-tight mt-1 break-words group-hover:underline" style="color:#3b1f0d;">
               {{ e.name }}
             </h4>
             <div class="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
