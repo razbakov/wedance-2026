@@ -1,21 +1,19 @@
 <script setup lang="ts">
-import { reactiveOmit } from "@vueuse/core"
+import type { HTMLAttributes } from "vue"
 import { X } from "lucide-vue-next"
 import {
   DialogClose,
   DialogContent,
   DialogOverlay,
   DialogPortal,
-  useForwardPropsEmits,
 } from "reka-ui"
 import { cn } from "@/lib/utils"
 
-const props = defineProps()
-const emits = defineEmits()
+// Attrs (style, reka-ui DialogContent props, listeners) are forwarded to the
+// inner DialogContent — the root here is a portal, so they would otherwise be dropped.
+defineOptions({ inheritAttrs: false })
 
-const delegatedProps = reactiveOmit(props, "class")
-
-const forwarded = useForwardPropsEmits(delegatedProps, emits)
+const props = defineProps<{ class?: HTMLAttributes["class"] }>()
 </script>
 
 <template>
@@ -30,7 +28,7 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits)
             props.class,
           )
         "
-        v-bind="forwarded"
+        v-bind="$attrs"
         @pointer-down-outside="(event) => {
           const originalEvent = event.detail.originalEvent;
           const target = originalEvent.target as HTMLElement;
