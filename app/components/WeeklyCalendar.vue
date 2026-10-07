@@ -99,10 +99,15 @@ function styleAccent(style: string): string {
 
 const today = new Date().toLocaleDateString('en-US', { weekday: 'long' }) as DayOfWeek
 
-// Real booked events (UUID ids) have a detail page at /events/<id>; mock weekly
-// events (muc-… ids) don't, so only the real ones link.
+// Booked events with a venueHandle link to the venue's /@handle page;
+// other real (UUID) events link to /events/<id>; mock weekly events don't link.
 const NuxtLinkC = resolveComponent('NuxtLink')
 const isRealEvent = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(String(id))
+function eventHref(e: CityEvent): string | undefined {
+  if ((e as any).venueHandle) return `/@${(e as any).venueHandle}`
+  if (isRealEvent(e.id)) return `/events/${e.id}`
+  return undefined
+}
 </script>
 
 <template>
@@ -143,12 +148,12 @@ const isRealEvent = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(String(id))
 
       <!-- Event rows -->
       <div class="grid grid-cols-1 gap-2">
-        <!-- Real UUID events link to /events/<id>; mock weekly and booked events don't. -->
+        <!-- Booked events link to their venue /@handle; other real events to /events/<id>. -->
         <component
-          :is="isRealEvent(e.id) ? NuxtLinkC : 'div'"
+          :is="eventHref(e) ? NuxtLinkC : 'div'"
           v-for="e in eventsForDay(day)"
           :key="e.id"
-          :to="isRealEvent(e.id) ? `/events/${e.id}` : undefined"
+          :to="eventHref(e)"
           class="group rounded-xl bg-white p-3 sm:p-4 border transition-all hover:-translate-y-0.5 flex items-center gap-3 sm:gap-4"
           :style="{
             borderColor: styleAccent(e.style) + '55',

@@ -96,6 +96,7 @@ const bookedThisWeek = computed(() => bookedEvents.value
     style: b.styles?.[0] || '', day: new Date(String(b.eventDate).slice(0, 10)).toLocaleDateString('en-US', { weekday: 'long' }),
     time: b.startTime || '', duration: 0, venue: b.venueName, address: '', organizer: '',
     accentColor: '#dc2626', attendeeCount: 0, recurring: false, date: b.eventDate,
+    venueHandle: b.venueHandle || undefined,
   })))
 
 // v3 eventType → WeeklyCalendar type badge.
@@ -108,6 +109,7 @@ const toCityEvent = (e: any) => ({
   venue: e.venueName || '', address: e.venueAddress || '', organizer: e.organizerName || '',
   organizerId: e.organizerUsername || undefined,
   venueId: e.venueUsername || undefined,
+  venueHandle: e.venueUsername || undefined,
   artists: e.artists || [],
   accentColor: '#dc2626', attendeeCount: 0, recurring: false,
   date: eventLocalDate(e.startDate, e.timezone),
@@ -138,6 +140,7 @@ const bookedLater = computed(() => {
         style: b.styles?.[0] || '', styles: b.styles || [],
         time: b.startTime || '', venue: b.venueName || '', venueName: b.venueName || '',
         date,
+        venueHandle: b.venueHandle || undefined,
       }
     })
 })
@@ -594,7 +597,7 @@ onMounted(() => {
             <NuxtLink
               v-for="e in g.items"
               :key="e.id"
-              :to="`/events/${e.id}`"
+              :to="e.venueHandle ? `/@${e.venueHandle}` : `/events/${e.id}`"
               class="group rounded-xl bg-white p-3 border flex items-center gap-3 hover:-translate-y-0.5 transition-all"
               style="border-color:#3b1f0d1f; box-shadow:0 1px 0 #3b1f0d0d;"
             >
