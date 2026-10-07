@@ -119,7 +119,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
 
   <Dialog v-model:open="open">
     <DialogContent
-      class="sm:max-w-md border-0 p-0 overflow-hidden"
+      class="sm:max-w-md border-0 p-0 overflow-hidden [&>button]:top-6 [&>button]:right-5"
       style="background:#fbf5ea; color:#3b1f0d; font-family:'Playfair Display', serif;"
     >
       <div class="h-1.5" style="background:#dc2626;" />
