@@ -126,6 +126,13 @@ firebase-admin). Code: `scripts/sync-v3-events.ts` (CLI) + `server/utils/v3Event
   (asserts no digit-only style tags / epoch numbers / timezone shifts; screenshots →
   `docs/screenshots/v3-sync/`).
 
+### Vercel Preview environment
+
+Preview deployments share the production `DATABASE_URL` so that DB-backed pages
+(e.g. `/gigs`, `/cities/[city]`, `/@handle`) render correctly on PR previews.
+There is only one Neon database — Neon branching can be added later if write
+isolation becomes necessary.
+
 ### Local Postgres (never test writes against prod)
 
 There is only one Neon database (production). For local work, restore a copy into
