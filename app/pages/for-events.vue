@@ -20,7 +20,7 @@ const services = [
   { icon: Users,           label: 'Show dancers',  detail: 'Solo showcase, couples, choreo for your first dance.' },
   { icon: Camera,          label: 'Photo / Video', detail: 'Photographer and videographer — a highlight reel ready to post.' },
   { icon: Ticket,          label: 'Ticketing',     detail: 'Paid tickets, guest lists, and check-in — we run the door.' },
-  { icon: PartyPopper,     label: 'Full night',    detail: 'End-to-end — we handle it, you enjoy it.' },
+  { icon: PartyPopper,     label: 'Full night',    detail: 'One team, one contact, end-to-end — you enjoy it.' },
 ]
 
 const occasions = ['Weddings', 'Birthdays', 'Corporate', 'Brand launches', 'Team offsites', 'Private parties']
@@ -42,7 +42,7 @@ const NuxtLinkC = resolveComponent('NuxtLink')
         not dancing <em class="italic" style="color:#dc2626;">at it</em>?
       </h1>
       <p class="mt-6 text-base sm:text-lg leading-relaxed max-w-xl" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
-        We build the whole floor. Venue. MC. DJ. Show dancers. From one dance to five hours of party.
+        One team builds the whole floor. Venue. MC. DJ. Show dancers. From one dance to five hours of party — no piecing it out to five vendors.
       </p>
       <div class="mt-4 flex flex-wrap gap-2">
         <span v-for="o in occasions" :key="o" class="text-xs px-3 py-1 rounded-full border" style="border-color:#3b1f0d22; color:#5b3a1d; font-family: system-ui, sans-serif;">{{ o }}</span>
@@ -51,6 +51,7 @@ const NuxtLinkC = resolveComponent('NuxtLink')
 
     <!-- SERVICES -->
     <section class="max-w-5xl mx-auto px-4 pb-10">
+      <p class="mb-6 text-sm tracking-widest uppercase" style="color:#9a5614;">Everything under one roof</p>
       <div class="grid md:grid-cols-3 gap-5">
         <component
           :is="s.label === 'Venue' ? NuxtLinkC : 'div'"
