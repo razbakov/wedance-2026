@@ -31,7 +31,7 @@ useHead({
         Book a <em class="italic" style="color:#dc2626;">space.</em>
       </h1>
       <p class="mt-4 text-base leading-relaxed max-w-xl" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
-        Dance-ready venues across the network. Pick one and request a date directly.
+        Organizing a social, class, or private event? Browse dance-ready venues across the network and request a date directly.
       </p>
     </section>
 

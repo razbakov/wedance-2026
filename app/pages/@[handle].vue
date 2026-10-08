@@ -98,7 +98,7 @@ const initials = computed(() => {
 function fmtDate(d: any) { if (!d) return 'Date TBD'; try { return new Date(d).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) } catch { return String(d) } }
 
 // --- Booking modal (a booking IS a scheduled event — collect enough info) ---
-const EVENT_TYPES = ['Social', 'Party', 'Workshop', 'Class', 'Practica']
+const EVENT_TYPES = ['Social', 'Party', 'Workshop', 'Class', 'Practica', 'Private']
 const DANCE_STYLES = ['Salsa', 'Bachata', 'Kizomba', 'Zouk', 'Timba', 'Casino', 'Rueda', 'Afro']
 const booking = reactive({
   open: false, spaceId: '', spaceName: '',
