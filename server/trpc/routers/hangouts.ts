@@ -73,6 +73,16 @@ export const hangoutsRouter = router({
       citySlug: z.string().min(1),
     }))
     .mutation(async ({ ctx, input }) => {
+      // Resolve host name from the creator's profile when not supplied
+      let host = input.host
+      if (!host) {
+        const [dancer] = await ctx.db
+          .select({ name: dancers.name })
+          .from(dancers)
+          .where(eq(dancers.id, ctx.dancerId))
+        host = dancer?.name ?? undefined
+      }
+
       const [result] = await ctx.db
         .insert(hangouts)
         .values({
@@ -80,9 +90,9 @@ export const hangoutsRouter = router({
           title: input.title,
           time: input.time,
           venue: input.venue,
-          host: input.host,
+          host,
           citySlug: input.citySlug,
-          peopleCount: 0,
+          peopleCount: 1,
           dancerId: ctx.dancerId,
           status: 'active',
         })
@@ -91,6 +101,11 @@ export const hangoutsRouter = router({
       if (!result) {
         throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to create hangout' })
       }
+
+      // Auto-RSVP the creator so "1 in" shows immediately
+      await ctx.db
+        .insert(hangoutRsvps)
+        .values({ hangoutId: result.id, dancerId: ctx.dancerId })
 
       return result
     }),
