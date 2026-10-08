@@ -3,6 +3,8 @@
  * /cities — the directory, backed by real migrated data (entity.listCities).
  * Each city card shows its real community size (venues · artists · organizers)
  * and links to /cities/[slug]. No mock data.
+ * Intent from /find-your-dance (?style=Salsa, ?taster=1) is carried through to
+ * the city page so its style filter / taster-class section pick it up.
  */
 import { Search, MapPin, ArrowRight, Users } from 'lucide-vue-next'
 
@@ -21,6 +23,15 @@ useHead({
 })
 
 const router = useRouter()
+const route = useRoute()
+
+// Intent handed over by /find-your-dance — forwarded on every city link.
+const taster = computed(() => route.query.taster === '1')
+const style = computed(() => (typeof route.query.style === 'string' ? route.query.style.trim() : ''))
+const intentQuery = computed(() => ({
+  ...(taster.value ? { taster: '1' } : {}),
+  ...(style.value ? { style: style.value } : {}),
+}))
 
 type CityRow = { city: string; citySlug: string; venues: number; artists: number; organizers: number; total: number; image: string | null; credit: string | null; license: string | null; country: string | null; altNames: string[] }
 
@@ -68,6 +79,17 @@ const accentFor = (slug: string) => accents[[...slug].reduce((a, c) => a + c.cha
           The venues, artists and organizers behind every dance scene — find your city's community.
         </p>
 
+        <div
+          v-if="taster || style"
+          data-testid="city-intent-banner"
+          class="mt-6 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm"
+          :style="{ background: taster ? '#16a34a14' : '#dc262614', color: taster ? '#16a34a' : '#dc2626', fontFamily: 'system-ui, sans-serif' }"
+        >
+          <MapPin class="w-4 h-4" />
+          <template v-if="taster">Pick your city — we'll show {{ style ? `${style} ` : '' }}taster classes coming up.</template>
+          <template v-else>Pick your city to find {{ style }} classes.</template>
+        </div>
+
         <div class="mt-8 max-w-lg mx-auto">
           <div class="relative">
             <Search class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4" style="color:#9a5614;" />
@@ -88,8 +110,9 @@ const accentFor = (slug: string) => accents[[...slug].reduce((a, c) => a + c.cha
     </section>
 
     <!-- City-vs-city video battle — right after the hero, but hidden while searching
-         so results appear immediately under the search box. Renders only when ≥2 cities have a winner. -->
-    <div v-if="!searchQuery.trim()" id="battle"><CityFight /></div>
+         so results appear immediately under the search box — and for visitors arriving with a
+         taster/style intent, who came to pick a city. Renders only when ≥2 cities have a winner. -->
+    <div v-if="!searchQuery.trim() && !taster && !style" id="battle"><CityFight /></div>
 
     <!-- City grid -->
     <section class="max-w-4xl mx-auto px-4 pb-12">
@@ -121,7 +144,7 @@ const accentFor = (slug: string) => accents[[...slug].reduce((a, c) => a + c.cha
         <NuxtLink
           v-for="c in displayedCities"
           :key="c.citySlug"
-          :to="`/cities/${c.citySlug}`"
+          :to="{ path: `/cities/${c.citySlug}`, query: intentQuery }"
           class="group block rounded-2xl overflow-hidden bg-white border transition-all hover:-translate-y-1"
           :style="{ borderColor: accentFor(c.citySlug) + '55', boxShadow: '0 1px 0 ' + accentFor(c.citySlug) + '22, 0 8px 22px rgba(59,31,18,0.05)' }"
         >
