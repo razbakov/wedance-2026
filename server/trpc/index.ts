@@ -5,6 +5,7 @@ import { festivalSignupRouter } from './routers/festivalSignup'
 import { adminRouter } from './routers/admin'
 import { claimRouter } from './routers/claim'
 import { festivalRouter } from './routers/festival'
+import { festivalInsightsRouter } from './routers/festivalInsights'
 import { cityVideoRouter } from './routers/cityVideo'
 import { giveawayRouter } from './routers/giveaway'
 import { profileRouter } from './routers/profile'
@@ -29,6 +30,7 @@ export const appRouter = router({
   admin: adminRouter,
   claim: claimRouter,
   festival: festivalRouter,
+  festivalInsights: festivalInsightsRouter,
   cityVideo: cityVideoRouter,
   giveaway: giveawayRouter,
   profile: profileRouter,

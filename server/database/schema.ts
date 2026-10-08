@@ -7,6 +7,9 @@ export const dancers = pgTable('dancers', {
   name: text('name').notNull(),
   photo: text('photo'),
   danceStyles: json('dance_styles').$type<string[]>().default([]),
+  // Self-declared level per style ({ Salsa: 'Advanced', Bachata: 'Beginner' }),
+  // keys ⊆ danceStyles. Feeds the organizer "style & level mix" insight (P726).
+  danceLevels: jsonb('dance_levels').$type<Record<string, string>>().notNull().default({}),
   role: text('role'),
   city: text('city'),
   neonAuthId: text('neon_auth_id').unique(),

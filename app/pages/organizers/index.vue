@@ -281,6 +281,11 @@ function goToEditor(plan?: string) {
           </div>
         </div>
       </div>
+
+      <p class="mt-6 text-center text-sm" style="font-family: system-ui, sans-serif; color:#5b3a1d;">
+        Already on WeDance?
+        <NuxtLink to="/organizers/insights" class="font-bold underline" style="color:#dc2626;">Open your insights →</NuxtLink>
+      </p>
     </section>
 
     <!-- PRICING -->
