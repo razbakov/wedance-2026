@@ -350,7 +350,7 @@ export const bookingRequests = pgTable('booking_requests', {
   // Event details — a booking IS a scheduled event, so it carries enough info
   // to show on the community calendar: title, type, styles, date + time window.
   title: text('title'),
-  eventType: text('event_type'), // Social · Party · Workshop · Class · Practica
+  eventType: text('event_type'), // Social · Party · Workshop · Class · Practica · Private
   styles: json('styles').$type<string[]>().default([]),
   // Artists / teachers / DJs featured — names or @handles. Lets the event surface
   // on each artist's profile.
