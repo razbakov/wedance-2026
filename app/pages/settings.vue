@@ -7,6 +7,8 @@
  */
 import { Check, ExternalLink, AlertTriangle } from 'lucide-vue-next'
 import { ChangePasswordSchema, ProfileSettingsSchema, deleteAccountSchema, validateForm } from '#shared/validation'
+import { DANCE_LEVELS, type DanceLevel } from '#shared/utils/styleLevelMix'
+import { chilis } from '~/lib/levels'
 
 definePageMeta({ layout: false })
 
@@ -21,7 +23,7 @@ useHead({
 
 const {
   isSignedIn, isLoading, username,
-  dancerName, city: meCity, danceStyles: meStyles, role: meRole,
+  dancerName, city: meCity, danceStyles: meStyles, danceLevels: meLevels, role: meRole,
   bio: meBio, instagram: meIg, youtube: meYt, website: meSite, profilePublic: mePublic,
   updateProfile, changePassword, deleteAccount,
 } = useAuth()
@@ -32,6 +34,7 @@ const form = reactive({
   name: '', city: '', photo: '', bio: '',
   instagram: '', youtube: '', website: '',
   danceStyles: [] as string[],
+  danceLevels: {} as Record<string, DanceLevel>,
   role: '' as '' | 'lead' | 'follow' | 'both',
   profilePublic: true,
 })
@@ -66,17 +69,26 @@ function hydrate() {
   form.youtube = meYt.value ?? ''
   form.website = meSite.value ?? ''
   form.danceStyles = meStyles.value ? [...meStyles.value] : []
+  form.danceLevels = { ...(meLevels.value as Record<string, DanceLevel>) }
   const r = meRole.value
   form.role = (r === 'lead' || r === 'follow' || r === 'both') ? r : ''
   form.profilePublic = mePublic.value !== false
 }
 onMounted(hydrate)
-watch([dancerName, meCity, meStyles, meRole, meBio, meIg, meYt, meSite, mePublic], hydrate)
+watch([dancerName, meCity, meStyles, meLevels, meRole, meBio, meIg, meYt, meSite, mePublic], hydrate)
 
 function toggleStyle(style: string) {
   const i = form.danceStyles.indexOf(style)
-  if (i >= 0) form.danceStyles.splice(i, 1)
-  else form.danceStyles.push(style)
+  if (i >= 0) {
+    form.danceStyles.splice(i, 1)
+    delete form.danceLevels[style]
+  } else form.danceStyles.push(style)
+}
+
+// Tapping the active level clears it — a level is optional.
+function setLevel(style: string, level: DanceLevel) {
+  if (form.danceLevels[style] === level) delete form.danceLevels[style]
+  else form.danceLevels[style] = level
 }
 
 async function save() {
@@ -194,6 +206,29 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
               :style="form.danceStyles.includes(s) ? 'background:#dc2626; color:white;' : 'background:#dc262614; color:#dc2626;'"
               @click="toggleStyle(s)"
             >{{ s }}</button>
+          </div>
+          <div v-if="form.danceStyles.length" class="mt-3 grid gap-2">
+            <p class="text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+              Your level in each — organizers see it only as an anonymous mix of who's coming.
+            </p>
+            <div
+              v-for="s in form.danceStyles"
+              :key="s"
+              role="group"
+              :aria-label="`${s} level`"
+              class="flex flex-wrap items-center gap-1.5"
+            >
+              <span class="w-24 text-xs font-bold uppercase tracking-wider" style="color:#3b1f0d;">{{ s }}</span>
+              <button
+                v-for="lvl in DANCE_LEVELS"
+                :key="lvl"
+                type="button"
+                :aria-pressed="form.danceLevels[s] === lvl"
+                class="px-2.5 py-1 rounded-full text-xs font-bold transition-all"
+                :style="form.danceLevels[s] === lvl ? 'background:#3b1f0d; color:white;' : 'background:white; color:#5b3a1d; border:1px solid #3b1f0d33;'"
+                @click="setLevel(s, lvl)"
+              >{{ chilis(lvl) }} {{ lvl }}</button>
+            </div>
           </div>
         </div>
 

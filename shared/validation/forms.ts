@@ -4,6 +4,7 @@
  * the server would reject, with a readable message instead of a zod dump.
  */
 import * as v from 'valibot'
+import { DANCE_LEVELS } from '../utils/styleLevelMix'
 import {
   DANCE_ROLES,
   commaList,
@@ -77,6 +78,7 @@ export const ProfileSettingsSchema = v.object({
   // Blank city / bio / socials are sent as '' — that clears them.
   city: trimmedText(),
   danceStyles: v.array(v.string()),
+  danceLevels: v.record(v.string(), v.picklist(DANCE_LEVELS)),
   role: v.pipe(v.string(), v.transform(s => s || undefined), v.optional(v.picklist(DANCE_ROLES))),
   // Blank photo is omitted, i.e. left unchanged: the form never loads the
   // current photo URL, so '' (which would clear it) is never a deliberate choice.

@@ -134,6 +134,12 @@ onMounted(() => {
           <h1 class="text-lg font-semibold">Festival Admin</h1>
           <p class="text-sm text-muted-foreground">{{ slug }}</p>
         </div>
+        <NuxtLink
+          :to="{ path: '/organizers/insights', query: { festival: slug } }"
+          class="ml-auto inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg border hover:bg-muted transition-colors"
+        >
+          <Eye class="w-4 h-4" /> Style &amp; level mix
+        </NuxtLink>
       </div>
 
       <!-- Loading -->

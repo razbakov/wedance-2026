@@ -3,6 +3,7 @@ import { eq, and } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { router, publicProcedure, protectedProcedure } from '../trpc'
 import { dancers, cityVideos } from '../../database/schema'
+import { DANCE_LEVELS, sanitizeDanceLevels } from '../../../shared/utils/styleLevelMix'
 
 /**
  * Public dancer profiles + self-service editing.
@@ -88,6 +89,8 @@ export const profileRouter = router({
       name: z.string().min(1, 'Name is required.').optional(),
       city: z.string().optional(),
       danceStyles: z.array(z.string()).optional(),
+      // Level per style; keys not in the dancer's styles are dropped on save.
+      danceLevels: z.record(z.string().max(60), z.enum(DANCE_LEVELS)).optional(),
       role: z.enum(['lead', 'follow', 'both']).optional(),
       // A URL, or an empty string to clear the photo.
       photo: z.union([z.string().url('Enter a valid image URL.'), z.literal('')]).optional(),
@@ -102,6 +105,17 @@ export const profileRouter = router({
       if (input.name !== undefined) set.name = input.name
       if (input.city !== undefined) set.city = input.city
       if (input.danceStyles !== undefined) set.danceStyles = input.danceStyles
+      if (input.danceLevels !== undefined) {
+        let styles = input.danceStyles
+        if (styles === undefined) {
+          const [me] = await ctx.db
+            .select({ danceStyles: dancers.danceStyles })
+            .from(dancers)
+            .where(eq(dancers.id, ctx.dancerId))
+          styles = me?.danceStyles ?? []
+        }
+        set.danceLevels = sanitizeDanceLevels(input.danceLevels, styles)
+      }
       if (input.role !== undefined) set.role = input.role
       if (input.photo !== undefined) set.photo = input.photo === '' ? null : input.photo
       if (input.bio !== undefined) set.bio = input.bio === '' ? null : input.bio

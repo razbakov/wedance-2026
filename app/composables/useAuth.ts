@@ -18,6 +18,7 @@ const _website = ref<string | null>(null)
 const _profilePublic = ref(true)
 const _city = ref<string | null>(null)
 const _danceStyles = ref<string[]>([])
+const _danceLevels = ref<Record<string, string>>({})
 const _role = ref<string | null>(null)
 const _intent = ref<string | null>(null)
 const _onboardedAt = ref<string | null>(null)
@@ -43,6 +44,7 @@ export function useAuth() {
         _isAdmin.value = me.isAdmin
         _city.value = me.city ?? null
         _danceStyles.value = me.danceStyles ?? []
+        _danceLevels.value = me.danceLevels ?? {}
         _role.value = me.role ?? null
         _intent.value = me.intent ?? null
         _onboardedAt.value = me.onboardedAt ?? null
@@ -136,6 +138,7 @@ export function useAuth() {
         _username.value = me.username ?? null
         _city.value = me.city ?? null
         _danceStyles.value = me.danceStyles ?? []
+        _danceLevels.value = me.danceLevels ?? {}
         _role.value = me.role ?? null
         _intent.value = me.intent ?? null
         _onboardedAt.value = me.onboardedAt ?? null
@@ -173,6 +176,7 @@ export function useAuth() {
     name?: string
     city?: string
     danceStyles?: string[]
+    danceLevels?: Record<string, 'Beginner' | 'Intermediate' | 'Advanced'>
     role?: 'lead' | 'follow' | 'both'
     photo?: string
     bio?: string
@@ -226,6 +230,7 @@ export function useAuth() {
     _isAdmin.value = false
     _city.value = null
     _danceStyles.value = []
+    _danceLevels.value = {}
     _role.value = null
     _intent.value = null
     _onboardedAt.value = null
@@ -248,6 +253,7 @@ export function useAuth() {
     isLoading: readonly(_isLoading),
     city: readonly(_city),
     danceStyles: readonly(_danceStyles),
+    danceLevels: readonly(_danceLevels),
     role: readonly(_role),
     intent: readonly(_intent),
     onboardedAt: readonly(_onboardedAt),
