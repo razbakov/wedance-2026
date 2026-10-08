@@ -9,56 +9,58 @@ const goals = ref<Goal[]>([])
 const loaded = ref(false)
 
 export function useGoals() {
-  function loadFromDb() {
+  async function loadFromDb() {
     const { $trpc } = useNuxtApp()
-    $trpc.plan.listDetailed
-      .query()
-      .then((rows) => {
-        const dbGoals: Goal[] = []
-        for (const r of rows) {
-          if (r.itemType === 'goal' && r.metadata) {
-            dbGoals.push({
-              id: r.itemId,
-              title: (r.metadata as Record<string, string>).title || '',
-              why: (r.metadata as Record<string, string>).why || '',
-              progress: Number((r.metadata as Record<string, string>).progress) || 0,
-            })
-          }
+    try {
+      const rows = await $trpc.plan.listDetailed.query()
+      const dbGoals: Goal[] = []
+      for (const r of rows) {
+        if (r.itemType === 'goal' && r.metadata) {
+          dbGoals.push({
+            id: r.itemId,
+            title: (r.metadata as Record<string, string>).title || '',
+            why: (r.metadata as Record<string, string>).why || '',
+            progress: Number((r.metadata as Record<string, string>).progress) || 0,
+          })
         }
-        goals.value = dbGoals
-        loaded.value = true
-      })
-      .catch((err) => {
-        console.warn('[useGoals] loadFromDb failed:', err)
-        loaded.value = true
-      })
+      }
+      goals.value = dbGoals
+    } catch (err) {
+      console.error('[useGoals] loadFromDb failed:', err)
+    } finally {
+      loaded.value = true
+    }
   }
 
-  function addGoal(title: string, why: string) {
+  async function addGoal(title: string, why: string) {
     const id = `goal-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
     const goal: Goal = { id, title, why, progress: 0 }
     goals.value.push(goal)
 
-    const { $trpc } = useNuxtApp()
-    $trpc.plan.add
-      .mutate({
+    try {
+      const { $trpc } = useNuxtApp()
+      await $trpc.plan.add.mutate({
         itemType: 'goal',
         itemId: id,
         metadata: { title, why, progress: '0' },
       })
-      .catch((err) => {
-        console.warn('[useGoals] addGoal failed:', err)
-      })
+    } catch (err) {
+      console.error('[useGoals] addGoal failed — rolling back:', err)
+      goals.value = goals.value.filter(g => g.id !== id)
+    }
   }
 
-  function removeGoal(id: string) {
+  async function removeGoal(id: string) {
+    const removed = goals.value.find(g => g.id === id)
     goals.value = goals.value.filter(g => g.id !== id)
-    const { $trpc } = useNuxtApp()
-    $trpc.plan.remove
-      .mutate({ itemType: 'goal', itemId: id })
-      .catch((err) => {
-        console.warn('[useGoals] removeGoal failed:', err)
-      })
+
+    try {
+      const { $trpc } = useNuxtApp()
+      await $trpc.plan.remove.mutate({ itemType: 'goal', itemId: id })
+    } catch (err) {
+      console.error('[useGoals] removeGoal failed — restoring:', err)
+      if (removed) goals.value.push(removed)
+    }
   }
 
   return {

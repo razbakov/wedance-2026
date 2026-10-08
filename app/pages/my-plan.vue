@@ -765,13 +765,14 @@ const goalsList = computed(() => {
 const showGoalForm = ref(false)
 const goalFormTitle = ref('')
 const goalFormWhy = ref('')
-function onGoalSubmit() {
+async function onGoalSubmit() {
   const t = goalFormTitle.value.trim()
   if (!t) return
-  addGoal(t, goalFormWhy.value.trim())
+  const w = goalFormWhy.value.trim()
   goalFormTitle.value = ''
   goalFormWhy.value = ''
   showGoalForm.value = false
+  await addGoal(t, w)
 }
 function onGoalCancel() {
   goalFormTitle.value = ''
