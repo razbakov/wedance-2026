@@ -39,6 +39,7 @@ const headlines: Record<string, string> = {
   profile: 'Join to view dancer profiles',
   share: 'Join to share your plan',
   save: 'Join to save your plan',
+  dashboard: 'Join to build your dashboard',
   onboarding: 'Almost there! Join to start discovering',
   partner: 'Join to find a dance partner',
   social: 'Join the community',

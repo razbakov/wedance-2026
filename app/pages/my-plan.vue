@@ -55,6 +55,22 @@ const isSignedIn = computed(() => isSignedInReal.value || previewMode.value)
 const dancerName = computed(() => previewMode.value ? 'Alex' : dancerNameReal.value)
 const effectivePickIds = computed(() => previewMode.value ? PREVIEW_PICK_SLUGS : yearPlanIds.value)
 
+// Signed-out state: "Join" opens the modal in register mode, "Sign in" in login
+// mode. Once auth lands, isSignedIn flips and the dashboard renders in place.
+const authAction = ref<'dashboard' | 'signin'>('dashboard')
+const showAuth = ref(false)
+function openAuth(action: 'dashboard' | 'signin') {
+  authAction.value = action
+  showAuth.value = true
+}
+
+// What the dashboard holds — shown to signed-out visitors as the promise.
+const DASHBOARD_PILLARS = [
+  { key: 'picks', icon: Star, title: 'My picks', body: 'The festivals, courses and socials you picked — your whole year at a glance.' },
+  { key: 'partners', icon: UsersIcon, title: 'My partners', body: 'Who you\'re dancing with at each festival, and who still needs a partner.' },
+  { key: 'tickets', icon: Ticket, title: 'My tickets', body: 'Passes you\'ve bought and the early-bird deadlines you can\'t miss.' },
+] as const
+
 // Personalization from the signed-in profile (via `me`). Preview fakes Munich +
 // the big three so the personalized copy is visible without a real session.
 const dancerCity = computed(() => previewMode.value ? 'Munich' : (dancerCityReal.value || null))
@@ -1445,24 +1461,72 @@ function cardSummary(f: CatalogueEntry) {
       </div>
     </section>
 
-    <!-- SIGNED OUT — sign-in nudge -->
-    <section v-if="!isSignedIn" class="max-w-2xl mx-auto px-4 py-10">
-      <div class="rounded-2xl p-8 text-center bg-white border" style="border-color:#dc262655; box-shadow: 0 1px 0 #dc262622, 0 12px 28px rgba(59, 31, 18, 0.06);">
-        <div class="text-[10px] uppercase tracking-[0.3em] font-bold mb-3" style="color:#dc2626;">Signed out</div>
-        <p class="text-lg" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
-          Sign in to see your plan.
-        </p>
-        <p class="mt-2 text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
-          Your picks, your partners, your tickets — one dashboard, one next step at a time.
-        </p>
-        <NuxtLink
-          to="/festivals"
-          class="mt-6 inline-flex items-center gap-2 px-6 py-3 rounded-full text-white text-sm font-bold uppercase tracking-wider"
-          style="background:linear-gradient(135deg, #dc2626, #f97316); box-shadow: 0 4px 0 -1px #b91c1c;"
+    <!-- SIGNED OUT — what the dashboard holds + sign in / join -->
+    <section v-if="!isSignedIn" class="max-w-3xl mx-auto px-4 py-10" data-testid="my-plan-signed-out">
+      <div class="rounded-2xl p-6 sm:p-8 bg-white border" style="border-color:#dc262655; box-shadow: 0 1px 0 #dc262622, 0 12px 28px rgba(59, 31, 18, 0.06);">
+        <div class="text-center">
+          <div class="text-[10px] uppercase tracking-[0.3em] font-bold mb-3" style="color:#dc2626;">Your dashboard</div>
+          <h2 class="text-2xl sm:text-3xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+            Your picks, your partners, your tickets — <em class="italic" style="color:#dc2626;">one dashboard.</em>
+          </h2>
+        </div>
+
+        <!-- What it holds -->
+        <ul class="mt-6 grid gap-3 sm:grid-cols-3">
+          <li
+            v-for="p in DASHBOARD_PILLARS"
+            :key="p.key"
+            class="rounded-xl p-4 border"
+            style="border-color:#3b1f0d22; background:#fbf5ea;"
+            :data-testid="`my-plan-pillar-${p.key}`"
+          >
+            <component :is="p.icon" class="w-5 h-5 mb-2" style="color:#dc2626;" aria-hidden="true" />
+            <div class="font-bold" style="color:#3b1f0d;">{{ p.title }}</div>
+            <p class="mt-1 text-sm leading-snug" style="color:#5b3a1d; font-family: system-ui, sans-serif;">{{ p.body }}</p>
+          </li>
+        </ul>
+
+        <!-- The promise: one next step at a time -->
+        <div
+          class="mt-4 rounded-xl px-4 py-3 flex items-start gap-3"
+          style="background:linear-gradient(135deg, #fef3c7 0%, #fee2e2 100%); border:1px solid #dc262633;"
+          data-testid="my-plan-next-step-promise"
         >
-          Browse festivals <ArrowRight class="w-4 h-4" />
-        </NuxtLink>
+          <Target class="w-5 h-5 mt-0.5 shrink-0" style="color:#dc2626;" aria-hidden="true" />
+          <div>
+            <div class="font-bold" style="color:#3b1f0d;">One clear next step at a time.</div>
+            <p class="mt-0.5 text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+              No juggling tabs and chats — we surface the one thing to do next, like
+              <span class="italic">“Grab your pass before the early-bird ends”</span> or
+              <span class="italic">“Find a partner for Saturday's workshops”</span>.
+            </p>
+          </div>
+        </div>
+
+        <!-- Sign in / join -->
+        <div class="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3" style="font-family: system-ui, sans-serif;">
+          <button
+            type="button"
+            class="inline-flex items-center gap-2 px-6 py-3 rounded-full text-white text-sm font-bold uppercase tracking-wider"
+            style="background:linear-gradient(135deg, #dc2626, #f97316); box-shadow: 0 4px 0 -1px #b91c1c;"
+            @click="openAuth('dashboard')"
+          >
+            Join &amp; build my dashboard <ArrowRight class="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            class="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold uppercase tracking-wider border"
+            style="border-color:#3b1f0d33; color:#3b1f0d;"
+            @click="openAuth('signin')"
+          >
+            Sign in
+          </button>
+        </div>
+        <p class="mt-4 text-center text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+          Just looking? <NuxtLink to="/festivals" class="italic underline" style="color:#9a5614;">Browse festivals</NuxtLink>
+        </p>
       </div>
+      <SignUpModal v-model:open="showAuth" :action="authAction" />
     </section>
 
     <!-- SIGNED IN, EMPTY -->
