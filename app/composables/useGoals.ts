@@ -32,6 +32,11 @@ export function useGoals() {
     }
   }
 
+  function hasGoal(title: string): boolean {
+    const t = title.trim().toLowerCase()
+    return goals.value.some(g => g.title.trim().toLowerCase() === t)
+  }
+
   async function addGoal(title: string, why: string) {
     const id = `goal-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
     const goal: Goal = { id, title, why, progress: 0 }
@@ -67,6 +72,7 @@ export function useGoals() {
     goals: readonly(goals),
     goalsLoaded: readonly(loaded),
     loadFromDb,
+    hasGoal,
     addGoal,
     removeGoal,
   }
