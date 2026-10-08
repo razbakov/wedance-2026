@@ -376,7 +376,7 @@ const attendees = [
               <div class="mt-3 text-sm leading-relaxed" style="color:#5b3a1d;">
                 We supply the whole night — venue, MC, DJ, dancers, show.
               </div>
-              <div class="mt-5 inline-flex items-center gap-2 text-sm font-bold" style="color:#dc2626;">
+              <div class="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-white text-sm font-bold uppercase tracking-wider" style="background:linear-gradient(135deg,#f59e0b,#f97316); box-shadow: 0 4px 0 -1px #d97706;">
                 Book us for your event <ArrowRight class="w-4 h-4 transition-transform group-hover:translate-x-1" />
               </div>
             </NuxtLink>
