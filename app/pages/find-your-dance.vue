@@ -2,7 +2,8 @@
 /**
  * /find-your-dance — placeholder for the dance-finder game (built in v4,
  * to be integrated here later). For now: a friendly holding page + the
- * big three as a quick manual start.
+ * big three as a quick manual start, plus a "free taster class" way in that
+ * lands on a city's upcoming classes (/cities?taster=1 → /cities/[city]?taster=1).
  */
 import { ArrowRight, Sparkles } from 'lucide-vue-next'
 
@@ -60,9 +61,21 @@ const quickPicks = [
         </NuxtLink>
       </div>
 
-      <p class="mt-6 text-center text-sm" style="color:#9a5614; font-family:'Caveat', cursive; font-size:18px;">
-        — or just try a free taster class and see what sticks.
-      </p>
+      <!-- P1006: the low-pressure way in — no style to pick, just find a class to try once. -->
+      <NuxtLink
+        to="/cities?taster=1"
+        data-testid="taster-cta"
+        class="group mt-8 block rounded-2xl border border-dashed px-5 py-4 text-center transition-all hover:-translate-y-0.5"
+        style="border-color:#9a561466; background:rgba(255,255,255,0.55);"
+      >
+        <span class="block" style="color:#9a5614; font-family:'Caveat', cursive; font-size:22px; line-height:1.2;">
+          — or just <span class="underline decoration-dotted underline-offset-4" style="color:#16a34a;">try a free taster class</span> and see what sticks.
+          <ArrowRight class="inline w-4 h-4 align-middle transition-transform group-hover:translate-x-1" style="color:#16a34a;" />
+        </span>
+        <span class="mt-1 block text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+          No style to pick, no commitment. Turn up once and see how it feels.
+        </span>
+      </NuxtLink>
     </section>
 
     <SiteFooter />
