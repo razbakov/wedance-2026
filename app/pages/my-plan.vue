@@ -745,7 +745,7 @@ const previewGoals: PreviewGoal[] = [
 ]
 
 // Real goals — persisted via TRPC plan router.
-const { goals: dbGoals, addGoal, removeGoal, loadFromDb: loadGoalsFromDb } = useGoals()
+const { goals: dbGoals, addGoal, removeGoal, hasGoal, loadFromDb: loadGoalsFromDb } = useGoals()
 
 // Unified view: preview mode shows hard-coded preview goals; real mode shows DB goals.
 const goalsList = computed(() => {
@@ -765,12 +765,21 @@ const goalsList = computed(() => {
 const showGoalForm = ref(false)
 const goalFormTitle = ref('')
 const goalFormWhy = ref('')
+const goalFormError = ref('')
+
+watch(goalFormTitle, () => { goalFormError.value = '' })
+
 async function onGoalSubmit() {
   const t = goalFormTitle.value.trim()
   if (!t) return
+  if (hasGoal(t)) {
+    goalFormError.value = 'You already have this goal'
+    return
+  }
   const w = goalFormWhy.value.trim()
   goalFormTitle.value = ''
   goalFormWhy.value = ''
+  goalFormError.value = ''
   showGoalForm.value = false
   await addGoal(t, w)
 }
@@ -1537,6 +1546,7 @@ function cardSummary(f: CatalogueEntry) {
                 class="w-full rounded-lg border px-3 py-2.5 text-sm focus:outline-none focus:ring-2"
                 style="border-color:#3b1f0d22; background:#fbf5ea; color:#3b1f0d; font-family: system-ui, sans-serif;"
               />
+              <p v-if="goalFormError" class="text-xs mt-1" style="color:#dc2626;">{{ goalFormError }}</p>
             </div>
             <div>
               <label for="goal-why" class="block text-xs font-bold uppercase tracking-widest mb-1.5" style="color:#9a5614;">
@@ -1554,7 +1564,7 @@ function cardSummary(f: CatalogueEntry) {
             <div class="flex items-center gap-3 pt-1">
               <button
                 type="submit"
-                :disabled="!goalFormTitle.trim()"
+                :disabled="!goalFormTitle.trim() || !!goalFormError"
                 class="px-5 py-2.5 rounded-full text-white text-sm font-bold uppercase tracking-wider disabled:opacity-40"
                 style="background:#dc2626;"
               >
