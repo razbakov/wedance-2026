@@ -28,7 +28,23 @@ async function seed() {
 
   // Create all festivals and their dinners
   for (const f of festivalData) {
-    const [festival] = await db.insert(schema.festivals).values(f).onConflictDoNothing().returning()
+    const [festival] = await db.insert(schema.festivals).values(f).onConflictDoUpdate({
+      target: schema.festivals.slug,
+      set: {
+        name: f.name,
+        startDate: f.startDate,
+        endDate: f.endDate,
+        maxFreeSpots: f.maxFreeSpots,
+        stripePaymentLink: f.stripePaymentLink,
+        ticketUrl: f.ticketUrl,
+        city: f.city,
+        country: f.country,
+        description: f.description,
+        styles: f.styles,
+        logo: f.logo,
+        accentColor: f.accentColor,
+      },
+    }).returning()
     const festivalId = festival?.id || (await db.select().from(schema.festivals).where(eq(schema.festivals.slug, f.slug)))[0]?.id
     if (!festivalId) { console.warn(`Skipping festival ${f.slug}`); continue }
     console.log(`Festival ${f.slug}: ${festivalId}`)
