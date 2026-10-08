@@ -30,6 +30,7 @@ useHead({
 
 const {
   isSignedIn: isSignedInReal,
+  dancerId: dancerIdReal,
   dancerName: dancerNameReal,
   city: dancerCityReal,
   danceStyles: dancerStylesReal,
@@ -1019,7 +1020,7 @@ async function fetchHangouts() {
   try {
     const citySlug = dancerCity.value?.toLowerCase() || 'munich'
     const result = await $trpc.hangouts.listTonight.query({ citySlug })
-    const currentDancerId = useAuth().dancerId?.value
+    const currentDancerId = dancerIdReal.value
 
     hangouts.value = (result as any[]).map((h: any) => ({
       id: h.id,
@@ -1064,8 +1065,8 @@ async function toggleHangout(id: string) {
     hangouts.value = hangouts.value.map(h =>
       h.id === id ? { ...h, going: !h.going } : h
     )
-  } catch (error) {
-    console.error('Failed to toggle RSVP:', error)
+  } catch (error: any) {
+    hangoutError.value = `Could not toggle RSVP: ${error?.message || 'unknown error'}`
   }
 }
 const hangoutIcon = (kind: Hangout['kind']) => kind === 'dinner' ? UtensilsCrossed : kind === 'bar' ? GlassWater : kind === 'ride' ? Car : MoonStar
@@ -1074,6 +1075,7 @@ const hangoutIcon = (kind: Hangout['kind']) => kind === 'dinner' ? UtensilsCross
 const showHangoutForm = ref(false)
 const newHangout = ref({ kind: 'dinner' as 'dinner' | 'bar' | 'ride' | 'floor', title: '', time: '20:00', venue: '' })
 const creatingHangout = ref(false)
+const hangoutError = ref('')
 
 async function createHangout() {
   if (previewMode.value) {
@@ -1095,6 +1097,7 @@ async function createHangout() {
   }
 
   if (!newHangout.value.title.trim()) return
+  hangoutError.value = ''
   creatingHangout.value = true
   try {
     const citySlug = dancerCity.value?.toLowerCase() || 'munich'
@@ -1108,8 +1111,13 @@ async function createHangout() {
     showHangoutForm.value = false
     newHangout.value = { kind: 'dinner', title: '', time: '20:00', venue: '' }
     await fetchHangouts()
-  } catch (error) {
-    console.error('Failed to create hangout:', error)
+  } catch (error: any) {
+    const msg = error?.message || 'Something went wrong'
+    if (msg.includes('UNAUTHORIZED') || msg.includes('Not signed in')) {
+      hangoutError.value = 'Your session expired. Please sign out and sign in again.'
+    } else {
+      hangoutError.value = `Could not post: ${msg}`
+    }
   } finally {
     creatingHangout.value = false
   }
@@ -2340,6 +2348,9 @@ function cardSummary(f: CatalogueEntry) {
               style="border-color:#3b1f0d22; color:#3b1f0d; font-family: system-ui, sans-serif;"
             />
           </div>
+          <p v-if="hangoutError" class="text-xs mb-2 px-1" style="color:#dc2626; font-family: system-ui, sans-serif;" role="alert">
+            {{ hangoutError }}
+          </p>
           <div class="flex justify-end gap-2">
             <button
               type="button"
