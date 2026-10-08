@@ -9,10 +9,14 @@
  * Shared child components (Lineup, TeacherProfile, WeeklyCalendar,
  * WeekDrawer) still carry shadcn styling and will get restyled in a
  * follow-up pass.
+ * ?style=<Style> preselects the style filter; ?taster=1 (from the
+ * /find-your-dance "free taster class" pick) shows a "Your first class"
+ * section of upcoming classes, free-priced ones first (P1006).
  */
-import { MapPin, Calendar, ArrowRight } from 'lucide-vue-next'
+import { MapPin, Calendar, ArrowRight, Sparkles } from 'lucide-vue-next'
 import type { Teacher } from '~/types/festival'
 import { eventLocalDate, eventLocalTime, eventLocalWeekday, formatEventWhen } from '#shared/utils/eventTime'
+import { isFreePrice, isTasterCandidate } from '#shared/utils/taster'
 
 definePageMeta({ layout: false })
 
@@ -209,8 +213,8 @@ useHead(() => ({
   ],
 }))
 
-// Style filter
-const selectedStyle = ref('')
+// Style filter — preselected from ?style= (the /find-your-dance quick picks).
+const selectedStyle = ref(typeof route.query.style === 'string' ? route.query.style.trim() : '')
 
 // People tabs (now also includes Venues — same Lineup shape with auto-generated avatars).
 // Order: Venues first, then Organisers, then Artists.
@@ -337,6 +341,52 @@ const cityFestivals = computed(() => syncedEvents.value
     styles: e.styles || [], type: e.type, venueName: e.venueName,
     when: formatEventWhen(e.startDate, e.endDate, e.timezone),
   })))
+
+// "Free taster class" (P1006): upcoming classes & workshops a beginner can try
+// once. No source flags trial classes, so free-priced ones lead and the copy
+// nudges people to ask for a free first class.
+const tasterMode = computed(() => route.query.taster === '1')
+const tasterLimit = 8
+const tasterClasses = computed(() => {
+  const synced = syncedEvents.value.filter(isTasterCandidate).map(e => ({
+    id: e.id, name: e.name || 'Class', type: e.type, styles: e.styles || [],
+    venueName: e.venueName || '', venueHandle: e.venueUsername || undefined,
+    date: eventLocalDate(e.startDate, e.timezone), time: eventLocalTime(e.startDate, e.timezone),
+    free: isFreePrice(e.price), price: e.price || '',
+  }))
+  const booked = bookedEvents.value.filter(b => b.eventDate && isTasterCandidate(b)).map(b => ({
+    id: b.id, name: b.title || 'Class', type: b.eventType, styles: b.styles || [],
+    venueName: b.venueName || '', venueHandle: b.venueHandle || undefined,
+    date: String(b.eventDate).slice(0, 10), time: b.startTime || '',
+    free: false, price: '',
+  }))
+  const sorted = [...synced, ...booked]
+    .filter(e => !selectedStyle.value || e.styles.includes(selectedStyle.value))
+    .sort((a, b) => Number(b.free) - Number(a.free) || a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
+  // A weekly course repeats every week — show only its next session so the
+  // list offers different classes to try, not one course eight times.
+  const seen = new Set<string>()
+  return sorted
+    .filter((e) => {
+      const key = `${e.name}|${e.venueName}`.toLowerCase()
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    .slice(0, tasterLimit)
+    .map(e => ({
+      ...e,
+      when: new Date(`${e.date}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' }),
+    }))
+})
+// Land visitors who came for a taster class on that section once data is in.
+watch(bookedEventsLoaded, (loaded) => {
+  if (!loaded || !tasterMode.value) return
+  nextTick(() => document.getElementById('taster')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+})
+function scrollToAskLocals() {
+  document.getElementById('ask-locals')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
 
 const styleChipColors = ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b', '#ec4899', '#7c3aed']
 
@@ -541,6 +591,58 @@ onMounted(() => {
             class="mt-4"
             @close="clearPersonFilter"
           />
+        </div>
+      </div>
+    </section>
+
+    <!-- YOUR FIRST CLASS — ?taster=1 from the /find-your-dance taster pick (P1006) -->
+    <section v-if="tasterMode" id="taster" data-testid="taster-section" class="max-w-4xl mx-auto px-4 pt-12 scroll-mt-4">
+      <div class="rounded-2xl p-5 sm:p-6" style="background:white; border:1px solid #16a34a55; box-shadow: 0 1px 0 #16a34a22, 0 8px 22px rgba(59,31,18,0.05);">
+        <div class="text-xs uppercase tracking-[0.3em] flex items-center gap-1.5" style="color:#16a34a;">
+          <Sparkles class="w-3.5 h-3.5" /> Try it, no pressure
+        </div>
+        <h2 class="mt-2 text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+          Your first <em class="italic" style="color:#16a34a;">class.</em>
+        </h2>
+        <p class="mt-2 text-sm leading-relaxed" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+          Pick any class below and just go once — many schools let you try the first one free, just ask at the door.
+          No partner, no experience, no commitment. See what sticks.
+        </p>
+
+        <div v-if="!bookedEventsLoaded" class="mt-5 text-sm italic" style="color:#9a5614;">Finding classes…</div>
+
+        <div v-else-if="tasterClasses.length" class="mt-5 grid grid-cols-1 gap-2">
+          <NuxtLink
+            v-for="e in tasterClasses"
+            :key="e.id"
+            :to="e.venueHandle ? `/@${e.venueHandle}` : `/events/${e.id}`"
+            data-testid="taster-class"
+            class="group rounded-xl p-3 border flex items-center gap-3 hover:-translate-y-0.5 transition-all"
+            style="border-color:#3b1f0d1f; background:#fbf5ea80;"
+          >
+            <div class="w-20 shrink-0 text-center" style="font-family:'Playfair Display', serif;">
+              <div class="text-[10px] font-bold uppercase tracking-wide whitespace-nowrap" style="color:#9a5614;">{{ e.when }}</div>
+              <div class="text-base font-black tabular-nums" style="color:#16a34a;">{{ e.time }}</div>
+            </div>
+            <div class="flex-1 min-w-0" style="font-family: system-ui, sans-serif;">
+              <p class="text-sm font-bold truncate group-hover:underline" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+                {{ e.name }}
+                <span v-if="e.free" class="ml-1 align-middle px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider" style="background:#16a34a18; color:#16a34a; font-family: system-ui, sans-serif;">Free</span>
+              </p>
+              <p class="text-xs truncate" style="color:#5b3a1d;">
+                <span class="font-bold uppercase tracking-wider text-[10px]" style="color:#9a5614;">{{ e.type }}</span>
+                <span v-if="e.styles.length"> · {{ e.styles.slice(0, 3).join(', ') }}</span>
+                <span v-if="e.venueName"> · {{ e.venueName }}</span>
+                <span v-if="e.price && !e.free"> · {{ e.price }}</span>
+              </p>
+            </div>
+            <ArrowRight class="w-4 h-4 shrink-0" style="color:#16a34a;" />
+          </NuxtLink>
+        </div>
+
+        <div v-else data-testid="taster-empty" class="mt-5 text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+          No {{ selectedStyle ? `${selectedStyle} ` : '' }}classes listed here yet —
+          <button type="button" class="font-bold underline" style="color:#16a34a;" @click="scrollToAskLocals">ask the locals where beginners start</button>.
         </div>
       </div>
     </section>
@@ -805,7 +907,7 @@ onMounted(() => {
     <!-- Ask locals (client-only: tRPC has no SSR). Local groups now live under
          the Organisers directory (/cities/[city]/organisers) — one home. -->
     <ClientOnly>
-      <section class="max-w-2xl mx-auto px-4 pb-10">
+      <section id="ask-locals" class="max-w-2xl mx-auto px-4 pb-10 scroll-mt-4">
         <AskLocalsSection :city-slug="slug" :city-name="city.name" />
       </section>
     </ClientOnly>
