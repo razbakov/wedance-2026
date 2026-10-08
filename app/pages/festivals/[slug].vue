@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { PlanEntry, DanceRole, DancePartner, FestivalFriend, PartnerMatch, DiscoverDancer, ExtraActivity, SwipeCard, FreemiumState } from '~/types/festival'
+import type { Festival, Teacher, Workshop, PlanEntry, DanceRole, DancePartner, FestivalFriend, PartnerMatch, DiscoverDancer, ExtraActivity, SwipeCard, FreemiumState } from '~/types/festival'
 import { ArrowRight, Sparkles, Check } from 'lucide-vue-next'
 import { artistPlaces, artistLanguages } from '~/data/artists'
 import * as salsaOpen from '~/data/mock-festival'
@@ -8,11 +8,12 @@ import * as cubanFire from '~/data/mock-cuban-fire'
 import * as caribbeanUrbanFire from '~/data/mock-caribbean-urban-fire'
 import * as aguaPichi from '~/data/mock-agua-pichi'
 import { liteFestivals } from '~/data/mock-festivals-lite'
+import type { FestivalDetail } from '~/server/api/festivals/[slug].get'
 
 const route = useRoute()
 const router = useRouter()
 
-const festivals: Record<string, { festival: typeof salsaOpen.mockFestival; workshops: typeof salsaOpen.mockWorkshops; teachers: typeof salsaOpen.mockTeachers }> = {
+const hardcodedFestivals: Record<string, { festival: Festival; workshops: Workshop[]; teachers: Teacher[] }> = {
   'salsa-open-berlin-2026': { festival: salsaOpen.mockFestival, workshops: salsaOpen.mockWorkshops, teachers: salsaOpen.mockTeachers },
   'meneate-viena-2026': { festival: meneate.mockFestival, workshops: meneate.mockWorkshops, teachers: meneate.mockTeachers },
   'cuban-fire-munich-2026': { festival: cubanFire.mockFestival, workshops: cubanFire.mockWorkshops, teachers: cubanFire.mockTeachers },
@@ -21,7 +22,41 @@ const festivals: Record<string, { festival: typeof salsaOpen.mockFestival; works
   ...liteFestivals,
 }
 
-const data = festivals[route.params.slug as string]
+const slug = route.params.slug as string
+let data: { festival: Festival; workshops: Workshop[]; teachers: Teacher[] } | undefined = hardcodedFestivals[slug]
+
+// DB fallback: if the slug isn't in the hardcoded map, fetch from the database.
+// This makes DB-only festivals (added via the admin/sync) render a detail page
+// instead of 404-ing.
+if (!data) {
+  const { data: dbRow } = await useFetch<FestivalDetail>(`/api/festivals/${slug}`)
+  if (dbRow.value) {
+    const r = dbRow.value
+    data = {
+      festival: {
+        name: r.name,
+        slug: r.slug,
+        startDate: r.startDate ?? '',
+        endDate: r.endDate ?? '',
+        description: r.description ?? '',
+        logo: r.logo ?? '',
+        accentColor: r.accentColor ?? '#9a5614',
+        socialLinks: [],
+        venue: {
+          name: [r.city, r.country].filter(Boolean).join(', ') || 'TBA',
+          address: [r.city, r.country].filter(Boolean).join(', ') || '',
+          coordinates: { lat: 0, lng: 0 },
+          practicalInfo: [],
+        },
+        attendeeCount: r.signupCount,
+        ticketUrl: r.ticketUrl ?? undefined,
+      },
+      workshops: [],
+      teachers: [],
+    }
+  }
+}
+
 if (!data) {
   throw createError({ statusCode: 404, statusMessage: 'Festival not found', fatal: true })
 }
