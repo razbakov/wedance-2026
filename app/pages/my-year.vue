@@ -21,7 +21,7 @@ const sharedData = ref<{
   sharer: { name: string; photo: string | null; role: 'lead' | 'follow' | null; username: string | null }
   festivals: Array<{
     slug: string; name: string; startDate: string; endDate: string
-    location: string; logo: string; accentColor: string; styles: string[]
+    location: string; country: string; logo: string; accentColor: string; styles: string[]
     hasTicket: boolean; referralDiscountPercent: number
   }>
 } | null>(null)
@@ -29,7 +29,7 @@ const sharedData = ref<{
 // ── Own view data ──
 const myFestivalsRaw = ref<Array<{
   slug: string; name: string; startDate: string; endDate: string
-  location: string; logo: string; accentColor: string; styles: string[]
+  location: string; country: string; logo: string; accentColor: string; styles: string[]
   ticketStatus: 'purchased' | 'not-purchased'; referralDiscountPercent: number
 }>>([])
 
@@ -57,6 +57,7 @@ const sharedFestivals = computed<YearPlanFestival[]>(() => {
     startDate: f.startDate,
     endDate: f.endDate,
     location: f.location,
+    country: f.country,
     logo: f.logo,
     accentColor: f.accentColor,
     styles: f.styles,
@@ -77,6 +78,7 @@ const myFestivals = computed<YearPlanFestival[]>(() => {
     startDate: f.startDate,
     endDate: f.endDate,
     location: f.location,
+    country: f.country,
     logo: f.logo,
     accentColor: f.accentColor,
     styles: f.styles,
@@ -103,7 +105,7 @@ const sharer = computed(() => {
 
 const stats = computed(() => {
   const fests = myFestivals.value
-  const countries = [...new Set(fests.map((f) => f.location).filter(Boolean))]
+  const countries = [...new Set(fests.map((f) => f.country).filter(Boolean))]
   const styleMap = new Map<string, number>()
   for (const f of fests) {
     for (const s of f.styles) {
@@ -118,7 +120,7 @@ const stats = computed(() => {
 
   return {
     totalFestivals: fests.length,
-    totalWorkshops: 0,
+    totalWorkshops: fests.reduce((sum, f) => sum + f.workshopCount, 0),
     countries,
     topStyles,
     partnerMatchRate: 0,
