@@ -34,6 +34,12 @@ export function useAuth() {
       return
     }
 
+    // Ensure the TRPC auth header ref carries the cookie's token.
+    // After SSR hydration the plugin's ref may be stale (SSR reads the
+    // raw header, client reads useCookie — different refs). Force-sync
+    // so the auth.me query always includes the correct Bearer token.
+    $setAuthToken(sessionCookie.value)
+
     try {
       const me = await $trpc.auth.me.query()
       if (me) {
@@ -54,11 +60,15 @@ export function useAuth() {
         _website.value = me.website ?? null
         _profilePublic.value = me.profilePublic ?? true
       } else {
-        // Invalid/expired session
+        // Server explicitly says session is invalid/expired — clear it.
         signOut()
       }
     } catch {
-      signOut()
+      // Network error, timeout, or server 500 — do NOT destroy the
+      // cookie.  The session may still be valid; nuking it forces a
+      // needless re-login.  Leave isSignedIn false for this page load
+      // so the UI shows the signed-out state, but keep the cookie so
+      // the next refresh can try again.
     } finally {
       _isLoading.value = false
     }
