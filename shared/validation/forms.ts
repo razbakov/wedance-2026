@@ -140,6 +140,21 @@ export const DanceFeedbackSchema = v.object({
   text: requiredText('Write a few words first.'),
 })
 
+// ── Event inquiry (feedback.inquiry) ────────────────────────────────────────
+
+export const EventInquirySchema = v.object({
+  eventType: optionalText(100, 'Keep the event type under 100 characters.'),
+  date: optionalText(100, 'Keep the date under 100 characters.'),
+  city: optionalText(100, 'Keep the city under 100 characters.'),
+  guests: optionalText(100, 'Keep the guest count under 100 characters.'),
+  needs: v.pipe(
+    requiredText('Tell us what you need for your event.'),
+    v.maxLength(3000, 'Please keep it under 3,000 characters.'),
+  ),
+  name: optionalText(160, 'Keep your name under 160 characters.'),
+  email: email('Add your email so we can reply.'),
+})
+
 // ── Community (feedback.report / giveaway.enter / cityVideo.submit /
 //    askLocals.ask + recommend / review.create / election.nominate) ─────────
 
