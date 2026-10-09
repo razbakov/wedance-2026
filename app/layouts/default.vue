@@ -6,9 +6,19 @@ const { cartCount, cartOpen, toggleCart } = useCart()
 const { yearCount, yearDrawerOpen, toggleDrawer: toggleYearDrawer } = useYearPlan()
 const { weekCount, weekDrawerOpen, toggleDrawer: toggleWeekDrawer } = useWeekPlan()
 
-const { isSignedIn, dancerName, signOut } = useAuth()
+const { isSignedIn, isLoading, authHint, dancerName, signOut } = useAuth()
+const sessionCookie = useCookie('wedance-session')
 const showSignUp = ref(false)
 const showSignOutConfirm = ref(false)
+
+// Show signed-in UI during SSR/loading when both session + hint cookies exist,
+// so the header doesn't blink "Sign in" on page refresh.
+const appearsSignedIn = computed(() =>
+  isSignedIn.value || (isLoading.value && !!authHint.value && !!sessionCookie.value),
+)
+const displayName = computed(() =>
+  dancerName.value || authHint.value?.name || 'Profile',
+)
 
 // First-visit tooltip for sidebar icon on mobile
 const showSidebarHint = ref(false)
@@ -128,8 +138,8 @@ function onSignIn() {
           </div>
 
           <!-- Auth -->
-          <template v-if="isSignedIn">
-            <span class="text-xs font-medium text-foreground">{{ dancerName }}</span>
+          <template v-if="appearsSignedIn">
+            <span class="text-xs font-medium text-foreground">{{ displayName }}</span>
             <button
               class="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
               @click="showSignOutConfirm = true"

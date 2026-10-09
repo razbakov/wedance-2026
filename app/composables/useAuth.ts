@@ -77,8 +77,34 @@ function _clearAuthCache(): void {
   }
 }
 
+interface AuthHint {
+  name: string
+  username: string | null
+}
+
 export function useAuth() {
   const { $trpc, $setAuthToken } = useNuxtApp()
+
+  // SSR-readable auth hint cookie — lets the server render signed-in UI
+  // immediately so the header doesn't blink "Sign in" on page refresh.
+  // Written on login/register, cleared on sign-out.
+  const _authHint = useCookie<AuthHint | null>('wedance-auth-hint', {
+    maxAge: 30 * 24 * 60 * 60,
+    path: '/',
+    sameSite: 'lax' as const,
+    default: () => null,
+  })
+
+  function _syncAuthHint(): void {
+    if (_isSignedIn.value && _dancerName.value) {
+      _authHint.value = {
+        name: _dancerName.value,
+        username: _username.value,
+      }
+    } else {
+      _authHint.value = null
+    }
+  }
 
   // Populate all auth state refs from a server `me` response and update cache.
   function _applyMe(me: {
@@ -115,6 +141,7 @@ export function useAuth() {
     _website.value = me.website ?? null
     _profilePublic.value = me.profilePublic ?? true
     _saveAuthCache()
+    _syncAuthHint()
   }
 
   // Server round-trip to validate the session and refresh auth state.
@@ -141,6 +168,7 @@ export function useAuth() {
     const sessionCookie = useCookie('wedance-session')
     if (!sessionCookie.value) {
       _clearAuthCache()
+      _authHint.value = null
       _isLoading.value = false
       return
     }
@@ -310,6 +338,7 @@ export function useAuth() {
     _dancerName.value = data.name
     _isAdmin.value = data.isAdmin
     _saveAuthCache()
+    _syncAuthHint()
     // Tie analytics events to this dancer (login / register / magic-link).
     useTrack().identify(data.dancerId, { name: data.name })
   }
@@ -317,6 +346,7 @@ export function useAuth() {
   function signOut() {
     $setAuthToken(null)
     _clearAuthCache()
+    _authHint.value = null
     _isSignedIn.value = false
     _dancerId.value = null
     _dancerName.value = null
@@ -340,6 +370,7 @@ export function useAuth() {
 
   return {
     isSignedIn: readonly(_isSignedIn),
+    authHint: readonly(_authHint),
     dancerId: readonly(_dancerId),
     dancerName: readonly(_dancerName),
     username: readonly(_username),
