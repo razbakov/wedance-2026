@@ -4,7 +4,7 @@
  * (entity.listArtists). The tRPC client is client-only, so we fetch on mount.
  * Each card links to the unified /@<handle> profile.
  */
-import { Search, MapPin } from 'lucide-vue-next'
+import { ChevronDown, MapPin, Search } from 'lucide-vue-next'
 
 definePageMeta({ layout: false })
 
@@ -29,15 +29,17 @@ const loading = ref(true)
 onMounted(async () => {
   try {
     artists.value = (await $trpc.entity.listArtists.query()) as Artist[]
-  } catch { /* leave empty */ }
+  }
+  catch { /* leave empty */ }
   finally { loading.value = false }
 })
 
 const searchQuery = ref('')
+const selectedStyle = ref('')
 
 const allStyles = computed(() => {
   const s = new Set<string>()
-  artists.value.forEach((a) => (a.styles || []).forEach((st) => s.add(st)))
+  artists.value.forEach(a => (a.styles || []).forEach(st => s.add(st)))
   return Array.from(s)
 })
 
@@ -56,10 +58,11 @@ const filtered = computed(() => {
   return artists.value.filter((a) => {
     const matchesText = !q
       || a.name.toLowerCase().includes(q)
-      || (a.styles || []).some((s) => s.toLowerCase().includes(q))
     const matchesCity = !selectedCity.value
       || (a.city && a.city.toLowerCase() === selectedCity.value.toLowerCase())
-    return matchesText && matchesCity
+    const matchesStyle = !selectedStyle.value
+      || (a.styles || []).some(s => s.toLowerCase() === selectedStyle.value.toLowerCase())
+    return matchesText && matchesCity && matchesStyle
   })
 })
 
@@ -71,41 +74,68 @@ const NuxtLinkC = resolveComponent('NuxtLink')
   <div class="min-h-screen" style="background:#fbf5ea; color:#3b1f0d; font-family:'Playfair Display', serif;">
     <SiteHeader />
 
+    <!-- HERO -->
+    <section class="max-w-4xl mx-auto px-4 pt-10 pb-6 text-center">
+      <h1 class="text-4xl sm:text-5xl leading-[0.98]" style="color:#3b1f0d;">
+        Who moves <em class="italic" style="color:#dc2626;">the floor.</em>
+      </h1>
+      <p class="mt-3 text-base leading-relaxed max-w-xl mx-auto" style="color:#5b3a1d;">
+        Teachers, DJs, and performers — follow them across festivals and cities.
+      </p>
+    </section>
+
     <!-- TOOLBAR -->
     <section class="sticky top-0 z-30" style="background:#fbf5ea; border-bottom:1px solid #3b1f0d15;">
-      <div class="max-w-5xl mx-auto px-4 py-3">
+      <div class="max-w-5xl mx-auto px-4 py-2.5">
         <div class="flex flex-wrap items-center gap-3">
-          <h1 class="text-lg font-bold whitespace-nowrap" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
-            Artists
-          </h1>
-
           <div class="relative flex-1 min-w-[180px] max-w-xs">
             <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style="color:#9a5614;" />
             <input
               v-model="searchQuery"
               type="text"
-              placeholder="Search by name or style"
+              placeholder="Search by name"
               class="w-full h-9 rounded-full pl-9 pr-3 text-sm outline-none transition-all"
               style="background:white; border:1px solid #3b1f0d33; color:#3b1f0d; font-family: system-ui, sans-serif;"
             >
           </div>
 
-          <div v-if="allCities.length" class="flex flex-wrap items-center gap-1.5">
-            <button
-              v-for="city in allCities"
-              :key="city"
-              type="button"
-              class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all"
-              :style="selectedCity === city
+          <div v-if="allCities.length" class="relative">
+            <select
+              v-model="selectedCity"
+              class="h-9 pl-3 pr-8 rounded-full text-xs font-bold appearance-none cursor-pointer outline-none"
+              :style="selectedCity
                 ? { background: '#3b1f0d', color: '#fbf5ea' }
                 : { background: 'white', color: '#5b3a1d', border: '1px solid #3b1f0d33' }"
-              @click="selectedCity = selectedCity === city ? '' : city"
+              style="font-family: system-ui, sans-serif;"
             >
-              <MapPin class="w-3 h-3" /> {{ city }}
-            </button>
+              <option value="">
+                All cities
+              </option>
+              <option v-for="city in allCities" :key="city" :value="city">
+                {{ city }}
+              </option>
+            </select>
+            <ChevronDown class="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none" :style="{ color: selectedCity ? '#fbf5ea' : '#5b3a1d' }" />
           </div>
 
-          <StyleFilter v-if="allStyles.length" :styles="allStyles" v-model="searchQuery" :accents="accents" />
+          <div v-if="allStyles.length" class="relative">
+            <select
+              v-model="selectedStyle"
+              class="h-9 pl-3 pr-8 rounded-full text-xs font-bold appearance-none cursor-pointer outline-none"
+              :style="selectedStyle
+                ? { background: accents[allStyles.indexOf(selectedStyle) % accents.length], color: 'white' }
+                : { background: 'white', color: '#5b3a1d', border: '1px solid #3b1f0d33' }"
+              style="font-family: system-ui, sans-serif;"
+            >
+              <option value="">
+                All styles
+              </option>
+              <option v-for="style in allStyles" :key="style" :value="style">
+                {{ style }}
+              </option>
+            </select>
+            <ChevronDown class="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none" :style="{ color: selectedStyle ? 'white' : '#5b3a1d' }" />
+          </div>
 
           <span class="text-xs ml-auto whitespace-nowrap" style="color:#9a5614; font-family:'Caveat', cursive; font-size:16px;">
             {{ filtered.length }} artist{{ filtered.length === 1 ? '' : 's' }}
@@ -116,7 +146,6 @@ const NuxtLinkC = resolveComponent('NuxtLink')
 
     <!-- GRID -->
     <section class="max-w-5xl mx-auto px-4 pt-4 pb-16">
-
       <div v-if="loading" class="text-center py-14" style="color:#9a5614; font-family: system-ui, sans-serif;">
         Loading artists…
       </div>
@@ -133,7 +162,7 @@ const NuxtLinkC = resolveComponent('NuxtLink')
           <template v-else-if="searchQuery">Nothing matches "{{ searchQuery }}"</template>
           <template v-else>No artists yet.</template>
         </p>
-        <button v-if="searchQuery || selectedCity" type="button" class="text-xs font-bold mt-2 underline" style="color:#dc2626; font-family: system-ui, sans-serif;" @click="searchQuery = ''; selectedCity = ''">
+        <button v-if="searchQuery || selectedCity || selectedStyle" type="button" class="text-xs font-bold mt-2 underline" style="color:#dc2626; font-family: system-ui, sans-serif;" @click="searchQuery = ''; selectedCity = ''; selectedStyle = ''">
           Clear filters
         </button>
       </div>
