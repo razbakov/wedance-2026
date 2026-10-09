@@ -1,6 +1,7 @@
 import { expect } from '@playwright/test'
 import { Given, When, Then } from './fixtures'
 import pg from 'pg'
+import { FirebaseScrypt } from 'firebase-scrypt'
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -8,6 +9,15 @@ function getDbUrl(): string {
   const url = process.env.DATABASE_URL
   if (!url) throw new Error('DATABASE_URL is not set — cannot run E2E tests')
   return url
+}
+
+function getScrypt(): FirebaseScrypt {
+  return new FirebaseScrypt({
+    memCost: 14,
+    rounds: 8,
+    saltSeparator: String(process.env.FIREBASE_SALT_SEPARATOR),
+    signerKey: String(process.env.FIREBASE_SIGNER_KEY),
+  })
 }
 
 /** Query the dancers table for the magic reset token of a given email. */
@@ -32,24 +42,24 @@ async function getMagicToken(email: string): Promise<string> {
   }
 }
 
-/** Register a user directly via the DB so E2E scenarios have a known account. */
+/** Register a user directly via SQL with FirebaseScrypt hashing. */
 async function seedTestUser(email: string, password: string): Promise<void> {
-  // Use the app's own register endpoint instead of writing raw hashes.
-  // This keeps FirebaseScrypt parameters in one place (the server).
-  const baseUrl = process.env.BASE_URL || 'http://localhost:3000'
-  const resp = await fetch(`${baseUrl}/api/trpc/auth.register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      json: { name: 'Reset Tester', email, password },
-    }),
-  })
-  if (!resp.ok) {
-    const body = await resp.text()
-    // CONFLICT (email already exists) is fine — test user from a previous run
-    if (!body.includes('Email already in use') && !body.includes('CONFLICT')) {
-      throw new Error(`Seeding test user failed: ${resp.status} ${body}`)
-    }
+  const salt = Buffer.from(String(Math.random()).slice(7)).toString('base64')
+  const scrypt = getScrypt()
+  const hash = await scrypt.hash(password, salt)
+  const username = `test-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+
+  const client = new pg.Client({ connectionString: getDbUrl() })
+  try {
+    await client.connect()
+    await client.query(
+      `INSERT INTO dancers (name, email, username, salt, hash)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (email) DO UPDATE SET salt = $4, hash = $5`,
+      ['Reset Tester', email, username, salt, hash],
+    )
+  } finally {
+    await client.end()
   }
 }
 
@@ -109,27 +119,23 @@ Given('I am not signed in', async ({ page }) => {
 })
 
 Given('I am on an event page', async ({ page }) => {
-  // Navigate to the cities page, then click the first event link.
-  await page.goto('/cities')
-  await page.waitForLoadState('networkidle')
-
-  // Find the first city link and click it.
-  const cityLink = page.locator('a[href^="/cities/"]').first()
-  if (await cityLink.isVisible()) {
-    await cityLink.click()
-    await page.waitForLoadState('networkidle')
-
-    // On the city page, find the first event link and click it.
-    const eventLink = page.locator('a[href^="/events/"]').first()
-    if (await eventLink.isVisible()) {
-      await eventLink.click()
-      await page.waitForLoadState('networkidle')
-      return
-    }
+  // Seed a test event so the page has a "Going?" button.
+  // Use a fixed UUID so we can navigate directly to /events/<uuid>.
+  const testEventId = '00000000-0000-4000-a000-000000000001'
+  const client = new pg.Client({ connectionString: getDbUrl() })
+  try {
+    await client.connect()
+    await client.query(
+      `INSERT INTO events (id, slug, name, type, city, start_date, end_date, archived, published)
+       VALUES ($1, $2, $3, $4, $5, NOW() + interval '1 day', NOW() + interval '1 day 3 hours', false, true)
+       ON CONFLICT (id) DO NOTHING`,
+      [testEventId, 'smoke-test-event', 'Smoke Test Salsa Night', 'Party', 'Munich'],
+    )
+  } finally {
+    await client.end()
   }
 
-  // Fallback: go directly to a mock event (mock events always exist).
-  await page.goto('/events/munich-salsa-monday')
+  await page.goto(`/events/${testEventId}`)
   await page.waitForLoadState('networkidle')
 })
 
