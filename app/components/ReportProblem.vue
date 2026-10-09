@@ -38,6 +38,7 @@ async function captureScreenshot(): Promise<string | null> {
       logging: false,
       useCORS: true,
       backgroundColor: '#ffffff',
+      imageTimeout: 5000,
       scale: Math.min(window.devicePixelRatio || 1, 1.5),
       x: window.scrollX,
       y: window.scrollY,
@@ -45,10 +46,21 @@ async function captureScreenshot(): Promise<string | null> {
       height: window.innerHeight,
       windowWidth: document.documentElement.scrollWidth,
       windowHeight: document.documentElement.scrollHeight,
+      ignoreElements: (el: Element) => {
+        // html2canvas v1 cannot render SVG filters (feTurbulence),
+        // mix-blend-mode, or embedded media — attempting it throws.
+        // Skip these safely; the screenshot still shows enough for triage.
+        if (el instanceof HTMLElement) {
+          if (el.style.mixBlendMode && el.style.mixBlendMode !== 'normal') return true
+        }
+        const tag = el.tagName
+        return tag === 'IFRAME' || tag === 'VIDEO'
+      },
     })
     // JPEG @ 0.8 keeps the data URL small enough for a single request.
     return canvas.toDataURL('image/jpeg', 0.8)
-  } catch {
+  } catch (e) {
+    console.warn('[ReportProblem] screenshot capture failed:', e)
     return null // screenshot is best-effort; report still submits without it
   }
 }
