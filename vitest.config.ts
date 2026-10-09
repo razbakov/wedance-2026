@@ -10,5 +10,9 @@ export default defineConfig({
     include: ['server/**/*.test.ts', 'shared/**/*.test.ts', 'app/composables/**/*.test.ts'],
     env: loadEnv('', process.cwd(), ''),
     fileParallelism: false,
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+    },
   },
 })
