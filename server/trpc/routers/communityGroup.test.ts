@@ -2,7 +2,7 @@
  * Tests for communityGroup router: listByCity, create, report
  */
 import { describe, it, expect, vi } from 'vitest'
-import { communityGroups } from '../../database/schema'
+import { communityGroups, communityGroupReports } from '../../database/schema'
 
 type FilterFn = (row: Record<string, any>) => boolean
 
@@ -23,17 +23,26 @@ interface FakeRow { [k: string]: any }
 
 class FakeDb {
   communityGroups: FakeRow[] = []
+  reports: FakeRow[] = []
 
   select(_c: any) {
-    return { from: (t: any) => ({ where: (f: FilterFn) => Promise.resolve(this.tableFor(t).filter(f)) }) }
+    return {
+      from: (t: any) => ({
+        where: (f: FilterFn) => Promise.resolve(this.tableFor(t).filter(f)),
+      }),
+    }
   }
 
   insert(t: any) {
     return {
       values: (row: FakeRow) => {
-        const id = row.id ?? 'group-' + this.tableFor(t).length
-        const inserted = { id, createdAt: new Date(), status: 'visible', reportCount: 0, ...row }
-        this.tableFor(t).push(inserted)
+        const table = this.tableFor(t)
+        const id = row.id ?? 'row-' + table.length
+        const inserted = { id, createdAt: new Date(), ...row }
+        if (t === communityGroups) {
+          Object.assign(inserted, { status: 'visible', reportCount: 0, ...row })
+        }
+        table.push(inserted)
         const chain: any = Promise.resolve(undefined)
         chain.returning = () => Promise.resolve([inserted])
         return chain
@@ -43,12 +52,21 @@ class FakeDb {
 
   update(t: any) {
     return {
-      set: (fields: FakeRow) => {
+      set: (_fields: FakeRow) => {
         return {
-          where: async (f: FilterFn) => {
+          where: (f: FilterFn) => {
             const rows = this.tableFor(t).filter(f)
-            rows.forEach(row => Object.assign(row, fields))
-            return rows.length
+            // Simulate the atomic increment + status flip
+            rows.forEach((row) => {
+              row.reportCount = (row.reportCount || 0) + 1
+              row.status = row.reportCount >= 3 ? 'hidden' : 'visible'
+            })
+            return {
+              returning: () => Promise.resolve(rows.map(r => ({
+                reportCount: r.reportCount,
+                status: r.status,
+              }))),
+            }
           },
         }
       },
@@ -56,6 +74,7 @@ class FakeDb {
   }
 
   private tableFor(t: any) {
+    if (t === communityGroupReports) return this.reports
     return this.communityGroups
   }
 }
@@ -88,11 +107,22 @@ describe('communityGroup router', () => {
       },
     ]
 
-    const caller = appRouter.createCaller({ db: db as any, userId: null })
+    const caller = appRouter.createCaller({ db: db as any, dancerId: null, isAdmin: false })
     const result = await caller.communityGroup.listByCity({ citySlug: 'munich' })
 
     expect(result).toHaveLength(1)
     expect(result[0].name).toBe('Salsa Munich')
+  })
+
+  it('report: requires authentication', async () => {
+    const db = new FakeDb()
+    const groupId = '550e8400-e29b-41d4-a716-446655440001'
+    db.communityGroups = [
+      { id: groupId, citySlug: 'munich', name: 'G', platform: 'whatsapp', inviteUrl: 'https://example.com', styles: [], verified: false, status: 'visible', reportCount: 0 },
+    ]
+
+    const caller = appRouter.createCaller({ db: db as any, dancerId: null, isAdmin: false })
+    await expect(caller.communityGroup.report({ groupId })).rejects.toThrow('Not signed in')
   })
 
   it('report: increments reportCount and hides after 3 reports', async () => {
@@ -112,7 +142,7 @@ describe('communityGroup router', () => {
       },
     ]
 
-    const caller = appRouter.createCaller({ db: db as any, userId: null })
+    const caller = appRouter.createCaller({ db: db as any, dancerId: 'dancer-1', isAdmin: false })
     const result = await caller.communityGroup.report({ groupId })
 
     expect(result.reported).toBe(true)
@@ -128,7 +158,7 @@ describe('communityGroup router', () => {
       {
         id: groupId,
         citySlug: 'munich',
-        name: 'Group with 1 report',
+        name: 'Group with 0 reports',
         platform: 'telegram',
         inviteUrl: 'https://t.me/example',
         styles: [],
@@ -138,7 +168,7 @@ describe('communityGroup router', () => {
       },
     ]
 
-    const caller = appRouter.createCaller({ db: db as any, userId: null })
+    const caller = appRouter.createCaller({ db: db as any, dancerId: 'dancer-1', isAdmin: false })
     const result = await caller.communityGroup.report({ groupId })
 
     expect(result.reported).toBe(true)
@@ -147,10 +177,22 @@ describe('communityGroup router', () => {
     expect(db.communityGroups[0].status).toBe('visible')
   })
 
+  it('report: rejects duplicate reports from the same user', async () => {
+    const db = new FakeDb()
+    const groupId = '550e8400-e29b-41d4-a716-446655440001'
+    db.communityGroups = [
+      { id: groupId, citySlug: 'munich', name: 'G', platform: 'whatsapp', inviteUrl: 'https://example.com', styles: [], verified: false, status: 'visible', reportCount: 0 },
+    ]
+
+    const caller = appRouter.createCaller({ db: db as any, dancerId: 'dancer-1', isAdmin: false })
+    await caller.communityGroup.report({ groupId })
+    await expect(caller.communityGroup.report({ groupId })).rejects.toThrow('Already reported')
+  })
+
   it('report: throws error if group not found', async () => {
     const db = new FakeDb()
 
-    const caller = appRouter.createCaller({ db: db as any, userId: null })
+    const caller = appRouter.createCaller({ db: db as any, dancerId: 'dancer-1', isAdmin: false })
     await expect(caller.communityGroup.report({ groupId: '550e8400-e29b-41d4-a716-446655440099' })).rejects.toThrow('Group not found')
   })
 })

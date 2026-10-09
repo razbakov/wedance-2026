@@ -81,7 +81,7 @@ describe('onboardingDetailsSchema', () => {
 
 describe('ProfileSettingsSchema', () => {
   const base = {
-    name: 'Ana', city: ' ', danceStyles: [], role: '', photo: '', bio: '',
+    name: 'Ana', city: ' ', danceStyles: [], danceLevels: {}, role: '', photo: '', bio: '',
     instagram: '', youtube: '', website: '', profilePublic: true,
   }
 
