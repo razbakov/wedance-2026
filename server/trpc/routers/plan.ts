@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { eq, and, ne, sql, inArray, gte, lt, asc } from 'drizzle-orm'
+import { eq, and, ne, sql, inArray, gte, lt, asc, ilike } from 'drizzle-orm'
 import { router, publicProcedure, protectedProcedure } from '../trpc'
 import { planItems, dancers, festivals, festivalSignups, events } from '../../database/schema'
 import { getReferralDiscountPercent } from '../../utils/ticket-prices'
@@ -377,7 +377,10 @@ export const planRouter = router({
       color?: string
     }> = []
 
-    // 3. Local dancers (same city, overlapping styles, public, not me)
+    // 3. Local dancers (same city, public, not me).
+    //    Style overlap is used for sorting, not gating — dancers without shared
+    //    styles are still shown so the deck isn't empty on sparse data.
+    //    City comparison is case-insensitive to avoid "Munich" vs "munich" mismatches.
     if (myCity) {
       try {
         const localDancers = await ctx.db
@@ -391,17 +394,22 @@ export const planRouter = router({
           .from(dancers)
           .where(
             and(
-              eq(dancers.city, myCity),
+              ilike(dancers.city, myCity),
               ne(dancers.id, ctx.dancerId),
               eq(dancers.profilePublic, true),
             ),
           )
           .limit(30)
 
-        for (const d of localDancers) {
+        // Sort dancers with shared styles first
+        const scored = localDancers.map(d => {
           const dStyles = (d.danceStyles as string[]) ?? []
           const shared = dStyles.filter(s => myStyles.includes(s))
-          if (shared.length === 0) continue
+          return { d, dStyles, sharedCount: shared.length }
+        })
+        scored.sort((a, b) => b.sharedCount - a.sharedCount)
+
+        for (const { d, dStyles } of scored) {
           cards.push({
             kind: 'dancer-local',
             dancerName: d.name,
@@ -579,7 +587,87 @@ export const planRouter = router({
       } catch { /* non-critical */ }
     }
 
-    // 6. Shuffle and cap at 20
+    // 6. Fallback: if no cards were produced, broaden the search to any city
+    if (cards.length === 0) {
+      try {
+        const anyDancers = await ctx.db
+          .select({
+            id: dancers.id,
+            name: dancers.name,
+            photo: dancers.photo,
+            city: dancers.city,
+            danceStyles: dancers.danceStyles,
+          })
+          .from(dancers)
+          .where(
+            and(
+              ne(dancers.id, ctx.dancerId),
+              eq(dancers.profilePublic, true),
+            ),
+          )
+          .limit(15)
+
+        for (const d of anyDancers) {
+          cards.push({
+            kind: 'dancer-local',
+            dancerName: d.name,
+            dancerPhoto: d.photo ?? '',
+            dancerCity: d.city ?? '',
+            dancerStyles: (d.danceStyles as string[]) ?? [],
+          })
+        }
+      } catch { /* non-critical */ }
+
+      if (cards.length === 0) {
+        try {
+          const now = new Date()
+          const until = new Date(now.getTime() + 90 * 86400_000)
+          const anyEvents = await ctx.db
+            .select({
+              id: events.id,
+              name: events.name,
+              slug: events.slug,
+              type: events.type,
+              startDate: events.startDate,
+              isFestival: events.isFestival,
+              venueName: events.venueName,
+              city: events.city,
+              styles: events.styles,
+            })
+            .from(events)
+            .where(
+              and(
+                eq(events.published, true),
+                eq(events.archived, false),
+                gte(events.endDate, now),
+                lt(events.startDate, until),
+              ),
+            )
+            .orderBy(asc(events.startDate))
+            .limit(15)
+
+          const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+          for (const ev of anyEvents) {
+            const evStyles = (ev.styles as string[]) ?? []
+            const mainStyle = evStyles[0] ?? ev.type ?? ''
+            const start = ev.startDate
+            cards.push({
+              kind: 'event-social',
+              eventName: ev.name ?? '',
+              eventDayLabel: start ? DAY_NAMES[start.getDay()] : '',
+              eventTime: start ? `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}` : '',
+              eventVenue: ev.venueName ?? '',
+              eventCity: ev.city ?? '',
+              eventStyle: mainStyle,
+              friendsGoing: 0,
+              color: '#f59e0b',
+            })
+          }
+        } catch { /* non-critical */ }
+      }
+    }
+
+    // 7. Shuffle and cap at 20
     for (let i = cards.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1))
       ;[cards[i], cards[j]] = [cards[j], cards[i]]
