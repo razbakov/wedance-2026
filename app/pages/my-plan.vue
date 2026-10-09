@@ -386,6 +386,7 @@ onMounted(() => {
     loadGoalsFromDb()
     loadCoursesFromDb()
     loadSocialsFromDb()
+    loadDiscoverDeck()
   }
 })
 
@@ -1251,6 +1252,105 @@ const festivalNudges = ref<FestivalNudge[]>(isPreviewInitial
       { festivalSlug: 'timba-fest-london-2026', festivalName: 'Timba Fest London', festivalColor: '#0ea5e9', dancerNames: ['Emilia', 'Sasha'], dismissed: false },
     ]
   : [])
+
+/** Load the discover deck from the backend for signed-in users. */
+async function loadDiscoverDeck() {
+  if (previewMode.value || !isSignedIn.value) return
+  try {
+    const result = await $trpc.plan.discover.query()
+    if (!result.cards.length) return
+
+    const myCity = dancerCity.value ?? ''
+    const myStyles = dancerStyles.value ?? []
+
+    const mapped: DeckCard[] = []
+    let counter = 0
+    for (const c of result.cards) {
+      const id = `disc-${counter++}`
+      if (c.kind === 'dancer-local') {
+        const dStyles = c.dancerStyles ?? []
+        const shared = dStyles.filter(s => myStyles.includes(s))
+        mapped.push({
+          id,
+          kind: 'dancer-local',
+          name: c.dancerName ?? '',
+          photo: c.dancerPhoto || `https://i.pravatar.cc/240?u=${encodeURIComponent(c.dancerName ?? id)}`,
+          city: c.dancerCity ?? '',
+          danceStyles: dStyles,
+          regularAt: `${myCity} socials`,
+          reason: shared.length
+            ? `You both dance ${shared.join(' & ')} in ${myCity}.`
+            : `Dancer in ${myCity} — you might cross paths.`,
+        })
+      } else if (c.kind === 'dancer-new-fest') {
+        const dStyles = c.dancerStyles ?? []
+        const shared = dStyles.filter(s => myStyles.includes(s))
+        mapped.push({
+          id,
+          kind: 'dancer-new-fest',
+          name: c.dancerName ?? '',
+          photo: c.dancerPhoto || `https://i.pravatar.cc/240?u=${encodeURIComponent(c.dancerName ?? id)}`,
+          city: c.dancerCity ?? '',
+          danceStyles: dStyles,
+          festivalSlug: c.festivalSlug ?? '',
+          festivalName: c.festivalName ?? '',
+          festivalColor: c.festivalColor ?? '#0ea5e9',
+          reason: shared.length
+            ? `${shared.join(' & ')} dancer heading to ${c.festivalName} — a festival not in your year yet.`
+            : `Heading to ${c.festivalName} — a festival you haven't explored.`,
+        })
+      } else if (c.kind === 'dancer-your-fest') {
+        const dStyles = c.dancerStyles ?? []
+        mapped.push({
+          id,
+          kind: 'dancer-your-fest',
+          name: c.dancerName ?? '',
+          photo: c.dancerPhoto || `https://i.pravatar.cc/240?u=${encodeURIComponent(c.dancerName ?? id)}`,
+          city: c.dancerCity ?? '',
+          danceStyles: dStyles,
+          festivalSlug: c.festivalSlug ?? '',
+          festivalName: c.festivalName ?? '',
+          festivalColor: c.festivalColor ?? '#7c3aed',
+          reason: `Also going to ${c.festivalName} — you'll be at the same festival.`,
+        })
+      } else if (c.kind === 'event-festival') {
+        mapped.push({
+          id,
+          kind: 'event-festival',
+          name: c.eventName ?? '',
+          slug: c.eventSlug ?? '',
+          dateISO: c.eventDateISO ?? '',
+          venue: c.eventVenue ?? '',
+          city: c.eventCity ?? '',
+          friendsGoing: c.friendsGoing ?? 0,
+          color: c.color ?? '#a855f7',
+          reason: `Festival in ${c.eventCity} — not in your year yet.`,
+        })
+      } else if (c.kind === 'event-social') {
+        mapped.push({
+          id,
+          kind: 'event-social',
+          name: c.eventName ?? '',
+          dayLabel: c.eventDayLabel ?? '',
+          time: c.eventTime ?? '',
+          venue: c.eventVenue ?? '',
+          city: c.eventCity ?? '',
+          style: c.eventStyle ?? '',
+          friendsGoing: c.friendsGoing ?? 0,
+          color: c.color ?? '#f59e0b',
+          reason: myStyles.includes(c.eventStyle ?? '')
+            ? `${c.eventStyle} in ${c.eventCity} — matches your style.`
+            : `${c.eventStyle ?? 'Dance'} event in ${c.eventCity}.`,
+        })
+      }
+    }
+    if (mapped.length) {
+      deck.value = mapped
+    }
+  } catch (err) {
+    console.error('[discover] loadDiscoverDeck failed:', err)
+  }
+}
 
 const activeFestivalNudges = computed(() =>
   festivalNudges.value.filter(n => !n.dismissed && !effectivePickIds.value.has(n.festivalSlug) && n.dancerNames.length >= 2)
