@@ -2379,7 +2379,7 @@ function cardSummary(f: CatalogueEntry) {
                 </span>
                 <button
                   type="button"
-                  class="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-red-50"
+                  class="p-1 rounded hover:bg-red-50"
                   title="Remove course"
                   @click="unenrollCourse(c.id)"
                 >
