@@ -183,6 +183,7 @@ export interface YearPlanFestival {
   startDate: string
   endDate: string
   location: string
+  country?: string
   logo: string
   accentColor: string
   workshopCount: number
