@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm'
 import { useDb } from '../../utils/db'
 import { festivals, festivalSignups, dancers } from '../../database/schema'
 import { sendTicketConfirmationEmail } from '../../utils/email'
+import { completeReferral, expireReferral } from './webhook.lib'
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
@@ -86,6 +87,18 @@ export default defineEventHandler(async (event) => {
       }
     }
 
+    // Mark referral as completed if this checkout carried a referral.
+    // Runs on every delivery (including retries where the signup is a duplicate)
+    // because the referral row may still be 'pending' even if the signup already
+    // exists. The UPDATE is inherently idempotent.
+    if (session.metadata?.referrerId) {
+      try {
+        await completeReferral(db, session.id)
+      } catch (refErr) {
+        console.error('Stripe webhook: referral completion failed:', refErr)
+      }
+    }
+
     // Send confirmation email after a NEW signup is persisted.
     // Fire-and-forget: a Resend failure must not break the webhook.
     if (!isDuplicate) {
@@ -109,6 +122,19 @@ export default defineEventHandler(async (event) => {
         }
       } catch (emailErr) {
         console.error('Stripe webhook: confirmation email failed:', emailErr)
+      }
+    }
+  }
+
+  // When a checkout session expires without payment, mark any associated
+  // referral as 'expired' so the referee can use a new referral link later.
+  if (stripeEvent.type === 'checkout.session.expired') {
+    const session = stripeEvent.data.object as Stripe.Checkout.Session
+    if (session.metadata?.referrerId) {
+      try {
+        await expireReferral(useDb(), session.id)
+      } catch (refErr) {
+        console.error('Stripe webhook: referral expiration failed:', refErr)
       }
     }
   }
