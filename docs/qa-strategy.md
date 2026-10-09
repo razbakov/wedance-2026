@@ -1,462 +1,287 @@
-# QA Strategy — WeDance 2026
-
-**Owner:** Forge (CTO agent) · **Stakeholder:** Alex Razbakov (Commander)
-**Created:** 2026-10-09 · **Review cadence:** Quarterly
-**Team maturity:** startup (solo founder + AI agents, no dedicated QA)
-
----
+# QA Strategy: WeDance 2026 (2026.wedance.vip)
+## Version 1.0 | Last Updated: 2026-10-09 | Owner: Vitali (proposed — confirm in RAZ-268)
 
 ### 1. Executive Summary
 
-WeDance 2026 is a Nuxt 3 + tRPC dance-community platform serving paying users
-(festival tickets via TicketTailor/Stripe, venue bookings) and a public event feed
-synced from wedance.vip (v3). It deploys to Vercel on every push to `main` with
-**zero CI gates** — no GitHub Actions workflow exists. E2E tests are configured but
-the feature files point outside the repo and do not exist on disk, so Playwright
-has never run. Of 24 tRPC routers, 11 have unit tests (3,471 lines across 13
-test files); the remaining 13 — including `booking` (touches money), `events`
-(public feed), `gigs`, and `entity` — ship untested. Two stale git worktrees
-inside the repo root (`wedance-checkout/`, `wedance-2026-raz-158/`) contain
-duplicate test files that could confuse tooling.
-
-This strategy prescribes a phased plan to move from "no safety net" to
-"risk-proportional automated coverage" within 20 weeks, prioritized by the 8
-Critical User Journeys (C1–C8) and a risk matrix that puts payment and auth
-flows first.
-
-**Objectives (measurable, with timelines):**
-
-1. Reduce defect escape rate from unknown to < 10% within two quarters.
-2. Achieve ≥ 70% unit-test coverage on CRITICAL/HIGH-risk routers by end of Phase 2.
-3. Establish CI quality gates (unit + lint) on every PR by end of Phase 1.
-4. Have E2E smoke coverage for the top 3 CUJs by risk by end of Phase 2.
-5. Bring CI-to-green signal under 10 minutes by end of Phase 3.
-
----
+WeDance 2026 is a Nuxt 4 + tRPC + Drizzle/Neon dance-community platform with about 3,900 migrated dancer accounts, about 1,300 upcoming events mirrored daily from wedance.vip, and real money flowing through TicketTailor tickets and Stripe referral discounts. It ships continuously: 97 PRs were merged to `main` in the last 30 days, almost all written by AI agents and merged by an automated gate. That gate has nothing to check except the Vercel build, because the repo has **no CI test run**: the 242 unit tests run only when someone runs them locally, and **3 of them are failing on `main` today** without anyone noticing. The E2E layer is empty — the Playwright-BDD config points at feature files outside the repo, a path broken since the repo was flattened. In the last 60 days, 15 real defects reached production; the largest class (5 of 15) was sign-in and access control ("I can click Going without being signed in", "Forgot password doesn't reset the password"). This strategy adds the missing layers in risk order: first a required CI check so the merge gate can see red, then journey-level E2E tests for the CRITICAL flows (sign-in, access control, tickets, deploy health), then DB-backed integration tests. Headline targets for 2027-01-31: zero failing tests on `main`, all 8 user journeys with at least one passing E2E test, PR feedback under 10 minutes, and escaped defects below 4 per month (baseline ~7.5).
 
 ### 2. Scope & Objectives
 
-**In scope:**
+**In scope**
+- The `razbakov/wedance-2026` repo: Nuxt pages and components (`app/`), the 24 tRPC routers (`server/trpc/routers/`), REST endpoints and webhooks (`server/api/` — Stripe, TicketTailor, festivals, cities), shared utils and validation (`shared/`), DB migrations (`server/database/migrations/`).
+- The wedance.vip → 2026 event and profile sync (`scripts/sync-v3-events.ts`, `server/utils/v3EventSync.ts`, `server/utils/v3ProfileSync.ts`), because it writes to production daily.
+- Functional, access-control, accessibility (WCAG 2.2 AA on key pages), and basic performance (page-load budgets) testing.
+- Desktop Chrome and mobile viewport (Pixel/iPhone size) — RAZ-261 was a mobile-only escape.
 
-- All 24 tRPC routers (server-side business logic)
-- Stripe and TicketTailor webhook handlers (payment path)
-- v3 → 2026 event/profile sync utilities
-- Shared validation schemas and utility functions
-- Playwright BDD E2E for critical user journeys
-- Nuxt API routes under `server/api/`
-- Vue composables with testable logic
+**Out of scope**
+- wedance.vip (v3) and wedance-v4 themselves — v3 is treated as an external data source, validated only at the sync boundary.
+- Stripe and TicketTailor internals — card data never touches WeDance servers; we test our webhook handling and our redirect/return flows only.
+- Load testing beyond a page-load budget — current traffic does not justify it; re-evaluate when a festival on-sale is expected to exceed ~100 concurrent buyers.
+- Native mobile apps (none exist).
 
-**Out of scope:**
+**Objectives**
+1. `main` is never red for more than one working day: 0 failing and 0 unexplained skipped tests by 2026-11-01 (baseline: 3 failing, 15 skipped).
+2. Every PR runs unit tests and a smoke E2E suite as a **required** GitHub check by 2026-11-01 (baseline: no CI).
+3. All 8 user journeys (C1–C8) have at least one passing E2E test by 2027-01-31; the 4 CRITICAL flows by 2026-12-06 (baseline: 0 of 8).
+4. Escaped defects (Linear `user-report` + `Bug`, excluding test/duplicate) fall from ~7.5/month to under 4/month by 2027-01-31, and sign-in/access-control escapes to 0/month.
 
-- Third-party service internals (Stripe, TicketTailor, Vercel) — tested at
-  contract/mock level only
-- wedance.vip (v3) codebase — sync tests validate the boundary, not v3 internals
-- Mobile-specific testing (no native app)
-- Load/performance testing (deferred to Phase 4; current traffic does not justify)
-- Visual regression testing (deferred; no design system yet)
+### 3. Test Levels & Types
 
-**Platforms:** Modern browsers (Chrome, Safari, Firefox latest). Mobile-responsive
-viewport testing via Playwright.
+| Level | What It Validates | Owner | Framework | Target Share / Count | Run Frequency |
+|---|---|---|---|---|---|
+| Unit | Router logic against the hermetic `FakeDb`, utils, validation schemas, webhook parsing | Forge (author of the PR) | Vitest 4 | ~75% · ~320 tests | Every PR |
+| Integration | Routers and migrations against a real Postgres 17 (the 15 `skipIf(!DATABASE_URL)` tests today); v3 sync upserts | Forge | Vitest + Postgres service container + `dev:db-proxy` | ~17% · ~70 tests | Every PR |
+| E2E (BDD) | One scenario per critical journey flow through the real app, written as Gherkin | Vitali writes scenarios, Forge writes steps | Playwright + playwright-bdd | ~8% · ~30 scenarios | `@smoke` every PR, full nightly |
+| Production smoke | Key pages and APIs answer 200 after a deploy — read-only | Forge | Playwright (request + page) | ~8 checks | Every production deploy |
+| Accessibility | WCAG 2.2 AA on home, city, festival, event, sign-in pages | Vitali | @axe-core/playwright | 5 pages | Nightly |
+| Security | Dependency vulnerabilities; access-control matrix (which procedures need sign-in) | Forge | `bun audit` / GitHub Dependabot; unit tests on `protectedProcedure` / `adminProcedure` | Per router | Every PR + weekly |
+| Exploratory (manual) | New features before they stabilize, mobile layout, copy and wording | Vitali + Alex | Charter-based sessions, findings as Linear issues | 1 session per week | Weekly + before each festival on-sale |
 
----
+Visual regression, contract testing and load testing are deliberately left out at this maturity level (see section 12 for the trigger to add them). Manual exploratory testing stays manual on purpose: several recent escapes were wording or layout problems (RAZ-189 "Datenschutz is not an English word", RAZ-262 overlapping close button) that a person notices and an assertion does not.
 
-### 3. Test Pyramid Analysis
+### 4. Test Pyramid Analysis
 
-#### Current state
+**Current state (measured 2026-10-09 on `origin/main`, `bunx vitest run`):**
 
-| Level | Count | % | Frameworks |
-|-------|------:|--:|-----------|
-| Unit (router + utility) | 24 files, ~170 test cases | 100% | Vitest 4.1 |
-| Integration (webhook handlers) | 2 files (stripe, tickettailor) | — | Vitest |
-| E2E | 0 runnable | 0% | Playwright 1.58 + playwright-bdd 8.5 (configured, never runs) |
-| **Total** | **~170 cases** | | |
+```
+Current Test Distribution:
+  Unit tests:        227 run (+15 skipped)  →  ~94 %
+  Integration tests:  15 (all skipped — need DATABASE_URL, never run)  →  ~6 %
+  E2E tests:           0 runnable (2 orphaned BDD step files)  →  0 %
+  Manual checks:       2 scripts (e2e/synced-events.check.ts, synced-profiles.check.ts)
 
-**Shape: hourglass** — decent unit layer, near-zero integration middle (only 2
-webhook tests), and an empty E2E top. The webhook tests are closer to integration
-(they test HTTP handler → DB side-effects) but are colocated with unit tests and
-run in the same Vitest process.
+Current Shape: [ ] Pyramid  [ ] Ice Cream Cone  [ ] Diamond  [ ] Hourglass  [x] No Shape (unit only)
 
-**CI duration:** N/A (no CI pipeline exists).
-**Flakiness rate:** unknown (tests run only on developer machines).
-**Pass rate on `main`:** needs baseline run (task in Phase 1).
+CI Pipeline Duration: none (no CI) — local unit run takes ~10 s
+Flaky Test Rate:      unknown (never run repeatedly)
+Test Suite Pass Rate: 98.7 % (224 of 227 executed tests pass; 3 fail on main)
+```
 
-#### Target state (end of Phase 4, week 20)
+```
+CURRENT (unit only)           TARGET (healthy pyramid)
 
-| Level | Target count | Target % | Run frequency |
-|-------|-------------|----------|---------------|
-| Unit | ~250 cases | 70–75% | Every PR (CI) |
-| Integration | ~60 cases | 18–22% | Every PR (CI) |
-| E2E | ~25 scenarios | 5–8% | Smoke on PR preview, full nightly |
-| **Total** | **~335 cases** | **100%** | |
+                                   /  E2E  \
+                                  /  ~8%    \
+                                 / Integration\
+                                /    ~17%      \
++---------------+              +---------------+
+| Unit ~94%     |              |   Unit ~75%   |
++---------------+              +---------------+
+No integration or E2E layer —  Journey-level E2E catches the
+the bugs users report live     auth-guard and persistence bugs
+in exactly those layers        that unit tests cannot see
+```
 
-**Target CI duration:** < 10 min for PR gate (unit + integration + lint).
-**Target flakiness:** < 5% (startup-appropriate; tighten to < 2% in Phase 4).
+The failing tests are `auth.me returns the extended profile fields` (the response gained a field the test does not expect) and two `ProfileSettingsSchema` cases in `shared/validation/forms.test.ts` (a new `danceLevels` key). Both are test drift after feature changes — a symptom of having no CI, not of broken features. The orphaned E2E config reads `../../product/meetup-planner/scenarios/*.feature`; those files now live in `~/Orgs/WeDance/01_Domains/Festival_Experience/Product/meetup-planner/scenarios/` and describe the older meetup-planner product.
 
-#### Rebalance plan
+**Diagnosis.** The suite is not an ice-cream cone; it is a base with nothing on top. That matches the escape data: of the 15 production defects in the last 60 days, none were logic errors a router unit test would have caught. They were UI flows that skipped a sign-in guard (RAZ-230, RAZ-191), state that did not persist across a reload (RAZ-265, RAZ-256), a broken password-reset round trip (RAZ-241), and a production build that broke on `main` (RAZ-203). Those failure classes live in the E2E and integration layers.
 
-1. **Invest in the missing integration middle:** add integration tests for
-   service-boundary routers (booking → DB, events → DB + sync, festivalSignup →
-   TicketTailor contract).
-2. **Move E2E feature files into repo** at `e2e/features/`, fix
-   `playwright.config.ts` paths.
-3. **Add unit tests for all untested routers**, prioritized by risk score.
-4. **Keep E2E lean** — only critical journeys; resist the urge to E2E everything.
+**Target state (2027-01-31):**
 
----
+```
+Target Test Distribution:
+  Unit:        75%  → target count: ~320
+  Integration: 17%  → target count: ~70
+  E2E:          8%  → target count: ~30 scenarios (8 @smoke)
 
-### 4. Risk Assessment Matrix
+Target CI Duration: < 10 minutes (PR gate)
+Target Flaky Rate:  < 2 %
+```
 
-Impact (1–5) × Likelihood (1–5). Bands: CRITICAL 15–25, HIGH 10–14, MEDIUM 5–9, LOW 1–4.
+**Action plan (no-shape → pyramid):**
+1. Make CI exist before adding tests: one GitHub Actions workflow running `bun run test`, made a required status check on `main`. Fix the 3 failing tests in the same PR.
+2. Turn on the integration layer that already exists: run the 15 skipped tests against a Postgres 17 service container in CI, seeded from migrations.
+3. Move E2E scenarios into the repo (`e2e/features/`), delete the orphaned path, and write `@smoke` scenarios for the four CRITICAL flows first.
+4. Add a rule to the PR template: a PR that fixes a `user-report` bug ships a test at the lowest level that would have caught it.
 
-| Feature area | CUJ | Impact | Likelihood | Score | Risk | Has tests? |
-|-------------|-----|-------:|-----------:|------:|------|:----------:|
-| **Stripe webhook (payment)** | C4, C7 | 5 – Catastrophic | 3 – Possible | **15** | CRIT | ✓ (181 lines) |
-| **TicketTailor webhook (ticketing)** | C4, C7 | 5 – Catastrophic | 3 – Possible | **15** | CRIT | ✓ (368 lines) |
-| **Booking requests** | C6 | 5 – Catastrophic | 3 – Possible | **15** | CRIT | ✗ |
-| **Auth (signup, login, magic link)** | C8 | 5 – Catastrophic | 2 – Unlikely | **10** | HIGH | ✓ (831 lines) |
-| **Festival signup / checkout** | C4, C7 | 4 – Major | 3 – Possible | **12** | HIGH | ✓ (469 lines) |
-| **Events (public feed + v3 sync)** | C3, C4 | 4 – Major | 3 – Possible | **12** | HIGH | ✗ (sync utils tested) |
-| **Gigs (artist booking)** | C5 | 4 – Major | 2 – Unlikely | **8** | MED | ✗ |
-| **Entity (profiles, venues)** | C5, C6 | 3 – Moderate | 3 – Possible | **9** | MED | ✗ |
-| **Profile management** | C8 | 3 – Moderate | 2 – Unlikely | **6** | MED | ✓ |
-| **Plan (year plan / week plan)** | C4 | 3 – Moderate | 2 – Unlikely | **6** | MED | ✓ |
-| **Review / community reviews** | C3, C8 | 2 – Minor | 3 – Possible | **6** | MED | Partial (reviewsCommunity ✓, review ✗) |
-| **Referral system** | C8 | 2 – Minor | 2 – Unlikely | **4** | LOW | ✓ |
-| **Claim (profile ownership)** | C5 | 2 – Minor | 2 – Unlikely | **4** | LOW | ✓ |
-| **Dinner / hangouts** | C3 | 2 – Minor | 2 – Unlikely | **4** | LOW | ✓ / ✗ |
-| **Election (moderator)** | C8 | 2 – Minor | 1 – Rare | **2** | LOW | ✓ |
-| **Ask Locals** | C1, C4 | 1 – Negligible | 2 – Unlikely | **2** | LOW | ✗ |
-| **City Video voting** | C3 | 1 – Negligible | 2 – Unlikely | **2** | LOW | ✗ |
-| **Giveaway** | C8 | 1 – Negligible | 1 – Rare | **1** | LOW | ✗ |
-| **Ride share** | C4 | 1 – Negligible | 2 – Unlikely | **2** | LOW | ✗ |
-| **Roommate** | C4 | 1 – Negligible | 2 – Unlikely | **2** | LOW | ✗ |
-| **Festival insights** | C7 | 2 – Minor | 2 – Unlikely | **4** | LOW | ✗ |
-| **Community groups** | C8 | 2 – Minor | 1 – Rare | **2** | LOW | ✓ |
-| **Feedback** | C8 | 1 – Negligible | 1 – Rare | **1** | LOW | ✗ |
-| **Admin** | — | 3 – Moderate | 1 – Rare | **3** | LOW | ✓ |
+### 5. Risk Assessment
 
-#### Testing action by risk band
+Score = Impact (1 Negligible → 5 Catastrophic) × Likelihood (1 Rare → 5 Almost Certain). Likelihood uses evidence: escaped defects in the last 60 days, test coverage today, and how often the code changes.
 
-| Risk | Testing depth | Automation | Monitoring |
-|------|--------------|-----------|-----------|
-| **CRITICAL** | Full unit + integration + E2E smoke + manual exploratory | Mandatory, every PR | Stripe/TT webhook dashboards, error alerts |
-| **HIGH** | Full unit + integration, E2E for happy path | Mandatory, every PR | Weekly error-log review |
-| **MEDIUM** | Unit for happy path + key errors | Recommended | Monthly review |
-| **LOW** | Unit happy path or manual-only | Optional | None |
+```
+LIKELIHOOD →     Rare      Unlikely    Possible    Likely    Almost Certain
+IMPACT ↓          1           2           3          4            5
 
----
+Catastrophic (5)  5-MED      10-HIGH    15-CRIT    20-CRIT      25-CRIT
+Major (4)         4-LOW       8-MED     12-HIGH    16-CRIT      20-CRIT
+Moderate (3)      3-LOW       6-MED      9-MED     12-HIGH      15-CRIT
+Minor (2)         2-LOW       4-LOW      6-MED      8-MED       10-HIGH
+Negligible (1)    1-LOW       2-LOW      3-LOW      4-LOW        5-MED
+```
 
-### 5. Environment Strategy
+**Risk-to-Testing Action Map**
 
-| Environment | Purpose | Test types | Data | Deploy trigger |
-|------------|---------|-----------|------|---------------|
-| **Local** | Developer feedback | Unit, integration (Vitest) | Seeded test DB / mocks | On save (`vitest --watch`) |
-| **CI (GitHub Actions)** | Automated validation | Unit, integration, lint, type-check | Ephemeral (mocked DB via test helpers) | On push / PR |
-| **Vercel Preview** | Pre-production E2E | Playwright BDD smoke suite | Preview deployment with test data | On PR (Vercel auto-deploy) |
-| **Production** | Monitoring | Synthetic smoke (future) | Live | On merge to `main` |
+| Risk Level | Testing Action | Automation | Monitoring |
+|---|---|---|---|
+| CRITICAL (15–25) | Unit + integration + `@smoke` E2E + exploratory before releases | Mandatory, every PR | Sentry alert + production smoke |
+| HIGH (10–14) | Unit + integration + E2E in the nightly suite | Mandatory, every PR (unit/integration) | Sentry weekly review |
+| MEDIUM (5–9) | Unit on logic + one happy-path E2E | Recommended | Weekly review |
+| LOW (1–4) | Exploratory sessions only | Optional | None |
 
-**Test data management:**
+**Feature mapping by user journey**
 
-- Unit/integration tests use the existing in-memory mock pattern (test helpers
-  already set up `ctx` with mock DB results).
-- E2E tests against Vercel previews will use seeded test accounts (created via
-  API fixtures in `e2e/steps/fixtures.ts`).
-- No production data in any test environment.
+| Journey | Flow | Impact | Likelihood | Score | Evidence | Testing Approach |
+|---|---|---|---|---|---|---|
+| C8 Member | Sign up, sign in, sign out, password reset, session | 5 | 4 | 20 – CRIT | RAZ-241, RAZ-239, RAZ-240 escaped; 3,900 migrated accounts depend on Firebase-scrypt continuity | Unit (auth router, exists) + integration (sessions table) + `@smoke` E2E for each step |
+| C8 Member | Access control on write actions (Going, plan, ride, room, hangout) | 4 | 4 | 16 – CRIT | RAZ-230, RAZ-191 escaped — server procedures are protected, the UI let anonymous users act | Unit: matrix test that every mutating procedure is `protectedProcedure`/`adminProcedure`; `@smoke` E2E: anonymous user is sent to sign-in |
+| C4 Traveler | Ticket purchase via TicketTailor, Stripe referral discount + webhook credit | 5 | 3 | 15 – CRIT | Real money; webhooks (24 tests) and `festivalSignup.ticketCheckout` unit-tested; no end-to-end check of the redirect and return flow | Unit (exists) + integration (referral row lifecycle) + `@smoke` E2E with Stripe test mode up to the checkout redirect |
+| Platform | Production build and deploy of `main` | 5 | 3 | 15 – CRIT | RAZ-203: `main` broke the Vercel build; ~3 merges/day by an automated gate | Required CI check + production smoke after every deploy |
+| C3 Regular | Upcoming events and profiles synced daily from wedance.vip → city and event pages | 4 | 3 | 12 – HIGH | Writes to production daily (~1,300 events); mapping is unit-tested (33 tests) | Unit (exists) + integration (upsert idempotency, rollback by `source`) + nightly E2E on a Munich city page; turn the `*.check.ts` scripts into assertions |
+| C4 Traveler | My plan / my year: going, planning counts, goals | 3 | 4 | 12 – HIGH | RAZ-265, RAZ-256, RAZ-235, RAZ-255 escaped | Integration (plan router against Postgres) + nightly E2E: add goal → reload → still there |
+| C7 Organizer | Festival submission, claim, TicketTailor verification, insights | 4 | 3 | 12 – HIGH | `festivalSignup` (566 lines) and `claim` tested; insights untested | Unit (exists) + E2E for submit-draft and claim |
+| C5 Pro | Booking requests to artists/venues, availability, gigs | 3 | 3 | 9 – MED | `booking.request` (public endpoint) and `setAvailability` tested; `gigs` untested | Unit for `gigs` + rate limit on public `booking.request` + one happy-path E2E |
+| C8 Member | Community: elections, guideline votes, reviews | 4 | 2 | 8 – MED | Vote integrity matters; `election` has 3 tests for 420 lines | Unit on vote counting + one E2E vote |
+| C6 Host | Private event and venue requests (`/for-events`, entity pages) | 3 | 2 | 6 – MED | `entity` router tested via `entityBooking.test.ts` | Unit (exists) + one E2E request |
+| C1 Seeker | Find your dance quiz, first class, taster | 2 | 3 | 6 – MED | UI-only logic, frequent copy changes | One E2E happy path + exploratory |
+| C8 Member | City video vote / battles | 2 | 3 | 6 – MED | `cityVideo` (452 lines) untested; `elo` tested | Unit on vote recording |
+| Admin | Group assignment, giveaways, video moderation | 3 | 2 | 6 – MED | 6 admin tests skipped | Integration (unskip) |
+| C2 Student | Teacher and artist discovery | 2 | 2 | 4 – LOW | Read-only listing | Exploratory |
+| C8 Member | Profile settings and preferences | 2 | 2 | 4 – LOW | 2 failing validation tests (test drift) | Fix tests; exploratory |
+| C8 Member | Giveaways (public entry) | 2 | 2 | 4 – LOW | Low traffic | Exploratory |
+| Platform | Legal pages (imprint, privacy, terms) | 3 | 1 | 3 – LOW | Static | Production smoke checks they return 200 |
 
----
+Note on the v3 event sync: it scores HIGH, not CRITICAL. A wrong event time is visible to a whole city, but no money or account is lost, its mapping is already the best-tested code in the repo, and rollback is one `DELETE … WHERE source='wedance-v3'`. It becomes CRITICAL if 2026 ever becomes the only place those events are published.
 
-### 6. Tool Selection Rationale
+### 6. Environment Strategy
 
-| Criteria (weight) | Vitest (unit/integration) | Playwright + BDD (E2E) | GitHub Actions (CI) |
-|-------------------|:---:|:---:|:---:|
-| Fits tech stack (25%) | 5 — native Vite/Nuxt | 5 — already configured | 5 — GitHub repo |
-| Team familiarity (20%) | 5 — 24 test files exist | 3 — configured, never run | 4 — standard |
-| Community & docs (15%) | 5 | 5 | 5 |
-| CI integration (15%) | 5 | 4 | 5 |
-| Maintenance cost (10%) | 5 — zero config | 3 — BDD adds a layer | 4 |
-| Speed of execution (10%) | 5 — fast | 3 — browser-based | 4 |
-| License cost (5%) | 5 — free | 5 — free | 5 — free for public repos |
-| **Weighted total** | **4.9** | **3.9** | **4.6** |
+| Environment | Purpose | Test Types | Data | Deploy Trigger |
+|---|---|---|---|---|
+| Local | Developer (agent) feedback | Unit, integration, E2E | Docker Postgres 17 restored from a production dump without `dancers`/`sessions` rows (see CLAUDE.md) | On save / on demand |
+| CI (GitHub Actions) | PR gate | Unit, integration, `@smoke` E2E against `nuxt build` + `nuxt preview` | Ephemeral Postgres service container, migrations + `db:seed` | Every push to a PR, every push to `main` |
+| Vercel Preview | Human review of a PR | Exploratory, read-only checks only | **Shares the production database** | Every PR |
+| Production | Real users | Read-only production smoke, Sentry, PostHog funnels | Live | Every merge to `main` |
 
-**Decision:** Keep the existing Vitest + Playwright + playwright-bdd stack. No tool
-changes needed — the gap is in CI wiring and test coverage, not tooling. Adding
-GitHub Actions as the CI runner is the only new tool.
+The important constraint: **preview deployments share the production `DATABASE_URL`**. No automated test that writes data may run against a preview or production — a sign-up E2E test there creates real accounts. All write-path E2E tests run in CI against the ephemeral Postgres. This keeps the cost at zero (no Neon branching needed today); if previews ever need write tests, add Neon branch-per-preview first (section 12).
 
-**Why not alternatives:**
+Test data rules: seed data lives in `server/database/seed.ts`; E2E test accounts use the `@test.wedance.vip` email domain so they can never collide with real users; the production dump used locally excludes `dancers` and `sessions` table data (personal data, GDPR).
 
-- Jest: Vitest is already in use, faster, and Vite-native. No reason to switch.
-- Cypress: Playwright is already configured and has better cross-browser support.
-- CircleCI/GitLab CI: GitHub Actions is the natural fit for a GitHub-hosted repo.
+### 7. Tool Selection
 
----
+The need: test Nuxt pages and tRPC calls end to end, written by AI agents who already know the stack, with scenarios a non-developer (Vitali, Alex) can read and write.
 
-### 7. CI Scaling Levers
+| Criteria (weight) | Playwright + playwright-bdd | Cypress + Cucumber preprocessor | Manual check scripts (status quo) |
+|---|---|---|---|
+| Fits tech stack (25%) | 5 | 4 | 3 |
+| Team familiarity (20%) | 5 — already installed, 2 step files exist | 2 | 4 |
+| Community & docs (15%) | 5 | 4 | 1 |
+| CI integration (15%) | 5 | 4 | 2 |
+| Maintenance cost (10%) | 4 | 3 | 2 |
+| Speed of execution (10%) | 5 | 3 | 4 |
+| License cost (5%) | 5 | 4 | 5 |
+| **Weighted total** | **4.90** | **3.40** | **2.85** |
 
-Not applicable at current scale (< 200 tests, solo developer + agents). Revisit
-when CI duration exceeds 10 minutes. Planned levers for Phase 4:
+Decision: **keep the stack already in the repo** — Vitest 4 for unit and integration, Playwright with playwright-bdd for E2E (Gherkin scenarios readable by non-developers, which fits the existing BDD skills and `docs/issues` stories), `@axe-core/playwright` for accessibility, GitHub Actions for CI (the repo is public, so standard runners cost nothing), Sentry for production errors (already configured). Coverage via `@vitest/coverage-v8`, report-only in Phase 1.
 
-- **Vitest file parallelism:** currently `false` in config (serial execution).
-  Enable once test isolation is verified — expected 2–3× speedup.
-- **Playwright sharding:** `--shard=1/N` when E2E count exceeds 20 scenarios.
-- **Dependency caching:** GitHub Actions `actions/cache` for `node_modules` and
-  Playwright browser binaries.
-- **Test impact analysis:** Vitest `--changed` on PRs, full suite on merge.
+CI scaling levers are not needed yet: the unit suite runs in about 10 seconds. Revisit sharding (`--shard`) only if the PR gate passes 10 minutes; at that point add a parallel-efficiency metric to section 10.
 
-**Metric:** CI-minutes-per-PR — track from Phase 1 to detect drift early.
-
----
+Optional framing references for readers who expect a standard: ISTQB CTFL vocabulary and the Heuristic Test Strategy Model; this document is intentionally lighter than a full ISO/IEC/IEEE 29119-3 test plan.
 
 ### 8. Entry/Exit Criteria
 
-**Unit tests:**
+**Unit** — Entry: the PR compiles (`nuxt build` succeeds). Exit: all unit tests pass; no new `skip`/`skipIf` without a linked Linear issue; new or changed tRPC procedures have at least one test for the allowed caller and one for a rejected caller.
 
-- Entry: Code compiles (`nuxi typecheck` passes), router has defined procedures.
-- Exit: Happy path + at least one error case per procedure, no `.skip`/`.todo`
-  tests, coverage target met for the router's risk band.
+**Integration** — Entry: unit tests pass; the Postgres service container is up and migrations apply cleanly from zero. Exit: all integration tests pass; every new migration is applied in CI before merge; the 15 currently skipped tests run (not skip) in CI.
 
-**Integration tests:**
+**E2E** — Entry: integration passes; the app is built and served by CI with seeded data and `@test.wedance.vip` accounts. Exit: all `@smoke` scenarios pass on every PR; the full suite passes nightly; no open `user-report` bug in a CRITICAL flow.
 
-- Entry: Unit tests pass, database schema is current, test helpers available.
-- Exit: Service boundaries tested (router → DB write → read-back), webhook
-  handlers tested with realistic payloads, error paths validated.
+**Release (production deploy)** — Entry: the PR gate is green and the merge gate has merged to `main`. Exit: the production smoke passes within 10 minutes of the Vercel deploy; Sentry shows no new error type during a 30-minute bake window; if either fails, `main` is reverted (Vercel "promote previous deployment" is the rollback, then a revert PR).
 
-**E2E tests:**
+### 9. Quality Gates
 
-- Entry: Integration tests pass, Vercel preview deployed, test accounts provisioned.
-- Exit: All targeted CUJ scenarios pass, no P0 defects open, page loads under 5s.
+Merging is automated: Forge's Linear gate merges a PR when it has no conflicts and its checks are green. Today the only check is the Vercel build. These gates work by becoming **required GitHub checks**, so the existing automation enforces them with no extra process — a gate that can be clicked past is documentation, not a gate.
 
-**Release (merge to `main`):**
+**PR gate** (every PR, target under 10 minutes, required check `test`):
+- `bun run test`: 0 failures.
+- Integration job against Postgres: 0 failures.
+- `@smoke` E2E against the CI build: 0 failures.
+- Vercel build succeeds (existing check).
+- Coverage report posted; from Phase 3, line coverage on `server/trpc/routers/` must not decrease.
+- No new skipped test without a Linear issue id in the skip reason.
 
-- Entry: All CI gates pass, no CRITICAL/HIGH defects open, PR reviewed.
-- Exit: Vercel production deploy succeeds, no error-rate spike in first 30 min
-  (manual check until synthetic monitoring is set up).
+**Merge gate** (automated Linear gate):
+- All required PR-gate checks green on the latest commit.
+- No merge conflicts; branch up to date with `main` (required by branch protection).
+- A PR labeled as a `user-report` fix contains a test file change.
 
----
+**Deploy gate** (after Vercel production deploy):
+- Production smoke, read-only: `/`, `/cities/munich`, `/festivals`, one `/events/[id]`, one `/@handle`, `/api/festivals`, `/api/cities`, the sign-in page → all return 200 and render their main heading.
+- Sentry: no new issue with more than 5 events in 30 minutes.
+- Fail → revert and open a `Bug` issue automatically.
 
-### 9. Quality Gates & Definition of Done
+**Nightly gate** (scheduled GitHub Action, 03:00 Europe/Berlin):
+- Full E2E suite including mobile viewport.
+- Accessibility scan of 5 key pages: 0 new serious/critical axe violations.
+- `bun audit` / Dependabot: 0 new high or critical vulnerabilities.
+- After the 06:15 v3 sync: synced-events check on a Munich sample (no digit-only style tags, no epoch numbers, no timezone shift).
+- Results posted to the Linear QA parent (RAZ-268) only when something fails; Vitali reviews failures the next working day.
 
-#### PR gate (every PR) — Phase 1
-
-- [ ] `vitest run` passes (exit 0)
-- [ ] `nuxi typecheck` passes
-- [ ] ESLint passes (no new errors)
-- [ ] No decrease in line coverage vs. `main` (once baseline is set)
-- [ ] At least one reviewer approval
-
-#### Merge gate (merge to `main`) — Phase 2
-
-- [ ] All PR-gate checks pass
-- [ ] E2E smoke suite passes against Vercel preview URL
-- [ ] Branch is rebased on `main` (no merge conflicts)
-
-#### Deploy gate (production) — Phase 3
-
-- [ ] Merge gate passed
-- [ ] No open CRITICAL/HIGH defect issues
-- [ ] Changelog entry or PR description documents user-facing changes
-
-#### Nightly gate (scheduled) — Phase 4
-
-- [ ] Full E2E suite passes
-- [ ] Dependency vulnerability scan (`npm audit`, no critical)
-- [ ] Flakiness report generated and reviewed
-
-Every gate is enforced via GitHub Actions required status checks. A gate that can
-be clicked past is documentation, not a gate.
-
----
+**Definition of Done** (shown in the PR template): tests at the right level are in the PR; a bug fix ships the test that would have caught it; no new skipped tests; scenario updated in `e2e/features/` if a journey flow changed.
 
 ### 10. Metrics & KPIs
 
-| Metric | Definition | Target | Cadence |
-|--------|-----------|--------|---------|
-| **Unit coverage (CRITICAL routers)** | Lines covered / total lines for CRITICAL-band routers | ≥ 70% | Per PR |
-| **Unit coverage (overall)** | Lines covered / total across all included files | ≥ 50% | Monthly |
-| **Test pyramid ratio** | Unit : Integration : E2E split | 70 : 20 : 10 (±10%) | Monthly |
-| **Flakiness rate** | Non-deterministic failures / total runs | < 5% | Weekly |
-| **Defect escape rate** | Defects found in prod / total defects | < 10% | Per release |
-| **MTTR (P0)** | Detection → fix deployed | < 8h | Per incident |
-| **MTTR (P1)** | Detection → fix deployed | < 48h | Per incident |
-| **CI pipeline duration (PR)** | Push → green/red signal | < 10 min | Weekly |
-| **CI-minutes-per-PR** | Billed compute minutes per PR run | Flat or decreasing | Monthly |
-| **Defect density** | Defects per 1,000 LOC | Decreasing trend | Monthly |
-| **CUJ coverage** | CUJs with ≥ 1 E2E scenario | 3 of 8 (Phase 2) → 6 of 8 (Phase 4) | Quarterly |
-| **Automation rate** | Automated test cases / total regression cases | ≥ 80% | Quarterly |
-| **False positive rate** | Failures that are not real bugs / total failures | < 10% | Weekly |
+| Metric | Definition | Baseline (2026-10-09) | Target | Cadence |
+|---|---|---|---|---|
+| Failing tests on `main` | Unit + integration failures on the latest `main` commit | 3 | 0 (never red > 1 working day) | Every push |
+| Skipped tests | Tests marked skip / skipIf that do not run in CI | 15 | 0 by 2026-11-01 | Weekly |
+| Journey E2E coverage | User journeys (C1–C8) with ≥1 passing E2E scenario | 0 of 8 | 4 of 8 (CRITICAL flows) by 2026-12-06; 8 of 8 by 2027-01-31 | Monthly |
+| Escaped defects | Real `user-report` + `Bug` issues per month (no test/duplicate) | ~7.5 / month (15 in 60 days) | < 4 / month by 2027-01-31 | Monthly |
+| Auth & access-control escapes | Escaped defects in sign-in or sign-in guards | 5 in 60 days | 0 / month | Monthly |
+| PR gate duration | Push to green/red on the `test` check | no CI | < 10 min | Weekly |
+| Flakiness rate | % of CI runs that fail then pass on rerun with no code change | unknown | < 2 % | Weekly |
+| Router coverage | Line coverage on `server/trpc/routers/` | 14 of 24 routers tested; % unmeasured | All 24 routers have tests; ≥ 80 % lines on `auth`, `festivalSignup`, `booking`, webhooks | Monthly |
+| Time to fix escaped defects | Linear created → merged for `user-report` bugs in CRITICAL/HIGH flows | to be measured in Phase 1 | < 2 working days | Monthly |
+| Production smoke pass rate | Deploys whose smoke passes first time | none | ≥ 95 % | Monthly |
 
-**Using metrics:** Baseline all values in Phase 1. Track trends, not absolutes. A
-team going from 0% → 50% coverage is a win. Review monthly; celebrate improvements.
-Investigate spikes — a sudden flakiness jump signals infra, not laziness. Never use
-metrics to punish.
-
----
+Targets are set from the measured baseline, not from industry averages. Track trends, investigate spikes (a sudden flakiness jump is usually infrastructure, not carelessness), and never use these numbers to judge individual contributors or agents. Data sources: GitHub Actions (CI metrics), Vitest coverage reports, Linear labels (escapes, time to fix), Sentry (production errors).
 
 ### 11. Timeline & Milestones
 
-#### Phase 1 — Foundation (Weeks 1–4) · `QA · Foundation`
+Each phase is a Linear milestone in the WeDance project; work items are sub-issues of RAZ-268 labeled `qa` plus the `cuj:*` journey they cover.
 
-| # | Task | Risk covered | Exit criteria |
-|---|------|-------------|--------------|
-| 1.1 | Add `.github/workflows/ci.yml`: Vitest + typecheck + lint on every PR | All | CI runs and reports on PRs |
-| 1.2 | Run full Vitest suite on `main`, fix failures, establish baseline | All | `vitest run` exit 0 on `main` |
-| 1.3 | Add unit tests for `booking` router (CRITICAL, 309 LOC, 0 tests) | C6 | ≥ 5 test cases, happy + error |
-| 1.4 | Add unit tests for `events` router (HIGH, 104 LOC, 0 tests) | C3, C4 | ≥ 3 test cases |
-| 1.5 | Fix E2E path: move feature files into `e2e/features/`, update `playwright.config.ts` | All E2E | `bddgen` succeeds |
-| 1.6 | Remove stale worktrees `wedance-checkout/` and `wedance-2026-raz-158/` | Tooling hygiene | `git worktree list` shows only main |
-| 1.7 | Baseline all KPIs (coverage, pass rate, CI duration) | Metrics | Values documented in this file |
+**Phase 1 — Foundation (2026-10-12 → 2026-11-01)**
+- GitHub Actions workflow `test`: unit tests on every PR and on `main`; branch protection makes it required.
+- Fix the 3 failing tests; resolve or delete the 15 skipped ones by running them against Postgres in CI.
+- Move E2E into the repo (`e2e/features/`), delete the dead `../../product/...` path, and write the first `@smoke` scenarios: sign-in, password reset, anonymous user redirected to sign-in on "Going".
+- Access-control matrix unit test over all mutating tRPC procedures.
+- Remove the stale nested checkouts `wedance-checkout/` and `wedance-2026-raz-158/` from the repo.
+- *Exit: the `test` check is required and green on `main`; baseline metrics recorded in RAZ-268.*
 
-**Exit:** CI runs unit tests on every PR. Baseline metrics documented. Two
-CRITICAL-gap routers have tests.
+**Phase 2 — Critical coverage (2026-11-02 → 2026-12-06)**
+- `@smoke` E2E for the remaining CRITICAL flows: ticket purchase up to the Stripe/TicketTailor redirect (test mode), referral credit round trip, production smoke after deploy.
+- Integration tests for the plan router and the v3 sync upsert/rollback.
+- Nightly workflow with the full E2E suite, mobile viewport, and the synced-events check.
+- *Exit: 4 of 8 journeys covered; production smoke runs on every deploy.*
 
-#### Phase 2 — Coverage Expansion (Weeks 5–10) · `QA · Coverage`
+**Phase 3 — Gates (2026-12-07 → 2026-12-27)**
+- Coverage gate (no decrease on routers), PR template Definition of Done, axe accessibility scan in nightly, dependency audit.
+- Unit tests for the 10 untested routers by risk: `events`, `hangouts`, `rideShare`, `roommate` (sign-in guards), `festivalInsights`, `gigs`, `cityVideo`, `askLocals`, `feedback`, `giveaway`.
+- *Exit: all four gates enforced; all 24 routers have tests.*
 
-| # | Task | Risk covered | Exit criteria |
-|---|------|-------------|--------------|
-| 2.1 | Unit tests for remaining untested MEDIUM+ routers: `gigs`, `entity`, `review` | C5, C6 | ≥ 3 tests each |
-| 2.2 | Integration tests for booking flow (router → DB write → read-back) | C6 | End-to-end booking request lifecycle |
-| 2.3 | Integration tests for events sync boundary (v3 → 2026) | C3, C4 | Sync creates/updates events correctly |
-| 2.4 | E2E smoke: Festival landing (C4/C7) — Seeker finds a festival, sees ticket CTA | C4, C7 | Playwright scenario passes on preview |
-| 2.5 | E2E smoke: Event discovery (C3) — Regular finds weekly socials in their city | C3 | Playwright scenario passes on preview |
-| 2.6 | E2E smoke: Signup/onboarding (C8) — Member creates account, completes onboarding | C8 | Playwright scenario passes on preview |
-| 2.7 | Wire E2E smoke to run on Vercel preview deployments in CI | All E2E | GitHub Actions runs Playwright post-deploy |
+**Phase 4 — Full journeys (2026-12-28 → 2027-01-31)**
+- E2E for C1, C2, C5, C6 happy paths; de-flake anything above the 2 % threshold.
+- First quarterly review of this document → version 1.1.
+- *Exit: 8 of 8 journeys covered; escaped defects < 4/month; revision 1.1 published.*
 
-**Exit:** All CRITICAL/HIGH-risk routers have unit tests. Top 3 CUJs have E2E
-smoke scenarios. E2E runs automatically on PR previews.
+**Ongoing:** weekly exploratory session (Vitali); monthly metrics review in RAZ-268; quarterly revision of this strategy.
 
-#### Phase 3 — Quality Gates (Weeks 11–14) · `QA · Gates`
+### 12. Risks to the Strategy Itself
 
-| # | Task | Risk covered | Exit criteria |
-|---|------|-------------|--------------|
-| 3.1 | Coverage gate: PR fails if unit coverage drops below baseline | All | GitHub Actions required check |
-| 3.2 | E2E gate: PR blocked if smoke suite fails on preview | CRIT/HIGH CUJs | Required status check |
-| 3.3 | `npm audit` gate: fail on critical vulnerabilities | Security | Required status check |
-| 3.4 | Metrics dashboard (coverage + flakiness + CI duration in PR comment) | Observability | Bot comments on every PR |
-| 3.5 | Unit tests for remaining LOW-risk routers (best-effort) | LOW band | Coverage improves |
+| Risk | Effect | Mitigation |
+|---|---|---|
+| Tests are written by the same agents that write the code | Tests confirm the implementation instead of the requirement | Vitali writes the Gherkin scenarios from `docs/issues` stories; agents only implement the steps |
+| The automated merge gate merges before tests exist for a change | Gaps grow faster than coverage | Required checks + Definition of Done in the PR template; the gate already blocks on red |
+| Preview deployments share the production database | A careless E2E run creates real accounts or bookings | Write-path tests only in CI; `@test.wedance.vip` accounts; a guard in the E2E fixtures that refuses to run write scenarios when `BASE_URL` is not localhost |
+| E2E flakiness erodes trust | People start ignoring red | Track flakiness weekly; quarantine with a linked issue within 1 day; never retry silently more than once |
+| Feature velocity (~3 merges/day) outpaces scenario writing | Journey coverage stalls | Scenarios prioritized strictly by the section 5 risk order; LOW flows stay manual |
+| QA ownership capacity (one owner) | Reviews and exploratory sessions slip | Exploratory session is 1 hour per week, fixed; nightly failures go to RAZ-268, not to a person's inbox |
+| v3 source becomes the only source of events | Sync risk rises to CRITICAL | Re-score in the quarterly review; add a contract test on the v3 Firestore response shape |
 
-**Exit:** All four gate types (PR, merge, deploy, nightly) active and enforced.
-
-#### Phase 4 — Optimization (Weeks 15–20) · `QA · Optimize`
-
-| # | Task | Risk covered | Exit criteria |
-|---|------|-------------|--------------|
-| 4.1 | Enable Vitest file parallelism, measure speedup | CI speed | CI under 10 min confirmed |
-| 4.2 | Add E2E scenarios for C1 (Seeker), C2 (Student), C5 (Pro) | Broader CUJ coverage | 6 of 8 CUJs with E2E |
-| 4.3 | Flakiness triage: quarantine or fix any test with > 10% flake rate | Reliability | Flakiness < 5% |
-| 4.4 | Nightly full E2E + dependency scan (scheduled GitHub Actions) | Regression | Nightly workflow runs |
-| 4.5 | First quarterly strategy review — update this document | Living doc | Revision history entry |
-
-**Exit:** CI under 10 min, flakiness under 5%, first strategy revision published.
-
----
-
-### 12. CUJ → Test Coverage Map
-
-This table maps each Critical User Journey to its current and target test
-coverage. It is the primary filter for Linear sub-issues: label `qa` × `cuj:CN`.
-
-| CUJ | Persona | Key routers | Unit today | Integration today | E2E today | Target (Phase 2) | Target (Phase 4) |
-|-----|---------|------------|:----------:|:-----------------:|:---------:|:-----------------:|:-----------------:|
-| C1 | Seeker | events, askLocals | ✗ | ✗ | ✗ | Unit | Unit + E2E |
-| C2 | Student | events, profile, entity | Partial | ✗ | ✗ | Unit | Unit + E2E |
-| C3 | Regular | events, dinner, reviewsCommunity | Partial | ✗ | ✗ | Unit + E2E smoke | Unit + Integration + E2E |
-| C4 | Traveler | festival, festivalSignup, plan, events, rideShare, roommate | Partial | ✗ | ✗ | Unit + E2E smoke | Unit + Integration + E2E |
-| C5 | Pro | gigs, entity, claim, profile | Partial | ✗ | ✗ | Unit | Unit + E2E |
-| C6 | Host | booking, entity | ✗ | ✗ | ✗ | Unit + Integration | Unit + Integration + E2E |
-| C7 | Organizer | festival, festivalSignup, festivalInsights, gigs | Partial | ✗ | ✗ | Unit + E2E smoke | Unit + Integration + E2E |
-| C8 | Member | auth, profile, referral, election, communityGroup, feedback | Mostly ✓ | ✗ | ✗ | Unit + E2E smoke | Unit + Integration + E2E |
-
-**Escaped-bug tracking:** production bugs get `Bug` + `user-report` labels in
-Linear. Each escaped bug must link the test that _should_ have caught it → this
-feeds the defect escape rate KPI and identifies coverage gaps.
-
----
+Re-evaluation triggers: a CRITICAL-flow escape, a festival on-sale with expected traffic above ~100 concurrent buyers (add load testing), previews needing write tests (add Neon branch-per-preview), a new payment provider, or a change of QA owner.
 
 ### 13. Revision History
 
-| Date | Author | Changes |
-|------|--------|---------|
-| 2026-10-09 | Forge | Initial version — baseline analysis, risk matrix, phased plan |
+| Version | Date | Author | Change |
+|---|---|---|---|
+| 1.0 | 2026-10-09 | Forge (drafted with the `test-strategy` skill) for review by Vitali | Initial strategy: baseline measured on `origin/main`, risk matrix by user journey, four-phase plan to 2027-01-31 |
 
----
-
-## Appendix A — Current Test Inventory
-
-### Router unit tests (Vitest)
-
-| File | Router | Lines | Risk band |
-|------|--------|------:|-----------|
-| `server/trpc/routers/admin.test.ts` | admin | 150 | LOW |
-| `server/trpc/routers/auth.test.ts` | auth | 831 | HIGH |
-| `server/trpc/routers/claim.test.ts` | claim | 339 | LOW |
-| `server/trpc/routers/communityGroup.test.ts` | communityGroup | 156 | LOW |
-| `server/trpc/routers/dinner.test.ts` | dinner | 217 | LOW |
-| `server/trpc/routers/election.test.ts` | election | 157 | LOW |
-| `server/trpc/routers/entityBooking.test.ts` | entityBooking (orphaned?) | 217 | — |
-| `server/trpc/routers/festival.test.ts` | festival | 155 | MED |
-| `server/trpc/routers/festivalSignup.test.ts` | festivalSignup | 469 | HIGH |
-| `server/trpc/routers/plan.test.ts` | plan | 194 | MED |
-| `server/trpc/routers/profile.test.ts` | profile | 198 | MED |
-| `server/trpc/routers/referral.test.ts` | referral | 229 | LOW |
-| `server/trpc/routers/reviewsCommunity.test.ts` | reviewsCommunity | 159 | MED |
-
-### Utility and integration tests
-
-| File | What it tests | Lines |
-|------|--------------|------:|
-| `server/trpc/lib/elo.test.ts` | ELO algorithm | 65 |
-| `server/trpc/lib/pairSelect.test.ts` | Pair selection | 75 |
-| `server/api/stripe/webhook.test.ts` | Stripe webhook handler | 181 |
-| `server/api/webhooks/tickettailor.test.ts` | TicketTailor webhook | 368 |
-| `server/utils/v3EventSync.test.ts` | v3 event sync | 124 |
-| `server/utils/v3ProfileSync.test.ts` | v3 profile sync | 111 |
-| `shared/utils/eventTime.test.ts` | Event time formatting | 42 |
-| `shared/utils/festivalDateFormatter.test.ts` | Festival date formatting | 111 |
-| `shared/validation/forms.test.ts` | Form validation schemas | 209 |
-| `scripts/csv-parser.test.ts` | CSV parser (excluded from vitest include) | 78 |
-| `app/composables/useFormValidation.test.ts` | Form validation composable | 61 |
-
-### E2E step definitions (exist, but feature files missing)
-
-| File | CUJ scenario |
-|------|-------------|
-| `e2e/steps/fixtures.ts` | Test setup |
-| `e2e/steps/common.ts` | Shared steps |
-| `e2e/steps/festival-landing.ts` | C4/C7 — festival discovery |
-| `e2e/steps/group-dinner.ts` | C3/C6 — group dinner |
-
-### Stale artifacts
-
-| Path | Issue |
-|------|-------|
-| `wedance-checkout/` | Git worktree for branch `merge-gate-check`, prunable |
-| `wedance-2026-raz-158/` | Git worktree for branch `razbakovaleksey/raz-158-booking-engine` |
-
-Both contain duplicate test files and should be removed (Phase 1, task 1.6).
-
-## Appendix B — Vitest Configuration
-
-```
-// vitest.config.ts
-include: ['server/**/*.test.ts', 'shared/**/*.test.ts', 'app/composables/**/*.test.ts']
-fileParallelism: false
-env: loaded from .env
-alias: #shared → ./shared/
-```
-
-Note: `scripts/csv-parser.test.ts` is not covered by the include pattern.
-
-## Appendix C — Playwright Configuration
-
-```
-// playwright.config.ts (current — broken)
-featuresRoot: '../../'  // resolves to ~/Projects/, not inside the repo
-paths:
-  - ../../product/meetup-planner/scenarios/festival-landing.feature  // does not exist
-  - ../../product/meetup-planner/scenarios/group-dinner.feature      // does not exist
-steps: ./e2e/steps/**/*.ts
-baseURL: http://localhost:3000
-browser: chromium only
-```
-
-**Fix (Phase 1):** Move feature files to `e2e/features/`, update `featuresRoot`
-to `./e2e/features`, update `paths` accordingly.
+Next scheduled review: 2027-01-31 (end of Phase 4), then quarterly.
