@@ -83,29 +83,47 @@ export const hangoutsRouter = router({
         host = dancer?.name ?? undefined
       }
 
-      const [result] = await ctx.db
-        .insert(hangouts)
-        .values({
-          kind: input.kind,
-          title: input.title,
-          time: input.time,
-          venue: input.venue,
-          host,
-          citySlug: input.citySlug,
-          peopleCount: 1,
-          dancerId: ctx.dancerId,
-          status: 'active',
-        })
-        .returning()
+      let result: typeof hangouts.$inferSelect
+      try {
+        const [row] = await ctx.db
+          .insert(hangouts)
+          .values({
+            kind: input.kind,
+            title: input.title,
+            time: input.time,
+            venue: input.venue,
+            host,
+            citySlug: input.citySlug,
+            peopleCount: 1,
+            dancerId: ctx.dancerId,
+            status: 'active',
+          })
+          .returning()
 
-      if (!result) {
-        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to create hangout' })
+        if (!row) {
+          throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to create hangout' })
+        }
+        result = row
+      } catch (e: any) {
+        if (e instanceof TRPCError) throw e
+        const dbMessage = e?.cause?.message || e?.message || 'unknown'
+        console.error('[hangouts.create] DB error:', dbMessage, e)
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Could not create hangout. Please try again later.',
+        })
       }
 
       // Auto-RSVP the creator so "1 in" shows immediately
-      await ctx.db
-        .insert(hangoutRsvps)
-        .values({ hangoutId: result.id, dancerId: ctx.dancerId })
+      try {
+        await ctx.db
+          .insert(hangoutRsvps)
+          .values({ hangoutId: result.id, dancerId: ctx.dancerId })
+      } catch (e: any) {
+        const dbMessage = e?.cause?.message || e?.message || 'unknown'
+        console.error('[hangouts.create] RSVP error:', dbMessage, e)
+        // Hangout was created — don't fail the whole request for RSVP
+      }
 
       return result
     }),

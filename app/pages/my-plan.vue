@@ -1128,11 +1128,13 @@ async function createHangout() {
     newHangout.value = { kind: 'dinner', title: '', time: '20:00', venue: '' }
     await fetchHangouts()
   } catch (error: any) {
-    const msg = error?.message || 'Something went wrong'
+    const msg = error?.message || ''
     if (msg.includes('UNAUTHORIZED') || msg.includes('Not signed in')) {
       hangoutError.value = 'Your session expired. Please sign out and sign in again.'
+    } else if (msg.includes('Failed query') || msg.includes('insert into')) {
+      hangoutError.value = 'Could not create hangout. Please try again later.'
     } else {
-      hangoutError.value = `Could not post: ${msg}`
+      hangoutError.value = msg || 'Something went wrong. Please try again.'
     }
   } finally {
     creatingHangout.value = false
