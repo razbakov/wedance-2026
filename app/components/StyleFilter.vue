@@ -34,15 +34,15 @@ function select(s: string) {
 </script>
 
 <template>
-  <div class="flex flex-col items-center gap-2">
-    <div class="flex flex-wrap items-center justify-center gap-2">
+  <div class="flex flex-wrap items-center gap-1.5">
+    <div class="flex flex-wrap items-center gap-1.5">
       <button
         v-for="(style, i) in visible"
         :key="style"
         type="button"
-        class="px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all"
+        class="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all"
         :style="modelValue === style
-          ? { background: accents[i % accents.length], color: 'white', boxShadow: '0 2px 0 -1px ' + accents[i % accents.length] }
+          ? { background: accents[i % accents.length], color: 'white' }
           : { background: 'white', color: accents[i % accents.length], border: '1px solid ' + accents[i % accents.length] + '55' }"
         @click="select(style)"
       >
@@ -52,7 +52,7 @@ function select(s: string) {
       <button
         v-if="hiddenCount && !expanded"
         type="button"
-        class="px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all"
+        class="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all"
         style="background:white; color:#5b3a1d; border:1px solid #3b1f0d33;"
         @click="expanded = true"
       >
@@ -61,21 +61,12 @@ function select(s: string) {
       <button
         v-else-if="expanded && ordered.length > leadCount"
         type="button"
-        class="px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all"
+        class="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all"
         style="background:white; color:#9a5614; border:1px solid #3b1f0d33;"
         @click="expanded = false"
       >
         Less
       </button>
     </div>
-
-    <!-- Escape hatch → dance finder -->
-    <NuxtLink
-      to="/find-your-dance"
-      class="text-xs italic hover:underline"
-      style="color:#9a5614; font-family:'Playfair Display', serif;"
-    >
-      Don't know which dance? →
-    </NuxtLink>
   </div>
 </template>

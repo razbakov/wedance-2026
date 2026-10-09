@@ -71,38 +71,33 @@ const NuxtLinkC = resolveComponent('NuxtLink')
   <div class="min-h-screen" style="background:#fbf5ea; color:#3b1f0d; font-family:'Playfair Display', serif;">
     <SiteHeader />
 
-    <!-- HERO -->
-    <section class="relative">
-      <div class="max-w-4xl mx-auto px-4 pt-12 pb-8 text-center">
-        <div class="text-sm tracking-widest uppercase mb-3" style="color:#9a5614;">The artists</div>
-        <h1 class="text-5xl sm:text-6xl leading-[0.98]" style="color:#3b1f0d;">
-          Who moves <em class="italic" style="color:#dc2626;">the floor.</em>
-        </h1>
-        <p class="mt-5 text-base sm:text-lg leading-relaxed max-w-xl mx-auto" style="color:#5b3a1d;">
-          Teachers, DJs, and performers — follow them across festivals and cities.
-        </p>
+    <!-- TOOLBAR -->
+    <section class="sticky top-0 z-30" style="background:#fbf5ea; border-bottom:1px solid #3b1f0d15;">
+      <div class="max-w-5xl mx-auto px-4 py-3">
+        <div class="flex flex-wrap items-center gap-3">
+          <h1 class="text-lg font-bold whitespace-nowrap" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+            Artists
+          </h1>
 
-        <div class="mt-8 max-w-lg mx-auto">
-          <div class="relative">
-            <Search class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4" style="color:#9a5614;" />
+          <div class="relative flex-1 min-w-[180px] max-w-xs">
+            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style="color:#9a5614;" />
             <input
               v-model="searchQuery"
               type="text"
               placeholder="Search by name or style"
-              class="w-full h-12 rounded-full pl-11 pr-4 text-sm outline-none transition-all"
-              style="background:white; border:1px solid #3b1f0d33; color:#3b1f0d; font-family: system-ui, sans-serif; box-shadow: 0 1px 0 #3b1f0d0a, 0 6px 16px rgba(59, 31, 18, 0.04);"
+              class="w-full h-9 rounded-full pl-9 pr-3 text-sm outline-none transition-all"
+              style="background:white; border:1px solid #3b1f0d33; color:#3b1f0d; font-family: system-ui, sans-serif;"
             >
           </div>
 
-          <div v-if="allCities.length" class="flex flex-wrap items-center justify-center gap-2 mt-4">
-            <span class="text-[10px] uppercase tracking-[0.25em] font-bold" style="color:#9a5614;">In your city</span>
+          <div v-if="allCities.length" class="flex flex-wrap items-center gap-1.5">
             <button
               v-for="city in allCities"
               :key="city"
               type="button"
-              class="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all"
+              class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all"
               :style="selectedCity === city
-                ? { background: '#3b1f0d', color: '#fbf5ea', boxShadow: '0 2px 0 -1px #3b1f0d' }
+                ? { background: '#3b1f0d', color: '#fbf5ea' }
                 : { background: 'white', color: '#5b3a1d', border: '1px solid #3b1f0d33' }"
               @click="selectedCity = selectedCity === city ? '' : city"
             >
@@ -110,27 +105,17 @@ const NuxtLinkC = resolveComponent('NuxtLink')
             </button>
           </div>
 
-          <StyleFilter v-if="allStyles.length" :styles="allStyles" v-model="searchQuery" :accents="accents" class="mt-4" />
+          <StyleFilter v-if="allStyles.length" :styles="allStyles" v-model="searchQuery" :accents="accents" />
+
+          <span class="text-xs ml-auto whitespace-nowrap" style="color:#9a5614; font-family:'Caveat', cursive; font-size:16px;">
+            {{ filtered.length }} artist{{ filtered.length === 1 ? '' : 's' }}
+          </span>
         </div>
       </div>
-
-      <svg class="block w-full h-10" viewBox="0 0 1440 60" preserveAspectRatio="none">
-        <path d="M0,40 Q360,0 720,30 T1440,20 V60 H0 Z" fill="#3b1f0d" opacity="0.08"/>
-      </svg>
     </section>
 
     <!-- GRID -->
-    <section class="max-w-5xl mx-auto px-4 pb-16">
-      <div class="flex items-baseline justify-between mb-6">
-        <h2 class="text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
-          <template v-if="selectedCity">In {{ selectedCity }}</template>
-          <template v-else-if="searchQuery">Results</template>
-          <template v-else>Everyone</template>
-        </h2>
-        <span class="text-xs" style="color:#9a5614; font-family:'Caveat', cursive; font-size:18px;">
-          — {{ filtered.length }} artist{{ filtered.length === 1 ? '' : 's' }}
-        </span>
-      </div>
+    <section class="max-w-5xl mx-auto px-4 pt-4 pb-16">
 
       <div v-if="loading" class="text-center py-14" style="color:#9a5614; font-family: system-ui, sans-serif;">
         Loading artists…
