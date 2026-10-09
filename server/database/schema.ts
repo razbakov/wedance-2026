@@ -671,6 +671,8 @@ export const referrals = pgTable('referrals', {
   status: text('status').notNull().default('pending').$type<'pending' | 'completed' | 'expired'>(),
   createdAt: timestamp('created_at').defaultNow(),
   completedAt: timestamp('completed_at'),
+  referrerCreditCents: integer('referrer_credit_cents').notNull().default(0),
+  referrerCreditAppliedSessionId: text('referrer_credit_applied_session_id'),
 }, (t) => [
   // One referral per referee per festival (a dancer can only be referred once per event).
   unique('referral_festival_referee_unique').on(t.festivalId, t.refereeId),

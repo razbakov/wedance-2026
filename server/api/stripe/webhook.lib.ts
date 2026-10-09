@@ -8,11 +8,25 @@ import { referrals } from '../../database/schema'
  * already-completed row is a no-op (0 rows updated).
  */
 export async function completeReferral(db: any, stripeSessionId: string) {
-  return db
-    .update(referrals)
-    .set({ status: 'completed', completedAt: new Date() })
+  const [row] = await db
+    .select({ id: referrals.id, discountCents: referrals.discountCents })
+    .from(referrals)
     .where(and(
       eq(referrals.stripeSessionId, stripeSessionId),
+      eq(referrals.status, 'pending'),
+    ))
+
+  if (!row) return
+
+  return db
+    .update(referrals)
+    .set({
+      status: 'completed',
+      completedAt: new Date(),
+      referrerCreditCents: row.discountCents,
+    })
+    .where(and(
+      eq(referrals.id, row.id),
       eq(referrals.status, 'pending'),
     ))
 }
