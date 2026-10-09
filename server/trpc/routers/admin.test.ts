@@ -86,7 +86,7 @@ describe.skipIf(!DATABASE_URL)('admin.assignGroups', () => {
     }
   })
 
-  it('preserves chat links when reassigning', async () => {
+  it('clears chat links when reassigning (membership changes)', async () => {
     const testDinners = await getTestDinners()
     if (!testDinners.length) return
     const dinnerId = testDinners[0].id
@@ -108,13 +108,14 @@ describe.skipIf(!DATABASE_URL)('admin.assignGroups', () => {
       chatLink: testLink,
     })
 
-    // Reassign — chat link should be preserved
+    // Reassign — old groups are deleted, new groups start with null chat links
     const result2 = await caller.admin.assignGroups({ dinnerId, groupSize: 5 })
 
-    // Verify chat link was carried over
+    // Verify chat links are cleared (membership may have changed)
     const groups = await caller.admin.dinnerGroups({ dinnerId })
-    const hasPreservedLink = groups.some(g => g.chatLink === testLink)
-    expect(hasPreservedLink).toBe(true)
+    for (const g of groups) {
+      expect(g.chatLink).toBeNull()
+    }
 
     // Clean up
     for (const group of result2.groups) {
