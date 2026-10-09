@@ -289,7 +289,7 @@ function goToEditor(plan?: string) {
     </section>
 
     <!-- PRICING -->
-    <section class="border-y" style="border-color:#3b1f0d22; background:rgba(251, 245, 234, 0.5);">
+    <section id="pricing" class="border-y" style="border-color:#3b1f0d22; background:rgba(251, 245, 234, 0.5);">
       <div class="max-w-5xl mx-auto px-4 py-16">
         <div class="text-center mb-12">
           <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">Pricing</div>
