@@ -36,6 +36,65 @@ jobs:
           path: coverage/
           retention-days: 14
 
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: wedance
+          POSTGRES_PASSWORD: wedance
+          POSTGRES_DB: wedance_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U wedance"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://wedance:wedance@localhost:5432/wedance_test
+      NEON_FETCH_ENDPOINT: http://localhost:4444/sql
+      LOCAL_PG_URL: postgresql://wedance:wedance@localhost:5432/wedance_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Cache bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lockb') }}
+          restore-keys: |
+            bun-${{ runner.os }}-
+
+      - run: bun install --frozen-lockfile
+
+      - name: Apply schema to Postgres
+        run: bunx drizzle-kit push --force
+
+      - name: Start neon-http-proxy (background)
+        run: bun scripts/dev/neon-http-proxy.ts &
+
+      - name: Wait for neon-http-proxy
+        run: |
+          for i in $(seq 1 10); do
+            curl -sf http://localhost:4444/sql -X POST -H 'Content-Type: application/json' \
+              -d '{"query":"SELECT 1"}' && break
+            sleep 1
+          done
+
+      - name: Seed test data
+        run: bun run db:seed
+
+      - name: Run integration tests (all vitest, 0 skips expected)
+        run: bun run test -- --reporter=verbose
+
   e2e-smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 15
