@@ -21,7 +21,7 @@ const emit = defineEmits<{
 const copied = ref(false)
 const activeTab = ref<'link' | 'preview'>('link')
 
-const { dancerName, role } = useAuth()
+const { dancerName, dancerId, username, role } = useAuth()
 const { buildShareUrl } = useSharePlan()
 
 const shareUrl = computed(() => {
@@ -37,8 +37,10 @@ const baseUrl = computed(() => {
   return ''
 })
 
+const referralCode = computed(() => username.value || dancerId.value || '')
 const referralUrl = computed(() => {
-  return `${baseUrl.value}/festivals/${props.festivalSlug}?ref=you`
+  if (!referralCode.value) return ''
+  return `${baseUrl.value}/festivals/${props.festivalSlug}?ref=${encodeURIComponent(referralCode.value)}`
 })
 
 const planned = computed(() => {

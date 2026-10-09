@@ -11,6 +11,7 @@ const props = defineProps<{
   sharer: { name: string; photo: string; role: DanceRole }
   sharerPlan: { workshopId: string; role: DanceRole | null; partnerStatus: string }[]
   hasReferral: boolean
+  referralInfo?: { referrerName: string; discountPercent: number } | null
 }>()
 
 const emit = defineEmits<{
@@ -110,8 +111,12 @@ const roleLabel: Record<DanceRole, string> = { lead: 'Lead', follow: 'Follow' }
         <span class="text-green-600 text-sm font-bold">%</span>
       </div>
       <div>
-        <p class="text-sm font-medium text-green-800">{{ sharer.name }} shared a referral link</p>
-        <p class="text-xs text-green-700">You both get a discount when you buy your ticket through this link.</p>
+        <p class="text-sm font-medium text-green-800">
+          {{ referralInfo?.referrerName || sharer.name }} shared a referral link
+        </p>
+        <p class="text-xs text-green-700">
+          Buy your ticket here and you both get {{ referralInfo?.discountPercent || 10 }}% off.
+        </p>
       </div>
     </div>
 

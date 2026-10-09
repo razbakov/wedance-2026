@@ -17,6 +17,18 @@ interface TicketEntry {
   soldOut?: boolean
 }
 
+/**
+ * Per-festival referral discount percentage (0–100). When a dancer buys
+ * through a friend's referral link, this percentage is taken off the total.
+ * Festivals not listed here have no referral discount available.
+ */
+const referralDiscountPercent: Record<string, number> = {
+  'meneate-viena-2026': 10,
+  'cuban-fire-munich-2026': 10,
+  'caribbean-urban-fire-munich-2026': 10,
+  'agua-pichi-2027': 10,
+}
+
 const registry: Record<string, TicketEntry[]> = {
   'meneate-viena-2026': [
     { name: 'Full Pass', priceCents: 21_000, soldOut: true },
@@ -60,4 +72,12 @@ export function getTicketPriceCents(
   const match = tickets.find((t) => t.name === ticketName)
   if (!match) return null
   return { priceCents: match.priceCents, soldOut: !!match.soldOut }
+}
+
+/**
+ * Return the referral discount percentage for a festival, or 0 if no
+ * referral program is configured.
+ */
+export function getReferralDiscountPercent(festivalSlug: string): number {
+  return referralDiscountPercent[festivalSlug] ?? 0
 }

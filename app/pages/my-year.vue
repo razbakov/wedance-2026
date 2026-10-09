@@ -8,6 +8,7 @@ const isSignedIn = ref(true) // mock
 
 // Shared view detection
 const isSharedView = computed(() => route.query.user === 'shared')
+const referralCode = computed(() => (route.query.ref as string) || '')
 
 const myFestivals: YearPlanFestival[] = [
   {
@@ -152,7 +153,9 @@ const showShareModal = ref(false)
 
 function openFestival(slug: string) {
   if (isSharedView.value) {
-    router.push({ path: `/festivals/${slug}`, query: { plan: 'shared' } })
+    const query: Record<string, string> = { plan: 'shared' }
+    if (referralCode.value) query.ref = referralCode.value
+    router.push({ path: `/festivals/${slug}`, query })
   } else {
     router.push(`/festivals/${slug}`)
   }
@@ -184,6 +187,7 @@ useHead({
     :sharer="mockSharer"
     :festivals="myFestivals"
     :viewer-festival-slugs="viewerFestivalSlugs"
+    :referral-code="referralCode"
     @add-friend="onAddFriend"
     @open-festival="openFestival"
     @create-year-plan="onCreateYearPlan"

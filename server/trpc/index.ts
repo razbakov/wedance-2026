@@ -21,6 +21,7 @@ import { hangoutsRouter } from './routers/hangouts'
 import { eventsRouter } from './routers/events'
 import { planRouter } from './routers/plan'
 import { rideShareRouter } from './routers/rideShare'
+import { referralRouter } from './routers/referral'
 import { roommateRouter } from './routers/roommate'
 
 export const appRouter = router({
@@ -45,6 +46,7 @@ export const appRouter = router({
   hangouts: hangoutsRouter,
   events: eventsRouter,
   plan: planRouter,
+  referral: referralRouter,
   rideShare: rideShareRouter,
   roommate: roommateRouter,
 })
