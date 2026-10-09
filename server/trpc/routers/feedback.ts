@@ -116,6 +116,49 @@ async function uploadScreenshot(dataUrl: string): Promise<string | null> {
 }
 
 export const feedbackRouter = router({
+  inquiry: publicProcedure
+    .input(
+      z.object({
+        eventType: z.string().max(100).optional(),
+        date: z.string().max(100).optional(),
+        city: z.string().max(100).optional(),
+        guests: z.string().max(100).optional(),
+        needs: z.string().min(1, 'Tell us what you need').max(3000),
+        name: z.string().max(160).optional(),
+        email: z.string().email(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const title = `🎉 Event inquiry${input.name ? ` from ${input.name}` : ''}`
+      const lines: string[] = []
+      if (input.eventType) lines.push(`**Event type:** ${input.eventType}`)
+      if (input.date) lines.push(`**Date:** ${input.date}`)
+      if (input.city) lines.push(`**City:** ${input.city}`)
+      if (input.guests) lines.push(`**Guests:** ${input.guests}`)
+      lines.push('', '**What they need:**', input.needs)
+      lines.push('', '---')
+      if (input.name) lines.push(`**Name:** ${input.name}`)
+      lines.push(`**Email:** ${input.email}`)
+      lines.push('', '_Filed from the "Tell us about your event" form on 2026.wedance.vip/for-events._')
+
+      const [labelId, stateId] = await Promise.all([ensureLabelId(), triageStateId()])
+      const issueInput: Record<string, unknown> = {
+        teamId: TEAM_ID,
+        title,
+        description: lines.join('\n'),
+        priority: 2,
+      }
+      if (labelId) issueInput.labelIds = [labelId]
+      if (stateId) issueInput.stateId = stateId
+
+      const d = await linear<{ issueCreate: { success: boolean; issue: { identifier: string; url: string } } }>(
+        `mutation($i:IssueCreateInput!){ issueCreate(input:$i){ success issue{ identifier url } } }`,
+        { i: issueInput },
+      )
+
+      return { ok: d.issueCreate.success }
+    }),
+
   report: publicProcedure
     .input(
       z.object({
