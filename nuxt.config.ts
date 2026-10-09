@@ -58,7 +58,10 @@ export default defineNuxtConfig({
     stripeSecretKey: process.env.STRIPE_SECRET_KEY || '',
     stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
     tickettailorWebhookSecret: process.env.TICKETTAILOR_WEBHOOK_SECRET || '',
+    cloudinaryApiKey: process.env.NUXT_CLOUDINARY_API_KEY || '',
+    cloudinaryApiSecret: process.env.NUXT_CLOUDINARY_API_SECRET || '',
     public: {
+      cloudinaryCloudName: process.env.NUXT_PUBLIC_CLOUDINARY_CLOUD_NAME || '',
       // PostHog product analytics. Empty key => tracking is a no-op (safe to
       // ship un-keyed). Set NUXT_PUBLIC_POSTHOG_KEY (phc_…) to turn it on.
       posthogKey: process.env.NUXT_PUBLIC_POSTHOG_KEY || '',

@@ -501,6 +501,7 @@ describe('auth.me', () => {
       intent: 'social',
       onboardedAt: '2026-07-04T10:00:00.000Z',
       bio: null,
+      photo: null,
       instagram: null,
       youtube: null,
       website: null,
