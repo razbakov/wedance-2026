@@ -1218,23 +1218,23 @@ const heatItems = computed<HeatItem[]>(() => {
 // nudge in the Year section: "3 friends heading to Prague — add it?".
 // -----------------------------------------------------------------------
 type DeckCard =
-  | { id: string; kind: 'dancer-your-fest';   name: string; photo: string; city: string; danceStyles: string[]; festivalSlug: string; festivalName: string; festivalColor: string }
-  | { id: string; kind: 'dancer-new-fest';    name: string; photo: string; city: string; danceStyles: string[]; festivalSlug: string; festivalName: string; festivalColor: string }
-  | { id: string; kind: 'dancer-local';       name: string; photo: string; city: string; danceStyles: string[]; regularAt: string }
-  | { id: string; kind: 'event-festival';     name: string; slug: string;  dateISO: string; venue: string; city: string; friendsGoing: number; color: string }
-  | { id: string; kind: 'event-social';       name: string; dayLabel: string; time: string; venue: string; city: string; style: string; friendsGoing: number; color: string }
+  | { id: string; kind: 'dancer-your-fest';   name: string; photo: string; city: string; danceStyles: string[]; festivalSlug: string; festivalName: string; festivalColor: string; reason: string }
+  | { id: string; kind: 'dancer-new-fest';    name: string; photo: string; city: string; danceStyles: string[]; festivalSlug: string; festivalName: string; festivalColor: string; reason: string }
+  | { id: string; kind: 'dancer-local';       name: string; photo: string; city: string; danceStyles: string[]; regularAt: string; reason: string }
+  | { id: string; kind: 'event-festival';     name: string; slug: string;  dateISO: string; venue: string; city: string; friendsGoing: number; color: string; reason: string }
+  | { id: string; kind: 'event-social';       name: string; dayLabel: string; time: string; venue: string; city: string; style: string; friendsGoing: number; color: string; reason: string }
 
 const previewDeck: DeckCard[] = [
-  { id: 'd1', kind: 'dancer-your-fest',  name: 'Ivana',   city: 'Berlin',    photo: 'https://i.pravatar.cc/240?u=ivana',   danceStyles: ['Timba', 'Son'],       festivalSlug: 'meneate-viena-2026',           festivalName: 'Menéate Viena',        festivalColor: '#dc2626' },
-  { id: 'd2', kind: 'dancer-new-fest',   name: 'Emilia',  city: 'Munich',    photo: 'https://i.pravatar.cc/240?u=emilia',  danceStyles: ['Kizomba', 'Urban Kiz'], festivalSlug: 'timba-fest-london-2026',      festivalName: 'Timba Fest London',    festivalColor: '#0ea5e9' },
-  { id: 'e1', kind: 'event-social',      name: 'Salsa on the Isar',  dayLabel: 'Sat', time: '15:00', venue: 'Muffatwerk terrace', city: 'Munich', style: 'Salsa', friendsGoing: 6, color: '#f59e0b' },
-  { id: 'd3', kind: 'dancer-local',      name: 'Klaus',   city: 'Munich',    photo: 'https://i.pravatar.cc/240?u=klaus',   danceStyles: ['Salsa', 'Bachata'],    regularAt: 'La Rumba Fridays' },
-  { id: 'd4', kind: 'dancer-new-fest',   name: 'Sasha',   city: 'Vienna',    photo: 'https://i.pravatar.cc/240?u=sasha',   danceStyles: ['Timba', 'Rumba'],     festivalSlug: 'timba-fest-london-2026',      festivalName: 'Timba Fest London',    festivalColor: '#0ea5e9' },
-  { id: 'e2', kind: 'event-festival',    name: 'Salsa Fusion Prague', slug: 'salsa-fusion-prague-2026', dateISO: '2026-11-14', venue: 'La Loca', city: 'Prague',   friendsGoing: 2, color: '#a855f7' },
-  { id: 'd5', kind: 'dancer-your-fest',  name: 'Silvio',  city: 'Havana',    photo: 'https://i.pravatar.cc/240?u=silvio',  danceStyles: ['Son', 'Timba'],       festivalSlug: 'bachata-stars-barcelona-2026', festivalName: 'Bachata Stars Barcelona', festivalColor: '#7c3aed' },
-  { id: 'd6', kind: 'dancer-local',      name: 'Barbara', city: 'Munich',    photo: 'https://i.pravatar.cc/240?u=barbara', danceStyles: ['Rumba', 'Son'],       regularAt: 'Cuban Sunday practica' },
-  { id: 'd7', kind: 'dancer-new-fest',   name: 'Egor',    city: 'Munich',    photo: 'https://i.pravatar.cc/240?u=egor',    danceStyles: ['Timba', 'Casino'],    festivalSlug: 'timba-fest-london-2026',      festivalName: 'Timba Fest London',    festivalColor: '#0ea5e9' },
-  { id: 'e3', kind: 'event-social',      name: 'Havana Nights',      dayLabel: 'Fri', time: '22:30', venue: '537 Bar',          city: 'Munich', style: 'Cuban', friendsGoing: 8, color: '#dc2626' },
+  { id: 'd1', kind: 'dancer-your-fest',  name: 'Ivana',   city: 'Berlin',    photo: 'https://i.pravatar.cc/240?u=ivana',   danceStyles: ['Timba', 'Son'],       festivalSlug: 'meneate-viena-2026',           festivalName: 'Menéate Viena',        festivalColor: '#dc2626', reason: 'You both dance Timba — and she\'s at Menéate Viena too.' },
+  { id: 'd2', kind: 'dancer-new-fest',   name: 'Emilia',  city: 'Munich',    photo: 'https://i.pravatar.cc/240?u=emilia',  danceStyles: ['Kizomba', 'Urban Kiz'], festivalSlug: 'timba-fest-london-2026',      festivalName: 'Timba Fest London',    festivalColor: '#0ea5e9', reason: 'She dances Kizomba in Munich — and heads to a festival you haven\'t explored.' },
+  { id: 'e1', kind: 'event-social',      name: 'Salsa on the Isar',  dayLabel: 'Sat', time: '15:00', venue: 'Muffatwerk terrace', city: 'Munich', style: 'Salsa', friendsGoing: 6, color: '#f59e0b', reason: 'Salsa in your city, 6 friends going — matches your style.' },
+  { id: 'd3', kind: 'dancer-local',      name: 'Klaus',   city: 'Munich',    photo: 'https://i.pravatar.cc/240?u=klaus',   danceStyles: ['Salsa', 'Bachata'],    regularAt: 'La Rumba Fridays', reason: 'You both do Salsa in Munich — he\'s at La Rumba every Friday.' },
+  { id: 'd4', kind: 'dancer-new-fest',   name: 'Sasha',   city: 'Vienna',    photo: 'https://i.pravatar.cc/240?u=sasha',   danceStyles: ['Timba', 'Rumba'],     festivalSlug: 'timba-fest-london-2026',      festivalName: 'Timba Fest London',    festivalColor: '#0ea5e9', reason: 'Timba dancer from Vienna heading to a festival not in your year yet.' },
+  { id: 'e2', kind: 'event-festival',    name: 'Salsa Fusion Prague', slug: 'salsa-fusion-prague-2026', dateISO: '2026-11-14', venue: 'La Loca', city: 'Prague',   friendsGoing: 2, color: '#a855f7', reason: 'Salsa festival a short trip away — 2 friends already going.' },
+  { id: 'd5', kind: 'dancer-your-fest',  name: 'Silvio',  city: 'Havana',    photo: 'https://i.pravatar.cc/240?u=silvio',  danceStyles: ['Son', 'Timba'],       festivalSlug: 'bachata-stars-barcelona-2026', festivalName: 'Bachata Stars Barcelona', festivalColor: '#7c3aed', reason: 'Son & Timba dancer from Havana — also going to Bachata Stars Barcelona.' },
+  { id: 'd6', kind: 'dancer-local',      name: 'Barbara', city: 'Munich',    photo: 'https://i.pravatar.cc/240?u=barbara', danceStyles: ['Rumba', 'Son'],       regularAt: 'Cuban Sunday practica', reason: 'Rumba and Son right in Munich — you might click at the practica.' },
+  { id: 'd7', kind: 'dancer-new-fest',   name: 'Egor',    city: 'Munich',    photo: 'https://i.pravatar.cc/240?u=egor',    danceStyles: ['Timba', 'Casino'],    festivalSlug: 'timba-fest-london-2026',      festivalName: 'Timba Fest London',    festivalColor: '#0ea5e9', reason: 'Local Timba dancer — a third person heading to Timba Fest London.' },
+  { id: 'e3', kind: 'event-social',      name: 'Havana Nights',      dayLabel: 'Fri', time: '22:30', venue: '537 Bar',          city: 'Munich', style: 'Cuban', friendsGoing: 8, color: '#dc2626', reason: 'Cuban night in Munich with 8 friends — right up your alley.' },
 ]
 
 // Live deck state
@@ -1316,6 +1316,25 @@ function commitSwipe(direction: 'yes' | 'skip' | 'save') {
       // Add straight to the year picks
       if (!previewMode.value) toggleFestival(card.slug)
     }
+    if (card.kind === 'event-social') {
+      // Add to week socials if not already there
+      const existing = socials.value.find(s => s.name === card.name)
+      if (!existing) {
+        socials.value = [...socials.value, {
+          id: card.id,
+          name: card.name,
+          dayLabel: card.dayLabel,
+          dateISO: '',
+          time: card.time,
+          venue: card.venue,
+          city: card.city,
+          style: card.style,
+          friendsGoing: card.friendsGoing,
+          rsvpd: true,
+          color: card.color,
+        }]
+      }
+    }
   }
   if (direction === 'save') {
     savedForLater.value = [...savedForLater.value, card]
@@ -1356,6 +1375,9 @@ function undoSwipe() {
     if (n && 'name' in last.card) {
       n.dancerNames = n.dancerNames.filter(name => name !== (last.card as any).name)
     }
+  }
+  if (last.direction === 'yes' && last.card.kind === 'event-social') {
+    socials.value = socials.value.filter(s => s.id !== last.card.id)
   }
 }
 
@@ -2593,6 +2615,9 @@ function cardSummary(f: CatalogueEntry) {
                       {{ st }}
                     </span>
                   </div>
+                  <p v-if="deckCurrent.reason" class="mt-3 text-xs italic leading-snug" style="color:#5b3a1d; font-family:'Playfair Display', serif;">
+                    {{ deckCurrent.reason }}
+                  </p>
                 </div>
               </template>
 
@@ -2620,6 +2645,9 @@ function cardSummary(f: CatalogueEntry) {
                     <UsersIcon class="w-3 h-3" style="stroke-width:1.5;" />
                     {{ (deckCurrent as any).friendsGoing }} friends going
                   </div>
+                  <p v-if="deckCurrent.reason" class="mt-3 text-xs italic leading-snug" style="color:#5b3a1d; font-family:'Playfair Display', serif;">
+                    {{ deckCurrent.reason }}
+                  </p>
                 </div>
               </template>
 
@@ -2647,6 +2675,9 @@ function cardSummary(f: CatalogueEntry) {
                     <UsersIcon class="w-3 h-3" style="stroke-width:1.5;" />
                     {{ (deckCurrent as any).friendsGoing }} friends going
                   </div>
+                  <p v-if="deckCurrent.reason" class="mt-3 text-xs italic leading-snug" style="color:#5b3a1d; font-family:'Playfair Display', serif;">
+                    {{ deckCurrent.reason }}
+                  </p>
                 </div>
               </template>
             </div>
