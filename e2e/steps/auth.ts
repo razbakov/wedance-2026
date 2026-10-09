@@ -102,7 +102,8 @@ Given('I am on the home page', async ({ page }) => {
 })
 
 Given('I am not signed in', async ({ page }) => {
-  // Clear any session cookies/localStorage so we start fresh.
+  // Navigate first so localStorage is accessible (about:blank throws SecurityError).
+  await page.goto('/')
   await page.context().clearCookies()
   await page.evaluate(() => localStorage.clear())
 })
