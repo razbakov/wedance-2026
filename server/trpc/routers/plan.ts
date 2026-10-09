@@ -6,7 +6,7 @@ import { getReferralDiscountPercent } from '../../utils/ticket-prices'
 
 export const planRouter = router({
   count: publicProcedure
-    .input(z.object({ itemType: z.enum(['festival', 'event', 'goal']), itemId: z.string() }))
+    .input(z.object({ itemType: z.enum(['festival', 'event', 'goal', 'workshop']), itemId: z.string() }))
     .query(async ({ ctx, input }) => {
       const [row] = await ctx.db
         .select({ count: sql<number>`count(*)::int` })
@@ -45,7 +45,7 @@ export const planRouter = router({
   add: protectedProcedure
     .input(
       z.object({
-        itemType: z.enum(['festival', 'event', 'goal']),
+        itemType: z.enum(['festival', 'event', 'goal', 'workshop']),
         itemId: z.string(),
         metadata: z.record(z.string(), z.string()).optional(),
       }),
@@ -68,7 +68,7 @@ export const planRouter = router({
   remove: protectedProcedure
     .input(
       z.object({
-        itemType: z.enum(['festival', 'event', 'goal']),
+        itemType: z.enum(['festival', 'event', 'goal', 'workshop']),
         itemId: z.string(),
       }),
     )
@@ -121,6 +121,26 @@ export const planRouter = router({
 
     if (festivalRows.length === 0) return []
 
+    // Count workshop selections per festival. Workshop plan items use
+    // itemId = '{festivalSlug}:{workshopId}'.
+    const workshopItems = await ctx.db
+      .select({ itemId: planItems.itemId })
+      .from(planItems)
+      .where(
+        and(
+          eq(planItems.dancerId, ctx.dancerId),
+          eq(planItems.itemType, 'workshop'),
+        ),
+      )
+
+    const workshopCountBySlug = new Map<string, number>()
+    for (const w of workshopItems) {
+      const colonIdx = w.itemId.indexOf(':')
+      if (colonIdx === -1) continue
+      const slug = w.itemId.slice(0, colonIdx)
+      workshopCountBySlug.set(slug, (workshopCountBySlug.get(slug) ?? 0) + 1)
+    }
+
     const signupRows = await ctx.db
       .select({
         festivalId: festivalSignups.festivalId,
@@ -152,6 +172,7 @@ export const planRouter = router({
         logo: f.logo ?? '',
         accentColor: f.accentColor ?? '',
         styles: (f.styles as string[]) ?? [],
+        workshopCount: workshopCountBySlug.get(f.slug) ?? 0,
         ticketStatus: (ticketByFestivalId.get(f.id) ? 'purchased' : 'not-purchased') as 'purchased' | 'not-purchased',
         referralDiscountPercent: getReferralDiscountPercent(f.slug),
       }))
@@ -226,7 +247,26 @@ export const planRouter = router({
         .from(festivals)
         .where(inArray(festivals.slug, slugs))
 
-      // 4. Check which festivals the sharer has a verified ticket for.
+      // 4. Count workshop selections per festival for the sharer.
+      const workshopItems = await ctx.db
+        .select({ itemId: planItems.itemId })
+        .from(planItems)
+        .where(
+          and(
+            eq(planItems.dancerId, sharer.id),
+            eq(planItems.itemType, 'workshop'),
+          ),
+        )
+
+      const workshopCountBySlug = new Map<string, number>()
+      for (const w of workshopItems) {
+        const colonIdx = w.itemId.indexOf(':')
+        if (colonIdx === -1) continue
+        const slug = w.itemId.slice(0, colonIdx)
+        workshopCountBySlug.set(slug, (workshopCountBySlug.get(slug) ?? 0) + 1)
+      }
+
+      // 5. Check which festivals the sharer has a verified ticket for.
       let ticketByFestivalId = new Map<string, boolean>()
       if (festivalRows.length > 0) {
         const signupRows = await ctx.db
@@ -250,7 +290,7 @@ export const planRouter = router({
         )
       }
 
-      // 5. Build the response, sorted by start date.
+      // 6. Build the response, sorted by start date.
       const result = festivalRows
         .map((f) => ({
           slug: f.slug,
@@ -262,6 +302,7 @@ export const planRouter = router({
           logo: f.logo ?? '',
           accentColor: f.accentColor ?? '',
           styles: (f.styles as string[]) ?? [],
+          workshopCount: workshopCountBySlug.get(f.slug) ?? 0,
           hasTicket: ticketByFestivalId.get(f.id) ?? false,
           referralDiscountPercent: getReferralDiscountPercent(f.slug),
         }))
