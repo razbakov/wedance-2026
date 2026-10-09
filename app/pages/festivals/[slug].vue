@@ -257,45 +257,105 @@ function updatePlanEntry(id: string, updates: Partial<PlanEntry>) {
 // and itemId='{festivalSlug}:{workshopId}' so the year plan can count them.
 const persistedWorkshopIds = ref(new Set<string>())
 
+// Per-workshop mutation queue: serializes add/remove so rapid toggles
+// (add→remove→add) don't race. Each key maps to the tail promise of
+// that workshop's chain.
+const mutationQueue = new Map<string, Promise<void>>()
+
+// Removals made while the initial plan.list query is still in flight.
+// These are reconciled when the list arrives so we don't accidentally
+// restore a workshop the user already removed.
+const pendingRemovals = new Set<string>()
+const listLoading = ref(false)
+
+function enqueue(workshopId: string, fn: () => Promise<void>): void {
+  const prev = mutationQueue.get(workshopId) ?? Promise.resolve()
+  const next = prev.then(fn, fn)
+  mutationQueue.set(workshopId, next)
+}
+
 function persistWorkshopAdd(workshopId: string) {
-  if (!isSignedIn.value || persistedWorkshopIds.value.has(workshopId)) return
+  if (!isSignedIn.value) return
+  pendingRemovals.delete(workshopId)
+  if (persistedWorkshopIds.value.has(workshopId)) return
   persistedWorkshopIds.value.add(workshopId)
-  $trpc.plan.add
-    .mutate({ itemType: 'workshop', itemId: `${slug}:${workshopId}` })
-    .catch(() => { persistedWorkshopIds.value.delete(workshopId) })
+  enqueue(workshopId, () =>
+    $trpc.plan.add
+      .mutate({ itemType: 'workshop', itemId: `${slug}:${workshopId}` })
+      .catch(() => { persistedWorkshopIds.value.delete(workshopId) }),
+  )
 }
 
 function persistWorkshopRemove(workshopId: string) {
-  if (!isSignedIn.value || !persistedWorkshopIds.value.has(workshopId)) return
+  if (!isSignedIn.value) return
+  // If the initial list hasn't loaded yet, record the intent so we can
+  // reconcile when it arrives — don't silently discard the removal.
+  if (listLoading.value) {
+    pendingRemovals.add(workshopId)
+  }
+  if (!persistedWorkshopIds.value.has(workshopId)) return
   persistedWorkshopIds.value.delete(workshopId)
-  $trpc.plan.remove
-    .mutate({ itemType: 'workshop', itemId: `${slug}:${workshopId}` })
-    .catch(() => { persistedWorkshopIds.value.add(workshopId) })
+  enqueue(workshopId, () =>
+    $trpc.plan.remove
+      .mutate({ itemType: 'workshop', itemId: `${slug}:${workshopId}` })
+      .catch(() => { persistedWorkshopIds.value.add(workshopId) }),
+  )
 }
 
-// Load persisted workshops on mount (signed-in users only).
-if (import.meta.client) {
-  onMounted(async () => {
-    if (!isSignedIn.value) return
-    try {
-      const items = await $trpc.plan.list.query()
-      const prefix = `${slug}:`
-      const loaded = new Map<string, PlanEntry>()
-      for (const item of items) {
-        if (item.itemType === 'workshop' && item.itemId.startsWith(prefix)) {
-          const workshopId = item.itemId.slice(prefix.length)
+// Load persisted workshops and reconcile with the local plan.
+// Called on mount (if already signed in) and again when isSignedIn
+// becomes true (sign-in on an already-open page).
+async function loadPersistedWorkshops() {
+  if (!isSignedIn.value) return
+  listLoading.value = true
+  try {
+    const items = await $trpc.plan.list.query()
+    const prefix = `${slug}:`
+    const loaded = new Map<string, PlanEntry>()
+    for (const item of items) {
+      if (item.itemType === 'workshop' && item.itemId.startsWith(prefix)) {
+        const workshopId = item.itemId.slice(prefix.length)
+        // If the user removed this workshop while the list was loading,
+        // send the server-side removal instead of restoring it.
+        if (pendingRemovals.has(workshopId)) {
+          pendingRemovals.delete(workshopId)
           persistedWorkshopIds.value.add(workshopId)
-          if (!plan.value.has(workshopId)) {
-            loaded.set(workshopId, { workshopId, role: null, partnerStatus: 'solo' })
-          }
+          persistWorkshopRemove(workshopId)
+          continue
+        }
+        persistedWorkshopIds.value.add(workshopId)
+        if (!plan.value.has(workshopId)) {
+          loaded.set(workshopId, { workshopId, role: null, partnerStatus: 'solo' })
         }
       }
-      if (loaded.size > 0) {
-        const merged = new Map(plan.value)
-        for (const [k, v] of loaded) merged.set(k, v)
-        plan.value = merged
+    }
+    if (loaded.size > 0) {
+      const merged = new Map(plan.value)
+      for (const [k, v] of loaded) merged.set(k, v)
+      plan.value = merged
+    }
+
+    // Persist any guest selections that aren't on the server yet
+    // (user picked workshops before signing in).
+    for (const workshopId of plan.value.keys()) {
+      if (!persistedWorkshopIds.value.has(workshopId)) {
+        persistWorkshopAdd(workshopId)
       }
-    } catch { /* keep local state */ }
+    }
+  } catch { /* keep local state */ }
+  finally {
+    listLoading.value = false
+    pendingRemovals.clear()
+  }
+}
+
+if (import.meta.client) {
+  onMounted(() => { loadPersistedWorkshops() })
+
+  // When the user signs in on an already-open page, load their
+  // persisted plan and push any guest selections to the server.
+  watch(isSignedIn, (signed) => {
+    if (signed) loadPersistedWorkshops()
   })
 }
 
