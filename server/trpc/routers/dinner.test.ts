@@ -154,6 +154,10 @@ describe.skipIf(!DATABASE_URL)('dinner.join', () => {
     const dancerId = dancers[0].id
     const dinnerId = testDinners[0].id
 
+    // Save original maxSize and bump it so the dinner is never "full" during the test
+    const originalMaxSize = testDinners[0].maxSize
+    await db.update(schema.dinners).set({ maxSize: 9999 }).where(eq(schema.dinners.id, dinnerId))
+
     // Clean up first
     await db.delete(schema.dinnerSignups).where(
       and(
@@ -164,21 +168,24 @@ describe.skipIf(!DATABASE_URL)('dinner.join', () => {
 
     const caller = createCaller({ dancerId })
 
-    // First join should succeed
-    const result1 = await caller.dinner.join({ dinnerId })
-    expect(result1.joined).toBe(true)
+    try {
+      // First join should succeed
+      const result1 = await caller.dinner.join({ dinnerId })
+      expect(result1.joined).toBe(true)
 
-    // Second join should return alreadyJoined
-    const result2 = await caller.dinner.join({ dinnerId })
-    expect(result2.alreadyJoined).toBe(true)
-
-    // Clean up
-    await db.delete(schema.dinnerSignups).where(
-      and(
-        eq(schema.dinnerSignups.dinnerId, dinnerId),
-        eq(schema.dinnerSignups.dancerId, dancerId),
+      // Second join should return alreadyJoined
+      const result2 = await caller.dinner.join({ dinnerId })
+      expect(result2.alreadyJoined).toBe(true)
+    } finally {
+      // Clean up signup and restore maxSize
+      await db.delete(schema.dinnerSignups).where(
+        and(
+          eq(schema.dinnerSignups.dinnerId, dinnerId),
+          eq(schema.dinnerSignups.dancerId, dancerId),
+        )
       )
-    )
+      await db.update(schema.dinners).set({ maxSize: originalMaxSize }).where(eq(schema.dinners.id, dinnerId))
+    }
   })
 })
 
@@ -192,6 +199,10 @@ describe.skipIf(!DATABASE_URL)('dinner.leave', () => {
     const dinnerId = testDinners[0].id
     const caller = createCaller({ dancerId })
 
+    // Save original maxSize and bump it so the dinner is never "full" during the test
+    const originalMaxSize = testDinners[0].maxSize
+    await db.update(schema.dinners).set({ maxSize: 9999 }).where(eq(schema.dinners.id, dinnerId))
+
     // Join first
     await db.delete(schema.dinnerSignups).where(
       and(
@@ -199,19 +210,25 @@ describe.skipIf(!DATABASE_URL)('dinner.leave', () => {
         eq(schema.dinnerSignups.dancerId, dancerId),
       )
     )
-    await caller.dinner.join({ dinnerId })
 
-    // Leave
-    const result = await caller.dinner.leave({ dinnerId })
-    expect(result.left).toBe(true)
+    try {
+      await caller.dinner.join({ dinnerId })
 
-    // Verify signup removed
-    const [signup] = await db.select().from(schema.dinnerSignups).where(
-      and(
-        eq(schema.dinnerSignups.dinnerId, dinnerId),
-        eq(schema.dinnerSignups.dancerId, dancerId),
+      // Leave
+      const result = await caller.dinner.leave({ dinnerId })
+      expect(result.left).toBe(true)
+
+      // Verify signup removed
+      const [signup] = await db.select().from(schema.dinnerSignups).where(
+        and(
+          eq(schema.dinnerSignups.dinnerId, dinnerId),
+          eq(schema.dinnerSignups.dancerId, dancerId),
+        )
       )
-    )
-    expect(signup).toBeUndefined()
+      expect(signup).toBeUndefined()
+    } finally {
+      // Restore maxSize
+      await db.update(schema.dinners).set({ maxSize: originalMaxSize }).where(eq(schema.dinners.id, dinnerId))
+    }
   })
 })
