@@ -80,8 +80,7 @@ export const ProfileSettingsSchema = v.object({
   danceStyles: v.array(v.string()),
   danceLevels: v.record(v.string(), v.picklist(DANCE_LEVELS)),
   role: v.pipe(v.string(), v.transform(s => s || undefined), v.optional(v.picklist(DANCE_ROLES))),
-  // Blank photo is omitted, i.e. left unchanged: the form never loads the
-  // current photo URL, so '' (which would clear it) is never a deliberate choice.
+  // '' clears the photo (sets null in db); a Cloudinary URL is stored as-is.
   photo: optionalWebUrl('Enter a valid image URL.'),
   bio: v.pipe(trimmedText(), v.maxLength(500, 'Keep your bio under 500 characters.')),
   instagram: v.pipe(trimmedText(), v.maxLength(SOCIAL_MAX, 'Instagram handle is too long.')),

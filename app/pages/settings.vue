@@ -24,7 +24,7 @@ useHead({
 const {
   isSignedIn, isLoading, username,
   dancerName, city: meCity, danceStyles: meStyles, danceLevels: meLevels, role: meRole,
-  bio: meBio, instagram: meIg, youtube: meYt, website: meSite, profilePublic: mePublic,
+  bio: meBio, photo: mePhoto, instagram: meIg, youtube: meYt, website: meSite, profilePublic: mePublic,
   updateProfile, changePassword, deleteAccount,
 } = useAuth()
 
@@ -64,6 +64,7 @@ watch([isLoading, isSignedIn], ([loadingNow, signedIn]) => {
 function hydrate() {
   form.name = dancerName.value ?? ''
   form.city = meCity.value ?? ''
+  form.photo = mePhoto.value ?? ''
   form.bio = meBio.value ?? ''
   form.instagram = meIg.value ?? ''
   form.youtube = meYt.value ?? ''
@@ -75,7 +76,7 @@ function hydrate() {
   form.profilePublic = mePublic.value !== false
 }
 onMounted(hydrate)
-watch([dancerName, meCity, meStyles, meLevels, meRole, meBio, meIg, meYt, meSite, mePublic], hydrate)
+watch([dancerName, meCity, meStyles, meLevels, meRole, meBio, mePhoto, meIg, meYt, meSite, mePublic], hydrate)
 
 function toggleStyle(style: string) {
   const i = form.danceStyles.indexOf(style)
@@ -252,9 +253,8 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
         </div>
 
         <div>
-          <label class="block text-xs font-bold uppercase tracking-wider mb-1.5" style="color:#9a5614;">Photo URL <span class="normal-case font-normal">(optional)</span></label>
-          <input v-model="form.photo" type="url" placeholder="https://…" class="w-full h-11 rounded-xl px-3.5 text-sm outline-none" :style="inputStyle" v-bind="profileForm.fieldAttrs('photo', 'settings-photo-error')">
-          <FieldError id="settings-photo-error" :message="profileForm.errors.photo" />
+          <label class="block text-xs font-bold uppercase tracking-wider mb-1.5" style="color:#9a5614;">Photo <span class="normal-case font-normal">(optional)</span></label>
+          <ImageUpload v-model="form.photo" />
         </div>
 
         <!-- Privacy -->

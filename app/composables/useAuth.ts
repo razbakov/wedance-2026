@@ -12,6 +12,7 @@ const _isLoading = ref(true)
 // signup this session so my-plan can show the first-run hint after onboarding.
 const _username = ref<string | null>(null)
 const _bio = ref<string | null>(null)
+const _photo = ref<string | null>(null)
 const _instagram = ref<string | null>(null)
 const _youtube = ref<string | null>(null)
 const _website = ref<string | null>(null)
@@ -119,6 +120,7 @@ export function useAuth() {
     intent?: string | null
     onboardedAt?: string | null
     bio?: string | null
+    photo?: string | null
     instagram?: string | null
     youtube?: string | null
     website?: string | null
@@ -136,6 +138,7 @@ export function useAuth() {
     _intent.value = me.intent ?? null
     _onboardedAt.value = me.onboardedAt ?? null
     _bio.value = me.bio ?? null
+    _photo.value = me.photo ?? null
     _instagram.value = me.instagram ?? null
     _youtube.value = me.youtube ?? null
     _website.value = me.website ?? null
@@ -375,6 +378,7 @@ export function useAuth() {
     dancerName: readonly(_dancerName),
     username: readonly(_username),
     bio: readonly(_bio),
+    photo: readonly(_photo),
     instagram: readonly(_instagram),
     youtube: readonly(_youtube),
     website: readonly(_website),

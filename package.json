@@ -26,6 +26,7 @@
     "@trpc/server": "^11.14.1",
     "@vueuse/core": "^14.2.1",
     "class-variance-authority": "^0.7.1",
+    "cloudinary": "^2.11.0",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.1",
     "firebase-scrypt": "^2.2.0",
