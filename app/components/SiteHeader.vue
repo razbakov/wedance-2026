@@ -3,9 +3,22 @@
  * SiteHeader — the shared V3 top bar (brand + nav + auth) used on every
  * page. One place to change the nav or the sign-in affordance.
  */
-const { isSignedIn, dancerName, username, signOut } = useAuth()
+const { isSignedIn, isLoading, authHint, dancerName, username, signOut } = useAuth()
+const sessionCookie = useCookie('wedance-session')
 const showSignIn = ref(false)
 const showSignOutConfirm = ref(false)
+
+// Show signed-in UI during SSR/loading when both session + hint cookies exist,
+// so the header doesn't blink "Sign in" on page refresh.
+const appearsSignedIn = computed(() =>
+  isSignedIn.value || (isLoading.value && !!authHint.value && !!sessionCookie.value),
+)
+const displayName = computed(() =>
+  dancerName.value || authHint.value?.name || 'Profile',
+)
+const displayUsername = computed(() =>
+  username.value || authHint.value?.username || null,
+)
 
 function handleSignOut() {
   signOut()
@@ -32,16 +45,16 @@ const links = [
         >{{ l.label }}</NuxtLink>
 
         <!-- Auth -->
-        <template v-if="isSignedIn">
+        <template v-if="appearsSignedIn">
           <NuxtLink
             to="/my-plan"
             class="hidden sm:inline italic hover:underline"
           >My plan</NuxtLink>
           <NuxtLink
-            :to="username ? `/u/${username}` : '/my-plan'"
+            :to="displayUsername ? `/u/${displayUsername}` : '/my-plan'"
             class="hidden sm:inline font-bold hover:underline"
             style="color:#3b1f0d; font-family:'Playfair Display', serif;"
-          >{{ dancerName || 'Profile' }}</NuxtLink>
+          >{{ displayName }}</NuxtLink>
           <NuxtLink
             to="/settings"
             class="hidden sm:inline italic hover:underline"
