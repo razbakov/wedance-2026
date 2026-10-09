@@ -2,6 +2,16 @@
 import type { YearPlanFestival, DanceRole } from '~/types/festival'
 import { Button } from '~/components/ui/button'
 
+definePageMeta({ layout: false })
+
+useHead({
+  link: [
+    { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+    { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
+    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Caveat:wght@400;700&display=swap' },
+  ],
+})
+
 const route = useRoute()
 const router = useRouter()
 const { $trpc } = useNuxtApp()
@@ -157,43 +167,49 @@ useHead({
 </script>
 
 <template>
-  <!-- Shared view -->
-  <SharedYearPlan
-    v-if="isSharedView && sharedData"
-    :sharer="sharer"
-    :festivals="sharedFestivals"
-    :viewer-festival-slugs="viewerFestivalSlugs"
-    :referral-code="referralCode"
-    @add-friend="onAddFriend"
-    @open-festival="openFestival"
-    @create-year-plan="onCreateYearPlan"
-    @sign-in="onAddFriend"
-  />
+  <div class="min-h-screen" style="background:#fbf5ea; color:#3b1f0d; font-family:'Playfair Display', serif;">
+    <SiteHeader />
 
-  <!-- Loading / not found for shared view -->
-  <div v-else-if="isSharedView && !sharedData" class="max-w-3xl mx-auto px-4 py-16 text-center">
-    <p class="text-muted-foreground">This year plan is not available.</p>
-    <Button class="mt-4" @click="onCreateYearPlan">
-      Create your own year plan
-    </Button>
-  </div>
-
-  <!-- Own year plan -->
-  <template v-else>
-    <YearPlan
-      :festivals="myFestivals"
-      :suggestions="[]"
-      :stats="stats"
-      :is-signed-in="isSignedIn"
+    <!-- Shared view -->
+    <SharedYearPlan
+      v-if="isSharedView && sharedData"
+      :sharer="sharer"
+      :festivals="sharedFestivals"
+      :viewer-festival-slugs="viewerFestivalSlugs"
+      :referral-code="referralCode"
+      @add-friend="onAddFriend"
       @open-festival="openFestival"
-      @share="showShareModal = true"
-      @sign-in="() => {}"
+      @create-year-plan="onCreateYearPlan"
+      @sign-in="onAddFriend"
     />
 
-    <ShareYearPlanModal
-      v-model:open="showShareModal"
-      :festivals="myFestivals"
-      sharer-name="You"
-    />
-  </template>
+    <!-- Loading / not found for shared view -->
+    <div v-else-if="isSharedView && !sharedData" class="max-w-3xl mx-auto px-4 py-16 text-center">
+      <p style="color:#5b3a1d;">This year plan is not available.</p>
+      <Button class="mt-4" @click="onCreateYearPlan">
+        Create your own year plan
+      </Button>
+    </div>
+
+    <!-- Own year plan -->
+    <template v-else>
+      <YearPlan
+        :festivals="myFestivals"
+        :suggestions="[]"
+        :stats="stats"
+        :is-signed-in="isSignedIn"
+        @open-festival="openFestival"
+        @share="showShareModal = true"
+        @sign-in="() => {}"
+      />
+
+      <ShareYearPlanModal
+        v-model:open="showShareModal"
+        :festivals="myFestivals"
+        sharer-name="You"
+      />
+    </template>
+
+    <SiteFooter />
+  </div>
 </template>

@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import type { YearPlanFestival, DanceRole } from '~/types/festival'
 import { UserPlus, Check, Calendar, MapPin, ChevronRight, Heart, Gift, ArrowRight } from 'lucide-vue-next'
-import { Button } from '~/components/ui/button'
-import { Badge } from '~/components/ui/badge'
 
 const props = defineProps<{
   sharer: { name: string; photo: string; role: DanceRole }
@@ -63,76 +61,78 @@ function formatDateRange(start: string, end: string): string {
 <template>
   <div class="max-w-3xl mx-auto px-4 py-8 space-y-6">
     <!-- Sharer profile card -->
-    <div class="rounded-xl border bg-gradient-to-br from-primary/5 to-primary/10 p-6 text-center space-y-4">
+    <div class="rounded-xl border-2 border-dashed p-6 text-center space-y-4" style="border-color:#dc262644; background:rgba(255,255,255,0.8);">
       <img
         :src="sharer.photo"
         :alt="sharer.name"
-        class="w-16 h-16 rounded-full object-cover mx-auto border-2 border-primary/20"
+        class="w-16 h-16 rounded-full object-cover mx-auto border-2"
+        style="border-color:#dc262644;"
       />
       <div>
-        <h2 class="text-lg font-semibold">{{ sharer.name }}'s 2026 Dance Year</h2>
-        <div class="flex items-center justify-center gap-2 mt-2">
-          <Badge variant="secondary">{{ sharer.role === 'lead' ? 'Lead' : 'Follow' }}</Badge>
-          <Badge variant="outline">{{ festivals.length }} festivals</Badge>
-          <Badge variant="outline">{{ totalWorkshops }} workshops</Badge>
-          <Badge v-if="totalLooking > 0" variant="outline" class="bg-orange-50 text-orange-600 border-orange-200">
+        <h2 class="text-xl font-bold" style="font-family:'Playfair Display', serif; color:#3b1f0d;">{{ sharer.name }}'s 2026 Dance Year</h2>
+        <div class="flex items-center justify-center gap-2 mt-2 flex-wrap">
+          <span class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium" style="border-color:#3b1f0d22; color:#3b1f0d; background:rgba(251,245,234,0.8);">{{ sharer.role === 'lead' ? 'Lead' : 'Follow' }}</span>
+          <span class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium" style="border-color:#3b1f0d22; color:#9a5614;">{{ festivals.length }} festivals</span>
+          <span class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium" style="border-color:#3b1f0d22; color:#9a5614;">{{ totalWorkshops }} workshops</span>
+          <span v-if="totalLooking > 0" class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium" style="border-color:#f59e0b55; color:#92400e; background:rgba(245, 158, 11, 0.08);">
             {{ totalLooking }} needs partner
-          </Badge>
+          </span>
         </div>
       </div>
 
       <!-- Add friend button -->
-      <Button
+      <button
         v-if="!friendAdded"
-        variant="outline"
-        class="mx-auto"
+        class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-white text-xs font-bold uppercase tracking-wider mx-auto"
+        style="background:linear-gradient(135deg, #dc2626, #f97316); box-shadow: 0 4px 0 -1px #b91c1c;"
         @click="addFriend"
       >
-        <UserPlus class="w-4 h-4 mr-2" />
+        <UserPlus class="w-4 h-4" />
         Add {{ sharer.name }} as friend
-      </Button>
-      <Button
+      </button>
+      <button
         v-else
-        variant="outline"
-        class="mx-auto"
+        class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold uppercase tracking-wider mx-auto opacity-60 cursor-default"
+        style="border: 2px dashed #3b1f0d44; color:#3b1f0d;"
         disabled
       >
-        <Check class="w-4 h-4 mr-2" />
+        <Check class="w-4 h-4" />
         Friend added
-      </Button>
+      </button>
     </div>
 
     <!-- Overlap banner -->
-    <div v-if="overlapSlugs.length > 0" class="rounded-lg border bg-blue-50 border-blue-200 p-4 flex items-center gap-3">
-      <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
-        <Calendar class="w-4 h-4 text-blue-600" />
+    <div v-if="overlapSlugs.length > 0" class="rounded-xl border-2 border-dashed p-4 flex items-center gap-3" style="border-color:#0891b2; background:rgba(8, 145, 178, 0.06);">
+      <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style="background:rgba(8, 145, 178, 0.12);">
+        <Calendar class="w-4 h-4" style="color:#0891b2;" />
       </div>
       <div>
-        <p class="text-sm font-medium text-blue-800">
+        <p class="text-sm font-bold" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
           You overlap on {{ overlapSlugs.length }} {{ overlapSlugs.length === 1 ? 'festival' : 'festivals' }}!
         </p>
-        <p class="text-xs text-blue-700">You and {{ sharer.name }} are going to the same events.</p>
+        <p class="text-xs" style="color:#5b3a1d;">You and {{ sharer.name }} are going to the same events.</p>
       </div>
     </div>
 
     <!-- Festival timeline -->
     <div class="space-y-6">
-      <h3 class="text-base font-semibold">Their Festivals</h3>
+      <h3 class="text-lg font-bold" style="font-family:'Playfair Display', serif; color:#3b1f0d;">Their Festivals</h3>
 
       <div v-for="[month, monthFestivals] in groupedByMonth" :key="month">
-        <p class="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">{{ month }}</p>
+        <p class="text-[10px] uppercase tracking-[0.2em] font-bold mb-3" style="color:#9a5614;">{{ month }}</p>
 
         <div class="space-y-3">
           <div
             v-for="f in monthFestivals"
             :key="f.slug"
             class="rounded-xl border-2 overflow-hidden"
-            :style="{ borderColor: f.accentColor + '30' }"
+            :style="{ borderColor: f.accentColor + '55', boxShadow: '3px 4px 0 -1px ' + f.accentColor + '2e' }"
+            style="background:rgba(255,255,255,0.85);"
           >
             <!-- Festival header -->
             <div
               class="px-4 py-3 flex items-center gap-3"
-              :style="{ background: f.accentColor + '08' }"
+              :style="{ background: f.accentColor + '0d' }"
             >
               <img
                 :src="f.logo"
@@ -140,13 +140,13 @@ function formatDateRange(start: string, end: string): string {
                 class="w-10 h-10 rounded-lg object-cover shrink-0"
               />
               <div class="flex-1 min-w-0">
-                <h4 class="text-sm font-semibold leading-tight">{{ f.name }}</h4>
+                <h4 class="text-sm font-bold leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">{{ f.name }}</h4>
                 <div class="flex items-center gap-2 mt-0.5">
-                  <span class="text-xs text-muted-foreground flex items-center gap-1">
+                  <span class="text-xs flex items-center gap-1" style="color:#9a5614;">
                     <Calendar class="w-3 h-3" />
                     {{ formatDateRange(f.startDate, f.endDate) }}
                   </span>
-                  <span class="text-xs text-muted-foreground flex items-center gap-1">
+                  <span class="text-xs flex items-center gap-1" style="color:#9a5614;">
                     <MapPin class="w-3 h-3" />
                     {{ f.location }}
                   </span>
@@ -155,62 +155,60 @@ function formatDateRange(start: string, end: string): string {
             </div>
 
             <!-- Details -->
-            <div class="px-4 py-3 space-y-2.5 border-t" :style="{ borderColor: f.accentColor + '15' }">
+            <div class="px-4 py-3 space-y-2.5 border-t" :style="{ borderColor: f.accentColor + '22' }">
               <div class="flex items-center gap-2 flex-wrap">
-                <Badge v-if="f.workshopCount > 0" variant="secondary" class="text-xs">
+                <span v-if="f.workshopCount > 0" class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium" style="border-color:#3b1f0d22; color:#3b1f0d; background:rgba(251,245,234,0.8);">
                   {{ f.workshopCount }} workshops
-                </Badge>
-                <Badge v-if="f.workshopCount === 0" variant="outline" class="text-xs text-muted-foreground">
+                </span>
+                <span v-if="f.workshopCount === 0" class="inline-flex items-center rounded-full border border-dashed px-2 py-0.5 text-xs italic" style="border-color:#3b1f0d22; color:#9a5614;">
                   Plan not started
-                </Badge>
-                <Badge v-if="f.role" variant="secondary" class="text-xs">
+                </span>
+                <span v-if="f.role" class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium" style="border-color:#3b1f0d22; color:#3b1f0d; background:rgba(251,245,234,0.8);">
                   {{ f.role === 'lead' ? 'Lead' : 'Follow' }}
-                </Badge>
-                <Badge
+                </span>
+                <span
                   v-if="f.lookingCount > 0"
-                  variant="outline"
-                  class="text-xs bg-orange-50 text-orange-600 border-orange-200"
+                  class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium"
+                  style="border-color:#f59e0b55; color:#92400e; background:rgba(245, 158, 11, 0.08);"
                 >
                   {{ f.lookingCount }} need partner
-                </Badge>
-                <Badge
+                </span>
+                <span
                   v-if="viewerFestivalSlugs.includes(f.slug)"
-                  variant="outline"
-                  class="text-xs bg-blue-50 text-blue-600 border-blue-200"
+                  class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium"
+                  style="border-color:#0891b255; color:#0891b2; background:rgba(8, 145, 178, 0.06);"
                 >
                   You're going too!
-                </Badge>
+                </span>
               </div>
 
-              <!-- Referral hint (only for festivals where sharer has a ticket, referral code is present, AND the festival has a referral program) -->
-              <div v-if="f.ticketStatus === 'purchased' && referralCode && f.referralDiscountPercent" class="rounded-md border border-dashed border-green-200 bg-green-50 p-2.5 flex items-center gap-2">
-                <Gift class="w-3.5 h-3.5 text-green-600 shrink-0" />
-                <p class="text-xs text-green-700">
+              <!-- Referral hint -->
+              <div v-if="f.ticketStatus === 'purchased' && referralCode && f.referralDiscountPercent" class="rounded-lg border-2 border-dashed p-2.5 flex items-center gap-2" style="border-color:#16a34a55; background:rgba(22, 163, 74, 0.06);">
+                <Gift class="w-3.5 h-3.5 shrink-0" style="color:#16a34a;" />
+                <p class="text-xs" style="color:#15803d;">
                   Buy your ticket through {{ sharer.name }}'s link — you both get {{ f.referralDiscountPercent }}% off.
                 </p>
               </div>
 
               <!-- Actions -->
               <div class="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  class="text-xs"
+                <button
+                  class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border-2 border-dashed hover:-translate-y-0.5 transition-transform"
+                  style="border-color:#3b1f0d33; color:#3b1f0d;"
                   @click="emit('open-festival', f.slug)"
                 >
                   See plan
-                  <ChevronRight class="w-3 h-3 ml-1" />
-                </Button>
-                <Button
+                  <ChevronRight class="w-3 h-3" />
+                </button>
+                <button
                   v-if="f.lookingCount > 0"
-                  size="sm"
-                  variant="outline"
-                  class="text-xs border-orange-300 text-orange-700 hover:bg-orange-50"
+                  class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border-2 border-dashed hover:-translate-y-0.5 transition-transform"
+                  style="border-color:#f59e0b55; color:#92400e;"
                   @click="emit('open-festival', f.slug)"
                 >
-                  <Heart class="w-3 h-3 mr-1" />
+                  <Heart class="w-3 h-3" />
                   Be their partner
-                </Button>
+                </button>
               </div>
             </div>
           </div>
@@ -219,16 +217,20 @@ function formatDateRange(start: string, end: string): string {
     </div>
 
     <!-- CTA: Create your own year plan -->
-    <div class="rounded-xl border-2 border-primary/20 bg-gradient-to-r from-primary/5 to-primary/10 p-6 text-center space-y-3">
-      <Calendar class="w-8 h-8 text-primary mx-auto" />
-      <h3 class="text-base font-semibold">Plan your own dance year</h3>
-      <p class="text-sm text-muted-foreground">
+    <div class="rounded-xl border-2 border-dashed p-6 text-center space-y-3" style="border-color:#dc262644; background:rgba(255,255,255,0.8);">
+      <Calendar class="w-8 h-8 mx-auto" style="color:#dc2626;" />
+      <h3 class="text-lg font-bold" style="font-family:'Playfair Display', serif; color:#3b1f0d;">Plan your own dance year</h3>
+      <p class="text-sm" style="color:#5b3a1d;">
         Browse festivals, pick workshops, find partners, and share your year with friends.
       </p>
-      <Button @click="emit('create-year-plan')">
+      <button
+        class="inline-flex items-center gap-2 px-6 py-3 rounded-full text-white text-sm font-bold uppercase tracking-wider"
+        style="background:linear-gradient(135deg, #dc2626, #f97316); box-shadow: 0 4px 0 -1px #b91c1c;"
+        @click="emit('create-year-plan')"
+      >
         Create my year plan
-        <ArrowRight class="w-4 h-4 ml-1.5" />
-      </Button>
+        <ArrowRight class="w-4 h-4" />
+      </button>
     </div>
   </div>
 </template>
