@@ -145,6 +145,9 @@ function onBePartner(workshopId: string) {
 const days = [...new Set(workshops.map((w) => w.day))]
 const styles = [...new Set(workshops.map((w) => w.style))]
 
+// Auth state (needed early for workshop persistence)
+const { isSignedIn, danceStyles: myDanceStyles, role: myRole, city: myCity, onboardedAt, completeOnboarding, updateProfile } = useAuth()
+
 // Plan state
 const plan = ref(new Map<string, PlanEntry>())
 const planIds = computed(() => new Set(plan.value.keys()))
@@ -171,6 +174,7 @@ function removeConflicting(next: Map<string, PlanEntry>, workshop: Workshop) {
     const existing = workshops.find((w) => w.id === existingId)
     if (existing && existing.id !== workshop.id && existing.type !== 'party' && existing.day === workshop.day && existing.time === workshop.time) {
       next.delete(existingId)
+      persistWorkshopRemove(existingId)
     }
   }
 }
@@ -179,12 +183,14 @@ function toggleWorkshop(id: string) {
   const next = new Map(plan.value)
   if (next.has(id)) {
     next.delete(id)
+    persistWorkshopRemove(id)
     plan.value = next
   } else {
     const workshop = workshops.find((w) => w.id === id)
     if (workshop?.type === 'party') {
       // Parties don't need role/partner — add directly
       next.set(id, { workshopId: id, role: null, partnerStatus: 'solo' })
+      persistWorkshopAdd(id)
       plan.value = next
     } else if (workshop && rememberedRole.value && rememberedHasPartner.value !== null) {
       // Both role and partner answer remembered — skip modal entirely
@@ -195,6 +201,7 @@ function toggleWorkshop(id: string) {
         partnerStatus: rememberedHasPartner.value ? 'with-partner' : 'looking',
         partnerId: rememberedHasPartner.value ? rememberedPartnerId.value : undefined,
       })
+      persistWorkshopAdd(id)
       plan.value = next
     } else {
       rolePickerWorkshopId.value = id
@@ -220,6 +227,7 @@ function onRoleConfirm(role: DanceRole, hasPartner: boolean, remember: boolean, 
     partnerStatus: hasPartner ? 'with-partner' : 'looking',
     partnerId: hasPartner ? partnerId : undefined,
   })
+  persistWorkshopAdd(id)
   plan.value = next
 }
 
@@ -232,6 +240,7 @@ function addPartner(name: string): DancePartner {
 function removeFromPlan(id: string) {
   const next = new Map(plan.value)
   next.delete(id)
+  persistWorkshopRemove(id)
   plan.value = next
 }
 
@@ -248,11 +257,26 @@ function updatePlanEntry(id: string, updates: Partial<PlanEntry>) {
 // and itemId='{festivalSlug}:{workshopId}' so the year plan can count them.
 const persistedWorkshopIds = ref(new Set<string>())
 
+function persistWorkshopAdd(workshopId: string) {
+  if (!isSignedIn.value || persistedWorkshopIds.value.has(workshopId)) return
+  persistedWorkshopIds.value.add(workshopId)
+  $trpc.plan.add
+    .mutate({ itemType: 'workshop', itemId: `${slug}:${workshopId}` })
+    .catch(() => { persistedWorkshopIds.value.delete(workshopId) })
+}
+
+function persistWorkshopRemove(workshopId: string) {
+  if (!isSignedIn.value || !persistedWorkshopIds.value.has(workshopId)) return
+  persistedWorkshopIds.value.delete(workshopId)
+  $trpc.plan.remove
+    .mutate({ itemType: 'workshop', itemId: `${slug}:${workshopId}` })
+    .catch(() => { persistedWorkshopIds.value.add(workshopId) })
+}
+
 // Load persisted workshops on mount (signed-in users only).
 if (import.meta.client) {
   onMounted(async () => {
-    const { isSignedIn: signedIn } = useAuth()
-    if (!signedIn.value) return
+    if (!isSignedIn.value) return
     try {
       const items = await $trpc.plan.list.query()
       const prefix = `${slug}:`
@@ -274,36 +298,6 @@ if (import.meta.client) {
     } catch { /* keep local state */ }
   })
 }
-
-// Sync additions/removals to the DB.
-watch(
-  () => new Set(plan.value.keys()),
-  (current, prev) => {
-    const { isSignedIn: signedIn } = useAuth()
-    if (!signedIn.value) return
-
-    const added = [...current].filter((id) => !prev?.has(id))
-    const removed = prev ? [...prev].filter((id) => !current.has(id)) : []
-
-    for (const id of added) {
-      if (!persistedWorkshopIds.value.has(id)) {
-        persistedWorkshopIds.value.add(id)
-        $trpc.plan.add
-          .mutate({ itemType: 'workshop', itemId: `${slug}:${id}` })
-          .catch(() => { persistedWorkshopIds.value.delete(id) })
-      }
-    }
-    for (const id of removed) {
-      if (persistedWorkshopIds.value.has(id)) {
-        persistedWorkshopIds.value.delete(id)
-        $trpc.plan.remove
-          .mutate({ itemType: 'workshop', itemId: `${slug}:${id}` })
-          .catch(() => { persistedWorkshopIds.value.add(id) })
-      }
-    }
-  },
-  { deep: true },
-)
 
 // Teacher filter
 const selectedTeacherId = ref<string | null>(null)
@@ -328,9 +322,6 @@ function toggleTeacherFilter(id: string) {
   selectedTeacherId.value = selectedTeacherId.value === id ? null : id
   nextTick(() => scrollTo('schedule'))
 }
-
-// Auth state
-const { isSignedIn, danceStyles: myDanceStyles, role: myRole, city: myCity, onboardedAt, completeOnboarding, updateProfile } = useAuth()
 
 // Mock friends (shown after sign-in)
 const mockFriends: FestivalFriend[] = [
