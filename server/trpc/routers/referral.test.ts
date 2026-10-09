@@ -197,7 +197,7 @@ describe('referral.myReferrals', () => {
     const db = new FakeDb()
     const caller = makeCaller(db)
     const result = await caller.referral.myReferrals()
-    expect(result).toEqual([])
+    expect(result).toEqual({ referrals: [], availableCreditCents: 0 })
   })
 
   it('returns referrals for the authenticated dancer', async () => {
@@ -209,9 +209,9 @@ describe('referral.myReferrals', () => {
 
     const caller = makeCaller(db, { dancerId: me })
     const result = await caller.referral.myReferrals()
-    expect(result).toHaveLength(1)
-    expect(result[0].discountCents).toBe(2100)
-    expect(result[0].status).toBe('completed')
+    expect(result.referrals).toHaveLength(1)
+    expect(result.referrals[0].discountCents).toBe(2100)
+    expect(result.referrals[0].status).toBe('completed')
   })
 
   it('does not return referrals where the dancer is the referee', async () => {
@@ -224,6 +224,6 @@ describe('referral.myReferrals', () => {
 
     const caller = makeCaller(db, { dancerId: me })
     const result = await caller.referral.myReferrals()
-    expect(result).toEqual([])
+    expect(result).toEqual({ referrals: [], availableCreditCents: 0 })
   })
 })

@@ -63,7 +63,7 @@ export const referralRouter = router({
   myReferrals: publicProcedure
     .input(z.object({ festivalSlug: z.string().optional() }).optional())
     .query(async ({ ctx, input }) => {
-      if (!ctx.dancerId) return []
+      if (!ctx.dancerId) return { referrals: [], availableCreditCents: 0 }
 
       const conditions = [eq(referrals.referrerId, ctx.dancerId)]
       if (input?.festivalSlug) {
@@ -81,12 +81,20 @@ export const referralRouter = router({
           id: referrals.id,
           status: referrals.status,
           discountCents: referrals.discountCents,
+          referrerCreditCents: referrals.referrerCreditCents,
+          referrerCreditAppliedSessionId: referrals.referrerCreditAppliedSessionId,
           createdAt: referrals.createdAt,
           completedAt: referrals.completedAt,
         })
         .from(referrals)
         .where(conditions.length === 1 ? conditions[0] : and(...conditions))
 
-      return rows
+      // Compute aggregated credit balance for convenience.
+      const totalCreditCents = rows.reduce((sum: number, r: any) =>
+        r.status === 'completed' && r.referrerCreditCents > 0 && !r.referrerCreditAppliedSessionId
+          ? sum + r.referrerCreditCents
+          : sum, 0)
+
+      return { referrals: rows, availableCreditCents: totalCreditCents }
     }),
 })

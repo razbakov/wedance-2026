@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { eq, and, sql } from 'drizzle-orm'
+import { eq, and, sql, isNull } from 'drizzle-orm'
 import Stripe from 'stripe'
 import { TRPCError } from '@trpc/server'
 import { router, publicProcedure, protectedProcedure } from '../trpc'
@@ -241,8 +241,8 @@ export const festivalSignupRouter = router({
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Dancer not found' })
       }
 
-      // ── Referral discount ────────────────────────────────────────
-      let discountCents = 0
+      // ── Referral discount (referee side) ─────────────────────────
+      let refereeDiscountCents = 0
       let referrerId: string | null = null
       const discountPercent = input.referralCode
         ? getReferralDiscountPercent(input.festivalSlug)
@@ -270,17 +270,52 @@ export const festivalSignupRouter = router({
         // Can't refer yourself.
         if (referrer && referrer.id !== ctx.dancerId) {
           referrerId = referrer.id
-          discountCents = Math.round(totalCents * discountPercent / 100)
+          refereeDiscountCents = Math.round(totalCents * discountPercent / 100)
         }
       }
 
-      const chargedCents = Math.max(totalCents - discountCents, 0)
+      // ── Referrer credit (referrer side) ─────────────────────────
+      // When the current buyer previously referred others whose payments
+      // completed, they earn credits. Pull all unused credits and apply
+      // them to this purchase.
+      let referrerCreditCents = 0
+      let creditReferralIds: string[] = []
+
+      const unusedCredits = await ctx.db
+        .select({
+          id: referrals.id,
+          referrerCreditCents: referrals.referrerCreditCents,
+        })
+        .from(referrals)
+        .where(and(
+          eq(referrals.referrerId, ctx.dancerId),
+          eq(referrals.status, 'completed'),
+          sql`${referrals.referrerCreditCents} > 0`,
+          isNull(referrals.referrerCreditAppliedSessionId),
+        ))
+
+      if (unusedCredits.length > 0) {
+        referrerCreditCents = unusedCredits.reduce(
+          (sum: number, r: { referrerCreditCents: number }) => sum + r.referrerCreditCents, 0,
+        )
+        creditReferralIds = unusedCredits.map((r: { id: string }) => r.id)
+      }
+
+      // Total discount = referee referral discount + referrer credit,
+      // capped at the ticket total (can't go negative).
+      const totalDiscountCents = Math.min(
+        refereeDiscountCents + referrerCreditCents,
+        totalCents,
+      )
+      const appliedCreditCents = Math.min(
+        referrerCreditCents,
+        Math.max(totalCents - refereeDiscountCents, 0),
+      )
+      const chargedCents = Math.max(totalCents - totalDiscountCents, 0)
 
       const config = useRuntimeConfig()
       const stripe = getStripe()
 
-      // Build Stripe line items. When a referral discount applies, add a
-      // negative line item so the buyer sees the breakdown.
       const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = resolved.map((t) => ({
         price_data: {
           currency: 'eur',
@@ -292,14 +327,20 @@ export const festivalSignupRouter = router({
         quantity: 1,
       }))
 
-      // Apply discount via a Stripe coupon when a referral is active.
+      // Apply a single combined Stripe coupon when any discount is active.
+      // Stripe payment-mode sessions only support one discount entry.
       let stripeCouponId: string | undefined
-      if (discountCents > 0) {
+      if (totalDiscountCents > 0) {
+        const parts: string[] = []
+        if (refereeDiscountCents > 0) parts.push(`Referral ${discountPercent}% off`)
+        if (appliedCreditCents > 0) {
+          parts.push(`Referrer credit €${(appliedCreditCents / 100).toFixed(2)}`)
+        }
         const coupon = await stripe.coupons.create({
-          amount_off: discountCents,
+          amount_off: totalDiscountCents,
           currency: 'eur',
           duration: 'once',
-          name: `Referral ${discountPercent}% off`,
+          name: parts.join(' + '),
         })
         stripeCouponId = coupon.id
       }
@@ -316,7 +357,8 @@ export const festivalSignupRouter = router({
           ticketName: input.ticketNames.join(', '),
           dancerId: ctx.dancerId,
           amountCents: String(chargedCents),
-          ...(referrerId ? { referrerId, referralDiscount: String(discountCents) } : {}),
+          ...(referrerId ? { referrerId, referralDiscount: String(refereeDiscountCents) } : {}),
+          ...(appliedCreditCents > 0 ? { referrerCredit: String(appliedCreditCents) } : {}),
         },
         success_url: `${config.siteUrl}/festivals/${input.festivalSlug}?payment=success`,
         cancel_url: `${config.siteUrl}/festivals/${input.festivalSlug}?payment=cancel`,
@@ -329,7 +371,7 @@ export const festivalSignupRouter = router({
             festivalId: festival.id,
             referrerId,
             refereeId: ctx.dancerId,
-            discountCents,
+            discountCents: refereeDiscountCents,
             stripeSessionId: session.id,
             status: 'pending',
           })
@@ -339,10 +381,26 @@ export const festivalSignupRouter = router({
         }
       }
 
+      // Mark referrer credits as consumed by this checkout session.
+      for (const creditId of creditReferralIds) {
+        try {
+          await ctx.db
+            .update(referrals)
+            .set({ referrerCreditAppliedSessionId: session.id })
+            .where(and(
+              eq(referrals.id, creditId),
+              isNull(referrals.referrerCreditAppliedSessionId),
+            ))
+        } catch {
+          // Best-effort — the credit is already applied via Stripe coupon.
+        }
+      }
+
       return {
         checkoutUrl: session.url,
-        discountCents,
-        discountPercent: discountCents > 0 ? discountPercent : 0,
+        discountCents: totalDiscountCents,
+        discountPercent: refereeDiscountCents > 0 ? discountPercent : 0,
+        referrerCreditCents: appliedCreditCents,
       }
     }),
 

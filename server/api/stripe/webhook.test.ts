@@ -50,10 +50,23 @@ class FakeDb {
       discountCents: row.discountCents ?? 2100,
       stripeSessionId: row.stripeSessionId ?? null,
       status: row.status ?? 'pending',
+      referrerCreditCents: row.referrerCreditCents ?? 0,
+      referrerCreditAppliedSessionId: row.referrerCreditAppliedSessionId ?? null,
       createdAt: new Date(),
       completedAt: null,
       ...row,
     })
+  }
+
+  select(_columns: any) {
+    const self = this
+    return {
+      from: (table: any) => ({
+        where: (filter: FilterFn) => {
+          return Promise.resolve(self.tableFor(table).filter(filter))
+        },
+      }),
+    }
   }
 
   update(table: any) {
@@ -83,14 +96,15 @@ import { completeReferral, expireReferral } from './webhook.lib'
 // =====================================================================
 
 describe('completeReferral', () => {
-  it('transitions a pending referral to completed', async () => {
+  it('transitions a pending referral to completed and credits the referrer', async () => {
     const db = new FakeDb()
-    db.seedReferral({ stripeSessionId: 'cs_123', status: 'pending' })
+    db.seedReferral({ stripeSessionId: 'cs_123', status: 'pending', discountCents: 2100 })
 
     await completeReferral(db, 'cs_123')
 
     expect(db.referrals[0].status).toBe('completed')
     expect(db.referrals[0].completedAt).toBeInstanceOf(Date)
+    expect(db.referrals[0].referrerCreditCents).toBe(2100)
   })
 
   it('is idempotent — does not re-complete an already completed referral', async () => {
