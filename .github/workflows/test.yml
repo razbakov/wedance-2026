@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  test:
+  unit:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -34,4 +34,94 @@ jobs:
         with:
           name: coverage-report
           path: coverage/
+          retention-days: 14
+
+  e2e-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: wedance
+          POSTGRES_PASSWORD: wedance
+          POSTGRES_DB: wedance_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U wedance"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://wedance:wedance@localhost:5432/wedance_test
+      BASE_URL: http://localhost:3000
+      SITE_URL: http://localhost:3000
+      # The neon-http-proxy bridges the @neondatabase/serverless driver to the
+      # plain CI Postgres. The app reads NEON_FETCH_ENDPOINT at startup.
+      NEON_FETCH_ENDPOINT: http://localhost:4444/sql
+      LOCAL_PG_URL: postgresql://wedance:wedance@localhost:5432/wedance_test
+      # FirebaseScrypt test keys — NOT production secrets. These are throwaway
+      # values that let the auth router hash/verify passwords in CI. Real users
+      # created in the test DB use these keys, so they only work in this run.
+      FIREBASE_SALT_SEPARATOR: Bw==
+      FIREBASE_SIGNER_KEY: jbxMAlxOb1EIkbUTmWJHJGCOhY6w7bouZxGqvsXFQwPq9lFjLSTMEJBkenAfMGbjLDpir0nnVDlyyXqU5Dv2eA==
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Cache bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lockb') }}
+          restore-keys: |
+            bun-${{ runner.os }}-
+
+      - run: bun install --frozen-lockfile
+
+      - name: Run database migrations
+        run: bunx drizzle-kit push --force
+
+      - name: Start neon-http-proxy (background)
+        run: bun scripts/dev/neon-http-proxy.ts &
+
+      - name: Wait for neon-http-proxy
+        run: |
+          for i in $(seq 1 10); do
+            curl -sf http://localhost:4444/sql -X POST -H 'Content-Type: application/json' \
+              -d '{"query":"SELECT 1"}' && break
+            sleep 1
+          done
+
+      - name: Build the app
+        run: bun run build
+
+      - name: Install Playwright browsers
+        run: bunx playwright install --with-deps chromium
+
+      - name: Generate BDD test files
+        run: bunx bddgen
+
+      - name: Run @smoke E2E tests
+        run: bunx playwright test --grep @smoke
+
+      - name: Upload E2E report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report
+          path: playwright-report/
+          retention-days: 14
+
+      - name: Upload E2E screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-screenshots
+          path: e2e/test-results/
           retention-days: 14

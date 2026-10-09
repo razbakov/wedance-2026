@@ -16,6 +16,7 @@ node_modules/
 playwright-report/
 .features-gen/
 coverage/
+e2e/test-results/
 
 # OS
 .DS_Store
