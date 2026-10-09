@@ -316,7 +316,7 @@ Then('the sign-up modal is visible', async ({ page }) => {
   await expect(dialog).toBeVisible({ timeout: 5_000 })
   // The modal for a signed-out "Going" click shows the register view.
   await expect(
-    dialog.getByText('Join', { exact: false }),
+    dialog.getByRole('heading', { name: 'Join WeDance' }),
   ).toBeVisible()
 })
 
