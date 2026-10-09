@@ -1,7 +1,7 @@
 import { z } from 'zod'
-import { eq, and, sql, inArray } from 'drizzle-orm'
+import { eq, and, ne, sql, inArray, gte, lt, asc } from 'drizzle-orm'
 import { router, publicProcedure, protectedProcedure } from '../trpc'
-import { planItems, dancers, festivals, festivalSignups } from '../../database/schema'
+import { planItems, dancers, festivals, festivalSignups, events } from '../../database/schema'
 import { getReferralDiscountPercent } from '../../utils/ticket-prices'
 
 export const planRouter = router({
@@ -318,4 +318,273 @@ export const planRouter = router({
         festivals: result,
       }
     }),
+
+  /**
+   * Discover deck — people and places to widen a dancer's year.
+   *
+   * Returns a mixed deck of:
+   *  - dancers in the same city with overlapping styles (dancer-local)
+   *  - dancers heading to festivals the caller hasn't picked (dancer-new-fest)
+   *  - dancers going to the same festivals as the caller (dancer-your-fest)
+   *  - upcoming events in the caller's city (event-social)
+   *  - upcoming festival-type events not in the caller's plan (event-festival)
+   *
+   * Capped at 20 cards, shuffled. Preview mode handled client-side.
+   */
+  discover: protectedProcedure.query(async ({ ctx }) => {
+    // 1. Caller's profile
+    const [me] = await ctx.db
+      .select({
+        id: dancers.id,
+        city: dancers.city,
+        danceStyles: dancers.danceStyles,
+      })
+      .from(dancers)
+      .where(eq(dancers.id, ctx.dancerId))
+
+    if (!me) return { cards: [] }
+
+    const myCity = me.city ?? ''
+    const myCitySlug = myCity.toLowerCase().replace(/\s+/g, '-')
+    const myStyles = (me.danceStyles as string[]) ?? []
+
+    // 2. Caller's existing plan items (festivals)
+    const myPlanRows = await ctx.db
+      .select({ itemId: planItems.itemId })
+      .from(planItems)
+      .where(and(eq(planItems.dancerId, ctx.dancerId), eq(planItems.itemType, 'festival')))
+
+    const myFestivalSlugs = new Set(myPlanRows.map(r => r.itemId))
+
+    const cards: Array<{
+      kind: string
+      dancerName?: string
+      dancerPhoto?: string
+      dancerCity?: string
+      dancerStyles?: string[]
+      festivalSlug?: string
+      festivalName?: string
+      festivalColor?: string
+      eventName?: string
+      eventSlug?: string
+      eventDateISO?: string
+      eventVenue?: string
+      eventCity?: string
+      eventStyle?: string
+      eventDayLabel?: string
+      eventTime?: string
+      friendsGoing?: number
+      color?: string
+    }> = []
+
+    // 3. Local dancers (same city, overlapping styles, public, not me)
+    if (myCity) {
+      try {
+        const localDancers = await ctx.db
+          .select({
+            id: dancers.id,
+            name: dancers.name,
+            photo: dancers.photo,
+            city: dancers.city,
+            danceStyles: dancers.danceStyles,
+          })
+          .from(dancers)
+          .where(
+            and(
+              eq(dancers.city, myCity),
+              ne(dancers.id, ctx.dancerId),
+              eq(dancers.profilePublic, true),
+            ),
+          )
+          .limit(30)
+
+        for (const d of localDancers) {
+          const dStyles = (d.danceStyles as string[]) ?? []
+          const shared = dStyles.filter(s => myStyles.includes(s))
+          if (shared.length === 0) continue
+          cards.push({
+            kind: 'dancer-local',
+            dancerName: d.name,
+            dancerPhoto: d.photo ?? '',
+            dancerCity: d.city ?? '',
+            dancerStyles: dStyles,
+          })
+        }
+      } catch { /* non-critical */ }
+    }
+
+    // 4. Dancers heading to festivals the caller hasn't picked (dancer-new-fest)
+    // and dancers going to the same festivals (dancer-your-fest)
+    try {
+      // Find all plan items of type 'festival' by other dancers
+      const otherPlans = await ctx.db
+        .select({
+          dancerId: planItems.dancerId,
+          itemId: planItems.itemId,
+        })
+        .from(planItems)
+        .where(
+          and(
+            eq(planItems.itemType, 'festival'),
+            ne(planItems.dancerId, ctx.dancerId),
+          ),
+        )
+        .limit(200)
+
+      if (otherPlans.length > 0) {
+        // Get unique dancer IDs from other plans
+        const otherDancerIds = [...new Set(otherPlans.map(p => p.dancerId))]
+
+        // Fetch their profiles (public only)
+        const otherDancerRows = await ctx.db
+          .select({
+            id: dancers.id,
+            name: dancers.name,
+            photo: dancers.photo,
+            city: dancers.city,
+            danceStyles: dancers.danceStyles,
+          })
+          .from(dancers)
+          .where(
+            and(
+              inArray(dancers.id, otherDancerIds),
+              eq(dancers.profilePublic, true),
+            ),
+          )
+
+        const dancerMap = new Map(otherDancerRows.map(d => [d.id, d]))
+
+        // Get festival metadata for all slugs referenced
+        const allSlugs = [...new Set(otherPlans.map(p => p.itemId))]
+        const festivalRows = allSlugs.length > 0
+          ? await ctx.db
+              .select({
+                slug: festivals.slug,
+                name: festivals.name,
+                accentColor: festivals.accentColor,
+              })
+              .from(festivals)
+              .where(inArray(festivals.slug, allSlugs))
+          : []
+        const festMap = new Map(festivalRows.map(f => [f.slug, f]))
+
+        for (const plan of otherPlans) {
+          const d = dancerMap.get(plan.dancerId)
+          if (!d) continue
+          const fest = festMap.get(plan.itemId)
+          if (!fest) continue
+
+          if (myFestivalSlugs.has(plan.itemId)) {
+            // dancer-your-fest: they're going to a festival I also picked
+            cards.push({
+              kind: 'dancer-your-fest',
+              dancerName: d.name,
+              dancerPhoto: d.photo ?? '',
+              dancerCity: d.city ?? '',
+              dancerStyles: (d.danceStyles as string[]) ?? [],
+              festivalSlug: plan.itemId,
+              festivalName: fest.name,
+              festivalColor: fest.accentColor ?? '#7c3aed',
+            })
+          } else {
+            // dancer-new-fest: they're heading to a festival I haven't explored
+            cards.push({
+              kind: 'dancer-new-fest',
+              dancerName: d.name,
+              dancerPhoto: d.photo ?? '',
+              dancerCity: d.city ?? '',
+              dancerStyles: (d.danceStyles as string[]) ?? [],
+              festivalSlug: plan.itemId,
+              festivalName: fest.name,
+              festivalColor: fest.accentColor ?? '#0ea5e9',
+            })
+          }
+        }
+      }
+    } catch { /* non-critical */ }
+
+    // 5. Upcoming events in the caller's city (event-social + event-festival)
+    if (myCitySlug) {
+      try {
+        const now = new Date()
+        const until = new Date(now.getTime() + 90 * 86400_000)
+
+        const upcoming = await ctx.db
+          .select({
+            id: events.id,
+            name: events.name,
+            slug: events.slug,
+            type: events.type,
+            startDate: events.startDate,
+            isFestival: events.isFestival,
+            venueName: events.venueName,
+            city: events.city,
+            styles: events.styles,
+          })
+          .from(events)
+          .where(
+            and(
+              eq(events.citySlug, myCitySlug),
+              eq(events.published, true),
+              eq(events.archived, false),
+              gte(events.endDate, now),
+              lt(events.startDate, until),
+            ),
+          )
+          .orderBy(asc(events.startDate))
+          .limit(30)
+
+        const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+        const STYLE_COLORS: Record<string, string> = {
+          Salsa: '#f59e0b',
+          Bachata: '#a855f7',
+          Kizomba: '#0ea5e9',
+          Cuban: '#dc2626',
+          Timba: '#dc2626',
+          Zouk: '#16a34a',
+        }
+
+        for (const ev of upcoming) {
+          const evStyles = (ev.styles as string[]) ?? []
+          const mainStyle = evStyles[0] ?? ev.type ?? ''
+
+          if (ev.isFestival) {
+            const slug = ev.slug ?? ev.id
+            if (myFestivalSlugs.has(slug)) continue
+            cards.push({
+              kind: 'event-festival',
+              eventName: ev.name ?? '',
+              eventSlug: slug,
+              eventDateISO: ev.startDate ? ev.startDate.toISOString() : '',
+              eventVenue: ev.venueName ?? '',
+              eventCity: ev.city ?? '',
+              friendsGoing: 0,
+              color: STYLE_COLORS[mainStyle] ?? '#a855f7',
+            })
+          } else {
+            const start = ev.startDate
+            cards.push({
+              kind: 'event-social',
+              eventName: ev.name ?? '',
+              eventDayLabel: start ? DAY_NAMES[start.getDay()] : '',
+              eventTime: start ? `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}` : '',
+              eventVenue: ev.venueName ?? '',
+              eventCity: ev.city ?? '',
+              eventStyle: mainStyle,
+              friendsGoing: 0,
+              color: STYLE_COLORS[mainStyle] ?? '#f59e0b',
+            })
+          }
+        }
+      } catch { /* non-critical */ }
+    }
+
+    // 6. Shuffle and cap at 20
+    for (let i = cards.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[cards[i], cards[j]] = [cards[j], cards[i]]
+    }
+
+    return { cards: cards.slice(0, 20) }
+  }),
 })
