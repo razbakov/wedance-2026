@@ -145,7 +145,14 @@ async function nativeShare() {
               :key="f.slug"
               class="flex items-center gap-2 text-xs"
             >
-              <img :src="f.logo" :alt="f.name" class="w-6 h-6 rounded object-cover shrink-0" />
+              <img v-if="f.logo" :src="f.logo" :alt="f.name" class="w-6 h-6 rounded object-cover shrink-0" />
+              <div
+                v-else
+                class="w-6 h-6 rounded flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+                :style="{ background: f.accentColor || '#9a5614' }"
+              >
+                {{ f.name.charAt(0) }}
+              </div>
               <span class="font-medium flex-1 truncate">{{ f.name }}</span>
               <span class="text-muted-foreground shrink-0">{{ formatDateRange(f.startDate, f.endDate) }}</span>
               <Badge

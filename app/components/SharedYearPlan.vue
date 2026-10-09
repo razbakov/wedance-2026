@@ -135,10 +135,18 @@ function formatDateRange(start: string, end: string): string {
               :style="{ background: f.accentColor + '0d' }"
             >
               <img
+                v-if="f.logo"
                 :src="f.logo"
                 :alt="f.name"
                 class="w-10 h-10 rounded-lg object-cover shrink-0"
               />
+              <div
+                v-else
+                class="w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold text-white shrink-0"
+                :style="{ background: f.accentColor || '#9a5614' }"
+              >
+                {{ f.name.charAt(0) }}
+              </div>
               <div class="flex-1 min-w-0">
                 <h4 class="text-sm font-bold leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">{{ f.name }}</h4>
                 <div class="flex items-center gap-2 mt-0.5">
