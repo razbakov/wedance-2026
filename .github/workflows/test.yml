@@ -60,7 +60,7 @@ jobs:
       BASE_URL: http://localhost:3000
       SITE_URL: http://localhost:3000
       # Force node preset so nuxt preview works (CI auto-detects Vercel otherwise)
-      NITRO_PRESET: node
+      NITRO_PRESET: node-server
       # The neon-http-proxy bridges the @neondatabase/serverless driver to the
       # plain CI Postgres. The app reads NEON_FETCH_ENDPOINT at startup.
       NEON_FETCH_ENDPOINT: http://localhost:4444/sql
