@@ -118,20 +118,34 @@ useHead(() => ({
           v-for="p in people"
           :key="p.username || p.name || ''"
           :to="`/@${p.username}`"
-          class="group block rounded-2xl bg-white border p-4 text-center transition-all hover:-translate-y-1"
-          :style="{ borderColor: accent + '33', boxShadow: '0 1px 0 ' + accent + '14' }"
+          class="group relative aspect-square rounded-2xl overflow-hidden transition-all hover:-translate-y-1"
+          :style="{ boxShadow: '0 2px 8px rgba(59,31,18,0.12)' }"
         >
           <img
             :src="photo(p)"
             :alt="p.name || ''"
             loading="lazy"
-            class="w-20 h-20 mx-auto rounded-full object-cover shadow-sm"
+            class="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
           >
-          <div class="mt-3 text-sm font-bold leading-tight truncate" style="color:#3b1f0d;">
-            {{ p.name }}
+
+          <!-- Style labels at top -->
+          <div v-if="p.styles?.length" class="absolute top-2.5 left-2.5 flex flex-wrap gap-1 z-10">
+            <span
+              v-for="st in p.styles.slice(0, 3)"
+              :key="st"
+              class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full text-white"
+              style="background:rgba(59,31,18,0.55); backdrop-filter: blur(4px);"
+            >{{ st }}</span>
           </div>
-          <div v-if="p.styles?.length" class="mt-1 text-[11px] italic truncate" style="color:#9a5614;">
-            {{ p.styles.slice(0, 3).join(' · ') }}
+
+          <!-- Name overlay at bottom -->
+          <div
+            class="absolute inset-x-0 bottom-0 p-3 pt-10 z-10"
+            style="background: linear-gradient(to top, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.3) 60%, transparent 100%);"
+          >
+            <div class="text-sm font-bold leading-tight truncate text-white">
+              {{ p.name }}
+            </div>
           </div>
         </NuxtLink>
       </div>

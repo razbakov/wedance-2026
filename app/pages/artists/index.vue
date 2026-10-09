@@ -153,42 +153,50 @@ const NuxtLinkC = resolveComponent('NuxtLink')
         </button>
       </div>
 
-      <div v-else class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <div v-else class="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
         <component
           :is="NuxtLinkC"
           v-for="(a, i) in filtered"
           :key="a.username"
           :to="`/@${a.username}`"
-          class="group rounded-2xl bg-white border p-5 transition-all hover:-translate-y-0.5 flex items-center gap-4"
-          :style="{ borderColor: accents[i % accents.length] + '55', boxShadow: '0 1px 0 ' + accents[i % accents.length] + '18, 0 6px 18px rgba(59,31,18,0.04)' }"
+          class="group relative aspect-square rounded-2xl overflow-hidden transition-all hover:-translate-y-1"
+          :style="{ boxShadow: '0 2px 8px rgba(59,31,18,0.12)' }"
         >
           <img
             v-if="a.photo"
             :src="a.photo"
             :alt="a.name"
-            class="w-16 h-16 rounded-full object-cover border-2 shrink-0"
-            :style="{ borderColor: accents[i % accents.length] + '55' }"
+            class="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
           >
           <div
             v-else
-            class="w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold text-white shrink-0"
+            class="absolute inset-0 flex items-center justify-center text-5xl font-bold text-white"
             :style="{ background: accents[i % accents.length] }"
           >
             {{ a.name.charAt(0) }}
           </div>
-          <div class="min-w-0">
-            <h3 class="text-lg font-bold leading-tight truncate group-hover:underline" style="color:#3b1f0d;">{{ a.name }}</h3>
-            <p v-if="a.city" class="text-xs inline-flex items-center gap-1 mt-0.5" style="color:#9a5614; font-family: system-ui, sans-serif;">
+
+          <!-- Style labels at top -->
+          <div v-if="a.styles?.length" class="absolute top-2.5 left-2.5 flex flex-wrap gap-1 z-10">
+            <span
+              v-for="st in a.styles.slice(0, 3)"
+              :key="st"
+              class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full text-white"
+              style="background:rgba(59,31,18,0.55); backdrop-filter: blur(4px);"
+            >{{ st }}</span>
+          </div>
+
+          <!-- Name + city overlay at bottom -->
+          <div
+            class="absolute inset-x-0 bottom-0 p-3 pt-10 z-10"
+            style="background: linear-gradient(to top, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.3) 60%, transparent 100%);"
+          >
+            <h3 class="text-base font-bold leading-tight truncate text-white" style="font-family:'Playfair Display', serif;">
+              {{ a.name }}
+            </h3>
+            <p v-if="a.city" class="text-xs inline-flex items-center gap-1 mt-0.5 text-white/80" style="font-family: system-ui, sans-serif;">
               <MapPin class="w-3 h-3" /> {{ a.city }}
             </p>
-            <div v-if="a.styles?.length" class="flex flex-wrap gap-1 mt-2">
-              <span
-                v-for="st in a.styles.slice(0, 3)"
-                :key="st"
-                class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
-                :style="{ background: accents[i % accents.length] + '18', color: accents[i % accents.length] }"
-              >{{ st }}</span>
-            </div>
           </div>
         </component>
       </div>
