@@ -50,7 +50,7 @@ const stages = [
     detail: 'Real profiles. Styles, languages, schools.',
     icon: GraduationCap,
     horizon: 'plan your month',
-    href: '/cities/munich',
+    href: '/artists',
   },
   {
     label: 'Regular',
