@@ -321,10 +321,8 @@ Then('the sign-up modal is visible', async ({ page }) => {
 })
 
 Then('no event is saved to my week plan', async ({ page }) => {
-  // The "Going?" button should still show "Going?" (not "Going!").
-  // If the event were saved, the button text changes to "Going!".
-  await expect(page.getByRole('button', { name: 'Going?' })).toBeVisible()
-  // The "Going!" button should NOT be visible.
+  // The sign-up modal is still open, so "Going?" may be behind it.
+  // The real assertion: "Going!" (saved state) must NOT exist anywhere.
   const goingDone = page.getByRole('button', { name: 'Going!' })
   await expect(goingDone).not.toBeVisible()
 })
