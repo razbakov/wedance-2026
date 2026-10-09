@@ -3,8 +3,8 @@ import { eq, and, sql } from 'drizzle-orm'
 import Stripe from 'stripe'
 import { TRPCError } from '@trpc/server'
 import { router, publicProcedure, protectedProcedure } from '../trpc'
-import { festivals, festivalSignups, dancers } from '../../database/schema'
-import { getTicketPriceCents } from '../../utils/ticket-prices'
+import { festivals, festivalSignups, dancers, referrals } from '../../database/schema'
+import { getTicketPriceCents, getReferralDiscountPercent } from '../../utils/ticket-prices'
 
 function getStripe() {
   const config = useRuntimeConfig()
@@ -186,6 +186,7 @@ export const festivalSignupRouter = router({
     .input(z.object({
       festivalSlug: z.string(),
       ticketNames: z.array(z.string().min(1).max(200)).min(1).max(10),
+      referralCode: z.string().min(1).max(100).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       // Resolve each ticket price server-side.
@@ -240,33 +241,109 @@ export const festivalSignupRouter = router({
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Dancer not found' })
       }
 
+      // ── Referral discount ────────────────────────────────────────
+      let discountCents = 0
+      let referrerId: string | null = null
+      const discountPercent = input.referralCode
+        ? getReferralDiscountPercent(input.festivalSlug)
+        : 0
+
+      if (input.referralCode && discountPercent > 0) {
+        // Resolve referrer by username, then by dancer ID.
+        let referrer: { id: string } | undefined
+        const [byUsername] = await ctx.db
+          .select({ id: dancers.id })
+          .from(dancers)
+          .where(eq(dancers.username, input.referralCode))
+        if (byUsername) {
+          referrer = byUsername
+        } else {
+          try {
+            const [byId] = await ctx.db
+              .select({ id: dancers.id })
+              .from(dancers)
+              .where(eq(dancers.id, input.referralCode))
+            if (byId) referrer = byId
+          } catch { /* not a valid UUID */ }
+        }
+
+        // Can't refer yourself.
+        if (referrer && referrer.id !== ctx.dancerId) {
+          referrerId = referrer.id
+          discountCents = Math.round(totalCents * discountPercent / 100)
+        }
+      }
+
+      const chargedCents = Math.max(totalCents - discountCents, 0)
+
       const config = useRuntimeConfig()
       const stripe = getStripe()
+
+      // Build Stripe line items. When a referral discount applies, add a
+      // negative line item so the buyer sees the breakdown.
+      const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = resolved.map((t) => ({
+        price_data: {
+          currency: 'eur',
+          product_data: {
+            name: `${festival.name} — ${t.name}`,
+          },
+          unit_amount: t.priceCents,
+        },
+        quantity: 1,
+      }))
+
+      // Apply discount via a Stripe coupon when a referral is active.
+      let stripeCouponId: string | undefined
+      if (discountCents > 0) {
+        const coupon = await stripe.coupons.create({
+          amount_off: discountCents,
+          currency: 'eur',
+          duration: 'once',
+          name: `Referral ${discountPercent}% off`,
+        })
+        stripeCouponId = coupon.id
+      }
 
       const session = await stripe.checkout.sessions.create({
         mode: 'payment',
         customer_email: dancer.email,
-        line_items: resolved.map((t) => ({
-          price_data: {
-            currency: 'eur',
-            product_data: {
-              name: `${festival.name} — ${t.name}`,
-            },
-            unit_amount: t.priceCents,
-          },
-          quantity: 1,
-        })),
+        line_items: lineItems,
+        ...(stripeCouponId ? {
+          discounts: [{ coupon: stripeCouponId }],
+        } : {}),
         metadata: {
           festivalSlug: input.festivalSlug,
           ticketName: input.ticketNames.join(', '),
           dancerId: ctx.dancerId,
-          amountCents: String(totalCents),
+          amountCents: String(chargedCents),
+          ...(referrerId ? { referrerId, referralDiscount: String(discountCents) } : {}),
         },
         success_url: `${config.siteUrl}/festivals/${input.festivalSlug}?payment=success`,
         cancel_url: `${config.siteUrl}/festivals/${input.festivalSlug}?payment=cancel`,
       })
 
-      return { checkoutUrl: session.url }
+      // Record the referral (pending until Stripe webhook confirms payment).
+      if (referrerId) {
+        try {
+          await ctx.db.insert(referrals).values({
+            festivalId: festival.id,
+            referrerId,
+            refereeId: ctx.dancerId,
+            discountCents,
+            stripeSessionId: session.id,
+            status: 'pending',
+          })
+        } catch {
+          // Unique constraint = dancer already has a referral for this festival.
+          // Silently continue — the discount is already applied via Stripe.
+        }
+      }
+
+      return {
+        checkoutUrl: session.url,
+        discountCents,
+        discountPercent: discountCents > 0 ? discountPercent : 0,
+      }
     }),
 
   // Public verified-attendee roster for a festival.

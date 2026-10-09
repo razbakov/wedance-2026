@@ -93,6 +93,19 @@ const decodedShare = computed(() => {
 
 const isSharedView = computed(() => !!decodedShare.value || route.query.plan === 'shared')
 const hasReferral = computed(() => !!route.query.ref)
+const referralCode = computed(() => (route.query.ref as string) || '')
+
+// Validate the referral code against the backend and get referrer info.
+const referralInfo = ref<{ referrerName: string; referrerUsername: string | null; discountPercent: number } | null>(null)
+
+if (import.meta.client && referralCode.value) {
+  $trpc.referral.validate.query({
+    festivalSlug: festival.slug,
+    referralCode: referralCode.value,
+  }).then((result) => {
+    referralInfo.value = result
+  }).catch(() => { /* ignore validation errors */ })
+}
 
 // Shared-plan data: decoded from the invite token when available, otherwise
 // a lightweight fallback so the legacy `?plan=shared` URL still renders.
@@ -891,6 +904,7 @@ async function startTicketCheckout() {
     const res = await trpc.festivalSignup.ticketCheckout.mutate({
       festivalSlug: festival.slug,
       ticketNames: selectedTickets.value.map(t => t.name),
+      ...(referralCode.value ? { referralCode: referralCode.value } : {}),
     })
     if (res.checkoutUrl) {
       sessionStorage.setItem('wedance_checkout', JSON.stringify({
@@ -1081,6 +1095,7 @@ useHead({
     :sharer="sharer"
     :sharer-plan="sharerPlan"
     :has-referral="hasReferral"
+    :referral-info="referralInfo"
     @create-plan="onCreatePlan"
     @be-partner="onBePartner"
     @add-friend="() => { useTrack().track('shared_plan_signup', { surface: 'festival', slug: festival.slug, sharer: sharer.name }); onSignIn('friend') }"
@@ -1386,6 +1401,25 @@ useHead({
             <ArrowRight class="w-4 h-4 ml-auto shrink-0" style="color:#dc2626;" />
           </NuxtLink>
 
+          <!-- Referral discount banner -->
+          <div
+            v-if="referralInfo && !hasTicket"
+            class="rounded-2xl p-4 sm:p-5 mb-6 flex items-center gap-3"
+            style="background:linear-gradient(135deg, #dcfce7, #d1fae5); border:1px solid #16a34a33;"
+          >
+            <div class="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style="background:white;">
+              <span class="text-lg font-black" style="color:#16a34a;">%</span>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="text-[10px] uppercase tracking-[0.3em] font-bold" style="color:#16a34a;">
+                Referral discount
+              </div>
+              <div class="mt-0.5 text-sm" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+                {{ referralInfo.referrerName }} shared this link — you both get {{ referralInfo.discountPercent }}% off.
+              </div>
+            </div>
+          </div>
+
           <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div
               v-for="(t, i) in festival.tickets"
@@ -1600,6 +1634,20 @@ useHead({
                 </div>
                 <div class="text-3xl font-black" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
                   €{{ checkoutTotal }}
+                </div>
+              </div>
+
+              <!-- Referral discount line in checkout -->
+              <div
+                v-if="referralInfo"
+                class="flex items-baseline justify-between pb-4 mb-4 border-b"
+                style="border-color:#16a34a33;"
+              >
+                <div class="text-sm" style="color:#16a34a; font-family: system-ui, sans-serif;">
+                  Referral {{ referralInfo.discountPercent }}% off
+                </div>
+                <div class="text-lg font-bold" style="color:#16a34a; font-family:'Playfair Display', serif;">
+                  −€{{ Math.round(checkoutTotal * referralInfo.discountPercent / 100) }}
                 </div>
               </div>
 

@@ -8,6 +8,7 @@ const props = defineProps<{
   sharer: { name: string; photo: string; role: DanceRole }
   festivals: YearPlanFestival[]
   viewerFestivalSlugs: string[]
+  referralCode?: string
 }>()
 
 const emit = defineEmits<{
@@ -181,11 +182,11 @@ function formatDateRange(start: string, end: string): string {
                 </Badge>
               </div>
 
-              <!-- Referral hint (only for festivals where sharer has a ticket) -->
-              <div v-if="f.ticketStatus === 'purchased'" class="rounded-md border border-dashed border-green-200 bg-green-50 p-2.5 flex items-center gap-2">
+              <!-- Referral hint (only for festivals where sharer has a ticket and referral code is present) -->
+              <div v-if="f.ticketStatus === 'purchased' && referralCode" class="rounded-md border border-dashed border-green-200 bg-green-50 p-2.5 flex items-center gap-2">
                 <Gift class="w-3.5 h-3.5 text-green-600 shrink-0" />
                 <p class="text-xs text-green-700">
-                  Buy your ticket through {{ sharer.name }}'s link — you both get a discount.
+                  Buy your ticket through {{ sharer.name }}'s link — you both get 10% off.
                 </p>
               </div>
 

@@ -649,3 +649,30 @@ export const festivalRoommateLookups = pgTable('festival_roommate_lookups', {
 }, (t) => [
   unique('festival_roommate_dancer_unique').on(t.festivalId, t.dancerId),
 ])
+
+// ---------------------------------------------------------------------------
+// Referrals — ticket referral tracking for the "buy through a friend's link"
+// discount flow. A referral row is created when a dancer opens a checkout via
+// a referral link (?ref=<username>). Status transitions: pending → completed
+// (on successful Stripe payment) or expired (if never paid). The referrer is
+// credited once the referee's payment succeeds.
+// ---------------------------------------------------------------------------
+export const referrals = pgTable('referrals', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  festivalId: uuid('festival_id').notNull().references(() => festivals.id),
+  // The dancer who shared the referral link.
+  referrerId: uuid('referrer_id').notNull().references(() => dancers.id),
+  // The dancer who used the link and (optionally) purchased.
+  refereeId: uuid('referee_id').notNull().references(() => dancers.id),
+  // Discount applied to the referee's purchase, in euro cents.
+  discountCents: integer('discount_cents').notNull().default(0),
+  // Stripe checkout session that carried this referral (set at checkout creation).
+  stripeSessionId: text('stripe_session_id'),
+  status: text('status').notNull().default('pending').$type<'pending' | 'completed' | 'expired'>(),
+  createdAt: timestamp('created_at').defaultNow(),
+  completedAt: timestamp('completed_at'),
+}, (t) => [
+  // One referral per referee per festival (a dancer can only be referred once per event).
+  unique('referral_festival_referee_unique').on(t.festivalId, t.refereeId),
+  index('referrals_referrer_idx').on(t.referrerId),
+])

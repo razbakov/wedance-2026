@@ -16,6 +16,8 @@ const emit = defineEmits<{
 
 const copied = ref(false)
 
+const { dancerId, username } = useAuth()
+
 const baseUrl = computed(() => {
   if (import.meta.client) {
     return window.location.origin
@@ -23,8 +25,14 @@ const baseUrl = computed(() => {
   return ''
 })
 
+const referralCode = computed(() => username.value || dancerId.value || '')
+
 const shareUrl = computed(() => {
-  return `${baseUrl.value}/my-year?user=shared`
+  const base = `${baseUrl.value}/my-year?user=shared`
+  if (referralCode.value) {
+    return `${base}&ref=${encodeURIComponent(referralCode.value)}`
+  }
+  return base
 })
 
 const totalWorkshops = computed(() => props.festivals.reduce((sum, f) => sum + f.workshopCount, 0))
