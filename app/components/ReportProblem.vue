@@ -46,13 +46,36 @@ async function captureScreenshot(): Promise<string | null> {
       height: window.innerHeight,
       windowWidth: document.documentElement.scrollWidth,
       windowHeight: document.documentElement.scrollHeight,
+      onclone: (_doc: Document, cloned: HTMLElement) => {
+        // The previous fix (PR #199) used ignoreElements, but that
+        // callback runs during the *rendering* phase — html2canvas v1
+        // pre-loads and parses ALL background-image URLs first.  The
+        // homepage grain overlay carries a data:image/svg+xml URL with
+        // feTurbulence which crashes the parser before ignoreElements
+        // ever fires.  onclone runs before any URL collection, so
+        // removing the element here prevents the crash entirely.
+        cloned.querySelectorAll<HTMLElement>('[style]').forEach((el) => {
+          const s = el.style
+          const bg = s.backgroundImage || ''
+          if (
+            /feTurbulence|feBlend|feGaussianBlur/.test(bg)
+            || (s.mixBlendMode && s.mixBlendMode !== 'normal')
+          ) {
+            el.remove()
+            return
+          }
+          if (s.backdropFilter || (s as CSSStyleDeclaration & { webkitBackdropFilter?: string }).webkitBackdropFilter) {
+            s.backdropFilter = 'none'
+            s.setProperty('-webkit-backdrop-filter', 'none')
+          }
+        })
+        cloned.querySelectorAll('[class*="backdrop-blur"]').forEach((el) => {
+          const h = el as HTMLElement
+          h.style.backdropFilter = 'none'
+          h.style.setProperty('-webkit-backdrop-filter', 'none')
+        })
+      },
       ignoreElements: (el: Element) => {
-        // html2canvas v1 cannot render SVG filters (feTurbulence),
-        // mix-blend-mode, or embedded media — attempting it throws.
-        // Skip these safely; the screenshot still shows enough for triage.
-        if (el instanceof HTMLElement) {
-          if (el.style.mixBlendMode && el.style.mixBlendMode !== 'normal') return true
-        }
         const tag = el.tagName
         return tag === 'IFRAME' || tag === 'VIDEO'
       },
