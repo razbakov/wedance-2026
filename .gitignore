@@ -15,6 +15,7 @@ node_modules/
 # Testing
 playwright-report/
 .features-gen/
+coverage/
 
 # OS
 .DS_Store
