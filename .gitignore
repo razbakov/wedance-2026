@@ -18,6 +18,10 @@ playwright-report/
 coverage/
 e2e/test-results/
 
+# Stale nested checkouts (local worktree leftovers)
+wedance-checkout/
+wedance-2026-raz-158/
+
 # OS
 .DS_Store
 
