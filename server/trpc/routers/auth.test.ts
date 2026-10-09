@@ -475,6 +475,7 @@ describe('auth.me', () => {
       isAdmin: false,
       city: 'Munich',
       danceStyles: ['Salsa'],
+      danceLevels: {},
       role: 'follow',
       intent: 'social',
       onboardedAt: '2026-07-04T10:00:00.000Z',

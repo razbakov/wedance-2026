@@ -272,6 +272,18 @@ export const communityGroups = pgTable('community_groups', {
   createdAt: timestamp('created_at').defaultNow(),
 })
 
+// Per-user report tracking for community groups — prevents a single user
+// from hiding a group by reporting it multiple times.
+export const communityGroupReports = pgTable('community_group_reports', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  groupId: uuid('group_id').notNull().references(() => communityGroups.id),
+  dancerId: uuid('dancer_id').notNull().references(() => dancers.id),
+  createdAt: timestamp('created_at').defaultNow(),
+}, t => [
+  unique('community_group_reports_group_dancer').on(t.groupId, t.dancerId),
+])
+
+
 // "Ask locals" — a question posted for a city, answered by recommendations
 // (which write into `reviews` with source='recommendation').
 export const recommendationRequests = pgTable('recommendation_requests', {

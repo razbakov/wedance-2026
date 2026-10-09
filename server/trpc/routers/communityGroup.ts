@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { eq, and, desc, sql } from 'drizzle-orm'
-import { router, publicProcedure, adminProcedure } from '../trpc'
-import { communityGroups } from '../../database/schema'
+import { router, publicProcedure, protectedProcedure, adminProcedure } from '../trpc'
+import { communityGroups, communityGroupReports } from '../../database/schema'
 
 const PLATFORMS = ['whatsapp', 'telegram', 'facebook', 'other'] as const
 
@@ -72,39 +72,53 @@ export const communityGroupRouter = router({
       return { id: row!.id }
     }),
 
-  report: publicProcedure
+  report: protectedProcedure
     .input(z.object({
       groupId: z.string().uuid(),
     }))
     .mutation(async ({ ctx, input }) => {
-      // Validate group exists and is not already hidden
-      const group = await ctx.db
-        .select({
-          id: communityGroups.id,
-          status: communityGroups.status,
-          reportCount: communityGroups.reportCount,
-        })
+      // Validate group exists and is still visible
+      const [group] = await ctx.db
+        .select({ id: communityGroups.id, status: communityGroups.status })
         .from(communityGroups)
         .where(eq(communityGroups.id, input.groupId))
 
-      if (!group.length) {
+      if (!group) {
         throw new Error('Group not found')
       }
 
-      // Do not allow reporting of already-hidden groups
-      if (group[0].status === 'hidden') {
+      if (group.status === 'hidden') {
         throw new Error('Group already reported')
       }
 
-      // Atomically increment report count; hide if count >= 3
-      const newCount = (group[0].reportCount || 0) + 1
-      const newStatus = newCount >= 3 ? 'hidden' : 'visible'
+      // Per-user dedupe: unique constraint rejects duplicate reports
+      const [existing] = await ctx.db
+        .select({ id: communityGroupReports.id })
+        .from(communityGroupReports)
+        .where(and(
+          eq(communityGroupReports.groupId, input.groupId),
+          eq(communityGroupReports.dancerId, ctx.dancerId),
+        ))
 
-      await ctx.db
+      if (existing) {
+        throw new Error('Already reported')
+      }
+
+      await ctx.db.insert(communityGroupReports).values({
+        groupId: input.groupId,
+        dancerId: ctx.dancerId,
+      })
+
+      // Atomic increment + conditional status flip in a single UPDATE
+      const [updated] = await ctx.db
         .update(communityGroups)
-        .set({ reportCount: newCount, status: newStatus as any })
+        .set({
+          reportCount: sql`COALESCE(${communityGroups.reportCount}, 0) + 1`,
+          status: sql`CASE WHEN COALESCE(${communityGroups.reportCount}, 0) + 1 >= 3 THEN 'hidden' ELSE 'visible' END`,
+        })
         .where(and(eq(communityGroups.id, input.groupId), eq(communityGroups.status, 'visible')))
+        .returning({ reportCount: communityGroups.reportCount, status: communityGroups.status })
 
-      return { reported: true, hidden: newStatus === 'hidden' }
+      return { reported: true, hidden: updated?.status === 'hidden' }
     }),
 })
