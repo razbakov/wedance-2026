@@ -1,152 +1,129 @@
 <script setup lang="ts">
-import type { YearPlanFestival, YearStats, DanceRole } from '~/types/festival'
+import type { YearPlanFestival, DanceRole } from '~/types/festival'
+import { Button } from '~/components/ui/button'
 
 const route = useRoute()
 const router = useRouter()
+const { $trpc } = useNuxtApp()
+const { isSignedIn, username: myUsername } = useAuth()
 
-const isSignedIn = ref(true) // mock
-
-// Shared view detection
-const isSharedView = computed(() => route.query.user === 'shared')
+// Shared view detection — ?user=<username>.
+const sharerUsername = computed(() => {
+  const u = route.query.user as string | undefined
+  if (!u) return ''
+  return u === 'shared' ? '' : u
+})
+const isSharedView = computed(() => !!route.query.user)
 const referralCode = computed(() => (route.query.ref as string) || '')
 
-const myFestivals: YearPlanFestival[] = [
-  {
-    slug: 'meneate-viena-2026',
-    name: '¡Menéate Viena! 2026',
-    startDate: '2026-03-26',
-    endDate: '2026-03-29',
-    location: 'Vienna, Austria',
-    logo: 'https://firebasestorage.googleapis.com/v0/b/wedance-4abe3.appspot.com/o/media%2FtvR012ArEpQhCJdPHh6G7sLuqoO2%2F39830bdd-95dd-48e8-9495-15000390c615?alt=media&token=65affea4-baea-4c3f-a373-6ed40b1ff099',
-    accentColor: '#e65100',
-    workshopCount: 12,
-    role: 'lead',
-    lookingCount: 3,
-    ticketStatus: 'purchased',
-    ticketName: 'Full Pass',
-    styles: ['Timba', 'Salsa', 'Son', 'Rumba', 'Reggaeton'],
-    friendsGoing: [
-      { name: 'Ana Rodriguez', photo: 'https://i.pravatar.cc/150?u=ana' },
-      { name: 'Marco Silva', photo: 'https://i.pravatar.cc/150?u=marco' },
-      { name: 'Yuki Tanaka', photo: 'https://i.pravatar.cc/150?u=yuki' },
-    ],
-  },
-  {
-    slug: 'salsa-open-berlin-2026',
-    name: 'Salsa Open Berlin 2026',
-    startDate: '2026-06-19',
-    endDate: '2026-06-21',
-    location: 'Berlin, Germany',
-    logo: 'https://ui-avatars.com/api/?name=SOB&size=80&background=e11d48&color=fff&bold=true&rounded=true',
-    accentColor: '#e11d48',
-    workshopCount: 8,
-    role: 'lead',
-    lookingCount: 1,
-    ticketStatus: 'not-purchased',
-    earlyBirdDeadline: '2026-06-01',
-    styles: ['Salsa', 'Bachata'],
-    friendsGoing: [
-      { name: 'Ana Rodriguez', photo: 'https://i.pravatar.cc/150?u=ana' },
-      { name: 'Sofia Petrov', photo: 'https://i.pravatar.cc/150?u=sofia' },
-    ],
-  },
-  {
-    slug: 'bachata-stars-barcelona-2026',
-    name: 'Bachata Stars Barcelona',
-    startDate: '2026-07-03',
-    endDate: '2026-07-06',
-    location: 'Barcelona, Spain',
-    logo: 'https://ui-avatars.com/api/?name=BSB&size=80&background=7c3aed&color=fff&bold=true&rounded=true',
-    accentColor: '#7c3aed',
+// ── Shared view data ──
+const sharedData = ref<{
+  sharer: { name: string; photo: string | null; role: 'lead' | 'follow' | null; username: string | null }
+  festivals: Array<{
+    slug: string; name: string; startDate: string; endDate: string
+    location: string; logo: string; accentColor: string; styles: string[]
+    hasTicket: boolean; referralDiscountPercent: number
+  }>
+} | null>(null)
+
+// ── Own view data ──
+const myFestivalsRaw = ref<Array<{
+  slug: string; name: string; startDate: string; endDate: string
+  location: string; logo: string; accentColor: string; styles: string[]
+  ticketStatus: 'purchased' | 'not-purchased'; referralDiscountPercent: number
+}>>([])
+
+// Fetch data on mount.
+if (import.meta.client) {
+  if (isSharedView.value && sharerUsername.value) {
+    $trpc.plan.sharedPlan.query({ username: sharerUsername.value }).then((result) => {
+      sharedData.value = result
+    }).catch(() => {})
+  }
+
+  if (isSignedIn.value) {
+    $trpc.plan.myPlan.query().then((rows) => {
+      myFestivalsRaw.value = rows
+    }).catch(() => {})
+  }
+}
+
+// Map shared data into YearPlanFestival shape.
+const sharedFestivals = computed<YearPlanFestival[]>(() => {
+  if (!sharedData.value) return []
+  return sharedData.value.festivals.map((f) => ({
+    slug: f.slug,
+    name: f.name,
+    startDate: f.startDate,
+    endDate: f.endDate,
+    location: f.location,
+    logo: f.logo,
+    accentColor: f.accentColor,
+    styles: f.styles,
     workshopCount: 0,
     role: null,
     lookingCount: 0,
-    ticketStatus: 'not-purchased',
-    earlyBirdDeadline: '2026-06-01',
-    styles: ['Bachata', 'Bachata Sensual'],
-    friendsGoing: [
-      { name: 'Marco Silva', photo: 'https://i.pravatar.cc/150?u=marco' },
-    ],
-  },
-  {
-    slug: 'timba-fest-london-2026',
-    name: 'Timba Fest London',
-    startDate: '2026-09-18',
-    endDate: '2026-09-21',
-    location: 'London, UK',
-    logo: 'https://ui-avatars.com/api/?name=TFL&size=80&background=0ea5e9&color=fff&bold=true&rounded=true',
-    accentColor: '#0ea5e9',
-    workshopCount: 0,
-    role: null,
-    lookingCount: 0,
-    ticketStatus: 'not-purchased',
-    styles: ['Timba', 'Son', 'Rumba'],
+    ticketStatus: f.hasTicket ? 'purchased' as const : 'not-purchased' as const,
     friendsGoing: [],
-  },
-]
+    referralDiscountPercent: f.referralDiscountPercent,
+  }))
+})
 
-const suggestions: YearPlanFestival[] = [
-  {
-    slug: 'kizomba-amsterdam-2026',
-    name: 'Kizomba Festival Amsterdam',
-    startDate: '2026-09-11',
-    endDate: '2026-09-14',
-    location: 'Amsterdam, Netherlands',
-    logo: 'https://ui-avatars.com/api/?name=KFA&size=80&background=059669&color=fff&bold=true&rounded=true',
-    accentColor: '#059669',
+// Map own data into YearPlanFestival shape.
+const myFestivals = computed<YearPlanFestival[]>(() => {
+  return myFestivalsRaw.value.map((f) => ({
+    slug: f.slug,
+    name: f.name,
+    startDate: f.startDate,
+    endDate: f.endDate,
+    location: f.location,
+    logo: f.logo,
+    accentColor: f.accentColor,
+    styles: f.styles,
     workshopCount: 0,
     role: null,
     lookingCount: 0,
-    ticketStatus: 'not-purchased',
-    styles: ['Kizomba', 'Semba', 'Urban Kiz'],
-    friendsGoing: [
-      { name: 'Ana Rodriguez', photo: 'https://i.pravatar.cc/150?u=ana' },
-      { name: 'Marco Silva', photo: 'https://i.pravatar.cc/150?u=marco' },
-      { name: 'Yuki Tanaka', photo: 'https://i.pravatar.cc/150?u=yuki' },
-    ],
-  },
-  {
-    slug: 'cuban-salsa-congress-prague-2026',
-    name: 'Cuban Salsa Congress Prague',
-    startDate: '2026-11-06',
-    endDate: '2026-11-09',
-    location: 'Prague, Czech Republic',
-    logo: 'https://ui-avatars.com/api/?name=CSC&size=80&background=dc2626&color=fff&bold=true&rounded=true',
-    accentColor: '#dc2626',
-    workshopCount: 0,
-    role: null,
-    lookingCount: 0,
-    ticketStatus: 'not-purchased',
-    styles: ['Salsa', 'Timba', 'Rueda'],
-    friendsGoing: [
-      { name: 'Sofia Petrov', photo: 'https://i.pravatar.cc/150?u=sofia' },
-    ],
-  },
-]
+    ticketStatus: f.ticketStatus,
+    friendsGoing: [],
+    referralDiscountPercent: f.referralDiscountPercent,
+  }))
+})
 
-const stats: YearStats = {
-  totalFestivals: 4,
-  totalWorkshops: 20,
-  countries: ['AT', 'DE', 'ES', 'UK'],
-  topStyles: [
-    { style: 'Salsa', percent: 40 },
-    { style: 'Timba', percent: 25 },
-    { style: 'Bachata', percent: 20 },
-    { style: 'Son', percent: 10 },
-    { style: 'Rumba', percent: 5 },
-  ],
-  partnerMatchRate: 87,
-}
+// Viewer's own festival slugs (for overlap detection in shared view).
+const viewerFestivalSlugs = computed(() => myFestivalsRaw.value.map((f) => f.slug))
 
-// Mock sharer for shared view (would come from backend)
-const mockSharer = {
-  name: 'Alex Petrov',
-  photo: 'https://i.pravatar.cc/150?u=alex',
-  role: 'lead' as DanceRole,
-}
+const sharer = computed(() => {
+  if (!sharedData.value) return { name: '', photo: '', role: null as DanceRole | null }
+  return {
+    name: sharedData.value.sharer.name,
+    photo: sharedData.value.sharer.photo ?? '',
+    role: sharedData.value.sharer.role as DanceRole | null,
+  }
+})
 
-// Mock: viewer's own festivals (to compute overlap)
-const viewerFestivalSlugs = ['meneate-viena-2026', 'salsa-open-berlin-2026']
+const stats = computed(() => {
+  const fests = myFestivals.value
+  const countries = [...new Set(fests.map((f) => f.location).filter(Boolean))]
+  const styleMap = new Map<string, number>()
+  for (const f of fests) {
+    for (const s of f.styles) {
+      styleMap.set(s, (styleMap.get(s) ?? 0) + 1)
+    }
+  }
+  const total = [...styleMap.values()].reduce((a, b) => a + b, 0) || 1
+  const topStyles = [...styleMap.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([style, count]) => ({ style, percent: Math.round((count / total) * 100) }))
+
+  return {
+    totalFestivals: fests.length,
+    totalWorkshops: 0,
+    countries,
+    topStyles,
+    partnerMatchRate: 0,
+  }
+})
 
 // Share modal
 const showShareModal = ref(false)
@@ -165,17 +142,14 @@ function onCreateYearPlan() {
   router.replace({ query: {} })
 }
 
-// Adding a friend requires an account — send the viewer into the join flow.
-// (A real follow/friend graph lands with its own backend.)
 function onAddFriend() {
-  // CUJ: "Connect via shared plan" — viewer intends to connect (viral loop).
-  useTrack().track('shared_plan_signup', { surface: 'my-year', sharer: mockSharer.name })
+  useTrack().track('shared_plan_signup', { surface: 'my-year', sharer: sharer.value.name })
   navigateTo('/onboarding')
 }
 
 useHead({
   title: isSharedView.value
-    ? `${mockSharer.name}'s 2026 Dance Year | WeDance`
+    ? `${sharer.value.name || 'A dancer'}'s 2026 Dance Year | WeDance`
     : 'My 2026 Dance Year | WeDance',
 })
 </script>
@@ -183,9 +157,9 @@ useHead({
 <template>
   <!-- Shared view -->
   <SharedYearPlan
-    v-if="isSharedView"
-    :sharer="mockSharer"
-    :festivals="myFestivals"
+    v-if="isSharedView && sharedData"
+    :sharer="sharer"
+    :festivals="sharedFestivals"
     :viewer-festival-slugs="viewerFestivalSlugs"
     :referral-code="referralCode"
     @add-friend="onAddFriend"
@@ -194,11 +168,19 @@ useHead({
     @sign-in="onAddFriend"
   />
 
+  <!-- Loading / not found for shared view -->
+  <div v-else-if="isSharedView && !sharedData" class="max-w-3xl mx-auto px-4 py-16 text-center">
+    <p class="text-muted-foreground">This year plan is not available.</p>
+    <Button class="mt-4" @click="onCreateYearPlan">
+      Create your own year plan
+    </Button>
+  </div>
+
   <!-- Own year plan -->
   <template v-else>
     <YearPlan
       :festivals="myFestivals"
-      :suggestions="suggestions"
+      :suggestions="[]"
       :stats="stats"
       :is-signed-in="isSignedIn"
       @open-festival="openFestival"

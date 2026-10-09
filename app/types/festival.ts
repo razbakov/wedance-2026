@@ -193,6 +193,8 @@ export interface YearPlanFestival {
   earlyBirdDeadline?: string
   friendsGoing: { name: string; photo: string }[]
   styles: string[]
+  /** Referral discount percentage for this festival (0 = no referral program). */
+  referralDiscountPercent?: number
 }
 
 export interface YearStats {

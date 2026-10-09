@@ -28,7 +28,8 @@ const baseUrl = computed(() => {
 const referralCode = computed(() => username.value || dancerId.value || '')
 
 const shareUrl = computed(() => {
-  const base = `${baseUrl.value}/my-year?user=shared`
+  const user = username.value || dancerId.value || 'shared'
+  const base = `${baseUrl.value}/my-year?user=${encodeURIComponent(user)}`
   if (referralCode.value) {
     return `${base}&ref=${encodeURIComponent(referralCode.value)}`
   }
