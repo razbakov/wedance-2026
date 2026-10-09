@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
+  CheckCircle,
   Plus,
   Trash2,
   Calendar,
@@ -17,6 +18,7 @@ import {
   Facebook,
   Youtube,
   Image,
+  Sparkles,
 } from 'lucide-vue-next'
 import type { GenericSchema, InferInput } from 'valibot'
 import {
@@ -44,6 +46,56 @@ const route = useRoute()
 
 // Capture the pricing plan from the URL query parameter
 const selectedPlan = computed(() => (route.query.plan as string) || 'starter')
+
+const planDetails: Record<string, { name: string; price: string; period?: string; description: string; color: string; features: string[] }> = {
+  starter: {
+    name: 'Starter',
+    price: 'Free',
+    description: 'Get listed and let dancers find you.',
+    color: '#0891b2',
+    features: [
+      'Festival listing with schedule',
+      'Lineup with teacher profiles',
+      'Venue info & directions',
+      'Basic attendee count',
+      'Link to your ticket page',
+    ],
+  },
+  pro: {
+    name: 'Pro',
+    price: '€49',
+    period: '/event',
+    description: 'The full engagement toolkit.',
+    color: '#dc2626',
+    features: [
+      'Everything in Starter',
+      'Interactive workshop planner',
+      'Smart ticket recommendations',
+      'Partner matching for attendees',
+      'Plan sharing & referral tracking',
+      'Workshop demand analytics',
+      'Audience insights dashboard',
+      'Priority support',
+    ],
+  },
+  network: {
+    name: 'Network',
+    price: '€199',
+    period: '/year',
+    description: 'For organizers running multiple events.',
+    color: '#16a34a',
+    features: [
+      'Everything in Pro',
+      'Unlimited events per year',
+      'Cross-event audience insights',
+      'Featured in Year Planner',
+      'Early access to new features',
+      'Dedicated account manager',
+    ],
+  },
+}
+
+const currentPlan = computed(() => planDetails[selectedPlan.value] || planDetails.starter)
 
 // Step management
 const steps = [
@@ -426,6 +478,42 @@ const labelClass = 'text-[10px] uppercase tracking-[0.25em] font-bold mb-2 block
 
     <!-- Form content -->
     <div class="max-w-3xl mx-auto px-4 py-8 pb-32">
+
+      <!-- Selected plan banner -->
+      <div
+        class="rounded-2xl border-2 p-5 mb-6 flex flex-col sm:flex-row gap-5"
+        :style="{ borderColor: currentPlan.color + '55', background: currentPlan.color + '08' }"
+      >
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-1">
+            <Sparkles v-if="selectedPlan === 'pro'" class="w-4 h-4" :style="{ color: currentPlan.color }" />
+            <span class="text-[10px] uppercase tracking-[0.3em] font-bold" :style="{ color: currentPlan.color }">
+              {{ currentPlan.name }} plan
+            </span>
+            <span class="text-sm font-bold" style="color:#3b1f0d;">
+              {{ currentPlan.price }}<span v-if="currentPlan.period" class="font-normal text-xs" style="color:#9a5614;">{{ currentPlan.period }}</span>
+            </span>
+          </div>
+          <p class="text-sm mb-3" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+            {{ currentPlan.description }}
+          </p>
+          <ul class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+            <li v-for="f in currentPlan.features" :key="f" class="flex items-start gap-1.5 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+              <CheckCircle class="w-3.5 h-3.5 shrink-0 mt-0.5" :style="{ color: currentPlan.color }" />
+              <span>{{ f }}</span>
+            </li>
+          </ul>
+        </div>
+        <div class="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-2 shrink-0">
+          <NuxtLink
+            to="/organizers#pricing"
+            class="text-xs italic hover:underline whitespace-nowrap"
+            style="color:#0891b2; font-family:'Playfair Display', serif;"
+          >
+            Change plan
+          </NuxtLink>
+        </div>
+      </div>
 
       <!-- Validation errors -->
       <div v-if="stepErrors.length" role="alert" class="rounded-xl border border-red-300 bg-red-50 px-4 py-3 mb-6">
