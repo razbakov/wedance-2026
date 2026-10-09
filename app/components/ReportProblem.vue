@@ -68,15 +68,16 @@ async function captureScreenshot(): Promise<string | null> {
         ].join('')
         doc.head.appendChild(fix)
 
-        // Neutralise any remaining oklch/color-mix inline or computed
-        // values that didn't come from the CSS variables (e.g.
-        // Tailwind opacity utilities like bg-white/95).
+        // Neutralise any remaining CSS Color Level 4 values that
+        // html2canvas v1 can't parse (oklch, oklab, lab, lch,
+        // color-mix, hwb).  Tailwind 4 and modern browsers emit
+        // these in computed styles even when the source uses oklch.
         const colorProps = [
           'color', 'backgroundColor',
           'borderTopColor', 'borderRightColor',
           'borderBottomColor', 'borderLeftColor',
         ] as const
-        const unsupported = /oklch|color-mix/
+        const unsupported = /oklch|oklab|lab\(|lch\(|color-mix|hwb\(/
         cloned.querySelectorAll<HTMLElement>('*').forEach((el) => {
           const cs = doc.defaultView?.getComputedStyle(el)
           if (!cs) return
