@@ -24,12 +24,123 @@ const _intent = ref<string | null>(null)
 const _onboardedAt = ref<string | null>(null)
 const _justRegistered = ref(false)
 
+// --- localStorage auth cache ---
+// Caches essential auth state so page refreshes show the signed-in UI
+// instantly instead of blinking while the auth.me network call resolves.
+const AUTH_CACHE_KEY = 'wedance-auth'
+
+interface AuthCache {
+  dancerId: string
+  dancerName: string
+  isAdmin: boolean
+  username: string | null
+  city: string | null
+  danceStyles: string[]
+  onboardedAt: string | null
+}
+
+function _saveAuthCache(): void {
+  if (!import.meta.client) return
+  try {
+    const data: AuthCache = {
+      dancerId: _dancerId.value!,
+      dancerName: _dancerName.value!,
+      isAdmin: _isAdmin.value,
+      username: _username.value,
+      city: _city.value,
+      danceStyles: [..._danceStyles.value],
+      onboardedAt: _onboardedAt.value,
+    }
+    localStorage.setItem(AUTH_CACHE_KEY, JSON.stringify(data))
+  } catch {
+    // localStorage unavailable (private browsing, quota exceeded) — silent
+  }
+}
+
+function _loadAuthCache(): AuthCache | null {
+  if (!import.meta.client) return null
+  try {
+    const raw = localStorage.getItem(AUTH_CACHE_KEY)
+    if (!raw) return null
+    return JSON.parse(raw) as AuthCache
+  } catch {
+    return null
+  }
+}
+
+function _clearAuthCache(): void {
+  if (!import.meta.client) return
+  try {
+    localStorage.removeItem(AUTH_CACHE_KEY)
+  } catch {
+    // silent
+  }
+}
+
 export function useAuth() {
   const { $trpc, $setAuthToken } = useNuxtApp()
+
+  // Populate all auth state refs from a server `me` response and update cache.
+  function _applyMe(me: {
+    id: string
+    name: string
+    isAdmin: boolean
+    username?: string | null
+    city?: string | null
+    danceStyles?: string[] | null
+    danceLevels?: Record<string, string> | null
+    role?: string | null
+    intent?: string | null
+    onboardedAt?: string | null
+    bio?: string | null
+    instagram?: string | null
+    youtube?: string | null
+    website?: string | null
+    profilePublic?: boolean | null
+  }): void {
+    _isSignedIn.value = true
+    _dancerId.value = me.id
+    _dancerName.value = me.name
+    _username.value = me.username ?? null
+    _isAdmin.value = me.isAdmin
+    _city.value = me.city ?? null
+    _danceStyles.value = me.danceStyles ?? []
+    _danceLevels.value = me.danceLevels ?? {}
+    _role.value = me.role ?? null
+    _intent.value = me.intent ?? null
+    _onboardedAt.value = me.onboardedAt ?? null
+    _bio.value = me.bio ?? null
+    _instagram.value = me.instagram ?? null
+    _youtube.value = me.youtube ?? null
+    _website.value = me.website ?? null
+    _profilePublic.value = me.profilePublic ?? true
+    _saveAuthCache()
+  }
+
+  // Server round-trip to validate the session and refresh auth state.
+  async function _validateSession(): Promise<void> {
+    try {
+      const me = await $trpc.auth.me.query()
+      if (me) {
+        _applyMe(me)
+      } else {
+        // Server explicitly says session is invalid/expired — clear it.
+        signOut()
+      }
+    } catch {
+      // Network error, timeout, or server 500 — do NOT destroy the
+      // cookie.  The session may still be valid; nuking it forces a
+      // needless re-login.  Leave existing state (cached or default)
+      // and keep the cookie so the next refresh can try again.
+    } finally {
+      _isLoading.value = false
+    }
+  }
 
   async function init() {
     const sessionCookie = useCookie('wedance-session')
     if (!sessionCookie.value) {
+      _clearAuthCache()
       _isLoading.value = false
       return
     }
@@ -40,38 +151,26 @@ export function useAuth() {
     // so the auth.me query always includes the correct Bearer token.
     $setAuthToken(sessionCookie.value)
 
-    try {
-      const me = await $trpc.auth.me.query()
-      if (me) {
-        _isSignedIn.value = true
-        _dancerId.value = me.id
-        _dancerName.value = me.name
-        _username.value = me.username ?? null
-        _isAdmin.value = me.isAdmin
-        _city.value = me.city ?? null
-        _danceStyles.value = me.danceStyles ?? []
-        _danceLevels.value = me.danceLevels ?? {}
-        _role.value = me.role ?? null
-        _intent.value = me.intent ?? null
-        _onboardedAt.value = me.onboardedAt ?? null
-        _bio.value = me.bio ?? null
-        _instagram.value = me.instagram ?? null
-        _youtube.value = me.youtube ?? null
-        _website.value = me.website ?? null
-        _profilePublic.value = me.profilePublic ?? true
-      } else {
-        // Server explicitly says session is invalid/expired — clear it.
-        signOut()
-      }
-    } catch {
-      // Network error, timeout, or server 500 — do NOT destroy the
-      // cookie.  The session may still be valid; nuking it forces a
-      // needless re-login.  Leave isSignedIn false for this page load
-      // so the UI shows the signed-out state, but keep the cookie so
-      // the next refresh can try again.
-    } finally {
+    // Restore cached auth state immediately so the page renders the
+    // signed-in UI without waiting for the network.
+    const cached = _loadAuthCache()
+    if (cached) {
+      _isSignedIn.value = true
+      _dancerId.value = cached.dancerId
+      _dancerName.value = cached.dancerName
+      _isAdmin.value = cached.isAdmin
+      _username.value = cached.username
+      _city.value = cached.city
+      _danceStyles.value = cached.danceStyles
+      _onboardedAt.value = cached.onboardedAt
       _isLoading.value = false
+      // Validate in background — updates stale fields or signs out if expired.
+      _validateSession()
+      return
     }
+
+    // No cache (first login on this browser) — await the full round-trip.
+    await _validateSession()
   }
 
   async function requestMagicLink(data: {
@@ -144,19 +243,7 @@ export function useAuth() {
     try {
       const me = await $trpc.auth.me.query()
       if (me) {
-        _dancerName.value = me.name
-        _username.value = me.username ?? null
-        _city.value = me.city ?? null
-        _danceStyles.value = me.danceStyles ?? []
-        _danceLevels.value = me.danceLevels ?? {}
-        _role.value = me.role ?? null
-        _intent.value = me.intent ?? null
-        _onboardedAt.value = me.onboardedAt ?? null
-        _bio.value = me.bio ?? null
-        _instagram.value = me.instagram ?? null
-        _youtube.value = me.youtube ?? null
-        _website.value = me.website ?? null
-        _profilePublic.value = me.profilePublic ?? true
+        _applyMe(me)
       }
     } catch {
       // best-effort refresh; leave existing state on failure
@@ -222,12 +309,14 @@ export function useAuth() {
     _dancerId.value = data.dancerId
     _dancerName.value = data.name
     _isAdmin.value = data.isAdmin
+    _saveAuthCache()
     // Tie analytics events to this dancer (login / register / magic-link).
     useTrack().identify(data.dancerId, { name: data.name })
   }
 
   function signOut() {
     $setAuthToken(null)
+    _clearAuthCache()
     _isSignedIn.value = false
     _dancerId.value = null
     _dancerName.value = null
