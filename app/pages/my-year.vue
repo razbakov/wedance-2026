@@ -16,6 +16,7 @@ const route = useRoute()
 const router = useRouter()
 const { $trpc } = useNuxtApp()
 const { isSignedIn, username: myUsername } = useAuth()
+const { yearPlanIds } = useYearPlan()
 
 // Shared view detection — ?user=<username>.
 const sharerUsername = computed(() => {
@@ -43,6 +44,13 @@ const myFestivalsRaw = ref<Array<{
   workshopCount: number; ticketStatus: 'purchased' | 'not-purchased'; referralDiscountPercent: number
 }>>([])
 
+function fetchMyPlan() {
+  if (!isSignedIn.value) return
+  $trpc.plan.myPlan.query().then((rows) => {
+    myFestivalsRaw.value = rows
+  }).catch(() => {})
+}
+
 // Fetch data on mount.
 if (import.meta.client) {
   if (isSharedView.value && sharerUsername.value) {
@@ -51,11 +59,10 @@ if (import.meta.client) {
     }).catch(() => {})
   }
 
-  if (isSignedIn.value) {
-    $trpc.plan.myPlan.query().then((rows) => {
-      myFestivalsRaw.value = rows
-    }).catch(() => {})
-  }
+  fetchMyPlan()
+
+  // Re-fetch when the plan changes (add/remove festival) so stats update.
+  watch(yearPlanIds, fetchMyPlan)
 }
 
 // Map shared data into YearPlanFestival shape.
