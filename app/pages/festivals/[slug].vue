@@ -243,6 +243,68 @@ function updatePlanEntry(id: string, updates: Partial<PlanEntry>) {
   plan.value = next
 }
 
+// ── Persist workshop selections ─────────────────────────────────────
+// Workshop plan items are stored in plan_items with itemType='workshop'
+// and itemId='{festivalSlug}:{workshopId}' so the year plan can count them.
+const persistedWorkshopIds = ref(new Set<string>())
+
+// Load persisted workshops on mount (signed-in users only).
+if (import.meta.client) {
+  onMounted(async () => {
+    const { isSignedIn: signedIn } = useAuth()
+    if (!signedIn.value) return
+    try {
+      const items = await $trpc.plan.list.query()
+      const prefix = `${slug}:`
+      const loaded = new Map<string, PlanEntry>()
+      for (const item of items) {
+        if (item.itemType === 'workshop' && item.itemId.startsWith(prefix)) {
+          const workshopId = item.itemId.slice(prefix.length)
+          persistedWorkshopIds.value.add(workshopId)
+          if (!plan.value.has(workshopId)) {
+            loaded.set(workshopId, { workshopId, role: null, partnerStatus: 'solo' })
+          }
+        }
+      }
+      if (loaded.size > 0) {
+        const merged = new Map(plan.value)
+        for (const [k, v] of loaded) merged.set(k, v)
+        plan.value = merged
+      }
+    } catch { /* keep local state */ }
+  })
+}
+
+// Sync additions/removals to the DB.
+watch(
+  () => new Set(plan.value.keys()),
+  (current, prev) => {
+    const { isSignedIn: signedIn } = useAuth()
+    if (!signedIn.value) return
+
+    const added = [...current].filter((id) => !prev?.has(id))
+    const removed = prev ? [...prev].filter((id) => !current.has(id)) : []
+
+    for (const id of added) {
+      if (!persistedWorkshopIds.value.has(id)) {
+        persistedWorkshopIds.value.add(id)
+        $trpc.plan.add
+          .mutate({ itemType: 'workshop', itemId: `${slug}:${id}` })
+          .catch(() => { persistedWorkshopIds.value.delete(id) })
+      }
+    }
+    for (const id of removed) {
+      if (persistedWorkshopIds.value.has(id)) {
+        persistedWorkshopIds.value.delete(id)
+        $trpc.plan.remove
+          .mutate({ itemType: 'workshop', itemId: `${slug}:${id}` })
+          .catch(() => { persistedWorkshopIds.value.add(id) })
+      }
+    }
+  },
+  { deep: true },
+)
+
 // Teacher filter
 const selectedTeacherId = ref<string | null>(null)
 const selectedTeacher = computed(() =>

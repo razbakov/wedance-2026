@@ -32,7 +32,7 @@ const sharedData = ref<{
   festivals: Array<{
     slug: string; name: string; startDate: string; endDate: string
     location: string; country: string; logo: string; accentColor: string; styles: string[]
-    hasTicket: boolean; referralDiscountPercent: number
+    workshopCount: number; hasTicket: boolean; referralDiscountPercent: number
   }>
 } | null>(null)
 
@@ -40,7 +40,7 @@ const sharedData = ref<{
 const myFestivalsRaw = ref<Array<{
   slug: string; name: string; startDate: string; endDate: string
   location: string; country: string; logo: string; accentColor: string; styles: string[]
-  ticketStatus: 'purchased' | 'not-purchased'; referralDiscountPercent: number
+  workshopCount: number; ticketStatus: 'purchased' | 'not-purchased'; referralDiscountPercent: number
 }>>([])
 
 // Fetch data on mount.
@@ -71,7 +71,7 @@ const sharedFestivals = computed<YearPlanFestival[]>(() => {
     logo: f.logo,
     accentColor: f.accentColor,
     styles: f.styles,
-    workshopCount: 0,
+    workshopCount: f.workshopCount,
     role: null,
     lookingCount: 0,
     ticketStatus: f.hasTicket ? 'purchased' as const : 'not-purchased' as const,
@@ -92,7 +92,7 @@ const myFestivals = computed<YearPlanFestival[]>(() => {
     logo: f.logo,
     accentColor: f.accentColor,
     styles: f.styles,
-    workshopCount: 0,
+    workshopCount: f.workshopCount,
     role: null,
     lookingCount: 0,
     ticketStatus: f.ticketStatus,
