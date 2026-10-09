@@ -38,13 +38,13 @@ useHead({
 })
 
 const features = [
-  { icon: CalendarDays, title: 'Interactive schedule', description: 'Dancers browse workshops, filter by style and level, and build a plan — excitement builds weeks before the doors open.', color: '#dc2626' },
-  { icon: Users,        title: 'Partner matching',    description: 'Leads and follows find each other before the festival. More matched partners = more workshop sign-ups.',              color: '#0891b2' },
-  { icon: Heart,        title: 'Discover dancers',    description: 'Swipe to find dance partners. Mutual matches become a dance list — your attendees arrive already connected.',        color: '#a855f7' },
-  { icon: Ticket,       title: 'Smart ticket picks',  description: 'As dancers add workshops to their plan, we suggest the best-value ticket. Your pass tiers, their perfect fit.',       color: '#f59e0b' },
-  { icon: Zap,          title: 'One-tap checkout',    description: 'Signed-in dancers buy their pass in a single tap — no forms, no re-entering details. Fewer drop-offs, more sold tickets.', color: '#ec4899' },
+  { icon: CalendarDays, title: 'Interactive schedule', description: 'Dancers browse workshops, filter by style and level, and build a plan — excitement builds weeks before the doors open.', color: '#dc2626', link: '/festivals/meneate-viena-2026#schedule' },
+  { icon: Users,        title: 'Partner matching',    description: 'Leads and follows find each other before the festival. More matched partners = more workshop sign-ups.',              color: '#0891b2', link: '/festivals/meneate-viena-2026#discover' },
+  { icon: Heart,        title: 'Discover dancers',    description: 'Swipe to find dance partners. Mutual matches become a dance list — your attendees arrive already connected.',        color: '#a855f7', link: '/festivals/meneate-viena-2026#discover' },
+  { icon: Ticket,       title: 'Smart ticket picks',  description: 'As dancers add workshops to their plan, we suggest the best-value ticket. Your pass tiers, their perfect fit.',       color: '#f59e0b', link: '/festivals/meneate-viena-2026#tickets' },
+  { icon: Zap,          title: 'One-tap checkout',    description: 'Signed-in dancers buy their pass in a single tap — no forms, no re-entering details. Fewer drop-offs, more sold tickets.', color: '#ec4899', link: '/festivals/meneate-viena-2026#tickets' },
   { icon: Share2,       title: 'Plan sharing',        description: 'Dancers share their festival plan with friends. Every share is a personalized invitation with your event front and centre.', color: '#16a34a' },
-  { icon: TrendingUp,   title: 'Year planning',       description: 'Dancers plan their whole festival year on WeDance. Get discovered by dancers looking for their next event.',            color: '#dc2626' },
+  { icon: TrendingUp,   title: 'Year planning',       description: 'Dancers plan their whole festival year on WeDance. Get discovered by dancers looking for their next event.',            color: '#dc2626', link: '/my-year' },
 ]
 
 const insights = [
@@ -244,13 +244,20 @@ function goToEditor(plan?: string) {
         </div>
 
         <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-          <div v-for="feature in features" :key="feature.title"
+          <component
+            :is="feature.link ? 'NuxtLink' : 'div'"
+            v-for="feature in features"
+            :key="feature.title"
+            :to="feature.link || undefined"
             class="rounded-2xl bg-white p-6 border transition-all hover:-translate-y-1"
             :style="{ borderColor: feature.color + '55', boxShadow: '0 1px 0 ' + feature.color + '22, 0 8px 20px rgba(59,31,18,0.05)' }">
             <component :is="feature.icon" class="w-7 h-7 mb-3" :style="{ color: feature.color, 'stroke-width': 1.5 }" />
             <div class="text-lg font-bold leading-tight" style="color:#3b1f0d;">{{ feature.title }}</div>
             <div class="mt-2 text-sm leading-relaxed" style="color:#5b3a1d; font-family: system-ui, sans-serif;">{{ feature.description }}</div>
-          </div>
+            <div v-if="feature.link" class="mt-3 text-xs font-bold italic" :style="{ color: feature.color, fontFamily: 'Caveat, cursive', fontSize: '16px' }">
+              See it live →
+            </div>
+          </component>
         </div>
       </div>
     </section>
