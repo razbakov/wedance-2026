@@ -46,14 +46,49 @@ async function captureScreenshot(): Promise<string | null> {
       height: window.innerHeight,
       windowWidth: document.documentElement.scrollWidth,
       windowHeight: document.documentElement.scrollHeight,
-      onclone: (_doc: Document, cloned: HTMLElement) => {
-        // The previous fix (PR #199) used ignoreElements, but that
-        // callback runs during the *rendering* phase — html2canvas v1
-        // pre-loads and parses ALL background-image URLs first.  The
-        // homepage grain overlay carries a data:image/svg+xml URL with
-        // feTurbulence which crashes the parser before ignoreElements
-        // ever fires.  onclone runs before any URL collection, so
-        // removing the element here prevents the crash entirely.
+      onclone: (doc: Document, cloned: HTMLElement) => {
+        // html2canvas v1.4.1 only understands rgb/rgba/hsl/hsla.
+        // Tailwind 4 emits oklch() in CSS variables and color-mix()
+        // for opacity utilities — both crash the color parser before
+        // any element is rendered.  Inject hex overrides for every
+        // CSS variable so computed styles resolve to safe values.
+        const fix = doc.createElement('style')
+        fix.textContent = [
+          ':root{',
+          '--background:#ffffff;--foreground:#252525;',
+          '--card:#ffffff;--card-foreground:#252525;',
+          '--popover:#ffffff;--popover-foreground:#252525;',
+          '--primary:#353535;--primary-foreground:#fbfbfb;',
+          '--secondary:#f7f7f7;--secondary-foreground:#353535;',
+          '--muted:#f7f7f7;--muted-foreground:#8e8e8e;',
+          '--accent:#f7f7f7;--accent-foreground:#353535;',
+          '--destructive:#dc2626;--destructive-foreground:#dc2626;',
+          '--border:#ebebeb;--input:#ebebeb;--ring:#b5b5b5;',
+          '}',
+        ].join('')
+        doc.head.appendChild(fix)
+
+        // Neutralise any remaining oklch/color-mix inline or computed
+        // values that didn't come from the CSS variables (e.g.
+        // Tailwind opacity utilities like bg-white/95).
+        const colorProps = [
+          'color', 'backgroundColor',
+          'borderTopColor', 'borderRightColor',
+          'borderBottomColor', 'borderLeftColor',
+        ] as const
+        const unsupported = /oklch|color-mix/
+        cloned.querySelectorAll<HTMLElement>('*').forEach((el) => {
+          const cs = doc.defaultView?.getComputedStyle(el)
+          if (!cs) return
+          for (const prop of colorProps) {
+            if (unsupported.test(cs[prop])) {
+              el.style[prop] = 'transparent'
+            }
+          }
+        })
+
+        // Strip SVG-filter overlays and blend modes that html2canvas
+        // can't reproduce (grain texture, mix-blend-mode layers).
         cloned.querySelectorAll<HTMLElement>('[style]').forEach((el) => {
           const s = el.style
           const bg = s.backgroundImage || ''
