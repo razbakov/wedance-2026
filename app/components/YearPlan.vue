@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import type { YearPlanFestival, YearStats } from '~/types/festival'
-import { Calendar, MapPin, Users, Ticket, Clock, ChevronRight, Share2, Sparkles, AlertCircle } from 'lucide-vue-next'
-import { Button } from '~/components/ui/button'
-import { Badge } from '~/components/ui/badge'
+import { Calendar, MapPin, Users, Ticket, Clock, ChevronRight, Share2, Sparkles } from 'lucide-vue-next'
 
 const props = defineProps<{
   festivals: YearPlanFestival[]
@@ -74,15 +72,19 @@ const ticketStatusClass: Record<string, string> = {
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-xl font-bold">My 2026 Dance Year</h1>
-        <p class="text-sm text-muted-foreground mt-0.5">
+        <h1 class="text-2xl sm:text-3xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">My 2026 Dance Year</h1>
+        <p class="text-sm mt-1" style="color:#9a5614;">
           {{ stats.totalFestivals }} festivals · {{ stats.totalWorkshops }} workshops · {{ stats.countries.length }} {{ stats.countries.length === 1 ? 'country' : 'countries' }}
         </p>
       </div>
-      <Button variant="outline" size="sm" @click="emit('share')">
-        <Share2 class="w-3.5 h-3.5 mr-1.5" />
+      <button
+        class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider border-2 border-dashed hover:-translate-y-0.5 transition-transform"
+        style="border-color:#3b1f0d44; color:#3b1f0d;"
+        @click="emit('share')"
+      >
+        <Share2 class="w-3.5 h-3.5" />
         Share
-      </Button>
+      </button>
     </div>
 
     <!-- Ticket deadline alerts -->
@@ -90,37 +92,39 @@ const ticketStatusClass: Record<string, string> = {
       <div
         v-for="f in upcomingDeadlines"
         :key="f.slug + '-deadline'"
-        class="rounded-lg border border-amber-200 bg-amber-50 p-3 flex items-center gap-3 cursor-pointer hover:bg-amber-100/80 transition-colors"
+        class="rounded-xl border-2 border-dashed p-3 flex items-center gap-3 cursor-pointer hover:-translate-y-0.5 transition-transform"
+        style="border-color:#f59e0b; background:rgba(245, 158, 11, 0.08);"
         @click="emit('open-festival', f.slug)"
       >
-        <div class="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
-          <Clock class="w-4 h-4 text-amber-600" />
+        <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style="background:rgba(245, 158, 11, 0.15);">
+          <Clock class="w-4 h-4" style="color:#f59e0b;" />
         </div>
         <div class="flex-1 min-w-0">
-          <p class="text-sm font-medium text-amber-900">Early bird for {{ f.name }}</p>
-          <p class="text-xs text-amber-700">Expires in {{ daysUntil(f.earlyBirdDeadline!) }} days</p>
+          <p class="text-sm font-bold" style="color:#3b1f0d; font-family:'Playfair Display', serif;">Early bird for {{ f.name }}</p>
+          <p class="text-xs" style="color:#9a5614;">Expires in {{ daysUntil(f.earlyBirdDeadline!) }} days</p>
         </div>
-        <ChevronRight class="w-4 h-4 text-amber-400 shrink-0" />
+        <ChevronRight class="w-4 h-4 shrink-0" style="color:#f59e0b;" />
       </div>
     </div>
 
     <!-- Festival timeline -->
     <div class="space-y-6">
       <div v-for="[month, monthFestivals] in groupedByMonth" :key="month">
-        <p class="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">{{ month }}</p>
+        <p class="text-[10px] uppercase tracking-[0.2em] font-bold mb-3" style="color:#9a5614;">{{ month }}</p>
 
         <div class="space-y-3">
           <div
             v-for="f in monthFestivals"
             :key="f.slug"
-            class="rounded-xl border-2 overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
-            :style="{ borderColor: f.accentColor + '30' }"
+            class="rounded-xl border-2 overflow-hidden cursor-pointer hover:-translate-y-0.5 transition-all"
+            :style="{ borderColor: f.accentColor + '55', boxShadow: '3px 4px 0 -1px ' + f.accentColor + '2e' }"
+            style="background:rgba(255,255,255,0.85);"
             @click="emit('open-festival', f.slug)"
           >
             <!-- Festival header with accent -->
             <div
               class="px-4 py-3 flex items-center gap-3"
-              :style="{ background: f.accentColor + '08' }"
+              :style="{ background: f.accentColor + '0d' }"
             >
               <img
                 :src="f.logo"
@@ -128,65 +132,64 @@ const ticketStatusClass: Record<string, string> = {
                 class="w-10 h-10 rounded-lg object-cover shrink-0"
               />
               <div class="flex-1 min-w-0">
-                <h3 class="text-sm font-semibold leading-tight">{{ f.name }}</h3>
+                <h3 class="text-sm font-bold leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">{{ f.name }}</h3>
                 <div class="flex items-center gap-2 mt-0.5">
-                  <span class="text-xs text-muted-foreground flex items-center gap-1">
+                  <span class="text-xs flex items-center gap-1" style="color:#9a5614;">
                     <Calendar class="w-3 h-3" />
                     {{ formatDateRange(f.startDate, f.endDate) }}
                   </span>
-                  <span class="text-xs text-muted-foreground flex items-center gap-1">
+                  <span class="text-xs flex items-center gap-1" style="color:#9a5614;">
                     <MapPin class="w-3 h-3" />
                     {{ f.location }}
                   </span>
                 </div>
               </div>
-              <ChevronRight class="w-4 h-4 text-muted-foreground shrink-0" />
+              <ChevronRight class="w-4 h-4 shrink-0" style="color:#9a5614;" />
             </div>
 
             <!-- Festival details -->
-            <div class="px-4 py-3 space-y-2.5 border-t" :style="{ borderColor: f.accentColor + '15' }">
+            <div class="px-4 py-3 space-y-2.5 border-t" :style="{ borderColor: f.accentColor + '22' }">
               <!-- Plan stats -->
               <div class="flex items-center gap-2 flex-wrap">
-                <Badge v-if="f.workshopCount > 0" variant="secondary" class="text-xs">
+                <span v-if="f.workshopCount > 0" class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium" style="border-color:#3b1f0d22; color:#3b1f0d; background:rgba(251,245,234,0.8);">
                   {{ f.workshopCount }} workshops
-                </Badge>
-                <Badge v-if="f.workshopCount === 0" variant="outline" class="text-xs text-muted-foreground">
+                </span>
+                <span v-if="f.workshopCount === 0" class="inline-flex items-center rounded-full border border-dashed px-2 py-0.5 text-xs italic" style="border-color:#3b1f0d22; color:#9a5614;">
                   Plan not started
-                </Badge>
-                <Badge v-if="f.role" variant="secondary" class="text-xs">
+                </span>
+                <span v-if="f.role" class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium" style="border-color:#3b1f0d22; color:#3b1f0d; background:rgba(251,245,234,0.8);">
                   {{ f.role === 'lead' ? 'Lead' : 'Follow' }}
-                </Badge>
-                <Badge
+                </span>
+                <span
                   v-if="f.lookingCount > 0"
-                  variant="outline"
-                  class="text-xs bg-orange-50 text-orange-600 border-orange-200"
+                  class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium"
+                  style="border-color:#f59e0b55; color:#92400e; background:rgba(245, 158, 11, 0.08);"
                 >
                   {{ f.lookingCount }} need partner
-                </Badge>
+                </span>
               </div>
 
               <!-- Ticket status -->
               <div class="flex items-center gap-2">
-                <Badge
-                  variant="outline"
-                  class="text-xs"
+                <span
+                  class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium"
                   :class="ticketStatusClass[f.ticketStatus]"
                 >
                   <Ticket class="w-3 h-3 mr-1" />
                   {{ f.ticketName || ticketStatusLabel[f.ticketStatus] }}
-                </Badge>
+                </span>
               </div>
 
               <!-- Styles -->
               <div v-if="f.styles.length > 0" class="flex flex-wrap gap-1">
-                <Badge
+                <span
                   v-for="style in f.styles"
                   :key="style"
-                  variant="outline"
-                  class="text-[10px] px-1.5 py-0 text-muted-foreground"
+                  class="inline-flex items-center rounded-full border px-1.5 py-0 text-[10px]"
+                  style="border-color:#3b1f0d15; color:#9a5614;"
                 >
                   {{ style }}
-                </Badge>
+                </span>
               </div>
 
               <!-- Friends going -->
@@ -197,10 +200,11 @@ const ticketStatusClass: Record<string, string> = {
                     :key="friend.name"
                     :src="friend.photo"
                     :alt="friend.name"
-                    class="w-6 h-6 rounded-full border-2 border-background object-cover"
+                    class="w-6 h-6 rounded-full border-2 object-cover"
+                    style="border-color:#fbf5ea;"
                   />
                 </div>
-                <span class="text-xs text-muted-foreground">
+                <span class="text-xs" style="color:#9a5614;">
                   {{ f.friendsGoing.map((fr) => fr.name.split(' ')[0]).slice(0, 3).join(', ') }}
                   <template v-if="f.friendsGoing.length > 3">
                     +{{ f.friendsGoing.length - 3 }} more
@@ -216,14 +220,15 @@ const ticketStatusClass: Record<string, string> = {
     <!-- Suggestions -->
     <div v-if="suggestions.length > 0" class="space-y-3">
       <div class="flex items-center gap-2">
-        <Sparkles class="w-4 h-4 text-muted-foreground" />
-        <h3 class="text-sm font-semibold text-muted-foreground">Suggested for you</h3>
+        <Sparkles class="w-4 h-4" style="color:#9a5614;" />
+        <h3 class="text-sm font-bold" style="color:#9a5614; font-family:'Playfair Display', serif;">Suggested for you</h3>
       </div>
 
       <div
         v-for="f in suggestions"
         :key="f.slug"
-        class="rounded-xl border border-dashed p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+        class="rounded-xl border-2 border-dashed p-4 cursor-pointer hover:-translate-y-0.5 transition-transform"
+        style="border-color:#3b1f0d22; background:rgba(255,255,255,0.7);"
         @click="emit('open-festival', f.slug)"
       >
         <div class="flex items-center gap-3">
@@ -233,19 +238,19 @@ const ticketStatusClass: Record<string, string> = {
             class="w-10 h-10 rounded-lg object-cover shrink-0"
           />
           <div class="flex-1 min-w-0">
-            <h4 class="text-sm font-medium">{{ f.name }}</h4>
-            <p class="text-xs text-muted-foreground">
+            <h4 class="text-sm font-bold" style="font-family:'Playfair Display', serif; color:#3b1f0d;">{{ f.name }}</h4>
+            <p class="text-xs" style="color:#9a5614;">
               {{ formatDateRange(f.startDate, f.endDate) }} · {{ f.location }}
             </p>
           </div>
-          <ChevronRight class="w-4 h-4 text-muted-foreground shrink-0" />
+          <ChevronRight class="w-4 h-4 shrink-0" style="color:#9a5614;" />
         </div>
         <div class="mt-2 flex items-center gap-3">
-          <span v-if="f.friendsGoing.length > 0" class="text-xs text-muted-foreground flex items-center gap-1">
+          <span v-if="f.friendsGoing.length > 0" class="text-xs flex items-center gap-1" style="color:#9a5614;">
             <Users class="w-3 h-3" />
             {{ f.friendsGoing.length }} {{ f.friendsGoing.length === 1 ? 'friend' : 'friends' }} going
           </span>
-          <span v-if="f.styles.length > 0" class="text-xs text-muted-foreground">
+          <span v-if="f.styles.length > 0" class="text-xs" style="color:#9a5614;">
             {{ f.styles.join(', ') }}
           </span>
         </div>
@@ -253,54 +258,58 @@ const ticketStatusClass: Record<string, string> = {
     </div>
 
     <!-- Year stats -->
-    <div class="rounded-xl border bg-muted/30 p-5 space-y-4">
-      <h3 class="text-sm font-semibold">My Year in Numbers</h3>
+    <div class="rounded-xl border-2 border-dashed p-5 space-y-4" style="border-color:#3b1f0d22; background:rgba(255,255,255,0.7);">
+      <h3 class="text-base font-bold" style="font-family:'Playfair Display', serif; color:#3b1f0d;">My Year in Numbers</h3>
 
       <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; text-align: center;">
         <div>
-          <p class="text-2xl font-bold">{{ stats.totalFestivals }}</p>
-          <p class="text-[10px] text-muted-foreground uppercase tracking-wider">Festivals</p>
+          <p class="text-3xl font-black" style="font-family:'Playfair Display', serif; color:#dc2626;">{{ stats.totalFestivals }}</p>
+          <p class="text-[10px] uppercase tracking-[0.2em]" style="color:#9a5614;">Festivals</p>
         </div>
         <div>
-          <p class="text-2xl font-bold">{{ stats.totalWorkshops }}</p>
-          <p class="text-[10px] text-muted-foreground uppercase tracking-wider">Workshops</p>
+          <p class="text-3xl font-black" style="font-family:'Playfair Display', serif; color:#16a34a;">{{ stats.totalWorkshops }}</p>
+          <p class="text-[10px] uppercase tracking-[0.2em]" style="color:#9a5614;">Workshops</p>
         </div>
         <div>
-          <p class="text-2xl font-bold">{{ stats.countries.length }}</p>
-          <p class="text-[10px] text-muted-foreground uppercase tracking-wider">Countries</p>
+          <p class="text-3xl font-black" style="font-family:'Playfair Display', serif; color:#0891b2;">{{ stats.countries.length }}</p>
+          <p class="text-[10px] uppercase tracking-[0.2em]" style="color:#9a5614;">Countries</p>
         </div>
       </div>
 
       <!-- Style breakdown -->
       <div class="space-y-1.5">
-        <p class="text-xs font-medium text-muted-foreground">Dance styles</p>
+        <p class="text-xs font-bold" style="color:#9a5614;">Dance styles</p>
         <div v-for="entry in stats.topStyles" :key="entry.style" class="flex items-center gap-2">
-          <span class="text-xs w-16 shrink-0">{{ entry.style }}</span>
-          <div class="flex-1 h-2 rounded-full overflow-hidden" style="background: hsl(var(--muted));">
+          <span class="text-xs w-16 shrink-0" style="color:#5b3a1d; font-family: system-ui, sans-serif;">{{ entry.style }}</span>
+          <div class="flex-1 h-2 rounded-full overflow-hidden" style="background:#3b1f0d15;">
             <div
               class="h-full rounded-full"
-              :style="{ width: entry.percent + '%', background: 'hsl(var(--primary) / 0.6)' }"
+              :style="{ width: entry.percent + '%', background: 'linear-gradient(135deg, #dc2626, #f97316)' }"
             />
           </div>
-          <span class="text-[10px] text-muted-foreground w-8 text-right">{{ entry.percent }}%</span>
+          <span class="text-[10px] w-8 text-right" style="color:#9a5614;">{{ entry.percent }}%</span>
         </div>
       </div>
 
       <!-- Partner match rate -->
       <div class="flex items-center justify-between text-xs">
-        <span class="text-muted-foreground">Partner match rate</span>
-        <span class="font-medium">{{ stats.partnerMatchRate }}%</span>
+        <span style="color:#9a5614;">Partner match rate</span>
+        <span class="font-bold" style="color:#3b1f0d;">{{ stats.partnerMatchRate }}%</span>
       </div>
     </div>
 
     <!-- Not signed in CTA -->
-    <div v-if="!isSignedIn" class="rounded-xl border-2 border-primary/20 bg-gradient-to-r from-primary/5 to-primary/10 p-6 text-center space-y-3">
-      <Calendar class="w-8 h-8 text-primary mx-auto" />
-      <h3 class="text-base font-semibold">Track your dance year</h3>
-      <p class="text-sm text-muted-foreground">
+    <div v-if="!isSignedIn" class="rounded-xl border-2 border-dashed p-6 text-center space-y-3" style="border-color:#dc262644; background:rgba(255,255,255,0.8);">
+      <Calendar class="w-8 h-8 mx-auto" style="color:#dc2626;" />
+      <h3 class="text-lg font-bold" style="font-family:'Playfair Display', serif; color:#3b1f0d;">Track your dance year</h3>
+      <p class="text-sm" style="color:#5b3a1d;">
         Sign in to save your plans across festivals and share your year with friends.
       </p>
-      <Button @click="emit('sign-in')">Sign in</Button>
+      <button
+        class="inline-flex items-center gap-2 px-6 py-3 rounded-full text-white text-sm font-bold uppercase tracking-wider"
+        style="background:linear-gradient(135deg, #dc2626, #f97316); box-shadow: 0 4px 0 -1px #b91c1c;"
+        @click="emit('sign-in')"
+      >Sign in</button>
     </div>
   </div>
 </template>
