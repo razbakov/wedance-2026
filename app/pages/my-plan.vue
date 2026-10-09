@@ -2356,7 +2356,7 @@ function cardSummary(f: CatalogueEntry) {
           <div
             v-for="c in courses"
             :key="c.id"
-            class="rounded-2xl bg-white p-5 border"
+            class="group rounded-2xl bg-white p-5 border"
             :style="{ borderColor: c.color + '55', boxShadow: '0 1px 0 ' + c.color + '22, 0 6px 18px rgba(59,31,18,0.04)' }"
           >
             <div class="flex items-start justify-between gap-3 mb-2">
@@ -2368,14 +2368,24 @@ function cardSummary(f: CatalogueEntry) {
                   {{ c.teacher }} · <span style="color:#9a5614;">{{ c.style }} · {{ c.level }}</span>
                 </div>
               </div>
-              <span
-                class="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full whitespace-nowrap"
-                :style="c.paidThroughMonth
-                  ? { color: '#16a34a', background: '#16a34a18' }
-                  : { color: '#dc2626', background: '#dc262618' }"
-              >
-                {{ c.paidThroughMonth ? 'Paid' : 'Pay due' }}
-              </span>
+              <div class="flex items-center gap-2 shrink-0">
+                <span
+                  class="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full whitespace-nowrap"
+                  :style="c.paidThroughMonth
+                    ? { color: '#16a34a', background: '#16a34a18' }
+                    : { color: '#dc2626', background: '#dc262618' }"
+                >
+                  {{ c.paidThroughMonth ? 'Paid' : 'Pay due' }}
+                </span>
+                <button
+                  type="button"
+                  class="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-red-50"
+                  title="Remove course"
+                  @click="unenrollCourse(c.id)"
+                >
+                  <X class="w-3.5 h-3.5" style="color:#dc2626;" />
+                </button>
+              </div>
             </div>
 
             <div class="mt-3 space-y-1.5 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
