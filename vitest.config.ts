@@ -8,6 +8,7 @@ export default defineConfig({
   },
   test: {
     include: ['server/**/*.test.ts', 'shared/**/*.test.ts', 'app/composables/**/*.test.ts'],
+    setupFiles: ['server/test-setup.ts'],
     env: loadEnv('', process.cwd(), ''),
     fileParallelism: false,
     coverage: {
