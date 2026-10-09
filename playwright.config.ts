@@ -26,10 +26,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  webServer: {
-    command: process.env.CI ? 'npx nuxt preview' : 'bun run dev',
-    url: process.env.BASE_URL || 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  webServer: process.env.CI
+    ? undefined // CI starts the server in a prior workflow step
+    : {
+        command: 'bun run dev',
+        url: process.env.BASE_URL || 'http://localhost:3000',
+        reuseExistingServer: true,
+        timeout: 120_000,
+      },
 })

@@ -103,6 +103,19 @@ jobs:
       - name: Build the app
         run: bun run build
 
+      - name: Start preview server (background)
+        run: node .output/server/index.mjs &
+        env:
+          PORT: 3000
+          HOST: 0.0.0.0
+
+      - name: Wait for preview server
+        run: |
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3000/ > /dev/null 2>&1 && break
+            sleep 1
+          done
+
       - name: Install Playwright browsers
         run: bunx playwright install --with-deps chromium
 
