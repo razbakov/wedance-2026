@@ -561,7 +561,7 @@ export const authRouter = router({
           // 11. Delete giveaway entries by dancerId + email-only rows (case-insensitive)
           ctx.db.delete(giveawayEntries).where(or(
             eq(giveawayEntries.dancerId, dancerId),
-            sql`lower(${giveawayEntries.email}) = ${emailLower}`,
+            sql`${giveawayEntries.dancerId} IS NULL AND lower(${giveawayEntries.email}) = ${emailLower}`,
           )),
 
           // 12. Handle bookingRequests: delete where requester (by id or email), null where moderator
