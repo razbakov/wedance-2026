@@ -129,7 +129,7 @@ function formatDateRange(start: string, end: string): string {
     </div>
 
     <!-- No overlap banner -->
-    <div v-else-if="viewerFestivalSlugs.length > 0" class="rounded-xl border-2 border-dashed p-4 flex items-center gap-3" style="border-color:#3b1f0d22; background:rgba(251,245,234,0.8);">
+    <div v-else class="rounded-xl border-2 border-dashed p-4 flex items-center gap-3" style="border-color:#3b1f0d22; background:rgba(251,245,234,0.8);">
       <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style="background:rgba(59, 31, 13, 0.06);">
         <Calendar class="w-4 h-4" style="color:#9a5614;" />
       </div>
@@ -137,7 +137,8 @@ function formatDateRange(start: string, end: string): string {
         <p class="text-sm font-bold" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
           No festival overlap yet
         </p>
-        <p class="text-xs" style="color:#5b3a1d;">You and {{ sharer.name }} aren't going to the same festivals — browse theirs and add one to your plan!</p>
+        <p v-if="viewerFestivalSlugs.length > 0" class="text-xs" style="color:#5b3a1d;">You and {{ sharer.name }} aren't going to the same festivals — browse theirs and add one to your plan!</p>
+        <p v-else class="text-xs" style="color:#5b3a1d;">Add festivals to your plan to see where you overlap with {{ sharer.name }}!</p>
       </div>
     </div>
 
