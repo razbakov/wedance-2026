@@ -185,3 +185,24 @@ What still holds a literal hex (by design or below the token threshold):
 - `app/data/mock-*.ts` — festival accent colours are content, not design.
 - ~30 one-off colours used ≤3 times (e.g. `#166534`, `#f5f0e8`, `#1f0f06`). Promote to a token the second time someone needs one.
 - `rgba(...)` shadows — left inline; the five common recipes are now tokens (`shadow-wd-*`, see Tokens §6). Migrate when a page is next touched.
+
+## Guardrails
+
+Automated checks so the system can't drift or break silently. Each failure message points back here.
+
+| Check | Command | Runs in CI | What fails it |
+|---|---|---|---|
+| Token drift | `bun run test:tokens` (also part of `bun run test`) | yes (`unit`) | a file gains a literal 6/8-digit hex; an inline `font-family` that isn't `var(--wd-font-*)`; a Google Fonts URL loading anything but Playfair Display; a quoted comma list in a font token (`'Caveat, cursive'` = one bogus family) |
+| Component contract | `bun run test:design` | yes (`e2e-smoke`) | a `<Button>` that isn't a `<button>`/`<a href>`; a disabled Button without the `disabled` attribute or `cursor: not-allowed`; an enabled one without `cursor: pointer`; Button/Badge text contrast < 4.5:1 |
+| Accessibility | `bun run test:design` | `/design` pages only | built-in: `<html lang>`, `<main>`, one `<h1>`, img alt, names on buttons/links/inputs; plus axe-core WCAG 2.1 A/AA when `@axe-core/playwright` is installed (skipped otherwise) |
+| Visual regression | `bun run test:visual` | no (local) | a screenshot of a `/design` page (full page) or key product route (first viewport, data masked) at 1280 and 375 differs from its baseline |
+
+**Ratchets, not walls.** Existing debt is frozen, new debt fails:
+
+- `scripts/design-guardrails/baseline.json` — hex/font literal counts per file. Removed some? `bun scripts/design-guardrails/update-baseline.ts` (it refuses to raise a number unless `--allow-increase`, which needs a reason in the PR).
+- `e2e/design/a11y-baseline.json` — known violations. `/design` pages: per-rule counts. Product routes: per-rule `"*"` (counts move with DB content; a *new* rule still fails). Fixed one? Delete or lower the entry.
+- `CONTRAST_DEBT` in `e2e/design/contract.spec.ts` — colour pairs below 4.5:1 that are tolerated but may not get worse. Delete the entry when the token is fixed.
+
+**Coverage is automatic.** `/design` pages come from `app/lib/design-nav.ts` (every non-planned item whose page exists). Product routes are one line each in `PRODUCT_ROUTES` (`e2e/design/pages.ts`). Mark a data-driven region `data-visual-mask` to exclude it from screenshots.
+
+**Running locally.** Start a dev server, then `DESIGN_BASE_URL=http://localhost:<port> bun run test:design` (without the variable Playwright starts `bun run dev` on :3000). Accept intended visual changes with `bun run test:visual:update` and commit the PNGs (`e2e/design/__screenshots__/<platform>/`; baselines are per-OS, generated on macOS). All specs are read-only — safe against the production DB in `.env`.
