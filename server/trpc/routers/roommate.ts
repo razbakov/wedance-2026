@@ -28,12 +28,16 @@ export const roommateRouter = router({
         looking = !!own
       }
 
+      const selectFields = {
+        name: dancers.name,
+        photo: dancers.photo,
+        city: dancers.city,
+        username: dancers.username,
+      }
+
       const othersQuery = ctx.dancerId
         ? ctx.db
-            .select({
-              name: dancers.name,
-              photo: dancers.photo,
-            })
+            .select(selectFields)
             .from(festivalRoommateLookups)
             .innerJoin(dancers, eq(festivalRoommateLookups.dancerId, dancers.id))
             .where(and(
@@ -41,10 +45,7 @@ export const roommateRouter = router({
               ne(festivalRoommateLookups.dancerId, ctx.dancerId),
             ))
         : ctx.db
-            .select({
-              name: dancers.name,
-              photo: dancers.photo,
-            })
+            .select(selectFields)
             .from(festivalRoommateLookups)
             .innerJoin(dancers, eq(festivalRoommateLookups.dancerId, dancers.id))
             .where(eq(festivalRoommateLookups.festivalId, festival.id))
