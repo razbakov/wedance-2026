@@ -60,15 +60,15 @@ export const designNav: DocSection[] = [
     title: 'Patterns',
     items: [
       { title: 'Forms & validation', to: '/design/patterns/forms', status: 'planned', summary: 'Layout, validation timing, error copy.' },
-      { title: 'Cards', to: '/design/patterns/cards', status: 'planned', summary: 'Event, festival and artist cards.' },
-      { title: 'Heroes', to: '/design/patterns/heroes', status: 'planned', summary: 'Page headers with photo and title.' },
-      { title: 'Empty states', to: '/design/patterns/empty-states', status: 'planned', summary: 'What to show when there is nothing yet.' },
+      { title: 'Cards', to: '/design/patterns/cards', status: 'beta', summary: 'Event, festival, artist and plan cards.' },
+      { title: 'Heroes', to: '/design/patterns/heroes', status: 'beta', summary: 'Page headers with photo and title.' },
+      { title: 'Empty states', to: '/design/patterns/empty-states', status: 'beta', summary: 'What to show when there is nothing yet.' },
     ],
   },
   {
     title: 'Brand',
     items: [
-      { title: 'Logo, voice & imagery', to: '/design/brand', status: 'planned', summary: 'Logo use, tone of voice, photo rules.' },
+      { title: 'Logo, voice & imagery', to: '/design/brand', status: 'beta', summary: 'Logo use, tone of voice, photo rules.' },
     ],
   },
 ]
