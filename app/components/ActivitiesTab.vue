@@ -4,7 +4,8 @@
  * V3 tropical style. Collapsible sections; same props/emits as before.
  */
 import type { RideShare, GroupDinner, ExtraActivity } from '~/types/festival'
-import { Car, BedDouble, UtensilsCrossed, Compass, ChevronDown, Check, MessageCircle } from 'lucide-vue-next'
+import type { RoommateEntry } from '~/composables/useRoommates'
+import { Car, BedDouble, UtensilsCrossed, Compass, ChevronDown, Check, MessageCircle, MapPin, ExternalLink } from 'lucide-vue-next'
 import { RidePostSchema } from '#shared/validation'
 
 const props = defineProps<{
@@ -12,6 +13,8 @@ const props = defineProps<{
   groupDinners: GroupDinner[]
   extraActivities: ExtraActivity[]
   lookingForRoommate: boolean
+  roommateOthers: RoommateEntry[]
+  hotelSearchUrl?: string
   isSignedIn: boolean
 }>()
 
@@ -70,7 +73,11 @@ const sections = [
 
 function badgeFor(key: string): string | null {
   if (key === 'rides') return props.rideShares.length ? `${props.rideShares.length} sharing` : null
-  if (key === 'rooms') return props.lookingForRoommate ? 'Looking' : null
+  if (key === 'rooms') {
+    if (props.roommateOthers.length > 0) return `${props.roommateOthers.length} looking`
+    if (props.lookingForRoommate) return 'Looking'
+    return null
+  }
   if (key === 'dinners') return totalEvents.value ? `${totalEvents.value} events` : null
   return null
 }
@@ -184,7 +191,7 @@ function badgeFor(key: string): string | null {
       </div>
 
       <!-- ROOMS -->
-      <div v-if="sec.key === 'rooms' && expandedSections.has('rooms')" class="px-4 pb-4">
+      <div v-if="sec.key === 'rooms' && expandedSections.has('rooms')" class="px-4 pb-4 grid gap-3">
         <div v-if="!isSignedIn" class="rounded-xl border p-3 text-center" style="border-color:#3b1f0d15; background:#3b1f0d05;">
           <p class="text-sm mb-2" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Sign in to find a roommate</p>
           <button
@@ -213,6 +220,32 @@ function badgeFor(key: string): string | null {
           <p v-if="lookingForRoommate" class="text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
             Other attendees looking for roommates will see you. Share your plan to connect.
           </p>
+        </div>
+
+        <!-- Others looking for roommates -->
+        <div v-if="roommateOthers.length" class="grid gap-1.5">
+          <p class="text-[10px] font-bold uppercase tracking-widest" :style="labelStyle">Others looking for roommates</p>
+          <div v-for="person in roommateOthers" :key="person.username || person.name" class="flex items-center gap-2.5 py-1.5 px-2 rounded-lg" style="background:#3b1f0d05;">
+            <img v-if="person.photo" :src="person.photo" :alt="person.name" class="w-8 h-8 rounded-full shrink-0 object-cover">
+            <span v-else class="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-xs font-bold" style="background:#16a34a18; color:#16a34a;">{{ person.name.charAt(0) }}</span>
+            <div class="min-w-0 flex-1 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+              <component :is="person.username ? 'a' : 'span'" :href="person.username ? `/u/${person.username}` : undefined" class="font-bold" :style="person.username ? 'color:#3b1f0d; text-decoration:underline; text-underline-offset:2px;' : 'color:#3b1f0d;'">{{ person.name }}</component>
+              <span v-if="person.city" class="ml-1 inline-flex items-center gap-0.5"><MapPin class="w-3 h-3 inline" style="color:#9a5614;" />{{ person.city }}</span>
+            </div>
+            <span class="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shrink-0" style="background:#16a34a18; color:#16a34a;">Looking</span>
+          </div>
+        </div>
+
+        <!-- Hotel fallback when no roommates found -->
+        <div v-if="!roommateOthers.length && isSignedIn && hotelSearchUrl" class="rounded-xl border p-3 text-center" style="border-color:#3b1f0d15; background:#3b1f0d05;">
+          <p class="text-xs mb-2" style="color:#5b3a1d; font-family: system-ui, sans-serif;">No one is looking for a roommate yet. You can also check hotels nearby.</p>
+          <a
+            :href="hotelSearchUrl"
+            target="_blank"
+            rel="noopener"
+            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider"
+            style="background:white; color:#16a34a; border:1.5px solid #16a34a55;"
+          ><ExternalLink class="w-3 h-3" /> Search hotels</a>
         </div>
       </div>
 

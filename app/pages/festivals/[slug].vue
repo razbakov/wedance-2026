@@ -710,7 +710,18 @@ function postRide(ride: { type: 'offering' | 'looking'; originCity: string; date
 }
 
 // Roommate toggle — persisted in database
-const { lookingForRoommate, loadRoommateStatus, toggleRoommate: doToggleRoommate } = useRoommates(festival.slug)
+const { lookingForRoommate, roommateOthers, loadRoommateStatus, toggleRoommate: doToggleRoommate } = useRoommates(festival.slug)
+
+// Hotel search fallback URL for when no roommates are found
+const hotelSearchUrl = computed(() => {
+  const loc = festival.venue?.address || festival.venue?.name || ''
+  if (!loc) return undefined
+  const q = encodeURIComponent(loc)
+  const params = new URLSearchParams({ q })
+  if (festival.startDate) params.set('checkin', festival.startDate)
+  if (festival.endDate) params.set('checkout', festival.endDate)
+  return `https://www.google.com/travel/hotels?${params.toString()}`
+})
 
 function toggleRoommate() {
   if (!isSignedIn.value) {
@@ -1326,6 +1337,8 @@ useHead({
             :group-dinners="groupDinners"
             :extra-activities="extraActivities"
             :looking-for-roommate="lookingForRoommate"
+            :roommate-others="roommateOthers"
+            :hotel-search-url="hotelSearchUrl"
             :is-signed-in="isSignedIn"
             @join-dinner="joinDinner"
             @join-activity="joinActivity"
