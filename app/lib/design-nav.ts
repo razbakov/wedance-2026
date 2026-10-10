@@ -31,11 +31,11 @@ export const designNav: DocSection[] = [
     title: 'Foundations',
     items: [
       { title: 'Colors', to: '/design/foundations/colors', status: 'stable', summary: 'Core, semantic, status and extended palettes with contrast.' },
-      { title: 'Typography', to: '/design/foundations/typography', status: 'stable', summary: 'Font pair, type scale and usage rules.' },
-      { title: 'Elevation', to: '/design/foundations/elevation', status: 'beta', summary: 'Radii and the shadow recipes in use.' },
-      { title: 'Motion', to: '/design/foundations/motion', status: 'beta', summary: 'Durations, easing and reduced motion.' },
-      { title: 'Spacing & layout', to: '/design/foundations/spacing', status: 'planned', summary: 'Spacing scale, containers, breakpoints.' },
-      { title: 'Icons', to: '/design/foundations/icons', status: 'planned', summary: 'Lucide set, sizes and colours.' },
+      { title: 'Typography', to: '/design/foundations/typography', status: 'stable', summary: 'Font pair, type scale, small-size tokens and usage rules.' },
+      { title: 'Elevation', to: '/design/foundations/elevation', status: 'stable', summary: 'Radii and the shadow tokens.' },
+      { title: 'Motion', to: '/design/foundations/motion', status: 'stable', summary: 'Duration and easing tokens, reduced motion.' },
+      { title: 'Spacing & layout', to: '/design/foundations/spacing', status: 'stable', summary: 'Spacing scale, containers, breakpoints.' },
+      { title: 'Icons', to: '/design/foundations/icons', status: 'stable', summary: 'Lucide set, sizes and colours.' },
     ],
   },
   {
