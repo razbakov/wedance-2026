@@ -656,6 +656,7 @@ type Track = {
   state: { text: string; tone: 'done' | 'urgent' | 'todo' | 'muted' }
   action: TrackAction | null
   altAction?: TrackAction  // "or X" fallback — used on tracks where WeDance has a native path (sharing) and Google is the fallback
+  onAction?: () => void    // When set, action renders as a button (calls this) instead of a link
   toggleKey?: TrackKey
   done: boolean
 }
@@ -708,7 +709,8 @@ function tracks(f: CatalogueEntry): Track[] {
       icon: Plane,
       label: 'Travel',
       state: p.travelBooked ? { text: 'Booked', tone: 'done' } : { text: 'Not booked', tone: 'todo' },
-      action: p.travelBooked ? null : { label: 'Find a ride', href: `/festivals/${f.slug}#activities`, external: false },
+      action: p.travelBooked ? null : { label: rideOpenSlugs.value.has(f.slug) ? 'Close rides' : 'Find a ride', href: '#', external: false },
+      onAction: p.travelBooked ? undefined : () => toggleRidePanel(f.slug),
       altAction: p.travelBooked ? undefined : { label: 'or flights', href: flightsLink(f), external: true },
       toggleKey: 'travelBooked',
       done: !!p.travelBooked,
@@ -790,6 +792,15 @@ const toneStyle = (tone: 'done' | 'urgent' | 'todo' | 'muted') => {
 const expandedSlugs = ref<Set<string>>(new Set(
   isPreviewInitial ? ['bachata-stars-barcelona-2026'] : [],
 ))
+
+// Which festivals have the "Find a ride" panel open (toggled from the Travel track).
+const rideOpenSlugs = ref<Set<string>>(new Set())
+
+function toggleRidePanel(slug: string) {
+  const s = new Set(rideOpenSlugs.value)
+  if (s.has(slug)) s.delete(slug); else s.add(slug)
+  rideOpenSlugs.value = s
+}
 
 function toggleExpanded(slug: string) {
   const s = new Set(expandedSlugs.value)
@@ -2220,8 +2231,17 @@ function cardSummary(f: CatalogueEntry) {
                   <span style="font-family: system-ui, sans-serif;">{{ t.state.text }}</span>
                 </span>
 
+                <button
+                  v-if="t.action && t.onAction"
+                  type="button"
+                  class="text-xs font-bold italic hover:underline ml-auto whitespace-nowrap"
+                  :style="{ color: f.accentColor }"
+                  @click.stop="t.onAction()"
+                >
+                  {{ t.action.label }} →
+                </button>
                 <NuxtLink
-                  v-if="t.action && !t.action.external"
+                  v-else-if="t.action && !t.action.external"
                   :to="t.action.href"
                   class="text-xs font-bold italic hover:underline ml-auto whitespace-nowrap"
                   :style="{ color: f.accentColor }"
@@ -2271,6 +2291,18 @@ function cardSummary(f: CatalogueEntry) {
                 </button>
               </div>
             </div>
+
+            <!-- FIND A RIDE PANEL -->
+            <FindRidePanel
+              v-if="rideOpenSlugs.has(f.slug)"
+              :festival-slug="f.slug"
+              :festival-location="f.location"
+              :festival-start-date="f.startDate"
+              :accent-color="f.accentColor"
+              :is-signed-in="isSignedIn && !previewMode"
+              class="mt-4"
+              @sign-in="openAuth('signin')"
+            />
 
             <!-- WORKSHOP PICKER -->
             <div v-if="getWorkshopsForFestival(f.slug).length > 0" class="mt-6 pt-6 border-t" style="border-color:#3b1f0d0d;">
