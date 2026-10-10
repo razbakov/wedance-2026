@@ -196,30 +196,28 @@ async function handleRecovery() {
 }
 
 // Shared input styling — matches the rounded, warm inputs on /cities.
-const inputClass = 'w-full h-11 rounded-full px-4 text-sm outline-none transition-all'
-const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d; font-family: system-ui, sans-serif;'
+const inputClass = 'w-full h-11 rounded-full px-4 text-sm outline-none transition-all bg-white border border-border text-foreground font-sans'
 </script>
 
 <template>
   <Dialog :open="open" @update:open="emit('update:open', $event)">
     <DialogContent
-      class="sm:max-w-md border-0 p-0 overflow-hidden [&>button]:top-6 [&>button]:right-5"
-      style="background:#fbf5ea; color:#3b1f0d; font-family:'Playfair Display', serif;"
+      class="sm:max-w-md border-0 p-0 overflow-hidden [&>button]:top-6 [&>button]:right-5 bg-background text-foreground font-display"
     >
       <!-- Accent bar -->
-      <div class="h-1.5" style="background:#dc2626;" />
+      <div class="h-1.5 bg-primary" />
 
       <div class="px-6 pb-6 pt-4">
         <!-- ============================ RECOVERY ============================ -->
         <template v-if="isRecovery">
           <DialogHeader class="text-left space-y-1">
-            <div class="text-[10px] uppercase tracking-[0.3em] font-bold" style="color:#9a5614;">
+            <div class="text-[10px] uppercase tracking-[0.3em] font-bold text-secondary">
               Account recovery
             </div>
-            <DialogTitle class="text-2xl leading-tight" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+            <DialogTitle class="text-2xl leading-tight text-foreground font-display">
               {{ recoverySent ? 'Check your email' : 'Forgot your password?' }}
             </DialogTitle>
-            <DialogDescription style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+            <DialogDescription class="text-muted-foreground font-sans">
               {{ recoverySent
                 ? 'We sent you a password reset link. Click it to set a new password.'
                 : 'Enter your email and we\'ll send you a link to reset your password.' }}
@@ -229,7 +227,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
           <!-- Recovery form -->
           <form v-if="!recoverySent" class="space-y-4 pt-4" novalidate @submit.prevent="handleRecovery">
             <div class="space-y-1.5">
-              <label for="recovery-email" class="text-sm font-bold" style="color:#3b1f0d;">Email</label>
+              <label for="recovery-email" class="text-sm font-bold text-foreground">Email</label>
               <input
                 id="recovery-email"
                 ref="recoveryEmailInput"
@@ -239,27 +237,25 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
                 autocomplete="email"
                 required
                 :class="inputClass"
-                :style="inputStyle"
                 v-bind="recoveryForm.fieldAttrs('email', 'recovery-email-error')"
               >
               <FieldError id="recovery-email-error" :message="recoveryForm.errors.email" />
             </div>
 
-            <p v-if="error" class="text-sm font-bold" style="color:#dc2626; font-family: system-ui, sans-serif;">
+            <p v-if="error" class="text-sm font-bold text-primary font-sans">
               {{ error }}
             </p>
 
             <button
               type="submit"
               :disabled="loading"
-              class="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-white text-sm font-bold uppercase tracking-wider disabled:opacity-60"
-              style="background:#dc2626; box-shadow: 0 3px 0 -1px #b91c1c; font-family: system-ui, sans-serif;"
+              class="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-white text-sm font-bold uppercase tracking-wider disabled:opacity-60 bg-primary shadow-[0_3px_0_-1px_var(--wd-red-800)] font-sans"
             >
               {{ loading ? 'Sending…' : 'Send me a reset link' }}
             </button>
 
-            <p class="text-center text-sm pt-1" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
-              <button type="button" class="font-bold underline" style="color:#dc2626;" @click="backToLogin">
+            <p class="text-center text-sm pt-1 text-muted-foreground font-sans">
+              <button type="button" class="font-bold underline text-primary" @click="backToLogin">
                 Back to login
               </button>
             </p>
@@ -268,14 +264,13 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
           <!-- Recovery confirmation -->
           <div v-else class="space-y-4 pt-4">
             <div
-              class="rounded-2xl px-4 py-4 text-sm"
-              style="background:white; border:1px solid #16a34a55; color:#3b1f0d; font-family: system-ui, sans-serif;"
+              class="rounded-2xl px-4 py-4 text-sm bg-white border border-success/33 text-foreground font-sans"
             >
               If <span class="font-bold">{{ form.email.trim() }}</span> has an account, a password reset link is on its way.
               The link expires in 15 minutes.
             </div>
-            <p class="text-center text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
-              <button type="button" class="font-bold underline" style="color:#dc2626;" @click="backToLogin">
+            <p class="text-center text-sm text-muted-foreground font-sans">
+              <button type="button" class="font-bold underline text-primary" @click="backToLogin">
                 Back to login
               </button>
             </p>
@@ -285,13 +280,13 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
         <!-- ======================= LOGIN / REGISTER ======================= -->
         <template v-else>
           <DialogHeader class="text-left space-y-1">
-            <div class="text-[10px] uppercase tracking-[0.3em] font-bold" style="color:#9a5614;">
+            <div class="text-[10px] uppercase tracking-[0.3em] font-bold text-secondary">
               {{ isRegister ? 'Join the floor' : 'Welcome back' }}
             </div>
-            <DialogTitle class="text-2xl leading-tight" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+            <DialogTitle class="text-2xl leading-tight text-foreground font-display">
               {{ isRegister ? (headlines[action] || 'Join WeDance') : 'Sign in to WeDance' }}
             </DialogTitle>
-            <DialogDescription style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+            <DialogDescription class="text-muted-foreground font-sans">
               {{ isRegister ? 'Create your account with email and password.' : 'Enter your email and password.' }}
             </DialogDescription>
           </DialogHeader>
@@ -299,7 +294,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
           <form class="space-y-4 pt-4" novalidate @submit.prevent="handleSubmit">
             <!-- Name (register only, unless prefilled) -->
             <div v-if="isRegister && !hasPrefillName" class="space-y-1.5">
-              <label for="auth-name" class="text-sm font-bold" style="color:#3b1f0d;">Name</label>
+              <label for="auth-name" class="text-sm font-bold text-foreground">Name</label>
               <input
                 id="auth-name"
                 v-model="form.name"
@@ -307,7 +302,6 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
                 placeholder="Your name"
                 autocomplete="name"
                 :class="inputClass"
-                :style="inputStyle"
                 v-bind="authForm.fieldAttrs('name', 'auth-name-error')"
               >
               <FieldError id="auth-name-error" :message="authForm.errors.name" />
@@ -315,7 +309,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
 
             <!-- Email -->
             <div class="space-y-1.5">
-              <label for="auth-email" class="text-sm font-bold" style="color:#3b1f0d;">Email</label>
+              <label for="auth-email" class="text-sm font-bold text-foreground">Email</label>
               <input
                 id="auth-email"
                 ref="emailInput"
@@ -325,7 +319,6 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
                 autocomplete="email"
                 required
                 :class="inputClass"
-                :style="inputStyle"
                 v-bind="authForm.fieldAttrs('email', 'auth-email-error')"
               >
               <FieldError id="auth-email-error" :message="authForm.errors.email" />
@@ -334,12 +327,11 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
             <!-- Password -->
             <div class="space-y-1.5">
               <div class="flex items-center justify-between">
-                <label for="auth-password" class="text-sm font-bold" style="color:#3b1f0d;">Password</label>
+                <label for="auth-password" class="text-sm font-bold text-foreground">Password</label>
                 <button
                   v-if="!isRegister"
                   type="button"
-                  class="text-xs font-bold underline"
-                  style="color:#dc2626; font-family: system-ui, sans-serif;"
+                  class="text-xs font-bold underline text-primary font-sans"
                   @click="openRecovery"
                 >
                   Forgot password?
@@ -354,13 +346,11 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
                   :autocomplete="isRegister ? 'new-password' : 'current-password'"
                   required
                   :class="inputClass + ' pr-16'"
-                  :style="inputStyle"
                   v-bind="authForm.fieldAttrs('password', 'auth-password-error')"
                 >
                 <button
                   type="button"
-                  class="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold uppercase tracking-wider"
-                  style="color:#9a5614; font-family: system-ui, sans-serif;"
+                  class="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold uppercase tracking-wider text-secondary font-sans"
                   @click="showPassword = !showPassword"
                 >
                   {{ showPassword ? 'Hide' : 'Show' }}
@@ -369,15 +359,14 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
               <FieldError id="auth-password-error" :message="authForm.errors.password" />
             </div>
 
-            <p v-if="error" class="text-sm font-bold" style="color:#dc2626; font-family: system-ui, sans-serif;">
+            <p v-if="error" class="text-sm font-bold text-primary font-sans">
               {{ error }}
             </p>
 
             <button
               type="submit"
               :disabled="loading"
-              class="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-white text-sm font-bold uppercase tracking-wider disabled:opacity-60"
-              style="background:#dc2626; box-shadow: 0 3px 0 -1px #b91c1c; font-family: system-ui, sans-serif;"
+              class="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-white text-sm font-bold uppercase tracking-wider disabled:opacity-60 bg-primary shadow-[0_3px_0_-1px_var(--wd-red-800)] font-sans"
             >
               {{ loading
                 ? (isRegister ? 'Creating account…' : 'Signing in…')
@@ -385,16 +374,16 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
             </button>
 
             <!-- Mode toggle -->
-            <p class="text-center text-sm pt-1" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+            <p class="text-center text-sm pt-1 text-muted-foreground font-sans">
               <template v-if="isRegister">
                 Already have an account?
-                <button type="button" class="font-bold underline" style="color:#dc2626;" @click="switchMode('login')">
+                <button type="button" class="font-bold underline text-primary" @click="switchMode('login')">
                   Sign in
                 </button>
               </template>
               <template v-else>
                 New to WeDance?
-                <button type="button" class="font-bold underline" style="color:#dc2626;" @click="switchMode('register')">
+                <button type="button" class="font-bold underline text-primary" @click="switchMode('register')">
                   Create an account
                 </button>
               </template>

@@ -55,15 +55,16 @@ async function captureScreenshot(): Promise<string | null> {
         const fix = doc.createElement('style')
         fix.textContent = [
           ':root{',
-          '--background:#ffffff;--foreground:#252525;',
-          '--card:#ffffff;--card-foreground:#252525;',
-          '--popover:#ffffff;--popover-foreground:#252525;',
-          '--primary:#353535;--primary-foreground:#fbfbfb;',
-          '--secondary:#f7f7f7;--secondary-foreground:#353535;',
-          '--muted:#f7f7f7;--muted-foreground:#8e8e8e;',
-          '--accent:#f7f7f7;--accent-foreground:#353535;',
+          '--background:#fbf5ea;--foreground:#3b1f0d;',
+          '--card:#ffffff;--card-foreground:#3b1f0d;',
+          '--popover:#ffffff;--popover-foreground:#3b1f0d;',
+          '--primary:#dc2626;--primary-foreground:#ffffff;',
+          '--secondary:#9a5614;--secondary-foreground:#fbf5ea;',
+          '--muted:#f5efe5;--muted-foreground:#5b3a1d;',
+          '--accent:#f7efe0;--accent-foreground:#9a5614;',
           '--destructive:#dc2626;--destructive-foreground:#dc2626;',
-          '--border:#ebebeb;--input:#ebebeb;--ring:#b5b5b5;',
+          '--border:rgba(59,31,13,0.13);--input:rgba(59,31,13,0.2);--ring:#9a5614;',
+          '--success:#16a34a;--info:#0891b2;--warning:#f59e0b;',
           '}',
         ].join('')
         doc.head.appendChild(fix)
@@ -169,8 +170,7 @@ async function submit() {
   }
 }
 
-const inputClass = 'w-full rounded-2xl px-4 py-3 text-sm outline-none transition-all'
-const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d; font-family: system-ui, sans-serif;'
+const inputClass = 'w-full rounded-2xl px-4 py-3 text-sm outline-none transition-all bg-white border border-border text-foreground font-sans'
 </script>
 
 <template>
@@ -178,8 +178,8 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
   <button
     type="button"
     :disabled="capturing"
-    class="fixed left-4 bottom-4 z-40 inline-flex items-center gap-2 rounded-full pl-3 pr-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-lg disabled:opacity-70"
-    style="background:#3b1f0d; box-shadow: 0 4px 14px rgba(59,31,13,0.35);"
+    class="fixed left-4 bottom-4 z-40 inline-flex items-center gap-2 rounded-full pl-3 pr-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-lg disabled:opacity-70 bg-foreground"
+    style="box-shadow: 0 4px 14px rgba(59,31,13,0.35);"
     aria-label="Report a problem"
     @click="openReport"
   >
@@ -190,27 +190,25 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
 
   <Dialog v-model:open="open">
     <DialogContent
-      class="sm:max-w-md border-0 p-0 overflow-hidden [&>button]:top-6 [&>button]:right-5"
-      style="background:#fbf5ea; color:#3b1f0d; font-family:'Playfair Display', serif;"
+      class="sm:max-w-md border-0 p-0 overflow-hidden [&>button]:top-6 [&>button]:right-5 bg-background text-foreground font-display"
     >
-      <div class="h-1.5" style="background:#dc2626;" />
+      <div class="h-1.5 bg-primary" />
 
       <div class="px-6 pb-6 pt-4">
         <!-- Success -->
         <template v-if="doneUrl">
           <DialogHeader class="text-left space-y-1">
-            <div class="text-[10px] uppercase tracking-[0.3em] font-bold" style="color:#9a5614;">Thank you</div>
-            <DialogTitle class="text-2xl leading-tight" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+            <div class="text-[10px] uppercase tracking-[0.3em] font-bold text-secondary">Thank you</div>
+            <DialogTitle class="text-2xl leading-tight text-foreground font-display">
               Report sent 🎉
             </DialogTitle>
-            <DialogDescription style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+            <DialogDescription class="text-muted-foreground font-sans">
               Our team has it, complete with a screenshot and technical details. We really appreciate you flagging it.
             </DialogDescription>
           </DialogHeader>
           <button
             type="button"
-            class="mt-5 w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-white text-sm font-bold uppercase tracking-wider"
-            style="background:#dc2626; box-shadow: 0 3px 0 -1px #b91c1c; font-family: system-ui, sans-serif;"
+            class="mt-5 w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-white text-sm font-bold uppercase tracking-wider bg-primary shadow-[0_3px_0_-1px_var(--wd-red-800)] font-sans"
             @click="open = false"
           >
             <Check class="w-4 h-4" /> Done
@@ -220,18 +218,18 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
         <!-- Form -->
         <template v-else>
           <DialogHeader class="text-left space-y-1">
-            <div class="text-[10px] uppercase tracking-[0.3em] font-bold" style="color:#9a5614;">Help us improve</div>
-            <DialogTitle class="text-2xl leading-tight" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+            <div class="text-[10px] uppercase tracking-[0.3em] font-bold text-secondary">Help us improve</div>
+            <DialogTitle class="text-2xl leading-tight text-foreground font-display">
               Report a problem
             </DialogTitle>
-            <DialogDescription style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+            <DialogDescription class="text-muted-foreground font-sans">
               Tell us what went wrong. We’ll attach a screenshot of this page and technical details to help us fix it fast.
             </DialogDescription>
           </DialogHeader>
 
           <form class="space-y-4 pt-4" novalidate @submit.prevent="submit">
             <div class="space-y-1.5">
-              <label for="report-desc" class="text-sm font-bold" style="color:#3b1f0d;">What happened?</label>
+              <label for="report-desc" class="text-sm font-bold text-foreground">What happened?</label>
               <textarea
                 id="report-desc"
                 v-model="description"
@@ -239,15 +237,14 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
                 placeholder="e.g. I clicked ‘Save my plan’ and nothing happened…"
                 required
                 :class="inputClass"
-                :style="inputStyle"
                 v-bind="fieldAttrs('description', 'report-desc-error')"
               />
               <FieldError id="report-desc-error" :message="errors.description" />
             </div>
 
             <div v-if="!isSignedIn" class="space-y-1.5">
-              <label for="report-email" class="text-sm font-bold" style="color:#3b1f0d;">
-                Email <span style="color:#9a5614; font-weight:400;">(optional — so we can follow up)</span>
+              <label for="report-email" class="text-sm font-bold text-foreground">
+                Email <span class="text-secondary font-normal">(optional — so we can follow up)</span>
               </label>
               <input
                 id="report-email"
@@ -256,7 +253,6 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
                 placeholder="you@example.com"
                 autocomplete="email"
                 :class="inputClass"
-                :style="inputStyle"
                 v-bind="fieldAttrs('email', 'report-email-error')"
               >
               <FieldError id="report-email-error" :message="errors.email" />
@@ -264,32 +260,29 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
 
             <!-- Screenshot status -->
             <div
-              class="flex items-center gap-2 rounded-2xl px-3 py-2.5 text-xs"
-              style="background:white; border:1px solid #3b1f0d22; color:#5b3a1d; font-family: system-ui, sans-serif;"
+              class="flex items-center gap-2 rounded-2xl px-3 py-2.5 text-xs bg-white border border-border text-muted-foreground font-sans"
             >
-              <ImageIcon class="w-4 h-4 shrink-0" :style="screenshot ? 'color:#16a34a' : 'color:#9a5614'" />
+              <ImageIcon class="w-4 h-4 shrink-0" :class="screenshot ? 'text-success' : 'text-secondary'" />
               <span v-if="screenshot" class="flex-1">Screenshot of this page attached.</span>
               <span v-else class="flex-1">No screenshot captured — we’ll still get your description &amp; details.</span>
               <button
                 v-if="screenshot"
                 type="button"
-                class="font-bold underline shrink-0"
-                style="color:#dc2626;"
+                class="font-bold underline shrink-0 text-primary"
                 @click="screenshot = null"
               >
                 Remove
               </button>
             </div>
 
-            <p v-if="error" class="text-sm font-bold" style="color:#dc2626; font-family: system-ui, sans-serif;">
+            <p v-if="error" class="text-sm font-bold text-primary font-sans">
               {{ error }}
             </p>
 
             <button
               type="submit"
               :disabled="submitting"
-              class="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-white text-sm font-bold uppercase tracking-wider disabled:opacity-60"
-              style="background:#dc2626; box-shadow: 0 3px 0 -1px #b91c1c; font-family: system-ui, sans-serif;"
+              class="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-white text-sm font-bold uppercase tracking-wider disabled:opacity-60 bg-primary shadow-[0_3px_0_-1px_var(--wd-red-800)] font-sans"
             >
               <Loader2 v-if="submitting" class="w-4 h-4 animate-spin" />
               {{ submitting ? 'Sending…' : 'Send report' }}

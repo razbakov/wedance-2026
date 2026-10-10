@@ -32,7 +32,7 @@ const links = [
 </script>
 
 <template>
-  <header class="border-b" style="border-color:#3b1f0d33;">
+  <header class="border-b border-border">
     <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
       <Brand />
       <nav class="flex items-center gap-4 text-sm">
@@ -52,26 +52,22 @@ const links = [
           >My plan</NuxtLink>
           <NuxtLink
             :to="displayUsername ? `/u/${displayUsername}` : '/my-plan'"
-            class="hidden sm:inline font-bold hover:underline"
-            style="color:#3b1f0d; font-family:'Playfair Display', serif;"
+            class="hidden sm:inline font-bold hover:underline text-foreground font-display"
           >{{ displayName }}</NuxtLink>
           <NuxtLink
             to="/settings"
-            class="hidden sm:inline italic hover:underline"
-            style="color:#9a5614;"
+            class="hidden sm:inline italic hover:underline text-secondary"
           >Settings</NuxtLink>
           <button
             type="button"
-            class="italic hover:underline"
-            style="color:#9a5614;"
+            class="italic hover:underline text-secondary"
             @click="showSignOutConfirm = true"
           >Sign out</button>
         </template>
         <button
           v-else
           type="button"
-          class="inline-flex items-center px-4 py-1.5 rounded-full text-white text-xs font-bold uppercase tracking-wider shrink-0"
-          style="background:linear-gradient(135deg, #dc2626, #f97316); box-shadow: 0 3px 0 -1px #b91c1c;"
+          class="inline-flex items-center px-4 py-1.5 rounded-full text-white text-xs font-bold uppercase tracking-wider shrink-0 bg-gradient-to-br from-primary to-wd-orange-500 shadow-[0_3px_0_-1px_var(--wd-red-800)]"
           @click="showSignIn = true"
         >Sign in</button>
       </nav>
