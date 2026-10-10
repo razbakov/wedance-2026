@@ -88,13 +88,25 @@ Consolidated 2026-10-10 to one pair. Caveat, Permanent Marker, Anton and DM Seri
 
 ## Font loading
 
-Pages using the tropical aesthetic load Playfair Display (incl. italic) via `useHead()`:
+Playfair Display is loaded **once, globally**, in `nuxt.config.ts` → `app.head.link`, so every page and layout (including `layout: 'default'` admin pages) gets it:
 
 ```ts
-{ rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&display=swap' }
+{ rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+{ rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
+{ rel: 'preload', as: 'style', href: GOOGLE_FONTS_CSS },
+{ rel: 'stylesheet', href: GOOGLE_FONTS_CSS },
+// GOOGLE_FONTS_CSS = …/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&display=swap
 ```
 
-Never add another Google Font without a design-system PR.
+- **Weights are exactly what the UI renders:** 400, 700 (`font-bold`), 900 (`font-black`) upright, plus 400 and 700 italic. Each is in use (surveyed from computed styles across ~25 routes). Adding a weight to the URL costs an extra font file — only do it when a component needs it.
+- `display=swap` keeps text visible in the fallback serif while Playfair downloads; the preconnects + style preload start the fetch before the CSS that needs it.
+- `--wd-font-sans` is `system-ui` — nothing to load.
+
+Rules:
+
+1. **Never add per-page font links.** No `useHead({ link: [...fonts.googleapis.com...] })` in pages, layouts or components — the global link already covers them, and duplicates just add head noise.
+2. Never add another Google Font without a design-system PR.
+3. Exception: festival-specific brand fonts in `app/pages/sketches/**` and `app/data/mock-*.ts` are content, not design system, and stay where they are.
 
 ## Inline style inventory
 

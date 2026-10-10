@@ -1,6 +1,9 @@
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 
+const GOOGLE_FONTS_CSS =
+  'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&display=swap';
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
@@ -15,6 +18,16 @@ export default defineNuxtConfig({
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
         { rel: 'alternate icon', href: '/favicon.ico', sizes: '16x16 32x32 48x48 64x64' },
         { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' },
+        // Design-system display font, loaded ONCE for every page (see
+        // docs/design-system.md → "Font loading"). Never add per-page font
+        // links. Preconnects open the CSS + font-file connections early, the
+        // preload starts the CSS fetch at top priority, display=swap keeps
+        // text visible while Playfair downloads. Weights = exactly what the
+        // UI renders: 400/700/900 upright + 400/700 italic.
+        { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+        { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
+        { rel: 'preload', as: 'style', href: GOOGLE_FONTS_CSS },
+        { rel: 'stylesheet', href: GOOGLE_FONTS_CSS },
       ],
     },
   },
