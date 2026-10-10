@@ -1182,7 +1182,7 @@ const heatItems = computed<HeatItem[]>(() => {
       key: `course-${c.id}`,
       label: `${c.school} · pay for July`,
       detail: `${c.style} ${c.level} · ${c.weekday} ${c.time}`,
-      href: '#courses',
+      href: `/events/${c.id}`,
       color: '#f59e0b',
       urgency: 70,
     })
@@ -2369,13 +2369,20 @@ function cardSummary(f: CatalogueEntry) {
                 </div>
               </div>
               <div class="flex items-center gap-2 shrink-0">
-                <span
-                  class="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full whitespace-nowrap"
-                  :style="c.paidThroughMonth
-                    ? { color: '#16a34a', background: '#16a34a18' }
-                    : { color: '#dc2626', background: '#dc262618' }"
+                <NuxtLink
+                  v-if="!c.paidThroughMonth"
+                  :to="`/events/${c.id}`"
+                  class="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity"
+                  :style="{ color: '#dc2626', background: '#dc262618' }"
                 >
-                  {{ c.paidThroughMonth ? 'Paid' : 'Pay due' }}
+                  Pay due
+                </NuxtLink>
+                <span
+                  v-else
+                  class="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full whitespace-nowrap"
+                  :style="{ color: '#16a34a', background: '#16a34a18' }"
+                >
+                  Paid
                 </span>
                 <button
                   type="button"
