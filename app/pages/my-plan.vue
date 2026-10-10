@@ -890,12 +890,36 @@ const showEnrollPicker = ref(false)
 const WEEKDAY_SHORT_ENROLL: Record<string, string> = { Monday: 'Mon', Tuesday: 'Tue', Wednesday: 'Wed', Thursday: 'Thu', Friday: 'Fri', Saturday: 'Sat', Sunday: 'Sun' }
 const STYLE_COLORS_ENROLL: Record<string, string> = { Salsa: '#dc2626', Bachata: '#7c3aed', Kizomba: '#ec4899', Timba: '#0891b2' }
 
+// Compute the next occurrence of a given weekday abbreviation (Mon, Tue, …)
+// relative to today. Returns a formatted date string like "Mon Oct 13".
+const WEEKDAY_INDEX: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }
+const FULL_WEEKDAY_INDEX: Record<string, number> = { Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6 }
+function nextOccurrence(weekday: string): string {
+  const target = WEEKDAY_INDEX[weekday] ?? FULL_WEEKDAY_INDEX[weekday]
+  if (target === undefined) return ''
+  const now = new Date()
+  const today = now.getDay()
+  let diff = target - today
+  if (diff < 0) diff += 7
+  if (diff === 0) return 'Today'
+  const next = new Date(now)
+  next.setDate(now.getDate() + diff)
+  const short = weekday.length <= 3 ? weekday : (WEEKDAY_SHORT_ENROLL[weekday] || weekday)
+  return `${short} ${next.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+}
+
+const todayISO = computed(() => {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+})
+
 const availableClasses = computed(() => {
   const citySlug = (dancerCity.value || '').trim().toLowerCase()
   const cityEvents = cityEventsMap[citySlug] || []
   const enrolledIds = new Set(courses.value.map(c => c.id))
   return cityEvents
     .filter(e => e.type === 'class' && !enrolledIds.has(e.id))
+    .filter(e => !e.date || e.date >= todayISO.value)
 })
 
 function enrollClass(e: CityEvent) {
@@ -1036,6 +1060,11 @@ watch([isSignedIn, onboardedAtReal, yearPlanIds], () => {
     nextTick(() => autoFillPlan())
   }
 }, { immediate: true })
+
+// Only show socials that are upcoming (no date = recurring/always shown; with date = future only).
+const upcomingSocials = computed(() =>
+  socials.value.filter(s => !s.dateISO || s.dateISO >= todayISO.value),
+)
 
 function toggleSocialRsvp(id: string) {
   socials.value = socials.value.map(s => s.id === id ? { ...s, rsvpd: !s.rsvpd } : s)
@@ -1228,8 +1257,8 @@ const heatItems = computed<HeatItem[]>(() => {
       urgency: 70,
     })
   })
-  // Socials: this-week RSVPs still open
-  socials.value.filter(s => !s.rsvpd).slice(0, 2).forEach(s => {
+  // Socials: this-week RSVPs still open (upcoming only)
+  upcomingSocials.value.filter(s => !s.rsvpd).slice(0, 2).forEach(s => {
     items.push({
       key: `social-${s.id}`,
       label: `${s.name} · ${s.dayLabel} ${s.time}`,
@@ -2362,7 +2391,7 @@ function cardSummary(f: CatalogueEntry) {
               <div class="flex-1 min-w-0">
                 <div class="text-sm font-bold" style="color:#3b1f0d;">{{ cls.name }}</div>
                 <div class="text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
-                  {{ cls.day }} {{ cls.time }} · {{ cls.venue }} · {{ cls.level || 'All levels' }}
+                  {{ nextOccurrence(cls.day) || cls.day }}, {{ cls.time }} · {{ cls.venue }} · {{ cls.level || 'All levels' }}
                 </div>
               </div>
               <span class="text-xs font-bold italic shrink-0" style="color:#dc2626;">+ Add</span>
@@ -2439,7 +2468,7 @@ function cardSummary(f: CatalogueEntry) {
             <div class="mt-3 space-y-1.5 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
               <div class="flex items-center gap-2">
                 <Calendar class="w-3 h-3" style="color:#9a5614;" />
-                Next class <strong>{{ c.weekday }} {{ c.time }}</strong>
+                Next class <strong>{{ nextOccurrence(c.weekday) || c.weekday }}, {{ c.time }}</strong>
               </div>
               <div class="flex items-center gap-2">
                 <MapPin class="w-3 h-3" style="color:#9a5614;" />
@@ -2480,7 +2509,7 @@ function cardSummary(f: CatalogueEntry) {
           </NuxtLink>
         </div>
 
-        <div v-if="!socials.length" class="rounded-2xl p-6 text-center border-2 border-dashed" style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);">
+        <div v-if="!upcomingSocials.length" class="rounded-2xl p-6 text-center border-2 border-dashed" style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);">
           <Sparkles class="w-8 h-8 mx-auto mb-3" style="color:#9a5614;" />
           <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
             <template v-if="dancerCity">
@@ -2493,7 +2522,7 @@ function cardSummary(f: CatalogueEntry) {
         </div>
         <div v-else class="rounded-2xl bg-white border overflow-hidden" style="border-color:#3b1f0d22;">
           <div
-            v-for="(s, i) in socials"
+            v-for="(s, i) in upcomingSocials"
             :key="s.id"
             class="flex flex-wrap items-center gap-3 px-4 py-3"
             :class="i > 0 ? 'border-t' : ''"
