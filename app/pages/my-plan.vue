@@ -14,6 +14,7 @@ import * as meneate from '~/data/mock-meneate'
 import * as cityMunich from '~/data/mock-city-munich'
 import * as cityBerlin from '~/data/mock-city-berlin'
 import type { CityEvent } from '~/types/city'
+import { eventLocalDate, eventLocalTime, eventLocalWeekday } from '#shared/utils/eventTime'
 import * as cubanFire from '~/data/mock-cuban-fire'
 import * as caribbeanUrbanFire from '~/data/mock-caribbean-urban-fire'
 
@@ -289,8 +290,11 @@ function autoFillPlan() {
   })
 
   // --- City events → courses + socials ---
+  // Prefer real DB events; fall back to mock only if none loaded yet.
   const citySlug = (city || '').trim().toLowerCase()
-  const cityEvents = cityEventsMap[citySlug] || []
+  const cityEvents = realCityEvents.value.length > 0
+    ? realCityEvents.value
+    : (cityEventsMap[citySlug] || [])
   const matchedEvents = cityEvents.filter(e =>
     upperStyles.some(s => e.style.toUpperCase().includes(s)),
   )
@@ -308,7 +312,7 @@ function autoFillPlan() {
     weekday: WEEKDAY_SHORT[e.day] || e.day,
     time: e.time,
     venue: e.venue,
-    nextClassDate: '',
+    nextClassDate: e.date || '',
     attended: 0,
     total: 0,
     paidThroughMonth: false,
@@ -319,7 +323,7 @@ function autoFillPlan() {
   const { $trpc: trpc } = useNuxtApp()
   for (const e of classEvents.slice(0, 3)) {
     trpc.plan.add
-      .mutate({ itemType: 'event', itemId: e.id, metadata: { type: 'class', style: e.style, school: e.organizer, venue: e.venue, weekday: e.day, time: e.time } })
+      .mutate({ itemType: 'event', itemId: e.id, metadata: { type: 'class', style: e.style, school: e.organizer, venue: e.venue, weekday: e.day, time: e.time, date: e.date || '' } })
       .catch((err) => { console.warn('[my-plan] autoFill persist course failed:', err) })
   }
 
@@ -417,9 +421,10 @@ const monthsGrid = computed(() =>
 const todayMonth = ref(-1)
 onMounted(() => {
   todayMonth.value = new Date().getMonth()
-  // Fetch real hangouts data for signed-in users with a city
+  // Fetch real hangouts data and city events for signed-in users with a city
   if (isSignedIn.value && !previewMode.value && dancerCity.value) {
     fetchHangouts()
+    loadCityEvents()
   }
   // Load persisted goals, enrolled courses, socials, and real festivals from DB
   if (isSignedIn.value && !previewMode.value) {
@@ -431,10 +436,11 @@ onMounted(() => {
   }
 })
 
-// Refetch hangouts when city changes
+// Refetch hangouts and city events when city changes
 watch(() => dancerCity.value, () => {
   if (isSignedIn.value && !previewMode.value && dancerCity.value) {
     fetchHangouts()
+    loadCityEvents()
   }
 })
 
@@ -885,27 +891,44 @@ const previewCourses: Course[] = [
 ]
 const courses = ref<Course[]>(isPreviewInitial ? previewCourses : [])
 
-// Enrollment picker — shows available classes from the city data.
+// Enrollment picker — shows available classes from real DB events.
 const showEnrollPicker = ref(false)
 const WEEKDAY_SHORT_ENROLL: Record<string, string> = { Monday: 'Mon', Tuesday: 'Tue', Wednesday: 'Wed', Thursday: 'Thu', Friday: 'Fri', Saturday: 'Sat', Sunday: 'Sun' }
 const STYLE_COLORS_ENROLL: Record<string, string> = { Salsa: '#dc2626', Bachata: '#7c3aed', Kizomba: '#ec4899', Timba: '#0891b2' }
 
-// Compute the next occurrence of a given weekday abbreviation (Mon, Tue, …)
-// relative to today. Returns a formatted date string like "Mon Oct 13".
-const WEEKDAY_INDEX: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }
-const FULL_WEEKDAY_INDEX: Record<string, number> = { Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6 }
-function nextOccurrence(weekday: string): string {
-  const target = WEEKDAY_INDEX[weekday] ?? FULL_WEEKDAY_INDEX[weekday]
-  if (target === undefined) return ''
-  const now = new Date()
-  const today = now.getDay()
-  let diff = target - today
-  if (diff < 0) diff += 7
-  if (diff === 0) return 'Today'
-  const next = new Date(now)
-  next.setDate(now.getDate() + diff)
-  const short = weekday.length <= 3 ? weekday : (WEEKDAY_SHORT_ENROLL[weekday] || weekday)
-  return `${short} ${next.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+// v3 event type → CityEvent type mapping (same as city page).
+const EVENT_TYPE_MAP: Record<string, string> = { Course: 'class', Workshop: 'workshop', Party: 'social', Concert: 'social', Show: 'social' }
+
+// Real upcoming events for the user's city, loaded from DB.
+const realCityEvents = ref<CityEvent[]>([])
+async function loadCityEvents() {
+  const citySlug = (dancerCity.value || '').trim().toLowerCase()
+  if (!citySlug) return
+  try {
+    const rows = await $trpc.events.byCity.query({ citySlug })
+    realCityEvents.value = rows
+      .filter((e: any) => !e.isFestival)
+      .map((e: any) => ({
+        id: e.id,
+        name: e.name || 'Event',
+        type: (EVENT_TYPE_MAP[e.type] || 'social') as CityEvent['type'],
+        style: (e.styles as string[])?.[0] || '',
+        day: eventLocalWeekday(e.startDate, e.timezone) as CityEvent['day'],
+        time: eventLocalTime(e.startDate, e.timezone),
+        duration: e.endDate ? Math.round((new Date(e.endDate).getTime() - new Date(e.startDate).getTime()) / 60000) : 0,
+        venue: e.venueName || '',
+        address: e.venueAddress || '',
+        organizer: e.organizerName || '',
+        organizerId: e.organizerUsername || undefined,
+        level: undefined,
+        accentColor: '#dc2626',
+        attendeeCount: 0,
+        recurring: false,
+        date: eventLocalDate(e.startDate, e.timezone),
+      } as CityEvent))
+  } catch (err) {
+    console.warn('[my-plan] loadCityEvents failed:', err)
+  }
 }
 
 const todayISO = computed(() => {
@@ -913,11 +936,23 @@ const todayISO = computed(() => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 })
 
+// 'YYYY-MM-DD' → 'Mon Oct 13' (human-readable short date).
+function formatShortDate(iso: string): string {
+  if (!iso) return ''
+  const d = new Date(`${iso}T12:00:00Z`)
+  if (isNaN(d.getTime())) return iso
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })
+}
+
+// Merge real DB events with mock fallback (mock only if no real events loaded).
 const availableClasses = computed(() => {
   const citySlug = (dancerCity.value || '').trim().toLowerCase()
-  const cityEvents = cityEventsMap[citySlug] || []
   const enrolledIds = new Set(courses.value.map(c => c.id))
-  return cityEvents
+  // Prefer real events from DB; fall back to mock data only if DB returned nothing.
+  const source = realCityEvents.value.length > 0
+    ? realCityEvents.value
+    : (cityEventsMap[citySlug] || [])
+  return source
     .filter(e => e.type === 'class' && !enrolledIds.has(e.id))
     .filter(e => !e.date || e.date >= todayISO.value)
 })
@@ -932,7 +967,7 @@ function enrollClass(e: CityEvent) {
     weekday: WEEKDAY_SHORT_ENROLL[e.day] || e.day,
     time: e.time,
     venue: e.venue,
-    nextClassDate: '',
+    nextClassDate: e.date || '',
     attended: 0,
     total: 0,
     paidThroughMonth: false,
@@ -944,7 +979,7 @@ function enrollClass(e: CityEvent) {
   // Persist the enrollment
   const { $trpc } = useNuxtApp()
   $trpc.plan.add
-    .mutate({ itemType: 'event', itemId: e.id, metadata: { type: 'class', style: e.style, school: e.organizer, venue: e.venue, weekday: e.day, time: e.time } })
+    .mutate({ itemType: 'event', itemId: e.id, metadata: { type: 'class', style: e.style, school: e.organizer, venue: e.venue, weekday: e.day, time: e.time, date: e.date || '' } })
     .catch((err) => {
       console.warn('[my-plan] enrollCourse failed:', err)
     })
@@ -975,6 +1010,8 @@ function loadCoursesFromDb() {
       for (const r of rows) {
         if (r.itemType === 'event' && r.metadata && (r.metadata as Record<string, string>).type === 'class') {
           const m = r.metadata as Record<string, string>
+          // Skip courses with a specific past date — they already happened.
+          if (m.date && m.date < todayISO.value) continue
           dbCourses.push({
             id: r.itemId,
             school: m.school || '',
@@ -984,7 +1021,7 @@ function loadCoursesFromDb() {
             weekday: (m.weekday && WEEKDAY_SHORT_ENROLL[m.weekday]) || m.weekday || '',
             time: m.time || '',
             venue: m.venue || '',
-            nextClassDate: '',
+            nextClassDate: m.date || '',
             attended: 0,
             total: 0,
             paidThroughMonth: false,
@@ -2374,10 +2411,10 @@ function cardSummary(f: CatalogueEntry) {
         <!-- Enroll picker — available classes from the city -->
         <div v-if="showEnrollPicker" class="rounded-2xl bg-white p-5 border mb-4" style="border-color:#9a561455; box-shadow: 0 4px 16px rgba(59,31,18,0.06);">
           <div class="text-sm font-bold mb-3" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
-            Weekly classes in {{ dancerCity || 'your city' }}
+            Upcoming classes in {{ dancerCity || 'your city' }}
           </div>
           <div v-if="!availableClasses.length" class="text-xs py-2" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
-            All available classes enrolled. Check your city page for more.
+            No upcoming classes found. Check your city page for more.
           </div>
           <div v-else class="space-y-2">
             <div
@@ -2391,7 +2428,7 @@ function cardSummary(f: CatalogueEntry) {
               <div class="flex-1 min-w-0">
                 <div class="text-sm font-bold" style="color:#3b1f0d;">{{ cls.name }}</div>
                 <div class="text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
-                  {{ nextOccurrence(cls.day) || cls.day }}, {{ cls.time }} · {{ cls.venue }} · {{ cls.level || 'All levels' }}
+                  {{ cls.date ? formatShortDate(cls.date) : cls.day }}, {{ cls.time }} · {{ cls.venue }} · {{ cls.level || 'All levels' }}
                 </div>
               </div>
               <span class="text-xs font-bold italic shrink-0" style="color:#dc2626;">+ Add</span>
@@ -2468,7 +2505,7 @@ function cardSummary(f: CatalogueEntry) {
             <div class="mt-3 space-y-1.5 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
               <div class="flex items-center gap-2">
                 <Calendar class="w-3 h-3" style="color:#9a5614;" />
-                Next class <strong>{{ nextOccurrence(c.weekday) || c.weekday }}, {{ c.time }}</strong>
+                Next class <strong>{{ c.nextClassDate ? formatShortDate(c.nextClassDate) : c.weekday }}, {{ c.time }}</strong>
               </div>
               <div class="flex items-center gap-2">
                 <MapPin class="w-3 h-3" style="color:#9a5614;" />
