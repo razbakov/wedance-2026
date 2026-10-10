@@ -212,11 +212,51 @@ const catalogue = [
 
 type CatalogueEntry = typeof catalogue[number]
 
-const picked = computed(() =>
-  catalogue
-    .filter(f => effectivePickIds.value.has(f.slug))
+// Real festival data from the DB, fetched via plan.myPlan for signed-in users.
+// These are the user's actual picked festivals resolved against the festivals table.
+const dbFestivals = ref<CatalogueEntry[]>([])
+
+async function loadMyPlanFestivals() {
+  try {
+    const rows = await $trpc.plan.myPlan.query()
+    dbFestivals.value = rows.map(r => ({
+      slug: r.slug,
+      name: r.name,
+      startDate: r.startDate,
+      endDate: r.endDate,
+      location: [r.location, r.country].filter(Boolean).join(', '),
+      venue: '',
+      logo: r.logo,
+      accentColor: r.accentColor || '#a855f7',
+      workshopCount: r.workshopCount,
+      ticketUrl: '',
+      ticketFromPrice: undefined as number | undefined,
+      earlyBirdDeadline: undefined as string | undefined,
+    }))
+  } catch (err) {
+    console.warn('[my-plan] loadMyPlanFestivals failed:', err)
+  }
+}
+
+const picked = computed(() => {
+  // Preview mode: use mock catalogue only.
+  if (previewMode.value) {
+    return catalogue
+      .filter(f => effectivePickIds.value.has(f.slug))
+      .sort((a, b) => a.startDate.localeCompare(b.startDate))
+  }
+
+  // Real mode: merge DB festivals with mock catalogue entries.
+  // DB data wins when slugs overlap; mock-only slugs still in yearPlanIds
+  // are included as fallback (they exist in the plan but not yet in the
+  // festivals table — e.g. hand-seeded mock entries).
+  const dbSlugs = new Set(dbFestivals.value.map(f => f.slug))
+  const fromMock = catalogue
+    .filter(f => effectivePickIds.value.has(f.slug) && !dbSlugs.has(f.slug))
+
+  return [...dbFestivals.value, ...fromMock]
     .sort((a, b) => a.startDate.localeCompare(b.startDate))
-)
+})
 
 // City events by slug — used by autoFillPlan to seed courses and socials.
 const cityEventsMap: Record<string, CityEvent[]> = {
@@ -381,12 +421,13 @@ onMounted(() => {
   if (isSignedIn.value && !previewMode.value && dancerCity.value) {
     fetchHangouts()
   }
-  // Load persisted goals, enrolled courses and socials from DB
+  // Load persisted goals, enrolled courses, socials, and real festivals from DB
   if (isSignedIn.value && !previewMode.value) {
     loadGoalsFromDb()
     loadCoursesFromDb()
     loadSocialsFromDb()
     loadDiscoverDeck()
+    loadMyPlanFestivals()
   }
 })
 
