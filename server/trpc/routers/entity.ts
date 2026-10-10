@@ -35,6 +35,7 @@ export const entityRouter = router({
           photo: profiles.photo,
           city: profiles.city,
           styles: profiles.styles,
+          languages: profiles.languages,
           bio: profiles.bio,
         })
         .from(profiles)
@@ -121,6 +122,7 @@ export const entityRouter = router({
           photo: profiles.photo,
           bio: profiles.bio,
           styles: profiles.styles,
+          languages: profiles.languages,
           address: profiles.address,
           floorType: profiles.floorType,
           venueType: profiles.venueType,
@@ -165,6 +167,7 @@ export const entityRouter = router({
           photo: p.photo ?? null,
           bio: p.bio ?? null,
           styles: p.styles ?? [],
+          languages: p.languages ?? [],
           address: p.address ?? null,
           floorType: p.floorType ?? null,
           venueType: p.venueType ?? null,
