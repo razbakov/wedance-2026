@@ -914,8 +914,16 @@ function onShare() {
 const { setCartCount } = useCart()
 watch(() => plan.value.size, (n) => setCartCount(n), { immediate: true })
 
-// Navigation
-const sections = ['about', 'discover', 'activities', 'lineup', 'schedule', 'tickets', 'venue'] as const
+// Navigation — only show sections that have content for this festival.
+const allSections = ['about', 'discover', 'activities', 'lineup', 'schedule', 'tickets', 'venue'] as const
+const sections = computed(() =>
+  allSections.filter((s) => {
+    if (s === 'schedule') return workshops.length > 0
+    if (s === 'lineup') return teachers.length > 0
+    if (s === 'tickets') return (festival.tickets?.length ?? 0) > 0
+    return true
+  }),
+)
 const sectionLabels: Record<string, string> = {
   'about': 'About',
   'discover': 'Shall we dance?',
@@ -961,12 +969,12 @@ onMounted(() => {
         if (e.isIntersecting) seen.add(e.target.id)
         else seen.delete(e.target.id)
       }
-      const active = sections.find((s) => seen.has(s))
+      const active = sections.value.find((s) => seen.has(s))
       if (active) activeSection.value = active
     },
     { rootMargin: '-64px 0px -60% 0px', threshold: 0 },
   )
-  for (const s of sections) {
+  for (const s of sections.value) {
     const el = document.getElementById(s)
     if (el) sectionObserver.observe(el)
   }
@@ -1358,7 +1366,7 @@ useHead({
           />
         </section>
 
-        <section id="lineup" class="scroll-mt-16">
+        <section v-if="teachers.length > 0" id="lineup" class="scroll-mt-16">
           <div class="flex items-baseline justify-between gap-3 mb-1">
             <h2 class="text-2xl font-black leading-tight" style="color:var(--wd-brown-900);">Lineup</h2>
             <button
@@ -1388,7 +1396,7 @@ useHead({
           </div>
         </section>
 
-        <section id="schedule" class="scroll-mt-16">
+        <section v-if="workshops.length > 0" id="schedule" class="scroll-mt-16">
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-2xl font-black leading-tight" style="color:var(--wd-brown-900);">Schedule</h2>
             <button
