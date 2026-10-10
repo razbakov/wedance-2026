@@ -91,7 +91,7 @@
     --accent: color-mix(in oklch, var(--wd-amber-600) 12%, var(--wd-cream));
     --accent-foreground: var(--wd-amber-600);
     --destructive: var(--wd-red-600);
-    --destructive-foreground: var(--wd-red-600);
+    --destructive-foreground: #ffffff;
     --border: color-mix(in srgb, var(--wd-brown-900) 13%, transparent);
     --input: color-mix(in srgb, var(--wd-brown-900) 20%, transparent);
     --ring: var(--wd-amber-600);
@@ -123,7 +123,7 @@
     --accent: #3a2510;
     --accent-foreground: var(--wd-cream);
     --destructive: #991b1b;
-    --destructive-foreground: #fca5a5;
+    --destructive-foreground: #ffffff;
     --border: #3a2510;
     --input: #3a2510;
     --ring: var(--wd-amber-600);
@@ -144,6 +144,27 @@
   body {
     @apply bg-background text-foreground;
     font-family: var(--wd-font-sans);
+  }
+  /* Tailwind v4 preflight resets buttons to cursor:default — every clickable
+     thing gets the hand, disabled ones say so. */
+  button,
+  [role="button"],
+  a[href],
+  summary,
+  select,
+  label[for],
+  input[type="checkbox"],
+  input[type="radio"],
+  input[type="submit"],
+  input[type="button"],
+  input[type="file"] {
+    cursor: pointer;
+  }
+  button:disabled,
+  [aria-disabled="true"],
+  input:disabled,
+  select:disabled {
+    cursor: not-allowed;
   }
   /* Fields flagged by useFormValidation. !important beats the inline border
      colours most form inputs set. */
@@ -234,4 +255,109 @@
   /* ── Font families ── */
   --font-display: var(--wd-font-display);
   --font-sans: var(--wd-font-sans);
+}
+
+@layer components {
+  /* Brand CTA (.wd-cta) — warm gradient pill with breathing drift, shimmer sweep,
+     hover lift, press feedback and a click ripple. Pair with layout utilities, e.g.
+     class="wd-cta inline-flex items-center gap-2 px-6 py-3 rounded-full text-white
+     text-sm font-bold uppercase tracking-wider". Shown on /styleguide. */
+  .wd-cta {
+    background: linear-gradient(135deg, var(--wd-red-600), var(--wd-orange-500));
+    background-size: 200% 200%;
+    background-position: 0% 50%;
+    box-shadow:
+      0 6px 0 -2px var(--wd-red-800),
+      0 8px 18px rgba(220, 38, 38, 0.35);
+    transition:
+      transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      box-shadow 220ms ease-out,
+      background-position 800ms ease-out;
+    will-change: transform, box-shadow;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Slow gradient drift — the button breathes warm tones */
+  .wd-cta {
+    animation: wdCtaBreathe 6s ease-in-out infinite;
+  }
+
+  @keyframes wdCtaBreathe {
+    0%, 100% { background-position: 0% 50%; }
+    50%      { background-position: 100% 50%; }
+  }
+
+  /* Shimmer sweep (subtle, infinite) */
+  .wd-cta::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -120%;
+    width: 80%;
+    height: 100%;
+    background: linear-gradient(
+      115deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.16) 45%,
+      rgba(255, 255, 255, 0.28) 50%,
+      rgba(255, 255, 255, 0.16) 55%,
+      transparent 100%
+    );
+    transform: skewX(-18deg);
+    pointer-events: none;
+    animation: wdCtaShimmer 4.5s ease-in-out infinite;
+    animation-delay: 1.2s;
+  }
+
+  @keyframes wdCtaShimmer {
+    0%   { left: -120%; }
+    40%  { left: 130%; }
+    100% { left: 130%; }
+  }
+
+  /* Hover — lift + bloom */
+  .wd-cta:hover {
+    transform: translateY(-3px) scale(1.02);
+    box-shadow:
+      0 9px 0 -2px var(--wd-red-800),
+      0 16px 32px rgba(220, 38, 38, 0.5),
+      0 0 0 4px rgba(249, 115, 22, 0.18);
+  }
+
+  /* Active — press down */
+  .wd-cta:active {
+    transform: translateY(2px) scale(0.99);
+    box-shadow:
+      0 2px 0 -1px var(--wd-red-800),
+      0 4px 8px rgba(220, 38, 38, 0.35);
+    transition-duration: 80ms;
+  }
+
+  /* Brief outward ripple on click — single pulse on each press */
+  .wd-cta:active::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: rgba(255, 255, 255, 0.35);
+    animation: wdCtaRipple 380ms ease-out forwards;
+    pointer-events: none;
+  }
+
+  @keyframes wdCtaRipple {
+    0%   { opacity: 0.5; transform: scale(0.92); }
+    100% { opacity: 0;   transform: scale(1.18); }
+  }
+
+  /* Respect reduced-motion users */
+  @media (prefers-reduced-motion: reduce) {
+    .wd-cta,
+    .wd-cta::before {
+      animation: none !important;
+    }
+    .wd-cta {
+      transition: box-shadow 150ms ease, transform 150ms ease;
+    }
+  }
 }

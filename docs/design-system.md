@@ -41,7 +41,8 @@ These drive all shared UI components (`app/components/ui/*`). Prefer these over 
 | `--muted-foreground` | brown-700 | Body text, descriptions |
 | `--accent` | amber tint | Hover/highlight backgrounds |
 | `--accent-foreground` | amber-600 | Text on accent backgrounds |
-| `--destructive` | red-600 | Error states, validation |
+| `--destructive` | red-600 | Error states, validation, destructive buttons/badges |
+| `--destructive-foreground` | white | Text on destructive backgrounds (use `text-destructive` for red text on light) |
 | `--card` | white | Card surfaces |
 | `--border` | brown-900 @ 13% | Borders, dividers |
 | `--input` | brown-900 @ 20% | Input borders |

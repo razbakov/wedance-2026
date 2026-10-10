@@ -62,7 +62,7 @@ async function captureScreenshot(): Promise<string | null> {
           '--secondary:#9a5614;--secondary-foreground:#fbf5ea;',
           '--muted:#f5efe5;--muted-foreground:#5b3a1d;',
           '--accent:#f7efe0;--accent-foreground:#9a5614;',
-          '--destructive:#dc2626;--destructive-foreground:#dc2626;',
+          '--destructive:#dc2626;--destructive-foreground:#ffffff;',
           '--border:rgba(59,31,13,0.13);--input:rgba(59,31,13,0.2);--ring:#9a5614;',
           '--success:#16a34a;--info:#0891b2;--warning:#f59e0b;',
           '}',

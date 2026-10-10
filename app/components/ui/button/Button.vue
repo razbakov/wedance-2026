@@ -1,19 +1,20 @@
 <script setup lang="ts">
-import type { PrimitiveProps } from "reka-ui"
-import type { HTMLAttributes } from "vue"
+import type { Component, HTMLAttributes, PropType } from "vue"
 import type { ButtonVariants } from "."
 import { Primitive } from "reka-ui"
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "."
 
-interface Props extends /* @vue-ignore */ PrimitiveProps {
-  variant?: ButtonVariants["variant"]
-  size?: ButtonVariants["size"]
-  class?: HTMLAttributes["class"]
-}
-
-const props = withDefaults(defineProps<Props>(), {
-  as: "button",
+// Runtime props on purpose. The type-based forms broke twice: extending reka-ui's
+// PrimitiveProps fails the Vercel build (RAZ-203), and `extends /* @vue-ignore */`
+// silently drops `as` — every Button then rendered as a <div> with no keyboard
+// focus, no `disabled` and no pointer cursor. Runtime props can't be dropped.
+const props = defineProps({
+  as: { type: [String, Object, Function] as PropType<string | Component>, default: "button" },
+  asChild: { type: Boolean, default: false },
+  variant: { type: String as PropType<ButtonVariants["variant"]>, default: undefined },
+  size: { type: String as PropType<ButtonVariants["size"]>, default: undefined },
+  class: { type: [String, Array, Object] as PropType<HTMLAttributes["class"]>, default: undefined },
 })
 </script>
 

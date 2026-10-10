@@ -136,7 +136,7 @@ const attendees = [
             <div class="mt-8 flex items-center justify-center md:justify-start gap-5">
               <NuxtLink
                 to="/festivals"
-                class="fiesta-cta group inline-flex items-center gap-2 px-6 py-3 rounded-full text-white text-sm font-bold uppercase tracking-wider"
+                class="wd-cta group inline-flex items-center gap-2 px-6 py-3 rounded-full text-white text-sm font-bold uppercase tracking-wider"
               >
                 <span class="relative z-10">Find your next festival</span>
                 <ArrowRight class="w-4 h-4 relative z-10 transition-transform duration-200 ease-out group-hover:translate-x-1 group-active:translate-x-0" />
@@ -480,105 +480,3 @@ const attendees = [
 
   </div>
 </template>
-
-<style scoped>
-/* Hero CTA — warm host-voice button with hover lift + press feedback */
-.fiesta-cta {
-  background: linear-gradient(135deg, var(--wd-red-600), var(--wd-orange-500));
-  background-size: 200% 200%;
-  background-position: 0% 50%;
-  box-shadow:
-    0 6px 0 -2px var(--wd-red-800),
-    0 8px 18px rgba(220, 38, 38, 0.35);
-  transition:
-    transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1),
-    box-shadow 220ms ease-out,
-    background-position 800ms ease-out;
-  will-change: transform, box-shadow;
-  position: relative;
-  overflow: hidden;
-}
-
-/* Slow gradient drift — the button breathes warm tones */
-.fiesta-cta {
-  animation: fiestaBreathe 6s ease-in-out infinite;
-}
-
-@keyframes fiestaBreathe {
-  0%, 100% { background-position: 0% 50%; }
-  50%      { background-position: 100% 50%; }
-}
-
-/* Shimmer sweep (subtle, infinite) */
-.fiesta-cta::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: -120%;
-  width: 80%;
-  height: 100%;
-  background: linear-gradient(
-    115deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.16) 45%,
-    rgba(255, 255, 255, 0.28) 50%,
-    rgba(255, 255, 255, 0.16) 55%,
-    transparent 100%
-  );
-  transform: skewX(-18deg);
-  pointer-events: none;
-  animation: fiestaShimmer 4.5s ease-in-out infinite;
-  animation-delay: 1.2s;
-}
-
-@keyframes fiestaShimmer {
-  0%   { left: -120%; }
-  40%  { left: 130%; }
-  100% { left: 130%; }
-}
-
-/* Hover — lift + bloom */
-.fiesta-cta:hover {
-  transform: translateY(-3px) scale(1.02);
-  box-shadow:
-    0 9px 0 -2px var(--wd-red-800),
-    0 16px 32px rgba(220, 38, 38, 0.5),
-    0 0 0 4px rgba(249, 115, 22, 0.18);
-}
-
-/* Active — press down */
-.fiesta-cta:active {
-  transform: translateY(2px) scale(0.99);
-  box-shadow:
-    0 2px 0 -1px var(--wd-red-800),
-    0 4px 8px rgba(220, 38, 38, 0.35);
-  transition-duration: 80ms;
-}
-
-/* Brief outward ripple on click — single pulse on each press */
-.fiesta-cta:active::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: rgba(255, 255, 255, 0.35);
-  animation: fiestaRipple 380ms ease-out forwards;
-  pointer-events: none;
-}
-
-@keyframes fiestaRipple {
-  0%   { opacity: 0.5; transform: scale(0.92); }
-  100% { opacity: 0;   transform: scale(1.18); }
-}
-
-/* Respect reduced-motion users */
-@media (prefers-reduced-motion: reduce) {
-  .fiesta-cta,
-  .fiesta-cta::before {
-    animation: none !important;
-  }
-  .fiesta-cta {
-    transition: box-shadow 150ms ease, transform 150ms ease;
-  }
-}
-</style>

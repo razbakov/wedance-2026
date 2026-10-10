@@ -200,7 +200,7 @@ const badgeVariants = ['default', 'secondary', 'destructive', 'outline'] as cons
           <div>
             <div class="text-[10px] uppercase tracking-[0.3em] font-bold text-secondary mb-3">CTA (brand)</div>
             <button
-              class="inline-flex items-center px-6 py-3 rounded-full text-white text-sm font-bold uppercase tracking-wider bg-gradient-to-br from-primary to-wd-orange-500 shadow-[0_3px_0_-1px_var(--wd-red-800)]"
+              class="wd-cta inline-flex items-center gap-2 px-6 py-3 rounded-full text-white text-sm font-bold uppercase tracking-wider"
             >
               Sign in
             </button>
