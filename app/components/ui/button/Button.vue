@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Component, HTMLAttributes, PropType } from "vue"
 import type { ButtonVariants } from "."
+import { Loader2 } from "lucide-vue-next"
 import { Primitive } from "reka-ui"
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "."
@@ -15,6 +16,9 @@ const props = defineProps({
   variant: { type: String as PropType<ButtonVariants["variant"]>, default: undefined },
   size: { type: String as PropType<ButtonVariants["size"]>, default: undefined },
   class: { type: [String, Array, Object] as PropType<HTMLAttributes["class"]>, default: undefined },
+  disabled: { type: Boolean, default: false },
+  // Shows a spinner, sets aria-busy and disables the button while an action runs.
+  loading: { type: Boolean, default: false },
 })
 </script>
 
@@ -23,7 +27,10 @@ const props = defineProps({
     :as="as"
     :as-child="asChild"
     :class="cn(buttonVariants({ variant, size }), props.class)"
+    :disabled="disabled || loading || undefined"
+    :aria-busy="loading || undefined"
   >
+    <Loader2 v-if="loading && !asChild" class="animate-spin" aria-hidden="true" />
     <slot />
   </Primitive>
 </template>
