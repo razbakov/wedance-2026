@@ -84,7 +84,7 @@ const rootTag = computed(() => (props.selectable ? 'button' : NuxtLinkComponent)
     </div>
 
     <div class="p-4 flex flex-col flex-1">
-      <div class="font-bold text-lg leading-tight" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+      <div class="font-bold text-lg leading-tight" style="color:var(--wd-brown-900); font-family:var(--wd-font-display);">
         {{ artist.name }}
       </div>
 
@@ -123,7 +123,7 @@ const rootTag = computed(() => (props.selectable ? 'button' : NuxtLinkComponent)
       <p
         v-if="showBio && artist.bio"
         class="mt-2.5 text-xs leading-relaxed line-clamp-2"
-        style="color:#5b3a1d; font-family: system-ui, sans-serif;"
+        style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);"
       >
         {{ artist.bio }}
       </p>
@@ -134,7 +134,7 @@ const rootTag = computed(() => (props.selectable ? 'button' : NuxtLinkComponent)
           v-if="selectable"
           :to="profileHref"
           class="text-xs italic hover:underline"
-          style="color:#9a5614; font-family:'Playfair Display', serif;"
+          style="color:var(--wd-amber-600); font-family:var(--wd-font-display);"
           @click.stop
         >
           Full profile →
@@ -142,7 +142,7 @@ const rootTag = computed(() => (props.selectable ? 'button' : NuxtLinkComponent)
         <span
           v-else
           class="text-xs italic"
-          style="color:#9a5614; font-family:'Playfair Display', serif;"
+          style="color:var(--wd-amber-600); font-family:var(--wd-font-display);"
         >
           View profile →
         </span>

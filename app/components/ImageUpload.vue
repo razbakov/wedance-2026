@@ -65,7 +65,7 @@ function remove() {
       <button
         type="button"
         class="absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center"
-        style="background:#dc2626; color:white;"
+        style="background:var(--wd-red-600); color:white;"
         @click="remove"
       >
         <X class="w-3.5 h-3.5" />
@@ -77,16 +77,16 @@ function remove() {
       v-if="!model"
       class="relative flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-6 cursor-pointer transition-colors"
       :style="dragOver
-        ? 'border-color:#dc2626; background:#dc262608;'
-        : 'border-color:#3b1f0d33; background:white;'"
+        ? 'border-color:var(--wd-red-600); background:color-mix(in srgb, var(--wd-red-600) 3.1%, transparent);'
+        : 'border-color:color-mix(in srgb, var(--wd-brown-900) 20%, transparent); background:white;'"
       @dragover.prevent="dragOver = true"
       @dragleave="dragOver = false"
       @drop.prevent="onDrop"
       @click="($refs.fileInput as HTMLInputElement).click()"
     >
-      <Loader2 v-if="uploading" class="w-6 h-6 animate-spin" style="color:#9a5614;" />
-      <Upload v-else class="w-6 h-6" style="color:#9a5614;" />
-      <span class="text-sm" style="color:#5b3a1d;">
+      <Loader2 v-if="uploading" class="w-6 h-6 animate-spin" style="color:var(--wd-amber-600);" />
+      <Upload v-else class="w-6 h-6" style="color:var(--wd-amber-600);" />
+      <span class="text-sm" style="color:var(--wd-brown-700);">
         {{ uploading ? 'Uploading...' : 'Drop a photo here or click to choose' }}
       </span>
       <input
@@ -103,7 +103,7 @@ function remove() {
       v-if="model && !uploading"
       type="button"
       class="text-xs font-bold"
-      style="color:#dc2626;"
+      style="color:var(--wd-red-600);"
       @click="($refs.fileInput2 as HTMLInputElement).click()"
     >
       Replace photo
@@ -116,6 +116,6 @@ function remove() {
       >
     </button>
 
-    <p v-if="errorMsg" class="text-xs font-bold" style="color:#dc2626;">{{ errorMsg }}</p>
+    <p v-if="errorMsg" class="text-xs font-bold" style="color:var(--wd-red-600);">{{ errorMsg }}</p>
   </div>
 </template>

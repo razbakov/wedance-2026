@@ -1,3 +1,4 @@
+import { WD } from '~/lib/brand'
 import type { CityDirectory } from '~~/server/api/cities/[slug].get'
 
 /**
@@ -15,8 +16,8 @@ export function useCityDirectory(slug: string) {
     || slug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
   )
 
-  const cityAccent: Record<string, string> = { munich: '#dc2626', berlin: '#0891b2' }
-  const accent = cityAccent[slug] || '#a855f7'
+  const cityAccent: Record<string, string> = { munich: WD.red600, berlin: WD.cyan600 }
+  const accent = cityAccent[slug] || WD.purple500
 
   const topStyles = computed(() => dir.value?.topStyles ?? [])
   const stylePhrase = computed(() => {

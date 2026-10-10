@@ -3,6 +3,7 @@ import type { YearPlanFestival } from '~/types/festival'
 import { Link, Gift, Copy, Check } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
 import { Badge } from '~/components/ui/badge'
+import { WD } from '~/lib/brand'
 
 const props = defineProps<{
   open: boolean
@@ -149,7 +150,7 @@ async function nativeShare() {
               <div
                 v-else
                 class="w-6 h-6 rounded flex items-center justify-center text-[10px] font-bold text-white shrink-0"
-                :style="{ background: f.accentColor || '#9a5614' }"
+                :style="{ background: f.accentColor || WD.amber600 }"
               >
                 {{ f.name.charAt(0) }}
               </div>

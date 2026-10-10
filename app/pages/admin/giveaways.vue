@@ -6,6 +6,7 @@
  */
 import { Loader2, Plus, ExternalLink, RotateCcw } from 'lucide-vue-next'
 import { GiveawaySchema } from '#shared/validation'
+import { WD } from '~/lib/brand'
 
 definePageMeta({ layout: 'admin' })
 useHead({ title: 'Admin: Giveaways | WeDance' })
@@ -78,7 +79,7 @@ async function submit() {
 }
 
 const fmt = (d: string | Date | null) => (d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—')
-const statusColor: Record<string, string> = { active: '#16a34a', ended: '#9a5614', draft: '#a855f7' }
+const statusColor: Record<string, string> = { active: WD.green600, ended: WD.amber600, draft: WD.purple500 }
 const inputCls = 'w-full h-10 rounded-xl px-3 text-sm outline-none'
 const inputStyle = 'background:#fbf5ea; border:1px solid #3b1f0d33; font-family: system-ui, sans-serif;'
 </script>
@@ -86,26 +87,26 @@ const inputStyle = 'background:#fbf5ea; border:1px solid #3b1f0d33; font-family:
 <template>
   <div>
     <div class="flex items-baseline justify-between gap-3">
-      <h1 class="text-3xl sm:text-4xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
-        <em class="italic" style="color:#a855f7;">Giveaways</em>
+      <h1 class="text-3xl sm:text-4xl leading-tight" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">
+        <em class="italic" style="color:var(--wd-purple-500);">Giveaways</em>
       </h1>
       <div class="flex items-center gap-3">
-        <button type="button" class="inline-flex items-center gap-1.5 text-xs font-bold hover:underline" style="color:#9a5614; font-family: system-ui, sans-serif;" @click="load">
+        <button type="button" class="inline-flex items-center gap-1.5 text-xs font-bold hover:underline" style="color:var(--wd-amber-600); font-family:var(--wd-font-sans);" @click="load">
           <RotateCcw class="w-3.5 h-3.5" /> Refresh
         </button>
-        <button type="button" class="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-white text-xs font-bold uppercase tracking-wider" style="background:#a855f7;" @click="showForm = !showForm">
+        <button type="button" class="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-white text-xs font-bold uppercase tracking-wider" style="background:var(--wd-purple-500);" @click="showForm = !showForm">
           <Plus class="w-3.5 h-3.5" /> New
         </button>
       </div>
     </div>
 
-    <div v-if="error" class="mt-6 rounded-xl border p-4 text-sm" style="border-color:#dc262655; background:#fdecec; color:#991b1b; font-family: system-ui, sans-serif;">
+    <div v-if="error" class="mt-6 rounded-xl border p-4 text-sm" style="border-color:color-mix(in srgb, var(--wd-red-600) 33.3%, transparent); background:var(--wd-red-50); color:var(--wd-red-900); font-family:var(--wd-font-sans);">
       {{ error }}
     </div>
 
     <!-- Create form -->
-    <div v-if="showForm" class="mt-6 rounded-2xl bg-white border p-5" style="border-color:#a855f733;">
-      <h2 class="text-sm font-bold uppercase tracking-wider mb-4" style="color:#a855f7;">New giveaway</h2>
+    <div v-if="showForm" class="mt-6 rounded-2xl bg-white border p-5" style="border-color:color-mix(in srgb, var(--wd-purple-500) 20%, transparent);">
+      <h2 class="text-sm font-bold uppercase tracking-wider mb-4" style="color:var(--wd-purple-500);">New giveaway</h2>
       <div class="grid gap-3 sm:grid-cols-2">
         <div>
           <input v-model="form.citySlug" placeholder="City slug (e.g. munich)" :class="inputCls" :style="inputStyle" v-bind="fieldAttrs('citySlug', 'giveaway-citySlug-error')">
@@ -144,40 +145,40 @@ const inputStyle = 'background:#fbf5ea; border:1px solid #3b1f0d33; font-family:
           <option value="draft">draft</option>
           <option value="ended">ended</option>
         </select>
-        <label class="text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Starts
+        <label class="text-xs" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">Starts
           <input v-model="form.startsAt" type="date" :class="inputCls" :style="inputStyle" v-bind="fieldAttrs('startsAt', 'giveaway-startsAt-error')">
           <FieldError id="giveaway-startsAt-error" :message="errors.startsAt" /></label>
-        <label class="text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Ends
+        <label class="text-xs" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">Ends
           <input v-model="form.endsAt" type="date" :class="inputCls" :style="inputStyle" v-bind="fieldAttrs('endsAt', 'giveaway-endsAt-error')">
           <FieldError id="giveaway-endsAt-error" :message="errors.endsAt" /></label>
       </div>
       <div class="mt-4 flex gap-2">
-        <button type="button" class="inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-white text-xs font-bold uppercase tracking-wider disabled:opacity-50" style="background:#a855f7;" :disabled="saving" @click="submit">
+        <button type="button" class="inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-white text-xs font-bold uppercase tracking-wider disabled:opacity-50" style="background:var(--wd-purple-500);" :disabled="saving" @click="submit">
           <Loader2 v-if="saving" class="w-3.5 h-3.5 animate-spin" /> Create
         </button>
-        <button type="button" class="rounded-full px-5 py-2 text-xs font-bold uppercase tracking-wider" style="border:1px solid #3b1f0d33; color:#5b3a1d;" @click="showForm = false">Cancel</button>
+        <button type="button" class="rounded-full px-5 py-2 text-xs font-bold uppercase tracking-wider" style="border:1px solid color-mix(in srgb, var(--wd-brown-900) 20%, transparent); color:var(--wd-brown-700);" @click="showForm = false">Cancel</button>
       </div>
     </div>
 
-    <div v-if="loading" class="flex items-center gap-2 py-16 justify-center" style="color:#9a5614;">
+    <div v-if="loading" class="flex items-center gap-2 py-16 justify-center" style="color:var(--wd-amber-600);">
       <Loader2 class="w-5 h-5 animate-spin" /> <span class="text-sm italic">Loading…</span>
     </div>
 
-    <div v-else-if="!items.length" class="mt-8 rounded-2xl border-2 border-dashed p-10 text-center" style="border-color:#3b1f0d33;">
-      <p class="text-sm font-bold" style="color:#3b1f0d;">No giveaways yet.</p>
-      <p class="mt-1 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Create one with “New”.</p>
+    <div v-else-if="!items.length" class="mt-8 rounded-2xl border-2 border-dashed p-10 text-center" style="border-color:color-mix(in srgb, var(--wd-brown-900) 20%, transparent);">
+      <p class="text-sm font-bold" style="color:var(--wd-brown-900);">No giveaways yet.</p>
+      <p class="mt-1 text-xs" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">Create one with “New”.</p>
     </div>
 
     <div v-else class="mt-6 grid gap-3">
-      <div v-for="g in items" :key="g.id" class="rounded-2xl bg-white border p-4" style="border-color:#3b1f0d22;">
+      <div v-for="g in items" :key="g.id" class="rounded-2xl bg-white border p-4" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);">
         <div class="flex flex-wrap items-center gap-2">
-          <span class="text-[10px] font-bold uppercase tracking-wider rounded-full px-2 py-0.5" style="background:#a855f71a; color:#a855f7;">{{ g.citySlug }}</span>
-          <span class="text-[10px] font-bold uppercase tracking-wider rounded-full px-2 py-0.5" :style="{ background: (statusColor[g.status] || '#9a5614') + '1a', color: statusColor[g.status] || '#9a5614' }">{{ g.status }}</span>
-          <span class="text-[11px]" style="color:#9a5614;">{{ fmt(g.startsAt) }} → {{ fmt(g.endsAt) }}</span>
+          <span class="text-[10px] font-bold uppercase tracking-wider rounded-full px-2 py-0.5" style="background:color-mix(in srgb, var(--wd-purple-500) 10.2%, transparent); color:var(--wd-purple-500);">{{ g.citySlug }}</span>
+          <span class="text-[10px] font-bold uppercase tracking-wider rounded-full px-2 py-0.5" :style="{ background: (statusColor[g.status] || WD.amber600) + '1a', color: statusColor[g.status] || WD.amber600 }">{{ g.status }}</span>
+          <span class="text-[11px]" style="color:var(--wd-amber-600);">{{ fmt(g.startsAt) }} → {{ fmt(g.endsAt) }}</span>
         </div>
-        <h3 class="mt-1.5 text-base font-bold leading-tight" style="color:#3b1f0d;">{{ g.title }}</h3>
-        <p class="text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">{{ g.sponsorName }} · {{ g.prizeDescription }}</p>
-        <a :href="g.ctaUrl" target="_blank" rel="noopener" class="inline-flex items-center gap-1 mt-1 text-xs font-bold hover:underline" style="color:#0891b2; font-family: system-ui, sans-serif;">CTA <ExternalLink class="w-3 h-3" /></a>
+        <h3 class="mt-1.5 text-base font-bold leading-tight" style="color:var(--wd-brown-900);">{{ g.title }}</h3>
+        <p class="text-xs" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">{{ g.sponsorName }} · {{ g.prizeDescription }}</p>
+        <a :href="g.ctaUrl" target="_blank" rel="noopener" class="inline-flex items-center gap-1 mt-1 text-xs font-bold hover:underline" style="color:var(--wd-cyan-600); font-family:var(--wd-font-sans);">CTA <ExternalLink class="w-3 h-3" /></a>
       </div>
     </div>
   </div>

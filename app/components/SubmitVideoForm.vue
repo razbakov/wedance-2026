@@ -7,6 +7,7 @@
 import { CheckCircle2, Video, X } from 'lucide-vue-next'
 import { parseVideoUrl } from '~/lib/videoEmbed'
 import { VideoSubmissionSchema } from '#shared/validation'
+import { WD } from '~/lib/brand'
 
 const props = defineProps<{
   citySlug: string
@@ -24,7 +25,7 @@ const cityLabel = computed(() => (props.cityName ? ` ${props.cityName}` : ''))
 const emit = defineEmits<{ submitted: [] }>()
 
 const { $trpc } = useNuxtApp()
-const accent = computed(() => props.accent ?? '#dc2626')
+const accent = computed(() => props.accent ?? WD.red600)
 
 // Two-step reveal: default view is a single CTA button (`open === false`);
 // clicking it expands the form in place. Keeps the competition section light
@@ -99,10 +100,10 @@ function reset() {
     <!-- Step 1: CTA. Leads with the payoff + who can enter, THEN the button —
          so the reason to participate is visible before the ask. -->
     <div v-if="!open" class="flex flex-col items-center gap-3 py-3 text-center">
-      <p class="text-sm font-bold leading-snug" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+      <p class="text-sm font-bold leading-snug" style="color:var(--wd-brown-900); font-family:var(--wd-font-display);">
         Get your dancing seen.
       </p>
-      <p class="max-w-xs text-xs leading-relaxed" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+      <p class="max-w-xs text-xs leading-relaxed" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
         Post a clip, the community votes, and the top-voted video this month gets
         featured on WeDance{{ cityLabel }}<template v-if="prize"> and wins <span class="font-bold" :style="{ color: accent }">{{ prize }}</span></template>.
         Any dancer, any style.
@@ -110,12 +111,12 @@ function reset() {
       <button
         type="button"
         class="inline-flex items-center justify-center gap-2 rounded-full px-6 py-2.5 text-sm font-bold uppercase tracking-wider text-white transition-all"
-        :style="{ background: accent, boxShadow: '0 3px 0 -1px rgba(0,0,0,0.15)', fontFamily: 'system-ui, sans-serif' }"
+        :style="{ background: accent, boxShadow: '0 3px 0 -1px rgba(0,0,0,0.15)', fontFamily: 'var(--wd-font-sans)' }"
         @click="reveal"
       >
         <Video class="h-4 w-4" /> Submit your video
       </button>
-      <p class="text-[11px]" style="color:#9a5614; font-family: system-ui, sans-serif;">
+      <p class="text-[11px]" style="color:var(--wd-amber-600); font-family:var(--wd-font-sans);">
         Free · we review every entry before it joins the vote
       </p>
     </div>
@@ -123,17 +124,17 @@ function reset() {
     <!-- Step 2: success state (shown after a submit, inside the open form). -->
     <div v-else-if="submitted" class="flex flex-col items-center gap-2 py-6 text-center">
       <CheckCircle2 class="h-8 w-8" :style="{ color: accent }" />
-      <p class="text-base font-bold" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+      <p class="text-base font-bold" style="color:var(--wd-brown-900); font-family:var(--wd-font-display);">
         Submitted — pending review
       </p>
-      <p class="max-w-xs text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+      <p class="max-w-xs text-xs" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
         We review every entry before it joins the vote. You'll appear in the competition once approved.
       </p>
       <div class="mt-2 flex items-center gap-4">
         <button
           type="button"
           class="text-xs font-bold underline"
-          :style="{ color: accent, fontFamily: 'system-ui, sans-serif' }"
+          :style="{ color: accent, fontFamily: 'var(--wd-font-sans)' }"
           @click="reset"
         >
           Submit another
@@ -141,7 +142,7 @@ function reset() {
         <button
           type="button"
           class="text-xs font-bold underline"
-          style="color:#5b3a1d; font-family: system-ui, sans-serif;"
+          style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);"
           @click="collapse"
         >
           Done
@@ -153,17 +154,17 @@ function reset() {
       <div class="flex items-start justify-between gap-3">
         <div>
           <div class="text-[10px] uppercase tracking-[0.3em] font-bold" :style="{ color: accent }">Enter the competition</div>
-          <h3 class="mt-1 text-lg font-bold" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+          <h3 class="mt-1 text-lg font-bold" style="color:var(--wd-brown-900); font-family:var(--wd-font-display);">
             Submit your video
           </h3>
-          <p class="mt-0.5 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+          <p class="mt-0.5 text-xs" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
             Paste a YouTube, Instagram, or TikTok link. Top-voted clip gets featured on WeDance{{ cityLabel }}<template v-if="prize"> and wins {{ prize }}</template>.
           </p>
         </div>
         <button
           type="button"
           class="shrink-0 rounded-full p-1.5 transition-colors hover:bg-black/5"
-          style="color:#9a5614;"
+          style="color:var(--wd-amber-600);"
           aria-label="Cancel"
           @click="collapse"
         >
@@ -179,7 +180,7 @@ function reset() {
           placeholder="Video title"
           maxlength="120"
           class="w-full rounded-lg border px-3 py-2 text-sm outline-none"
-          style="border-color:#3b1f0d33; font-family: system-ui, sans-serif; color:#3b1f0d;"
+          style="border-color:color-mix(in srgb, var(--wd-brown-900) 20%, transparent); font-family:var(--wd-font-sans); color:var(--wd-brown-900);"
           v-bind="fieldAttrs('title', 'video-title-error')"
         >
         <FieldError id="video-title-error" :message="errors.title" />
@@ -191,21 +192,21 @@ function reset() {
           type="url"
           placeholder="https://youtube.com/watch?v=…"
           class="w-full rounded-lg border px-3 py-2 text-sm outline-none"
-          style="border-color:#3b1f0d33; font-family: system-ui, sans-serif; color:#3b1f0d;"
+          style="border-color:color-mix(in srgb, var(--wd-brown-900) 20%, transparent); font-family:var(--wd-font-sans); color:var(--wd-brown-900);"
           v-bind="fieldAttrs('videoUrl', 'video-url-error')"
         >
         <FieldError v-if="errors.videoUrl" id="video-url-error" :message="errors.videoUrl" />
         <p
           v-else-if="videoUrl.trim() && !urlLooksValid"
           class="mt-1 text-[11px]"
-          style="color:#b45309; font-family: system-ui, sans-serif;"
+          style="color:var(--wd-amber-700); font-family:var(--wd-font-sans);"
         >
           We couldn't recognise this as a YouTube, Instagram, or TikTok link — double-check it.
         </p>
         <p
           v-else-if="urlLooksValid"
           class="mt-1 text-[11px] capitalize"
-          :style="{ color: accent, fontFamily: 'system-ui, sans-serif' }"
+          :style="{ color: accent, fontFamily: 'var(--wd-font-sans)' }"
         >
           {{ provider }} link detected ✓
         </p>
@@ -218,7 +219,7 @@ function reset() {
           placeholder="Dance style (optional) — e.g. Bachata"
           maxlength="60"
           class="w-full rounded-lg border px-3 py-2 text-sm outline-none"
-          style="border-color:#3b1f0d33; font-family: system-ui, sans-serif; color:#3b1f0d;"
+          style="border-color:color-mix(in srgb, var(--wd-brown-900) 20%, transparent); font-family:var(--wd-font-sans); color:var(--wd-brown-900);"
           v-bind="fieldAttrs('danceStyle', 'video-style-error')"
         >
         <FieldError id="video-style-error" :message="errors.danceStyle" />
@@ -230,13 +231,13 @@ function reset() {
           type="email"
           placeholder="Your email"
           class="w-full rounded-lg border px-3 py-2 text-sm outline-none"
-          style="border-color:#3b1f0d33; font-family: system-ui, sans-serif; color:#3b1f0d;"
+          style="border-color:color-mix(in srgb, var(--wd-brown-900) 20%, transparent); font-family:var(--wd-font-sans); color:var(--wd-brown-900);"
           v-bind="fieldAttrs('email', 'video-email-error')"
         >
         <FieldError id="video-email-error" :message="errors.email" />
       </div>
 
-      <p v-if="error" class="text-xs" style="color:#dc2626; font-family: system-ui, sans-serif;">
+      <p v-if="error" class="text-xs" style="color:var(--wd-red-600); font-family:var(--wd-font-sans);">
         {{ error }}
       </p>
 

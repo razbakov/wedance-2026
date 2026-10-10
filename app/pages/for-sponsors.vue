@@ -7,6 +7,7 @@
  * phrasing or a TODO placeholder until a sourced stat exists.
  */
 import { ArrowRight, Users, MapPin, Share2, Heart, Crown, Music, UtensilsCrossed, Megaphone } from 'lucide-vue-next'
+import { WD } from '~/lib/brand'
 
 definePageMeta({ layout: false })
 
@@ -18,7 +19,7 @@ useHead({
   link: [
     { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
     { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
-    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Caveat:wght@400;700&display=swap' },
+    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&display=swap' },
   ],
 })
 
@@ -38,17 +39,17 @@ const formats = [
 </script>
 
 <template>
-  <div class="min-h-screen" style="background:#fbf5ea; color:#3b1f0d; font-family:'Playfair Display', serif;">
+  <div class="min-h-screen" style="background:var(--wd-cream); color:var(--wd-brown-900); font-family:var(--wd-font-display);">
     <SiteHeader />
 
     <!-- HERO -->
     <section class="max-w-5xl mx-auto px-4 pt-14 pb-10">
-      <div class="text-sm tracking-widest uppercase mb-3" style="color:#9a5614;">For sponsors</div>
-      <h1 class="text-5xl sm:text-6xl leading-[0.95]" style="color:#3b1f0d;">
+      <div class="text-sm tracking-widest uppercase mb-3" style="color:var(--wd-amber-600);">For sponsors</div>
+      <h1 class="text-5xl sm:text-6xl leading-[0.95]" style="color:var(--wd-brown-900);">
         Sponsor a moment<br>
-        the city <em class="italic" style="color:#dc2626;">actually shows up for.</em>
+        the city <em class="italic" style="color:var(--wd-red-600);">actually shows up for.</em>
       </h1>
-      <p class="mt-6 text-base sm:text-lg leading-relaxed max-w-xl" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+      <p class="mt-6 text-base sm:text-lg leading-relaxed max-w-xl" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
         Dance nights and festivals are where a warm, loyal community gathers on purpose. Put your brand in the room — not in the way of it.
       </p>
       <!-- TODO: sourced stat — reach / attendance figures once we have defensible, cited numbers. Do not invent. -->
@@ -60,11 +61,11 @@ const formats = [
         <div
           v-for="(p, i) in props_" :key="p.title"
           class="rounded-2xl bg-white p-6 border block"
-          :style="{ borderColor: ['#dc2626', '#f59e0b', '#0891b2', '#16a34a', '#a855f7'][i % 5] + '55' }"
+          :style="{ borderColor: [WD.red600, WD.amber500, WD.cyan600, WD.green600, WD.purple500][i % 5] + '55' }"
         >
-          <component :is="p.icon" class="w-6 h-6 mb-3" :style="{ color: ['#dc2626', '#f59e0b', '#0891b2', '#16a34a', '#a855f7'][i % 5], 'stroke-width': 1.5 }" />
-          <div class="text-lg font-bold" style="color:#3b1f0d;">{{ p.title }}</div>
-          <div class="mt-2 text-sm leading-relaxed" style="color:#5b3a1d; font-family: system-ui, sans-serif;">{{ p.detail }}</div>
+          <component :is="p.icon" class="w-6 h-6 mb-3" :style="{ color: [WD.red600, WD.amber500, WD.cyan600, WD.green600, WD.purple500][i % 5], 'stroke-width': 1.5 }" />
+          <div class="text-lg font-bold" style="color:var(--wd-brown-900);">{{ p.title }}</div>
+          <div class="mt-2 text-sm leading-relaxed" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">{{ p.detail }}</div>
         </div>
       </div>
     </section>
@@ -72,39 +73,39 @@ const formats = [
     <!-- FORMATS -->
     <section class="max-w-5xl mx-auto px-4 pb-10">
       <h2 class="text-3xl sm:text-4xl leading-tight mb-6">
-        Ways to <em class="italic" style="color:#dc2626;">show up.</em>
+        Ways to <em class="italic" style="color:var(--wd-red-600);">show up.</em>
       </h2>
       <div class="grid md:grid-cols-2 gap-5">
         <div
           v-for="(f, i) in formats" :key="f.label"
           class="rounded-2xl bg-white p-6 border block"
-          :style="{ borderColor: ['#f59e0b', '#dc2626', '#0891b2', '#a855f7', '#16a34a'][i % 5] + '55' }"
+          :style="{ borderColor: [WD.amber500, WD.red600, WD.cyan600, WD.purple500, WD.green600][i % 5] + '55' }"
         >
-          <component :is="f.icon" class="w-6 h-6 mb-3" :style="{ color: ['#f59e0b', '#dc2626', '#0891b2', '#a855f7', '#16a34a'][i % 5], 'stroke-width': 1.5 }" />
-          <div class="text-lg font-bold" style="color:#3b1f0d;">{{ f.label }}</div>
-          <div class="mt-2 text-sm leading-relaxed" style="color:#5b3a1d; font-family: system-ui, sans-serif;">{{ f.detail }}</div>
+          <component :is="f.icon" class="w-6 h-6 mb-3" :style="{ color: [WD.amber500, WD.red600, WD.cyan600, WD.purple500, WD.green600][i % 5], 'stroke-width': 1.5 }" />
+          <div class="text-lg font-bold" style="color:var(--wd-brown-900);">{{ f.label }}</div>
+          <div class="mt-2 text-sm leading-relaxed" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">{{ f.detail }}</div>
         </div>
       </div>
     </section>
 
     <!-- CTA -->
     <section class="max-w-3xl mx-auto px-4 py-16 text-center">
-      <Megaphone class="w-8 h-8 mx-auto mb-4" style="color:#dc2626; stroke-width:1.5;" />
+      <Megaphone class="w-8 h-8 mx-auto mb-4" style="color:var(--wd-red-600); stroke-width:1.5;" />
       <h2 class="text-3xl sm:text-4xl leading-tight">
-        Let's find <em class="italic" style="color:#dc2626;">your moment.</em>
+        Let's find <em class="italic" style="color:var(--wd-red-600);">your moment.</em>
       </h2>
-      <p class="mt-4 text-sm sm:text-base" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+      <p class="mt-4 text-sm sm:text-base" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
         Tell us what you sell and who you want to reach. We come back with the events that fit and what a package looks like.
       </p>
       <a
         href="mailto:hello@wedance.vip?subject=Sponsoring%20with%20WeDance&body=Brand%3A%0AWhat%20you%20sell%3A%0AWho%20you%20want%20to%20reach%3A%0ABudget%20range%3A%0AAnything%20else%3A%20"
         class="mt-8 inline-flex items-center gap-2 px-7 py-3 rounded-full text-white text-sm font-bold uppercase tracking-wider"
-        style="background:linear-gradient(135deg, #dc2626, #f97316); box-shadow: 0 4px 0 -1px #b91c1c;"
+        style="background:linear-gradient(135deg, var(--wd-red-600), var(--wd-orange-500)); box-shadow: 0 4px 0 -1px var(--wd-red-800);"
         @click="useTrack().track('sponsor_cta_click', { surface: 'for-sponsors' })"
       >
         Talk to us about sponsoring <ArrowRight class="w-4 h-4" />
       </a>
-      <div class="mt-3 text-sm" style="font-family:'Caveat', cursive; color:#9a5614;">
+      <div class="mt-3 text-sm" style="font-family:var(--wd-font-display);font-style:italic; color:var(--wd-amber-600);">
         — we usually respond same day
       </div>
     </section>

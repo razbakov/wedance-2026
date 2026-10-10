@@ -9,6 +9,7 @@
 import type { Workshop, Teacher } from '~/types/festival'
 import { MapPin, Music, Users } from 'lucide-vue-next'
 import { chilis } from '~/lib/levels'
+import { WD } from '~/lib/brand'
 
 const props = defineProps<{
   workshops: Workshop[]
@@ -48,17 +49,17 @@ const levels = ['Beginner', 'Intermediate', 'Advanced']
 
 function styleAccent(style: string): string {
   const map: Record<string, string> = {
-    salsa:       '#dc2626',
-    bachata:     '#a855f7',
-    kizomba:     '#ec4899',
-    timba:       '#f59e0b',
-    son:         '#16a34a',
-    rumba:       '#0891b2',
-    'urban kiz': '#7c3aed',
-    semba:       '#f59e0b',
-    'hip hop':   '#0ea5e9',
+    salsa:       WD.red600,
+    bachata:     WD.purple500,
+    kizomba:     WD.pink500,
+    timba:       WD.amber500,
+    son:         WD.green600,
+    rumba:       WD.cyan600,
+    'urban kiz': WD.violet600,
+    semba:       WD.amber500,
+    'hip hop':   WD.sky500,
   }
-  return map[style.toLowerCase()] || '#9a5614'
+  return map[style.toLowerCase()] || WD.amber600
 }
 
 function filteredForDay(day: string) {
@@ -93,17 +94,17 @@ function toggleLevel(value: string) {
 }
 
 const levelColor: Record<string, string> = {
-  Beginner:     '#16a34a',
-  Intermediate: '#f59e0b',
-  Advanced:     '#dc2626',
+  Beginner:     WD.green600,
+  Intermediate: WD.amber500,
+  Advanced:     WD.red600,
 }
 </script>
 
 <template>
   <div class="space-y-6">
     <!-- Filters — V3 warm palette -->
-    <div class="rounded-2xl bg-white border p-4 sm:p-5" style="border-color:#3b1f0d22;">
-      <div class="text-[10px] uppercase tracking-[0.3em] font-bold mb-2" style="color:#9a5614;">Filter</div>
+    <div class="rounded-2xl bg-white border p-4 sm:p-5" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);">
+      <div class="text-[10px] uppercase tracking-[0.3em] font-bold mb-2" style="color:var(--wd-amber-600);">Filter</div>
       <div class="flex flex-wrap gap-2 mb-3">
         <button
           v-for="style in styles"
@@ -140,9 +141,9 @@ const levelColor: Record<string, string> = {
       <!-- Sticky day header -->
       <div
         class="sticky z-10 pt-2 pb-3 flex items-baseline gap-3 backdrop-blur-sm"
-        style="top: 3.75rem; background:rgba(251, 245, 234, 0.95); border-bottom:1px solid #3b1f0d22;"
+        style="top: 3.75rem; background:rgba(251, 245, 234, 0.95); border-bottom:1px solid color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);"
       >
-        <h3 class="text-xl font-black leading-none" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+        <h3 class="text-xl font-black leading-none" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">
           {{ dayLabels[day] }}
         </h3>
       </div>
@@ -165,7 +166,7 @@ const levelColor: Record<string, string> = {
           <div class="w-14 sm:w-16 shrink-0 text-center pt-0.5">
             <div
               class="text-lg font-black leading-none tabular-nums"
-              :style="{ color: styleAccent(w.style), fontFamily: 'Playfair Display, serif' }"
+              :style="{ color: styleAccent(w.style), fontFamily: 'var(--wd-font-display)' }"
             >
               {{ w.time }}
             </div>
@@ -189,19 +190,19 @@ const levelColor: Record<string, string> = {
                 {{ w.level }}
               </span>
             </div>
-            <h4 class="text-sm sm:text-base font-bold leading-tight mt-1" style="color:#3b1f0d;">
+            <h4 class="text-sm sm:text-base font-bold leading-tight mt-1" style="color:var(--wd-brown-900);">
               {{ w.title }}
             </h4>
-            <div class="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-xs" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
               <span v-if="teacherFor(w)" class="italic" :style="{ color: styleAccent(w.style) }">
                 {{ teacherFor(w)!.name }}
               </span>
               <span v-if="w.room" class="inline-flex items-center gap-1">
-                <MapPin class="w-3 h-3" style="color:#9a5614;" />
+                <MapPin class="w-3 h-3" style="color:var(--wd-amber-600);" />
                 {{ w.room }}
               </span>
               <span v-if="w.goingCount" class="inline-flex items-center gap-1">
-                <Users class="w-3 h-3" style="color:#9a5614;" />
+                <Users class="w-3 h-3" style="color:var(--wd-amber-600);" />
                 {{ w.goingCount }} going
               </span>
             </div>
@@ -224,7 +225,7 @@ const levelColor: Record<string, string> = {
       <p
         v-else-if="partiesForDay(day).length === 0"
         class="rounded-2xl p-6 text-center border-2 border-dashed text-sm"
-        style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5); color:#5b3a1d; font-family: system-ui, sans-serif;"
+        style="border-color:color-mix(in srgb, var(--wd-brown-900) 20%, transparent); background:rgba(255,255,255,0.5); color:var(--wd-brown-700); font-family:var(--wd-font-sans);"
       >
         No workshops match your filters for {{ day }}.
       </p>
@@ -235,34 +236,34 @@ const levelColor: Record<string, string> = {
         :key="party.id"
         class="rounded-2xl p-4 sm:p-5 border flex items-start gap-3 sm:gap-4"
         :style="{
-          background: 'linear-gradient(135deg, #dc262608, #f9731608)',
-          borderColor: '#dc262633',
-          boxShadow: '0 1px 0 #dc262622, 0 4px 14px rgba(59,31,18,0.04)',
+          background: 'linear-gradient(135deg, color-mix(in srgb, var(--wd-red-600) 3.1%, transparent), color-mix(in srgb, var(--wd-orange-500) 3.1%, transparent))',
+          borderColor: 'color-mix(in srgb, var(--wd-red-600) 20%, transparent)',
+          boxShadow: '0 1px 0 color-mix(in srgb, var(--wd-red-600) 13.3%, transparent), 0 4px 14px rgba(59,31,18,0.04)',
         }"
       >
         <div class="w-14 sm:w-16 shrink-0 text-center pt-0.5">
-          <div class="text-lg font-black leading-none tabular-nums" style="color:#dc2626; font-family:'Playfair Display', serif;">
+          <div class="text-lg font-black leading-none tabular-nums" style="color:var(--wd-red-600); font-family:var(--wd-font-display);">
             {{ party.time }}
           </div>
         </div>
         <div class="flex-1 min-w-0">
-          <div class="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full" style="background:#dc262618; color:#dc2626;">
+          <div class="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full" style="background:color-mix(in srgb, var(--wd-red-600) 9.4%, transparent); color:var(--wd-red-600);">
             <Music class="w-3 h-3" style="stroke-width:2;" />
             Party
           </div>
-          <h4 class="text-base sm:text-lg font-black leading-tight mt-1" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+          <h4 class="text-base sm:text-lg font-black leading-tight mt-1" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">
             {{ party.title }}
           </h4>
-          <p v-if="party.description" class="text-xs mt-1" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+          <p v-if="party.description" class="text-xs mt-1" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
             {{ party.description }}
           </p>
-          <div class="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+          <div class="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-xs" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
             <span v-if="party.venue" class="inline-flex items-center gap-1">
-              <MapPin class="w-3 h-3" style="color:#9a5614;" />
+              <MapPin class="w-3 h-3" style="color:var(--wd-amber-600);" />
               {{ party.venue }}
             </span>
             <span v-if="party.goingCount" class="inline-flex items-center gap-1">
-              <Users class="w-3 h-3" style="color:#9a5614;" />
+              <Users class="w-3 h-3" style="color:var(--wd-amber-600);" />
               {{ party.goingCount }} going
             </span>
           </div>
@@ -271,8 +272,8 @@ const levelColor: Record<string, string> = {
           type="button"
           class="text-xs font-bold px-3 py-1.5 rounded-full transition-all shrink-0 whitespace-nowrap"
           :style="planIds.has(party.id)
-            ? { background: '#dc2626', color: 'white' }
-            : { background: 'white', color: '#dc2626', border: '1.5px solid #dc262655' }"
+            ? { background: 'var(--wd-red-600)', color: 'white' }
+            : { background: 'white', color: 'var(--wd-red-600)', border: '1.5px solid color-mix(in srgb, var(--wd-red-600) 33.3%, transparent)' }"
           @click="emit('toggleWorkshop', party.id)"
         >
           {{ planIds.has(party.id) ? '✓ Going!' : 'Going?' }}

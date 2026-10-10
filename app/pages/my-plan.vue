@@ -16,6 +16,7 @@ import * as cityBerlin from '~/data/mock-city-berlin'
 import type { CityEvent } from '~/types/city'
 import * as cubanFire from '~/data/mock-cuban-fire'
 import * as caribbeanUrbanFire from '~/data/mock-caribbean-urban-fire'
+import { WD } from '~/lib/brand'
 
 definePageMeta({ layout: false })
 
@@ -24,7 +25,7 @@ useHead({
   link: [
     { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
     { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
-    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Caveat:wght@400;700&display=swap' },
+    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&display=swap' },
   ],
 })
 
@@ -171,7 +172,7 @@ const catalogue = [
     location: 'Barcelona, Spain',
     venue: 'Sala Apolo',
     logo: 'https://ui-avatars.com/api/?name=BSB&size=80&background=7c3aed&color=fff&bold=true&rounded=true',
-    accentColor: '#7c3aed',
+    accentColor: WD.violet600,
     workshopCount: 24,
     ticketUrl: 'https://bachatastarsbarcelona.com/tickets',
     ticketFromPrice: 145,
@@ -188,7 +189,7 @@ const catalogue = [
     location: 'London, UK',
     venue: 'Village Underground',
     logo: 'https://ui-avatars.com/api/?name=TFL&size=80&background=0ea5e9&color=fff&bold=true&rounded=true',
-    accentColor: '#0ea5e9',
+    accentColor: WD.sky500,
     workshopCount: 18,
     ticketUrl: 'https://timbafestlondon.co.uk/tickets',
     ticketFromPrice: 95,
@@ -202,7 +203,7 @@ const catalogue = [
     location: 'Prague, Czech Republic',
     venue: 'La Loca Prague',
     logo: 'https://ui-avatars.com/api/?name=KPR&size=80&background=ec4899&color=fff&bold=true&rounded=true',
-    accentColor: '#ec4899',
+    accentColor: WD.pink500,
     workshopCount: 16,
     ticketUrl: 'https://kizombaprague.com/tickets',
     ticketFromPrice: 110,
@@ -258,7 +259,7 @@ function autoFillPlan() {
   // Courses from type 'class' events (up to 3).
   const classEvents = matchedEvents.filter(e => e.type === 'class')
   const WEEKDAY_SHORT: Record<string, string> = { Monday: 'Mon', Tuesday: 'Tue', Wednesday: 'Wed', Thursday: 'Thu', Friday: 'Fri', Saturday: 'Sat', Sunday: 'Sun' }
-  const STYLE_COLORS: Record<string, string> = { Salsa: '#dc2626', Bachata: '#7c3aed', Kizomba: '#ec4899', Timba: '#0891b2' }
+  const STYLE_COLORS: Record<string, string> = { Salsa: WD.red600, Bachata: WD.violet600, Kizomba: WD.pink500, Timba: WD.cyan600 }
   courses.value = classEvents.slice(0, 3).map(e => ({
     id: e.id,
     school: e.organizer,
@@ -272,7 +273,7 @@ function autoFillPlan() {
     attended: 0,
     total: 0,
     paidThroughMonth: false,
-    color: STYLE_COLORS[e.style] || '#6b7280',
+    color: STYLE_COLORS[e.style] || WD.gray500,
   }))
 
   // Persist seeded courses
@@ -296,7 +297,7 @@ function autoFillPlan() {
     style: e.style,
     friendsGoing: 0,
     rsvpd: false,
-    color: STYLE_COLORS[e.style] || '#6b7280',
+    color: STYLE_COLORS[e.style] || WD.gray500,
   }))
 
   // Persist seeded socials
@@ -730,10 +731,10 @@ const summary = computed(() => {
 })
 
 const toneStyle = (tone: 'done' | 'urgent' | 'todo' | 'muted') => {
-  if (tone === 'done')   return { color: '#16a34a', background: '#16a34a18' }
-  if (tone === 'urgent') return { color: '#dc2626', background: '#dc262618' }
-  if (tone === 'muted')  return { color: '#9a5614', background: '#9a561418' }
-  return { color: '#5b3a1d', background: '#3b1f0d0a' }
+  if (tone === 'done')   return { color: WD.green600, background: (WD.green600 + '18') }
+  if (tone === 'urgent') return { color: WD.red600, background: (WD.red600 + '18') }
+  if (tone === 'muted')  return { color: WD.amber600, background: (WD.amber600 + '18') }
+  return { color: WD.brown700, background: (WD.brown900 + '0a') }
 }
 
 // -----------------------------------------------------------------------
@@ -757,9 +758,9 @@ function toggleExpanded(slug: string) {
 // Preview goals for ?preview=1 mode.
 type PreviewGoal = { id: string; title: string; why: string; progress: number; nudge?: string; icon: any; color: string }
 const previewGoals: PreviewGoal[] = [
-  { id: 'g1', title: 'Learn timba (advanced)',   why: 'Feel at home in a Cuban rueda.',             progress: 55, nudge: 'Book 2 more privates before Cuban Fire.', icon: Flame,     color: '#dc2626' },
-  { id: 'g2', title: 'Perform at Cuban Fire',    why: 'Duet with Emilia — 3-minute son piece.',    progress: 20, nudge: 'Choose the song this week.',                icon: Sparkles,  color: '#f59e0b' },
-  { id: 'g3', title: 'Teach my first class',     why: 'Kids salsa Saturdays at 15x4.',              progress: 10, nudge: 'Sit in on Anna\'s lesson Sunday.',           icon: GraduationCap, color: '#16a34a' },
+  { id: 'g1', title: 'Learn timba (advanced)',   why: 'Feel at home in a Cuban rueda.',             progress: 55, nudge: 'Book 2 more privates before Cuban Fire.', icon: Flame,     color: WD.red600 },
+  { id: 'g2', title: 'Perform at Cuban Fire',    why: 'Duet with Emilia — 3-minute son piece.',    progress: 20, nudge: 'Choose the song this week.',                icon: Sparkles,  color: WD.amber500 },
+  { id: 'g3', title: 'Teach my first class',     why: 'Kids salsa Saturdays at 15x4.',              progress: 10, nudge: 'Sit in on Anna\'s lesson Sunday.',           icon: GraduationCap, color: WD.green600 },
 ]
 
 // Real goals — persisted via TRPC plan router.
@@ -775,7 +776,7 @@ const goalsList = computed(() => {
     progress: g.progress,
     nudge: undefined as string | undefined,
     icon: Target,
-    color: '#9a5614',
+    color: WD.amber600,
   }))
 })
 
@@ -828,7 +829,7 @@ const previewCourses: Course[] = [
     nextClassDate: '2026-07-08',
     attended: 6, total: 8,
     paidThroughMonth: true,
-    color: '#dc2626',
+    color: WD.red600,
   },
   {
     id: 'c2',
@@ -839,7 +840,7 @@ const previewCourses: Course[] = [
     nextClassDate: '2026-07-06',
     attended: 3, total: 4,
     paidThroughMonth: false,
-    color: '#0891b2',
+    color: WD.cyan600,
   },
 ]
 const courses = ref<Course[]>(isPreviewInitial ? previewCourses : [])
@@ -847,7 +848,7 @@ const courses = ref<Course[]>(isPreviewInitial ? previewCourses : [])
 // Enrollment picker — shows available classes from the city data.
 const showEnrollPicker = ref(false)
 const WEEKDAY_SHORT_ENROLL: Record<string, string> = { Monday: 'Mon', Tuesday: 'Tue', Wednesday: 'Wed', Thursday: 'Thu', Friday: 'Fri', Saturday: 'Sat', Sunday: 'Sun' }
-const STYLE_COLORS_ENROLL: Record<string, string> = { Salsa: '#dc2626', Bachata: '#7c3aed', Kizomba: '#ec4899', Timba: '#0891b2' }
+const STYLE_COLORS_ENROLL: Record<string, string> = { Salsa: WD.red600, Bachata: WD.violet600, Kizomba: WD.pink500, Timba: WD.cyan600 }
 
 const availableClasses = computed(() => {
   const citySlug = (dancerCity.value || '').trim().toLowerCase()
@@ -871,7 +872,7 @@ function enrollClass(e: CityEvent) {
     attended: 0,
     total: 0,
     paidThroughMonth: false,
-    color: STYLE_COLORS_ENROLL[e.style] || '#6b7280',
+    color: STYLE_COLORS_ENROLL[e.style] || WD.gray500,
   }
   courses.value.push(course)
   useTrack().track('week_plan_add', { event_id: e.id, source: 'enroll_picker' })
@@ -923,7 +924,7 @@ function loadCoursesFromDb() {
             attended: 0,
             total: 0,
             paidThroughMonth: false,
-            color: (m.style && STYLE_COLORS_ENROLL[m.style]) || '#6b7280',
+            color: (m.style && STYLE_COLORS_ENROLL[m.style]) || WD.gray500,
           })
         }
       }
@@ -957,7 +958,7 @@ function loadSocialsFromDb() {
             style: m.style || '',
             friendsGoing: 0,
             rsvpd: false,
-            color: (m.style && STYLE_COLORS_ENROLL[m.style]) || '#6b7280',
+            color: (m.style && STYLE_COLORS_ENROLL[m.style]) || WD.gray500,
           })
         }
       }
@@ -980,11 +981,11 @@ type Social = {
   color: string
 }
 const previewSocials: Social[] = [
-  { id: 's1', name: 'La Rumba Fri',           dayLabel: 'Fri', dateISO: '2026-07-03', time: '21:00', venue: 'La Rumba',   city: 'Munich', style: 'Cuban',   friendsGoing: 5, rsvpd: true,  color: '#dc2626' },
-  { id: 's2', name: 'Rueda flashmob',         dayLabel: 'Sat', dateISO: '2026-07-04', time: '14:00', venue: 'Diana Tempel', city: 'Munich', style: 'Rueda',   friendsGoing: 12, rsvpd: true, color: '#f59e0b' },
-  { id: 's3', name: 'Bailala Sat',            dayLabel: 'Sat', dateISO: '2026-07-04', time: '22:00', venue: 'Bailala',   city: 'Munich', style: 'Bachata', friendsGoing: 3, rsvpd: false, color: '#a855f7' },
-  { id: 's4', name: 'Cuban Sunday practica',  dayLabel: 'Sun', dateISO: '2026-07-05', time: '19:00', venue: 'Buena Vista', city: 'Munich', style: 'Practica', friendsGoing: 4, rsvpd: false, color: '#16a34a' },
-  { id: 's5', name: 'Thursday warmup',        dayLabel: 'Thu', dateISO: '2026-07-09', time: '20:30', venue: 'La Rumba',   city: 'Munich', style: 'All',     friendsGoing: 2, rsvpd: false, color: '#0891b2' },
+  { id: 's1', name: 'La Rumba Fri',           dayLabel: 'Fri', dateISO: '2026-07-03', time: '21:00', venue: 'La Rumba',   city: 'Munich', style: 'Cuban',   friendsGoing: 5, rsvpd: true,  color: WD.red600 },
+  { id: 's2', name: 'Rueda flashmob',         dayLabel: 'Sat', dateISO: '2026-07-04', time: '14:00', venue: 'Diana Tempel', city: 'Munich', style: 'Rueda',   friendsGoing: 12, rsvpd: true, color: WD.amber500 },
+  { id: 's3', name: 'Bailala Sat',            dayLabel: 'Sat', dateISO: '2026-07-04', time: '22:00', venue: 'Bailala',   city: 'Munich', style: 'Bachata', friendsGoing: 3, rsvpd: false, color: WD.purple500 },
+  { id: 's4', name: 'Cuban Sunday practica',  dayLabel: 'Sun', dateISO: '2026-07-05', time: '19:00', venue: 'Buena Vista', city: 'Munich', style: 'Practica', friendsGoing: 4, rsvpd: false, color: WD.green600 },
+  { id: 's5', name: 'Thursday warmup',        dayLabel: 'Thu', dateISO: '2026-07-09', time: '20:30', venue: 'La Rumba',   city: 'Munich', style: 'All',     friendsGoing: 2, rsvpd: false, color: WD.cyan600 },
 ]
 const socials = ref<Social[]>(isPreviewInitial ? previewSocials : [])
 
@@ -1012,17 +1013,17 @@ type Hangout = {
 
 // Color map for hangout kinds
 const hangoutColors: Record<string, string> = {
-  dinner: '#f59e0b',
-  floor: '#dc2626',
-  bar: '#a855f7',
-  ride: '#0891b2',
+  dinner: WD.amber500,
+  floor: WD.red600,
+  bar: WD.purple500,
+  ride: WD.cyan600,
 }
 
 const previewHangouts: Hangout[] = [
-  { id: 'h1', kind: 'dinner', title: 'Dinner before La Rumba', time: '19:00', host: 'Mark + Klaus', venue: 'Xoco', people: 6,  going: false, color: '#f59e0b', mine: false },
-  { id: 'h2', kind: 'floor',  title: 'La Rumba floor',         time: '22:00', venue: 'La Rumba',   people: 40, going: true,  color: '#dc2626', mine: true },
-  { id: 'h3', kind: 'bar',    title: 'Post-social mojitos',    time: '02:30', venue: 'Café con Leche', people: 8,  going: false, color: '#a855f7', mine: false },
-  { id: 'h4', kind: 'ride',   title: 'Ride to Diana Tempel',   time: '13:30', host: 'Egor',        people: 3,  going: false, color: '#0891b2', mine: false },
+  { id: 'h1', kind: 'dinner', title: 'Dinner before La Rumba', time: '19:00', host: 'Mark + Klaus', venue: 'Xoco', people: 6,  going: false, color: WD.amber500, mine: false },
+  { id: 'h2', kind: 'floor',  title: 'La Rumba floor',         time: '22:00', venue: 'La Rumba',   people: 40, going: true,  color: WD.red600, mine: true },
+  { id: 'h3', kind: 'bar',    title: 'Post-social mojitos',    time: '02:30', venue: 'Café con Leche', people: 8,  going: false, color: WD.purple500, mine: false },
+  { id: 'h4', kind: 'ride',   title: 'Ride to Diana Tempel',   time: '13:30', host: 'Egor',        people: 3,  going: false, color: WD.cyan600, mine: false },
 ]
 
 const hangouts = ref<Hangout[]>(isPreviewInitial ? previewHangouts : [])
@@ -1048,7 +1049,7 @@ async function fetchHangouts() {
       venue: h.venue,
       people: h.rsvpCount || 0,
       going: h.rsvps?.includes(currentDancerId) || false,
-      color: hangoutColors[h.kind] || '#3b1f0d',
+      color: hangoutColors[h.kind] || WD.brown900,
       mine: h.dancerId === currentDancerId,
     }))
 
@@ -1104,7 +1105,7 @@ async function createHangout() {
       venue: newHangout.value.venue || undefined,
       people: 1,
       going: true,
-      color: hangoutColors[newHangout.value.kind] || '#3b1f0d',
+      color: hangoutColors[newHangout.value.kind] || WD.brown900,
       mine: true,
     }
     hangouts.value.unshift(fake)
@@ -1172,7 +1173,7 @@ const heatItems = computed<HeatItem[]>(() => {
       detail: `Ends in ${d}d · from €${f.ticketFromPrice}`,
       href: `/festivals/${f.slug}#tickets`,
       external: false,
-      color: '#dc2626',
+      color: WD.red600,
       urgency: 100 - d,
     })
   })
@@ -1183,7 +1184,7 @@ const heatItems = computed<HeatItem[]>(() => {
       label: `${c.school} · pay for July`,
       detail: `${c.style} ${c.level} · ${c.weekday} ${c.time}`,
       href: '#courses',
-      color: '#f59e0b',
+      color: WD.amber500,
       urgency: 70,
     })
   })
@@ -1194,7 +1195,7 @@ const heatItems = computed<HeatItem[]>(() => {
       label: `${s.name} · ${s.dayLabel} ${s.time}`,
       detail: `${s.venue} · ${s.friendsGoing} friends going`,
       href: '#socials',
-      color: '#0891b2',
+      color: WD.cyan600,
       urgency: 40,
     })
   })
@@ -1205,7 +1206,7 @@ const heatItems = computed<HeatItem[]>(() => {
       label: `Tonight · ${h.title}`,
       detail: `${h.time} · ${h.venue ?? h.host ?? ''}`,
       href: '#tonight',
-      color: '#a855f7',
+      color: WD.purple500,
       urgency: 90,
     })
   })
@@ -1226,16 +1227,16 @@ type DeckCard =
   | { id: string; kind: 'event-social';       name: string; dayLabel: string; time: string; venue: string; city: string; style: string; friendsGoing: number; color: string; reason: string }
 
 const previewDeck: DeckCard[] = [
-  { id: 'd1', kind: 'dancer-your-fest',  name: 'Ivana',   city: 'Berlin',    photo: 'https://i.pravatar.cc/240?u=ivana',   danceStyles: ['Timba', 'Son'],       festivalSlug: 'meneate-viena-2026',           festivalName: 'Menéate Viena',        festivalColor: '#dc2626', reason: 'You both dance Timba — and she\'s at Menéate Viena too.' },
-  { id: 'd2', kind: 'dancer-new-fest',   name: 'Emilia',  city: 'Munich',    photo: 'https://i.pravatar.cc/240?u=emilia',  danceStyles: ['Kizomba', 'Urban Kiz'], festivalSlug: 'timba-fest-london-2026',      festivalName: 'Timba Fest London',    festivalColor: '#0ea5e9', reason: 'She dances Kizomba in Munich — and heads to a festival you haven\'t explored.' },
-  { id: 'e1', kind: 'event-social',      name: 'Salsa on the Isar',  dayLabel: 'Sat', time: '15:00', venue: 'Muffatwerk terrace', city: 'Munich', style: 'Salsa', friendsGoing: 6, color: '#f59e0b', reason: 'Salsa in your city, 6 friends going — matches your style.' },
+  { id: 'd1', kind: 'dancer-your-fest',  name: 'Ivana',   city: 'Berlin',    photo: 'https://i.pravatar.cc/240?u=ivana',   danceStyles: ['Timba', 'Son'],       festivalSlug: 'meneate-viena-2026',           festivalName: 'Menéate Viena',        festivalColor: WD.red600, reason: 'You both dance Timba — and she\'s at Menéate Viena too.' },
+  { id: 'd2', kind: 'dancer-new-fest',   name: 'Emilia',  city: 'Munich',    photo: 'https://i.pravatar.cc/240?u=emilia',  danceStyles: ['Kizomba', 'Urban Kiz'], festivalSlug: 'timba-fest-london-2026',      festivalName: 'Timba Fest London',    festivalColor: WD.sky500, reason: 'She dances Kizomba in Munich — and heads to a festival you haven\'t explored.' },
+  { id: 'e1', kind: 'event-social',      name: 'Salsa on the Isar',  dayLabel: 'Sat', time: '15:00', venue: 'Muffatwerk terrace', city: 'Munich', style: 'Salsa', friendsGoing: 6, color: WD.amber500, reason: 'Salsa in your city, 6 friends going — matches your style.' },
   { id: 'd3', kind: 'dancer-local',      name: 'Klaus',   city: 'Munich',    photo: 'https://i.pravatar.cc/240?u=klaus',   danceStyles: ['Salsa', 'Bachata'],    regularAt: 'La Rumba Fridays', reason: 'You both do Salsa in Munich — he\'s at La Rumba every Friday.' },
-  { id: 'd4', kind: 'dancer-new-fest',   name: 'Sasha',   city: 'Vienna',    photo: 'https://i.pravatar.cc/240?u=sasha',   danceStyles: ['Timba', 'Rumba'],     festivalSlug: 'timba-fest-london-2026',      festivalName: 'Timba Fest London',    festivalColor: '#0ea5e9', reason: 'Timba dancer from Vienna heading to a festival not in your year yet.' },
-  { id: 'e2', kind: 'event-festival',    name: 'Salsa Fusion Prague', slug: 'salsa-fusion-prague-2026', dateISO: '2026-11-14', venue: 'La Loca', city: 'Prague',   friendsGoing: 2, color: '#a855f7', reason: 'Salsa festival a short trip away — 2 friends already going.' },
-  { id: 'd5', kind: 'dancer-your-fest',  name: 'Silvio',  city: 'Havana',    photo: 'https://i.pravatar.cc/240?u=silvio',  danceStyles: ['Son', 'Timba'],       festivalSlug: 'bachata-stars-barcelona-2026', festivalName: 'Bachata Stars Barcelona', festivalColor: '#7c3aed', reason: 'Son & Timba dancer from Havana — also going to Bachata Stars Barcelona.' },
+  { id: 'd4', kind: 'dancer-new-fest',   name: 'Sasha',   city: 'Vienna',    photo: 'https://i.pravatar.cc/240?u=sasha',   danceStyles: ['Timba', 'Rumba'],     festivalSlug: 'timba-fest-london-2026',      festivalName: 'Timba Fest London',    festivalColor: WD.sky500, reason: 'Timba dancer from Vienna heading to a festival not in your year yet.' },
+  { id: 'e2', kind: 'event-festival',    name: 'Salsa Fusion Prague', slug: 'salsa-fusion-prague-2026', dateISO: '2026-11-14', venue: 'La Loca', city: 'Prague',   friendsGoing: 2, color: WD.purple500, reason: 'Salsa festival a short trip away — 2 friends already going.' },
+  { id: 'd5', kind: 'dancer-your-fest',  name: 'Silvio',  city: 'Havana',    photo: 'https://i.pravatar.cc/240?u=silvio',  danceStyles: ['Son', 'Timba'],       festivalSlug: 'bachata-stars-barcelona-2026', festivalName: 'Bachata Stars Barcelona', festivalColor: WD.violet600, reason: 'Son & Timba dancer from Havana — also going to Bachata Stars Barcelona.' },
   { id: 'd6', kind: 'dancer-local',      name: 'Barbara', city: 'Munich',    photo: 'https://i.pravatar.cc/240?u=barbara', danceStyles: ['Rumba', 'Son'],       regularAt: 'Cuban Sunday practica', reason: 'Rumba and Son right in Munich — you might click at the practica.' },
-  { id: 'd7', kind: 'dancer-new-fest',   name: 'Egor',    city: 'Munich',    photo: 'https://i.pravatar.cc/240?u=egor',    danceStyles: ['Timba', 'Casino'],    festivalSlug: 'timba-fest-london-2026',      festivalName: 'Timba Fest London',    festivalColor: '#0ea5e9', reason: 'Local Timba dancer — a third person heading to Timba Fest London.' },
-  { id: 'e3', kind: 'event-social',      name: 'Havana Nights',      dayLabel: 'Fri', time: '22:30', venue: '537 Bar',          city: 'Munich', style: 'Cuban', friendsGoing: 8, color: '#dc2626', reason: 'Cuban night in Munich with 8 friends — right up your alley.' },
+  { id: 'd7', kind: 'dancer-new-fest',   name: 'Egor',    city: 'Munich',    photo: 'https://i.pravatar.cc/240?u=egor',    danceStyles: ['Timba', 'Casino'],    festivalSlug: 'timba-fest-london-2026',      festivalName: 'Timba Fest London',    festivalColor: WD.sky500, reason: 'Local Timba dancer — a third person heading to Timba Fest London.' },
+  { id: 'e3', kind: 'event-social',      name: 'Havana Nights',      dayLabel: 'Fri', time: '22:30', venue: '537 Bar',          city: 'Munich', style: 'Cuban', friendsGoing: 8, color: WD.red600, reason: 'Cuban night in Munich with 8 friends — right up your alley.' },
 ]
 
 // Live deck state
@@ -1249,7 +1250,7 @@ type FestivalNudge = { festivalSlug: string; festivalName: string; festivalColor
 const festivalNudges = ref<FestivalNudge[]>(isPreviewInitial
   ? [
       // Preview: prime the "add Timba Fest London" nudge so the loop is visible.
-      { festivalSlug: 'timba-fest-london-2026', festivalName: 'Timba Fest London', festivalColor: '#0ea5e9', dancerNames: ['Emilia', 'Sasha'], dismissed: false },
+      { festivalSlug: 'timba-fest-london-2026', festivalName: 'Timba Fest London', festivalColor: WD.sky500, dancerNames: ['Emilia', 'Sasha'], dismissed: false },
     ]
   : [])
 
@@ -1294,7 +1295,7 @@ async function loadDiscoverDeck() {
           danceStyles: dStyles,
           festivalSlug: c.festivalSlug ?? '',
           festivalName: c.festivalName ?? '',
-          festivalColor: c.festivalColor ?? '#0ea5e9',
+          festivalColor: c.festivalColor ?? WD.sky500,
           reason: shared.length
             ? `${shared.join(' & ')} dancer heading to ${c.festivalName} — a festival not in your year yet.`
             : `Heading to ${c.festivalName} — a festival you haven't explored.`,
@@ -1310,7 +1311,7 @@ async function loadDiscoverDeck() {
           danceStyles: dStyles,
           festivalSlug: c.festivalSlug ?? '',
           festivalName: c.festivalName ?? '',
-          festivalColor: c.festivalColor ?? '#7c3aed',
+          festivalColor: c.festivalColor ?? WD.violet600,
           reason: `Also going to ${c.festivalName} — you'll be at the same festival.`,
         })
       } else if (c.kind === 'event-festival') {
@@ -1323,7 +1324,7 @@ async function loadDiscoverDeck() {
           venue: c.eventVenue ?? '',
           city: c.eventCity ?? '',
           friendsGoing: c.friendsGoing ?? 0,
-          color: c.color ?? '#a855f7',
+          color: c.color ?? WD.purple500,
           reason: `Festival in ${c.eventCity} — not in your year yet.`,
         })
       } else if (c.kind === 'event-social') {
@@ -1337,7 +1338,7 @@ async function loadDiscoverDeck() {
           city: c.eventCity ?? '',
           style: c.eventStyle ?? '',
           friendsGoing: c.friendsGoing ?? 0,
-          color: c.color ?? '#f59e0b',
+          color: c.color ?? WD.amber500,
           reason: myStyles.includes(c.eventStyle ?? '')
             ? `${c.eventStyle} in ${c.eventCity} — matches your style.`
             : `${c.eventStyle ?? 'Dance'} event in ${c.eventCity}.`,
@@ -1496,10 +1497,10 @@ function dismissFestivalNudge(n: FestivalNudge) {
 // GOAL · progress ring color
 // -----------------------------------------------------------------------
 function goalProgressColor(p: number) {
-  if (p >= 75) return '#16a34a'
-  if (p >= 40) return '#0891b2'
-  if (p >= 15) return '#f59e0b'
-  return '#dc2626'
+  if (p >= 75) return WD.green600
+  if (p >= 40) return WD.cyan600
+  if (p >= 15) return WD.amber500
+  return WD.red600
 }
 
 // Collapsed-view summary: how much of the plan is done, and what's the
@@ -1521,25 +1522,25 @@ function cardSummary(f: CatalogueEntry) {
 </script>
 
 <template>
-  <div class="min-h-screen" style="background:#fbf5ea; color:#3b1f0d; font-family:'Playfair Display', serif;">
+  <div class="min-h-screen" style="background:var(--wd-cream); color:var(--wd-brown-900); font-family:var(--wd-font-display);">
     <!-- V3 header -->
     <SiteHeader />
 
     <!-- HERO -->
     <section class="max-w-4xl mx-auto px-4 pt-12 pb-6 text-center">
-      <div class="text-sm tracking-widest uppercase mb-3" style="color:#9a5614;">
+      <div class="text-sm tracking-widest uppercase mb-3" style="color:var(--wd-amber-600);">
         <template v-if="isSignedIn">Hey, {{ dancerName || 'dancer' }}</template>
         <template v-else>Your plan</template>
       </div>
-      <h1 class="text-5xl sm:text-6xl leading-[0.98]" style="color:#3b1f0d;">
+      <h1 class="text-5xl sm:text-6xl leading-[0.98]" style="color:var(--wd-brown-900);">
         <template v-if="isSignedIn && dancerCity">
-          Your floor in <em class="italic" style="color:#dc2626;">{{ dancerCity }}</em>
+          Your floor in <em class="italic" style="color:var(--wd-red-600);">{{ dancerCity }}</em>
         </template>
         <template v-else>
-          What's <em class="italic" style="color:#dc2626;">next?</em>
+          What's <em class="italic" style="color:var(--wd-red-600);">next?</em>
         </template>
       </h1>
-      <p class="mt-5 text-base sm:text-lg leading-relaxed max-w-xl mx-auto" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+      <p class="mt-5 text-base sm:text-lg leading-relaxed max-w-xl mx-auto" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
         <template v-if="isSignedIn && stylesLabel">
           {{ stylesLabel }} — every festival, course and social you care about, in one place.
         </template>
@@ -1553,18 +1554,18 @@ function cardSummary(f: CatalogueEntry) {
     <section v-if="needsOnboarding" class="max-w-4xl mx-auto px-4">
       <div
         class="rounded-2xl px-5 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
-        style="background:white; border:1px solid #dc262655; box-shadow: 0 1px 0 #dc262622, 0 8px 22px rgba(59,31,18,0.05);"
+        style="background:white; border:1px solid color-mix(in srgb, var(--wd-red-600) 33.3%, transparent); box-shadow: 0 1px 0 color-mix(in srgb, var(--wd-red-600) 13.3%, transparent), 0 8px 22px rgba(59,31,18,0.05);"
       >
         <div>
-          <div class="text-[10px] uppercase tracking-[0.3em] font-bold mb-1" style="color:#dc2626;">Finish setup</div>
-          <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+          <div class="text-[10px] uppercase tracking-[0.3em] font-bold mb-1" style="color:var(--wd-red-600);">Finish setup</div>
+          <p class="text-sm" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
             Tell us what you're into and we'll fill your plan with the right festivals, classes and socials.
           </p>
         </div>
         <NuxtLink
           to="/onboarding"
           class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-white text-sm font-bold uppercase tracking-wider shrink-0"
-          style="background:#dc2626; box-shadow: 0 3px 0 -1px #b91c1c; font-family: system-ui, sans-serif;"
+          style="background:var(--wd-red-600); box-shadow: 0 3px 0 -1px var(--wd-red-800); font-family:var(--wd-font-sans);"
         >
           Set up my plan <ArrowRight class="w-4 h-4" />
         </NuxtLink>
@@ -1575,11 +1576,11 @@ function cardSummary(f: CatalogueEntry) {
     <section v-else-if="showFirstRunHint" class="max-w-4xl mx-auto px-4">
       <div
         class="rounded-2xl px-5 py-4 flex items-center gap-3"
-        style="background:linear-gradient(135deg, #fef3c7 0%, #fee2e2 100%); border:1px solid #dc262633;"
+        style="background:linear-gradient(135deg, var(--wd-amber-100) 0%, var(--wd-red-100) 100%); border:1px solid color-mix(in srgb, var(--wd-red-600) 20%, transparent);"
       >
-        <Sparkles class="w-5 h-5 shrink-0" style="color:#dc2626;" />
-        <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
-          <span class="font-bold" style="color:#3b1f0d;">This is your home.</span>
+        <Sparkles class="w-5 h-5 shrink-0" style="color:var(--wd-red-600);" />
+        <p class="text-sm" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
+          <span class="font-bold" style="color:var(--wd-brown-900);">This is your home.</span>
           Come back weekly — your festivals, classes and socials live here.
         </p>
       </div>
@@ -1587,11 +1588,11 @@ function cardSummary(f: CatalogueEntry) {
 
     <!-- SIGNED OUT — what the dashboard holds + sign in / join -->
     <section v-if="!isSignedIn" class="max-w-3xl mx-auto px-4 py-10" data-testid="my-plan-signed-out">
-      <div class="rounded-2xl p-6 sm:p-8 bg-white border" style="border-color:#dc262655; box-shadow: 0 1px 0 #dc262622, 0 12px 28px rgba(59, 31, 18, 0.06);">
+      <div class="rounded-2xl p-6 sm:p-8 bg-white border" style="border-color:color-mix(in srgb, var(--wd-red-600) 33.3%, transparent); box-shadow: 0 1px 0 color-mix(in srgb, var(--wd-red-600) 13.3%, transparent), 0 12px 28px rgba(59, 31, 18, 0.06);">
         <div class="text-center">
-          <div class="text-[10px] uppercase tracking-[0.3em] font-bold mb-3" style="color:#dc2626;">Your dashboard</div>
-          <h2 class="text-2xl sm:text-3xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
-            Your picks, your partners, your tickets — <em class="italic" style="color:#dc2626;">one dashboard.</em>
+          <div class="text-[10px] uppercase tracking-[0.3em] font-bold mb-3" style="color:var(--wd-red-600);">Your dashboard</div>
+          <h2 class="text-2xl sm:text-3xl leading-tight" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">
+            Your picks, your partners, your tickets — <em class="italic" style="color:var(--wd-red-600);">one dashboard.</em>
           </h2>
         </div>
 
@@ -1601,25 +1602,25 @@ function cardSummary(f: CatalogueEntry) {
             v-for="p in DASHBOARD_PILLARS"
             :key="p.key"
             class="rounded-xl p-4 border"
-            style="border-color:#3b1f0d22; background:#fbf5ea;"
+            style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); background:var(--wd-cream);"
             :data-testid="`my-plan-pillar-${p.key}`"
           >
-            <component :is="p.icon" class="w-5 h-5 mb-2" style="color:#dc2626;" aria-hidden="true" />
-            <div class="font-bold" style="color:#3b1f0d;">{{ p.title }}</div>
-            <p class="mt-1 text-sm leading-snug" style="color:#5b3a1d; font-family: system-ui, sans-serif;">{{ p.body }}</p>
+            <component :is="p.icon" class="w-5 h-5 mb-2" style="color:var(--wd-red-600);" aria-hidden="true" />
+            <div class="font-bold" style="color:var(--wd-brown-900);">{{ p.title }}</div>
+            <p class="mt-1 text-sm leading-snug" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">{{ p.body }}</p>
           </li>
         </ul>
 
         <!-- The promise: one next step at a time -->
         <div
           class="mt-4 rounded-xl px-4 py-3 flex items-start gap-3"
-          style="background:linear-gradient(135deg, #fef3c7 0%, #fee2e2 100%); border:1px solid #dc262633;"
+          style="background:linear-gradient(135deg, var(--wd-amber-100) 0%, var(--wd-red-100) 100%); border:1px solid color-mix(in srgb, var(--wd-red-600) 20%, transparent);"
           data-testid="my-plan-next-step-promise"
         >
-          <Target class="w-5 h-5 mt-0.5 shrink-0" style="color:#dc2626;" aria-hidden="true" />
+          <Target class="w-5 h-5 mt-0.5 shrink-0" style="color:var(--wd-red-600);" aria-hidden="true" />
           <div>
-            <div class="font-bold" style="color:#3b1f0d;">One clear next step at a time.</div>
-            <p class="mt-0.5 text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+            <div class="font-bold" style="color:var(--wd-brown-900);">One clear next step at a time.</div>
+            <p class="mt-0.5 text-sm" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
               No juggling tabs and chats — we surface the one thing to do next, like
               <span class="italic">“Grab your pass before the early-bird ends”</span> or
               <span class="italic">“Find a partner for Saturday's workshops”</span>.
@@ -1628,11 +1629,11 @@ function cardSummary(f: CatalogueEntry) {
         </div>
 
         <!-- Sign in / join -->
-        <div class="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3" style="font-family: system-ui, sans-serif;">
+        <div class="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3" style="font-family:var(--wd-font-sans);">
           <button
             type="button"
             class="inline-flex items-center gap-2 px-6 py-3 rounded-full text-white text-sm font-bold uppercase tracking-wider"
-            style="background:linear-gradient(135deg, #dc2626, #f97316); box-shadow: 0 4px 0 -1px #b91c1c;"
+            style="background:linear-gradient(135deg, var(--wd-red-600), var(--wd-orange-500)); box-shadow: 0 4px 0 -1px var(--wd-red-800);"
             @click="openAuth('dashboard')"
           >
             Join &amp; build my dashboard <ArrowRight class="w-4 h-4" />
@@ -1640,14 +1641,14 @@ function cardSummary(f: CatalogueEntry) {
           <button
             type="button"
             class="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold uppercase tracking-wider border"
-            style="border-color:#3b1f0d33; color:#3b1f0d;"
+            style="border-color:color-mix(in srgb, var(--wd-brown-900) 20%, transparent); color:var(--wd-brown-900);"
             @click="openAuth('signin')"
           >
             Sign in
           </button>
         </div>
-        <p class="mt-4 text-center text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
-          Just looking? <NuxtLink to="/festivals" class="italic underline" style="color:#9a5614;">Browse festivals</NuxtLink>
+        <p class="mt-4 text-center text-sm" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
+          Just looking? <NuxtLink to="/festivals" class="italic underline" style="color:var(--wd-amber-600);">Browse festivals</NuxtLink>
         </p>
       </div>
       <SignUpModal v-model:open="showAuth" :action="authAction" />
@@ -1655,18 +1656,18 @@ function cardSummary(f: CatalogueEntry) {
 
     <!-- SIGNED IN, EMPTY -->
     <section v-else-if="picked.length === 0 && courses.length === 0 && socials.length === 0" class="max-w-2xl mx-auto px-4 py-10">
-      <div class="rounded-2xl p-10 text-center border-2 border-dashed" style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);">
-        <Search class="w-10 h-10 mx-auto mb-4" style="color:#9a5614;" />
-        <p class="text-lg" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+      <div class="rounded-2xl p-10 text-center border-2 border-dashed" style="border-color:color-mix(in srgb, var(--wd-brown-900) 20%, transparent); background:rgba(255,255,255,0.5);">
+        <Search class="w-10 h-10 mx-auto mb-4" style="color:var(--wd-amber-600);" />
+        <p class="text-lg" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">
           You haven't picked anything yet.
         </p>
-        <p class="mt-2 text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+        <p class="mt-2 text-sm" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
           Start by picking one festival — the rest of the year plans itself.
         </p>
         <NuxtLink
           to="/festivals"
           class="mt-6 inline-flex items-center gap-2 px-6 py-3 rounded-full text-white text-sm font-bold uppercase tracking-wider"
-          style="background:linear-gradient(135deg, #dc2626, #f97316); box-shadow: 0 4px 0 -1px #b91c1c;"
+          style="background:linear-gradient(135deg, var(--wd-red-600), var(--wd-orange-500)); box-shadow: 0 4px 0 -1px var(--wd-red-800);"
         >
           Browse festivals <ArrowRight class="w-4 h-4" />
         </NuxtLink>
@@ -1676,10 +1677,10 @@ function cardSummary(f: CatalogueEntry) {
     <!-- SIGNED IN, WITH PICKS -->
     <section v-else class="max-w-4xl mx-auto px-4 py-6 pb-16">
       <!-- HEAT STRIP · the top 3 items across every scale, sorted by urgency. -->
-      <div v-if="heatItems.length" class="rounded-2xl mb-8 p-5 sm:p-6 relative overflow-hidden" style="background:linear-gradient(135deg, #fef3c7 0%, #fee2e2 100%); border:1px solid #dc262633;">
+      <div v-if="heatItems.length" class="rounded-2xl mb-8 p-5 sm:p-6 relative overflow-hidden" style="background:linear-gradient(135deg, var(--wd-amber-100) 0%, var(--wd-red-100) 100%); border:1px solid color-mix(in srgb, var(--wd-red-600) 20%, transparent);">
         <div class="flex items-baseline justify-between mb-3">
-          <div class="text-xs uppercase tracking-[0.3em] font-bold" style="color:#dc2626;">This week · do these first</div>
-          <span class="text-xs" style="color:#9a5614; font-family:'Caveat', cursive; font-size:18px;">
+          <div class="text-xs uppercase tracking-[0.3em] font-bold" style="color:var(--wd-red-600);">This week · do these first</div>
+          <span class="text-xs" style="color:var(--wd-amber-600); font-family:var(--wd-font-display);font-style:italic; font-size:18px;">
             — 3 things across your plan
           </span>
         </div>
@@ -1694,8 +1695,8 @@ function cardSummary(f: CatalogueEntry) {
             :style="{ borderColor: item.color + '55' }"
           >
             <span class="w-2 h-2 rounded-full shrink-0 animate-pulse" :style="{ background: item.color }" />
-            <span class="font-bold text-sm" style="color:#3b1f0d; font-family:'Playfair Display', serif;">{{ item.label }}</span>
-            <span class="text-xs italic hidden sm:inline" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+            <span class="font-bold text-sm" style="color:var(--wd-brown-900); font-family:var(--wd-font-display);">{{ item.label }}</span>
+            <span class="text-xs italic hidden sm:inline" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
               — {{ item.detail }}
             </span>
             <span class="ml-auto text-xs font-bold" :style="{ color: item.color }">
@@ -1710,16 +1711,16 @@ function cardSummary(f: CatalogueEntry) {
       <div class="mb-10">
         <div class="flex items-baseline justify-between mb-4">
           <div>
-            <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">Goals · your compass</div>
-            <h2 class="mt-2 text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
-              Where you're <em class="italic" style="color:#dc2626;">headed.</em>
+            <div class="text-xs uppercase tracking-[0.3em]" style="color:var(--wd-amber-600);">Goals · your compass</div>
+            <h2 class="mt-2 text-2xl leading-tight" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">
+              Where you're <em class="italic" style="color:var(--wd-red-600);">headed.</em>
             </h2>
           </div>
           <button
             v-if="!showGoalForm"
             type="button"
             class="text-xs italic hover:underline"
-            style="color:#9a5614; font-family:'Playfair Display', serif;"
+            style="color:var(--wd-amber-600); font-family:var(--wd-font-display);"
             @click="showGoalForm = true"
           >
             + Add a goal
@@ -1727,26 +1728,26 @@ function cardSummary(f: CatalogueEntry) {
         </div>
 
         <!-- Inline add-goal form -->
-        <div v-if="showGoalForm" class="rounded-2xl bg-white p-6 border mb-4" style="border-color:#9a561455; box-shadow: 0 4px 16px rgba(59,31,18,0.06);">
-          <div class="text-sm font-bold mb-4" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+        <div v-if="showGoalForm" class="rounded-2xl bg-white p-6 border mb-4" style="border-color:color-mix(in srgb, var(--wd-amber-600) 33.3%, transparent); box-shadow: 0 4px 16px rgba(59,31,18,0.06);">
+          <div class="text-sm font-bold mb-4" style="color:var(--wd-brown-900); font-family:var(--wd-font-display);">
             What are you working toward this year?
           </div>
           <form class="space-y-4" @submit.prevent="onGoalSubmit">
             <div>
-              <label for="goal-title" class="block text-xs font-bold uppercase tracking-widest mb-1.5" style="color:#9a5614;">Your goal</label>
+              <label for="goal-title" class="block text-xs font-bold uppercase tracking-widest mb-1.5" style="color:var(--wd-amber-600);">Your goal</label>
               <input
                 id="goal-title"
                 v-model="goalFormTitle"
                 type="text"
                 placeholder="e.g. Learn Bachata Sensual"
                 class="w-full rounded-lg border px-3 py-2.5 text-sm focus:outline-none focus:ring-2"
-                style="border-color:#3b1f0d22; background:#fbf5ea; color:#3b1f0d; font-family: system-ui, sans-serif;"
+                style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); background:var(--wd-cream); color:var(--wd-brown-900); font-family:var(--wd-font-sans);"
               />
-              <p v-if="goalFormError" class="text-xs mt-1" style="color:#dc2626;">{{ goalFormError }}</p>
+              <p v-if="goalFormError" class="text-xs mt-1" style="color:var(--wd-red-600);">{{ goalFormError }}</p>
             </div>
             <div>
-              <label for="goal-why" class="block text-xs font-bold uppercase tracking-widest mb-1.5" style="color:#9a5614;">
-                Why does it matter? <span class="font-normal normal-case tracking-normal" style="color:#5b3a1d;">(optional)</span>
+              <label for="goal-why" class="block text-xs font-bold uppercase tracking-widest mb-1.5" style="color:var(--wd-amber-600);">
+                Why does it matter? <span class="font-normal normal-case tracking-normal" style="color:var(--wd-brown-700);">(optional)</span>
               </label>
               <input
                 id="goal-why"
@@ -1754,7 +1755,7 @@ function cardSummary(f: CatalogueEntry) {
                 type="text"
                 placeholder="e.g. Feel confident on the dance floor"
                 class="w-full rounded-lg border px-3 py-2.5 text-sm focus:outline-none focus:ring-2"
-                style="border-color:#3b1f0d22; background:#fbf5ea; color:#3b1f0d; font-family: system-ui, sans-serif;"
+                style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); background:var(--wd-cream); color:var(--wd-brown-900); font-family:var(--wd-font-sans);"
               />
             </div>
             <div class="flex items-center gap-3 pt-1">
@@ -1762,14 +1763,14 @@ function cardSummary(f: CatalogueEntry) {
                 type="submit"
                 :disabled="!goalFormTitle.trim() || !!goalFormError"
                 class="px-5 py-2.5 rounded-full text-white text-sm font-bold uppercase tracking-wider disabled:opacity-40"
-                style="background:#dc2626;"
+                style="background:var(--wd-red-600);"
               >
                 Add goal
               </button>
               <button
                 type="button"
                 class="px-4 py-2.5 rounded-full text-sm font-bold uppercase tracking-wider"
-                style="color:#5b3a1d; background:#3b1f0d11;"
+                style="color:var(--wd-brown-700); background:color-mix(in srgb, var(--wd-brown-900) 6.7%, transparent);"
                 @click="onGoalCancel"
               >
                 Cancel
@@ -1778,9 +1779,9 @@ function cardSummary(f: CatalogueEntry) {
           </form>
         </div>
 
-        <div v-if="!goalsList.length && !showGoalForm" class="rounded-2xl p-6 text-center border-2 border-dashed" style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);">
-          <Target class="w-8 h-8 mx-auto mb-3" style="color:#9a5614;" />
-          <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+        <div v-if="!goalsList.length && !showGoalForm" class="rounded-2xl p-6 text-center border-2 border-dashed" style="border-color:color-mix(in srgb, var(--wd-brown-900) 20%, transparent); background:rgba(255,255,255,0.5);">
+          <Target class="w-8 h-8 mx-auto mb-3" style="color:var(--wd-amber-600);" />
+          <p class="text-sm" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
             No goals yet. One year, one arc, one reason to keep showing up.
           </p>
         </div>
@@ -1794,10 +1795,10 @@ function cardSummary(f: CatalogueEntry) {
             <div class="flex items-start gap-3 mb-3">
               <component :is="g.icon" class="w-5 h-5 shrink-0" :style="{ color: g.color, 'stroke-width': 1.5 }" />
               <div class="flex-1 min-w-0">
-                <div class="text-base font-bold leading-tight" style="color:#3b1f0d;">
+                <div class="text-base font-bold leading-tight" style="color:var(--wd-brown-900);">
                   {{ g.title }}
                 </div>
-                <div class="mt-1 text-xs italic" style="color:#5b3a1d; font-family:'Playfair Display', serif;">
+                <div class="mt-1 text-xs italic" style="color:var(--wd-brown-700); font-family:var(--wd-font-display);">
                   {{ g.why }}
                 </div>
               </div>
@@ -1808,20 +1809,20 @@ function cardSummary(f: CatalogueEntry) {
                 title="Remove goal"
                 @click="removeGoal(g.id)"
               >
-                <X class="w-3.5 h-3.5" style="color:#dc2626;" />
+                <X class="w-3.5 h-3.5" style="color:var(--wd-red-600);" />
               </button>
             </div>
             <!-- Progress bar -->
             <div class="mt-4">
               <div class="flex items-baseline justify-between mb-1">
-                <span class="text-[10px] uppercase tracking-widest font-bold" style="color:#9a5614;">Progress</span>
-                <span class="text-xs font-black" :style="{ color: goalProgressColor(g.progress), fontFamily: 'Playfair Display, serif' }">{{ g.progress }}%</span>
+                <span class="text-[10px] uppercase tracking-widest font-bold" style="color:var(--wd-amber-600);">Progress</span>
+                <span class="text-xs font-black" :style="{ color: goalProgressColor(g.progress), fontFamily: 'var(--wd-font-display)' }">{{ g.progress }}%</span>
               </div>
-              <div class="w-full h-2 rounded-full overflow-hidden" style="background:#3b1f0d10;">
+              <div class="w-full h-2 rounded-full overflow-hidden" style="background:color-mix(in srgb, var(--wd-brown-900) 6.3%, transparent);">
                 <div class="h-full transition-all" :style="{ width: g.progress + '%', background: goalProgressColor(g.progress) }" />
               </div>
             </div>
-            <div v-if="g.nudge" class="mt-3 text-sm" style="font-family:'Caveat', cursive; color:#9a5614; font-size:17px;">
+            <div v-if="g.nudge" class="mt-3 text-sm" style="font-family:var(--wd-font-display);font-style:italic; color:var(--wd-amber-600); font-size:17px;">
               — {{ g.nudge }}
             </div>
           </div>
@@ -1830,48 +1831,48 @@ function cardSummary(f: CatalogueEntry) {
 
       <!-- YEAR · festivals section header -->
       <div class="mb-4">
-        <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">This year · festivals</div>
-        <h2 class="mt-2 text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
-          Where you're <em class="italic" style="color:#dc2626;">going.</em>
+        <div class="text-xs uppercase tracking-[0.3em]" style="color:var(--wd-amber-600);">This year · festivals</div>
+        <h2 class="mt-2 text-2xl leading-tight" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">
+          Where you're <em class="italic" style="color:var(--wd-red-600);">going.</em>
         </h2>
       </div>
 
       <!-- Cross-festival summary — the money + urgency crosscut. -->
       <div
         class="rounded-2xl bg-white border p-5 sm:p-6 mb-8"
-        style="border-color:#3b1f0d22; box-shadow: 0 1px 0 #3b1f0d0a, 0 6px 18px rgba(59,31,18,0.04);"
+        style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); box-shadow: 0 1px 0 color-mix(in srgb, var(--wd-brown-900) 3.9%, transparent), 0 6px 18px rgba(59,31,18,0.04);"
       >
         <div class="flex flex-wrap items-baseline gap-x-8 gap-y-3">
           <div>
-            <div class="text-4xl font-black leading-none" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+            <div class="text-4xl font-black leading-none" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">
               {{ summary.count }}
             </div>
-            <div class="text-[10px] uppercase tracking-[0.3em] font-bold mt-1" style="color:#9a5614;">
+            <div class="text-[10px] uppercase tracking-[0.3em] font-bold mt-1" style="color:var(--wd-amber-600);">
               Festivals this year
             </div>
           </div>
           <div v-if="summary.committed > 0">
-            <div class="text-4xl font-black leading-none" style="font-family:'Playfair Display', serif; color:#16a34a;">
+            <div class="text-4xl font-black leading-none" style="font-family:var(--wd-font-display); color:var(--wd-green-600);">
               €{{ summary.committed }}
             </div>
-            <div class="text-[10px] uppercase tracking-[0.3em] font-bold mt-1" style="color:#16a34a;">
+            <div class="text-[10px] uppercase tracking-[0.3em] font-bold mt-1" style="color:var(--wd-green-600);">
               Committed
             </div>
           </div>
           <div v-if="summary.pending > 0">
-            <div class="text-4xl font-black leading-none" style="font-family:'Playfair Display', serif; color:#5b3a1d;">
+            <div class="text-4xl font-black leading-none" style="font-family:var(--wd-font-display); color:var(--wd-brown-700);">
               €{{ summary.pending }}
             </div>
-            <div class="text-[10px] uppercase tracking-[0.3em] font-bold mt-1" style="color:#5b3a1d;">
+            <div class="text-[10px] uppercase tracking-[0.3em] font-bold mt-1" style="color:var(--wd-brown-700);">
               Still owed
             </div>
           </div>
           <div
             v-if="summary.urgentDeadlines > 0"
             class="ml-auto inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-bold"
-            style="background:#dc262618; color:#dc2626; font-family: system-ui, sans-serif;"
+            style="background:color-mix(in srgb, var(--wd-red-600) 9.4%, transparent); color:var(--wd-red-600); font-family:var(--wd-font-sans);"
           >
-            <span class="w-2 h-2 rounded-full animate-pulse" style="background:#dc2626;" />
+            <span class="w-2 h-2 rounded-full animate-pulse" style="background:var(--wd-red-600);" />
             {{ summary.urgentDeadlines }} early-bird deadline{{ summary.urgentDeadlines === 1 ? '' : 's' }} this week
           </div>
         </div>
@@ -1882,12 +1883,12 @@ function cardSummary(f: CatalogueEntry) {
            side rail, no drawer, just one horizontal scan of the year. -->
       <div class="mb-10">
         <div class="flex items-baseline justify-between mb-3">
-          <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">Your year at a glance</div>
-          <span class="text-xs" style="color:#9a5614; font-family:'Caveat', cursive; font-size:18px;">
+          <div class="text-xs uppercase tracking-[0.3em]" style="color:var(--wd-amber-600);">Your year at a glance</div>
+          <span class="text-xs" style="color:var(--wd-amber-600); font-family:var(--wd-font-display);font-style:italic; font-size:18px;">
             — click a chip to jump
           </span>
         </div>
-        <div class="rounded-2xl bg-white p-4 sm:p-5 border overflow-x-auto" style="border-color:#3b1f0d22; box-shadow: 0 1px 0 #3b1f0d0a, 0 6px 18px rgba(59,31,18,0.04);">
+        <div class="rounded-2xl bg-white p-4 sm:p-5 border overflow-x-auto" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); box-shadow: 0 1px 0 color-mix(in srgb, var(--wd-brown-900) 3.9%, transparent), 0 6px 18px rgba(59,31,18,0.04);">
           <div class="grid grid-cols-12 gap-1 sm:gap-2 min-w-[560px]">
             <div
               v-for="(m, i) in monthsGrid"
@@ -1896,10 +1897,10 @@ function cardSummary(f: CatalogueEntry) {
             >
               <div
                 class="text-[10px] uppercase tracking-widest font-bold mb-2"
-                :style="{ color: m.entries.length ? '#3b1f0d' : '#9a5614', opacity: m.entries.length ? 1 : 0.5 }"
+                :style="{ color: m.entries.length ? WD.brown900 : WD.amber600, opacity: m.entries.length ? 1 : 0.5 }"
               >{{ m.label }}</div>
               <!-- Vertical rule for the month -->
-              <div class="w-px h-8 sm:h-10" :style="{ background: m.entries.length ? '#3b1f0d33' : '#3b1f0d18' }" />
+              <div class="w-px h-8 sm:h-10" :style="{ background: m.entries.length ? (WD.brown900 + '33') : (WD.brown900 + '18') }" />
               <div class="mt-2 flex flex-col gap-1 items-center w-full">
                 <a
                   v-for="e in m.entries"
@@ -1912,12 +1913,12 @@ function cardSummary(f: CatalogueEntry) {
                 <div
                   v-if="!m.entries.length && i !== todayMonth"
                   class="w-1.5 h-1.5 rounded-full opacity-25"
-                  style="background:#3b1f0d;"
+                  style="background:var(--wd-brown-900);"
                 />
                 <div
                   v-if="i === todayMonth && !m.entries.length"
                   class="text-[8px] font-bold uppercase tracking-widest mt-1"
-                  style="color:#dc2626; font-family:'Caveat', cursive; font-size:13px; text-transform:none; letter-spacing:normal;"
+                  style="color:var(--wd-red-600); font-family:var(--wd-font-display);font-style:italic; font-size:13px; text-transform:none; letter-spacing:normal;"
                 >you're here</div>
               </div>
             </div>
@@ -1940,11 +1941,11 @@ function cardSummary(f: CatalogueEntry) {
             <UsersIcon class="w-3 h-3" style="stroke-width:2;" /> {{ n.dancerNames.length }} match{{ n.dancerNames.length === 1 ? '' : 'es' }}
           </span>
           <div class="min-w-0 flex-1">
-            <div class="text-sm font-bold" style="color:#3b1f0d;">
+            <div class="text-sm font-bold" style="color:var(--wd-brown-900);">
               {{ n.dancerNames.slice(0, 3).join(', ') }}<span v-if="n.dancerNames.length > 3"> and {{ n.dancerNames.length - 3 }} more</span> heading to
               <span :style="{ color: n.festivalColor }">{{ n.festivalName }}</span>.
             </div>
-            <div class="text-xs italic" style="color:#5b3a1d; font-family:'Playfair Display', serif;">
+            <div class="text-xs italic" style="color:var(--wd-brown-700); font-family:var(--wd-font-display);">
               Not in your year yet — add it and you'll meet them there.
             </div>
           </div>
@@ -1959,7 +1960,7 @@ function cardSummary(f: CatalogueEntry) {
           <button
             type="button"
             class="text-xs italic hover:underline shrink-0"
-            style="color:#9a5614;"
+            style="color:var(--wd-amber-600);"
             @click="dismissFestivalNudge(n)"
           >
             Not this year
@@ -1968,8 +1969,8 @@ function cardSummary(f: CatalogueEntry) {
       </div>
 
       <div class="flex items-baseline justify-between mb-4">
-        <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">Going</div>
-        <span class="text-xs" style="color:#9a5614; font-family:'Caveat', cursive; font-size:18px;">
+        <div class="text-xs uppercase tracking-[0.3em]" style="color:var(--wd-amber-600);">Going</div>
+        <span class="text-xs" style="color:var(--wd-amber-600); font-family:var(--wd-font-display);font-style:italic; font-size:18px;">
           — {{ picked.length }} in your year
         </span>
       </div>
@@ -2010,14 +2011,14 @@ function cardSummary(f: CatalogueEntry) {
 
             <div class="flex-1 min-w-0">
               <div class="flex items-start justify-between gap-3">
-                <h3 class="font-bold text-lg leading-tight truncate" style="color:#3b1f0d;">
+                <h3 class="font-bold text-lg leading-tight truncate" style="color:var(--wd-brown-900);">
                   {{ f.name }}
                 </h3>
                 <span
                   class="text-xs shrink-0 mt-1 whitespace-nowrap"
                   :style="{
-                    color: daysUntilLabel(f.startDate).urgent ? '#dc2626' : f.accentColor,
-                    fontFamily: 'Caveat, cursive',
+                    color: daysUntilLabel(f.startDate).urgent ? WD.red600 : f.accentColor,
+                    fontFamily: 'var(--wd-font-display)', fontStyle: 'italic',
                     fontSize: '16px',
                   }"
                 >
@@ -2025,13 +2026,13 @@ function cardSummary(f: CatalogueEntry) {
                 </span>
               </div>
 
-              <div class="flex items-center flex-wrap gap-x-4 gap-y-1 mt-1 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+              <div class="flex items-center flex-wrap gap-x-4 gap-y-1 mt-1 text-xs" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
                 <span class="inline-flex items-center gap-1">
-                  <Calendar class="w-3 h-3" style="color:#9a5614;" />
+                  <Calendar class="w-3 h-3" style="color:var(--wd-amber-600);" />
                   {{ formatDateRange(f.startDate, f.endDate) }}
                 </span>
                 <span class="inline-flex items-center gap-1">
-                  <MapPin class="w-3 h-3" style="color:#9a5614;" />
+                  <MapPin class="w-3 h-3" style="color:var(--wd-amber-600);" />
                   {{ f.venue }}, {{ f.location }}
                 </span>
               </div>
@@ -2048,9 +2049,9 @@ function cardSummary(f: CatalogueEntry) {
                     v-for="i in cardSummary(f).totalCount"
                     :key="i"
                     class="w-2 h-2 rounded-full"
-                    :style="{ background: i <= cardSummary(f).doneCount ? '#16a34a' : '#3b1f0d22' }"
+                    :style="{ background: i <= cardSummary(f).doneCount ? WD.green600 : (WD.brown900 + '22') }"
                   />
-                  <span class="ml-1 text-[11px] font-bold" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+                  <span class="ml-1 text-[11px] font-bold" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
                     {{ cardSummary(f).doneCount }} of {{ cardSummary(f).totalCount }} ready
                   </span>
                 </div>
@@ -2062,7 +2063,7 @@ function cardSummary(f: CatalogueEntry) {
                   :style="toneStyle('done')"
                 >
                   <Check class="w-3 h-3" style="stroke-width:2.5;" />
-                  <span style="font-family: system-ui, sans-serif;">All planned</span>
+                  <span style="font-family:var(--wd-font-sans);">All planned</span>
                 </span>
                 <span
                   v-else-if="cardSummary(f).headline"
@@ -2070,10 +2071,10 @@ function cardSummary(f: CatalogueEntry) {
                   :style="toneStyle(cardSummary(f).headline!.state.tone)"
                 >
                   <component :is="cardSummary(f).headline!.icon" class="w-3 h-3" style="stroke-width:1.5;" />
-                  <span class="font-bold" style="font-family: system-ui, sans-serif;">
+                  <span class="font-bold" style="font-family:var(--wd-font-sans);">
                     {{ cardSummary(f).headline!.label }}:
                   </span>
-                  <span style="font-family: system-ui, sans-serif;">
+                  <span style="font-family:var(--wd-font-sans);">
                     {{ cardSummary(f).headline!.state.text }}
                   </span>
                 </span>
@@ -2084,7 +2085,7 @@ function cardSummary(f: CatalogueEntry) {
             <ChevronDown
               class="w-5 h-5 shrink-0 mt-1 transition-transform"
               :style="{
-                color: '#9a5614',
+                color: 'var(--wd-amber-600)',
                 'stroke-width': 1.75,
                 transform: expandedSlugs.has(f.slug) ? 'rotate(180deg)' : 'none',
               }"
@@ -2093,16 +2094,16 @@ function cardSummary(f: CatalogueEntry) {
 
           <!-- EXPANDED PANEL — multi-track detail + footer -->
           <div v-if="expandedSlugs.has(f.slug)" class="px-4 sm:px-5 pb-5">
-            <div class="rounded-xl overflow-hidden border" style="border-color:#3b1f0d15;">
+            <div class="rounded-xl overflow-hidden border" style="border-color:color-mix(in srgb, var(--wd-brown-900) 8.2%, transparent);">
               <div
                 v-for="(t, i) in tracks(f)"
                 :key="t.key"
                 class="flex flex-wrap items-center gap-3 px-3 sm:px-4 py-3"
                 :class="i > 0 ? 'border-t' : ''"
-                :style="{ borderColor: '#3b1f0d0d', background: t.done ? '#16a34a08' : 'white' }"
+                :style="{ borderColor: 'color-mix(in srgb, var(--wd-brown-900) 5.1%, transparent)', background: t.done ? (WD.green600 + '08') : 'white' }"
               >
-                <component :is="t.icon" class="w-4 h-4 shrink-0" :style="{ color: t.done ? '#16a34a' : '#9a5614', 'stroke-width': 1.5 }" />
-                <div class="w-24 shrink-0 text-sm font-bold" style="color:#3b1f0d;">
+                <component :is="t.icon" class="w-4 h-4 shrink-0" :style="{ color: t.done ? WD.green600 : WD.amber600, 'stroke-width': 1.5 }" />
+                <div class="w-24 shrink-0 text-sm font-bold" style="color:var(--wd-brown-900);">
                   {{ t.label }}
                 </div>
                 <span
@@ -2110,7 +2111,7 @@ function cardSummary(f: CatalogueEntry) {
                   :style="toneStyle(t.state.tone)"
                 >
                   <Check v-if="t.done" class="w-3 h-3" style="stroke-width:2.5;" />
-                  <span style="font-family: system-ui, sans-serif;">{{ t.state.text }}</span>
+                  <span style="font-family:var(--wd-font-sans);">{{ t.state.text }}</span>
                 </span>
 
                 <NuxtLink
@@ -2139,7 +2140,7 @@ function cardSummary(f: CatalogueEntry) {
                   target="_blank"
                   rel="noopener noreferrer"
                   class="text-[10px] italic hover:underline inline-flex items-center gap-0.5 whitespace-nowrap"
-                  style="color:#9a5614; font-family:'Playfair Display', serif;"
+                  style="color:var(--wd-amber-600); font-family:var(--wd-font-display);"
                 >
                   {{ t.altAction.label }} <ExternalLink class="w-2.5 h-2.5" />
                 </a>
@@ -2147,7 +2148,7 @@ function cardSummary(f: CatalogueEntry) {
                   v-else-if="t.altAction"
                   :to="t.altAction.href"
                   class="text-[10px] italic hover:underline whitespace-nowrap"
-                  style="color:#9a5614; font-family:'Playfair Display', serif;"
+                  style="color:var(--wd-amber-600); font-family:var(--wd-font-display);"
                 >
                   {{ t.altAction.label }} →
                 </NuxtLink>
@@ -2156,7 +2157,7 @@ function cardSummary(f: CatalogueEntry) {
                   v-if="t.toggleKey"
                   type="button"
                   class="text-[10px] font-bold italic hover:underline shrink-0 whitespace-nowrap"
-                  style="color:#9a5614;"
+                  style="color:var(--wd-amber-600);"
                   :aria-pressed="t.done"
                   @click.stop="toggleTrack(f.slug, t.toggleKey)"
                 >
@@ -2166,9 +2167,9 @@ function cardSummary(f: CatalogueEntry) {
             </div>
 
             <!-- WORKSHOP PICKER -->
-            <div v-if="getWorkshopsForFestival(f.slug).length > 0" class="mt-6 pt-6 border-t" style="border-color:#3b1f0d0d;">
+            <div v-if="getWorkshopsForFestival(f.slug).length > 0" class="mt-6 pt-6 border-t" style="border-color:color-mix(in srgb, var(--wd-brown-900) 5.1%, transparent);">
               <div class="mb-4">
-                <h4 class="text-sm font-bold mb-3" style="color:#3b1f0d;">
+                <h4 class="text-sm font-bold mb-3" style="color:var(--wd-brown-900);">
                   Pick workshops ({{ getSelectedWorkshops(f.slug).size }} selected)
                 </h4>
 
@@ -2181,7 +2182,7 @@ function cardSummary(f: CatalogueEntry) {
                   <div
                     v-if="getWorkshopsForFestival(f.slug).filter(w => w.day === day).length > 0"
                   >
-                    <div class="text-xs font-bold uppercase tracking-widest mb-2" style="color:#9a5614;">
+                    <div class="text-xs font-bold uppercase tracking-widest mb-2" style="color:var(--wd-amber-600);">
                       {{ day }}
                     </div>
                     <div class="space-y-2">
@@ -2199,10 +2200,10 @@ function cardSummary(f: CatalogueEntry) {
                           @click.stop="toggleWorkshop(f.slug, w.id)"
                         >
                         <div class="flex-1 min-w-0">
-                          <div class="text-sm font-bold leading-tight" style="color:#3b1f0d;">
+                          <div class="text-sm font-bold leading-tight" style="color:var(--wd-brown-900);">
                             {{ w.time }} · {{ w.title }}
                           </div>
-                          <div class="text-xs mt-0.5" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+                          <div class="text-xs mt-0.5" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
                             <template v-if="w.teacherId">
                               {{ getTeacherName(f.slug, w.teacherId) }}
                             </template>
@@ -2219,8 +2220,8 @@ function cardSummary(f: CatalogueEntry) {
               </div>
 
               <!-- Selected workshops summary -->
-              <div v-if="getSelectedWorkshops(f.slug).size > 0" class="mt-4 pt-4 border-t" style="border-color:#3b1f0d0d;">
-                <div class="text-xs font-bold uppercase tracking-widest mb-3" style="color:#9a5614;">
+              <div v-if="getSelectedWorkshops(f.slug).size > 0" class="mt-4 pt-4 border-t" style="border-color:color-mix(in srgb, var(--wd-brown-900) 5.1%, transparent);">
+                <div class="text-xs font-bold uppercase tracking-widest mb-3" style="color:var(--wd-amber-600);">
                   Your picks
                 </div>
                 <div class="space-y-2">
@@ -2229,19 +2230,19 @@ function cardSummary(f: CatalogueEntry) {
                     :key="w.id"
                     class="flex items-start gap-2 p-2.5 rounded-lg bg-green-50"
                   >
-                    <Check class="w-4 h-4 mt-0.5 shrink-0" style="color:#16a34a;" />
+                    <Check class="w-4 h-4 mt-0.5 shrink-0" style="color:var(--wd-green-600);" />
                     <div class="flex-1 min-w-0">
-                      <div class="text-sm font-bold leading-tight" style="color:#3b1f0d;">
+                      <div class="text-sm font-bold leading-tight" style="color:var(--wd-brown-900);">
                         {{ w.time }} · {{ w.title }}
                       </div>
-                      <div class="text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+                      <div class="text-xs" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
                         {{ w.day }} · {{ w.level }}
                       </div>
                     </div>
                     <button
                       type="button"
                       class="text-xs font-bold italic hover:underline shrink-0"
-                      style="color:#dc2626;"
+                      style="color:var(--wd-red-600);"
                       @click.stop="removeSelectedWorkshop(f.slug, w.id)"
                     >
                       Remove
@@ -2255,14 +2256,14 @@ function cardSummary(f: CatalogueEntry) {
               <NuxtLink
                 :to="`/festivals/${f.slug}`"
                 class="italic hover:underline"
-                style="color:#5b3a1d; font-family: system-ui, sans-serif;"
+                style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);"
               >
                 Open festival page →
               </NuxtLink>
               <button
                 type="button"
                 class="ml-auto italic hover:underline"
-                style="color:#9a5614; font-family: system-ui, sans-serif;"
+                style="color:var(--wd-amber-600); font-family:var(--wd-font-sans);"
                 @click.stop="onRemove(f.slug)"
               >
                 Remove
@@ -2276,16 +2277,16 @@ function cardSummary(f: CatalogueEntry) {
       <div id="courses" class="mt-14">
         <div class="flex items-baseline justify-between mb-4">
           <div>
-            <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">This month · courses</div>
-            <h2 class="mt-2 text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
-              Where you <em class="italic" style="color:#dc2626;">show up.</em>
+            <div class="text-xs uppercase tracking-[0.3em]" style="color:var(--wd-amber-600);">This month · courses</div>
+            <h2 class="mt-2 text-2xl leading-tight" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">
+              Where you <em class="italic" style="color:var(--wd-red-600);">show up.</em>
             </h2>
           </div>
           <button
             v-if="!showEnrollPicker && availableClasses.length > 0"
             type="button"
             class="text-xs italic hover:underline"
-            style="color:#9a5614; font-family:'Playfair Display', serif;"
+            style="color:var(--wd-amber-600); font-family:var(--wd-font-display);"
             @click="showEnrollPicker = true"
           >
             + Enroll
@@ -2294,7 +2295,7 @@ function cardSummary(f: CatalogueEntry) {
             v-else-if="showEnrollPicker"
             type="button"
             class="text-xs italic hover:underline"
-            style="color:#5b3a1d; font-family:'Playfair Display', serif;"
+            style="color:var(--wd-brown-700); font-family:var(--wd-font-display);"
             @click="showEnrollPicker = false"
           >
             Done
@@ -2302,11 +2303,11 @@ function cardSummary(f: CatalogueEntry) {
         </div>
 
         <!-- Enroll picker — available classes from the city -->
-        <div v-if="showEnrollPicker" class="rounded-2xl bg-white p-5 border mb-4" style="border-color:#9a561455; box-shadow: 0 4px 16px rgba(59,31,18,0.06);">
-          <div class="text-sm font-bold mb-3" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+        <div v-if="showEnrollPicker" class="rounded-2xl bg-white p-5 border mb-4" style="border-color:color-mix(in srgb, var(--wd-amber-600) 33.3%, transparent); box-shadow: 0 4px 16px rgba(59,31,18,0.06);">
+          <div class="text-sm font-bold mb-3" style="color:var(--wd-brown-900); font-family:var(--wd-font-display);">
             Weekly classes in {{ dancerCity || 'your city' }}
           </div>
-          <div v-if="!availableClasses.length" class="text-xs py-2" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+          <div v-if="!availableClasses.length" class="text-xs py-2" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
             All available classes enrolled. Check your city page for more.
           </div>
           <div v-else class="space-y-2">
@@ -2314,31 +2315,31 @@ function cardSummary(f: CatalogueEntry) {
               v-for="cls in availableClasses"
               :key="cls.id"
               class="flex items-center gap-3 px-3 py-2.5 rounded-xl border hover:bg-amber-50/50 cursor-pointer transition-colors"
-              style="border-color:#3b1f0d11;"
+              style="border-color:color-mix(in srgb, var(--wd-brown-900) 6.7%, transparent);"
               @click="enrollClass(cls)"
             >
-              <div class="w-2 h-2 rounded-full shrink-0" :style="{ background: STYLE_COLORS_ENROLL[cls.style] || '#6b7280' }" />
+              <div class="w-2 h-2 rounded-full shrink-0" :style="{ background: STYLE_COLORS_ENROLL[cls.style] || WD.gray500 }" />
               <div class="flex-1 min-w-0">
-                <div class="text-sm font-bold" style="color:#3b1f0d;">{{ cls.name }}</div>
-                <div class="text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+                <div class="text-sm font-bold" style="color:var(--wd-brown-900);">{{ cls.name }}</div>
+                <div class="text-xs" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
                   {{ cls.day }} {{ cls.time }} · {{ cls.venue }} · {{ cls.level || 'All levels' }}
                 </div>
               </div>
-              <span class="text-xs font-bold italic shrink-0" style="color:#dc2626;">+ Add</span>
+              <span class="text-xs font-bold italic shrink-0" style="color:var(--wd-red-600);">+ Add</span>
             </div>
           </div>
         </div>
 
-        <div v-if="!courses.length && !showEnrollPicker" class="rounded-2xl p-6 text-center border-2 border-dashed" style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);">
-          <GraduationCap class="w-8 h-8 mx-auto mb-3" style="color:#9a5614;" />
-          <p class="text-sm mb-3" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+        <div v-if="!courses.length && !showEnrollPicker" class="rounded-2xl p-6 text-center border-2 border-dashed" style="border-color:color-mix(in srgb, var(--wd-brown-900) 20%, transparent); background:rgba(255,255,255,0.5);">
+          <GraduationCap class="w-8 h-8 mx-auto mb-3" style="color:var(--wd-amber-600);" />
+          <p class="text-sm mb-3" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
             No monthly cadence yet. A weekly class is the quickest way to keep momentum.
           </p>
           <button
             v-if="availableClasses.length > 0"
             type="button"
             class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-white text-sm font-bold uppercase tracking-wider"
-            style="background:#dc2626;"
+            style="background:var(--wd-red-600);"
             @click="showEnrollPicker = true"
           >
             Browse classes <ArrowRight class="w-4 h-4" />
@@ -2347,7 +2348,7 @@ function cardSummary(f: CatalogueEntry) {
             v-else
             :to="citySocialsLink"
             class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-white text-sm font-bold uppercase tracking-wider"
-            style="background:#dc2626;"
+            style="background:var(--wd-red-600);"
           >
             Browse city page <ArrowRight class="w-4 h-4" />
           </NuxtLink>
@@ -2361,19 +2362,19 @@ function cardSummary(f: CatalogueEntry) {
           >
             <div class="flex items-start justify-between gap-3 mb-2">
               <div class="min-w-0">
-                <div class="text-base font-bold leading-tight" style="color:#3b1f0d;">
+                <div class="text-base font-bold leading-tight" style="color:var(--wd-brown-900);">
                   {{ c.school }}
                 </div>
-                <div class="text-xs mt-0.5" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
-                  {{ c.teacher }} · <span style="color:#9a5614;">{{ c.style }} · {{ c.level }}</span>
+                <div class="text-xs mt-0.5" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
+                  {{ c.teacher }} · <span style="color:var(--wd-amber-600);">{{ c.style }} · {{ c.level }}</span>
                 </div>
               </div>
               <div class="flex items-center gap-2 shrink-0">
                 <span
                   class="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full whitespace-nowrap"
                   :style="c.paidThroughMonth
-                    ? { color: '#16a34a', background: '#16a34a18' }
-                    : { color: '#dc2626', background: '#dc262618' }"
+                    ? { color: 'var(--wd-green-600)', background: 'color-mix(in srgb, var(--wd-green-600) 9.4%, transparent)' }
+                    : { color: 'var(--wd-red-600)', background: 'color-mix(in srgb, var(--wd-red-600) 9.4%, transparent)' }"
                 >
                   {{ c.paidThroughMonth ? 'Paid' : 'Pay due' }}
                 </span>
@@ -2383,28 +2384,28 @@ function cardSummary(f: CatalogueEntry) {
                   title="Remove course"
                   @click="unenrollCourse(c.id)"
                 >
-                  <X class="w-3.5 h-3.5" style="color:#dc2626;" />
+                  <X class="w-3.5 h-3.5" style="color:var(--wd-red-600);" />
                 </button>
               </div>
             </div>
 
-            <div class="mt-3 space-y-1.5 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+            <div class="mt-3 space-y-1.5 text-xs" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
               <div class="flex items-center gap-2">
-                <Calendar class="w-3 h-3" style="color:#9a5614;" />
+                <Calendar class="w-3 h-3" style="color:var(--wd-amber-600);" />
                 Next class <strong>{{ c.weekday }} {{ c.time }}</strong>
               </div>
               <div class="flex items-center gap-2">
-                <MapPin class="w-3 h-3" style="color:#9a5614;" />
+                <MapPin class="w-3 h-3" style="color:var(--wd-amber-600);" />
                 {{ c.venue }}
               </div>
             </div>
 
             <div class="mt-4">
               <div class="flex items-baseline justify-between mb-1">
-                <span class="text-[10px] uppercase tracking-widest font-bold" style="color:#9a5614;">Attendance this cycle</span>
-                <span class="text-xs font-black" style="color:#3b1f0d; font-family:'Playfair Display', serif;">{{ c.attended }} / {{ c.total }}</span>
+                <span class="text-[10px] uppercase tracking-widest font-bold" style="color:var(--wd-amber-600);">Attendance this cycle</span>
+                <span class="text-xs font-black" style="color:var(--wd-brown-900); font-family:var(--wd-font-display);">{{ c.attended }} / {{ c.total }}</span>
               </div>
-              <div class="w-full h-1.5 rounded-full overflow-hidden" style="background:#3b1f0d10;">
+              <div class="w-full h-1.5 rounded-full overflow-hidden" style="background:color-mix(in srgb, var(--wd-brown-900) 6.3%, transparent);">
                 <div class="h-full transition-all" :style="{ width: Math.round((c.attended / c.total) * 100) + '%', background: c.color }" />
               </div>
             </div>
@@ -2416,25 +2417,25 @@ function cardSummary(f: CatalogueEntry) {
       <div id="socials" class="mt-14">
         <div class="flex items-baseline justify-between mb-4">
           <div>
-            <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">
+            <div class="text-xs uppercase tracking-[0.3em]" style="color:var(--wd-amber-600);">
               This week · socials<template v-if="dancerCity"> · {{ dancerCity }}</template>
             </div>
-            <h2 class="mt-2 text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
-              Where you're <em class="italic" style="color:#dc2626;">dancing.</em>
+            <h2 class="mt-2 text-2xl leading-tight" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">
+              Where you're <em class="italic" style="color:var(--wd-red-600);">dancing.</em>
             </h2>
           </div>
           <NuxtLink
             :to="citySocialsLink"
             class="text-xs italic hover:underline"
-            style="color:#9a5614; font-family:'Playfair Display', serif;"
+            style="color:var(--wd-amber-600); font-family:var(--wd-font-display);"
           >
             Full week →
           </NuxtLink>
         </div>
 
-        <div v-if="!socials.length" class="rounded-2xl p-6 text-center border-2 border-dashed" style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);">
-          <Sparkles class="w-8 h-8 mx-auto mb-3" style="color:#9a5614;" />
-          <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+        <div v-if="!socials.length" class="rounded-2xl p-6 text-center border-2 border-dashed" style="border-color:color-mix(in srgb, var(--wd-brown-900) 20%, transparent); background:rgba(255,255,255,0.5);">
+          <Sparkles class="w-8 h-8 mx-auto mb-3" style="color:var(--wd-amber-600);" />
+          <p class="text-sm" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
             <template v-if="dancerCity">
               We're still gathering this week's socials in {{ dancerCity }}<template v-if="stylesLabel"> for {{ stylesLabel }}</template>. Check back soon.
             </template>
@@ -2443,24 +2444,24 @@ function cardSummary(f: CatalogueEntry) {
             </template>
           </p>
         </div>
-        <div v-else class="rounded-2xl bg-white border overflow-hidden" style="border-color:#3b1f0d22;">
+        <div v-else class="rounded-2xl bg-white border overflow-hidden" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);">
           <div
             v-for="(s, i) in socials"
             :key="s.id"
             class="flex flex-wrap items-center gap-3 px-4 py-3"
             :class="i > 0 ? 'border-t' : ''"
-            :style="{ borderColor: '#3b1f0d0d', background: s.rsvpd ? '#16a34a08' : 'white' }"
+            :style="{ borderColor: 'color-mix(in srgb, var(--wd-brown-900) 5.1%, transparent)', background: s.rsvpd ? (WD.green600 + '08') : 'white' }"
           >
             <span
               class="w-10 text-center text-[10px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded"
               :style="{ background: s.color + '18', color: s.color }"
             >{{ s.dayLabel }}</span>
-            <span class="text-sm font-bold" style="color:#3b1f0d; font-family: system-ui, sans-serif;">
+            <span class="text-sm font-bold" style="color:var(--wd-brown-900); font-family:var(--wd-font-sans);">
               {{ s.time }}
             </span>
             <div class="min-w-0 flex-1">
-              <div class="text-sm font-bold truncate" style="color:#3b1f0d;">{{ s.name }}</div>
-              <div class="text-xs truncate" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+              <div class="text-sm font-bold truncate" style="color:var(--wd-brown-900);">{{ s.name }}</div>
+              <div class="text-xs truncate" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
                 {{ s.venue }} · <span :style="{ color: s.color }">{{ s.style }}</span> · {{ s.friendsGoing }} friends going
               </div>
             </div>
@@ -2468,7 +2469,7 @@ function cardSummary(f: CatalogueEntry) {
               type="button"
               class="text-xs font-bold px-3 py-1.5 rounded-full whitespace-nowrap"
               :style="s.rsvpd
-                ? { background: '#16a34a', color: 'white' }
+                ? { background: 'var(--wd-green-600)', color: 'white' }
                 : { background: 'white', color: s.color, border: '1.5px solid ' + s.color + '55' }"
               @click="toggleSocialRsvp(s.id)"
             >
@@ -2482,9 +2483,9 @@ function cardSummary(f: CatalogueEntry) {
       <div id="tonight" class="mt-14">
         <div class="flex items-baseline justify-between mb-4">
           <div>
-            <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">Tonight · hangouts</div>
-            <h2 class="mt-2 text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
-              Who's <em class="italic" style="color:#dc2626;">out.</em>
+            <div class="text-xs uppercase tracking-[0.3em]" style="color:var(--wd-amber-600);">Tonight · hangouts</div>
+            <h2 class="mt-2 text-2xl leading-tight" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">
+              Who's <em class="italic" style="color:var(--wd-red-600);">out.</em>
             </h2>
           </div>
           <div class="flex items-center gap-2">
@@ -2492,7 +2493,7 @@ function cardSummary(f: CatalogueEntry) {
               v-if="isSignedIn"
               type="button"
               class="inline-flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full"
-              style="background:#3b1f0d; color:white; font-family: system-ui, sans-serif;"
+              style="background:var(--wd-brown-900); color:white; font-family:var(--wd-font-sans);"
               @click="showHangoutForm = !showHangoutForm"
             >
               <Plus class="w-3.5 h-3.5" />
@@ -2500,16 +2501,16 @@ function cardSummary(f: CatalogueEntry) {
             </button>
             <span
               class="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full"
-              style="background:#dc262618; color:#dc2626; font-family: system-ui, sans-serif;"
+              style="background:color-mix(in srgb, var(--wd-red-600) 9.4%, transparent); color:var(--wd-red-600); font-family:var(--wd-font-sans);"
             >
-              <span class="w-1.5 h-1.5 rounded-full animate-pulse" style="background:#dc2626;" />
+              <span class="w-1.5 h-1.5 rounded-full animate-pulse" style="background:var(--wd-red-600);" />
               Live
             </span>
           </div>
         </div>
 
         <!-- Create hangout form -->
-        <div v-if="showHangoutForm" class="rounded-2xl bg-white border p-4 mb-4" style="border-color:#3b1f0d22;">
+        <div v-if="showHangoutForm" class="rounded-2xl bg-white border p-4 mb-4" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);">
           <div class="flex flex-wrap gap-2 mb-3">
             <button
               v-for="k in (['dinner', 'bar', 'ride', 'floor'] as const)"
@@ -2529,31 +2530,31 @@ function cardSummary(f: CatalogueEntry) {
             type="text"
             placeholder="What's the plan? e.g. Dinner before La Rumba"
             class="w-full text-sm rounded-lg border px-3 py-2 mb-2"
-            style="border-color:#3b1f0d22; color:#3b1f0d; font-family: system-ui, sans-serif;"
+            style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); color:var(--wd-brown-900); font-family:var(--wd-font-sans);"
           />
           <div class="flex gap-2 mb-3">
             <input
               v-model="newHangout.time"
               type="time"
               class="text-sm rounded-lg border px-3 py-2"
-              style="border-color:#3b1f0d22; color:#3b1f0d; font-family: system-ui, sans-serif; width:110px;"
+              style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); color:var(--wd-brown-900); font-family:var(--wd-font-sans); width:110px;"
             />
             <input
               v-model="newHangout.venue"
               type="text"
               placeholder="Where? (venue / address)"
               class="flex-1 text-sm rounded-lg border px-3 py-2"
-              style="border-color:#3b1f0d22; color:#3b1f0d; font-family: system-ui, sans-serif;"
+              style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); color:var(--wd-brown-900); font-family:var(--wd-font-sans);"
             />
           </div>
-          <p v-if="hangoutError" class="text-xs mb-2 px-1" style="color:#dc2626; font-family: system-ui, sans-serif;" role="alert">
+          <p v-if="hangoutError" class="text-xs mb-2 px-1" style="color:var(--wd-red-600); font-family:var(--wd-font-sans);" role="alert">
             {{ hangoutError }}
           </p>
           <div class="flex justify-end gap-2">
             <button
               type="button"
               class="text-xs px-3 py-1.5 rounded-full"
-              style="color:#5b3a1d; font-family: system-ui, sans-serif;"
+              style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);"
               @click="showHangoutForm = false"
             >
               Cancel
@@ -2561,7 +2562,7 @@ function cardSummary(f: CatalogueEntry) {
             <button
               type="button"
               class="text-xs font-bold px-4 py-1.5 rounded-full"
-              :style="{ background: '#3b1f0d', color: 'white', opacity: creatingHangout || !newHangout.title.trim() ? 0.5 : 1 }"
+              :style="{ background: 'var(--wd-brown-900)', color: 'white', opacity: creatingHangout || !newHangout.title.trim() ? 0.5 : 1 }"
               :disabled="creatingHangout || !newHangout.title.trim()"
               @click="createHangout"
             >
@@ -2570,27 +2571,27 @@ function cardSummary(f: CatalogueEntry) {
           </div>
         </div>
 
-        <div v-if="!hangouts.length && !showHangoutForm" class="rounded-2xl p-6 text-center border-2 border-dashed" style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);">
-          <MoonStar class="w-8 h-8 mx-auto mb-3" style="color:#9a5614;" />
-          <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+        <div v-if="!hangouts.length && !showHangoutForm" class="rounded-2xl p-6 text-center border-2 border-dashed" style="border-color:color-mix(in srgb, var(--wd-brown-900) 20%, transparent); background:rgba(255,255,255,0.5);">
+          <MoonStar class="w-8 h-8 mx-auto mb-3" style="color:var(--wd-amber-600);" />
+          <p class="text-sm" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
             Nobody's out yet. Post a dinner, a bar hop, or a ride — dancers show up when someone starts.
           </p>
         </div>
-        <div v-else class="rounded-2xl bg-white border overflow-hidden" style="border-color:#3b1f0d22;">
+        <div v-else class="rounded-2xl bg-white border overflow-hidden" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);">
           <div
             v-for="(h, i) in hangouts"
             :key="h.id"
             class="flex flex-wrap items-center gap-3 px-4 py-3"
             :class="i > 0 ? 'border-t' : ''"
-            :style="{ borderColor: '#3b1f0d0d', background: h.going ? '#16a34a08' : 'white' }"
+            :style="{ borderColor: 'color-mix(in srgb, var(--wd-brown-900) 5.1%, transparent)', background: h.going ? (WD.green600 + '08') : 'white' }"
           >
             <component :is="hangoutIcon(h.kind)" class="w-4 h-4 shrink-0" :style="{ color: h.color, 'stroke-width': 1.5 }" />
-            <span class="text-sm font-bold w-12" style="color:#3b1f0d; font-family: system-ui, sans-serif;">
+            <span class="text-sm font-bold w-12" style="color:var(--wd-brown-900); font-family:var(--wd-font-sans);">
               {{ h.time }}
             </span>
             <div class="min-w-0 flex-1">
-              <div class="text-sm font-bold truncate" style="color:#3b1f0d;">{{ h.title }}</div>
-              <div class="text-xs truncate" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+              <div class="text-sm font-bold truncate" style="color:var(--wd-brown-900);">{{ h.title }}</div>
+              <div class="text-xs truncate" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
                 <span v-if="h.host">{{ h.host }} · </span>
                 <span v-if="h.venue">{{ h.venue }} · </span>
                 {{ h.people }} in
@@ -2600,7 +2601,7 @@ function cardSummary(f: CatalogueEntry) {
               type="button"
               class="text-xs font-bold px-3 py-1.5 rounded-full whitespace-nowrap"
               :style="h.going
-                ? { background: '#16a34a', color: 'white' }
+                ? { background: 'var(--wd-green-600)', color: 'white' }
                 : { background: 'white', color: h.color, border: '1.5px solid ' + h.color + '55' }"
               @click="toggleHangout(h.id)"
             >
@@ -2610,7 +2611,7 @@ function cardSummary(f: CatalogueEntry) {
               v-if="h.mine"
               type="button"
               class="text-xs px-1.5 py-1 rounded-full"
-              style="color:#9a5614;"
+              style="color:var(--wd-amber-600);"
               title="Close this hangout"
               @click="closeHangout(h.id)"
             >
@@ -2624,48 +2625,48 @@ function cardSummary(f: CatalogueEntry) {
       <div id="discover" class="mt-14">
         <div class="flex items-baseline justify-between mb-4">
           <div>
-            <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">Widen your year · discover</div>
-            <h2 class="mt-2 text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
-              What could <em class="italic" style="color:#dc2626;">rearrange</em> the year?
+            <div class="text-xs uppercase tracking-[0.3em]" style="color:var(--wd-amber-600);">Widen your year · discover</div>
+            <h2 class="mt-2 text-2xl leading-tight" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">
+              What could <em class="italic" style="color:var(--wd-red-600);">rearrange</em> the year?
             </h2>
           </div>
           <button
             type="button"
             class="inline-flex items-center gap-1 text-xs italic hover:underline"
             :class="canUndo ? '' : 'opacity-40 pointer-events-none'"
-            style="color:#9a5614; font-family:'Playfair Display', serif;"
+            style="color:var(--wd-amber-600); font-family:var(--wd-font-display);"
             @click="undoSwipe"
           >
             <Undo2 class="w-3 h-3" /> Undo
           </button>
         </div>
-        <p class="text-sm mb-6 max-w-xl" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+        <p class="text-sm mb-6 max-w-xl" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
           People and places that could pull you somewhere new. Yes = we surface it above. Skip = we won't.
         </p>
 
         <!-- Deck -->
         <div class="relative mx-auto max-w-md">
-          <div v-if="!deckCurrent" class="rounded-2xl p-10 text-center border-2 border-dashed" style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);">
-            <Sparkles class="w-10 h-10 mx-auto mb-3" style="color:#9a5614;" />
-            <p class="text-lg" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+          <div v-if="!deckCurrent" class="rounded-2xl p-10 text-center border-2 border-dashed" style="border-color:color-mix(in srgb, var(--wd-brown-900) 20%, transparent); background:rgba(255,255,255,0.5);">
+            <Sparkles class="w-10 h-10 mx-auto mb-3" style="color:var(--wd-amber-600);" />
+            <p class="text-lg" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">
               That's it for this pass.
             </p>
-            <p class="mt-2 text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+            <p class="mt-2 text-sm" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
               We'll refresh nightly with more people and places.
             </p>
           </div>
 
           <div v-else class="relative" style="height: 400px;">
             <!-- Peek: card 3 behind -->
-            <div v-if="deckAfter" class="absolute inset-0 rounded-3xl bg-white border" style="transform: scale(0.88) translateY(20px); opacity:0.35; border-color:#3b1f0d22; box-shadow: 0 6px 22px rgba(0,0,0,0.08);" />
+            <div v-if="deckAfter" class="absolute inset-0 rounded-3xl bg-white border" style="transform: scale(0.88) translateY(20px); opacity:0.35; border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); box-shadow: 0 6px 22px rgba(0,0,0,0.08);" />
             <!-- Peek: card 2 behind -->
-            <div v-if="deckNext" class="absolute inset-0 rounded-3xl bg-white border" style="transform: scale(0.94) translateY(10px); opacity:0.65; border-color:#3b1f0d22; box-shadow: 0 6px 22px rgba(0,0,0,0.08);" />
+            <div v-if="deckNext" class="absolute inset-0 rounded-3xl bg-white border" style="transform: scale(0.94) translateY(10px); opacity:0.65; border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); box-shadow: 0 6px 22px rgba(0,0,0,0.08);" />
             <!-- Current card — gestures live here -->
             <div
               :key="deckCurrent.id"
               class="absolute inset-0 rounded-3xl bg-white border overflow-hidden touch-none select-none cursor-grab active:cursor-grabbing"
               :style="{
-                borderColor: '#3b1f0d22',
+                borderColor: 'color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent)',
                 boxShadow: '0 12px 32px rgba(0,0,0,0.14)',
                 transform: currentCardTransform(),
                 transition: dragActive || cardExitDir ? 'transform 260ms ease-out' : 'transform 220ms ease-out',
@@ -2678,12 +2679,12 @@ function cardSummary(f: CatalogueEntry) {
               <!-- YES / SKIP labels tinted by drag -->
               <div
                 class="absolute top-6 left-6 z-10 px-3 py-1 rounded-full border-2 text-sm font-black uppercase tracking-widest pointer-events-none transition-opacity"
-                style="color:#dc2626; border-color:#dc2626; transform: rotate(-10deg);"
+                style="color:var(--wd-red-600); border-color:var(--wd-red-600); transform: rotate(-10deg);"
                 :style="{ opacity: Math.min(1, Math.max(0, -dragDx / 100)) }"
               >Skip</div>
               <div
                 class="absolute top-6 right-6 z-10 px-3 py-1 rounded-full border-2 text-sm font-black uppercase tracking-widest pointer-events-none transition-opacity"
-                style="color:#16a34a; border-color:#16a34a; transform: rotate(10deg);"
+                style="color:var(--wd-green-600); border-color:var(--wd-green-600); transform: rotate(10deg);"
                 :style="{ opacity: Math.min(1, Math.max(0, dragDx / 100)) }"
               >Yes</div>
 
@@ -2692,10 +2693,10 @@ function cardSummary(f: CatalogueEntry) {
                 <img :src="deckCurrent.photo" :alt="deckCurrent.name" class="w-full h-2/3 object-cover" draggable="false">
                 <div class="p-5">
                   <div class="flex items-baseline justify-between gap-3">
-                    <div class="text-xl font-black" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+                    <div class="text-xl font-black" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">
                       {{ deckCurrent.name }}
                     </div>
-                    <div class="text-xs italic" style="color:#9a5614; font-family:'Playfair Display', serif;">
+                    <div class="text-xs italic" style="color:var(--wd-amber-600); font-family:var(--wd-font-display);">
                       {{ deckCurrent.city }}
                     </div>
                   </div>
@@ -2714,18 +2715,18 @@ function cardSummary(f: CatalogueEntry) {
                   </div>
                   <div v-else-if="deckCurrent.kind === 'dancer-local'"
                        class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold"
-                       style="background:#16a34a18; color:#16a34a;">
+                       style="background:color-mix(in srgb, var(--wd-green-600) 9.4%, transparent); color:var(--wd-green-600);">
                     <MapPin class="w-3 h-3" style="stroke-width:1.5;" />
                     Regular at {{ (deckCurrent as any).regularAt }}
                   </div>
                   <div class="mt-3 flex flex-wrap gap-1">
                     <span v-for="st in deckCurrent.danceStyles" :key="st"
                           class="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full"
-                          style="background:#3b1f0d0a; color:#5b3a1d;">
+                          style="background:color-mix(in srgb, var(--wd-brown-900) 3.9%, transparent); color:var(--wd-brown-700);">
                       {{ st }}
                     </span>
                   </div>
-                  <p v-if="deckCurrent.reason" class="mt-3 text-xs italic leading-snug" style="color:#5b3a1d; font-family:'Playfair Display', serif;">
+                  <p v-if="deckCurrent.reason" class="mt-3 text-xs italic leading-snug" style="color:var(--wd-brown-700); font-family:var(--wd-font-display);">
                     {{ deckCurrent.reason }}
                   </p>
                 </div>
@@ -2733,29 +2734,29 @@ function cardSummary(f: CatalogueEntry) {
 
               <!-- EVENT: FESTIVAL -->
               <template v-else-if="deckCurrent.kind === 'event-festival'">
-                <div class="h-2/3 p-6 flex flex-col justify-end" :style="{ background: 'linear-gradient(135deg, ' + (deckCurrent as any).color + ', #f97316)' }">
+                <div class="h-2/3 p-6 flex flex-col justify-end" :style="{ background: 'linear-gradient(135deg, ' + (deckCurrent as any).color + ', var(--wd-orange-500))' }">
                   <div class="text-[10px] uppercase tracking-widest font-bold text-white/90">Festival · not in your year</div>
-                  <div class="mt-1 text-3xl font-black leading-none text-white" style="font-family:'Playfair Display', serif;">
+                  <div class="mt-1 text-3xl font-black leading-none text-white" style="font-family:var(--wd-font-display);">
                     {{ deckCurrent.name }}
                   </div>
                 </div>
                 <div class="p-5">
-                  <div class="flex items-center gap-4 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+                  <div class="flex items-center gap-4 text-xs" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
                     <span class="inline-flex items-center gap-1">
-                      <Calendar class="w-3 h-3" style="color:#9a5614;" />
+                      <Calendar class="w-3 h-3" style="color:var(--wd-amber-600);" />
                       {{ new Date((deckCurrent as any).dateISO).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) }}
                     </span>
                     <span class="inline-flex items-center gap-1">
-                      <MapPin class="w-3 h-3" style="color:#9a5614;" />
+                      <MapPin class="w-3 h-3" style="color:var(--wd-amber-600);" />
                       {{ (deckCurrent as any).venue }}, {{ (deckCurrent as any).city }}
                     </span>
                   </div>
                   <div class="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold"
-                       style="background:#f59e0b18; color:#f59e0b;">
+                       style="background:color-mix(in srgb, var(--wd-amber-500) 9.4%, transparent); color:var(--wd-amber-500);">
                     <UsersIcon class="w-3 h-3" style="stroke-width:1.5;" />
                     {{ (deckCurrent as any).friendsGoing }} friends going
                   </div>
-                  <p v-if="deckCurrent.reason" class="mt-3 text-xs italic leading-snug" style="color:#5b3a1d; font-family:'Playfair Display', serif;">
+                  <p v-if="deckCurrent.reason" class="mt-3 text-xs italic leading-snug" style="color:var(--wd-brown-700); font-family:var(--wd-font-display);">
                     {{ deckCurrent.reason }}
                   </p>
                 </div>
@@ -2763,29 +2764,29 @@ function cardSummary(f: CatalogueEntry) {
 
               <!-- EVENT: LOCAL SOCIAL -->
               <template v-else>
-                <div class="h-2/3 p-6 flex flex-col justify-end" :style="{ background: 'linear-gradient(135deg, ' + (deckCurrent as any).color + ', #7c3aed)' }">
+                <div class="h-2/3 p-6 flex flex-col justify-end" :style="{ background: 'linear-gradient(135deg, ' + (deckCurrent as any).color + ', var(--wd-violet-600))' }">
                   <div class="text-[10px] uppercase tracking-widest font-bold text-white/90">Local · {{ (deckCurrent as any).style }}</div>
-                  <div class="mt-1 text-3xl font-black leading-none text-white" style="font-family:'Playfair Display', serif;">
+                  <div class="mt-1 text-3xl font-black leading-none text-white" style="font-family:var(--wd-font-display);">
                     {{ deckCurrent.name }}
                   </div>
                 </div>
                 <div class="p-5">
-                  <div class="flex items-center gap-4 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+                  <div class="flex items-center gap-4 text-xs" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
                     <span class="inline-flex items-center gap-1">
-                      <Calendar class="w-3 h-3" style="color:#9a5614;" />
+                      <Calendar class="w-3 h-3" style="color:var(--wd-amber-600);" />
                       {{ (deckCurrent as any).dayLabel }} {{ (deckCurrent as any).time }}
                     </span>
                     <span class="inline-flex items-center gap-1">
-                      <MapPin class="w-3 h-3" style="color:#9a5614;" />
+                      <MapPin class="w-3 h-3" style="color:var(--wd-amber-600);" />
                       {{ (deckCurrent as any).venue }}, {{ (deckCurrent as any).city }}
                     </span>
                   </div>
                   <div class="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold"
-                       style="background:#f59e0b18; color:#f59e0b;">
+                       style="background:color-mix(in srgb, var(--wd-amber-500) 9.4%, transparent); color:var(--wd-amber-500);">
                     <UsersIcon class="w-3 h-3" style="stroke-width:1.5;" />
                     {{ (deckCurrent as any).friendsGoing }} friends going
                   </div>
-                  <p v-if="deckCurrent.reason" class="mt-3 text-xs italic leading-snug" style="color:#5b3a1d; font-family:'Playfair Display', serif;">
+                  <p v-if="deckCurrent.reason" class="mt-3 text-xs italic leading-snug" style="color:var(--wd-brown-700); font-family:var(--wd-font-display);">
                     {{ deckCurrent.reason }}
                   </p>
                 </div>
@@ -2798,7 +2799,7 @@ function cardSummary(f: CatalogueEntry) {
             <button
               type="button"
               class="w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95"
-              style="background:white; border:2px solid #dc262655; color:#dc2626;"
+              style="background:white; border:2px solid color-mix(in srgb, var(--wd-red-600) 33.3%, transparent); color:var(--wd-red-600);"
               aria-label="Skip"
               @click="commitSwipe('skip')"
             >
@@ -2807,7 +2808,7 @@ function cardSummary(f: CatalogueEntry) {
             <button
               type="button"
               class="w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95"
-              style="background:white; border:2px solid #f59e0b55; color:#f59e0b;"
+              style="background:white; border:2px solid color-mix(in srgb, var(--wd-amber-500) 33.3%, transparent); color:var(--wd-amber-500);"
               aria-label="Save for later"
               @click="commitSwipe('save')"
             >
@@ -2816,7 +2817,7 @@ function cardSummary(f: CatalogueEntry) {
             <button
               type="button"
               class="w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95"
-              style="background:white; border:2px solid #16a34a55; color:#16a34a;"
+              style="background:white; border:2px solid color-mix(in srgb, var(--wd-green-600) 33.3%, transparent); color:var(--wd-green-600);"
               aria-label="Yes"
               @click="commitSwipe('yes')"
             >
@@ -2824,7 +2825,7 @@ function cardSummary(f: CatalogueEntry) {
             </button>
           </div>
 
-          <p v-if="deckCurrent" class="mt-4 text-xs text-center italic" style="color:#9a5614; font-family:'Playfair Display', serif;">
+          <p v-if="deckCurrent" class="mt-4 text-xs text-center italic" style="color:var(--wd-amber-600); font-family:var(--wd-font-display);">
             Drag or use the buttons · {{ deck.length }} left
           </p>
         </div>

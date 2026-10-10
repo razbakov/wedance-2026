@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ArrowRight, MapPin, Music, Mic, Users, PartyPopper, UtensilsCrossed, Camera, Ticket, Loader2, Check } from 'lucide-vue-next'
 import { EventInquirySchema } from '#shared/validation'
+import { WD } from '~/lib/brand'
 
 definePageMeta({ layout: false })
 
@@ -9,7 +10,7 @@ useHead({
   link: [
     { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
     { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
-    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Caveat:wght@400;700&display=swap' },
+    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&display=swap' },
   ],
 })
 
@@ -98,28 +99,28 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
 </script>
 
 <template>
-  <div class="min-h-screen" style="background:#fbf5ea; color:#3b1f0d; font-family:'Playfair Display', serif;">
+  <div class="min-h-screen" style="background:var(--wd-cream); color:var(--wd-brown-900); font-family:var(--wd-font-display);">
     <!-- Header -->
     <SiteHeader />
 
     <!-- HERO -->
     <section class="max-w-5xl mx-auto px-4 pt-14 pb-10">
-      <div class="text-sm tracking-widest uppercase mb-3" style="color:#9a5614;">For your event</div>
-      <h1 class="text-5xl sm:text-6xl leading-[0.95]" style="color:#3b1f0d;">
+      <div class="text-sm tracking-widest uppercase mb-3" style="color:var(--wd-amber-600);">For your event</div>
+      <h1 class="text-5xl sm:text-6xl leading-[0.95]" style="color:var(--wd-brown-900);">
         Hosting the night,<br>
-        not dancing <em class="italic" style="color:#dc2626;">at it</em>?
+        not dancing <em class="italic" style="color:var(--wd-red-600);">at it</em>?
       </h1>
-      <p class="mt-6 text-base sm:text-lg leading-relaxed max-w-xl" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+      <p class="mt-6 text-base sm:text-lg leading-relaxed max-w-xl" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
         One team builds the whole floor. Venue. MC. DJ. Show dancers. From one dance to five hours of party — no piecing it out to five vendors.
       </p>
       <div class="mt-4 flex flex-wrap gap-2">
-        <span v-for="o in occasions" :key="o" class="text-xs px-3 py-1 rounded-full border" style="border-color:#3b1f0d22; color:#5b3a1d; font-family: system-ui, sans-serif;">{{ o }}</span>
+        <span v-for="o in occasions" :key="o" class="text-xs px-3 py-1 rounded-full border" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); color:var(--wd-brown-700); font-family:var(--wd-font-sans);">{{ o }}</span>
       </div>
     </section>
 
     <!-- SERVICES -->
     <section class="max-w-5xl mx-auto px-4 pb-10">
-      <p class="mb-6 text-sm tracking-widest uppercase" style="color:#9a5614;">Everything under one roof</p>
+      <p class="mb-6 text-sm tracking-widest uppercase" style="color:var(--wd-amber-600);">Everything under one roof</p>
       <div class="grid md:grid-cols-3 gap-5">
         <component
           :is="s.label === 'Venue' ? NuxtLinkC : 'div'"
@@ -127,12 +128,12 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
           :to="s.label === 'Venue' ? '/venues' : undefined"
           class="rounded-2xl bg-white p-6 border block transition-all"
           :class="s.label === 'Venue' ? 'hover:-translate-y-0.5 cursor-pointer' : ''"
-          :style="{ borderColor: ['#dc2626', '#f59e0b', '#0891b2', '#16a34a', '#a855f7'][i % 5] + '55' }"
+          :style="{ borderColor: [WD.red600, WD.amber500, WD.cyan600, WD.green600, WD.purple500][i % 5] + '55' }"
         >
-          <component :is="s.icon" class="w-6 h-6 mb-3" :style="{ color: ['#dc2626', '#f59e0b', '#0891b2', '#16a34a', '#a855f7'][i % 5], 'stroke-width': 1.5 }" />
-          <div class="text-lg font-bold" style="color:#3b1f0d;">{{ s.label }}</div>
-          <div class="mt-2 text-sm leading-relaxed" style="color:#5b3a1d; font-family: system-ui, sans-serif;">{{ s.detail }}</div>
-          <div v-if="s.label === 'Venue'" class="mt-3 inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider" style="color:#dc2626; font-family: system-ui, sans-serif;">
+          <component :is="s.icon" class="w-6 h-6 mb-3" :style="{ color: [WD.red600, WD.amber500, WD.cyan600, WD.green600, WD.purple500][i % 5], 'stroke-width': 1.5 }" />
+          <div class="text-lg font-bold" style="color:var(--wd-brown-900);">{{ s.label }}</div>
+          <div class="mt-2 text-sm leading-relaxed" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">{{ s.detail }}</div>
+          <div v-if="s.label === 'Venue'" class="mt-3 inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider" style="color:var(--wd-red-600); font-family:var(--wd-font-sans);">
             Browse venues <ArrowRight class="w-3.5 h-3.5" />
           </div>
         </component>
@@ -143,19 +144,19 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
     <section id="inquiry" class="max-w-3xl mx-auto px-4 py-16">
       <!-- Confirmation -->
       <div v-if="submitted" class="text-center">
-        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full mb-6" style="background:#16a34a22;">
-          <Check class="w-8 h-8" style="color:#16a34a;" />
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full mb-6" style="background:color-mix(in srgb, var(--wd-green-600) 13.3%, transparent);">
+          <Check class="w-8 h-8" style="color:var(--wd-green-600);" />
         </div>
         <h2 class="text-3xl sm:text-4xl leading-tight">
-          Request <em class="italic" style="color:#16a34a;">received.</em>
+          Request <em class="italic" style="color:var(--wd-green-600);">received.</em>
         </h2>
-        <p class="mt-4 text-sm sm:text-base" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+        <p class="mt-4 text-sm sm:text-base" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
           We got your event details and will come back with a plan — usually same day.
         </p>
         <button
           type="button"
           class="mt-8 inline-flex items-center gap-2 px-7 py-3 rounded-full text-sm font-bold uppercase tracking-wider"
-          style="background:white; color:#3b1f0d; border:1px solid #3b1f0d33; font-family: system-ui, sans-serif;"
+          style="background:white; color:var(--wd-brown-900); border:1px solid color-mix(in srgb, var(--wd-brown-900) 20%, transparent); font-family:var(--wd-font-sans);"
           @click="resetForm"
         >
           Send another request
@@ -165,16 +166,16 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
       <!-- Form -->
       <div v-else-if="showForm" class="max-w-lg mx-auto">
         <h2 class="text-3xl sm:text-4xl leading-tight text-center">
-          Tell us <em class="italic" style="color:#dc2626;">about your night.</em>
+          Tell us <em class="italic" style="color:var(--wd-red-600);">about your night.</em>
         </h2>
-        <p class="mt-4 text-sm sm:text-base text-center" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+        <p class="mt-4 text-sm sm:text-base text-center" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
           Fill in what you know — we'll figure out the rest.
         </p>
 
         <form class="mt-8 space-y-4" novalidate @submit.prevent="submit">
           <div class="grid sm:grid-cols-2 gap-4">
             <div class="space-y-1.5">
-              <label for="inquiry-event-type" class="text-sm font-bold" style="color:#3b1f0d;">Type of event</label>
+              <label for="inquiry-event-type" class="text-sm font-bold" style="color:var(--wd-brown-900);">Type of event</label>
               <input
                 id="inquiry-event-type"
                 v-model="eventType"
@@ -187,7 +188,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
               <FieldError id="inquiry-event-type-error" :message="errors.eventType" />
             </div>
             <div class="space-y-1.5">
-              <label for="inquiry-date" class="text-sm font-bold" style="color:#3b1f0d;">Date</label>
+              <label for="inquiry-date" class="text-sm font-bold" style="color:var(--wd-brown-900);">Date</label>
               <input
                 id="inquiry-date"
                 v-model="date"
@@ -203,7 +204,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
 
           <div class="grid sm:grid-cols-2 gap-4">
             <div class="space-y-1.5">
-              <label for="inquiry-city" class="text-sm font-bold" style="color:#3b1f0d;">City</label>
+              <label for="inquiry-city" class="text-sm font-bold" style="color:var(--wd-brown-900);">City</label>
               <input
                 id="inquiry-city"
                 v-model="city"
@@ -216,7 +217,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
               <FieldError id="inquiry-city-error" :message="errors.city" />
             </div>
             <div class="space-y-1.5">
-              <label for="inquiry-guests" class="text-sm font-bold" style="color:#3b1f0d;">Guests</label>
+              <label for="inquiry-guests" class="text-sm font-bold" style="color:var(--wd-brown-900);">Guests</label>
               <input
                 id="inquiry-guests"
                 v-model="guests"
@@ -231,7 +232,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
           </div>
 
           <div class="space-y-1.5">
-            <label for="inquiry-needs" class="text-sm font-bold" style="color:#3b1f0d;">What do you need? <span style="color:#dc2626;">*</span></label>
+            <label for="inquiry-needs" class="text-sm font-bold" style="color:var(--wd-brown-900);">What do you need? <span style="color:var(--wd-red-600);">*</span></label>
             <textarea
               id="inquiry-needs"
               v-model="needs"
@@ -247,7 +248,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
 
           <div class="grid sm:grid-cols-2 gap-4">
             <div class="space-y-1.5">
-              <label for="inquiry-name" class="text-sm font-bold" style="color:#3b1f0d;">Your name</label>
+              <label for="inquiry-name" class="text-sm font-bold" style="color:var(--wd-brown-900);">Your name</label>
               <input
                 id="inquiry-name"
                 v-model="name"
@@ -260,7 +261,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
               <FieldError id="inquiry-name-error" :message="errors.name" />
             </div>
             <div class="space-y-1.5">
-              <label for="inquiry-email" class="text-sm font-bold" style="color:#3b1f0d;">Your email <span style="color:#dc2626;">*</span></label>
+              <label for="inquiry-email" class="text-sm font-bold" style="color:var(--wd-brown-900);">Your email <span style="color:var(--wd-red-600);">*</span></label>
               <input
                 id="inquiry-email"
                 v-model="email"
@@ -276,7 +277,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
             </div>
           </div>
 
-          <p v-if="submitError" class="text-sm font-bold" style="color:#dc2626; font-family: system-ui, sans-serif;">
+          <p v-if="submitError" class="text-sm font-bold" style="color:var(--wd-red-600); font-family:var(--wd-font-sans);">
             {{ submitError }}
           </p>
 
@@ -284,14 +285,14 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
             type="submit"
             :disabled="submitting"
             class="w-full inline-flex items-center justify-center gap-2 px-7 py-3 rounded-full text-white text-sm font-bold uppercase tracking-wider disabled:opacity-60"
-            style="background:linear-gradient(135deg, #dc2626, #f97316); box-shadow: 0 4px 0 -1px #b91c1c; font-family: system-ui, sans-serif;"
+            style="background:linear-gradient(135deg, var(--wd-red-600), var(--wd-orange-500)); box-shadow: 0 4px 0 -1px var(--wd-red-800); font-family:var(--wd-font-sans);"
           >
             <Loader2 v-if="submitting" class="w-4 h-4 animate-spin" />
             {{ submitting ? 'Sending…' : 'Send request' }}
           </button>
         </form>
 
-        <div class="mt-3 text-sm text-center" style="font-family:'Caveat', cursive; color:#9a5614;">
+        <div class="mt-3 text-sm text-center" style="font-family:var(--wd-font-display);font-style:italic; color:var(--wd-amber-600);">
           — we usually respond same day
         </div>
       </div>
@@ -299,20 +300,20 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
       <!-- Initial CTA button -->
       <div v-else class="text-center">
         <h2 class="text-3xl sm:text-4xl leading-tight">
-          Tell us <em class="italic" style="color:#dc2626;">about your night.</em>
+          Tell us <em class="italic" style="color:var(--wd-red-600);">about your night.</em>
         </h2>
-        <p class="mt-4 text-sm sm:text-base" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+        <p class="mt-4 text-sm sm:text-base" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
           One reply, no forms. We come back with a plan you can send to your partner or your CFO.
         </p>
         <button
           type="button"
           class="mt-8 inline-flex items-center gap-2 px-7 py-3 rounded-full text-white text-sm font-bold uppercase tracking-wider"
-          style="background:linear-gradient(135deg, #dc2626, #f97316); box-shadow: 0 4px 0 -1px #b91c1c;"
+          style="background:linear-gradient(135deg, var(--wd-red-600), var(--wd-orange-500)); box-shadow: 0 4px 0 -1px var(--wd-red-800);"
           @click="openForm"
         >
           Tell us about your event <ArrowRight class="w-4 h-4" />
         </button>
-        <div class="mt-3 text-sm" style="font-family:'Caveat', cursive; color:#9a5614;">
+        <div class="mt-3 text-sm" style="font-family:var(--wd-font-display);font-style:italic; color:var(--wd-amber-600);">
           — we usually respond same day
         </div>
       </div>
@@ -323,15 +324,15 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
       <NuxtLink
         to="/for-venues"
         class="rounded-2xl bg-white p-6 border flex items-center justify-between gap-4 transition-all hover:-translate-y-0.5"
-        style="border-color:#3b1f0d22;"
+        style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);"
       >
         <div>
-          <div class="text-lg font-bold" style="color:#3b1f0d;">Have a venue? List it on WeDance.</div>
-          <div class="mt-1 text-sm leading-relaxed" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+          <div class="text-lg font-bold" style="color:var(--wd-brown-900);">Have a venue? List it on WeDance.</div>
+          <div class="mt-1 text-sm leading-relaxed" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
             Get booking requests from dance organizers looking for a space.
           </div>
         </div>
-        <span class="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider whitespace-nowrap" style="color:#dc2626; font-family: system-ui, sans-serif;">
+        <span class="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider whitespace-nowrap" style="color:var(--wd-red-600); font-family:var(--wd-font-sans);">
           For venues <ArrowRight class="w-3.5 h-3.5" />
         </span>
       </NuxtLink>

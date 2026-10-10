@@ -51,17 +51,17 @@ const isActive = (item: { to: string; exact: boolean }) =>
 </script>
 
 <template>
-  <div class="min-h-screen md:flex" style="background:#fbf5ea; color:#3b1f0d; font-family:'Playfair Display', serif;">
+  <div class="min-h-screen md:flex" style="background:var(--wd-cream); color:var(--wd-brown-900); font-family:var(--wd-font-display);">
     <!-- Sidebar (desktop) / top bar (mobile) -->
     <aside
       class="md:w-60 md:min-h-screen md:border-r border-b md:border-b-0 shrink-0 md:sticky md:top-0 md:h-screen flex md:flex-col"
-      style="border-color:#3b1f0d22; background:rgba(255,255,255,0.55);"
+      style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); background:rgba(255,255,255,0.55);"
     >
       <div class="px-4 py-4 md:py-6 flex md:block items-center justify-between w-full">
         <NuxtLink to="/" class="inline-flex items-center gap-2">
           <Brand />
         </NuxtLink>
-        <div class="hidden md:block mt-6 text-[10px] uppercase tracking-[0.3em]" style="color:#9a5614;">Admin</div>
+        <div class="hidden md:block mt-6 text-[10px] uppercase tracking-[0.3em]" style="color:var(--wd-amber-600);">Admin</div>
       </div>
 
       <nav class="flex md:flex-col gap-1 px-2 md:px-3 pb-3 md:pb-0 overflow-x-auto md:overflow-visible">
@@ -71,15 +71,15 @@ const isActive = (item: { to: string; exact: boolean }) =>
           :to="item.to"
           class="group flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm whitespace-nowrap transition-colors"
           :style="isActive(item)
-            ? { background: '#dc26261a', color: '#dc2626', fontWeight: 700 }
-            : { color: '#5b3a1d' }"
+            ? { background: 'color-mix(in srgb, var(--wd-red-600) 10.2%, transparent)', color: 'var(--wd-red-600)', fontWeight: 700 }
+            : { color: 'var(--wd-brown-700)' }"
         >
           <component :is="item.icon" class="w-4 h-4 shrink-0" />
           <span class="italic">{{ item.label }}</span>
           <span
             v-if="item.badge"
             class="ml-auto text-[10px] font-bold rounded-full px-1.5 py-0.5 text-white"
-            style="background:#dc2626; font-family: system-ui, sans-serif;"
+            style="background:var(--wd-red-600); font-family:var(--wd-font-sans);"
           >{{ item.badge }}</span>
         </NuxtLink>
       </nav>
@@ -87,7 +87,7 @@ const isActive = (item: { to: string; exact: boolean }) =>
       <NuxtLink
         to="/"
         class="hidden md:flex items-center gap-1.5 mt-auto mx-3 mb-4 text-xs italic hover:underline"
-        style="color:#9a5614;"
+        style="color:var(--wd-amber-600);"
       >
         <ArrowLeft class="w-3.5 h-3.5" /> Back to site
       </NuxtLink>
@@ -96,7 +96,7 @@ const isActive = (item: { to: string; exact: boolean }) =>
     <!-- Content -->
     <main class="flex-1 min-w-0">
       <div class="max-w-4xl mx-auto px-4 py-8">
-        <div v-if="state === 'checking'" class="flex items-center gap-2 py-24 justify-center" style="color:#9a5614;">
+        <div v-if="state === 'checking'" class="flex items-center gap-2 py-24 justify-center" style="color:var(--wd-amber-600);">
           <Loader2 class="w-5 h-5 animate-spin" />
           <span class="text-sm italic">Checking access…</span>
         </div>
@@ -104,17 +104,17 @@ const isActive = (item: { to: string; exact: boolean }) =>
         <div
           v-else-if="state === 'denied'"
           class="max-w-md mx-auto mt-16 rounded-2xl border-2 border-dashed p-10 text-center"
-          style="border-color:#3b1f0d33; background:rgba(255,255,255,0.6);"
+          style="border-color:color-mix(in srgb, var(--wd-brown-900) 20%, transparent); background:rgba(255,255,255,0.6);"
         >
-          <ShieldAlert class="w-7 h-7 mx-auto mb-3" style="color:#dc2626;" />
-          <p class="text-base font-bold" style="color:#3b1f0d;">Admin access required</p>
-          <p class="mt-1 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+          <ShieldAlert class="w-7 h-7 mx-auto mb-3" style="color:var(--wd-red-600);" />
+          <p class="text-base font-bold" style="color:var(--wd-brown-900);">Admin access required</p>
+          <p class="mt-1 text-xs" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
             Sign in with an admin account to view this page.
           </p>
           <button
             type="button"
             class="inline-flex items-center gap-2 mt-5 rounded-full px-5 py-2.5 text-white text-xs font-bold uppercase tracking-wider"
-            style="background:linear-gradient(135deg,#dc2626,#f97316);"
+            style="background:linear-gradient(135deg,var(--wd-red-600),var(--wd-orange-500));"
             @click="showSignIn = true"
           >
             Sign in

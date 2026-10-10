@@ -2,6 +2,7 @@
 import type { Festival } from '~/types/festival'
 import { Instagram, Globe, Facebook, Users, Star, Ticket, Check, Plus } from 'lucide-vue-next'
 import { daysUntil as formatDaysUntil } from '#shared/utils/festivalDateFormatter'
+import { WD } from '~/lib/brand'
 
 // Shared hero for festivals AND events (an event is just a smaller festival).
 // `reviewTargetType` + `entityLabel` let the same hero serve either.
@@ -60,7 +61,7 @@ const daysUntil = computed(() => formatDaysUntil(props.festival.startDate))
 </script>
 
 <template>
-  <section class="relative overflow-hidden" style="background:#fbf5ea;">
+  <section class="relative overflow-hidden" style="background:var(--wd-cream);">
     <!-- Sun rays behind the whole hero, tinted by festival accent -->
     <svg
       class="absolute -top-16 -right-16 w-72 h-72 opacity-20 pointer-events-none"
@@ -87,12 +88,12 @@ const daysUntil = computed(() => formatDaysUntil(props.festival.startDate))
             :src="festival.logo"
             :alt="festival.name"
             class="w-20 h-20 rounded-full border-4"
-            :style="{ borderColor: '#fbf5ea', boxShadow: '4px 5px 0 -1px ' + festival.accentColor }"
+            :style="{ borderColor: 'var(--wd-cream)', boxShadow: '4px 5px 0 -1px ' + festival.accentColor }"
           >
           <div
             v-else
             class="w-20 h-20 rounded-full flex items-center justify-center text-3xl font-bold text-white border-4"
-            :style="{ background: festival.accentColor, borderColor: '#fbf5ea', boxShadow: '4px 5px 0 -1px ' + festival.accentColor }"
+            :style="{ background: festival.accentColor, borderColor: 'var(--wd-cream)', boxShadow: '4px 5px 0 -1px ' + festival.accentColor }"
           >
             {{ festival.name.charAt(0) }}
           </div>
@@ -102,7 +103,7 @@ const daysUntil = computed(() => formatDaysUntil(props.festival.startDate))
           <!-- Eyebrow: days-until in Caveat, colored -->
           <div
             class="text-lg leading-none mb-2"
-            :style="{ fontFamily: 'Caveat, cursive', color: festival.accentColor }"
+            :style="{ fontFamily: 'var(--wd-font-display)', fontStyle: 'italic', color: festival.accentColor }"
           >
             — {{ daysUntil }}
           </div>
@@ -110,7 +111,7 @@ const daysUntil = computed(() => formatDaysUntil(props.festival.startDate))
           <!-- Festival name in Playfair -->
           <h1
             class="text-3xl sm:text-5xl leading-[0.98] tracking-tight"
-            style="font-family:'Playfair Display', serif; color:#3b1f0d;"
+            style="font-family:var(--wd-font-display); color:var(--wd-brown-900);"
           >
             {{ festival.name }}
           </h1>
@@ -118,16 +119,16 @@ const daysUntil = computed(() => formatDaysUntil(props.festival.startDate))
           <!-- Date + venue -->
           <p
             class="mt-2 text-sm sm:text-base italic"
-            style="color:#5b3a1d; font-family:'Playfair Display', serif;"
+            style="color:var(--wd-brown-700); font-family:var(--wd-font-display);"
           >
-            {{ dateRange }} <span style="color:#9a5614;">·</span> {{ festival.venue.name }}
+            {{ dateRange }} <span style="color:var(--wd-amber-600);">·</span> {{ festival.venue.name }}
           </p>
 
           <!-- Meta: attendees + socials -->
           <div class="mt-3 flex flex-wrap items-center gap-3 text-xs">
             <span
               class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-bold"
-              :style="{ background: festival.accentColor + '18', color: festival.accentColor, fontFamily: 'system-ui, sans-serif' }"
+              :style="{ background: festival.accentColor + '18', color: festival.accentColor, fontFamily: 'var(--wd-font-sans)' }"
             >
               <Users class="w-3 h-3" />
               {{ festival.attendeeCount }} planning
@@ -137,9 +138,9 @@ const daysUntil = computed(() => formatDaysUntil(props.festival.startDate))
               v-if="rating && rating.count"
               href="#reviews"
               class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-bold"
-              style="background:#f59e0b1f; color:#b45309; font-family: system-ui, sans-serif;"
+              style="background:color-mix(in srgb, var(--wd-amber-500) 12.2%, transparent); color:var(--wd-amber-700); font-family:var(--wd-font-sans);"
             >
-              <Star class="w-3 h-3" style="fill:#f59e0b; color:#f59e0b;" />
+              <Star class="w-3 h-3" style="fill:var(--wd-amber-500); color:var(--wd-amber-500);" />
               {{ rating.average.toFixed(1) }}
               <span style="opacity:0.65;">· {{ rating.count }}</span>
             </a>
@@ -152,9 +153,9 @@ const daysUntil = computed(() => formatDaysUntil(props.festival.startDate))
                 rel="noopener noreferrer"
                 class="transition-colors"
                 :title="link.platform"
-                style="color:#9a5614;"
-                @mouseover="(e) => (e.currentTarget as HTMLElement).style.color = '#dc2626'"
-                @mouseleave="(e) => (e.currentTarget as HTMLElement).style.color = '#9a5614'"
+                style="color:var(--wd-amber-600);"
+                @mouseover="(e) => (e.currentTarget as HTMLElement).style.color = 'var(--wd-red-600)'"
+                @mouseleave="(e) => (e.currentTarget as HTMLElement).style.color = 'var(--wd-amber-600)'"
               >
                 <component
                   :is="platformIcon[link.platform]"
@@ -174,7 +175,7 @@ const daysUntil = computed(() => formatDaysUntil(props.festival.startDate))
               target="_blank"
               rel="noopener noreferrer"
               class="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold uppercase tracking-wider text-white"
-              :style="{ background: 'linear-gradient(135deg, ' + festival.accentColor + ', #f97316)', boxShadow: '0 3px 0 -1px ' + festival.accentColor }"
+              :style="{ background: 'linear-gradient(135deg, ' + festival.accentColor + ', var(--wd-orange-500))', boxShadow: '0 3px 0 -1px ' + festival.accentColor }"
               @click="useTrack().track('ticket_cta_click', { entity: reviewTargetType, slug: festival.slug })"
             >
               <Ticket class="w-4 h-4" /> Get tickets
@@ -202,7 +203,7 @@ const daysUntil = computed(() => formatDaysUntil(props.festival.startDate))
     >
       <path
         d="M0,40 Q360,0 720,30 T1440,20 V60 H0 Z"
-        fill="#3b1f0d"
+        :fill="WD.brown900"
         opacity="0.08"
       />
     </svg>

@@ -8,7 +8,7 @@ useHead({
   link: [
     { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
     { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
-    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Caveat:wght@400;700&display=swap' },
+    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&display=swap' },
   ],
 })
 
@@ -174,7 +174,7 @@ useHead({
 </script>
 
 <template>
-  <div class="min-h-screen" style="background:#fbf5ea; color:#3b1f0d; font-family:'Playfair Display', serif;">
+  <div class="min-h-screen" style="background:var(--wd-cream); color:var(--wd-brown-900); font-family:var(--wd-font-display);">
     <SiteHeader />
 
     <!-- Shared view -->
@@ -192,7 +192,7 @@ useHead({
 
     <!-- Loading / not found for shared view -->
     <div v-else-if="isSharedView && !sharedData" class="max-w-3xl mx-auto px-4 py-16 text-center">
-      <p style="color:#5b3a1d;">This year plan is not available.</p>
+      <p style="color:var(--wd-brown-700);">This year plan is not available.</p>
       <Button class="mt-4" @click="onCreateYearPlan">
         Create your own year plan
       </Button>

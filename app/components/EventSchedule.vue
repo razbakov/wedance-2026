@@ -9,6 +9,7 @@
  * name (city); `href` links the card (e.g. to the venue's /@handle).
  */
 import { MapPin, Plus, Check } from 'lucide-vue-next'
+import { WD } from '~/lib/brand'
 
 const props = defineProps<{ events: any[] }>()
 
@@ -17,13 +18,13 @@ const { weekPlanIds, toggleEvent } = useWeekPlan()
 const NuxtLinkC = resolveComponent('NuxtLink')
 
 const typeColor: Record<string, string> = {
-  Social: '#dc2626', Party: '#dc2626', Class: '#0891b2', Practica: '#f59e0b', Workshop: '#a855f7',
+  Social: WD.red600, Party: WD.red600, Class: WD.cyan600, Practica: WD.amber500, Workshop: WD.purple500,
 }
 const styleColor: Record<string, string> = {
-  salsa: '#dc2626', bachata: '#a855f7', kizomba: '#ec4899', timba: '#f59e0b',
-  casino: '#16a34a', rueda: '#0891b2', afro: '#7c3aed', zouk: '#0891b2', son: '#16a34a',
+  salsa: WD.red600, bachata: WD.purple500, kizomba: WD.pink500, timba: WD.amber500,
+  casino: WD.green600, rueda: WD.cyan600, afro: WD.violet600, zouk: WD.cyan600, son: WD.green600,
 }
-const accent = (s: string) => styleColor[String(s).toLowerCase()] || '#9a5614'
+const accent = (s: string) => styleColor[String(s).toLowerCase()] || WD.amber600
 
 const todayIso = new Date().toISOString().slice(0, 10)
 
@@ -51,8 +52,8 @@ const groups = computed(() => {
     <div v-for="g in groups" :key="g.date" class="space-y-2">
       <!-- Day header -->
       <div class="flex items-baseline gap-2 pt-1">
-        <h4 class="text-lg font-black leading-none" style="font-family:'Playfair Display', serif;" :style="{ color: g.isToday ? '#dc2626' : '#3b1f0d' }">{{ g.label }}</h4>
-        <span v-if="g.isToday" class="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full" style="background:#dc262618; color:#dc2626; font-family: system-ui, sans-serif;">Tonight</span>
+        <h4 class="text-lg font-black leading-none" style="font-family:var(--wd-font-display);" :style="{ color: g.isToday ? WD.red600 : WD.brown900 }">{{ g.label }}</h4>
+        <span v-if="g.isToday" class="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full" style="background:color-mix(in srgb, var(--wd-red-600) 9.4%, transparent); color:var(--wd-red-600); font-family:var(--wd-font-sans);">Tonight</span>
       </div>
 
       <!-- Cards -->
@@ -66,21 +67,21 @@ const groups = computed(() => {
       >
         <!-- Time -->
         <div class="w-14 shrink-0 text-center">
-          <div class="text-base font-black leading-none tabular-nums" :style="{ color: accent(e.styles?.[0] || ''), fontFamily: 'Playfair Display, serif' }">{{ e.startTime || '—' }}</div>
-          <div v-if="e.endTime" class="text-[10px] mt-0.5" style="color:#9a5614; font-family: system-ui, sans-serif;">{{ e.endTime }}</div>
+          <div class="text-base font-black leading-none tabular-nums" :style="{ color: accent(e.styles?.[0] || ''), fontFamily: 'var(--wd-font-display)' }">{{ e.startTime || '—' }}</div>
+          <div v-if="e.endTime" class="text-[10px] mt-0.5" style="color:var(--wd-amber-600); font-family:var(--wd-font-sans);">{{ e.endTime }}</div>
         </div>
 
         <!-- Middle -->
-        <div class="flex-1 min-w-0" style="font-family: system-ui, sans-serif;">
+        <div class="flex-1 min-w-0" style="font-family:var(--wd-font-sans);">
           <div class="flex items-center flex-wrap gap-1.5">
-            <span v-if="e.eventType" class="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded" :style="{ background: (typeColor[e.eventType] || '#5b3a1d') + '18', color: typeColor[e.eventType] || '#5b3a1d' }">{{ e.eventType }}</span>
+            <span v-if="e.eventType" class="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded" :style="{ background: (typeColor[e.eventType] || WD.brown700) + '18', color: typeColor[e.eventType] || WD.brown700 }">{{ e.eventType }}</span>
             <span v-for="st in (e.styles || [])" :key="st" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full" :style="{ background: accent(st) + '18', color: accent(st) }">{{ st }}</span>
-            <span v-if="e.status && e.status !== 'accepted'" class="text-[9px] uppercase tracking-wider font-bold rounded-full px-1.5 py-0.5" style="background:#f59e0b18; color:#b45309;">Proposed</span>
+            <span v-if="e.status && e.status !== 'accepted'" class="text-[9px] uppercase tracking-wider font-bold rounded-full px-1.5 py-0.5" style="background:color-mix(in srgb, var(--wd-amber-500) 9.4%, transparent); color:var(--wd-amber-700);">Proposed</span>
           </div>
-          <h4 class="text-sm sm:text-base font-bold leading-tight mt-1" style="color:#3b1f0d;">{{ e.title || 'Social' }}</h4>
-          <div class="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-xs" style="color:#5b3a1d;">
-            <span v-if="e.location" class="inline-flex items-center gap-1"><MapPin class="w-3 h-3" style="color:#9a5614;" /> {{ e.location }}</span>
-            <span v-if="e.artists?.length" style="color:#9a5614;">with {{ e.artists.join(', ') }}</span>
+          <h4 class="text-sm sm:text-base font-bold leading-tight mt-1" style="color:var(--wd-brown-900);">{{ e.title || 'Social' }}</h4>
+          <div class="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-xs" style="color:var(--wd-brown-700);">
+            <span v-if="e.location" class="inline-flex items-center gap-1"><MapPin class="w-3 h-3" style="color:var(--wd-amber-600);" /> {{ e.location }}</span>
+            <span v-if="e.artists?.length" style="color:var(--wd-amber-600);">with {{ e.artists.join(', ') }}</span>
           </div>
         </div>
 

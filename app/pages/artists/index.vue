@@ -5,6 +5,7 @@
  * Each card links to the unified /@<handle> profile.
  */
 import { ChevronDown, MapPin, Search } from 'lucide-vue-next'
+import { WD } from '~/lib/brand'
 
 definePageMeta({ layout: false })
 
@@ -16,7 +17,7 @@ useHead({
   link: [
     { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
     { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
-    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Caveat:wght@400;700&display=swap' },
+    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&display=swap' },
   ],
 })
 
@@ -66,36 +67,36 @@ const filtered = computed(() => {
   })
 })
 
-const accents = ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b', '#ec4899', '#7c3aed']
+const accents = [WD.red600, WD.cyan600, WD.green600, WD.purple500, WD.amber500, WD.pink500, WD.violet600]
 const NuxtLinkC = resolveComponent('NuxtLink')
 </script>
 
 <template>
-  <div class="min-h-screen" style="background:#fbf5ea; color:#3b1f0d; font-family:'Playfair Display', serif;">
+  <div class="min-h-screen" style="background:var(--wd-cream); color:var(--wd-brown-900); font-family:var(--wd-font-display);">
     <SiteHeader />
 
     <!-- HERO -->
     <section class="max-w-4xl mx-auto px-4 pt-10 pb-6 text-center">
-      <h1 class="text-4xl sm:text-5xl leading-[0.98]" style="color:#3b1f0d;">
-        Who moves <em class="italic" style="color:#dc2626;">the floor.</em>
+      <h1 class="text-4xl sm:text-5xl leading-[0.98]" style="color:var(--wd-brown-900);">
+        Who moves <em class="italic" style="color:var(--wd-red-600);">the floor.</em>
       </h1>
-      <p class="mt-3 text-base leading-relaxed max-w-xl mx-auto" style="color:#5b3a1d;">
+      <p class="mt-3 text-base leading-relaxed max-w-xl mx-auto" style="color:var(--wd-brown-700);">
         Teachers, DJs, and performers — follow them across festivals and cities.
       </p>
     </section>
 
     <!-- TOOLBAR -->
-    <section class="sticky top-0 z-30" style="background:#fbf5ea; border-bottom:1px solid #3b1f0d15;">
+    <section class="sticky top-0 z-30" style="background:var(--wd-cream); border-bottom:1px solid color-mix(in srgb, var(--wd-brown-900) 8.2%, transparent);">
       <div class="max-w-5xl mx-auto px-4 py-2.5">
         <div class="flex flex-wrap items-center gap-3">
           <div class="relative flex-1 min-w-[180px] max-w-xs">
-            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style="color:#9a5614;" />
+            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style="color:var(--wd-amber-600);" />
             <input
               v-model="searchQuery"
               type="text"
               placeholder="Search by name"
               class="w-full h-9 rounded-full pl-9 pr-3 text-sm outline-none transition-all"
-              style="background:white; border:1px solid #3b1f0d33; color:#3b1f0d; font-family: system-ui, sans-serif;"
+              style="background:white; border:1px solid color-mix(in srgb, var(--wd-brown-900) 20%, transparent); color:var(--wd-brown-900); font-family:var(--wd-font-sans);"
             >
           </div>
 
@@ -104,9 +105,9 @@ const NuxtLinkC = resolveComponent('NuxtLink')
               v-model="selectedCity"
               class="h-9 pl-3 pr-8 rounded-full text-xs font-bold appearance-none cursor-pointer outline-none"
               :style="selectedCity
-                ? { background: '#3b1f0d', color: '#fbf5ea' }
-                : { background: 'white', color: '#5b3a1d', border: '1px solid #3b1f0d33' }"
-              style="font-family: system-ui, sans-serif;"
+                ? { background: 'var(--wd-brown-900)', color: 'var(--wd-cream)' }
+                : { background: 'white', color: 'var(--wd-brown-700)', border: '1px solid color-mix(in srgb, var(--wd-brown-900) 20%, transparent)' }"
+              style="font-family:var(--wd-font-sans);"
             >
               <option value="">
                 All cities
@@ -115,7 +116,7 @@ const NuxtLinkC = resolveComponent('NuxtLink')
                 {{ city }}
               </option>
             </select>
-            <ChevronDown class="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none" :style="{ color: selectedCity ? '#fbf5ea' : '#5b3a1d' }" />
+            <ChevronDown class="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none" :style="{ color: selectedCity ? WD.cream : WD.brown700 }" />
           </div>
 
           <div v-if="allStyles.length" class="relative">
@@ -124,8 +125,8 @@ const NuxtLinkC = resolveComponent('NuxtLink')
               class="h-9 pl-3 pr-8 rounded-full text-xs font-bold appearance-none cursor-pointer outline-none"
               :style="selectedStyle
                 ? { background: accents[allStyles.indexOf(selectedStyle) % accents.length], color: 'white' }
-                : { background: 'white', color: '#5b3a1d', border: '1px solid #3b1f0d33' }"
-              style="font-family: system-ui, sans-serif;"
+                : { background: 'white', color: 'var(--wd-brown-700)', border: '1px solid color-mix(in srgb, var(--wd-brown-900) 20%, transparent)' }"
+              style="font-family:var(--wd-font-sans);"
             >
               <option value="">
                 All styles
@@ -134,10 +135,10 @@ const NuxtLinkC = resolveComponent('NuxtLink')
                 {{ style }}
               </option>
             </select>
-            <ChevronDown class="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none" :style="{ color: selectedStyle ? 'white' : '#5b3a1d' }" />
+            <ChevronDown class="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none" :style="{ color: selectedStyle ? 'white' : WD.brown700 }" />
           </div>
 
-          <span class="text-xs ml-auto whitespace-nowrap" style="color:#9a5614; font-family:'Caveat', cursive; font-size:16px;">
+          <span class="text-xs ml-auto whitespace-nowrap" style="color:var(--wd-amber-600); font-family:var(--wd-font-display);font-style:italic; font-size:16px;">
             {{ filtered.length }} artist{{ filtered.length === 1 ? '' : 's' }}
           </span>
         </div>
@@ -146,23 +147,23 @@ const NuxtLinkC = resolveComponent('NuxtLink')
 
     <!-- GRID -->
     <section class="max-w-5xl mx-auto px-4 pt-4 pb-16">
-      <div v-if="loading" class="text-center py-14" style="color:#9a5614; font-family: system-ui, sans-serif;">
+      <div v-if="loading" class="text-center py-14" style="color:var(--wd-amber-600); font-family:var(--wd-font-sans);">
         Loading artists…
       </div>
 
       <div
         v-else-if="!filtered.length"
         class="text-center py-14 rounded-2xl border-2 border-dashed"
-        style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);"
+        style="border-color:color-mix(in srgb, var(--wd-brown-900) 20%, transparent); background:rgba(255,255,255,0.5);"
       >
-        <Search class="w-8 h-8 mx-auto mb-3" style="color:#9a5614;" />
-        <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+        <Search class="w-8 h-8 mx-auto mb-3" style="color:var(--wd-amber-600);" />
+        <p class="text-sm" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
           <template v-if="selectedCity && searchQuery">No artists in {{ selectedCity }} match "{{ searchQuery }}"</template>
           <template v-else-if="selectedCity">No artists listed in {{ selectedCity }} yet</template>
           <template v-else-if="searchQuery">Nothing matches "{{ searchQuery }}"</template>
           <template v-else>No artists yet.</template>
         </p>
-        <button v-if="searchQuery || selectedCity || selectedStyle" type="button" class="text-xs font-bold mt-2 underline" style="color:#dc2626; font-family: system-ui, sans-serif;" @click="searchQuery = ''; selectedCity = ''; selectedStyle = ''">
+        <button v-if="searchQuery || selectedCity || selectedStyle" type="button" class="text-xs font-bold mt-2 underline" style="color:var(--wd-red-600); font-family:var(--wd-font-sans);" @click="searchQuery = ''; selectedCity = ''; selectedStyle = ''">
           Clear filters
         </button>
       </div>
@@ -205,10 +206,10 @@ const NuxtLinkC = resolveComponent('NuxtLink')
             class="absolute inset-x-0 bottom-0 p-3 pt-10 z-10"
             style="background: linear-gradient(to top, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.3) 60%, transparent 100%);"
           >
-            <h3 class="text-base font-bold leading-tight truncate text-white" style="font-family:'Playfair Display', serif;">
+            <h3 class="text-base font-bold leading-tight truncate text-white" style="font-family:var(--wd-font-display);">
               {{ a.name }}
             </h3>
-            <p v-if="a.city" class="text-xs inline-flex items-center gap-1 mt-0.5 text-white/80" style="font-family: system-ui, sans-serif;">
+            <p v-if="a.city" class="text-xs inline-flex items-center gap-1 mt-0.5 text-white/80" style="font-family:var(--wd-font-sans);">
               <MapPin class="w-3 h-3" /> {{ a.city }}
             </p>
           </div>

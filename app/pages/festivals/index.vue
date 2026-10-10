@@ -18,6 +18,7 @@ import {
   ArrowRight,
 } from 'lucide-vue-next'
 import { daysUntil } from '#shared/utils/festivalDateFormatter'
+import { WD } from '~/lib/brand'
 
 interface FestivalRow {
   slug: string
@@ -44,7 +45,7 @@ useHead({
   link: [
     { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
     { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
-    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Caveat:wght@400;700&display=swap' },
+    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&display=swap' },
   ],
 })
 
@@ -75,7 +76,7 @@ const { data: allFestivals } = await useFetch<FestivalRow[]>('/api/festivals', {
 // Search
 const searchQuery = ref('')
 
-const DEFAULT_ACCENT = '#9a5614'
+const DEFAULT_ACCENT = WD.amber600
 
 function location(f: FestivalRow): string {
   return [f.city, f.country].filter(Boolean).join(', ') || 'TBA'
@@ -112,34 +113,34 @@ const styleChips = ['Salsa', 'Bachata', 'Timba', 'Kizomba', 'Son']
 </script>
 
 <template>
-  <div class="min-h-screen" style="background:#fbf5ea; color:#3b1f0d; font-family:'Playfair Display', serif;">
+  <div class="min-h-screen" style="background:var(--wd-cream); color:var(--wd-brown-900); font-family:var(--wd-font-display);">
     <!-- V3 header — same as / and /organizers -->
     <SiteHeader />
 
     <!-- HERO -->
     <section class="relative">
       <div class="max-w-4xl mx-auto px-4 pt-12 pb-8 text-center">
-        <div class="text-sm tracking-widest uppercase mb-3" style="color:#9a5614;">
+        <div class="text-sm tracking-widest uppercase mb-3" style="color:var(--wd-amber-600);">
           The festival year
         </div>
-        <h1 class="text-5xl sm:text-6xl leading-[0.98]" style="color:#3b1f0d;">
-          Pick your <em class="italic" style="color:#dc2626;">next one.</em>
-          <span style="font-family:'Caveat', cursive; color:#16a34a; font-size:0.9em;"> Plan the year.</span>
+        <h1 class="text-5xl sm:text-6xl leading-[0.98]" style="color:var(--wd-brown-900);">
+          Pick your <em class="italic" style="color:var(--wd-red-600);">next one.</em>
+          <span style="font-family:var(--wd-font-display);font-style:italic; color:var(--wd-green-600); font-size:0.9em;"> Plan the year.</span>
         </h1>
-        <p class="mt-5 text-base sm:text-lg leading-relaxed max-w-xl mx-auto" style="color:#5b3a1d;">
+        <p class="mt-5 text-base sm:text-lg leading-relaxed max-w-xl mx-auto" style="color:var(--wd-brown-700);">
           Every festival mapped. See who is going before you book.
         </p>
 
         <!-- Search + chips -->
         <div class="mt-8 max-w-lg mx-auto">
           <div class="relative">
-            <Search class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4" style="color:#9a5614;" />
+            <Search class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4" style="color:var(--wd-amber-600);" />
             <input
               v-model="searchQuery"
               type="text"
               placeholder="Search by city, style, or festival"
               class="w-full h-12 rounded-full pl-11 pr-4 text-sm outline-none transition-all"
-              style="background:white; border:1px solid #3b1f0d33; color:#3b1f0d; font-family: system-ui, sans-serif; box-shadow: 0 1px 0 #3b1f0d0a, 0 6px 16px rgba(59, 31, 18, 0.04);"
+              style="background:white; border:1px solid color-mix(in srgb, var(--wd-brown-900) 20%, transparent); color:var(--wd-brown-900); font-family:var(--wd-font-sans); box-shadow: 0 1px 0 color-mix(in srgb, var(--wd-brown-900) 3.9%, transparent), 0 6px 16px rgba(59, 31, 18, 0.04);"
             >
           </div>
           <StyleFilter :styles="styleChips" v-model="searchQuery" class="mt-4" />
@@ -148,17 +149,17 @@ const styleChips = ['Salsa', 'Bachata', 'Timba', 'Kizomba', 'Son']
 
       <!-- Wave divider -->
       <svg class="block w-full h-10" viewBox="0 0 1440 60" preserveAspectRatio="none">
-        <path d="M0,40 Q360,0 720,30 T1440,20 V60 H0 Z" fill="#3b1f0d" opacity="0.08"/>
+        <path d="M0,40 Q360,0 720,30 T1440,20 V60 H0 Z" :fill="WD.brown900" opacity="0.08"/>
       </svg>
     </section>
 
     <!-- Festival grid -->
     <section class="max-w-4xl mx-auto px-4 pb-12">
       <div class="flex items-baseline justify-between mb-6">
-        <h2 class="text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+        <h2 class="text-2xl leading-tight" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">
           {{ searchQuery ? 'Results' : 'Upcoming festivals' }}
         </h2>
-        <span class="text-xs" style="color:#9a5614; font-family:'Caveat', cursive; font-size:18px;">
+        <span class="text-xs" style="color:var(--wd-amber-600); font-family:var(--wd-font-display);font-style:italic; font-size:18px;">
           — {{ filteredFestivals.length }} event{{ filteredFestivals.length === 1 ? '' : 's' }}
         </span>
       </div>
@@ -166,14 +167,14 @@ const styleChips = ['Salsa', 'Bachata', 'Timba', 'Kizomba', 'Son']
       <div
         v-if="!filteredFestivals.length"
         class="text-center py-14 rounded-2xl border-2 border-dashed"
-        style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);"
+        style="border-color:color-mix(in srgb, var(--wd-brown-900) 20%, transparent); background:rgba(255,255,255,0.5);"
       >
-        <Search class="w-8 h-8 mx-auto mb-3" style="color:#9a5614;" />
-        <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Nothing matches "{{ searchQuery }}"</p>
+        <Search class="w-8 h-8 mx-auto mb-3" style="color:var(--wd-amber-600);" />
+        <p class="text-sm" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">Nothing matches "{{ searchQuery }}"</p>
         <button
           type="button"
           class="text-xs font-bold mt-2 underline"
-          style="color:#dc2626; font-family: system-ui, sans-serif;"
+          style="color:var(--wd-red-600); font-family:var(--wd-font-sans);"
           @click="searchQuery = ''"
         >
           Clear search
@@ -210,26 +211,26 @@ const styleChips = ['Salsa', 'Bachata', 'Timba', 'Kizomba', 'Son']
 
               <div class="flex-1 min-w-0">
                 <div class="flex items-start justify-between gap-2">
-                  <h3 class="font-bold text-lg leading-tight" style="color:#3b1f0d;">
+                  <h3 class="font-bold text-lg leading-tight" style="color:var(--wd-brown-900);">
                     {{ f.name }}
                   </h3>
                   <span
                     v-if="f.startDate"
                     class="text-[10px] uppercase tracking-widest font-bold shrink-0 mt-1"
-                    style="font-family:'Caveat', cursive; font-size:15px; text-transform:none; letter-spacing:normal;"
+                    style="font-family:var(--wd-font-display);font-style:italic; font-size:15px; text-transform:none; letter-spacing:normal;"
                     :style="{ color: accent(f) }"
                   >
                     {{ daysUntil(f.startDate) }}
                   </span>
                 </div>
 
-                <div class="flex items-center gap-4 mt-1 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+                <div class="flex items-center gap-4 mt-1 text-xs" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
                   <span v-if="f.startDate && f.endDate" class="flex items-center gap-1">
-                    <Calendar class="w-3 h-3" style="color:#9a5614;" />
+                    <Calendar class="w-3 h-3" style="color:var(--wd-amber-600);" />
                     {{ formatDateRange(f.startDate, f.endDate) }}
                   </span>
                   <span class="flex items-center gap-1">
-                    <MapPin class="w-3 h-3" style="color:#9a5614;" />
+                    <MapPin class="w-3 h-3" style="color:var(--wd-amber-600);" />
                     {{ location(f) }}
                   </span>
                 </div>
@@ -247,16 +248,16 @@ const styleChips = ['Salsa', 'Bachata', 'Timba', 'Kizomba', 'Son']
                   <span
                     v-if="f.styles.length > 4"
                     class="px-2 py-0.5 rounded-full text-[10px]"
-                    style="color:#9a5614;"
+                    style="color:var(--wd-amber-600);"
                   >
                     +{{ f.styles.length - 4 }}
                   </span>
                 </div>
 
                 <!-- Stats row -->
-                <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-xs" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
                   <span v-if="f.signupCount" class="flex items-center gap-1">
-                    <Users class="w-3 h-3" style="color:#9a5614;" />
+                    <Users class="w-3 h-3" style="color:var(--wd-amber-600);" />
                     {{ f.signupCount }} planning
                   </span>
                   <button
@@ -281,19 +282,19 @@ const styleChips = ['Salsa', 'Bachata', 'Timba', 'Kizomba', 'Son']
     <section class="max-w-4xl mx-auto px-4 py-10">
       <div
         class="rounded-2xl p-5 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
-        style="background:white; border:1px solid #0891b255; box-shadow: 0 1px 0 #0891b222, 0 8px 22px rgba(59,31,18,0.05);"
+        style="background:white; border:1px solid color-mix(in srgb, var(--wd-cyan-600) 33.3%, transparent); box-shadow: 0 1px 0 color-mix(in srgb, var(--wd-cyan-600) 13.3%, transparent), 0 8px 22px rgba(59,31,18,0.05);"
       >
         <div>
-          <div class="text-[10px] uppercase tracking-[0.3em] font-bold mb-1" style="color:#0891b2;">For organizers</div>
-          <h3 class="text-lg font-bold" style="color:#3b1f0d;">Organize a dance festival?</h3>
-          <p class="text-sm mt-1" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+          <div class="text-[10px] uppercase tracking-[0.3em] font-bold mb-1" style="color:var(--wd-cyan-600);">For organizers</div>
+          <h3 class="text-lg font-bold" style="color:var(--wd-brown-900);">Organize a dance festival?</h3>
+          <p class="text-sm mt-1" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
             List your event for free. Ticket it on us.
           </p>
         </div>
         <button
           type="button"
           class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-white text-sm font-bold uppercase tracking-wider shrink-0"
-          style="background:#0891b2; box-shadow: 0 3px 0 -1px #0e7490;"
+          style="background:var(--wd-cyan-600); box-shadow: 0 3px 0 -1px var(--wd-cyan-700);"
           @click="router.push('/organizers/create')"
         >
           Start listing <ArrowRight class="w-4 h-4" />
@@ -319,14 +320,14 @@ const styleChips = ['Salsa', 'Bachata', 'Timba', 'Kizomba', 'Son']
           v-if="yearCount > 0"
           to="/my-plan"
           class="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 pl-3 pr-4 py-2.5 rounded-full text-white text-sm font-bold shadow-lg hover:shadow-xl transition-all"
-          style="background:#dc2626; box-shadow: 0 6px 20px rgba(0,0,0,0.18), 0 3px 0 -1px rgba(0,0,0,0.15);"
+          style="background:var(--wd-red-600); box-shadow: 0 6px 20px rgba(0,0,0,0.18), 0 3px 0 -1px rgba(0,0,0,0.15);"
         >
           <span
             class="inline-flex items-center justify-center w-6 h-6 rounded-full text-[11px] font-black bg-white"
-            style="color:#dc2626;"
+            style="color:var(--wd-red-600);"
           >{{ yearCount }}</span>
-          <span style="font-family:'Playfair Display', serif; letter-spacing:0.01em;">in your year</span>
-          <span style="font-family:'Caveat', cursive; font-size:16px; opacity:0.85;">— see dashboard</span>
+          <span style="font-family:var(--wd-font-display); letter-spacing:0.01em;">in your year</span>
+          <span style="font-family:var(--wd-font-display);font-style:italic; font-size:16px; opacity:0.85;">— see dashboard</span>
           <ArrowRight class="w-4 h-4" />
         </NuxtLink>
       </Transition>

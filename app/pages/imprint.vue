@@ -11,7 +11,7 @@ useHead({
   link: [
     { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
     { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
-    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Caveat:wght@400;700&display=swap' },
+    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&display=swap' },
   ],
 })
 
@@ -30,19 +30,19 @@ const rows = [
 </script>
 
 <template>
-  <div class="min-h-screen" style="background:#fbf5ea; color:#3b1f0d; font-family:'Playfair Display', serif;">
+  <div class="min-h-screen" style="background:var(--wd-cream); color:var(--wd-brown-900); font-family:var(--wd-font-display);">
     <SiteHeader />
     <section class="max-w-3xl mx-auto px-4 py-12">
-      <div class="text-sm tracking-widest uppercase mb-3" style="color:#9a5614;">Legal</div>
-      <h1 class="text-4xl sm:text-5xl leading-tight" style="color:#3b1f0d;">Imprint</h1>
+      <div class="text-sm tracking-widest uppercase mb-3" style="color:var(--wd-amber-600);">Legal</div>
+      <h1 class="text-4xl sm:text-5xl leading-tight" style="color:var(--wd-brown-900);">Imprint</h1>
 
-      <div class="mt-6 rounded-xl p-4 text-sm" style="background:#dc262610; border:1px solid #dc262633; color:#5b3a1d; font-family: system-ui, sans-serif;">
+      <div class="mt-6 rounded-xl p-4 text-sm" style="background:color-mix(in srgb, var(--wd-red-600) 6.3%, transparent); border:1px solid color-mix(in srgb, var(--wd-red-600) 20%, transparent); color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
         ⚠️ Draft. Replace the placeholders below with the real operator details before launch — an incomplete imprint is an Abmahnung risk under §5 DDG.
       </div>
 
-      <dl class="mt-6 grid sm:grid-cols-[200px_1fr] gap-x-6 gap-y-3 text-sm" style="color:#3b1f0d; font-family: system-ui, sans-serif;">
+      <dl class="mt-6 grid sm:grid-cols-[200px_1fr] gap-x-6 gap-y-3 text-sm" style="color:var(--wd-brown-900); font-family:var(--wd-font-sans);">
         <template v-for="[k, v] in rows" :key="k">
-          <dt class="font-bold" style="color:#9a5614;">{{ k }}</dt>
+          <dt class="font-bold" style="color:var(--wd-amber-600);">{{ k }}</dt>
           <dd>{{ v }}</dd>
         </template>
       </dl>

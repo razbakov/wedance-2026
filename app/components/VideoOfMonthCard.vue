@@ -10,6 +10,7 @@
  */
 import { Play, Trophy } from 'lucide-vue-next'
 import { parseVideoUrl } from '~/lib/videoEmbed'
+import { WD } from '~/lib/brand'
 
 const props = defineProps<{
   citySlug: string
@@ -30,7 +31,7 @@ interface Winner {
 
 const winner = ref<Winner | null>(null)
 const loading = ref(true)
-const accent = computed(() => props.accent ?? '#dc2626')
+const accent = computed(() => props.accent ?? WD.red600)
 
 const thumb = computed(() => {
   if (!winner.value) return null
@@ -56,7 +57,7 @@ onMounted(load)
     <div
       v-if="loading"
       class="aspect-video w-full rounded-xl animate-pulse"
-      style="background:#3b1f0d0d;"
+      style="background:color-mix(in srgb, var(--wd-brown-900) 5.1%, transparent);"
     />
 
     <!-- Button (not <a>) so this can nest inside a parent NuxtLink card without
@@ -65,7 +66,7 @@ onMounted(load)
       v-else-if="winner"
       type="button"
       class="group/vom relative block aspect-video w-full overflow-hidden rounded-xl text-left"
-      :style="{ background: '#3b1f0d', boxShadow: '0 1px 0 ' + accent + '22' }"
+      :style="{ background: 'var(--wd-brown-900)', boxShadow: '0 1px 0 ' + accent + '22' }"
       @click.stop.prevent="() => window.open(winner!.videoUrl, '_blank', 'noopener')"
     >
       <img
@@ -94,10 +95,10 @@ onMounted(load)
 
       <!-- Title -->
       <div class="absolute inset-x-0 bottom-0 p-2.5">
-        <p class="truncate text-sm font-bold text-white" style="font-family:'Playfair Display', serif;">
+        <p class="truncate text-sm font-bold text-white" style="font-family:var(--wd-font-display);">
           {{ winner.title }}
         </p>
-        <p v-if="winner.danceStyle" class="text-[11px] text-white/80" style="font-family: system-ui, sans-serif;">
+        <p v-if="winner.danceStyle" class="text-[11px] text-white/80" style="font-family:var(--wd-font-sans);">
           {{ winner.danceStyle }}
         </p>
       </div>
@@ -108,13 +109,13 @@ onMounted(load)
     <div
       v-else
       class="flex aspect-video w-full flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed text-center"
-      style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);"
+      style="border-color:color-mix(in srgb, var(--wd-brown-900) 20%, transparent); background:rgba(255,255,255,0.5);"
     >
-      <Trophy class="h-5 w-5" style="color:#9a5614;" />
-      <p class="text-xs font-bold" :style="{ color: accent, fontFamily: 'system-ui, sans-serif' }">
+      <Trophy class="h-5 w-5" style="color:var(--wd-amber-600);" />
+      <p class="text-xs font-bold" :style="{ color: accent, fontFamily: 'var(--wd-font-sans)' }">
         Be the first to enter
       </p>
-      <p class="text-[11px]" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+      <p class="text-[11px]" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
         No Video of the Month yet
       </p>
     </div>

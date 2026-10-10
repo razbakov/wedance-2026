@@ -6,6 +6,7 @@
  */
 import { Gift, ExternalLink, CheckCircle2 } from 'lucide-vue-next'
 import { GiveawayEntrySchema } from '#shared/validation'
+import { WD } from '~/lib/brand'
 
 interface Giveaway {
   id: string
@@ -26,7 +27,7 @@ const props = defineProps<{
 }>()
 
 const { $trpc } = useNuxtApp()
-const accent = computed(() => props.accent ?? '#16a34a')
+const accent = computed(() => props.accent ?? WD.green600)
 
 const email = ref('')
 const entering = ref(false)
@@ -86,13 +87,13 @@ const endsLabel = computed(() => {
           <div class="text-[10px] uppercase tracking-[0.3em] font-bold" :style="{ color: accent }">
             Giveaway · {{ giveaway.sponsorName }}
           </div>
-          <h3 class="mt-1 text-lg font-bold leading-tight" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+          <h3 class="mt-1 text-lg font-bold leading-tight" style="color:var(--wd-brown-900); font-family:var(--wd-font-display);">
             {{ giveaway.title }}
           </h3>
-          <p class="mt-1 text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+          <p class="mt-1 text-sm" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
             {{ giveaway.description }}
           </p>
-          <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+          <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
             <span class="inline-flex items-center gap-1 font-bold" :style="{ color: accent }">
               <Gift class="h-3 w-3" /> {{ giveaway.prizeDescription }}
             </span>
@@ -105,7 +106,7 @@ const endsLabel = computed(() => {
       <div class="mt-4">
         <div v-if="entered" class="flex items-center gap-2 rounded-lg p-3" :style="{ background: accent + '14' }">
           <CheckCircle2 class="h-5 w-5 shrink-0" :style="{ color: accent }" />
-          <p class="text-sm font-medium" style="color:#3b1f0d; font-family: system-ui, sans-serif;">
+          <p class="text-sm font-medium" style="color:var(--wd-brown-900); font-family:var(--wd-font-sans);">
             {{ already ? "You're already entered — good luck!" : "You're in! We'll email the winner." }}
           </p>
         </div>
@@ -116,7 +117,7 @@ const endsLabel = computed(() => {
             type="email"
             placeholder="Your email"
             class="min-w-0 flex-1 rounded-full border px-4 py-2.5 text-sm outline-none"
-            style="border-color:#3b1f0d33; font-family: system-ui, sans-serif; color:#3b1f0d;"
+            style="border-color:color-mix(in srgb, var(--wd-brown-900) 20%, transparent); font-family:var(--wd-font-sans); color:var(--wd-brown-900);"
             v-bind="fieldAttrs('email', `giveaway-${giveaway.id}-email-error`)"
           >
           <button
@@ -129,11 +130,11 @@ const endsLabel = computed(() => {
           </button>
         </form>
         <FieldError :id="`giveaway-${giveaway.id}-email-error`" :message="errors.email" />
-        <p v-if="error" class="mt-1 text-xs" style="color:#dc2626; font-family: system-ui, sans-serif;">
+        <p v-if="error" class="mt-1 text-xs" style="color:var(--wd-red-600); font-family:var(--wd-font-sans);">
           {{ error }}
         </p>
 
-        <div class="mt-2 flex items-center justify-between text-[11px]" style="color:#9a5614; font-family: system-ui, sans-serif;">
+        <div class="mt-2 flex items-center justify-between text-[11px]" style="color:var(--wd-amber-600); font-family:var(--wd-font-sans);">
           <a :href="giveaway.ctaUrl" class="inline-flex items-center gap-1 hover:underline">
             <ExternalLink class="h-3 w-3" /> About {{ giveaway.sponsorName }}
           </a>
@@ -141,7 +142,7 @@ const endsLabel = computed(() => {
             Terms &amp; conditions
           </a>
         </div>
-        <p class="mt-1 text-[10px]" style="color:#9a5614; font-family: system-ui, sans-serif;">
+        <p class="mt-1 text-[10px]" style="color:var(--wd-amber-600); font-family:var(--wd-font-sans);">
           Free entry. No purchase necessary.
         </p>
       </div>

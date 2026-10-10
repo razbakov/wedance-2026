@@ -65,13 +65,13 @@ function fmtDate(d: any) {
 </script>
 
 <template>
-  <section class="mt-10" style="font-family: system-ui, sans-serif;">
+  <section class="mt-10" style="font-family:var(--wd-font-sans);">
     <div class="flex items-center justify-between">
-      <h3 class="text-2xl" style="font-family:'Playfair Display', serif; color:#3b1f0d;">Reviews</h3>
+      <h3 class="text-2xl" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">Reviews</h3>
       <div v-if="data.count" class="flex items-center gap-1.5">
-        <Star class="w-4 h-4" style="color:#f59e0b; fill:#f59e0b;" />
-        <span class="font-bold" style="color:#3b1f0d;">{{ data.average.toFixed(1) }}</span>
-        <span class="text-xs" style="color:#9a5614;">· {{ data.count }} review{{ data.count === 1 ? '' : 's' }}</span>
+        <Star class="w-4 h-4" style="color:var(--wd-amber-500); fill:var(--wd-amber-500);" />
+        <span class="font-bold" style="color:var(--wd-brown-900);">{{ data.average.toFixed(1) }}</span>
+        <span class="text-xs" style="color:var(--wd-amber-600);">· {{ data.count }} review{{ data.count === 1 ? '' : 's' }}</span>
       </div>
     </div>
 
@@ -81,44 +81,44 @@ function fmtDate(d: any) {
         v-if="!showForm"
         type="button"
         class="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wider"
-        style="background:#dc262614; color:#dc2626;"
+        style="background:color-mix(in srgb, var(--wd-red-600) 7.8%, transparent); color:var(--wd-red-600);"
         @click="showForm = true"
       >Write a review</button>
 
-      <div v-else class="rounded-2xl border p-4 mt-1" style="border-color:#dc262633; background:white;">
+      <div v-else class="rounded-2xl border p-4 mt-1" style="border-color:color-mix(in srgb, var(--wd-red-600) 20%, transparent); background:white;">
         <div class="flex items-center gap-1 mb-3" role="group" aria-label="Rating" v-bind="fieldAttrs('rating', `${uid}-rating-error`)">
           <button v-for="n in 5" :key="n" type="button" @click="form.rating = n" :aria-label="`${n} stars`">
-            <Star class="w-6 h-6" :style="n <= form.rating ? 'color:#f59e0b; fill:#f59e0b;' : 'color:#3b1f0d33;'" />
+            <Star class="w-6 h-6" :style="n <= form.rating ? 'color:var(--wd-amber-500); fill:var(--wd-amber-500);' : 'color:color-mix(in srgb, var(--wd-brown-900) 20%, transparent);'" />
           </button>
         </div>
         <FieldError :id="`${uid}-rating-error`" :message="errors.rating" class="-mt-2 mb-2" />
-        <textarea v-model="form.text" rows="3" maxlength="1000" placeholder="What was it like?" class="w-full rounded-xl px-3 py-2 text-sm outline-none resize-none" style="background:#fbf5ea; border:1px solid #3b1f0d33; color:#3b1f0d;" v-bind="fieldAttrs('text', `${uid}-text-error`)" />
+        <textarea v-model="form.text" rows="3" maxlength="1000" placeholder="What was it like?" class="w-full rounded-xl px-3 py-2 text-sm outline-none resize-none" style="background:var(--wd-cream); border:1px solid color-mix(in srgb, var(--wd-brown-900) 20%, transparent); color:var(--wd-brown-900);" v-bind="fieldAttrs('text', `${uid}-text-error`)" />
         <FieldError :id="`${uid}-text-error`" :message="errors.text" />
-        <p v-if="err" class="text-sm font-bold mt-2" style="color:#dc2626;">{{ err }}</p>
+        <p v-if="err" class="text-sm font-bold mt-2" style="color:var(--wd-red-600);">{{ err }}</p>
         <div class="flex gap-2 mt-3">
-          <button type="button" :disabled="submitting" class="rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wider text-white disabled:opacity-60" style="background:linear-gradient(135deg,#dc2626,#f97316);" @click="submit">{{ submitting ? 'Posting…' : 'Post review' }}</button>
-          <button type="button" class="rounded-full px-4 py-2 text-xs font-bold" style="color:#9a5614;" @click="showForm = false; resetValidation()">Cancel</button>
+          <button type="button" :disabled="submitting" class="rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wider text-white disabled:opacity-60" style="background:linear-gradient(135deg,var(--wd-red-600),var(--wd-orange-500));" @click="submit">{{ submitting ? 'Posting…' : 'Post review' }}</button>
+          <button type="button" class="rounded-full px-4 py-2 text-xs font-bold" style="color:var(--wd-amber-600);" @click="showForm = false; resetValidation()">Cancel</button>
         </div>
       </div>
     </div>
 
     <!-- List -->
-    <div v-if="loading" class="mt-4 text-sm" style="color:#9a5614;">Loading reviews…</div>
-    <p v-else-if="!data.count" class="mt-4 text-sm italic" style="color:#9a5614;">No reviews yet. Be the first.</p>
+    <div v-if="loading" class="mt-4 text-sm" style="color:var(--wd-amber-600);">Loading reviews…</div>
+    <p v-else-if="!data.count" class="mt-4 text-sm italic" style="color:var(--wd-amber-600);">No reviews yet. Be the first.</p>
     <ul v-else class="mt-5 space-y-4">
-      <li v-for="r in data.reviews" :key="r.id" class="rounded-2xl border p-4" style="border-color:#3b1f0d1a; background:white;">
+      <li v-for="r in data.reviews" :key="r.id" class="rounded-2xl border p-4" style="border-color:color-mix(in srgb, var(--wd-brown-900) 10.2%, transparent); background:white;">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
-            <NuxtLink v-if="r.reviewerUsername" :to="`/u/${r.reviewerUsername}`" class="text-sm font-bold hover:underline" style="color:#3b1f0d;">{{ r.reviewerName || 'A dancer' }}</NuxtLink>
-            <span v-else class="text-sm font-bold" style="color:#3b1f0d;">{{ r.reviewerName || 'A dancer' }}</span>
-            <span v-if="r.source === 'recommendation'" class="text-[9px] uppercase tracking-wider font-bold rounded-full px-1.5 py-0.5" style="background:#16a34a18; color:#16a34a;">Recommended</span>
+            <NuxtLink v-if="r.reviewerUsername" :to="`/u/${r.reviewerUsername}`" class="text-sm font-bold hover:underline" style="color:var(--wd-brown-900);">{{ r.reviewerName || 'A dancer' }}</NuxtLink>
+            <span v-else class="text-sm font-bold" style="color:var(--wd-brown-900);">{{ r.reviewerName || 'A dancer' }}</span>
+            <span v-if="r.source === 'recommendation'" class="text-[9px] uppercase tracking-wider font-bold rounded-full px-1.5 py-0.5" style="background:color-mix(in srgb, var(--wd-green-600) 9.4%, transparent); color:var(--wd-green-600);">Recommended</span>
           </div>
           <div class="flex items-center gap-0.5">
-            <Star v-for="n in 5" :key="n" class="w-3.5 h-3.5" :style="n <= r.rating ? 'color:#f59e0b; fill:#f59e0b;' : 'color:#3b1f0d22;'" />
+            <Star v-for="n in 5" :key="n" class="w-3.5 h-3.5" :style="n <= r.rating ? 'color:var(--wd-amber-500); fill:var(--wd-amber-500);' : 'color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);'" />
           </div>
         </div>
-        <p v-if="r.text" class="mt-2 text-sm leading-relaxed" style="color:#5b3a1d;">{{ r.text }}</p>
-        <div class="mt-1 text-[10px]" style="color:#9a5614;">{{ fmtDate(r.createdAt) }}</div>
+        <p v-if="r.text" class="mt-2 text-sm leading-relaxed" style="color:var(--wd-brown-700);">{{ r.text }}</p>
+        <div class="mt-1 text-[10px]" style="color:var(--wd-amber-600);">{{ fmtDate(r.createdAt) }}</div>
       </li>
     </ul>
   </section>

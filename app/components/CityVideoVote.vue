@@ -10,6 +10,7 @@
  */
 import { Play, Check } from 'lucide-vue-next'
 import { parseVideoUrl } from '~/lib/videoEmbed'
+import { WD } from '~/lib/brand'
 
 const props = defineProps<{
   citySlug: string
@@ -21,7 +22,7 @@ const props = defineProps<{
 }>()
 
 const { $trpc } = useNuxtApp()
-const accent = computed(() => props.accent ?? '#dc2626')
+const accent = computed(() => props.accent ?? WD.red600)
 
 interface Vid {
   id: string
@@ -102,7 +103,7 @@ onMounted(loadPair)
   <div v-if="!(compact && collapsed)">
     <!-- Compact header: one-line label. -->
     <div v-if="compact" class="mb-3">
-      <p class="text-sm sm:text-base" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+      <p class="text-sm sm:text-base" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">
         Which is better? <em class="italic" :style="{ color: accent }">Vote the daily matchup.</em>
       </p>
     </div>
@@ -110,15 +111,15 @@ onMounted(loadPair)
     <!-- Full header -->
     <div v-else class="mb-4 flex items-baseline justify-between gap-3">
       <div>
-        <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">Video of the day</div>
-        <h3 class="mt-1 text-xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+        <div class="text-xs uppercase tracking-[0.3em]" style="color:var(--wd-amber-600);">Video of the day</div>
+        <h3 class="mt-1 text-xl leading-tight" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">
           Which one <em class="italic" :style="{ color: accent }">wins?</em>
         </h3>
       </div>
       <div
         v-if="votesCast > 0"
         class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold"
-        :style="{ background: accent + '18', color: accent, fontFamily: 'system-ui, sans-serif' }"
+        :style="{ background: accent + '18', color: accent, fontFamily: 'var(--wd-font-sans)' }"
       >
         <Check class="h-3 w-3" /> {{ votesCast }} vote{{ votesCast === 1 ? '' : 's' }}
       </div>
@@ -126,7 +127,7 @@ onMounted(loadPair)
 
     <!-- Loading -->
     <div v-if="loading" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-      <div v-for="i in 2" :key="i" class="aspect-video rounded-xl animate-pulse" style="background:#3b1f0d0d;" />
+      <div v-for="i in 2" :key="i" class="aspect-video rounded-xl animate-pulse" style="background:color-mix(in srgb, var(--wd-brown-900) 5.1%, transparent);" />
     </div>
 
     <!-- Voting pair -->
@@ -138,7 +139,7 @@ onMounted(loadPair)
         :style="{ borderColor: accent + '44', boxShadow: '0 1px 0 ' + accent + '18, 0 6px 16px rgba(59,31,18,0.05)' }"
       >
         <!-- Embed if opened, else thumbnail with play -->
-        <div class="relative aspect-video" style="background:#3b1f0d;">
+        <div class="relative aspect-video" style="background:var(--wd-brown-900);">
           <iframe
             v-if="activeEmbed === v.id && embedFor(v).embedUrl"
             :src="embedFor(v).embedUrl!"
@@ -170,10 +171,10 @@ onMounted(loadPair)
         </div>
 
         <div class="p-3">
-          <p class="truncate text-sm font-bold" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+          <p class="truncate text-sm font-bold" style="color:var(--wd-brown-900); font-family:var(--wd-font-display);">
             {{ v.title }}
           </p>
-          <p v-if="v.danceStyle" class="mt-0.5 text-[11px]" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+          <p v-if="v.danceStyle" class="mt-0.5 text-[11px]" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
             {{ v.danceStyle }}
           </p>
           <button
@@ -193,29 +194,29 @@ onMounted(loadPair)
     <div
       v-else
       class="rounded-xl border-2 border-dashed p-6 text-center"
-      style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);"
+      style="border-color:color-mix(in srgb, var(--wd-brown-900) 20%, transparent); background:rgba(255,255,255,0.5);"
     >
       <template v-if="notEnough">
-        <p class="text-sm font-bold" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+        <p class="text-sm font-bold" style="color:var(--wd-brown-900); font-family:var(--wd-font-display);">
           Not enough videos to vote yet
         </p>
-        <p class="mt-1 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+        <p class="mt-1 text-xs" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
           Submit yours below and get the competition started.
         </p>
       </template>
       <template v-else-if="capped">
-        <p class="text-sm font-bold" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+        <p class="text-sm font-bold" style="color:var(--wd-brown-900); font-family:var(--wd-font-display);">
           That's a lot of voting today — thank you!
         </p>
-        <p class="mt-1 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+        <p class="mt-1 text-xs" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
           Come back tomorrow for more.
         </p>
       </template>
       <template v-else>
-        <p class="text-sm font-bold" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+        <p class="text-sm font-bold" style="color:var(--wd-brown-900); font-family:var(--wd-font-display);">
           You've voted on every pairing — nice.
         </p>
-        <p class="mt-1 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+        <p class="mt-1 text-xs" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
           {{ votesCast }} vote{{ votesCast === 1 ? '' : 's' }} counted. Check the leaderboard to see who's winning.
         </p>
       </template>

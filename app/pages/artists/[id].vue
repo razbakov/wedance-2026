@@ -6,6 +6,7 @@
  */
 import { Instagram, Youtube, Globe, Calendar, MapPin, ArrowRight } from 'lucide-vue-next'
 import { findArtist, festivalAppearances, cityAppearances, artistOrigin, artistResidence, artistLanguages, placeFlag } from '~/data/artists'
+import { WD } from '~/lib/brand'
 
 definePageMeta({ layout: false })
 
@@ -31,7 +32,7 @@ useHead({
   link: [
     { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
     { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
-    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Caveat:wght@400;700&display=swap' },
+    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&display=swap' },
   ],
 })
 
@@ -56,7 +57,7 @@ function formatDateRange(start: string, end: string) {
 </script>
 
 <template>
-  <div class="min-h-screen" style="background:#fbf5ea; color:#3b1f0d; font-family:'Playfair Display', serif;">
+  <div class="min-h-screen" style="background:var(--wd-cream); color:var(--wd-brown-900); font-family:var(--wd-font-display);">
     <!-- V3 header -->
     <SiteHeader />
 
@@ -64,7 +65,7 @@ function formatDateRange(start: string, end: string) {
     <section class="relative overflow-hidden">
       <!-- Sun rays -->
       <svg class="absolute -top-16 -right-16 w-64 h-64 opacity-20 pointer-events-none" viewBox="0 0 100 100">
-        <g stroke="#dc2626" stroke-width="1.5" fill="none">
+        <g :stroke="WD.red600" stroke-width="1.5" fill="none">
           <line v-for="i in 24" :key="i" x1="50" y1="50"
             :x2="50 + 48 * Math.cos(2 * Math.PI * i / 24)"
             :y2="50 + 48 * Math.sin(2 * Math.PI * i / 24)" />
@@ -72,7 +73,7 @@ function formatDateRange(start: string, end: string) {
       </svg>
 
       <div class="relative max-w-4xl mx-auto px-4 pt-10 pb-8">
-        <NuxtLink to="/artists" class="text-xs italic hover:underline" style="color:#9a5614; font-family:'Playfair Display', serif;">
+        <NuxtLink to="/artists" class="text-xs italic hover:underline" style="color:var(--wd-amber-600); font-family:var(--wd-font-display);">
           ← all artists
         </NuxtLink>
         <div class="mt-4 flex flex-col sm:flex-row items-start gap-5">
@@ -81,16 +82,16 @@ function formatDateRange(start: string, end: string) {
             :src="artist.photo"
             :alt="artist.name"
             class="w-28 h-28 sm:w-32 sm:h-32 rounded-full object-cover shrink-0 border-4"
-            style="border-color:#fbf5ea; box-shadow: 6px 7px 0 -2px #dc2626;"
+            style="border-color:var(--wd-cream); box-shadow: 6px 7px 0 -2px var(--wd-red-600);"
           >
           <div class="min-w-0 flex-1">
-            <h1 class="text-4xl sm:text-6xl leading-[0.98] tracking-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+            <h1 class="text-4xl sm:text-6xl leading-[0.98] tracking-tight" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">
               {{ artist.name }}
             </h1>
             <div
               v-if="residence || origin"
               class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm italic"
-              style="color:#9a5614; font-family:'Playfair Display', serif;"
+              style="color:var(--wd-amber-600); font-family:var(--wd-font-display);"
             >
               <span v-if="residence" class="inline-flex items-center gap-1.5" :title="'Based in ' + residence">
                 Based in <span class="text-2xl not-italic leading-none">{{ placeFlag(residence) }}</span>
@@ -107,7 +108,7 @@ function formatDateRange(start: string, end: string) {
                   v-for="l in languages"
                   :key="l.code"
                   class="text-[10px] font-bold tracking-wide px-1.5 py-0.5 rounded"
-                  style="background:#dc262614; color:#dc2626; font-family: system-ui, sans-serif;"
+                  style="background:color-mix(in srgb, var(--wd-red-600) 7.8%, transparent); color:var(--wd-red-600); font-family:var(--wd-font-sans);"
                 >{{ l.code }}</span>
               </span>
             </div>
@@ -117,8 +118,8 @@ function formatDateRange(start: string, end: string) {
                 :key="s"
                 class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
                 :style="{
-                  background: ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b'][i % 5] + '18',
-                  color: ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b'][i % 5],
+                  background: [WD.red600, WD.cyan600, WD.green600, WD.purple500, WD.amber500][i % 5] + '18',
+                  color: [WD.red600, WD.cyan600, WD.green600, WD.purple500, WD.amber500][i % 5],
                 }"
               >
                 {{ s }}
@@ -132,7 +133,7 @@ function formatDateRange(start: string, end: string) {
                 target="_blank"
                 rel="noopener noreferrer"
                 class="transition-colors"
-                style="color:#9a5614;"
+                style="color:var(--wd-amber-600);"
                 :title="link.platform"
               >
                 <component :is="platformIcon[link.platform]" v-if="platformIcon[link.platform]" class="w-5 h-5" />
@@ -144,22 +145,22 @@ function formatDateRange(start: string, end: string) {
       </div>
 
       <svg class="block w-full h-10 -mb-px" viewBox="0 0 1440 60" preserveAspectRatio="none">
-        <path d="M0,40 Q360,0 720,30 T1440,20 V60 H0 Z" fill="#3b1f0d" opacity="0.08"/>
+        <path d="M0,40 Q360,0 720,30 T1440,20 V60 H0 Z" :fill="WD.brown900" opacity="0.08"/>
       </svg>
     </section>
 
     <div class="max-w-4xl mx-auto px-4 py-10 space-y-12">
       <!-- BIO -->
       <section v-if="artist.bio">
-        <p class="text-base sm:text-lg leading-relaxed max-w-2xl" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+        <p class="text-base sm:text-lg leading-relaxed max-w-2xl" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
           {{ artist.bio }}
         </p>
       </section>
 
       <!-- VIDEO -->
       <section v-if="artist.videoUrl">
-        <div class="text-xs uppercase tracking-[0.3em] mb-3" style="color:#9a5614;">Watch</div>
-        <div class="aspect-video rounded-2xl overflow-hidden bg-white border" style="border-color:#3b1f0d22;">
+        <div class="text-xs uppercase tracking-[0.3em] mb-3" style="color:var(--wd-amber-600);">Watch</div>
+        <div class="aspect-video rounded-2xl overflow-hidden bg-white border" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);">
           <iframe
             :src="toEmbedUrl(artist.videoUrl)"
             class="w-full h-full"
@@ -172,9 +173,9 @@ function formatDateRange(start: string, end: string) {
 
       <!-- FESTIVAL APPEARANCES -->
       <section v-if="festivals.length">
-        <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">Catch them at</div>
-        <h2 class="mt-2 mb-5 text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
-          <em class="italic" style="color:#dc2626;">Festivals.</em>
+        <div class="text-xs uppercase tracking-[0.3em]" style="color:var(--wd-amber-600);">Catch them at</div>
+        <h2 class="mt-2 mb-5 text-2xl leading-tight" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">
+          <em class="italic" style="color:var(--wd-red-600);">Festivals.</em>
         </h2>
         <div class="grid gap-4">
           <NuxtLink
@@ -201,14 +202,14 @@ function formatDateRange(start: string, end: string) {
                   {{ a.festival.name.charAt(0) }}
                 </div>
                 <div class="flex-1 min-w-0">
-                  <h3 class="font-bold text-lg leading-tight" style="color:#3b1f0d;">{{ a.festival.name }}</h3>
-                  <div class="flex items-center gap-4 mt-1 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+                  <h3 class="font-bold text-lg leading-tight" style="color:var(--wd-brown-900);">{{ a.festival.name }}</h3>
+                  <div class="flex items-center gap-4 mt-1 text-xs" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
                     <span class="inline-flex items-center gap-1">
-                      <Calendar class="w-3 h-3" style="color:#9a5614;" />
+                      <Calendar class="w-3 h-3" style="color:var(--wd-amber-600);" />
                       {{ formatDateRange(a.festival.startDate, a.festival.endDate) }}
                     </span>
                     <span class="inline-flex items-center gap-1">
-                      <MapPin class="w-3 h-3" style="color:#9a5614;" />
+                      <MapPin class="w-3 h-3" style="color:var(--wd-amber-600);" />
                       {{ a.festival.venue.name }}
                     </span>
                   </div>
@@ -218,7 +219,7 @@ function formatDateRange(start: string, end: string) {
                       v-for="w in a.workshops"
                       :key="w.id"
                       class="text-[11px] px-2 py-0.5 rounded-full"
-                      :style="{ background: a.festival.accentColor + '12', color: '#5b3a1d', fontFamily: 'system-ui, sans-serif' }"
+                      :style="{ background: a.festival.accentColor + '12', color: 'var(--wd-brown-700)', fontFamily: 'var(--wd-font-sans)' }"
                     >
                       {{ w.day }} {{ w.time }} · {{ w.title }}
                     </span>
@@ -233,30 +234,30 @@ function formatDateRange(start: string, end: string) {
 
       <!-- CITY / WEEKLY APPEARANCES -->
       <section v-if="cities.length">
-        <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">Every week in</div>
-        <h2 class="mt-2 mb-5 text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
-          <em class="italic" style="color:#dc2626;">Your city.</em>
+        <div class="text-xs uppercase tracking-[0.3em]" style="color:var(--wd-amber-600);">Every week in</div>
+        <h2 class="mt-2 mb-5 text-2xl leading-tight" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">
+          <em class="italic" style="color:var(--wd-red-600);">Your city.</em>
         </h2>
         <div class="grid gap-4">
           <div
             v-for="a in cities"
             :key="a.city.slug"
             class="rounded-2xl bg-white border p-5"
-            style="border-color:#3b1f0d22;"
+            style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);"
           >
             <NuxtLink :to="`/cities/${a.city.slug}`" class="inline-flex items-center gap-2 group">
-              <h3 class="font-bold text-lg leading-tight" style="color:#3b1f0d;">{{ a.city.name }}</h3>
-              <ArrowRight class="w-4 h-4 transition-transform group-hover:translate-x-1" style="color:#dc2626;" />
+              <h3 class="font-bold text-lg leading-tight" style="color:var(--wd-brown-900);">{{ a.city.name }}</h3>
+              <ArrowRight class="w-4 h-4 transition-transform group-hover:translate-x-1" style="color:var(--wd-red-600);" />
             </NuxtLink>
             <div v-if="a.events.length" class="mt-3 grid gap-1.5">
               <div
                 v-for="e in a.events"
                 :key="e.id"
                 class="text-sm flex items-center gap-2"
-                style="color:#5b3a1d; font-family: system-ui, sans-serif;"
+                style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);"
               >
-                <span class="text-[10px] font-black uppercase tracking-widest w-9 shrink-0" style="color:#9a5614;">{{ e.day.slice(0, 3) }}</span>
-                <span class="font-bold" style="color:#3b1f0d;">{{ e.time }}</span>
+                <span class="text-[10px] font-black uppercase tracking-widest w-9 shrink-0" style="color:var(--wd-amber-600);">{{ e.day.slice(0, 3) }}</span>
+                <span class="font-bold" style="color:var(--wd-brown-900);">{{ e.time }}</span>
                 <span class="truncate">{{ e.name }} · {{ e.venue }}</span>
               </div>
             </div>
@@ -266,8 +267,8 @@ function formatDateRange(start: string, end: string) {
 
       <!-- Nothing scheduled -->
       <section v-if="!festivals.length && !cities.length">
-        <div class="rounded-2xl p-6 text-center border-2 border-dashed" style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);">
-          <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+        <div class="rounded-2xl p-6 text-center border-2 border-dashed" style="border-color:color-mix(in srgb, var(--wd-brown-900) 20%, transparent); background:rgba(255,255,255,0.5);">
+          <p class="text-sm" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
             No upcoming appearances listed yet.
           </p>
         </div>

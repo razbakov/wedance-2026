@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { WD } from '~/lib/brand'
 /**
  * /styleguide — internal design-system reference showing palette, type scale,
  * font families, and every `app/components/ui` component in all variants/states.
@@ -11,7 +12,7 @@ useHead({
   link: [
     { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
     { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
-    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Caveat:wght@400;700&family=Permanent+Marker&family=Anton&family=DM+Serif+Display&display=swap' },
+    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&display=swap' },
   ],
 })
 
@@ -40,13 +41,16 @@ const semanticColors = [
 ]
 
 const fonts = [
-  { name: 'Display', class: 'font-display', family: "'Playfair Display', serif", sample: 'Dance festivals, curated for you.' },
-  { name: 'Sans', class: 'font-sans', family: 'system-ui, sans-serif', sample: 'Body text, UI labels, and form elements.' },
-  { name: 'Accent', class: 'font-accent', family: "'Caveat', cursive", sample: 'Handwritten highlights — Made for dancers.' },
-  { name: 'Marker', class: 'font-marker', family: "'Permanent Marker', cursive", sample: 'PLAYFUL EMPHASIS & FLAIR' },
-  { name: 'Impact', class: 'font-impact', family: "'Anton', sans-serif", sample: 'BOLD IMPACT HEADERS' },
-  { name: 'Serif Alt', class: 'font-serif-alt', family: "'DM Serif Display', serif", sample: 'Alternative serif display heading' },
+  { name: 'Display', token: 'font-display', class: 'font-display', family: "'Playfair Display', serif", sample: 'Dance festivals, curated for you.' },
+  { name: 'Display italic', token: 'font-display italic', class: 'font-display italic', family: "'Playfair Display', serif · italic", sample: 'Handwritten-feel highlights — made for dancers.' },
+  { name: 'Sans', token: 'font-sans', class: 'font-sans', family: 'system-ui, sans-serif', sample: 'Body text, UI labels, and form elements.' },
 ]
+
+// Extended palette: every --wd-* primitive that isn't in the core list above.
+const coreVars = new Set(colors.map(c => c.var))
+const extended = Object.entries(WD)
+  .map(([key, hex]) => ({ var: '--wd-' + key.replace(/([A-Z]|\d+)/g, '-$1').toLowerCase(), hex }))
+  .filter(c => !coreVars.has(c.var))
 
 const typeScale = [
   { name: 'Display', class: 'text-5xl font-display font-bold', label: 'text-5xl' },
@@ -96,6 +100,18 @@ const badgeVariants = ['default', 'secondary', 'destructive', 'outline'] as cons
         </div>
       </section>
 
+      <section>
+        <h2 class="text-2xl font-display font-bold mb-2">Extended Palette</h2>
+        <p class="text-sm text-muted-foreground mb-6">Accents and tints used by pages. Same names in CSS (<code>var(--wd-*)</code>, <code>bg-wd-*</code>) and JS (<code>WD.*</code>).</p>
+        <div class="grid grid-cols-3 sm:grid-cols-8 gap-3">
+          <div v-for="c in extended" :key="c.var" class="space-y-1">
+            <div class="w-full aspect-square rounded-lg border border-border" :style="{ background: `var(${c.var})` }" />
+            <div class="text-[10px] font-mono truncate">{{ c.var }}</div>
+            <div class="text-[10px] text-muted-foreground font-mono">{{ c.hex }}</div>
+          </div>
+        </div>
+      </section>
+
       <!-- ─── SEMANTIC TOKENS ─── -->
       <section>
         <h2 class="text-2xl font-display font-bold mb-6">Semantic Tokens</h2>
@@ -129,7 +145,7 @@ const badgeVariants = ['default', 'secondary', 'destructive', 'outline'] as cons
           <div v-for="f in fonts" :key="f.name" class="rounded-xl border border-border bg-card p-5">
             <div class="flex items-baseline gap-3 mb-2">
               <span class="text-[10px] uppercase tracking-[0.3em] font-bold text-secondary">{{ f.name }}</span>
-              <span class="text-xs text-muted-foreground font-mono">font-{{ f.name.toLowerCase() }}</span>
+              <span class="text-xs text-muted-foreground font-mono">{{ f.token }}</span>
             </div>
             <p :class="f.class" class="text-2xl text-foreground">{{ f.sample }}</p>
             <p class="text-xs text-muted-foreground mt-1 font-mono">{{ f.family }}</p>

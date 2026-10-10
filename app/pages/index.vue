@@ -18,6 +18,7 @@
  * v7, v9, v12} + the early baseline at /sketches/landing.
  */
 import { ArrowRight, MapPin, Calendar, Compass, GraduationCap, Users, Plane, Mic, PartyPopper, Ticket } from 'lucide-vue-next'
+import { WD } from '~/lib/brand'
 
 definePageMeta({ layout: false })
 
@@ -26,7 +27,7 @@ useHead({
   link: [
     { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
     { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
-    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Caveat:wght@400;700&display=swap' },
+    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&display=swap' },
   ],
 })
 
@@ -79,10 +80,10 @@ const stages = [
 ]
 
 const attendees = [
-  { n: 'Maxine', c: 'Vienna', col: '#dc2626' },
-  { n: 'Dayron', c: 'Madrid', col: '#0891b2' },
-  { n: 'Sofia',  c: 'Munich', col: '#16a34a' },
-  { n: 'Mark',   c: 'Berlin', col: '#f59e0b' },
+  { n: 'Maxine', c: 'Vienna', col: WD.red600 },
+  { n: 'Dayron', c: 'Madrid', col: WD.cyan600 },
+  { n: 'Sofia',  c: 'Munich', col: WD.green600 },
+  { n: 'Mark',   c: 'Berlin', col: WD.amber500 },
 ]
 </script>
 
@@ -94,9 +95,9 @@ const attendees = [
         radial-gradient(ellipse at 20% 0%, rgba(251, 146, 60, 0.18), transparent 50%),
         radial-gradient(ellipse at 90% 30%, rgba(220, 38, 38, 0.10), transparent 50%),
         radial-gradient(ellipse at 50% 100%, rgba(22, 163, 74, 0.08), transparent 50%),
-        #fbf5ea;
-      color:#3b1f0d;
-      font-family: 'Inter', system-ui, sans-serif;
+        var(--wd-cream);
+      color:var(--wd-brown-900);
+      font-family:var(--wd-font-sans);
     "
   >
     <!-- Subtle paper texture overlay -->
@@ -113,24 +114,24 @@ const attendees = [
       <section class="relative">
         <div class="max-w-6xl mx-auto px-4 pt-14 pb-20 grid md:grid-cols-12 gap-10 items-center">
           <div class="md:col-span-7 text-center md:text-left">
-            <div class="text-sm tracking-widest uppercase mb-3" style="color:#9a5614;">
+            <div class="text-sm tracking-widest uppercase mb-3" style="color:var(--wd-amber-600);">
               Welcome to the dance
             </div>
-            <h1 class="text-5xl sm:text-7xl leading-[0.95]" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+            <h1 class="text-5xl sm:text-7xl leading-[0.95]" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">
               From your<br>
-              first <em class="italic" style="color:#dc2626;">night</em><br>
+              first <em class="italic" style="color:var(--wd-red-600);">night</em><br>
               to your
               <span class="inline-block relative">
-                <span style="color:#dc2626;">best</span>
+                <span style="color:var(--wd-red-600);">best</span>
                 <svg class="absolute left-0 right-0 -bottom-2 w-full h-3" viewBox="0 0 100 10" preserveAspectRatio="none">
-                  <path d="M0,8 Q25,2 50,7 T100,4" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round"/>
+                  <path d="M0,8 Q25,2 50,7 T100,4" fill="none" :stroke="WD.red600" stroke-width="2" stroke-linecap="round"/>
                 </svg>
               </span>
-              <span class="italic" style="font-family:'Caveat', cursive; color:#16a34a;"> year.</span>
+              <span class="italic" style="font-family:var(--wd-font-display);font-style:italic; color:var(--wd-green-600);"> year.</span>
             </h1>
-            <p class="mt-6 text-base sm:text-lg leading-relaxed max-w-md mx-auto md:mx-0" style="color:#5b3a1d;">
+            <p class="mt-6 text-base sm:text-lg leading-relaxed max-w-md mx-auto md:mx-0" style="color:var(--wd-brown-700);">
               Every dance. Every teacher. Every city.
-              <span style="color:#3b1f0d;">Every face — real.</span>
+              <span style="color:var(--wd-brown-900);">Every face — real.</span>
             </p>
             <div class="mt-8 flex items-center justify-center md:justify-start gap-5">
               <NuxtLink
@@ -140,7 +141,7 @@ const attendees = [
                 <span class="relative z-10">Find your next festival</span>
                 <ArrowRight class="w-4 h-4 relative z-10 transition-transform duration-200 ease-out group-hover:translate-x-1 group-active:translate-x-0" />
               </NuxtLink>
-              <span class="text-xs italic" style="color:#9a5614; font-family:'Caveat', cursive; font-size:18px;">
+              <span class="text-xs italic" style="color:var(--wd-amber-600); font-family:var(--wd-font-display);font-style:italic; font-size:18px;">
                 — see who's going before you book
               </span>
             </div>
@@ -149,17 +150,17 @@ const attendees = [
           <div class="md:col-span-5 relative">
             <!-- Sun rays behind photo -->
             <svg class="absolute -top-8 -right-8 w-40 h-40 opacity-30" viewBox="0 0 100 100">
-              <g stroke="#f97316" stroke-width="1.5" fill="none">
+              <g :stroke="WD.orange500" stroke-width="1.5" fill="none">
                 <line v-for="i in 24" :key="i" x1="50" y1="50"
                   :x2="50 + 48 * Math.cos(2 * Math.PI * i / 24)"
                   :y2="50 + 48 * Math.sin(2 * Math.PI * i / 24)" />
               </g>
             </svg>
-            <div class="relative rounded-2xl overflow-hidden shadow-2xl border-4" style="border-color:#fbf5ea; box-shadow: 12px 14px 0 -2px #dc2626;">
+            <div class="relative rounded-2xl overflow-hidden shadow-2xl border-4" style="border-color:var(--wd-cream); box-shadow: 12px 14px 0 -2px var(--wd-red-600);">
               <img src="/alosha-charanga.jpg" alt="Alösha on stage at the end of the Charanga Habanera Munich concert he hosted" class="w-full aspect-[4/5] object-cover" style="object-position: center 30%;">
               <div class="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 via-black/40 to-transparent text-white">
                 <div class="text-[10px] uppercase tracking-[0.3em] opacity-90">Your host · the night he brought the band</div>
-                <div class="text-xl mt-1" style="font-family:'Caveat', cursive;">— Alösha · Charanga Habanera, München</div>
+                <div class="text-xl mt-1" style="font-family:var(--wd-font-display);font-style:italic;">— Alösha · Charanga Habanera, München</div>
               </div>
             </div>
           </div>
@@ -167,21 +168,21 @@ const attendees = [
 
         <!-- Wave divider -->
         <svg class="block w-full h-12" viewBox="0 0 1440 60" preserveAspectRatio="none">
-          <path d="M0,40 Q360,0 720,30 T1440,20 V60 H0 Z" fill="#3b1f0d" opacity="0.1"/>
+          <path d="M0,40 Q360,0 720,30 T1440,20 V60 H0 Z" :fill="WD.brown900" opacity="0.1"/>
         </svg>
       </section>
 
       <!-- JOURNEY — a hand-drawn travel map with 5 stops along a winding path -->
-      <section class="border-y overflow-hidden" style="border-color:#3b1f0d22; background:rgba(251, 245, 234, 0.5);">
+      <section class="border-y overflow-hidden" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); background:rgba(251, 245, 234, 0.5);">
         <div class="max-w-6xl mx-auto px-4 py-16">
           <div class="text-center mb-12">
-            <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">The journey · 5 stops</div>
-            <h2 class="mt-3 text-3xl sm:text-5xl leading-tight" style="font-family:'Playfair Display', serif;">
-              From your first move to <em class="italic" style="color:#dc2626;">your own stage.</em>
+            <div class="text-xs uppercase tracking-[0.3em]" style="color:var(--wd-amber-600);">The journey · 5 stops</div>
+            <h2 class="mt-3 text-3xl sm:text-5xl leading-tight" style="font-family:var(--wd-font-display);">
+              From your first move to <em class="italic" style="color:var(--wd-red-600);">your own stage.</em>
             </h2>
-            <p class="mt-4 text-sm sm:text-base max-w-xl mx-auto leading-relaxed" style="color:#5b3a1d;">
+            <p class="mt-4 text-sm sm:text-base max-w-xl mx-auto leading-relaxed" style="color:var(--wd-brown-700);">
               Whatever the dance.
-              <span style="font-family:'Caveat', cursive; color:#16a34a; font-size:20px;">Whichever step you're on.</span>
+              <span style="font-family:var(--wd-font-display);font-style:italic; color:var(--wd-green-600); font-size:20px;">Whichever step you're on.</span>
             </p>
           </div>
 
@@ -194,29 +195,29 @@ const attendees = [
                 :to="s.href"
                 class="group relative rounded-2xl bg-white/95 px-5 py-6 flex flex-col hover:-translate-y-1 transition-all"
                 :style="{
-                  border: '1px solid ' + ['#dc2626', '#0891b2', '#16a34a', '#f59e0b', '#a855f7'][i] + '55',
-                  boxShadow: '0 1px 0 ' + ['#dc2626', '#0891b2', '#16a34a', '#f59e0b', '#a855f7'][i] + '22, 0 12px 28px rgba(59, 31, 18, 0.06)',
+                  border: '1px solid ' + [WD.red600, WD.cyan600, WD.green600, WD.amber500, WD.purple500][i] + '55',
+                  boxShadow: '0 1px 0 ' + [WD.red600, WD.cyan600, WD.green600, WD.amber500, WD.purple500][i] + '22, 0 12px 28px rgba(59, 31, 18, 0.06)',
                 }"
               >
                 <!-- Starting point badge (for Seeker stage) -->
-                <div v-if="s.isStartingPoint" class="absolute -top-3 left-4 inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest" style="background:#dc2626; color:#fff;">
+                <div v-if="s.isStartingPoint" class="absolute -top-3 left-4 inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest" style="background:var(--wd-red-600); color:#fff;">
                   <span>You are here</span>
                 </div>
                 <!-- Step number + monochrome line icon at top -->
                 <div class="flex items-center justify-between mb-4">
-                  <span class="text-2xl leading-none" style="font-family:'Playfair Display', serif; color:#9a5614;">{{ String(i + 1).padStart(2, '0') }}</span>
-                  <component :is="s.icon" class="w-6 h-6" :style="{color: ['#dc2626', '#0891b2', '#16a34a', '#f59e0b', '#a855f7'][i], 'stroke-width': 1.5}" />
+                  <span class="text-2xl leading-none" style="font-family:var(--wd-font-display); color:var(--wd-amber-600);">{{ String(i + 1).padStart(2, '0') }}</span>
+                  <component :is="s.icon" class="w-6 h-6" :style="{color: [WD.red600, WD.cyan600, WD.green600, WD.amber500, WD.purple500][i], 'stroke-width': 1.5}" />
                 </div>
                 <div
                   class="h-[3px] w-10 rounded-full mb-3"
-                  :style="{ background: ['#dc2626', '#0891b2', '#16a34a', '#f59e0b', '#a855f7'][i] }"
+                  :style="{ background: [WD.red600, WD.cyan600, WD.green600, WD.amber500, WD.purple500][i] }"
                 />
-                <div class="text-[10px] uppercase tracking-[0.2em] font-bold" :style="{color: ['#dc2626', '#0891b2', '#16a34a', '#f59e0b', '#a855f7'][i]}">
+                <div class="text-[10px] uppercase tracking-[0.2em] font-bold" :style="{color: [WD.red600, WD.cyan600, WD.green600, WD.amber500, WD.purple500][i]}">
                   {{ s.label }}
                 </div>
-                <div class="mt-1 text-lg font-bold leading-tight" style="font-family:'Playfair Display', serif;">{{ s.title }}</div>
-                <div class="mt-2 text-xs leading-relaxed" style="color:#5b3a1d;">{{ s.detail }}</div>
-                <div class="mt-auto pt-4 text-lg leading-none" style="font-family:'Caveat', cursive; color:#9a5614;">
+                <div class="mt-1 text-lg font-bold leading-tight" style="font-family:var(--wd-font-display);">{{ s.title }}</div>
+                <div class="mt-2 text-xs leading-relaxed" style="color:var(--wd-brown-700);">{{ s.detail }}</div>
+                <div class="mt-auto pt-4 text-lg leading-none" style="font-family:var(--wd-font-display);font-style:italic; color:var(--wd-amber-600);">
                   {{ s.horizon }}
                 </div>
               </NuxtLink>
@@ -224,7 +225,7 @@ const attendees = [
 
             <!-- Timeline arrow underneath: continuous, directional, honest -->
             <div class="relative mt-8 max-w-[calc(100%-2rem)] mx-auto">
-              <div class="relative h-[2px]" style="background: linear-gradient(to right, #dc2626, #0891b2, #16a34a, #f59e0b, #a855f7); opacity: 0.5;">
+              <div class="relative h-[2px]" style="background: linear-gradient(to right, var(--wd-red-600), var(--wd-cyan-600), var(--wd-green-600), var(--wd-amber-500), var(--wd-purple-500)); opacity: 0.5;">
                 <!-- 5 tick marks aligned with the 5 columns -->
                 <div
                   v-for="i in 5"
@@ -233,13 +234,13 @@ const attendees = [
                   :style="{
                     left: `${(i - 1) * 25}%`,
                     transform: 'translate(-50%, -50%)',
-                    background: ['#dc2626', '#0891b2', '#16a34a', '#f59e0b', '#a855f7'][i - 1],
+                    background: [WD.red600, WD.cyan600, WD.green600, WD.amber500, WD.purple500][i - 1],
                   }"
                 />
                 <!-- Arrow tip -->
-                <div class="absolute top-1/2 right-0 w-0 h-0" style="transform: translate(4px, -50%); border-left: 8px solid #a855f7; border-top: 5px solid transparent; border-bottom: 5px solid transparent; opacity: 0.7;"/>
+                <div class="absolute top-1/2 right-0 w-0 h-0" style="transform: translate(4px, -50%); border-left: 8px solid var(--wd-purple-500); border-top: 5px solid transparent; border-bottom: 5px solid transparent; opacity: 0.7;"/>
               </div>
-              <div class="flex justify-between mt-3 text-[10px] uppercase tracking-[0.2em]" style="color:#9a5614;">
+              <div class="flex justify-between mt-3 text-[10px] uppercase tracking-[0.2em]" style="color:var(--wd-amber-600);">
                 <span>Night one</span>
                 <span class="hidden xl:inline">The whole life ahead</span>
                 <span class="xl:hidden">The rest of your life →</span>
@@ -250,8 +251,8 @@ const attendees = [
           <!-- Mobile/tablet: vertical stack with vertical dashed line -->
           <div class="lg:hidden relative">
             <!-- Vertical dashed line -->
-            <div class="absolute left-6 top-6 bottom-6 w-px" style="background-image: linear-gradient(to bottom, #9a5614 0, #9a5614 4px, transparent 4px, transparent 10px); background-size: 100% 10px; opacity: 0.5;"/>
-            <div class="text-[10px] uppercase tracking-widest ml-12 mb-4" style="font-family:'Caveat', cursive; font-size: 15px; color:#9a5614;">
+            <div class="absolute left-6 top-6 bottom-6 w-px" style="background-image: linear-gradient(to bottom, var(--wd-amber-600) 0, var(--wd-amber-600) 4px, transparent 4px, transparent 10px); background-size: 100% 10px; opacity: 0.5;"/>
+            <div class="text-[10px] uppercase tracking-widest ml-12 mb-4" style="font-family:var(--wd-font-display);font-style:italic; font-size: 15px; color:var(--wd-amber-600);">
               you are here ↓
             </div>
             <div class="space-y-4">
@@ -262,8 +263,8 @@ const attendees = [
                 class="relative flex gap-4 items-start rounded-xl px-4 py-4 ml-12 hover:-translate-y-0.5 transition-transform"
                 :style="{
                   background: 'rgba(255,255,255,0.85)',
-                  border: '2px dashed ' + ['#dc2626', '#0891b2', '#16a34a', '#f59e0b', '#a855f7'][i],
-                  boxShadow: '3px 4px 0 -1px ' + ['#dc2626', '#0891b2', '#16a34a', '#f59e0b', '#a855f7'][i] + '2e',
+                  border: '2px dashed ' + [WD.red600, WD.cyan600, WD.green600, WD.amber500, WD.purple500][i],
+                  boxShadow: '3px 4px 0 -1px ' + [WD.red600, WD.cyan600, WD.green600, WD.amber500, WD.purple500][i] + '2e',
                 }"
               >
                 <!-- pin connecting to the vertical line -->
@@ -273,21 +274,21 @@ const attendees = [
                     left: '-2rem',
                     top: '50%',
                     transform: 'translate(-50%, -50%)',
-                    background: ['#dc2626', '#0891b2', '#16a34a', '#f59e0b', '#a855f7'][i],
+                    background: [WD.red600, WD.cyan600, WD.green600, WD.amber500, WD.purple500][i],
                     boxShadow: '0 0 0 3px rgba(251, 245, 234, 0.9)',
                   }"
                 />
-                <component :is="s.icon" class="w-6 h-6 shrink-0" :style="{color: ['#dc2626', '#0891b2', '#16a34a', '#f59e0b', '#a855f7'][i], 'stroke-width': 1.5}" />
+                <component :is="s.icon" class="w-6 h-6 shrink-0" :style="{color: [WD.red600, WD.cyan600, WD.green600, WD.amber500, WD.purple500][i], 'stroke-width': 1.5}" />
                 <div class="flex-1 min-w-0">
-                  <div class="text-[10px] uppercase tracking-widest font-bold" :style="{color: ['#dc2626', '#0891b2', '#16a34a', '#f59e0b', '#a855f7'][i]}">
-                    {{ s.label }} · <span style="font-family:'Caveat', cursive; font-size:14px; color:#9a5614; text-transform:none; letter-spacing:normal;">{{ s.horizon }}</span>
+                  <div class="text-[10px] uppercase tracking-widest font-bold" :style="{color: [WD.red600, WD.cyan600, WD.green600, WD.amber500, WD.purple500][i]}">
+                    {{ s.label }} · <span style="font-family:var(--wd-font-display);font-style:italic; font-size:14px; color:var(--wd-amber-600); text-transform:none; letter-spacing:normal;">{{ s.horizon }}</span>
                   </div>
-                  <div class="mt-0.5 text-base font-bold leading-tight" style="font-family:'Playfair Display', serif;">{{ s.title }}</div>
-                  <div class="mt-1 text-xs leading-snug" style="color:#5b3a1d;">{{ s.detail }}</div>
+                  <div class="mt-0.5 text-base font-bold leading-tight" style="font-family:var(--wd-font-display);">{{ s.title }}</div>
+                  <div class="mt-1 text-xs leading-snug" style="color:var(--wd-brown-700);">{{ s.detail }}</div>
                 </div>
               </NuxtLink>
             </div>
-            <div class="text-[10px] uppercase tracking-widest ml-12 mt-4" style="font-family:'Caveat', cursive; font-size: 15px; color:#9a5614;">
+            <div class="text-[10px] uppercase tracking-widest ml-12 mt-4" style="font-family:var(--wd-font-display);font-style:italic; font-size: 15px; color:var(--wd-amber-600);">
               → the rest of your life
             </div>
           </div>
@@ -297,12 +298,12 @@ const attendees = [
       <!-- PROOF -->
       <section class="py-16">
         <div class="max-w-3xl mx-auto px-4 text-center">
-          <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">This is the product</div>
-          <h2 class="mt-3 text-4xl sm:text-5xl" style="font-family:'Playfair Display', serif;">
-            <em class="italic">See who else is</em> <span style="color:#dc2626;">going</span>.
+          <div class="text-xs uppercase tracking-[0.3em]" style="color:var(--wd-amber-600);">This is the product</div>
+          <h2 class="mt-3 text-4xl sm:text-5xl" style="font-family:var(--wd-font-display);">
+            <em class="italic">See who else is</em> <span style="color:var(--wd-red-600);">going</span>.
           </h2>
-          <p class="mt-4 text-sm sm:text-base leading-relaxed max-w-xl mx-auto" style="color:#5b3a1d;">
-            Every ticket sold turns into a face on the event page. <span class="italic" style="font-family:'Caveat', cursive; font-size:20px;">No fake friends.</span>
+          <p class="mt-4 text-sm sm:text-base leading-relaxed max-w-xl mx-auto" style="color:var(--wd-brown-700);">
+            Every ticket sold turns into a face on the event page. <span class="italic" style="font-family:var(--wd-font-display);font-style:italic; font-size:20px;">No fake friends.</span>
           </p>
 
           <!-- Event card as concert poster -->
@@ -311,10 +312,10 @@ const attendees = [
             <div class="absolute -top-3 left-6 w-20 h-4 bg-yellow-200/80 rotate-[-4deg] shadow"/>
             <div class="absolute -top-3 right-6 w-20 h-4 bg-yellow-200/80 rotate-[3deg] shadow"/>
 
-            <div class="rounded-lg overflow-hidden shadow-2xl bg-white border" style="border-color:#3b1f0d22;">
-              <div class="p-6" style="background:linear-gradient(135deg,#7c3aed 0%, #c026d3 50%, #f43f5e 100%);">
+            <div class="rounded-lg overflow-hidden shadow-2xl bg-white border" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);">
+              <div class="p-6" style="background:linear-gradient(135deg,var(--wd-violet-600) 0%, #c026d3 50%, var(--wd-rose-500) 100%);">
                 <div class="text-[10px] uppercase tracking-[0.3em] text-white/90 font-bold">In 3 days · Barcelona</div>
-                <h3 class="mt-2 text-3xl text-white leading-tight" style="font-family:'Playfair Display', serif;">
+                <h3 class="mt-2 text-3xl text-white leading-tight" style="font-family:var(--wd-font-display);">
                   Bachata Stars<br>Barcelona
                 </h3>
                 <div class="mt-2 text-xs text-white/80 flex flex-wrap gap-3">
@@ -323,23 +324,23 @@ const attendees = [
                 </div>
               </div>
               <div class="p-5">
-                <div class="text-[10px] uppercase tracking-[0.25em] font-bold mb-3 flex items-center justify-between" style="color:#9a5614;">
+                <div class="text-[10px] uppercase tracking-[0.25em] font-bold mb-3 flex items-center justify-between" style="color:var(--wd-amber-600);">
                   <span>Who's coming</span>
-                  <span class="px-1.5 py-0.5 rounded text-[9px]" style="background:#fef3c7; color:#92400e;">Sample</span>
+                  <span class="px-1.5 py-0.5 rounded text-[9px]" style="background:var(--wd-amber-100); color:var(--wd-amber-800);">Sample</span>
                 </div>
                 <ul class="grid grid-cols-2 gap-2">
                   <li v-for="a in attendees" :key="a.n" class="flex items-center gap-2 p-1">
                     <div class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white shadow" :style="{background: a.col}">{{ a.n.charAt(0) }}</div>
                     <div class="min-w-0">
                       <div class="text-sm font-bold truncate">{{ a.n }}</div>
-                      <div class="text-[10px]" style="color:#9a5614;">{{ a.c }}</div>
+                      <div class="text-[10px]" style="color:var(--wd-amber-600);">{{ a.c }}</div>
                     </div>
                   </li>
                 </ul>
                 <NuxtLink
                   to="/festivals/bachata-stars-barcelona-2026"
                   class="mt-4 block text-center w-full py-3 rounded-full text-white text-xs font-bold uppercase tracking-widest"
-                  style="background:linear-gradient(135deg,#dc2626,#f97316); box-shadow: 0 4px 0 -1px #b91c1c;"
+                  style="background:linear-gradient(135deg,var(--wd-red-600),var(--wd-orange-500)); box-shadow: 0 4px 0 -1px var(--wd-red-800);"
                 >
                   Get tickets ✨
                 </NuxtLink>
@@ -353,48 +354,48 @@ const attendees = [
            Mid-page routing signal for the wrong-audience visitor
            (bride, corporate planner, festival org) who scrolled this far.
            NOT hero-level — dancer funnel stays primary. -->
-      <section class="py-16 border-y" style="border-color:#3b1f0d22; background:#3b1f0d08;">
+      <section class="py-16 border-y" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); background:color-mix(in srgb, var(--wd-brown-900) 3.1%, transparent);">
         <div class="max-w-5xl mx-auto px-4">
           <div class="text-center mb-10">
-            <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">Hosting the night, not dancing at it?</div>
-            <h2 class="mt-3 text-3xl sm:text-4xl leading-tight" style="font-family:'Playfair Display', serif;">
-              We help you <em class="italic" style="color:#dc2626;">throw it</em> too.
+            <div class="text-xs uppercase tracking-[0.3em]" style="color:var(--wd-amber-600);">Hosting the night, not dancing at it?</div>
+            <h2 class="mt-3 text-3xl sm:text-4xl leading-tight" style="font-family:var(--wd-font-display);">
+              We help you <em class="italic" style="color:var(--wd-red-600);">throw it</em> too.
             </h2>
           </div>
 
           <div class="grid md:grid-cols-2 gap-6">
             <!-- Private events -->
             <NuxtLink to="/for-events" class="group rounded-2xl bg-white p-6 sm:p-7 border transition-all hover:-translate-y-1"
-              :style="{ borderColor: '#f59e0b55', boxShadow: '0 1px 0 #f59e0b22, 0 12px 28px rgba(59, 31, 18, 0.06)' }">
+              :style="{ borderColor: 'color-mix(in srgb, var(--wd-amber-500) 33.3%, transparent)', boxShadow: '0 1px 0 color-mix(in srgb, var(--wd-amber-500) 13.3%, transparent), 0 12px 28px rgba(59, 31, 18, 0.06)' }">
               <div class="flex items-center justify-between mb-3">
-                <div class="text-[10px] uppercase tracking-[0.3em] font-bold" style="color:#f59e0b;">Private events</div>
-                <PartyPopper class="w-5 h-5" style="color:#f59e0b; stroke-width:1.5;" />
+                <div class="text-[10px] uppercase tracking-[0.3em] font-bold" style="color:var(--wd-amber-500);">Private events</div>
+                <PartyPopper class="w-5 h-5" style="color:var(--wd-amber-500); stroke-width:1.5;" />
               </div>
-              <div class="text-xl sm:text-2xl font-bold leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+              <div class="text-xl sm:text-2xl font-bold leading-tight" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">
                 Weddings, birthdays, corporate.
               </div>
-              <div class="mt-3 text-sm leading-relaxed" style="color:#5b3a1d;">
+              <div class="mt-3 text-sm leading-relaxed" style="color:var(--wd-brown-700);">
                 We supply the whole night — venue, MC, DJ, dancers, show.
               </div>
-              <div class="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-white text-sm font-bold uppercase tracking-wider" style="background:linear-gradient(135deg,#f59e0b,#f97316); box-shadow: 0 4px 0 -1px #d97706;">
+              <div class="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-white text-sm font-bold uppercase tracking-wider" style="background:linear-gradient(135deg,var(--wd-amber-500),var(--wd-orange-500)); box-shadow: 0 4px 0 -1px #d97706;">
                 Book us for your event <ArrowRight class="w-4 h-4 transition-transform group-hover:translate-x-1" />
               </div>
             </NuxtLink>
 
             <!-- Festival organizers -->
             <NuxtLink to="/organizers/create" class="group rounded-2xl bg-white p-6 sm:p-7 border transition-all hover:-translate-y-1"
-              :style="{ borderColor: '#0891b255', boxShadow: '0 1px 0 #0891b222, 0 12px 28px rgba(59, 31, 18, 0.06)' }">
+              :style="{ borderColor: 'color-mix(in srgb, var(--wd-cyan-600) 33.3%, transparent)', boxShadow: '0 1px 0 color-mix(in srgb, var(--wd-cyan-600) 13.3%, transparent), 0 12px 28px rgba(59, 31, 18, 0.06)' }">
               <div class="flex items-center justify-between mb-3">
-                <div class="text-[10px] uppercase tracking-[0.3em] font-bold" style="color:#0891b2;">Festival organizers</div>
-                <Ticket class="w-5 h-5" style="color:#0891b2; stroke-width:1.5;" />
+                <div class="text-[10px] uppercase tracking-[0.3em] font-bold" style="color:var(--wd-cyan-600);">Festival organizers</div>
+                <Ticket class="w-5 h-5" style="color:var(--wd-cyan-600); stroke-width:1.5;" />
               </div>
-              <div class="text-xl sm:text-2xl font-bold leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+              <div class="text-xl sm:text-2xl font-bold leading-tight" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">
                 Ticket your festival on us.
               </div>
-              <div class="mt-3 text-sm leading-relaxed" style="color:#5b3a1d;">
+              <div class="mt-3 text-sm leading-relaxed" style="color:var(--wd-brown-700);">
                 Ticketing + promo + real faces on your event page.
               </div>
-              <div class="mt-5 inline-flex items-center gap-2 text-sm font-bold" style="color:#0891b2;">
+              <div class="mt-5 inline-flex items-center gap-2 text-sm font-bold" style="color:var(--wd-cyan-600);">
                 Ticket with us <ArrowRight class="w-4 h-4 transition-transform group-hover:translate-x-1" />
               </div>
             </NuxtLink>
@@ -406,8 +407,8 @@ const attendees = [
       <section class="py-16" style="background:rgba(251, 245, 234, 0.5);">
         <div class="max-w-3xl mx-auto px-4">
           <div class="text-center mb-12">
-            <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">How it works</div>
-            <h2 class="mt-3 text-3xl sm:text-4xl" style="font-family:'Playfair Display', serif;">
+            <div class="text-xs uppercase tracking-[0.3em]" style="color:var(--wd-amber-600);">How it works</div>
+            <h2 class="mt-3 text-3xl sm:text-4xl" style="font-family:var(--wd-font-display);">
               <em class="italic">Five steps.</em> No surprises.
             </h2>
           </div>
@@ -418,14 +419,14 @@ const attendees = [
               { t: 'See who else is going',      b: 'Opt-in only. No strangers, no fake friends.' },
               { t: 'Plan the trip together',     b: 'Dinners, ride-shares, first-night partner.' },
               { t: 'Arrive with friends',        b: 'Skip the wall. The floor is waiting.' },
-            ]" :key="s.t" class="flex items-start gap-4 bg-white/70 rounded-xl p-4 border" style="border-color:#3b1f0d22;">
+            ]" :key="s.t" class="flex items-start gap-4 bg-white/70 rounded-xl p-4 border" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);">
               <div
                 class="w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold text-white shrink-0 shadow"
-                :style="{ background: ['#dc2626', '#f97316', '#16a34a', '#0891b2', '#a855f7'][i] }"
+                :style="{ background: [WD.red600, WD.orange500, WD.green600, WD.cyan600, WD.purple500][i] }"
               >{{ i + 1 }}</div>
               <div>
-                <div class="text-base font-bold" style="font-family:'Playfair Display', serif;">{{ s.t }}</div>
-                <div class="text-sm mt-0.5" style="color:#5b3a1d;">{{ s.b }}</div>
+                <div class="text-base font-bold" style="font-family:var(--wd-font-display);">{{ s.t }}</div>
+                <div class="text-sm mt-0.5" style="color:var(--wd-brown-700);">{{ s.b }}</div>
               </div>
             </li>
           </ol>
@@ -435,18 +436,18 @@ const attendees = [
       <!-- FOUNDER — handwritten letter -->
       <section class="py-16">
         <div class="max-w-2xl mx-auto px-4">
-          <div class="bg-white/80 rounded-2xl p-8 shadow-xl border-2 border-dashed" style="border-color:#dc262644;">
-            <div class="text-[10px] uppercase tracking-[0.3em] mb-4" style="color:#9a5614;">A letter from the founder</div>
-            <p class="text-2xl leading-relaxed" style="font-family:'Caveat', cursive; color:#3b1f0d;">
+          <div class="bg-white/80 rounded-2xl p-8 shadow-xl border-2 border-dashed" style="border-color:color-mix(in srgb, var(--wd-red-600) 26.7%, transparent);">
+            <div class="text-[10px] uppercase tracking-[0.3em] mb-4" style="color:var(--wd-amber-600);">A letter from the founder</div>
+            <p class="text-2xl leading-relaxed" style="font-family:var(--wd-font-display);font-style:italic; color:var(--wd-brown-900);">
               Dear dancer —<br><br>
               The first time I flew to a festival alone, I spent half the first night by the wall. I built WeDance so the next dancer does not have to.<br><br>
               See you on the floor.
             </p>
-            <div class="mt-6 flex items-center gap-3 border-t pt-4" style="border-color:#3b1f0d22;">
+            <div class="mt-6 flex items-center gap-3 border-t pt-4" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);">
               <img src="/alosha-dj.jpg" alt="Alösha" class="w-12 h-12 rounded-full object-cover">
               <div>
-                <div class="text-lg" style="font-family:'Caveat', cursive;">— Alösha</div>
-                <div class="text-[11px]" style="color:#9a5614;">Munich · 2026</div>
+                <div class="text-lg" style="font-family:var(--wd-font-display);font-style:italic;">— Alösha</div>
+                <div class="text-[11px]" style="color:var(--wd-amber-600);">Munich · 2026</div>
               </div>
             </div>
           </div>
@@ -460,14 +461,14 @@ const attendees = [
       <!-- FINAL -->
       <section class="py-20">
         <div class="max-w-2xl mx-auto px-4 text-center">
-          <h2 class="text-4xl sm:text-5xl" style="font-family:'Playfair Display', serif;">
+          <h2 class="text-4xl sm:text-5xl" style="font-family:var(--wd-font-display);">
             <em class="italic">Your next dance</em><br>
-            is closer than you <span style="color:#dc2626;">think.</span>
+            is closer than you <span style="color:var(--wd-red-600);">think.</span>
           </h2>
           <NuxtLink
             to="/festivals"
             class="mt-8 inline-flex items-center gap-2 px-8 py-4 rounded-full text-white text-base font-bold uppercase tracking-wider shadow-lg"
-            style="background:linear-gradient(135deg,#dc2626,#f97316); box-shadow: 0 6px 0 -2px #b91c1c, 0 10px 22px rgba(220, 38, 38, 0.35);"
+            style="background:linear-gradient(135deg,var(--wd-red-600),var(--wd-orange-500)); box-shadow: 0 6px 0 -2px var(--wd-red-800), 0 10px 22px rgba(220, 38, 38, 0.35);"
           >
             Find your festival <ArrowRight class="w-4 h-4" />
           </NuxtLink>
@@ -483,11 +484,11 @@ const attendees = [
 <style scoped>
 /* Hero CTA — warm host-voice button with hover lift + press feedback */
 .fiesta-cta {
-  background: linear-gradient(135deg, #dc2626, #f97316);
+  background: linear-gradient(135deg, var(--wd-red-600), var(--wd-orange-500));
   background-size: 200% 200%;
   background-position: 0% 50%;
   box-shadow:
-    0 6px 0 -2px #b91c1c,
+    0 6px 0 -2px var(--wd-red-800),
     0 8px 18px rgba(220, 38, 38, 0.35);
   transition:
     transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1),
@@ -540,7 +541,7 @@ const attendees = [
 .fiesta-cta:hover {
   transform: translateY(-3px) scale(1.02);
   box-shadow:
-    0 9px 0 -2px #b91c1c,
+    0 9px 0 -2px var(--wd-red-800),
     0 16px 32px rgba(220, 38, 38, 0.5),
     0 0 0 4px rgba(249, 115, 22, 0.18);
 }
@@ -549,7 +550,7 @@ const attendees = [
 .fiesta-cta:active {
   transform: translateY(2px) scale(0.99);
   box-shadow:
-    0 2px 0 -1px #b91c1c,
+    0 2px 0 -1px var(--wd-red-800),
     0 4px 8px rgba(220, 38, 38, 0.35);
   transition-duration: 80ms;
 }

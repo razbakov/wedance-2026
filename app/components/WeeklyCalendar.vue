@@ -9,6 +9,7 @@ import { Flame, MapPin, Plus, Check } from 'lucide-vue-next'
 import type { CityEvent, DayOfWeek } from '~/types/city'
 import type { Teacher } from '~/types/festival'
 import { getStyleColors } from '~/lib/style-colors'
+import { WD } from '~/lib/brand'
 
 const props = defineProps<{
   events: CityEvent[]
@@ -73,10 +74,10 @@ function levelChilis(level?: string): number {
 // Type accent — warm, not shadcn palette
 type EventType = 'class' | 'social' | 'practica' | 'workshop'
 const typeStyle: Record<EventType, { label: string; color: string }> = {
-  class:    { label: 'Class',    color: '#0891b2' },
-  social:   { label: 'Social',   color: '#dc2626' },
-  practica: { label: 'Practica', color: '#f59e0b' },
-  workshop: { label: 'Workshop', color: '#a855f7' },
+  class:    { label: 'Class',    color: WD.cyan600 },
+  social:   { label: 'Social',   color: WD.red600 },
+  practica: { label: 'Practica', color: WD.amber500 },
+  workshop: { label: 'Workshop', color: WD.purple500 },
 }
 
 // Style accent color — resolved from the shared getStyleColors util.
@@ -84,17 +85,17 @@ const typeStyle: Record<EventType, { label: string; color: string }> = {
 function styleAccent(style: string): string {
   const c = getStyleColors(style)
   const map: Record<string, string> = {
-    salsa:    '#dc2626',
-    bachata:  '#a855f7',
-    kizomba:  '#ec4899',
-    timba:    '#f59e0b',
-    son:      '#16a34a',
-    rumba:    '#0891b2',
-    'urban kiz': '#7c3aed',
-    semba:    '#f59e0b',
-    'hip hop':'#0ea5e9',
+    salsa:    WD.red600,
+    bachata:  WD.purple500,
+    kizomba:  WD.pink500,
+    timba:    WD.amber500,
+    son:      WD.green600,
+    rumba:    WD.cyan600,
+    'urban kiz': WD.violet600,
+    semba:    WD.amber500,
+    'hip hop':WD.sky500,
   }
-  return map[style.toLowerCase()] || (c as any)?.hex || '#9a5614'
+  return map[style.toLowerCase()] || (c as any)?.hex || WD.amber600
 }
 
 const today = new Date().toLocaleDateString('en-US', { weekday: 'long' }) as DayOfWeek
@@ -116,9 +117,9 @@ function eventHref(e: CityEvent): string | undefined {
     <div
       v-if="!daysWithEvents.length"
       class="text-center py-14 rounded-2xl border-2 border-dashed"
-      style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);"
+      style="border-color:color-mix(in srgb, var(--wd-brown-900) 20%, transparent); background:rgba(255,255,255,0.5);"
     >
-      <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+      <p class="text-sm" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
         No events match your filters.
       </p>
     </div>
@@ -128,19 +129,19 @@ function eventHref(e: CityEvent): string | undefined {
       <!-- Sticky day header -->
       <div
         class="sticky top-0 z-10 pt-2 pb-3 flex items-baseline gap-3 backdrop-blur-sm"
-        style="background:rgba(251, 245, 234, 0.95); border-bottom:1px solid #3b1f0d22;"
+        style="background:rgba(251, 245, 234, 0.95); border-bottom:1px solid color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);"
       >
         <h3
           class="text-xl font-black leading-none"
-          style="font-family:'Playfair Display', serif;"
-          :style="{ color: day === today ? '#dc2626' : '#3b1f0d' }"
+          style="font-family:var(--wd-font-display);"
+          :style="{ color: day === today ? WD.red600 : WD.brown900 }"
         >
           {{ dayLabels[day] }}
         </h3>
         <span
           v-if="day === today"
           class="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full"
-          style="background:#dc262618; color:#dc2626; font-family: system-ui, sans-serif;"
+          style="background:color-mix(in srgb, var(--wd-red-600) 9.4%, transparent); color:var(--wd-red-600); font-family:var(--wd-font-sans);"
         >
           Tonight
         </span>
@@ -164,7 +165,7 @@ function eventHref(e: CityEvent): string | undefined {
           <div class="w-14 shrink-0 text-center">
             <div
               class="text-lg font-black leading-none tabular-nums"
-              :style="{ color: styleAccent(e.style), fontFamily: 'Playfair Display, serif' }"
+              :style="{ color: styleAccent(e.style), fontFamily: 'var(--wd-font-display)' }"
             >
               {{ e.time }}
             </div>
@@ -186,12 +187,12 @@ function eventHref(e: CityEvent): string | undefined {
                 {{ e.style }}
               </span>
             </div>
-            <h4 class="text-sm sm:text-base font-bold leading-tight mt-1 break-words group-hover:underline" style="color:#3b1f0d;">
+            <h4 class="text-sm sm:text-base font-bold leading-tight mt-1 break-words group-hover:underline" style="color:var(--wd-brown-900);">
               {{ e.name }}
             </h4>
-            <div class="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-xs" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
               <span class="inline-flex items-center gap-1">
-                <MapPin class="w-3 h-3" style="color:#9a5614;" />
+                <MapPin class="w-3 h-3" style="color:var(--wd-amber-600);" />
                 {{ e.venue }}
               </span>
               <button
@@ -212,13 +213,13 @@ function eventHref(e: CityEvent): string | undefined {
                   v-for="n in levelChilis(e.level)"
                   :key="n"
                   class="w-3 h-3"
-                  :style="{ color: levelChilis(e.level) === 3 ? '#dc2626' : levelChilis(e.level) === 2 ? '#f59e0b' : '#fbbf24' }"
+                  :style="{ color: levelChilis(e.level) === 3 ? WD.red600 : levelChilis(e.level) === 2 ? WD.amber500 : WD.amber400 }"
                 />
               </span>
               <span
                 v-else-if="e.level"
                 class="text-[10px] font-bold uppercase tracking-wider"
-                style="color:#9a5614;"
+                style="color:var(--wd-amber-600);"
               >
                 {{ e.level }}
               </span>

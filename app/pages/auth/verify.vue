@@ -89,11 +89,11 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
 <template>
   <div
     class="flex min-h-screen items-center justify-center px-4"
-    style="background:#fbf5ea;"
+    style="background:var(--wd-cream);"
   >
     <div class="w-full max-w-sm">
       <!-- Accent bar -->
-      <div class="h-1.5 rounded-t-2xl" style="background:#dc2626;" />
+      <div class="h-1.5 rounded-t-2xl" style="background:var(--wd-red-600);" />
       <div
         class="rounded-b-2xl px-6 pb-6 pt-5 space-y-4"
         style="background:white; box-shadow: 0 4px 24px rgba(59,31,13,0.08);"
@@ -101,13 +101,13 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
         <!-- Loading -->
         <template v-if="status === 'loading'">
           <div class="text-center space-y-3">
-            <div class="text-[10px] uppercase tracking-[0.3em] font-bold" style="color:#9a5614;">
+            <div class="text-[10px] uppercase tracking-[0.3em] font-bold" style="color:var(--wd-amber-600);">
               Verifying
             </div>
-            <h1 class="text-2xl leading-tight" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+            <h1 class="text-2xl leading-tight" style="color:var(--wd-brown-900); font-family:var(--wd-font-display);">
               Checking your link…
             </h1>
-            <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+            <p class="text-sm" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
               Just a moment.
             </p>
           </div>
@@ -116,20 +116,20 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
         <!-- Password reset form -->
         <template v-else-if="status === 'reset-form'">
           <div class="space-y-1">
-            <div class="text-[10px] uppercase tracking-[0.3em] font-bold" style="color:#9a5614;">
+            <div class="text-[10px] uppercase tracking-[0.3em] font-bold" style="color:var(--wd-amber-600);">
               Account recovery
             </div>
-            <h1 class="text-2xl leading-tight" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+            <h1 class="text-2xl leading-tight" style="color:var(--wd-brown-900); font-family:var(--wd-font-display);">
               Set a new password
             </h1>
-            <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+            <p class="text-sm" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
               Enter your new password below.
             </p>
           </div>
 
           <form class="space-y-4 pt-2" novalidate @submit.prevent="handleResetPassword">
             <div class="space-y-1.5">
-              <label for="new-password" class="text-sm font-bold" style="color:#3b1f0d;">New password</label>
+              <label for="new-password" class="text-sm font-bold" style="color:var(--wd-brown-900);">New password</label>
               <div class="relative">
                 <input
                   id="new-password"
@@ -145,7 +145,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
                 <button
                   type="button"
                   class="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold uppercase tracking-wider"
-                  style="color:#9a5614; font-family: system-ui, sans-serif;"
+                  style="color:var(--wd-amber-600); font-family:var(--wd-font-sans);"
                   @click="showPassword = !showPassword"
                 >
                   {{ showPassword ? 'Hide' : 'Show' }}
@@ -155,7 +155,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
             </div>
 
             <div class="space-y-1.5">
-              <label for="confirm-password" class="text-sm font-bold" style="color:#3b1f0d;">Confirm password</label>
+              <label for="confirm-password" class="text-sm font-bold" style="color:var(--wd-brown-900);">Confirm password</label>
               <input
                 id="confirm-password"
                 v-model="confirmPassword"
@@ -170,7 +170,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
               <FieldError id="confirm-password-error" :message="errors.confirmPassword" />
             </div>
 
-            <p v-if="resetError" class="text-sm font-bold" style="color:#dc2626; font-family: system-ui, sans-serif;">
+            <p v-if="resetError" class="text-sm font-bold" style="color:var(--wd-red-600); font-family:var(--wd-font-sans);">
               {{ resetError }}
             </p>
 
@@ -178,7 +178,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
               type="submit"
               :disabled="resetLoading"
               class="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-white text-sm font-bold uppercase tracking-wider disabled:opacity-60"
-              style="background:#dc2626; box-shadow: 0 3px 0 -1px #b91c1c; font-family: system-ui, sans-serif;"
+              style="background:var(--wd-red-600); box-shadow: 0 3px 0 -1px var(--wd-red-800); font-family:var(--wd-font-sans);"
             >
               {{ resetLoading ? 'Saving…' : 'Save new password' }}
             </button>
@@ -188,13 +188,13 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
         <!-- Success -->
         <template v-else-if="status === 'success'">
           <div class="text-center space-y-3">
-            <div class="text-[10px] uppercase tracking-[0.3em] font-bold" style="color:#9a5614;">
+            <div class="text-[10px] uppercase tracking-[0.3em] font-bold" style="color:var(--wd-amber-600);">
               {{ isResetMode ? 'Password updated' : 'Welcome' }}
             </div>
-            <h1 class="text-2xl leading-tight" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+            <h1 class="text-2xl leading-tight" style="color:var(--wd-brown-900); font-family:var(--wd-font-display);">
               {{ isResetMode ? 'You\'re all set!' : `Welcome, ${dancerName}!` }}
             </h1>
-            <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+            <p class="text-sm" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
               {{ isResetMode ? 'Your password has been changed. Taking you to your plan…' : "You're signed in. Taking you to your plan…" }}
             </p>
           </div>
@@ -203,18 +203,18 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
         <!-- Error -->
         <template v-else>
           <div class="text-center space-y-3">
-            <div class="text-[10px] uppercase tracking-[0.3em] font-bold" style="color:#9a5614;">
+            <div class="text-[10px] uppercase tracking-[0.3em] font-bold" style="color:var(--wd-amber-600);">
               Something went wrong
             </div>
-            <h1 class="text-2xl leading-tight" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+            <h1 class="text-2xl leading-tight" style="color:var(--wd-brown-900); font-family:var(--wd-font-display);">
               Link expired or invalid
             </h1>
-            <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">{{ errorMessage }}</p>
+            <p class="text-sm" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">{{ errorMessage }}</p>
             <div class="pt-2">
               <NuxtLink
                 to="/"
                 class="text-sm font-bold underline"
-                style="color:#dc2626; font-family: system-ui, sans-serif;"
+                style="color:var(--wd-red-600); font-family:var(--wd-font-sans);"
               >
                 Go to homepage
               </NuxtLink>

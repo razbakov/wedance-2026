@@ -9,6 +9,7 @@ import * as caribbeanUrbanFire from '~/data/mock-caribbean-urban-fire'
 import * as aguaPichi from '~/data/mock-agua-pichi'
 import { liteFestivals } from '~/data/mock-festivals-lite'
 import type { FestivalDetail } from '~/server/api/festivals/[slug].get'
+import { WD } from '~/lib/brand'
 
 const route = useRoute()
 const router = useRouter()
@@ -40,7 +41,7 @@ if (!data) {
         endDate: r.endDate ?? '',
         description: r.description ?? '',
         logo: r.logo ?? '',
-        accentColor: r.accentColor ?? '#9a5614',
+        accentColor: r.accentColor ?? WD.amber600,
         socialLinks: [],
         venue: {
           name: [r.city, r.country].filter(Boolean).join(', ') || 'TBA',
@@ -367,7 +368,7 @@ const selectedTeacher = computed(() =>
 
 // Lineup cards — face-forward artist cards (shared with /artists) with
 // origin + residence. Clicking one filters the schedule to that teacher.
-const lineupAccents = ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b', '#ec4899', '#7c3aed']
+const lineupAccents = [WD.red600, WD.cyan600, WD.green600, WD.purple500, WD.amber500, WD.pink500, WD.violet600]
 const lineupCards = teachers.map((teacher, i) => {
   const places = artistPlaces(teacher)
   return {
@@ -1193,7 +1194,7 @@ useHead({
   link: [
     { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
     { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
-    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Caveat:wght@400;700&display=swap' },
+    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&display=swap' },
   ],
 })
 </script>
@@ -1216,7 +1217,7 @@ useHead({
   />
 
   <!-- Normal festival page -->
-  <div v-else class="min-h-screen" style="background:#fbf5ea; color:#3b1f0d; font-family:'Playfair Display', serif;">
+  <div v-else class="min-h-screen" style="background:var(--wd-cream); color:var(--wd-brown-900); font-family:var(--wd-font-display);">
     <!-- V3 header — same as /, /festivals, /organizers -->
     <SiteHeader />
 
@@ -1228,7 +1229,7 @@ useHead({
          the left once the hero has scrolled out of view, so a deep-link
          (Buy Tickets from the official site) always shows which festival
          you're on. The active section is highlighted and tracks scroll. -->
-    <nav class="sticky top-0 z-20 border-b" style="background:rgba(251, 245, 234, 0.95); backdrop-filter: blur(8px); border-color:#3b1f0d22;">
+    <nav class="sticky top-0 z-20 border-b" style="background:rgba(251, 245, 234, 0.95); backdrop-filter: blur(8px); border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);">
       <div class="max-w-4xl mx-auto flex items-center gap-2 px-4 min-w-0">
         <Transition
           enter-active-class="transition-all duration-200 ease-out"
@@ -1242,7 +1243,7 @@ useHead({
             v-if="!heroVisible"
             :to="`/festivals/${festival.slug}`"
             class="flex items-center gap-2 shrink-0 pr-3 mr-1 border-r"
-            style="border-color:#3b1f0d15;"
+            style="border-color:color-mix(in srgb, var(--wd-brown-900) 8.2%, transparent);"
             @click.prevent="scrollTo('about')"
           >
             <img
@@ -1258,7 +1259,7 @@ useHead({
             >
               {{ festival.name.charAt(0) }}
             </div>
-            <span class="text-sm font-bold whitespace-nowrap hidden sm:inline" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+            <span class="text-sm font-bold whitespace-nowrap hidden sm:inline" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">
               {{ festival.name }}
             </span>
           </NuxtLink>
@@ -1270,9 +1271,9 @@ useHead({
             type="button"
             class="relative px-3 py-3 text-sm italic whitespace-nowrap transition-colors"
             :style="{
-              color: activeSection === section ? festival.accentColor : '#5b3a1d',
+              color: activeSection === section ? festival.accentColor : WD.brown700,
               fontWeight: activeSection === section ? 700 : 400,
-              fontFamily: 'Playfair Display, serif',
+              fontFamily: 'var(--wd-font-display)',
             }"
             @click="scrollTo(section)"
           >
@@ -1294,15 +1295,15 @@ useHead({
 
         <section id="discover" class="scroll-mt-16">
           <div class="flex items-center gap-2 mb-1">
-            <h2 class="text-2xl font-black leading-tight" style="color:#3b1f0d;">Shall we <em class="italic" style="color:#dc2626;">dance?</em></h2>
-            <span v-if="!isSignedIn && freeSpotsLeft > 0" class="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full" style="background:#16a34a18; color:#16a34a;">
+            <h2 class="text-2xl font-black leading-tight" style="color:var(--wd-brown-900);">Shall we <em class="italic" style="color:var(--wd-red-600);">dance?</em></h2>
+            <span v-if="!isSignedIn && freeSpotsLeft > 0" class="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full" style="background:color-mix(in srgb, var(--wd-green-600) 9.4%, transparent); color:var(--wd-green-600);">
               {{ freeSpotsLeft }} free {{ freeSpotsLeft === 1 ? 'spot' : 'spots' }} left
             </span>
-            <span v-else-if="!isSignedIn" class="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full" style="background:#f59e0b18; color:#f59e0b;">
+            <span v-else-if="!isSignedIn" class="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full" style="background:color-mix(in srgb, var(--wd-amber-500) 9.4%, transparent); color:var(--wd-amber-500);">
               From &euro;1
             </span>
           </div>
-          <p class="text-sm mb-4" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Swipe to discover dancers, group dinners, and activities happening around the festival.</p>
+          <p class="text-sm mb-4" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">Swipe to discover dancers, group dinners, and activities happening around the festival.</p>
           <DiscoverDancers
             :dancers="discoverDancers"
             :cards="swipeCards"
@@ -1319,8 +1320,8 @@ useHead({
         </section>
 
         <section id="activities" class="scroll-mt-16">
-          <h2 class="text-2xl font-black leading-tight mb-1" style="color:#3b1f0d;">Activities</h2>
-          <p class="text-sm mb-4" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Rides, rooms, dinners and more — connect with fellow dancers.</p>
+          <h2 class="text-2xl font-black leading-tight mb-1" style="color:var(--wd-brown-900);">Activities</h2>
+          <p class="text-sm mb-4" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">Rides, rooms, dinners and more — connect with fellow dancers.</p>
           <ActivitiesTab
             :ride-shares="rideShares"
             :group-dinners="groupDinners"
@@ -1351,18 +1352,18 @@ useHead({
 
         <section id="lineup" class="scroll-mt-16">
           <div class="flex items-baseline justify-between gap-3 mb-1">
-            <h2 class="text-2xl font-black leading-tight" style="color:#3b1f0d;">Lineup</h2>
+            <h2 class="text-2xl font-black leading-tight" style="color:var(--wd-brown-900);">Lineup</h2>
             <button
               v-if="selectedTeacherId"
               type="button"
               class="text-xs font-bold whitespace-nowrap"
-              style="color:#dc2626; font-family: system-ui, sans-serif;"
+              style="color:var(--wd-red-600); font-family:var(--wd-font-sans);"
               @click="selectedTeacherId = null"
             >
               Clear filter ✕
             </button>
           </div>
-          <p class="text-sm mb-4" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Tap an artist to filter the schedule to their sessions — or open their full profile.</p>
+          <p class="text-sm mb-4" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">Tap an artist to filter the schedule to their sessions — or open their full profile.</p>
           <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <ArtistCard
               v-for="c in lineupCards"
@@ -1381,16 +1382,16 @@ useHead({
 
         <section id="schedule" class="scroll-mt-16">
           <div class="flex items-center justify-between mb-4">
-            <h2 class="text-2xl font-black leading-tight" style="color:#3b1f0d;">Schedule</h2>
+            <h2 class="text-2xl font-black leading-tight" style="color:var(--wd-brown-900);">Schedule</h2>
             <button
               v-if="selectedTeacherId"
               type="button"
               class="text-xs font-bold flex items-center gap-1"
-              style="color:#dc2626; font-family: system-ui, sans-serif;"
+              style="color:var(--wd-red-600); font-family:var(--wd-font-sans);"
               @click="selectedTeacherId = null"
             >
               Filtering by {{ selectedTeacher?.name }}
-              <span style="color:#9a5614;">✕</span>
+              <span style="color:var(--wd-amber-600);">✕</span>
             </button>
           </div>
           <ScheduleTab
@@ -1408,12 +1409,12 @@ useHead({
 
         <section v-if="festival.tickets?.length" id="tickets" class="scroll-mt-16">
           <div class="mb-4">
-            <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">Passes</div>
-            <h2 v-if="hasTicket" class="mt-2 text-2xl font-black leading-tight" style="color:#3b1f0d;">
-              You're <em class="italic" style="color:#16a34a;">in.</em>
+            <div class="text-xs uppercase tracking-[0.3em]" style="color:var(--wd-amber-600);">Passes</div>
+            <h2 v-if="hasTicket" class="mt-2 text-2xl font-black leading-tight" style="color:var(--wd-brown-900);">
+              You're <em class="italic" style="color:var(--wd-green-600);">in.</em>
             </h2>
-            <h2 v-else class="mt-2 text-2xl font-black leading-tight" style="color:#3b1f0d;">
-              Pick your <em class="italic" style="color:#dc2626;">pass.</em>
+            <h2 v-else class="mt-2 text-2xl font-black leading-tight" style="color:var(--wd-brown-900);">
+              Pick your <em class="italic" style="color:var(--wd-red-600);">pass.</em>
             </h2>
           </div>
 
@@ -1421,20 +1422,20 @@ useHead({
           <div
             v-if="hasTicket"
             class="rounded-2xl p-5 sm:p-6 mb-6"
-            style="background:linear-gradient(135deg, #dcfce7, #d1fae5); border:1px solid #16a34a33;"
+            style="background:linear-gradient(135deg, #dcfce7, #d1fae5); border:1px solid color-mix(in srgb, var(--wd-green-600) 20%, transparent);"
           >
             <div class="flex items-start gap-3">
               <div class="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style="background:white;">
-                <Check class="w-5 h-5" style="color:#16a34a;" />
+                <Check class="w-5 h-5" style="color:var(--wd-green-600);" />
               </div>
               <div class="flex-1 min-w-0">
-                <div class="text-[10px] uppercase tracking-[0.3em] font-bold" style="color:#16a34a;">
+                <div class="text-[10px] uppercase tracking-[0.3em] font-bold" style="color:var(--wd-green-600);">
                   You have a ticket
                 </div>
-                <div class="mt-1 text-sm" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+                <div class="mt-1 text-sm" style="color:var(--wd-brown-900); font-family:var(--wd-font-display);">
                   Your pass for {{ festival.name }} is confirmed.
                 </div>
-                <div class="mt-1 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+                <div class="mt-1 text-xs" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
                   Plan your workshops in the schedule above and connect with other dancers.
                 </div>
               </div>
@@ -1445,32 +1446,32 @@ useHead({
           <div
             v-else-if="recommendation"
             class="rounded-2xl p-5 sm:p-6 mb-6"
-            style="background:linear-gradient(135deg, #fef3c7, #fee2e2); border:1px solid #dc262633;"
+            style="background:linear-gradient(135deg, var(--wd-amber-100), var(--wd-red-100)); border:1px solid color-mix(in srgb, var(--wd-red-600) 20%, transparent);"
           >
             <div class="flex items-start gap-3">
               <div class="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style="background:white;">
-                <Sparkles class="w-5 h-5" style="color:#dc2626;" />
+                <Sparkles class="w-5 h-5" style="color:var(--wd-red-600);" />
               </div>
               <div class="flex-1 min-w-0">
-                <div class="text-[10px] uppercase tracking-[0.3em] font-bold" style="color:#dc2626;">
+                <div class="text-[10px] uppercase tracking-[0.3em] font-bold" style="color:var(--wd-red-600);">
                   Best value for your plan
                 </div>
                 <div class="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                  <span class="text-lg font-black" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+                  <span class="text-lg font-black" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">
                     {{ recommendation.tickets.map(t => t.name).join(' + ') }}
                   </span>
-                  <span class="text-2xl font-black" style="font-family:'Playfair Display', serif; color:#dc2626;">
+                  <span class="text-2xl font-black" style="font-family:var(--wd-font-display); color:var(--wd-red-600);">
                     €{{ recommendation.total }}
                   </span>
                   <span
                     v-if="recommendation.savings"
                     class="text-xs font-bold px-2 py-0.5 rounded-full"
-                    style="background:#16a34a18; color:#16a34a; font-family: system-ui, sans-serif;"
+                    style="background:color-mix(in srgb, var(--wd-green-600) 9.4%, transparent); color:var(--wd-green-600); font-family:var(--wd-font-sans);"
                   >
                     saves €{{ recommendation.savings }}
                   </span>
                 </div>
-                <div class="mt-1 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+                <div class="mt-1 text-xs" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
                   Covers your {{ plannedWorkshopCount }} workshop{{ plannedWorkshopCount === 1 ? '' : 's' }}<span v-if="hasPartyInPlan"> + parties</span>
                   across {{ plannedDays.size }} day{{ plannedDays.size === 1 ? '' : 's' }}.
                 </div>
@@ -1478,7 +1479,7 @@ useHead({
                   v-if="!recommendation.soldOut"
                   type="button"
                   class="mt-3 inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-white text-xs font-bold uppercase tracking-wider"
-                  style="background:linear-gradient(135deg, #dc2626, #f97316); box-shadow: 0 3px 0 -1px #b91c1c;"
+                  style="background:linear-gradient(135deg, var(--wd-red-600), var(--wd-orange-500)); box-shadow: 0 3px 0 -1px var(--wd-red-800);"
                   @click="getRecommendedPass"
                 >
                   Get this pass <ArrowRight class="w-3.5 h-3.5" />
@@ -1486,7 +1487,7 @@ useHead({
                 <div
                   v-else
                   class="mt-3 text-xs italic"
-                  style="color:#5b3a1d; font-family:'Playfair Display', serif;"
+                  style="color:var(--wd-brown-700); font-family:var(--wd-font-display);"
                 >
                   Sold out — we'll notify you when a dancer offers theirs.
                 </div>
@@ -1499,35 +1500,35 @@ useHead({
             v-else
             to="#schedule"
             class="rounded-2xl p-5 mb-6 flex items-center gap-3 border-2 border-dashed transition-colors hover:bg-white/60"
-            style="border-color:#3b1f0d33; background:rgba(255,255,255,0.4);"
+            style="border-color:color-mix(in srgb, var(--wd-brown-900) 20%, transparent); background:rgba(255,255,255,0.4);"
             @click="scrollTo('schedule')"
           >
-            <Sparkles class="w-6 h-6 shrink-0" style="color:#9a5614;" />
+            <Sparkles class="w-6 h-6 shrink-0" style="color:var(--wd-amber-600);" />
             <div>
-              <div class="text-sm font-bold" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+              <div class="text-sm font-bold" style="color:var(--wd-brown-900); font-family:var(--wd-font-display);">
                 Not sure which pass?
               </div>
-              <div class="text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+              <div class="text-xs" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
                 Pick the workshops + parties you want in the schedule above — we'll find your best-value pass.
               </div>
             </div>
-            <ArrowRight class="w-4 h-4 ml-auto shrink-0" style="color:#dc2626;" />
+            <ArrowRight class="w-4 h-4 ml-auto shrink-0" style="color:var(--wd-red-600);" />
           </NuxtLink>
 
           <!-- Referral discount banner -->
           <div
             v-if="referralInfo && !hasTicket"
             class="rounded-2xl p-4 sm:p-5 mb-6 flex items-center gap-3"
-            style="background:linear-gradient(135deg, #dcfce7, #d1fae5); border:1px solid #16a34a33;"
+            style="background:linear-gradient(135deg, #dcfce7, #d1fae5); border:1px solid color-mix(in srgb, var(--wd-green-600) 20%, transparent);"
           >
             <div class="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style="background:white;">
-              <span class="text-lg font-black" style="color:#16a34a;">%</span>
+              <span class="text-lg font-black" style="color:var(--wd-green-600);">%</span>
             </div>
             <div class="flex-1 min-w-0">
-              <div class="text-[10px] uppercase tracking-[0.3em] font-bold" style="color:#16a34a;">
+              <div class="text-[10px] uppercase tracking-[0.3em] font-bold" style="color:var(--wd-green-600);">
                 Referral discount
               </div>
-              <div class="mt-0.5 text-sm" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+              <div class="mt-0.5 text-sm" style="color:var(--wd-brown-900); font-family:var(--wd-font-display);">
                 {{ referralInfo.referrerName }} shared this link — you both get {{ referralInfo.discountPercent }}% off.
               </div>
             </div>
@@ -1540,38 +1541,38 @@ useHead({
               class="relative rounded-2xl bg-white p-5 border transition-all"
               :class="isTopPass(t, i) ? 'md:-translate-y-1' : ''"
               :style="{
-                borderColor: (isTopPass(t, i) ? '#dc2626' : '#3b1f0d22'),
+                borderColor: (isTopPass(t, i) ? WD.red600 : (WD.brown900 + '22')),
                 borderWidth: isTopPass(t, i) ? '2px' : '1px',
                 boxShadow: isTopPass(t, i)
-                  ? '6px 8px 0 -2px #dc2626, 0 12px 28px rgba(59,31,18,0.08)'
-                  : '0 1px 0 #3b1f0d0a, 0 6px 18px rgba(59,31,18,0.04)',
+                  ? '6px 8px 0 -2px var(--wd-red-600), 0 12px 28px rgba(59,31,18,0.08)'
+                  : '0 1px 0 color-mix(in srgb, var(--wd-brown-900) 3.9%, transparent), 0 6px 18px rgba(59,31,18,0.04)',
                 opacity: t.soldOut ? 0.75 : 1,
               }"
             >
               <div
                 v-if="isTopPass(t, i) && !t.soldOut"
                 class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest text-white whitespace-nowrap"
-                style="background:#dc2626;"
+                style="background:var(--wd-red-600);"
               >
                 {{ recommendation ? 'Recommended for you' : 'Best value' }}
               </div>
               <div
                 v-if="t.soldOut"
                 class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest text-white whitespace-nowrap"
-                style="background:#5b3a1d;"
+                style="background:var(--wd-brown-700);"
               >
                 Sold out
               </div>
 
-              <div class="text-[10px] uppercase tracking-[0.3em] font-bold" style="color:#9a5614;">
+              <div class="text-[10px] uppercase tracking-[0.3em] font-bold" style="color:var(--wd-amber-600);">
                 {{ t.name }}
               </div>
               <div class="mt-2 mb-1 flex items-baseline gap-1">
-                <span class="text-4xl font-black" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+                <span class="text-4xl font-black" style="color:var(--wd-brown-900); font-family:var(--wd-font-display);">
                   €{{ t.price }}
                 </span>
               </div>
-              <p v-if="t.description" class="text-sm mb-4" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+              <p v-if="t.description" class="text-sm mb-4" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
                 {{ t.description }}
               </p>
 
@@ -1579,7 +1580,7 @@ useHead({
                 <span
                   v-if="t.days.length === 0 && !t.includesParty"
                   class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
-                  style="background:#16a34a18; color:#16a34a;"
+                  style="background:color-mix(in srgb, var(--wd-green-600) 9.4%, transparent); color:var(--wd-green-600);"
                 >
                   All days
                 </span>
@@ -1587,21 +1588,21 @@ useHead({
                   v-for="d in t.days"
                   :key="d"
                   class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
-                  style="background:#0891b218; color:#0891b2;"
+                  style="background:color-mix(in srgb, var(--wd-cyan-600) 9.4%, transparent); color:var(--wd-cyan-600);"
                 >
                   {{ d }}
                 </span>
                 <span
                   v-if="t.includesParty"
                   class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
-                  style="background:#a855f718; color:#a855f7;"
+                  style="background:color-mix(in srgb, var(--wd-purple-500) 9.4%, transparent); color:var(--wd-purple-500);"
                 >
                   Parties incl.
                 </span>
                 <span
                   v-if="t.workshopCount !== undefined && t.workshopCount !== null"
                   class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
-                  style="background:#f59e0b18; color:#f59e0b;"
+                  style="background:color-mix(in srgb, var(--wd-amber-500) 9.4%, transparent); color:var(--wd-amber-500);"
                 >
                   {{ t.workshopCount }} workshop{{ t.workshopCount === 1 ? '' : 's' }}
                 </span>
@@ -1610,7 +1611,7 @@ useHead({
               <div
                 v-if="hasTicket"
                 class="inline-flex items-center justify-center gap-2 w-full py-3 rounded-full text-xs font-bold uppercase tracking-wider"
-                style="background:#16a34a18; color:#16a34a;"
+                style="background:color-mix(in srgb, var(--wd-green-600) 9.4%, transparent); color:var(--wd-green-600);"
               >
                 <Check class="w-3.5 h-3.5" />
                 You have a ticket
@@ -1620,8 +1621,8 @@ useHead({
                 type="button"
                 class="inline-flex items-center justify-center gap-2 w-full py-3 rounded-full text-white text-xs font-bold uppercase tracking-wider transition-transform hover:-translate-y-0.5"
                 :style="i === 0
-                  ? { background: 'linear-gradient(135deg, #dc2626, #f97316)', boxShadow: '0 3px 0 -1px #b91c1c' }
-                  : { background: '#3b1f0d' }"
+                  ? { background: 'linear-gradient(135deg, var(--wd-red-600), var(--wd-orange-500))', boxShadow: '0 3px 0 -1px var(--wd-red-800)' }
+                  : { background: 'var(--wd-brown-900)' }"
                 @click="chooseTicket(t)"
               >
                 Get this pass
@@ -1630,7 +1631,7 @@ useHead({
               <div
                 v-else
                 class="inline-flex items-center justify-center gap-2 w-full py-3 rounded-full text-xs font-bold uppercase tracking-wider"
-                style="background:#3b1f0d0a; color:#9a5614;"
+                style="background:color-mix(in srgb, var(--wd-brown-900) 3.9%, transparent); color:var(--wd-amber-600);"
               >
                 No longer available
               </div>
@@ -1639,7 +1640,7 @@ useHead({
         </section>
 
         <section id="venue" class="scroll-mt-16">
-          <h2 class="text-2xl font-black leading-tight mb-4" style="color:#3b1f0d;">Venue</h2>
+          <h2 class="text-2xl font-black leading-tight mb-4" style="color:var(--wd-brown-900);">Venue</h2>
           <VenueTab :venue="festival.venue" />
         </section>
     </div>
@@ -1666,8 +1667,8 @@ useHead({
             class="inline-flex items-center justify-center w-6 h-6 rounded-full text-[11px] font-black bg-white"
             :style="{ color: festival.accentColor }"
           >{{ planIds.size }}</span>
-          <span style="font-family:'Playfair Display', serif; letter-spacing:0.01em;">in your plan</span>
-          <span style="font-family:'Caveat', cursive; font-size:16px; opacity:0.85;">— see dashboard</span>
+          <span style="font-family:var(--wd-font-display); letter-spacing:0.01em;">in your plan</span>
+          <span style="font-family:var(--wd-font-display);font-style:italic; font-size:16px; opacity:0.85;">— see dashboard</span>
           <ArrowRight class="w-4 h-4" />
         </NuxtLink>
       </Transition>
@@ -1701,18 +1702,18 @@ useHead({
         >
           <div
             class="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl"
-            style="background:#fbf5ea;"
+            style="background:var(--wd-cream);"
           >
             <!-- Header band -->
-            <div class="p-5 sm:p-6" style="background:linear-gradient(135deg, #dc2626, #f97316);">
+            <div class="p-5 sm:p-6" style="background:linear-gradient(135deg, var(--wd-red-600), var(--wd-orange-500));">
               <div class="flex items-center gap-2 text-white/90 text-[10px] font-bold uppercase tracking-[0.3em]">
                 <img src="/icon.svg" alt="" class="w-4 h-4 brightness-0 invert" >
                 Checkout on WeDance
               </div>
-              <div class="mt-2 text-2xl font-black leading-tight text-white" style="font-family:'Playfair Display', serif;">
+              <div class="mt-2 text-2xl font-black leading-tight text-white" style="font-family:var(--wd-font-display);">
                 {{ festival.name }}
               </div>
-              <div class="text-xs text-white/85 mt-0.5" style="font-family: system-ui, sans-serif;">
+              <div class="text-xs text-white/85 mt-0.5" style="font-family:var(--wd-font-sans);">
                 {{ checkoutLabel }}
               </div>
             </div>
@@ -1724,14 +1725,14 @@ useHead({
                 :key="t.name"
                 class="flex items-baseline justify-between"
                 :class="selectedTickets.length > 1 ? 'pb-2' : 'pb-4 mb-4 border-b'"
-                :style="selectedTickets.length > 1 ? '' : 'border-color:#3b1f0d15;'"
+                :style="selectedTickets.length > 1 ? '' : 'border-color:color-mix(in srgb, var(--wd-brown-900) 8.2%, transparent);'"
               >
-                <div class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+                <div class="text-sm" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
                   {{ t.name }}
                 </div>
                 <div
                   :class="selectedTickets.length > 1 ? 'text-lg font-bold' : 'text-3xl font-black'"
-                  style="color:#3b1f0d; font-family:'Playfair Display', serif;"
+                  style="color:var(--wd-brown-900); font-family:var(--wd-font-display);"
                 >
                   €{{ t.price }}
                 </div>
@@ -1740,12 +1741,12 @@ useHead({
               <div
                 v-if="selectedTickets.length > 1"
                 class="flex items-baseline justify-between pt-2 pb-4 mb-4 border-t border-b"
-                style="border-color:#3b1f0d15;"
+                style="border-color:color-mix(in srgb, var(--wd-brown-900) 8.2%, transparent);"
               >
-                <div class="text-sm font-bold" style="color:#3b1f0d; font-family: system-ui, sans-serif;">
+                <div class="text-sm font-bold" style="color:var(--wd-brown-900); font-family:var(--wd-font-sans);">
                   Total
                 </div>
-                <div class="text-3xl font-black" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+                <div class="text-3xl font-black" style="color:var(--wd-brown-900); font-family:var(--wd-font-display);">
                   €{{ checkoutTotal }}
                 </div>
               </div>
@@ -1754,41 +1755,41 @@ useHead({
               <div
                 v-if="referralInfo"
                 class="flex items-baseline justify-between pb-4 mb-4 border-b"
-                style="border-color:#16a34a33;"
+                style="border-color:color-mix(in srgb, var(--wd-green-600) 20%, transparent);"
               >
-                <div class="text-sm" style="color:#16a34a; font-family: system-ui, sans-serif;">
+                <div class="text-sm" style="color:var(--wd-green-600); font-family:var(--wd-font-sans);">
                   Referral {{ referralInfo.discountPercent }}% off
                 </div>
-                <div class="text-lg font-bold" style="color:#16a34a; font-family:'Playfair Display', serif;">
+                <div class="text-lg font-bold" style="color:var(--wd-green-600); font-family:var(--wd-font-display);">
                   −€{{ Math.round(checkoutTotal * referralInfo.discountPercent / 100) }}
                 </div>
               </div>
 
               <!-- What you get -->
-              <ul class="space-y-2 mb-5 text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+              <ul class="space-y-2 mb-5 text-sm" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
                 <li class="flex items-start gap-2">
-                  <Check class="w-4 h-4 shrink-0 mt-0.5" style="color:#16a34a;" />
+                  <Check class="w-4 h-4 shrink-0 mt-0.5" style="color:var(--wd-green-600);" />
                   <span v-if="selectedTickets.length === 1 && selectedTickets[0].description">{{ selectedTickets[0].description }}</span>
                   <span v-else>Access to {{ festival.name }}</span>
                 </li>
                 <li class="flex items-start gap-2">
-                  <Check class="w-4 h-4 shrink-0 mt-0.5" style="color:#16a34a;" />
-                  <span>Your face on the event page — <strong style="color:#3b1f0d;">see who else is going</strong></span>
+                  <Check class="w-4 h-4 shrink-0 mt-0.5" style="color:var(--wd-green-600);" />
+                  <span>Your face on the event page — <strong style="color:var(--wd-brown-900);">see who else is going</strong></span>
                 </li>
                 <li class="flex items-start gap-2">
-                  <Check class="w-4 h-4 shrink-0 mt-0.5" style="color:#16a34a;" />
+                  <Check class="w-4 h-4 shrink-0 mt-0.5" style="color:var(--wd-green-600);" />
                   <span>Plan workshops, find a partner, share your plan</span>
                 </li>
               </ul>
 
-              <div v-if="checkoutError" class="mb-3 rounded-lg px-4 py-2 text-sm text-center" style="background:#fef2f2; color:#dc2626; font-family: system-ui, sans-serif;">
+              <div v-if="checkoutError" class="mb-3 rounded-lg px-4 py-2 text-sm text-center" style="background:#fef2f2; color:var(--wd-red-600); font-family:var(--wd-font-sans);">
                 {{ checkoutError }}
               </div>
 
               <button
                 type="button"
                 class="inline-flex items-center justify-center gap-2 w-full py-3.5 rounded-full text-white text-sm font-bold uppercase tracking-wider disabled:opacity-60"
-                style="background:linear-gradient(135deg, #dc2626, #f97316); box-shadow: 0 4px 0 -1px #b91c1c;"
+                style="background:linear-gradient(135deg, var(--wd-red-600), var(--wd-orange-500)); box-shadow: 0 4px 0 -1px var(--wd-red-800);"
                 :disabled="checkoutLoading"
                 @click="startTicketCheckout"
               >
@@ -1797,14 +1798,14 @@ useHead({
                 <template v-else>Pay €{{ checkoutTotal }} <ArrowRight class="w-4 h-4" /></template>
               </button>
 
-              <div class="mt-3 text-center text-xs" style="color:#9a5614; font-family:'Caveat', cursive; font-size:16px;">
+              <div class="mt-3 text-center text-xs" style="color:var(--wd-amber-600); font-family:var(--wd-font-display);font-style:italic; font-size:16px;">
                 — secure payment · instant confirmation
               </div>
 
               <button
                 type="button"
                 class="mt-3 w-full text-xs italic hover:underline"
-                style="color:#9a5614; font-family: system-ui, sans-serif;"
+                style="color:var(--wd-amber-600); font-family:var(--wd-font-sans);"
                 @click="showCheckout = false"
               >
                 Maybe later
@@ -1832,46 +1833,46 @@ useHead({
         >
           <div
             class="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl"
-            style="background:#fbf5ea;"
+            style="background:var(--wd-cream);"
           >
             <!-- Success header -->
-            <div class="p-6 sm:p-8 text-center" style="background:linear-gradient(135deg, #16a34a, #22c55e);">
+            <div class="p-6 sm:p-8 text-center" style="background:linear-gradient(135deg, var(--wd-green-600), #22c55e);">
               <div class="w-16 h-16 rounded-full mx-auto mb-3 flex items-center justify-center" style="background:rgba(255,255,255,0.25);">
                 <Check class="w-8 h-8 text-white" />
               </div>
-              <div class="text-2xl font-black text-white" style="font-family:'Playfair Display', serif;">
+              <div class="text-2xl font-black text-white" style="font-family:var(--wd-font-display);">
                 You're in!
               </div>
-              <div class="text-sm text-white/90 mt-1" style="font-family: system-ui, sans-serif;">
+              <div class="text-sm text-white/90 mt-1" style="font-family:var(--wd-font-sans);">
                 Payment confirmed
               </div>
             </div>
 
             <div class="p-5 sm:p-6">
               <!-- Purchase details -->
-              <div class="space-y-3 pb-4 mb-4 border-b" style="border-color:#3b1f0d15;">
+              <div class="space-y-3 pb-4 mb-4 border-b" style="border-color:color-mix(in srgb, var(--wd-brown-900) 8.2%, transparent);">
                 <div class="flex items-center justify-between">
-                  <span class="text-xs uppercase tracking-wider font-bold" style="color:#9a5614;">Festival</span>
-                  <span class="text-sm font-bold" style="color:#3b1f0d; font-family:'Playfair Display', serif;">{{ paymentSuccessInfo.festivalName }}</span>
+                  <span class="text-xs uppercase tracking-wider font-bold" style="color:var(--wd-amber-600);">Festival</span>
+                  <span class="text-sm font-bold" style="color:var(--wd-brown-900); font-family:var(--wd-font-display);">{{ paymentSuccessInfo.festivalName }}</span>
                 </div>
                 <div class="flex items-center justify-between">
-                  <span class="text-xs uppercase tracking-wider font-bold" style="color:#9a5614;">Pass</span>
-                  <span class="text-sm font-bold" style="color:#3b1f0d; font-family:'Playfair Display', serif;">{{ paymentSuccessInfo.ticketName }}</span>
+                  <span class="text-xs uppercase tracking-wider font-bold" style="color:var(--wd-amber-600);">Pass</span>
+                  <span class="text-sm font-bold" style="color:var(--wd-brown-900); font-family:var(--wd-font-display);">{{ paymentSuccessInfo.ticketName }}</span>
                 </div>
                 <div v-if="paymentSuccessInfo.amount > 0" class="flex items-center justify-between">
-                  <span class="text-xs uppercase tracking-wider font-bold" style="color:#9a5614;">Paid</span>
-                  <span class="text-sm font-bold" style="color:#3b1f0d; font-family:'Playfair Display', serif;">&euro;{{ paymentSuccessInfo.amount }}</span>
+                  <span class="text-xs uppercase tracking-wider font-bold" style="color:var(--wd-amber-600);">Paid</span>
+                  <span class="text-sm font-bold" style="color:var(--wd-brown-900); font-family:var(--wd-font-display);">&euro;{{ paymentSuccessInfo.amount }}</span>
                 </div>
               </div>
 
-              <p class="text-xs text-center mb-4" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+              <p class="text-xs text-center mb-4" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
                 A confirmation email is on its way. Start planning your workshops and connect with other dancers!
               </p>
 
               <button
                 type="button"
                 class="inline-flex items-center justify-center gap-2 w-full py-3.5 rounded-full text-white text-sm font-bold uppercase tracking-wider"
-                style="background:linear-gradient(135deg, #16a34a, #22c55e); box-shadow: 0 4px 0 -1px #15803d;"
+                style="background:linear-gradient(135deg, var(--wd-green-600), #22c55e); box-shadow: 0 4px 0 -1px var(--wd-green-700);"
                 @click="dismissPaymentSuccess"
               >
                 Let's go
@@ -1899,14 +1900,14 @@ useHead({
         >
           <div
             class="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl"
-            style="background:#fbf5ea;"
+            style="background:var(--wd-cream);"
           >
             <!-- Nudge header -->
-            <div class="p-6 sm:p-8 text-center" style="background:linear-gradient(135deg, #dc2626, #ef4444);">
-              <div class="text-2xl font-black text-white" style="font-family:'Playfair Display', serif;">
+            <div class="p-6 sm:p-8 text-center" style="background:linear-gradient(135deg, var(--wd-red-600), #ef4444);">
+              <div class="text-2xl font-black text-white" style="font-family:var(--wd-font-display);">
                 One more step
               </div>
-              <div class="text-sm text-white/90 mt-1" style="font-family: system-ui, sans-serif;">
+              <div class="text-sm text-white/90 mt-1" style="font-family:var(--wd-font-sans);">
                 Help us match you with the right people
               </div>
             </div>
@@ -1914,7 +1915,7 @@ useHead({
             <div class="p-5 sm:p-6">
               <!-- Dance styles -->
               <div class="mb-5">
-                <span class="text-sm font-bold block mb-2" style="color:#3b1f0d;">Which dances?</span>
+                <span class="text-sm font-bold block mb-2" style="color:var(--wd-brown-900);">Which dances?</span>
                 <div class="flex flex-wrap gap-2">
                   <button
                     v-for="style in NUDGE_DANCE_STYLES"
@@ -1922,8 +1923,8 @@ useHead({
                     type="button"
                     class="inline-flex items-center gap-1 rounded-full px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider transition-colors"
                     :style="nudgeForm.danceStyles.includes(style)
-                      ? 'background:#dc2626; color:white; border:1px solid #dc2626;'
-                      : 'background:white; color:#5b3a1d; border:1px solid #3b1f0d33;'"
+                      ? 'background:var(--wd-red-600); color:white; border:1px solid var(--wd-red-600);'
+                      : 'background:white; color:var(--wd-brown-700); border:1px solid color-mix(in srgb, var(--wd-brown-900) 20%, transparent);'"
                     @click="toggleNudgeStyle(style)"
                   >
                     <Check v-if="nudgeForm.danceStyles.includes(style)" class="w-3 h-3" />
@@ -1934,15 +1935,15 @@ useHead({
 
               <!-- Role -->
               <div class="mb-5">
-                <span class="text-sm font-bold block mb-2" style="color:#3b1f0d;">Do you lead or follow?</span>
+                <span class="text-sm font-bold block mb-2" style="color:var(--wd-brown-900);">Do you lead or follow?</span>
                 <div class="flex gap-3">
                   <label
                     v-for="r in [{ value: 'lead', label: 'Lead' }, { value: 'follow', label: 'Follow' }, { value: 'both', label: 'Both' }]"
                     :key="r.value"
                     class="flex-1 flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-bold cursor-pointer transition-colors"
                     :style="nudgeForm.role === r.value
-                      ? 'background:#dc2626; color:white; border:1px solid #dc2626;'
-                      : 'background:white; color:#5b3a1d; border:1px solid #3b1f0d33;'"
+                      ? 'background:var(--wd-red-600); color:white; border:1px solid var(--wd-red-600);'
+                      : 'background:white; color:var(--wd-brown-700); border:1px solid color-mix(in srgb, var(--wd-brown-900) 20%, transparent);'"
                   >
                     <input v-model="nudgeForm.role" type="radio" name="nudge-role" :value="r.value" class="sr-only">
                     {{ r.label }}
@@ -1954,7 +1955,7 @@ useHead({
                 type="button"
                 :disabled="!nudgeForm.danceStyles.length || !nudgeForm.role || nudgeSaving"
                 class="inline-flex items-center justify-center gap-2 w-full py-3.5 rounded-full text-white text-sm font-bold uppercase tracking-wider disabled:opacity-60"
-                style="background:#dc2626; box-shadow: 0 3px 0 -1px #b91c1c;"
+                style="background:var(--wd-red-600); box-shadow: 0 3px 0 -1px var(--wd-red-800);"
                 @click="submitNudge"
               >
                 {{ nudgeSaving ? 'Saving…' : 'Save & start planning' }}
@@ -1965,7 +1966,7 @@ useHead({
                 <button
                   type="button"
                   class="text-sm underline"
-                  style="color:#9a5614; font-family: system-ui, sans-serif;"
+                  style="color:var(--wd-amber-600); font-family:var(--wd-font-sans);"
                   @click="showProfileNudge = false"
                 >
                   Skip for now

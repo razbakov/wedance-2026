@@ -79,34 +79,34 @@ useHead(() => ({
     { rel: 'canonical', href: canonical.value },
     { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
     { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
-    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Caveat:wght@400;700&display=swap' },
+    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&display=swap' },
   ],
   script: [{ type: 'application/ld+json', innerHTML: jsonld.value }],
 }))
 </script>
 
 <template>
-  <div class="min-h-screen" style="background:#fbf5ea; color:#3b1f0d; font-family:'Playfair Display', serif;">
+  <div class="min-h-screen" style="background:var(--wd-cream); color:var(--wd-brown-900); font-family:var(--wd-font-display);">
     <SiteHeader />
 
     <section class="max-w-4xl mx-auto px-4 pt-8 pb-4">
       <!-- Breadcrumb back to the city hub -->
-      <nav class="text-xs mb-4" style="color:#9a5614; font-family: system-ui, sans-serif;" aria-label="Breadcrumb">
+      <nav class="text-xs mb-4" style="color:var(--wd-amber-600); font-family:var(--wd-font-sans);" aria-label="Breadcrumb">
         <NuxtLink to="/cities" class="hover:underline">Cities</NuxtLink>
         <span class="mx-1.5">/</span>
         <NuxtLink :to="`/cities/${slug}`" class="hover:underline">{{ cityName }}</NuxtLink>
         <span class="mx-1.5">/</span>
-        <span style="color:#5b3a1d;">{{ roleLabel }}</span>
+        <span style="color:var(--wd-brown-700);">{{ roleLabel }}</span>
       </nav>
 
-      <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">{{ heading.kicker }}</div>
-      <h1 class="mt-2 text-4xl sm:text-5xl leading-[1.02] tracking-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+      <div class="text-xs uppercase tracking-[0.3em]" style="color:var(--wd-amber-600);">{{ heading.kicker }}</div>
+      <h1 class="mt-2 text-4xl sm:text-5xl leading-[1.02] tracking-tight" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">
         {{ roleLabel }} in
         <em class="italic" :style="{ color: accent }">{{ cityName }}</em>
       </h1>
-      <p class="mt-2 text-sm italic" style="color:#5b3a1d;">
+      <p class="mt-2 text-sm italic" style="color:var(--wd-brown-700);">
         {{ people.length }} {{ heading.accentWord }} in {{ cityName }}.
-        <NuxtLink :to="`/cities/${slug}`" class="not-italic font-bold hover:underline" :style="{ color: accent, fontFamily: 'system-ui, sans-serif' }">
+        <NuxtLink :to="`/cities/${slug}`" class="not-italic font-bold hover:underline" :style="{ color: accent, fontFamily: 'var(--wd-font-sans)' }">
           ← Back to this week
         </NuxtLink>
       </p>
@@ -153,14 +153,14 @@ useHead(() => ({
       <div
         v-else
         class="rounded-2xl border-2 border-dashed p-10 text-center"
-        style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);"
+        style="border-color:color-mix(in srgb, var(--wd-brown-900) 20%, transparent); background:rgba(255,255,255,0.5);"
       >
-        <MapPin class="w-6 h-6 mx-auto mb-2" style="color:#9a5614;" />
-        <p class="text-sm font-bold" style="color:#3b1f0d;">No {{ roleLabel.toLowerCase() }} listed in {{ cityName }} yet.</p>
+        <MapPin class="w-6 h-6 mx-auto mb-2" style="color:var(--wd-amber-600);" />
+        <p class="text-sm font-bold" style="color:var(--wd-brown-900);">No {{ roleLabel.toLowerCase() }} listed in {{ cityName }} yet.</p>
         <NuxtLink
           to="/for-events"
           class="inline-flex items-center gap-2 mt-4 rounded-full px-5 py-2.5 text-white text-xs font-bold uppercase tracking-wider"
-          style="background:linear-gradient(135deg,#dc2626,#f97316);"
+          style="background:linear-gradient(135deg,var(--wd-red-600),var(--wd-orange-500));"
         >
           List yours
         </NuxtLink>

@@ -17,13 +17,13 @@
  *   cyan-600    #0891b2   — info
  *   amber-500   #f59e0b   — warning
  *
- * Font families:
- *   --font-display   'Playfair Display', serif    — headings, brand
- *   --font-sans      system-ui, sans-serif        — body, UI
- *   --font-accent    'Caveat', cursive            — handwritten highlights
- *   --font-marker    'Permanent Marker', cursive  — playful emphasis
- *   --font-impact    'Anton', sans-serif          — bold impact headers
- *   --font-serif-alt 'DM Serif Display', serif    — alt serif display
+ * Font families (consolidated 2026-10-10 — Caveat, Permanent Marker, Anton and
+ * DM Serif Display were retired):
+ *   --wd-font-display  'Playfair Display', serif  — headings, brand; italic for highlights
+ *   --wd-font-sans     system-ui, sans-serif      — body, UI
+ *
+ * Extended palette (--wd-purple-500 … --wd-blue-600) is listed on /styleguide.
+ * JS mirror: app/lib/brand.ts (WD).
  */
 
 @layer base {
@@ -39,6 +39,41 @@
     --wd-green-600: #16a34a;
     --wd-cyan-600: #0891b2;
     --wd-amber-500: #f59e0b;
+
+    /* Extended palette — accents and one-off tints found in pages (phase 2) */
+    --wd-purple-500: #a855f7;
+    --wd-pink-500: #ec4899;
+    --wd-pink-400: #f472b6;
+    --wd-violet-600: #7c3aed;
+    --wd-violet-400: #a78bfa;
+    --wd-brown-950: #2a1f12;
+    --wd-ink-900: #2a2018;
+    --wd-brown-600: #5b4830;
+    --wd-brown-500: #8b4513;
+    --wd-sand-400: #c9a87a;
+    --wd-sand-100: #ede4d3;
+    --wd-black: #0a0a0a;
+    --wd-gray-500: #6b7280;
+    --wd-orange-700: #c2410c;
+    --wd-amber-800: #92400e;
+    --wd-amber-700: #b45309;
+    --wd-amber-400: #fbbf24;
+    --wd-amber-100: #fef3c7;
+    --wd-yellow-300: #fde047;
+    --wd-rose-600: #e11d48;
+    --wd-rose-500: #f43f5e;
+    --wd-red-900: #991b1b;
+    --wd-red-100: #fee2e2;
+    --wd-red-50: #fdecec;
+    --wd-green-700: #15803d;
+    --wd-cyan-700: #0e7490;
+    --wd-cyan-400: #22d3ee;
+    --wd-sky-500: #0ea5e9;
+    --wd-blue-600: #2563eb;
+
+    /* Fonts — the core pair. Handwritten-feel highlights use display + italic. */
+    --wd-font-display: 'Playfair Display', serif;
+    --wd-font-sans: system-ui, sans-serif;
 
     /* ── Semantic tokens (shadcn mapping) ── */
     --background: var(--wd-cream);
@@ -108,7 +143,7 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: system-ui, sans-serif;
+    font-family: var(--wd-font-sans);
   }
   /* Fields flagged by useFormValidation. !important beats the inline border
      colours most form inputs set. */
@@ -160,6 +195,35 @@
   --color-wd-green-600: var(--wd-green-600);
   --color-wd-cyan-600: var(--wd-cyan-600);
   --color-wd-amber-500: var(--wd-amber-500);
+  --color-wd-purple-500: var(--wd-purple-500);
+  --color-wd-pink-500: var(--wd-pink-500);
+  --color-wd-pink-400: var(--wd-pink-400);
+  --color-wd-violet-600: var(--wd-violet-600);
+  --color-wd-violet-400: var(--wd-violet-400);
+  --color-wd-brown-950: var(--wd-brown-950);
+  --color-wd-ink-900: var(--wd-ink-900);
+  --color-wd-brown-600: var(--wd-brown-600);
+  --color-wd-brown-500: var(--wd-brown-500);
+  --color-wd-sand-400: var(--wd-sand-400);
+  --color-wd-sand-100: var(--wd-sand-100);
+  --color-wd-black: var(--wd-black);
+  --color-wd-gray-500: var(--wd-gray-500);
+  --color-wd-orange-700: var(--wd-orange-700);
+  --color-wd-amber-800: var(--wd-amber-800);
+  --color-wd-amber-700: var(--wd-amber-700);
+  --color-wd-amber-400: var(--wd-amber-400);
+  --color-wd-amber-100: var(--wd-amber-100);
+  --color-wd-yellow-300: var(--wd-yellow-300);
+  --color-wd-rose-600: var(--wd-rose-600);
+  --color-wd-rose-500: var(--wd-rose-500);
+  --color-wd-red-900: var(--wd-red-900);
+  --color-wd-red-100: var(--wd-red-100);
+  --color-wd-red-50: var(--wd-red-50);
+  --color-wd-green-700: var(--wd-green-700);
+  --color-wd-cyan-700: var(--wd-cyan-700);
+  --color-wd-cyan-400: var(--wd-cyan-400);
+  --color-wd-sky-500: var(--wd-sky-500);
+  --color-wd-blue-600: var(--wd-blue-600);
 
   /* ── Radii ── */
   --radius-sm: calc(var(--radius) - 4px);
@@ -168,10 +232,6 @@
   --radius-xl: calc(var(--radius) + 4px);
 
   /* ── Font families ── */
-  --font-display: 'Playfair Display', serif;
-  --font-sans: system-ui, sans-serif;
-  --font-accent: 'Caveat', cursive;
-  --font-marker: 'Permanent Marker', cursive;
-  --font-impact: 'Anton', sans-serif;
-  --font-serif-alt: 'DM Serif Display', serif;
+  --font-display: var(--wd-font-display);
+  --font-sans: var(--wd-font-sans);
 }

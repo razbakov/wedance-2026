@@ -55,18 +55,27 @@ These drive all shared UI components (`app/components/ui/*`). Prefer these over 
 | `--info` | `#0891b2` | Informational highlights |
 | `--warning` | `#f59e0b` | Warnings, caution states |
 
+### 4. Extended palette
+
+Accents and tints pages use beyond the core brand (purple, pink, violet, sky, rose, sand, extra amber/red/green/cyan steps …). Full list with swatches on `/styleguide`; definitions in `tailwind.css` under "Extended palette". Same naming: `var(--wd-purple-500)`, `bg-wd-purple-500`.
+
+### 5. JS mirror — `app/lib/brand.ts`
+
+`WD` exports every `--wd-*` hex for places where the colour is computed in JS — accent rotations (`[WD.red600, WD.cyan600][i]`) and alpha suffixes (`accent + '55'`), which a CSS variable can't take. `app/lib/brand.test.ts` fails if `WD` and `tailwind.css` drift apart.
+
+Rule of thumb: **CSS context → `var(--wd-*)`; JS value → `WD.*`.**
+
+Alpha tints in CSS: `color-mix(in srgb, var(--wd-red-600) 13%, transparent)` (not `#dc262622`).
+
 ## Font Families
 
-| Token | Tailwind class | Stack | Usage |
-|---|---|---|---|
-| `--font-display` | `font-display` | Playfair Display, serif | Headings, brand text |
-| `--font-sans` | `font-sans` | system-ui, sans-serif | Body text, UI, forms |
-| `--font-accent` | `font-accent` | Caveat, cursive | Handwritten highlights |
-| `--font-marker` | `font-marker` | Permanent Marker, cursive | Playful emphasis |
-| `--font-impact` | `font-impact` | Anton, sans-serif | Bold impact headers |
-| `--font-serif-alt` | `font-serif-alt` | DM Serif Display, serif | Alt serif display |
+Consolidated 2026-10-10 to one pair. Caveat, Permanent Marker, Anton and DM Serif Display are retired.
 
-**Proposed consolidation (Commander decision pending):** keep `font-display` (Playfair) + `font-sans` (system-ui) as the core pair. The other four families are used sparingly (Caveat 53x, Permanent Marker 25x, Anton 15x, DM Serif Display 12x) and could be reduced in follow-up work.
+| Token | Tailwind class | Inline CSS | Stack | Usage |
+|---|---|---|---|---|
+| `--wd-font-display` | `font-display` | `font-family:var(--wd-font-display)` | Playfair Display, serif | Headings, brand text |
+| `--wd-font-display` + italic | `font-display italic` | `…;font-style:italic` | Playfair Display italic | Handwritten-feel highlights (the old Caveat slot) |
+| `--wd-font-sans` | `font-sans` | `font-family:var(--wd-font-sans)` | system-ui, sans-serif | Body text, UI, forms |
 
 ## Rules
 
@@ -78,28 +87,26 @@ These drive all shared UI components (`app/components/ui/*`). Prefer these over 
 
 ## Font loading
 
-Pages that use the V3 tropical aesthetic load Google Fonts via `useHead()`:
+Pages using the tropical aesthetic load Playfair Display (incl. italic) via `useHead()`:
 
 ```ts
-useHead({
-  link: [
-    { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
-    { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
-    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Caveat:wght@400;700&display=swap' },
-  ],
-})
+{ rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&display=swap' }
 ```
 
-Pages using `layout: 'default'` (the shadcn admin layout) rely on system fonts only.
+Never add another Google Font without a design-system PR.
 
 ## Inline style inventory
 
-As of this PR, **80 `.vue` files** still contain inline `style=""` hex values (~2,500 occurrences across 87 distinct colours). This PR migrated:
+Phase 2 (2026-10-10) migrated all product pages and components (sketches excluded):
 
-- `SiteHeader.vue` — fully tokenised
-- `SiteFooter.vue` — fully tokenised
-- `SignUpModal.vue` — fully tokenised
-- `ReportProblem.vue` — fully tokenised
-- `FieldError.vue` — fully tokenised
+- ~2,050 inline CSS hex values → `var(--wd-*)` / `color-mix(...)`
+- ~410 JS hex literals → `WD.*`
+- ~660 inline `font-family` declarations → font tokens
+- Verified by full-page pixel diff of 24 routes: identical except intended font changes.
 
-Page-by-page migration is planned in follow-up batches of ~10 files each.
+What still holds a literal hex (by design or below the token threshold):
+
+- `app/pages/sketches/**` — frozen design explorations, not product.
+- `app/data/mock-*.ts` — festival accent colours are content, not design.
+- ~30 one-off colours used ≤3 times (e.g. `#166534`, `#f5f0e8`, `#1f0f06`). Promote to a token the second time someone needs one.
+- `rgba(...)` shadows — left as-is.

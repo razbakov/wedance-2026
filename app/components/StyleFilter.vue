@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { WD } from '~/lib/brand'
 /**
  * StyleFilter — the dance-style chip row used on every filter surface.
  * Leads with the big three (Salsa, Bachata, Kizomba), collapses the rest
@@ -10,7 +11,7 @@ const props = withDefaults(defineProps<{
   modelValue: string
   accents?: string[]
 }>(), {
-  accents: () => ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b', '#ec4899', '#7c3aed'],
+  accents: () => [WD.red600, WD.cyan600, WD.green600, WD.purple500, WD.amber500, WD.pink500, WD.violet600],
 })
 
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
@@ -53,7 +54,7 @@ function select(s: string) {
         v-if="hiddenCount && !expanded"
         type="button"
         class="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all"
-        style="background:white; color:#5b3a1d; border:1px solid #3b1f0d33;"
+        style="background:white; color:var(--wd-brown-700); border:1px solid color-mix(in srgb, var(--wd-brown-900) 20%, transparent);"
         @click="expanded = true"
       >
         + {{ hiddenCount }} more
@@ -62,7 +63,7 @@ function select(s: string) {
         v-else-if="expanded && ordered.length > leadCount"
         type="button"
         class="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all"
-        style="background:white; color:#9a5614; border:1px solid #3b1f0d33;"
+        style="background:white; color:var(--wd-amber-600); border:1px solid color-mix(in srgb, var(--wd-brown-900) 20%, transparent);"
         @click="expanded = false"
       >
         Less

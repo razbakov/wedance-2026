@@ -15,6 +15,7 @@
  */
 import { ArrowRight, ArrowLeft, Check } from 'lucide-vue-next'
 import { onboardingDetailsSchema } from '#shared/validation'
+import { WD } from '~/lib/brand'
 
 definePageMeta({ layout: false })
 
@@ -23,7 +24,7 @@ useHead({
   link: [
     { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
     { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
-    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Caveat:wght@400;700&display=swap' },
+    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&display=swap' },
   ],
 })
 
@@ -153,16 +154,16 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
 </script>
 
 <template>
-  <div class="min-h-screen" style="background:#fbf5ea; color:#3b1f0d; font-family:'Playfair Display', serif;">
+  <div class="min-h-screen" style="background:var(--wd-cream); color:var(--wd-brown-900); font-family:var(--wd-font-display);">
     <SiteHeader />
 
     <section class="max-w-2xl mx-auto px-4 pt-10 pb-16">
       <!-- Progress indicator -->
       <div class="flex items-center justify-center gap-2 mb-8" aria-hidden="true">
-        <span class="h-1.5 rounded-full transition-all" :style="{ width: '40px', background: '#dc2626' }" />
+        <span class="h-1.5 rounded-full transition-all" :style="{ width: '40px', background: 'var(--wd-red-600)' }" />
         <span
           class="h-1.5 rounded-full transition-all"
-          :style="{ width: '40px', background: step === 'details' ? '#dc2626' : '#3b1f0d22' }"
+          :style="{ width: '40px', background: step === 'details' ? WD.red600 : (WD.brown900 + '22') }"
         />
       </div>
       <p class="sr-only" role="status">
@@ -172,13 +173,13 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
       <!-- ============================ STEP 1: INTENT ============================ -->
       <template v-if="step === 'intent'">
         <div class="text-center mb-8">
-          <div class="text-[10px] uppercase tracking-[0.3em] font-bold mb-3" style="color:#9a5614;">
+          <div class="text-[10px] uppercase tracking-[0.3em] font-bold mb-3" style="color:var(--wd-amber-600);">
             Welcome to the floor
           </div>
-          <h1 class="text-4xl sm:text-5xl leading-[1.02]" style="color:#3b1f0d;">
-            What brings you to <em class="italic" style="color:#dc2626;">WeDance?</em>
+          <h1 class="text-4xl sm:text-5xl leading-[1.02]" style="color:var(--wd-brown-900);">
+            What brings you to <em class="italic" style="color:var(--wd-red-600);">WeDance?</em>
           </h1>
-          <p class="mt-4 text-base" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+          <p class="mt-4 text-base" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
             Pick one — we'll set up the rest around it.
           </p>
         </div>
@@ -190,19 +191,19 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
             :ref="el => { if (i === 0) firstIntentBtn = el as HTMLButtonElement }"
             type="button"
             class="group flex items-center gap-4 text-left rounded-2xl px-5 py-4 bg-white transition-all hover:-translate-y-0.5"
-            style="border:1px solid #3b1f0d22; box-shadow: 0 1px 0 #3b1f0d0a, 0 6px 16px rgba(59,31,18,0.04);"
+            style="border:1px solid color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); box-shadow: 0 1px 0 color-mix(in srgb, var(--wd-brown-900) 3.9%, transparent), 0 6px 16px rgba(59,31,18,0.04);"
             @click="pickIntent(p)"
           >
             <span class="text-3xl shrink-0" aria-hidden="true">{{ p.emoji }}</span>
             <span class="min-w-0 flex-1">
-              <span class="block font-bold text-lg leading-tight" style="color:#3b1f0d;">{{ p.label }}</span>
-              <span class="block text-sm mt-0.5" style="color:#5b3a1d; font-family: system-ui, sans-serif;">{{ p.blurb }}</span>
+              <span class="block font-bold text-lg leading-tight" style="color:var(--wd-brown-900);">{{ p.label }}</span>
+              <span class="block text-sm mt-0.5" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">{{ p.blurb }}</span>
             </span>
-            <ArrowRight class="w-5 h-5 shrink-0 transition-transform group-hover:translate-x-1" style="color:#dc2626;" />
+            <ArrowRight class="w-5 h-5 shrink-0 transition-transform group-hover:translate-x-1" style="color:var(--wd-red-600);" />
           </button>
         </div>
 
-        <p v-if="error" class="text-sm font-bold text-center mt-4" style="color:#dc2626; font-family: system-ui, sans-serif;">
+        <p v-if="error" class="text-sm font-bold text-center mt-4" style="color:var(--wd-red-600); font-family:var(--wd-font-sans);">
           {{ error }}
         </p>
 
@@ -210,7 +211,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
           <button
             type="button"
             class="text-sm underline"
-            style="color:#9a5614; font-family: system-ui, sans-serif;"
+            style="color:var(--wd-amber-600); font-family:var(--wd-font-sans);"
             :disabled="loading"
             @click="skip"
           >
@@ -222,18 +223,18 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
       <!-- =========================== STEP 2: DETAILS =========================== -->
       <template v-else>
         <div class="text-center mb-8">
-          <div class="text-[10px] uppercase tracking-[0.3em] font-bold mb-3" style="color:#9a5614;">
+          <div class="text-[10px] uppercase tracking-[0.3em] font-bold mb-3" style="color:var(--wd-amber-600);">
             {{ chosen?.emoji }} {{ chosen?.label }}
           </div>
           <h1
             ref="detailsHeading"
             tabindex="-1"
             class="text-3xl sm:text-4xl leading-[1.05] outline-none"
-            style="color:#3b1f0d;"
+            style="color:var(--wd-brown-900);"
           >
-            A couple <em class="italic" style="color:#dc2626;">details</em>
+            A couple <em class="italic" style="color:var(--wd-red-600);">details</em>
           </h1>
-          <p class="mt-4 text-base" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+          <p class="mt-4 text-base" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
             So we can fill your plan with the right things.
           </p>
         </div>
@@ -241,7 +242,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
         <form class="space-y-6" novalidate @submit.prevent="finish">
           <!-- City -->
           <div v-if="chosen?.collects.city" class="space-y-1.5">
-            <label for="onb-city" class="text-sm font-bold" style="color:#3b1f0d;">Your city</label>
+            <label for="onb-city" class="text-sm font-bold" style="color:var(--wd-brown-900);">Your city</label>
             <input
               id="onb-city"
               ref="cityInput"
@@ -258,7 +259,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
 
           <!-- Styles -->
           <div v-if="chosen?.collects.styles" class="space-y-2">
-            <span id="onb-styles-label" class="text-sm font-bold" style="color:#3b1f0d;">Which dances?</span>
+            <span id="onb-styles-label" class="text-sm font-bold" style="color:var(--wd-brown-900);">Which dances?</span>
             <div role="group" aria-labelledby="onb-styles-label" class="flex flex-wrap gap-2" v-bind="fieldAttrs('danceStyles', 'onb-styles-error')">
               <button
                 v-for="style in DANCE_STYLES"
@@ -267,8 +268,8 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
                 :aria-pressed="form.danceStyles.includes(style)"
                 class="inline-flex items-center gap-1 rounded-full px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider transition-colors"
                 :style="form.danceStyles.includes(style)
-                  ? 'background:#dc2626; color:white; border:1px solid #dc2626;'
-                  : 'background:white; color:#5b3a1d; border:1px solid #3b1f0d33;'"
+                  ? 'background:var(--wd-red-600); color:white; border:1px solid var(--wd-red-600);'
+                  : 'background:white; color:var(--wd-brown-700); border:1px solid color-mix(in srgb, var(--wd-brown-900) 20%, transparent);'"
                 @click="toggleStyle(style)"
               >
                 <Check v-if="form.danceStyles.includes(style)" class="w-3 h-3" />
@@ -279,7 +280,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
             <NuxtLink
               to="/find-your-dance"
               class="inline-block text-xs italic hover:underline pt-1"
-              style="color:#9a5614; font-family:'Playfair Display', serif;"
+              style="color:var(--wd-amber-600); font-family:var(--wd-font-display);"
             >
               Don't know which dance? →
             </NuxtLink>
@@ -287,15 +288,15 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
 
           <!-- Role -->
           <div v-if="chosen?.collects.role" class="space-y-2">
-            <span id="onb-role-label" class="text-sm font-bold" style="color:#3b1f0d;">Do you lead or follow?</span>
+            <span id="onb-role-label" class="text-sm font-bold" style="color:var(--wd-brown-900);">Do you lead or follow?</span>
             <div role="radiogroup" aria-labelledby="onb-role-label" class="flex gap-3" v-bind="fieldAttrs('role', 'onb-role-error')">
               <label
                 v-for="r in [{ value: 'lead', label: 'Lead' }, { value: 'follow', label: 'Follow' }, { value: 'both', label: 'Both' }]"
                 :key="r.value"
                 class="flex-1 flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-bold cursor-pointer transition-colors"
                 :style="form.role === r.value
-                  ? 'background:#dc2626; color:white; border:1px solid #dc2626;'
-                  : 'background:white; color:#5b3a1d; border:1px solid #3b1f0d33;'"
+                  ? 'background:var(--wd-red-600); color:white; border:1px solid var(--wd-red-600);'
+                  : 'background:white; color:var(--wd-brown-700); border:1px solid color-mix(in srgb, var(--wd-brown-900) 20%, transparent);'"
               >
                 <input v-model="form.role" type="radio" name="role" :value="r.value" class="sr-only">
                 {{ r.label }}
@@ -304,7 +305,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
             <FieldError id="onb-role-error" :message="errors.role" />
           </div>
 
-          <p v-if="error" class="text-sm font-bold" style="color:#dc2626; font-family: system-ui, sans-serif;">
+          <p v-if="error" class="text-sm font-bold" style="color:var(--wd-red-600); font-family:var(--wd-font-sans);">
             {{ error }}
           </p>
 
@@ -312,7 +313,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
             <button
               type="button"
               class="inline-flex items-center gap-1.5 px-4 py-3 rounded-full text-sm font-bold uppercase tracking-wider"
-              style="background:white; color:#5b3a1d; border:1px solid #3b1f0d33; font-family: system-ui, sans-serif;"
+              style="background:white; color:var(--wd-brown-700); border:1px solid color-mix(in srgb, var(--wd-brown-900) 20%, transparent); font-family:var(--wd-font-sans);"
               @click="back"
             >
               <ArrowLeft class="w-4 h-4" /> Back
@@ -321,7 +322,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
               type="submit"
               :disabled="loading"
               class="flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-white text-sm font-bold uppercase tracking-wider disabled:opacity-60"
-              style="background:#dc2626; box-shadow: 0 3px 0 -1px #b91c1c; font-family: system-ui, sans-serif;"
+              style="background:var(--wd-red-600); box-shadow: 0 3px 0 -1px var(--wd-red-800); font-family:var(--wd-font-sans);"
             >
               {{ loading ? 'Setting up…' : 'Take me to my plan' }}
               <ArrowRight v-if="!loading" class="w-4 h-4" />
@@ -332,7 +333,7 @@ const inputStyle = 'background:white; border:1px solid #3b1f0d33; color:#3b1f0d;
             <button
               type="button"
               class="text-sm underline"
-              style="color:#9a5614; font-family: system-ui, sans-serif;"
+              style="color:var(--wd-amber-600); font-family:var(--wd-font-sans);"
               :disabled="loading"
               @click="skip"
             >

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { WD } from '~/lib/brand'
 /**
  * /organizers — For festival organizers.
  * Restyled 2026-07-02 to match the V3 tropical direction on /.
@@ -33,18 +34,18 @@ useHead({
   link: [
     { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
     { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
-    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Caveat:wght@400;700&display=swap' },
+    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&display=swap' },
   ],
 })
 
 const features = [
-  { icon: CalendarDays, title: 'Interactive schedule', description: 'Dancers browse workshops, filter by style and level, and build a plan — excitement builds weeks before the doors open.', color: '#dc2626', link: '/festivals/meneate-viena-2026#schedule' },
-  { icon: Users,        title: 'Partner matching',    description: 'Leads and follows find each other before the festival. More matched partners = more workshop sign-ups.',              color: '#0891b2', link: '/festivals/meneate-viena-2026#discover' },
-  { icon: Heart,        title: 'Discover dancers',    description: 'Swipe to find dance partners. Mutual matches become a dance list — your attendees arrive already connected.',        color: '#a855f7', link: '/festivals/meneate-viena-2026#discover' },
-  { icon: Ticket,       title: 'Smart ticket picks',  description: 'As dancers add workshops to their plan, we suggest the best-value ticket. Your pass tiers, their perfect fit.',       color: '#f59e0b', link: '/festivals/meneate-viena-2026#tickets' },
-  { icon: Zap,          title: 'One-tap checkout',    description: 'Signed-in dancers buy their pass in a single tap — no forms, no re-entering details. Fewer drop-offs, more sold tickets.', color: '#ec4899', link: '/festivals/meneate-viena-2026#tickets' },
-  { icon: Share2,       title: 'Plan sharing',        description: 'Dancers share their festival plan with friends. Every share is a personalized invitation with your event front and centre.', color: '#16a34a' },
-  { icon: TrendingUp,   title: 'Year planning',       description: 'Dancers plan their whole festival year on WeDance. Get discovered by dancers looking for their next event.',            color: '#dc2626', link: '/my-year' },
+  { icon: CalendarDays, title: 'Interactive schedule', description: 'Dancers browse workshops, filter by style and level, and build a plan — excitement builds weeks before the doors open.', color: WD.red600, link: '/festivals/meneate-viena-2026#schedule' },
+  { icon: Users,        title: 'Partner matching',    description: 'Leads and follows find each other before the festival. More matched partners = more workshop sign-ups.',              color: WD.cyan600, link: '/festivals/meneate-viena-2026#discover' },
+  { icon: Heart,        title: 'Discover dancers',    description: 'Swipe to find dance partners. Mutual matches become a dance list — your attendees arrive already connected.',        color: WD.purple500, link: '/festivals/meneate-viena-2026#discover' },
+  { icon: Ticket,       title: 'Smart ticket picks',  description: 'As dancers add workshops to their plan, we suggest the best-value ticket. Your pass tiers, their perfect fit.',       color: WD.amber500, link: '/festivals/meneate-viena-2026#tickets' },
+  { icon: Zap,          title: 'One-tap checkout',    description: 'Signed-in dancers buy their pass in a single tap — no forms, no re-entering details. Fewer drop-offs, more sold tickets.', color: WD.pink500, link: '/festivals/meneate-viena-2026#tickets' },
+  { icon: Share2,       title: 'Plan sharing',        description: 'Dancers share their festival plan with friends. Every share is a personalized invitation with your event front and centre.', color: WD.green600 },
+  { icon: TrendingUp,   title: 'Year planning',       description: 'Dancers plan their whole festival year on WeDance. Get discovered by dancers looking for their next event.',            color: WD.red600, link: '/my-year' },
 ]
 
 const insights = [
@@ -70,7 +71,7 @@ const pricing = [
     cta: 'Get started free',
     contact: false,
     highlighted: false,
-    color: '#0891b2',
+    color: WD.cyan600,
   },
   {
     name: 'Pro',
@@ -91,7 +92,7 @@ const pricing = [
     cta: 'Start free trial',
     contact: false,
     highlighted: true,
-    color: '#dc2626',
+    color: WD.red600,
   },
   {
     name: 'Network',
@@ -110,7 +111,7 @@ const pricing = [
     cta: 'Talk to us',
     contact: true,
     highlighted: false,
-    color: '#16a34a',
+    color: WD.green600,
   },
 ]
 
@@ -118,10 +119,10 @@ const salesMailto = 'mailto:hello@wedance.vip?subject=' + encodeURIComponent('We
   + '&body=' + encodeURIComponent('Organization:\nEvents per year:\nWhat you need:\n')
 
 const howItWorks = [
-  { step: '1', title: 'List your event',       description: 'Add your festival, schedule, teachers, and venue in minutes.',                    color: '#dc2626' },
-  { step: '2', title: 'Dancers plan',          description: 'Dancers find your event, build workshop plans, and match with partners.',        color: '#f59e0b' },
-  { step: '3', title: 'Plans drive tickets',   description: 'Smart recommendations guide dancers to the right pass. Sharing spreads the word.', color: '#16a34a' },
-  { step: '4', title: 'You get insights',      description: 'Real demand data, audience geography, and post-event signal.',                   color: '#0891b2' },
+  { step: '1', title: 'List your event',       description: 'Add your festival, schedule, teachers, and venue in minutes.',                    color: WD.red600 },
+  { step: '2', title: 'Dancers plan',          description: 'Dancers find your event, build workshop plans, and match with partners.',        color: WD.amber500 },
+  { step: '3', title: 'Plans drive tickets',   description: 'Smart recommendations guide dancers to the right pass. Sharing spreads the word.', color: WD.green600 },
+  { step: '4', title: 'You get insights',      description: 'Real demand data, audience geography, and post-event signal.',                   color: WD.cyan600 },
 ]
 
 const router = useRouter()
@@ -133,32 +134,32 @@ function goToEditor(plan?: string) {
 </script>
 
 <template>
-  <div class="min-h-screen" style="background:#fbf5ea; color:#3b1f0d; font-family:'Playfair Display', serif;">
+  <div class="min-h-screen" style="background:var(--wd-cream); color:var(--wd-brown-900); font-family:var(--wd-font-display);">
     <!-- Header — same as homepage -->
     <SiteHeader />
 
     <!-- HERO -->
     <section class="relative">
       <div class="max-w-6xl mx-auto px-4 pt-14 pb-16 text-center md:text-left">
-        <div class="text-sm tracking-widest uppercase mb-3" style="color:#9a5614;">
+        <div class="text-sm tracking-widest uppercase mb-3" style="color:var(--wd-amber-600);">
           For festival organizers
         </div>
         <div class="grid md:grid-cols-12 gap-10 items-center">
           <div class="md:col-span-8">
-            <h1 class="text-5xl sm:text-6xl leading-[0.98]" style="color:#3b1f0d;">
+            <h1 class="text-5xl sm:text-6xl leading-[0.98]" style="color:var(--wd-brown-900);">
               Your dancers are<br>
-              already <em class="italic" style="color:#dc2626;">planning.</em><br>
-              <span style="font-family:'Caveat', cursive; color:#16a34a; font-size:0.9em;">Give them the tools.</span>
+              already <em class="italic" style="color:var(--wd-red-600);">planning.</em><br>
+              <span style="font-family:var(--wd-font-display);font-style:italic; color:var(--wd-green-600); font-size:0.9em;">Give them the tools.</span>
             </h1>
-            <p class="mt-6 text-base sm:text-lg leading-relaxed max-w-xl mx-auto md:mx-0" style="color:#5b3a1d;">
+            <p class="mt-6 text-base sm:text-lg leading-relaxed max-w-xl mx-auto md:mx-0" style="color:var(--wd-brown-700);">
               Ticket your festival where the dancers are.
-              <span style="color:#3b1f0d;">Workshop planner, partner matching, real faces on every event page.</span>
+              <span style="color:var(--wd-brown-900);">Workshop planner, partner matching, real faces on every event page.</span>
             </p>
             <div class="mt-8 flex flex-col sm:flex-row items-center justify-center md:justify-start gap-4">
               <button
                 type="button"
                 class="inline-flex items-center gap-2 px-6 py-3 rounded-full text-white text-sm font-bold uppercase tracking-wider"
-                style="background:linear-gradient(135deg, #dc2626, #f97316); box-shadow: 0 4px 0 -1px #b91c1c;"
+                style="background:linear-gradient(135deg, var(--wd-red-600), var(--wd-orange-500)); box-shadow: 0 4px 0 -1px var(--wd-red-800);"
                 @click="goToEditor('starter')"
               >
                 List your festival <ArrowRight class="w-4 h-4" />
@@ -166,7 +167,7 @@ function goToEditor(plan?: string) {
               <NuxtLink
                 to="/festivals/meneate-viena-2026"
                 class="inline-flex items-center gap-2 text-sm italic hover:underline"
-                style="color:#0891b2; font-family:'Caveat', cursive; font-size:20px;"
+                style="color:var(--wd-cyan-600); font-family:var(--wd-font-display);font-style:italic; font-size:20px;"
               >
                 — see a live example
               </NuxtLink>
@@ -175,25 +176,25 @@ function goToEditor(plan?: string) {
 
           <!-- Poster card — hint of the platform -->
           <div class="md:col-span-4 relative">
-            <div class="absolute -top-4 -left-3 w-16 h-4 rotate-[-6deg]" style="background:#fef3c7; box-shadow:0 2px 6px rgba(0,0,0,0.15);"/>
-            <div class="absolute -top-4 -right-3 w-16 h-4 rotate-[5deg]" style="background:#fef3c7; box-shadow:0 2px 6px rgba(0,0,0,0.15);"/>
+            <div class="absolute -top-4 -left-3 w-16 h-4 rotate-[-6deg]" style="background:var(--wd-amber-100); box-shadow:0 2px 6px rgba(0,0,0,0.15);"/>
+            <div class="absolute -top-4 -right-3 w-16 h-4 rotate-[5deg]" style="background:var(--wd-amber-100); box-shadow:0 2px 6px rgba(0,0,0,0.15);"/>
             <div class="rounded-2xl overflow-hidden shadow-2xl border-4 bg-white"
-                 style="border-color:#fbf5ea; box-shadow: 8px 10px 0 -2px #0891b2;">
-              <div class="p-5" style="background:linear-gradient(135deg,#7c3aed 0%, #c026d3 50%, #f43f5e 100%);">
+                 style="border-color:var(--wd-cream); box-shadow: 8px 10px 0 -2px var(--wd-cyan-600);">
+              <div class="p-5" style="background:linear-gradient(135deg,var(--wd-violet-600) 0%, #c026d3 50%, var(--wd-rose-500) 100%);">
                 <div class="text-[10px] uppercase tracking-[0.3em] text-white/90 font-bold">Live festival page</div>
-                <div class="mt-1 text-2xl leading-tight text-white" style="font-family:'Playfair Display', serif;">
+                <div class="mt-1 text-2xl leading-tight text-white" style="font-family:var(--wd-font-display);">
                   Your festival<br>on WeDance
                 </div>
               </div>
               <div class="p-4">
-                <div class="text-[10px] uppercase tracking-[0.25em] font-bold mb-3" style="color:#9a5614;">
+                <div class="text-[10px] uppercase tracking-[0.25em] font-bold mb-3" style="color:var(--wd-amber-600);">
                   What dancers see
                 </div>
-                <ul class="space-y-1.5 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
-                  <li class="flex items-center gap-2"><CheckCircle class="w-3.5 h-3.5" style="color:#16a34a;"/> Real attendee faces</li>
-                  <li class="flex items-center gap-2"><CheckCircle class="w-3.5 h-3.5" style="color:#16a34a;"/> Workshop planner</li>
-                  <li class="flex items-center gap-2"><CheckCircle class="w-3.5 h-3.5" style="color:#16a34a;"/> Partner matching</li>
-                  <li class="flex items-center gap-2"><CheckCircle class="w-3.5 h-3.5" style="color:#16a34a;"/> One-tap checkout</li>
+                <ul class="space-y-1.5 text-xs" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
+                  <li class="flex items-center gap-2"><CheckCircle class="w-3.5 h-3.5" style="color:var(--wd-green-600);"/> Real attendee faces</li>
+                  <li class="flex items-center gap-2"><CheckCircle class="w-3.5 h-3.5" style="color:var(--wd-green-600);"/> Workshop planner</li>
+                  <li class="flex items-center gap-2"><CheckCircle class="w-3.5 h-3.5" style="color:var(--wd-green-600);"/> Partner matching</li>
+                  <li class="flex items-center gap-2"><CheckCircle class="w-3.5 h-3.5" style="color:var(--wd-green-600);"/> One-tap checkout</li>
                 </ul>
               </div>
             </div>
@@ -203,16 +204,16 @@ function goToEditor(plan?: string) {
 
       <!-- Wave divider -->
       <svg class="block w-full h-12" viewBox="0 0 1440 60" preserveAspectRatio="none">
-        <path d="M0,40 Q360,0 720,30 T1440,20 V60 H0 Z" fill="#3b1f0d" opacity="0.08"/>
+        <path d="M0,40 Q360,0 720,30 T1440,20 V60 H0 Z" :fill="WD.brown900" opacity="0.08"/>
       </svg>
     </section>
 
     <!-- HOW IT WORKS -->
     <section class="max-w-5xl mx-auto px-4 py-16">
       <div class="text-center mb-12">
-        <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">Four steps</div>
+        <div class="text-xs uppercase tracking-[0.3em]" style="color:var(--wd-amber-600);">Four steps</div>
         <h2 class="mt-3 text-3xl sm:text-4xl leading-tight">
-          From listing to <em class="italic" style="color:#dc2626;">insights.</em>
+          From listing to <em class="italic" style="color:var(--wd-red-600);">insights.</em>
         </h2>
       </div>
 
@@ -224,21 +225,21 @@ function goToEditor(plan?: string) {
                :style="{ background: item.color }">
             {{ item.step }}
           </div>
-          <div class="text-base font-bold leading-tight" style="color:#3b1f0d;">{{ item.title }}</div>
-          <div class="mt-2 text-sm leading-relaxed" style="color:#5b3a1d; font-family: system-ui, sans-serif;">{{ item.description }}</div>
+          <div class="text-base font-bold leading-tight" style="color:var(--wd-brown-900);">{{ item.title }}</div>
+          <div class="mt-2 text-sm leading-relaxed" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">{{ item.description }}</div>
         </div>
       </div>
     </section>
 
     <!-- FEATURES -->
-    <section class="border-y" style="border-color:#3b1f0d22; background:rgba(251, 245, 234, 0.5);">
+    <section class="border-y" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); background:rgba(251, 245, 234, 0.5);">
       <div class="max-w-5xl mx-auto px-4 py-16">
         <div class="text-center mb-12">
-          <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">The toolkit</div>
+          <div class="text-xs uppercase tracking-[0.3em]" style="color:var(--wd-amber-600);">The toolkit</div>
           <h2 class="mt-3 text-3xl sm:text-4xl leading-tight">
-            Everything <em class="italic" style="color:#dc2626;">your dancers</em> need.
+            Everything <em class="italic" style="color:var(--wd-red-600);">your dancers</em> need.
           </h2>
-          <p class="mt-3 text-sm sm:text-base max-w-xl mx-auto" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+          <p class="mt-3 text-sm sm:text-base max-w-xl mx-auto" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
             Tools that turn browsers into ticket buyers.
           </p>
         </div>
@@ -252,9 +253,9 @@ function goToEditor(plan?: string) {
             class="rounded-2xl bg-white p-6 border transition-all hover:-translate-y-1"
             :style="{ borderColor: feature.color + '55', boxShadow: '0 1px 0 ' + feature.color + '22, 0 8px 20px rgba(59,31,18,0.05)' }">
             <component :is="feature.icon" class="w-7 h-7 mb-3" :style="{ color: feature.color, 'stroke-width': 1.5 }" />
-            <div class="text-lg font-bold leading-tight" style="color:#3b1f0d;">{{ feature.title }}</div>
-            <div class="mt-2 text-sm leading-relaxed" style="color:#5b3a1d; font-family: system-ui, sans-serif;">{{ feature.description }}</div>
-            <div v-if="feature.link" class="mt-3 text-xs font-bold italic" :style="{ color: feature.color, fontFamily: 'Caveat, cursive', fontSize: '16px' }">
+            <div class="text-lg font-bold leading-tight" style="color:var(--wd-brown-900);">{{ feature.title }}</div>
+            <div class="mt-2 text-sm leading-relaxed" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">{{ feature.description }}</div>
+            <div v-if="feature.link" class="mt-3 text-xs font-bold italic" :style="{ color: feature.color, fontFamily: 'var(--wd-font-display)', fontStyle: 'italic', fontSize: '16px' }">
               See it live →
             </div>
           </component>
@@ -265,11 +266,11 @@ function goToEditor(plan?: string) {
     <!-- INSIGHTS -->
     <section class="max-w-5xl mx-auto px-4 py-16">
       <div class="text-center mb-12">
-        <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">The dashboard</div>
+        <div class="text-xs uppercase tracking-[0.3em]" style="color:var(--wd-amber-600);">The dashboard</div>
         <h2 class="mt-3 text-3xl sm:text-4xl leading-tight">
-          Insights that shape <em class="italic" style="color:#dc2626;">your next event.</em>
+          Insights that shape <em class="italic" style="color:var(--wd-red-600);">your next event.</em>
         </h2>
-        <p class="mt-3 text-sm sm:text-base max-w-xl mx-auto" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+        <p class="mt-3 text-sm sm:text-base max-w-xl mx-auto" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
           Real data from real planning behaviour.
         </p>
       </div>
@@ -277,32 +278,32 @@ function goToEditor(plan?: string) {
       <div class="grid md:grid-cols-2 gap-5">
         <div v-for="insight in insights" :key="insight.title"
           class="rounded-2xl bg-white p-6 border flex gap-4 items-start"
-          style="border-color:#3b1f0d22;">
+          style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);">
           <div class="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
-               style="background:#f59e0b18;">
-            <component :is="insight.icon" class="w-5 h-5" style="color:#f59e0b; stroke-width:1.5;" />
+               style="background:color-mix(in srgb, var(--wd-amber-500) 9.4%, transparent);">
+            <component :is="insight.icon" class="w-5 h-5" style="color:var(--wd-amber-500); stroke-width:1.5;" />
           </div>
           <div>
-            <div class="text-lg font-bold leading-tight" style="color:#3b1f0d;">{{ insight.title }}</div>
-            <div class="mt-2 text-sm leading-relaxed" style="color:#5b3a1d; font-family: system-ui, sans-serif;">{{ insight.description }}</div>
+            <div class="text-lg font-bold leading-tight" style="color:var(--wd-brown-900);">{{ insight.title }}</div>
+            <div class="mt-2 text-sm leading-relaxed" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">{{ insight.description }}</div>
           </div>
         </div>
       </div>
 
-      <p class="mt-6 text-center text-sm" style="font-family: system-ui, sans-serif; color:#5b3a1d;">
+      <p class="mt-6 text-center text-sm" style="font-family:var(--wd-font-sans); color:var(--wd-brown-700);">
         Already on WeDance?
-        <NuxtLink to="/organizers/insights" class="font-bold underline" style="color:#dc2626;">Open your insights →</NuxtLink>
+        <NuxtLink to="/organizers/insights" class="font-bold underline" style="color:var(--wd-red-600);">Open your insights →</NuxtLink>
       </p>
     </section>
 
     <!-- PRICING -->
-    <section id="pricing" class="border-y" style="border-color:#3b1f0d22; background:rgba(251, 245, 234, 0.5);">
+    <section id="pricing" class="border-y" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); background:rgba(251, 245, 234, 0.5);">
       <div class="max-w-5xl mx-auto px-4 py-16">
         <div class="text-center mb-12">
-          <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">Pricing</div>
+          <div class="text-xs uppercase tracking-[0.3em]" style="color:var(--wd-amber-600);">Pricing</div>
           <h2 class="mt-3 text-3xl sm:text-4xl leading-tight">
             Start free.
-            <span style="font-family:'Caveat', cursive; color:#dc2626; font-size:0.95em;">Upgrade when it works.</span>
+            <span style="font-family:var(--wd-font-display);font-style:italic; color:var(--wd-red-600); font-size:0.95em;">Upgrade when it works.</span>
           </h2>
         </div>
 
@@ -316,15 +317,15 @@ function goToEditor(plan?: string) {
               :style="{ background: plan.color }">
               Most popular
             </div>
-            <div class="text-lg font-bold" style="color:#3b1f0d;">{{ plan.name }}</div>
+            <div class="text-lg font-bold" style="color:var(--wd-brown-900);">{{ plan.name }}</div>
             <div class="mt-2 mb-1 flex items-baseline gap-1">
               <span class="text-4xl font-bold" :style="{ color: plan.color }">{{ plan.price }}</span>
-              <span v-if="plan.period" class="text-sm" style="color:#9a5614;">{{ plan.period }}</span>
+              <span v-if="plan.period" class="text-sm" style="color:var(--wd-amber-600);">{{ plan.period }}</span>
             </div>
-            <p class="text-sm mb-5" style="color:#5b3a1d; font-family: system-ui, sans-serif;">{{ plan.description }}</p>
+            <p class="text-sm mb-5" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">{{ plan.description }}</p>
 
             <ul class="space-y-2 mb-6">
-              <li v-for="f in plan.features" :key="f" class="flex items-start gap-2 text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+              <li v-for="f in plan.features" :key="f" class="flex items-start gap-2 text-sm" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
                 <CheckCircle class="w-4 h-4 shrink-0 mt-0.5" :style="{ color: plan.color }" />
                 <span>{{ f }}</span>
               </li>
@@ -335,7 +336,7 @@ function goToEditor(plan?: string) {
               :href="salesMailto"
               class="block text-center w-full py-3 rounded-full text-sm font-bold uppercase tracking-wider transition-all"
               :style="plan.highlighted
-                ? { background: 'linear-gradient(135deg, ' + plan.color + ', #f97316)', color: 'white', boxShadow: '0 4px 0 -1px ' + plan.color }
+                ? { background: 'linear-gradient(135deg, ' + plan.color + ', var(--wd-orange-500))', color: 'white', boxShadow: '0 4px 0 -1px ' + plan.color }
                 : { border: '2px solid ' + plan.color, color: plan.color, background: 'white' }"
             >
               {{ plan.cta }}
@@ -345,7 +346,7 @@ function goToEditor(plan?: string) {
               type="button"
               class="w-full py-3 rounded-full text-sm font-bold uppercase tracking-wider transition-all"
               :style="plan.highlighted
-                ? { background: 'linear-gradient(135deg, ' + plan.color + ', #f97316)', color: 'white', boxShadow: '0 4px 0 -1px ' + plan.color }
+                ? { background: 'linear-gradient(135deg, ' + plan.color + ', var(--wd-orange-500))', color: 'white', boxShadow: '0 4px 0 -1px ' + plan.color }
                 : { border: '2px solid ' + plan.color, color: plan.color, background: 'white' }"
               @click="goToEditor(plan.plan)"
             >
@@ -360,20 +361,20 @@ function goToEditor(plan?: string) {
     <section class="max-w-3xl mx-auto px-4 py-20 text-center">
       <h2 class="text-4xl sm:text-5xl leading-tight">
         Ready to fill
-        <em class="italic" style="color:#dc2626;">your dance floor?</em>
+        <em class="italic" style="color:var(--wd-red-600);">your dance floor?</em>
       </h2>
-      <p class="mt-5 text-sm sm:text-base" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+      <p class="mt-5 text-sm sm:text-base" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
         List your festival in minutes. Your dancers will thank you.
       </p>
       <button
         type="button"
         class="mt-8 inline-flex items-center gap-2 px-7 py-3 rounded-full text-white text-sm font-bold uppercase tracking-wider"
-        style="background:linear-gradient(135deg, #dc2626, #f97316); box-shadow: 0 4px 0 -1px #b91c1c;"
+        style="background:linear-gradient(135deg, var(--wd-red-600), var(--wd-orange-500)); box-shadow: 0 4px 0 -1px var(--wd-red-800);"
         @click="goToEditor('starter')"
       >
         Get started free <ArrowRight class="w-4 h-4" />
       </button>
-      <div class="mt-3 text-sm" style="font-family:'Caveat', cursive; color:#9a5614;">
+      <div class="mt-3 text-sm" style="font-family:var(--wd-font-display);font-style:italic; color:var(--wd-amber-600);">
         — free to list, free to browse
       </div>
     </section>

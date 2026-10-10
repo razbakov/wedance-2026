@@ -7,6 +7,7 @@
  */
 import type { Teacher } from '~/types/festival'
 import { Instagram, Youtube, Globe, ArrowRight, X } from 'lucide-vue-next'
+import { WD } from '~/lib/brand'
 
 const props = defineProps<{
   teacher: Teacher
@@ -35,13 +36,13 @@ function toEmbedUrl(url: string): string {
 </script>
 
 <template>
-  <div class="rounded-2xl bg-white p-5 border" style="border-color:#dc262633; box-shadow: 0 1px 0 #dc262622, 0 8px 22px rgba(59,31,18,0.05);">
+  <div class="rounded-2xl bg-white p-5 border" style="border-color:color-mix(in srgb, var(--wd-red-600) 20%, transparent); box-shadow: 0 1px 0 color-mix(in srgb, var(--wd-red-600) 13.3%, transparent), 0 8px 22px rgba(59,31,18,0.05);">
     <div class="flex items-start gap-4">
       <img :src="teacher.photo" :alt="teacher.name" class="w-20 h-20 rounded-full object-cover shrink-0 shadow-sm">
       <div class="flex-1 min-w-0">
         <div class="flex items-start justify-between gap-2">
           <div class="min-w-0">
-            <h3 class="text-xl font-black leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+            <h3 class="text-xl font-black leading-tight" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">
               {{ teacher.name }}
             </h3>
             <p v-if="teacher.styles.length" class="mt-1 flex flex-wrap gap-1.5">
@@ -50,8 +51,8 @@ function toEmbedUrl(url: string): string {
                 :key="s"
                 class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
                 :style="{
-                  background: ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b'][i % 5] + '18',
-                  color: ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b'][i % 5],
+                  background: [WD.red600, WD.cyan600, WD.green600, WD.purple500, WD.amber500][i % 5] + '18',
+                  color: [WD.red600, WD.cyan600, WD.green600, WD.purple500, WD.amber500][i % 5],
                 }"
               >{{ s }}</span>
             </p>
@@ -59,7 +60,7 @@ function toEmbedUrl(url: string): string {
           <button
             type="button"
             class="shrink-0 p-1 -m-1 rounded-full hover:bg-black/[0.04] transition-colors"
-            style="color:#9a5614;"
+            style="color:var(--wd-amber-600);"
             aria-label="Close preview"
             @click="$emit('close')"
           >
@@ -67,7 +68,7 @@ function toEmbedUrl(url: string): string {
           </button>
         </div>
 
-        <p v-if="teacher.bio" class="mt-2 text-sm leading-relaxed" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+        <p v-if="teacher.bio" class="mt-2 text-sm leading-relaxed" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
           {{ teacher.bio }}
         </p>
 
@@ -80,7 +81,7 @@ function toEmbedUrl(url: string): string {
               target="_blank"
               rel="noopener noreferrer"
               class="transition-colors"
-              style="color:#9a5614;"
+              style="color:var(--wd-amber-600);"
               :title="link.platform"
             >
               <component :is="platformIcon[link.platform]" v-if="platformIcon[link.platform]" class="w-4 h-4" />
@@ -91,7 +92,7 @@ function toEmbedUrl(url: string): string {
             v-if="profileHref"
             :to="profileHref"
             class="ml-auto inline-flex items-center gap-1 text-xs font-bold italic hover:underline"
-            style="color:#dc2626; font-family:'Playfair Display', serif;"
+            style="color:var(--wd-red-600); font-family:var(--wd-font-display);"
           >
             Full profile <ArrowRight class="w-3.5 h-3.5" />
           </NuxtLink>
@@ -99,7 +100,7 @@ function toEmbedUrl(url: string): string {
       </div>
     </div>
 
-    <div v-if="teacher.videoUrl" class="mt-4 aspect-video rounded-xl overflow-hidden" style="background:#3b1f0d0a;">
+    <div v-if="teacher.videoUrl" class="mt-4 aspect-video rounded-xl overflow-hidden" style="background:color-mix(in srgb, var(--wd-brown-900) 3.9%, transparent);">
       <iframe
         :src="toEmbedUrl(teacher.videoUrl)"
         class="w-full h-full"

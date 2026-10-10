@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { WD } from '~/lib/brand'
 import {
   ArrowLeft,
   ArrowRight,
@@ -37,7 +38,7 @@ useHead({
   link: [
     { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
     { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
-    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Caveat:wght@400;700&display=swap' },
+    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&display=swap' },
   ],
 })
 
@@ -52,7 +53,7 @@ const planDetails: Record<string, { name: string; price: string; period?: string
     name: 'Starter',
     price: 'Free',
     description: 'Get listed and let dancers find you.',
-    color: '#0891b2',
+    color: WD.cyan600,
     features: [
       'Festival listing with schedule',
       'Lineup with teacher profiles',
@@ -66,7 +67,7 @@ const planDetails: Record<string, { name: string; price: string; period?: string
     price: '€49',
     period: '/event',
     description: 'The full engagement toolkit.',
-    color: '#dc2626',
+    color: WD.red600,
     features: [
       'Everything in Starter',
       'Interactive workshop planner',
@@ -83,7 +84,7 @@ const planDetails: Record<string, { name: string; price: string; period?: string
     price: '€199',
     period: '/year',
     description: 'For organizers running multiple events.',
-    color: '#16a34a',
+    color: WD.green600,
     features: [
       'Everything in Pro',
       'Unlimited events per year',
@@ -188,7 +189,7 @@ const festival = reactive({
   endDate: '',
   description: '',
   logo: '',
-  accentColor: '#e11d48',
+  accentColor: WD.rose600,
   socialLinks: [] as { platform: string; url: string }[],
 })
 
@@ -414,23 +415,23 @@ const labelClass = 'text-[10px] uppercase tracking-[0.25em] font-bold mb-2 block
 </script>
 
 <template>
-  <div class="min-h-screen" style="background:#fbf5ea; color:#3b1f0d; font-family:'Playfair Display', serif;">
+  <div class="min-h-screen" style="background:var(--wd-cream); color:var(--wd-brown-900); font-family:var(--wd-font-display);">
     <!-- V3 site header — same as / , /festivals, /organizers, etc. -->
     <SiteHeader />
 
     <!-- Create-flow action bar (sticky) -->
-    <div class="sticky top-0 z-20 border-b backdrop-blur-sm" style="background:rgba(251, 245, 234, 0.95); border-color:#3b1f0d22;">
+    <div class="sticky top-0 z-20 border-b backdrop-blur-sm" style="background:rgba(251, 245, 234, 0.95); border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);">
       <div class="max-w-4xl mx-auto px-4 flex items-center justify-between h-14 gap-3">
         <button
           type="button"
           class="inline-flex items-center gap-2 text-sm italic hover:underline"
-          style="color:#5b3a1d; font-family:'Playfair Display', serif;"
+          style="color:var(--wd-brown-700); font-family:var(--wd-font-display);"
           @click="router.push('/organizers')"
         >
           <ArrowLeft class="w-4 h-4" />
           Back
         </button>
-        <div class="text-xs uppercase tracking-[0.3em] font-bold" style="color:#9a5614;">
+        <div class="text-xs uppercase tracking-[0.3em] font-bold" style="color:var(--wd-amber-600);">
           Create festival
         </div>
         <button
@@ -438,7 +439,7 @@ const labelClass = 'text-[10px] uppercase tracking-[0.25em] font-bold mb-2 block
           type="button"
           class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-white text-xs font-bold uppercase tracking-wider"
           :disabled="isPublishing || isPublished"
-          style="background:linear-gradient(135deg, #dc2626, #f97316); box-shadow: 0 3px 0 -1px #b91c1c;"
+          style="background:linear-gradient(135deg, var(--wd-red-600), var(--wd-orange-500)); box-shadow: 0 3px 0 -1px var(--wd-red-800);"
           @click="publish"
         >
           {{ isPublished ? 'Submitted' : isPublishing ? 'Submitting…' : 'Submit for review' }}
@@ -447,7 +448,7 @@ const labelClass = 'text-[10px] uppercase tracking-[0.25em] font-bold mb-2 block
       </div>
 
       <!-- Step indicator -->
-      <nav class="overflow-x-auto border-t" style="border-color:#3b1f0d0d;">
+      <nav class="overflow-x-auto border-t" style="border-color:color-mix(in srgb, var(--wd-brown-900) 5.1%, transparent);">
         <div class="max-w-4xl mx-auto px-4 flex">
           <button
             v-for="(step, i) in steps"
@@ -455,20 +456,20 @@ const labelClass = 'text-[10px] uppercase tracking-[0.25em] font-bold mb-2 block
             type="button"
             class="flex items-center gap-2 px-4 py-3 text-xs italic whitespace-nowrap transition-all border-b-2"
             :style="step.id === currentStep
-              ? { borderColor: '#dc2626', color: '#dc2626', fontFamily: 'Playfair Display, serif', fontWeight: 700 }
-              : { borderColor: 'transparent', color: i < currentStepIndex ? '#3b1f0d' : '#9a5614', fontFamily: 'Playfair Display, serif' }"
+              ? { borderColor: 'var(--wd-red-600)', color: 'var(--wd-red-600)', fontFamily: 'var(--wd-font-display)', fontWeight: 700 }
+              : { borderColor: 'transparent', color: i < currentStepIndex ? WD.brown900 : WD.amber600, fontFamily: 'var(--wd-font-display)' }"
             @click="goToStep(step.id)"
           >
             <div
               class="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black shrink-0"
               :style="i < currentStepIndex
-                ? { background: '#16a34a', color: 'white' }
+                ? { background: 'var(--wd-green-600)', color: 'white' }
                 : step.id === currentStep
-                  ? { background: '#dc2626', color: 'white' }
-                  : { background: 'white', color: '#9a5614', border: '1.5px solid #3b1f0d22' }"
+                  ? { background: 'var(--wd-red-600)', color: 'white' }
+                  : { background: 'white', color: 'var(--wd-amber-600)', border: '1.5px solid color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent)' }"
             >
               <Check v-if="i < currentStepIndex" class="w-3 h-3" style="stroke-width:2.5;" />
-              <span v-else style="font-family: system-ui, sans-serif;">{{ i + 1 }}</span>
+              <span v-else style="font-family:var(--wd-font-sans);">{{ i + 1 }}</span>
             </div>
             {{ step.label }}
           </button>
@@ -490,15 +491,15 @@ const labelClass = 'text-[10px] uppercase tracking-[0.25em] font-bold mb-2 block
             <span class="text-[10px] uppercase tracking-[0.3em] font-bold" :style="{ color: currentPlan.color }">
               {{ currentPlan.name }} plan
             </span>
-            <span class="text-sm font-bold" style="color:#3b1f0d;">
-              {{ currentPlan.price }}<span v-if="currentPlan.period" class="font-normal text-xs" style="color:#9a5614;">{{ currentPlan.period }}</span>
+            <span class="text-sm font-bold" style="color:var(--wd-brown-900);">
+              {{ currentPlan.price }}<span v-if="currentPlan.period" class="font-normal text-xs" style="color:var(--wd-amber-600);">{{ currentPlan.period }}</span>
             </span>
           </div>
-          <p class="text-sm mb-3" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+          <p class="text-sm mb-3" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
             {{ currentPlan.description }}
           </p>
           <ul class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
-            <li v-for="f in currentPlan.features" :key="f" class="flex items-start gap-1.5 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+            <li v-for="f in currentPlan.features" :key="f" class="flex items-start gap-1.5 text-xs" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
               <CheckCircle class="w-3.5 h-3.5 shrink-0 mt-0.5" :style="{ color: currentPlan.color }" />
               <span>{{ f }}</span>
             </li>
@@ -508,7 +509,7 @@ const labelClass = 'text-[10px] uppercase tracking-[0.25em] font-bold mb-2 block
           <NuxtLink
             to="/organizers#pricing"
             class="text-xs italic hover:underline whitespace-nowrap"
-            style="color:#0891b2; font-family:'Playfair Display', serif;"
+            style="color:var(--wd-cyan-600); font-family:var(--wd-font-display);"
           >
             Change plan
           </NuxtLink>
@@ -526,8 +527,8 @@ const labelClass = 'text-[10px] uppercase tracking-[0.25em] font-bold mb-2 block
       <!-- Step 1: Basics -->
       <div v-if="currentStep === 'basics'" class="space-y-6">
         <div>
-          <h2 class="text-2xl leading-tight font-black mb-1" style="font-family:'Playfair Display', serif; color:#3b1f0d;">Festival Details</h2>
-          <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Start with the essentials — name, dates, and description.</p>
+          <h2 class="text-2xl leading-tight font-black mb-1" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">Festival Details</h2>
+          <p class="text-sm" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">Start with the essentials — name, dates, and description.</p>
         </div>
 
         <div class="space-y-4">
@@ -541,7 +542,7 @@ const labelClass = 'text-[10px] uppercase tracking-[0.25em] font-bold mb-2 block
             <div class="flex items-center gap-0">
               <span
                 class="text-xs px-3 h-11 flex items-center rounded-l-xl border border-r-0"
-                style="color:#5b3a1d; background:#3b1f0d0a; border-color:#3b1f0d33; font-family: system-ui, sans-serif;"
+                style="color:var(--wd-brown-700); background:color-mix(in srgb, var(--wd-brown-900) 3.9%, transparent); border-color:color-mix(in srgb, var(--wd-brown-900) 20%, transparent); font-family:var(--wd-font-sans);"
               >wedance.vip/festivals/</span>
               <input v-model="festival.slug" :class="[inputClass, 'rounded-l-none']" type="text" placeholder="salsa-open-berlin-2026" />
             </div>
@@ -566,7 +567,7 @@ const labelClass = 'text-[10px] uppercase tracking-[0.25em] font-bold mb-2 block
           <div>
             <label :class="labelClass">Logo URL</label>
             <input v-model="festival.logo" :class="inputClass" type="url" placeholder="https://..." />
-            <p style="color:#9a5614; font-family: system-ui, sans-serif;" class="text-xs mt-1">Square image recommended (200x200px or larger)</p>
+            <p style="color:var(--wd-amber-600); font-family:var(--wd-font-sans);" class="text-xs mt-1">Square image recommended (200x200px or larger)</p>
           </div>
 
           <div>
@@ -582,7 +583,7 @@ const labelClass = 'text-[10px] uppercase tracking-[0.25em] font-bold mb-2 block
         <div>
           <div class="flex items-center justify-between mb-3">
             <label :class="labelClass" class="mb-0">Social links</label>
-            <button class="inline-flex items-center gap-1 text-xs italic hover:underline" style="color:#dc2626; font-family:'Playfair Display', serif;" @click="addSocialLink">
+            <button class="inline-flex items-center gap-1 text-xs italic hover:underline" style="color:var(--wd-red-600); font-family:var(--wd-font-display);" @click="addSocialLink">
               <Plus class="w-3 h-3" /> Add link
             </button>
           </div>
@@ -592,11 +593,11 @@ const labelClass = 'text-[10px] uppercase tracking-[0.25em] font-bold mb-2 block
                 <option v-for="p in socialPlatforms" :key="p.value" :value="p.value">{{ p.label }}</option>
               </select>
               <input v-model="link.url" :class="inputClass" type="url" placeholder="https://..." />
-              <button style="color:#9a5614;" class="hover:!text-[#dc2626] shrink-0 p-1" @click="removeSocialLink(i)">
+              <button style="color:var(--wd-amber-600);" class="hover:!text-wd-red-600 shrink-0 p-1" @click="removeSocialLink(i)">
                 <Trash2 class="w-4 h-4" />
               </button>
             </div>
-            <p v-if="!festival.socialLinks.length" style="color:#9a5614; font-family: system-ui, sans-serif;" class="text-xs">No social links yet.</p>
+            <p v-if="!festival.socialLinks.length" style="color:var(--wd-amber-600); font-family:var(--wd-font-sans);" class="text-xs">No social links yet.</p>
           </div>
         </div>
       </div>
@@ -604,8 +605,8 @@ const labelClass = 'text-[10px] uppercase tracking-[0.25em] font-bold mb-2 block
       <!-- Step 2: Venue -->
       <div v-if="currentStep === 'venue'" class="space-y-6">
         <div>
-          <h2 class="text-2xl leading-tight font-black mb-1" style="font-family:'Playfair Display', serif; color:#3b1f0d;">Venue</h2>
-          <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Where is the festival happening?</p>
+          <h2 class="text-2xl leading-tight font-black mb-1" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">Venue</h2>
+          <p class="text-sm" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">Where is the festival happening?</p>
         </div>
 
         <div class="space-y-4">
@@ -624,15 +625,15 @@ const labelClass = 'text-[10px] uppercase tracking-[0.25em] font-bold mb-2 block
         <div>
           <div class="flex items-center justify-between mb-3">
             <label :class="labelClass" class="mb-0">Rooms</label>
-            <button class="inline-flex items-center gap-1 text-xs italic hover:underline" style="color:#dc2626; font-family:'Playfair Display', serif;" @click="addRoom">
+            <button class="inline-flex items-center gap-1 text-xs italic hover:underline" style="color:var(--wd-red-600); font-family:var(--wd-font-display);" @click="addRoom">
               <Plus class="w-3 h-3" /> Add room
             </button>
           </div>
-          <p style="color:#9a5614; font-family: system-ui, sans-serif;" class="text-xs mb-2">List the rooms/halls where workshops take place. These will appear as options in the schedule.</p>
+          <p style="color:var(--wd-amber-600); font-family:var(--wd-font-sans);" class="text-xs mb-2">List the rooms/halls where workshops take place. These will appear as options in the schedule.</p>
           <div class="space-y-2">
             <div v-for="(_, i) in venue.rooms" :key="i" class="flex items-center gap-2">
               <input v-model="venue.rooms[i]" :class="inputClass" type="text" placeholder="e.g. Main Hall" />
-              <button style="color:#9a5614;" class="hover:!text-[#dc2626] shrink-0 p-1" @click="removeRoom(i)">
+              <button style="color:var(--wd-amber-600);" class="hover:!text-wd-red-600 shrink-0 p-1" @click="removeRoom(i)">
                 <Trash2 class="w-4 h-4" />
               </button>
             </div>
@@ -643,14 +644,14 @@ const labelClass = 'text-[10px] uppercase tracking-[0.25em] font-bold mb-2 block
         <div>
           <div class="flex items-center justify-between mb-3">
             <label :class="labelClass" class="mb-0">Practical info</label>
-            <button class="inline-flex items-center gap-1 text-xs italic hover:underline" style="color:#dc2626; font-family:'Playfair Display', serif;" @click="addPracticalInfo">
+            <button class="inline-flex items-center gap-1 text-xs italic hover:underline" style="color:var(--wd-red-600); font-family:var(--wd-font-display);" @click="addPracticalInfo">
               <Plus class="w-3 h-3" /> Add item
             </button>
           </div>
           <div class="space-y-2">
             <div v-for="(_, i) in venue.practicalInfo" :key="i" class="flex items-center gap-2">
               <input v-model="venue.practicalInfo[i]" :class="inputClass" type="text" placeholder="e.g. Nearest metro: U2 Klosterstrasse" />
-              <button style="color:#9a5614;" class="hover:!text-[#dc2626] shrink-0 p-1" @click="removePracticalInfo(i)">
+              <button style="color:var(--wd-amber-600);" class="hover:!text-wd-red-600 shrink-0 p-1" @click="removePracticalInfo(i)">
                 <Trash2 class="w-4 h-4" />
               </button>
             </div>
@@ -662,8 +663,8 @@ const labelClass = 'text-[10px] uppercase tracking-[0.25em] font-bold mb-2 block
       <div v-if="currentStep === 'lineup'" class="space-y-6">
         <div class="flex items-start justify-between">
           <div>
-            <h2 class="text-2xl leading-tight font-black mb-1" style="font-family:'Playfair Display', serif; color:#3b1f0d;">Lineup</h2>
-            <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Add the teachers and DJs performing at your festival.</p>
+            <h2 class="text-2xl leading-tight font-black mb-1" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">Lineup</h2>
+            <p class="text-sm" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">Add the teachers and DJs performing at your festival.</p>
           </div>
           <Button size="sm" variant="outline" class="gap-1 shrink-0" @click="addTeacher">
             <Plus class="w-3.5 h-3.5" /> Add Artist
@@ -671,15 +672,15 @@ const labelClass = 'text-[10px] uppercase tracking-[0.25em] font-bold mb-2 block
         </div>
 
         <div v-if="!teachers.length" class="text-center py-12 border rounded-lg border-dashed">
-          <Users class="w-8 h-8 mx-auto mb-2" style="color:#9a5614;" />
-          <p style="color:#5b3a1d; font-family: system-ui, sans-serif;" class="text-sm mb-3">No artists added yet</p>
+          <Users class="w-8 h-8 mx-auto mb-2" style="color:var(--wd-amber-600);" />
+          <p style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);" class="text-sm mb-3">No artists added yet</p>
           <Button size="sm" variant="outline" @click="addTeacher">Add your first artist</Button>
         </div>
 
         <div v-for="(teacher, i) in teachers" :key="teacher.id" class="border rounded-lg p-4 space-y-3">
           <div class="flex items-center justify-between">
             <h3 class="text-sm font-semibold">{{ teacher.name || `Artist ${i + 1}` }}</h3>
-            <button style="color:#9a5614;" class="hover:!text-[#dc2626] p-1" @click="removeTeacher(i)">
+            <button style="color:var(--wd-amber-600);" class="hover:!text-wd-red-600 p-1" @click="removeTeacher(i)">
               <Trash2 class="w-4 h-4" />
             </button>
           </div>
@@ -722,8 +723,8 @@ const labelClass = 'text-[10px] uppercase tracking-[0.25em] font-bold mb-2 block
       <div v-if="currentStep === 'schedule'" class="space-y-6">
         <div class="flex items-start justify-between">
           <div>
-            <h2 class="text-2xl leading-tight font-black mb-1" style="font-family:'Playfair Display', serif; color:#3b1f0d;">Schedule</h2>
-            <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+            <h2 class="text-2xl leading-tight font-black mb-1" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">Schedule</h2>
+            <p class="text-sm" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
               Add workshops and parties.
               <span v-if="!days.length" class="text-destructive">Set dates in Basics first.</span>
             </p>
@@ -734,8 +735,8 @@ const labelClass = 'text-[10px] uppercase tracking-[0.25em] font-bold mb-2 block
         </div>
 
         <div v-if="!workshops.length" class="text-center py-12 border rounded-lg border-dashed">
-          <Music class="w-8 h-8 mx-auto mb-2" style="color:#9a5614;" />
-          <p style="color:#5b3a1d; font-family: system-ui, sans-serif;" class="text-sm mb-3">No workshops added yet</p>
+          <Music class="w-8 h-8 mx-auto mb-2" style="color:var(--wd-amber-600);" />
+          <p style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);" class="text-sm mb-3">No workshops added yet</p>
           <Button size="sm" variant="outline" :disabled="!days.length" @click="addWorkshop">Add your first workshop</Button>
         </div>
 
@@ -746,7 +747,7 @@ const labelClass = 'text-[10px] uppercase tracking-[0.25em] font-bold mb-2 block
               <Badge :variant="ws.type === 'party' ? 'secondary' : 'default'" class="text-[10px]">
                 {{ ws.type }}
               </Badge>
-              <button style="color:#9a5614;" class="hover:!text-[#dc2626] p-1" @click="removeWorkshop(i)">
+              <button style="color:var(--wd-amber-600);" class="hover:!text-wd-red-600 p-1" @click="removeWorkshop(i)">
                 <Trash2 class="w-4 h-4" />
               </button>
             </div>
@@ -832,8 +833,8 @@ const labelClass = 'text-[10px] uppercase tracking-[0.25em] font-bold mb-2 block
       <div v-if="currentStep === 'tickets'" class="space-y-6">
         <div class="flex items-start justify-between">
           <div>
-            <h2 class="text-2xl leading-tight font-black mb-1" style="font-family:'Playfair Display', serif; color:#3b1f0d;">Tickets</h2>
-            <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Define your ticket options. We'll recommend the best fit to dancers.</p>
+            <h2 class="text-2xl leading-tight font-black mb-1" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">Tickets</h2>
+            <p class="text-sm" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">Define your ticket options. We'll recommend the best fit to dancers.</p>
           </div>
           <Button size="sm" variant="outline" class="gap-1 shrink-0" @click="addTicket">
             <Plus class="w-3.5 h-3.5" /> Add Ticket
@@ -843,19 +844,19 @@ const labelClass = 'text-[10px] uppercase tracking-[0.25em] font-bold mb-2 block
         <div>
           <label :class="labelClass">Ticket purchase URL</label>
           <input v-model="ticketUrl" :class="inputClass" type="url" placeholder="https://your-ticket-page.com" />
-          <p style="color:#9a5614; font-family: system-ui, sans-serif;" class="text-xs mt-1">Where dancers go to buy tickets (your website or ticket platform)</p>
+          <p style="color:var(--wd-amber-600); font-family:var(--wd-font-sans);" class="text-xs mt-1">Where dancers go to buy tickets (your website or ticket platform)</p>
         </div>
 
         <div v-if="!tickets.length" class="text-center py-12 border rounded-lg border-dashed">
-          <Ticket class="w-8 h-8 mx-auto mb-2" style="color:#9a5614;" />
-          <p style="color:#5b3a1d; font-family: system-ui, sans-serif;" class="text-sm mb-3">No ticket options added yet</p>
+          <Ticket class="w-8 h-8 mx-auto mb-2" style="color:var(--wd-amber-600);" />
+          <p style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);" class="text-sm mb-3">No ticket options added yet</p>
           <Button size="sm" variant="outline" @click="addTicket">Add your first ticket</Button>
         </div>
 
         <div v-for="(ticket, i) in tickets" :key="ticket.id" class="border rounded-lg p-4 space-y-3">
           <div class="flex items-center justify-between">
             <h3 class="text-sm font-semibold">{{ ticket.name || `Ticket ${i + 1}` }}</h3>
-            <button style="color:#9a5614;" class="hover:!text-[#dc2626] p-1" @click="removeTicket(i)">
+            <button style="color:var(--wd-amber-600);" class="hover:!text-wd-red-600 p-1" @click="removeTicket(i)">
               <Trash2 class="w-4 h-4" />
             </button>
           </div>
@@ -880,17 +881,17 @@ const labelClass = 'text-[10px] uppercase tracking-[0.25em] font-bold mb-2 block
             <div>
               <label :class="labelClass">Max workshops</label>
               <input v-model.number="ticket.workshopCount" :class="inputClass" type="number" min="0" placeholder="Unlimited" />
-              <p style="color:#9a5614; font-family: system-ui, sans-serif;" class="text-xs mt-0.5">Leave empty for unlimited</p>
+              <p style="color:var(--wd-amber-600); font-family:var(--wd-font-sans);" class="text-xs mt-0.5">Leave empty for unlimited</p>
             </div>
             <div class="flex items-end pb-1">
               <label class="flex items-center gap-2 text-sm cursor-pointer">
-                <input v-model="ticket.includesParty" type="checkbox" class="rounded" style="border:1px solid #3b1f0d33; accent-color:#dc2626;" />
+                <input v-model="ticket.includesParty" type="checkbox" class="rounded" style="border:1px solid color-mix(in srgb, var(--wd-brown-900) 20%, transparent); accent-color:var(--wd-red-600);" />
                 Includes party
               </label>
             </div>
             <div class="flex items-end pb-1">
               <label class="flex items-center gap-2 text-sm cursor-pointer">
-                <input v-model="ticket.soldOut" type="checkbox" class="rounded" style="border:1px solid #3b1f0d33; accent-color:#dc2626;" />
+                <input v-model="ticket.soldOut" type="checkbox" class="rounded" style="border:1px solid color-mix(in srgb, var(--wd-brown-900) 20%, transparent); accent-color:var(--wd-red-600);" />
                 Sold out
               </label>
             </div>
@@ -901,15 +902,15 @@ const labelClass = 'text-[10px] uppercase tracking-[0.25em] font-bold mb-2 block
       <!-- Step 6: Preview -->
       <div v-if="currentStep === 'preview'" class="space-y-6">
         <div>
-          <h2 class="text-2xl leading-tight font-black mb-1" style="font-family:'Playfair Display', serif; color:#3b1f0d;">Preview & Submit</h2>
-          <p class="text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Review your festival, then send it to our team to onboard.</p>
+          <h2 class="text-2xl leading-tight font-black mb-1" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">Preview & Submit</h2>
+          <p class="text-sm" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">Review your festival, then send it to our team to onboard.</p>
         </div>
 
         <!-- Submitted success -->
         <div v-if="isPublished" class="text-center py-12 border rounded-lg bg-green-50 border-green-200">
           <Check class="w-12 h-12 text-green-500 mx-auto mb-3" />
           <h3 class="text-lg font-semibold mb-1">Submitted for review</h3>
-          <p style="color:#5b3a1d; font-family: system-ui, sans-serif;" class="text-sm mb-4">
+          <p style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);" class="text-sm mb-4">
             Thanks — we've got <strong>{{ festival.name }}</strong>. Our team will review it and reach out to get it live on WeDance.
           </p>
           <div class="flex items-center justify-center gap-3">
@@ -925,49 +926,49 @@ const labelClass = 'text-[10px] uppercase tracking-[0.25em] font-bold mb-2 block
             {{ submitError }}
           </p>
           <!-- Basics summary -->
-          <div class="rounded-2xl bg-white border p-5" style="border-color:#3b1f0d22; box-shadow: 0 1px 0 #3b1f0d0a, 0 6px 18px rgba(59,31,18,0.04);">
+          <div class="rounded-2xl bg-white border p-5" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); box-shadow: 0 1px 0 color-mix(in srgb, var(--wd-brown-900) 3.9%, transparent), 0 6px 18px rgba(59,31,18,0.04);">
             <div>
               <div class="flex items-center justify-between mb-2">
                 <h3 class="text-sm font-semibold">Basics</h3>
-                <button class="text-xs italic hover:underline" style="color:#dc2626; font-family:'Playfair Display', serif;" @click="goToStep('basics')">Edit</button>
+                <button class="text-xs italic hover:underline" style="color:var(--wd-red-600); font-family:var(--wd-font-display);" @click="goToStep('basics')">Edit</button>
               </div>
               <div class="grid grid-cols-2 gap-y-1 text-sm">
-                <span style="color:#9a5614; font-family: system-ui, sans-serif;">Name</span>
+                <span style="color:var(--wd-amber-600); font-family:var(--wd-font-sans);">Name</span>
                 <span>{{ festival.name || '—' }}</span>
-                <span style="color:#9a5614; font-family: system-ui, sans-serif;">Dates</span>
+                <span style="color:var(--wd-amber-600); font-family:var(--wd-font-sans);">Dates</span>
                 <span>{{ festival.startDate && festival.endDate ? `${festival.startDate} to ${festival.endDate}` : '—' }}</span>
-                <span style="color:#9a5614; font-family: system-ui, sans-serif;">Social links</span>
+                <span style="color:var(--wd-amber-600); font-family:var(--wd-font-sans);">Social links</span>
                 <span>{{ festival.socialLinks.length || 0 }} links</span>
               </div>
             </div>
           </div>
 
           <!-- Venue summary -->
-          <div class="rounded-2xl bg-white border p-5" style="border-color:#3b1f0d22; box-shadow: 0 1px 0 #3b1f0d0a, 0 6px 18px rgba(59,31,18,0.04);">
+          <div class="rounded-2xl bg-white border p-5" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); box-shadow: 0 1px 0 color-mix(in srgb, var(--wd-brown-900) 3.9%, transparent), 0 6px 18px rgba(59,31,18,0.04);">
             <div>
               <div class="flex items-center justify-between mb-2">
                 <h3 class="text-sm font-semibold">Venue</h3>
-                <button class="text-xs italic hover:underline" style="color:#dc2626; font-family:'Playfair Display', serif;" @click="goToStep('venue')">Edit</button>
+                <button class="text-xs italic hover:underline" style="color:var(--wd-red-600); font-family:var(--wd-font-display);" @click="goToStep('venue')">Edit</button>
               </div>
               <div class="grid grid-cols-2 gap-y-1 text-sm">
-                <span style="color:#9a5614; font-family: system-ui, sans-serif;">Name</span>
+                <span style="color:var(--wd-amber-600); font-family:var(--wd-font-sans);">Name</span>
                 <span>{{ venue.name || '—' }}</span>
-                <span style="color:#9a5614; font-family: system-ui, sans-serif;">Address</span>
+                <span style="color:var(--wd-amber-600); font-family:var(--wd-font-sans);">Address</span>
                 <span>{{ venue.address || '—' }}</span>
               </div>
             </div>
           </div>
 
           <!-- Lineup summary -->
-          <div class="rounded-2xl bg-white border p-5" style="border-color:#3b1f0d22; box-shadow: 0 1px 0 #3b1f0d0a, 0 6px 18px rgba(59,31,18,0.04);">
+          <div class="rounded-2xl bg-white border p-5" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); box-shadow: 0 1px 0 color-mix(in srgb, var(--wd-brown-900) 3.9%, transparent), 0 6px 18px rgba(59,31,18,0.04);">
             <div>
               <div class="flex items-center justify-between mb-2">
                 <h3 class="text-sm font-semibold">Lineup</h3>
-                <button class="text-xs italic hover:underline" style="color:#dc2626; font-family:'Playfair Display', serif;" @click="goToStep('lineup')">Edit</button>
+                <button class="text-xs italic hover:underline" style="color:var(--wd-red-600); font-family:var(--wd-font-display);" @click="goToStep('lineup')">Edit</button>
               </div>
               <p class="text-sm">
                 <strong>{{ teachers.length }}</strong> {{ teachers.length === 1 ? 'artist' : 'artists' }}
-                <span v-if="teachers.length" style="color:#9a5614; font-family: system-ui, sans-serif;">
+                <span v-if="teachers.length" style="color:var(--wd-amber-600); font-family:var(--wd-font-sans);">
                   — {{ teachers.map(t => t.name).filter(Boolean).join(', ') }}
                 </span>
               </p>
@@ -975,30 +976,30 @@ const labelClass = 'text-[10px] uppercase tracking-[0.25em] font-bold mb-2 block
           </div>
 
           <!-- Schedule summary -->
-          <div class="rounded-2xl bg-white border p-5" style="border-color:#3b1f0d22; box-shadow: 0 1px 0 #3b1f0d0a, 0 6px 18px rgba(59,31,18,0.04);">
+          <div class="rounded-2xl bg-white border p-5" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); box-shadow: 0 1px 0 color-mix(in srgb, var(--wd-brown-900) 3.9%, transparent), 0 6px 18px rgba(59,31,18,0.04);">
             <div>
               <div class="flex items-center justify-between mb-2">
                 <h3 class="text-sm font-semibold">Schedule</h3>
-                <button class="text-xs italic hover:underline" style="color:#dc2626; font-family:'Playfair Display', serif;" @click="goToStep('schedule')">Edit</button>
+                <button class="text-xs italic hover:underline" style="color:var(--wd-red-600); font-family:var(--wd-font-display);" @click="goToStep('schedule')">Edit</button>
               </div>
               <p class="text-sm">
                 <strong>{{ workshopCount }}</strong> {{ workshopCount === 1 ? 'workshop' : 'workshops' }},
                 <strong>{{ partyCount }}</strong> {{ partyCount === 1 ? 'party' : 'parties' }}
-                <span v-if="days.length" style="color:#9a5614; font-family: system-ui, sans-serif;">across {{ days.length }} days</span>
+                <span v-if="days.length" style="color:var(--wd-amber-600); font-family:var(--wd-font-sans);">across {{ days.length }} days</span>
               </p>
             </div>
           </div>
 
           <!-- Tickets summary -->
-          <div class="rounded-2xl bg-white border p-5" style="border-color:#3b1f0d22; box-shadow: 0 1px 0 #3b1f0d0a, 0 6px 18px rgba(59,31,18,0.04);">
+          <div class="rounded-2xl bg-white border p-5" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); box-shadow: 0 1px 0 color-mix(in srgb, var(--wd-brown-900) 3.9%, transparent), 0 6px 18px rgba(59,31,18,0.04);">
             <div>
               <div class="flex items-center justify-between mb-2">
                 <h3 class="text-sm font-semibold">Tickets</h3>
-                <button class="text-xs italic hover:underline" style="color:#dc2626; font-family:'Playfair Display', serif;" @click="goToStep('tickets')">Edit</button>
+                <button class="text-xs italic hover:underline" style="color:var(--wd-red-600); font-family:var(--wd-font-display);" @click="goToStep('tickets')">Edit</button>
               </div>
               <p class="text-sm">
                 <strong>{{ tickets.length }}</strong> {{ tickets.length === 1 ? 'option' : 'options' }}
-                <span v-if="tickets.length" style="color:#9a5614; font-family: system-ui, sans-serif;">
+                <span v-if="tickets.length" style="color:var(--wd-amber-600); font-family:var(--wd-font-sans);">
                   — {{ tickets.filter(t => !t.soldOut).map(t => `${t.name} €${t.price}`).join(', ') }}
                 </span>
               </p>
@@ -1009,28 +1010,28 @@ const labelClass = 'text-[10px] uppercase tracking-[0.25em] font-bold mb-2 block
     </div>
 
     <!-- Bottom navigation -->
-    <div v-if="!isPublished" class="fixed bottom-0 left-0 right-0 border-t z-20 backdrop-blur-sm" style="background:rgba(251, 245, 234, 0.96); border-color:#3b1f0d22;">
+    <div v-if="!isPublished" class="fixed bottom-0 left-0 right-0 border-t z-20 backdrop-blur-sm" style="background:rgba(251, 245, 234, 0.96); border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);">
       <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
         <button
           v-if="currentStepIndex > 0"
           type="button"
           class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold border transition-all hover:-translate-y-0.5"
-          style="background:white; color:#5b3a1d; border-color:#3b1f0d33; font-family: system-ui, sans-serif;"
+          style="background:white; color:var(--wd-brown-700); border-color:color-mix(in srgb, var(--wd-brown-900) 20%, transparent); font-family:var(--wd-font-sans);"
           @click="prevStep"
         >
           <ArrowLeft class="w-4 h-4" /> Back
         </button>
         <div v-else class="w-16" />
 
-        <div class="text-xs italic" style="color:#9a5614; font-family:'Playfair Display', serif;">
-          Step <strong style="color:#3b1f0d;">{{ currentStepIndex + 1 }}</strong> of {{ steps.length }}
+        <div class="text-xs italic" style="color:var(--wd-amber-600); font-family:var(--wd-font-display);">
+          Step <strong style="color:var(--wd-brown-900);">{{ currentStepIndex + 1 }}</strong> of {{ steps.length }}
         </div>
 
         <button
           v-if="currentStep !== 'preview'"
           type="button"
           class="inline-flex items-center gap-2 px-5 py-2 rounded-full text-white text-sm font-bold uppercase tracking-wider"
-          style="background:linear-gradient(135deg, #dc2626, #f97316); box-shadow: 0 3px 0 -1px #b91c1c; font-family: system-ui, sans-serif;"
+          style="background:linear-gradient(135deg, var(--wd-red-600), var(--wd-orange-500)); box-shadow: 0 3px 0 -1px var(--wd-red-800); font-family:var(--wd-font-sans);"
           @click="nextStep"
         >
           Next <ArrowRight class="w-4 h-4" />
@@ -1040,7 +1041,7 @@ const labelClass = 'text-[10px] uppercase tracking-[0.25em] font-bold mb-2 block
           type="button"
           class="inline-flex items-center gap-2 px-5 py-2 rounded-full text-white text-sm font-bold uppercase tracking-wider disabled:opacity-60"
           :disabled="isPublishing"
-          style="background:linear-gradient(135deg, #16a34a, #0891b2); box-shadow: 0 3px 0 -1px #15803d; font-family: system-ui, sans-serif;"
+          style="background:linear-gradient(135deg, var(--wd-green-600), var(--wd-cyan-600)); box-shadow: 0 3px 0 -1px var(--wd-green-700); font-family:var(--wd-font-sans);"
           @click="publish"
         >
           {{ isPublishing ? 'Submitting…' : 'Submit for review' }}

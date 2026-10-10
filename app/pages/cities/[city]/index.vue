@@ -17,6 +17,7 @@ import { MapPin, Calendar, ArrowRight, Sparkles } from 'lucide-vue-next'
 import type { Teacher } from '~/types/festival'
 import { eventLocalDate, eventLocalTime, eventLocalWeekday, formatEventWhen } from '#shared/utils/eventTime'
 import { isFreePrice, isTasterCandidate } from '#shared/utils/taster'
+import { WD } from '~/lib/brand'
 
 definePageMeta({ layout: false })
 
@@ -99,7 +100,7 @@ const bookedThisWeek = computed(() => bookedEvents.value
     id: b.id, name: b.title || 'Social', type: bookedTypeMap[b.eventType] || 'social',
     style: b.styles?.[0] || '', day: new Date(String(b.eventDate).slice(0, 10)).toLocaleDateString('en-US', { weekday: 'long' }),
     time: b.startTime || '', duration: 0, venue: b.venueName, address: '', organizer: '',
-    accentColor: '#dc2626', attendeeCount: 0, recurring: false, date: b.eventDate,
+    accentColor: WD.red600, attendeeCount: 0, recurring: false, date: b.eventDate,
     venueHandle: b.venueHandle || undefined,
   })))
 
@@ -115,7 +116,7 @@ const toCityEvent = (e: any) => ({
   venueId: e.venueUsername || undefined,
   venueHandle: e.venueUsername || undefined,
   artists: e.artists || [],
-  accentColor: '#dc2626', attendeeCount: 0, recurring: false,
+  accentColor: WD.red600, attendeeCount: 0, recurring: false,
   date: eventLocalDate(e.startDate, e.timezone),
 })
 // Festivals get their own section below — the week list is classes & socials.
@@ -169,10 +170,10 @@ const upcomingGroups = computed(() => {
 })
 
 const cityAccent: Record<string, string> = {
-  munich: '#dc2626',
-  berlin: '#0891b2',
+  munich: WD.red600,
+  berlin: WD.cyan600,
 }
-const accent = cityAccent[slug] || '#a855f7'
+const accent = cityAccent[slug] || WD.purple500
 
 // City meta the template renders (name / count / styles), derived from real data.
 const city = computed(() => ({
@@ -209,7 +210,7 @@ useHead(() => ({
   link: [
     { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
     { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
-    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Caveat:wght@400;700&display=swap' },
+    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&display=swap' },
   ],
 }))
 
@@ -337,7 +338,7 @@ const filteredEvents = computed(() => {
 const cityFestivals = computed(() => syncedEvents.value
   .filter(e => e.isFestival)
   .map(e => ({
-    id: e.id, name: e.name || 'Festival', logo: e.cover || '', accentColor: '#dc2626',
+    id: e.id, name: e.name || 'Festival', logo: e.cover || '', accentColor: WD.red600,
     styles: e.styles || [], type: e.type, venueName: e.venueName,
     when: formatEventWhen(e.startDate, e.endDate, e.timezone),
   })))
@@ -388,7 +389,7 @@ function scrollToAskLocals() {
   document.getElementById('ask-locals')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
-const styleChipColors = ['#dc2626', '#0891b2', '#16a34a', '#a855f7', '#f59e0b', '#ec4899', '#7c3aed']
+const styleChipColors = [WD.red600, WD.cyan600, WD.green600, WD.purple500, WD.amber500, WD.pink500, WD.violet600]
 
 // --- City video competition + giveaways (O-009) ---------------------------
 // All client-fetched: the tRPC client uses a relative URL that throws under
@@ -442,7 +443,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen" style="background:#fbf5ea; color:#3b1f0d; font-family:'Playfair Display', serif;">
+  <div class="min-h-screen" style="background:var(--wd-cream); color:var(--wd-brown-900); font-family:var(--wd-font-display);">
     <!-- V3 header — same as /, /festivals, /organizers, /for-events, /my-plan, /cities -->
     <SiteHeader />
 
@@ -460,10 +461,10 @@ onMounted(() => {
         <div class="absolute inset-0" style="background:linear-gradient(180deg, rgba(59,31,18,0.15) 0%, rgba(59,31,18,0.05) 40%, rgba(59,31,18,0.75) 100%);" />
 
         <div class="relative h-full max-w-4xl mx-auto px-4 flex flex-col justify-end pb-6">
-          <div class="text-lg leading-none mb-1" style="font-family:'Caveat, cursive'; color:#fbe3c2;">
+          <div class="text-lg leading-none mb-1" style="font-family:var(--wd-font-display);font-style:italic; color:#fbe3c2;">
             — {{ city.eventCount }} weekly events
           </div>
-          <h1 class="text-5xl sm:text-7xl leading-[0.98] tracking-tight" style="font-family:'Playfair Display', serif; color:#fff; text-shadow:0 2px 24px rgba(0,0,0,0.35);">
+          <h1 class="text-5xl sm:text-7xl leading-[0.98] tracking-tight" style="font-family:var(--wd-font-display); color:#fff; text-shadow:0 2px 24px rgba(0,0,0,0.35);">
             {{ city.name }}
           </h1>
         </div>
@@ -473,7 +474,7 @@ onMounted(() => {
           v-if="hero.source"
           :href="hero.source" target="_blank" rel="noopener nofollow"
           class="absolute bottom-1.5 right-2 text-[10px] px-1.5 py-0.5 rounded"
-          style="color:rgba(255,255,255,0.75); background:rgba(0,0,0,0.25); font-family: system-ui, sans-serif;"
+          style="color:rgba(255,255,255,0.75); background:rgba(0,0,0,0.25); font-family:var(--wd-font-sans);"
           :title="`${hero.credit || 'Wikimedia Commons'}${hero.license ? ' · ' + hero.license : ''}`"
         >📷 {{ hero.credit || 'Wikimedia' }}<template v-if="hero.license"> · {{ hero.license }}</template></a>
       </div>
@@ -483,7 +484,7 @@ onMounted(() => {
       </div>
 
       <svg class="block w-full h-10 -mb-px" viewBox="0 0 1440 60" preserveAspectRatio="none">
-        <path d="M0,40 Q360,0 720,30 T1440,20 V60 H0 Z" fill="#3b1f0d" opacity="0.08"/>
+        <path d="M0,40 Q360,0 720,30 T1440,20 V60 H0 Z" :fill="WD.brown900" opacity="0.08"/>
       </svg>
     </section>
 
@@ -499,14 +500,14 @@ onMounted(() => {
       </svg>
 
       <div class="relative max-w-4xl mx-auto px-4 pt-10 pb-6">
-        <div class="text-lg leading-none mb-2" :style="{ fontFamily: 'Caveat, cursive', color: accent }">
+        <div class="text-lg leading-none mb-2" :style="{ fontFamily: 'var(--wd-font-display)', fontStyle: 'italic', color: accent }">
           — {{ city.eventCount }} weekly events
         </div>
-        <h1 class="text-5xl sm:text-7xl leading-[0.98] tracking-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+        <h1 class="text-5xl sm:text-7xl leading-[0.98] tracking-tight" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">
           {{ city.name }}
         </h1>
-        <p class="mt-2 text-sm sm:text-base flex items-center gap-1 italic" style="color:#5b3a1d; font-family:'Playfair Display', serif;">
-          <MapPin class="w-3.5 h-3.5" style="color:#9a5614;" />
+        <p class="mt-2 text-sm sm:text-base flex items-center gap-1 italic" style="color:var(--wd-brown-700); font-family:var(--wd-font-display);">
+          <MapPin class="w-3.5 h-3.5" style="color:var(--wd-amber-600);" />
           {{ city.country }}
         </p>
 
@@ -516,39 +517,39 @@ onMounted(() => {
 
       <!-- Wave divider -->
       <svg class="block w-full h-10 -mb-px" viewBox="0 0 1440 60" preserveAspectRatio="none">
-        <path d="M0,40 Q360,0 720,30 T1440,20 V60 H0 Z" fill="#3b1f0d" opacity="0.08"/>
+        <path d="M0,40 Q360,0 720,30 T1440,20 V60 H0 Z" :fill="WD.brown900" opacity="0.08"/>
       </svg>
     </section>
 
     <!-- PEOPLE TABS -->
-    <section class="border-b" style="border-color:#3b1f0d22; background:rgba(251, 245, 234, 0.5);">
+    <section class="border-b" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); background:rgba(251, 245, 234, 0.5);">
       <div class="max-w-4xl mx-auto px-4">
         <div class="flex items-baseline justify-between gap-3 pt-6">
           <div>
-            <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">Who's on the floor</div>
-            <h2 class="mt-2 text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
-              The <em class="italic" style="color:#dc2626;">people</em> behind it all.
+            <div class="text-xs uppercase tracking-[0.3em]" style="color:var(--wd-amber-600);">Who's on the floor</div>
+            <h2 class="mt-2 text-2xl leading-tight" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">
+              The <em class="italic" style="color:var(--wd-red-600);">people</em> behind it all.
             </h2>
           </div>
           <NuxtLink
             :to="seeAllHref"
             class="text-xs italic hover:underline whitespace-nowrap shrink-0"
-            style="color:#9a5614; font-family:'Playfair Display', serif;"
+            style="color:var(--wd-amber-600); font-family:var(--wd-font-display);"
           >
             All {{ city.name }} {{ activeTab === 'organisers' ? 'organisers' : activeTab === 'venues' ? 'venues' : 'artists' }} →
           </NuxtLink>
         </div>
 
         <!-- Tab headers -->
-        <div class="flex gap-1 mt-4 border-b -mb-px overflow-x-auto" style="border-color:#3b1f0d22;">
+        <div class="flex gap-1 mt-4 border-b -mb-px overflow-x-auto" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);">
           <button
             v-for="tab in peopleTabs"
             :key="tab.key"
             type="button"
             class="px-4 py-3 text-sm italic whitespace-nowrap transition-all -mb-px border-b-2"
             :style="activeTab === tab.key
-              ? { borderColor: accent, color: accent, fontWeight: 700, fontFamily: 'Playfair Display, serif' }
-              : { borderColor: 'transparent', color: '#5b3a1d', fontFamily: 'Playfair Display, serif' }"
+              ? { borderColor: accent, color: accent, fontWeight: 700, fontFamily: 'var(--wd-font-display)' }
+              : { borderColor: 'transparent', color: 'var(--wd-brown-700)', fontFamily: 'var(--wd-font-display)' }"
             @click="switchTab(tab.key)"
           >
             {{ tab.label }}
@@ -558,7 +559,7 @@ onMounted(() => {
         <!-- This-week relevance label — the tab shows only who has an event this
              week; the full directory is the "All … →" link in the header above. -->
         <div class="pt-4 pb-1">
-          <span class="text-xs italic" style="color:#9a5614; font-family:'Playfair Display', serif;">
+          <span class="text-xs italic" style="color:var(--wd-amber-600); font-family:var(--wd-font-display);">
             {{ activeLineup.length
               ? `${activeLineup.length} with events this week`
               : 'None with events this week' }}
@@ -570,7 +571,7 @@ onMounted(() => {
           <p
             v-if="!currentLineup.length"
             class="text-sm italic py-4"
-            style="color:#5b3a1d; font-family:'Playfair Display', serif;"
+            style="color:var(--wd-brown-700); font-family:var(--wd-font-display);"
           >
             <template v-if="fullLineup.length">
               Nobody has an event this week yet.
@@ -597,19 +598,19 @@ onMounted(() => {
 
     <!-- YOUR FIRST CLASS — ?taster=1 from the /find-your-dance taster pick (P1006) -->
     <section v-if="tasterMode" id="taster" data-testid="taster-section" class="max-w-4xl mx-auto px-4 pt-12 scroll-mt-4">
-      <div class="rounded-2xl p-5 sm:p-6" style="background:white; border:1px solid #16a34a55; box-shadow: 0 1px 0 #16a34a22, 0 8px 22px rgba(59,31,18,0.05);">
-        <div class="text-xs uppercase tracking-[0.3em] flex items-center gap-1.5" style="color:#16a34a;">
+      <div class="rounded-2xl p-5 sm:p-6" style="background:white; border:1px solid color-mix(in srgb, var(--wd-green-600) 33.3%, transparent); box-shadow: 0 1px 0 color-mix(in srgb, var(--wd-green-600) 13.3%, transparent), 0 8px 22px rgba(59,31,18,0.05);">
+        <div class="text-xs uppercase tracking-[0.3em] flex items-center gap-1.5" style="color:var(--wd-green-600);">
           <Sparkles class="w-3.5 h-3.5" /> Try it, no pressure
         </div>
-        <h2 class="mt-2 text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
-          Your first <em class="italic" style="color:#16a34a;">class.</em>
+        <h2 class="mt-2 text-2xl leading-tight" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">
+          Your first <em class="italic" style="color:var(--wd-green-600);">class.</em>
         </h2>
-        <p class="mt-2 text-sm leading-relaxed" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+        <p class="mt-2 text-sm leading-relaxed" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
           Pick any class below and just go once — many schools let you try the first one free, just ask at the door.
           No partner, no experience, no commitment. See what sticks.
         </p>
 
-        <div v-if="!bookedEventsLoaded" class="mt-5 text-sm italic" style="color:#9a5614;">Finding classes…</div>
+        <div v-if="!bookedEventsLoaded" class="mt-5 text-sm italic" style="color:var(--wd-amber-600);">Finding classes…</div>
 
         <div v-else-if="tasterClasses.length" class="mt-5 grid grid-cols-1 gap-2">
           <NuxtLink
@@ -618,31 +619,31 @@ onMounted(() => {
             :to="e.venueHandle ? `/@${e.venueHandle}` : `/events/${e.id}`"
             data-testid="taster-class"
             class="group rounded-xl p-3 border flex items-center gap-3 hover:-translate-y-0.5 transition-all"
-            style="border-color:#3b1f0d1f; background:#fbf5ea80;"
+            style="border-color:color-mix(in srgb, var(--wd-brown-900) 12.2%, transparent); background:color-mix(in srgb, var(--wd-cream) 50.2%, transparent);"
           >
-            <div class="w-20 shrink-0 text-center" style="font-family:'Playfair Display', serif;">
-              <div class="text-[10px] font-bold uppercase tracking-wide whitespace-nowrap" style="color:#9a5614;">{{ e.when }}</div>
-              <div class="text-base font-black tabular-nums" style="color:#16a34a;">{{ e.time }}</div>
+            <div class="w-20 shrink-0 text-center" style="font-family:var(--wd-font-display);">
+              <div class="text-[10px] font-bold uppercase tracking-wide whitespace-nowrap" style="color:var(--wd-amber-600);">{{ e.when }}</div>
+              <div class="text-base font-black tabular-nums" style="color:var(--wd-green-600);">{{ e.time }}</div>
             </div>
-            <div class="flex-1 min-w-0" style="font-family: system-ui, sans-serif;">
-              <p class="text-sm font-bold truncate group-hover:underline" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+            <div class="flex-1 min-w-0" style="font-family:var(--wd-font-sans);">
+              <p class="text-sm font-bold truncate group-hover:underline" style="color:var(--wd-brown-900); font-family:var(--wd-font-display);">
                 {{ e.name }}
-                <span v-if="e.free" class="ml-1 align-middle px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider" style="background:#16a34a18; color:#16a34a; font-family: system-ui, sans-serif;">Free</span>
+                <span v-if="e.free" class="ml-1 align-middle px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider" style="background:color-mix(in srgb, var(--wd-green-600) 9.4%, transparent); color:var(--wd-green-600); font-family:var(--wd-font-sans);">Free</span>
               </p>
-              <p class="text-xs truncate" style="color:#5b3a1d;">
-                <span class="font-bold uppercase tracking-wider text-[10px]" style="color:#9a5614;">{{ e.type }}</span>
+              <p class="text-xs truncate" style="color:var(--wd-brown-700);">
+                <span class="font-bold uppercase tracking-wider text-[10px]" style="color:var(--wd-amber-600);">{{ e.type }}</span>
                 <span v-if="e.styles.length"> · {{ e.styles.slice(0, 3).join(', ') }}</span>
                 <span v-if="e.venueName"> · {{ e.venueName }}</span>
                 <span v-if="e.price && !e.free"> · {{ e.price }}</span>
               </p>
             </div>
-            <ArrowRight class="w-4 h-4 shrink-0" style="color:#16a34a;" />
+            <ArrowRight class="w-4 h-4 shrink-0" style="color:var(--wd-green-600);" />
           </NuxtLink>
         </div>
 
-        <div v-else data-testid="taster-empty" class="mt-5 text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+        <div v-else data-testid="taster-empty" class="mt-5 text-sm" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
           No {{ selectedStyle ? `${selectedStyle} ` : '' }}classes listed here yet —
-          <button type="button" class="font-bold underline" style="color:#16a34a;" @click="scrollToAskLocals">ask the locals where beginners start</button>.
+          <button type="button" class="font-bold underline" style="color:var(--wd-green-600);" @click="scrollToAskLocals">ask the locals where beginners start</button>.
         </div>
       </div>
     </section>
@@ -656,19 +657,19 @@ onMounted(() => {
     <section class="max-w-4xl mx-auto px-4 py-12">
       <div class="flex flex-wrap items-baseline justify-between gap-3 mb-6">
         <div>
-          <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">This week</div>
-          <h2 class="mt-2 text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
-            Where you're <em class="italic" style="color:#dc2626;">dancing.</em>
+          <div class="text-xs uppercase tracking-[0.3em]" style="color:var(--wd-amber-600);">This week</div>
+          <h2 class="mt-2 text-2xl leading-tight" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">
+            Where you're <em class="italic" style="color:var(--wd-red-600);">dancing.</em>
           </h2>
         </div>
-        <div v-if="filterLabel" class="flex items-center gap-2 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+        <div v-if="filterLabel" class="flex items-center gap-2 text-xs" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
           <span>
-            Filtering by {{ filterLabel.role }} <strong style="color:#3b1f0d;">{{ filterLabel.name }}</strong>
+            Filtering by {{ filterLabel.role }} <strong style="color:var(--wd-brown-900);">{{ filterLabel.name }}</strong>
           </span>
           <button
             type="button"
             class="text-xs font-bold underline"
-            :style="{ color: accent, fontFamily: 'system-ui, sans-serif' }"
+            :style="{ color: accent, fontFamily: 'var(--wd-font-sans)' }"
             @click="clearPersonFilter"
           >
             Clear
@@ -687,32 +688,32 @@ onMounted(() => {
     <!-- COMING UP — dated events after this week (wedance.vip mirror) -->
     <section v-if="upcomingGroups.length" class="max-w-4xl mx-auto px-4 pb-12">
       <div class="mb-6">
-        <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">After this week</div>
-        <h2 class="mt-2 text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+        <div class="text-xs uppercase tracking-[0.3em]" style="color:var(--wd-amber-600);">After this week</div>
+        <h2 class="mt-2 text-2xl leading-tight" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">
           Coming <em class="italic" :style="{ color: accent }">up.</em>
         </h2>
       </div>
       <div class="space-y-6">
         <div v-for="g in upcomingGroups" :key="g.date">
-          <h3 class="text-sm font-black mb-2" style="color:#3b1f0d; font-family:'Playfair Display', serif;">{{ g.label }}</h3>
+          <h3 class="text-sm font-black mb-2" style="color:var(--wd-brown-900); font-family:var(--wd-font-display);">{{ g.label }}</h3>
           <div class="grid grid-cols-1 gap-2">
             <NuxtLink
               v-for="e in g.items"
               :key="e.id"
               :to="e.venueHandle ? `/@${e.venueHandle}` : `/events/${e.id}`"
               class="group rounded-xl bg-white p-3 border flex items-center gap-3 hover:-translate-y-0.5 transition-all"
-              style="border-color:#3b1f0d1f; box-shadow:0 1px 0 #3b1f0d0d;"
+              style="border-color:color-mix(in srgb, var(--wd-brown-900) 12.2%, transparent); box-shadow:0 1px 0 color-mix(in srgb, var(--wd-brown-900) 5.1%, transparent);"
             >
-              <div class="w-12 shrink-0 text-center text-base font-black tabular-nums" :style="{ color: accent, fontFamily: 'Playfair Display, serif' }">{{ e.time }}</div>
-              <div class="flex-1 min-w-0" style="font-family: system-ui, sans-serif;">
-                <p class="text-sm font-bold truncate group-hover:underline" style="color:#3b1f0d; font-family:'Playfair Display', serif;">{{ e.name }}</p>
-                <p class="text-xs truncate" style="color:#5b3a1d;">
-                  <span class="font-bold uppercase tracking-wider text-[10px]" style="color:#9a5614;">{{ e.type }}</span>
+              <div class="w-12 shrink-0 text-center text-base font-black tabular-nums" :style="{ color: accent, fontFamily: 'var(--wd-font-display)' }">{{ e.time }}</div>
+              <div class="flex-1 min-w-0" style="font-family:var(--wd-font-sans);">
+                <p class="text-sm font-bold truncate group-hover:underline" style="color:var(--wd-brown-900); font-family:var(--wd-font-display);">{{ e.name }}</p>
+                <p class="text-xs truncate" style="color:var(--wd-brown-700);">
+                  <span class="font-bold uppercase tracking-wider text-[10px]" style="color:var(--wd-amber-600);">{{ e.type }}</span>
                   <span v-if="e.styles?.length"> · {{ e.styles.slice(0, 3).join(', ') }}</span>
                   <span v-if="e.venueName"> · {{ e.venueName }}</span>
                 </p>
               </div>
-              <ArrowRight class="w-4 h-4 shrink-0" style="color:#9a5614;" />
+              <ArrowRight class="w-4 h-4 shrink-0" style="color:var(--wd-amber-600);" />
             </NuxtLink>
           </div>
         </div>
@@ -721,7 +722,7 @@ onMounted(() => {
         v-if="syncedLater.length + bookedLater.length > upcomingLimit"
         type="button"
         class="mt-6 text-xs font-bold underline"
-        :style="{ color: accent, fontFamily: 'system-ui, sans-serif' }"
+        :style="{ color: accent, fontFamily: 'var(--wd-font-sans)' }"
         @click="upcomingLimit += 24"
       >
         Show more ({{ syncedLater.length + bookedLater.length - upcomingLimit }} more)
@@ -729,7 +730,7 @@ onMounted(() => {
     </section>
 
     <!-- VIDEO OF THE DAY — pairwise vote -->
-    <section id="vote" class="border-t" style="border-color:#3b1f0d22; background:rgba(251, 245, 234, 0.5);">
+    <section id="vote" class="border-t" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); background:rgba(251, 245, 234, 0.5);">
       <div class="max-w-4xl mx-auto px-4 py-12">
         <CityVideoVote :city-slug="slug" :accent="accent" />
       </div>
@@ -738,11 +739,11 @@ onMounted(() => {
     <!-- COMPETITION — leaderboard + submit -->
     <section id="compete" class="max-w-4xl mx-auto px-4 py-12">
       <div class="mb-6">
-        <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">This month's competition</div>
-        <h2 class="mt-2 text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+        <div class="text-xs uppercase tracking-[0.3em]" style="color:var(--wd-amber-600);">This month's competition</div>
+        <h2 class="mt-2 text-2xl leading-tight" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">
           The <em class="italic" :style="{ color: accent }">leaderboard.</em>
         </h2>
-        <p class="mt-2 max-w-2xl text-sm" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+        <p class="mt-2 max-w-2xl text-sm" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
           Post a clip from a {{ city.name }} dance floor and the community votes head-to-head
           in the matchup above. The highest-ranked video this month gets featured on WeDance{{ ' ' + city.name }}<template v-if="giveaways.length">, and wins this month's prize</template>. Any dancer, any style.
         </p>
@@ -760,7 +761,7 @@ onMounted(() => {
             >
               <span
                 class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-black text-white"
-                :style="{ background: i === 0 ? accent : '#9a5614' }"
+                :style="{ background: i === 0 ? accent : WD.amber600 }"
               >{{ i + 1 }}</span>
               <a
                 :href="v.videoUrl"
@@ -768,10 +769,10 @@ onMounted(() => {
                 rel="noopener"
                 class="min-w-0 flex-1"
               >
-                <p class="truncate text-sm font-bold hover:underline" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+                <p class="truncate text-sm font-bold hover:underline" style="color:var(--wd-brown-900); font-family:var(--wd-font-display);">
                   {{ v.title }}
                 </p>
-                <p class="text-[11px]" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+                <p class="text-[11px]" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
                   <span v-if="v.danceStyle">{{ v.danceStyle }} · </span>ELO {{ v.eloScore }} · {{ v.voteCount }} vote{{ v.voteCount === 1 ? '' : 's' }}
                 </p>
               </a>
@@ -780,12 +781,12 @@ onMounted(() => {
           <div
             v-else
             class="rounded-xl border-2 border-dashed p-6 text-center"
-            style="border-color:#3b1f0d33; background:rgba(255,255,255,0.5);"
+            style="border-color:color-mix(in srgb, var(--wd-brown-900) 20%, transparent); background:rgba(255,255,255,0.5);"
           >
-            <p class="text-sm font-bold" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+            <p class="text-sm font-bold" style="color:var(--wd-brown-900); font-family:var(--wd-font-display);">
               No entries yet
             </p>
-            <p class="mt-1 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+            <p class="mt-1 text-xs" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
               Be the first to enter this month's competition.
             </p>
           </div>
@@ -807,12 +808,12 @@ onMounted(() => {
       v-if="giveaways.length"
       id="giveaways"
       class="border-t"
-      style="border-color:#3b1f0d22; background:rgba(251, 245, 234, 0.5);"
+      style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); background:rgba(251, 245, 234, 0.5);"
     >
       <div class="max-w-4xl mx-auto px-4 py-12">
         <div class="mb-6">
-          <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">Win something</div>
-          <h2 class="mt-2 text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
+          <div class="text-xs uppercase tracking-[0.3em]" style="color:var(--wd-amber-600);">Win something</div>
+          <h2 class="mt-2 text-2xl leading-tight" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">
             Local <em class="italic" :style="{ color: accent }">giveaways.</em>
           </h2>
         </div>
@@ -828,19 +829,19 @@ onMounted(() => {
     </section>
 
     <!-- UPCOMING FESTIVALS IN THIS CITY (V3-styled cards) -->
-    <section v-if="cityFestivals.length > 0" class="border-t" style="border-color:#3b1f0d22; background:rgba(251, 245, 234, 0.5);">
+    <section v-if="cityFestivals.length > 0" class="border-t" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); background:rgba(251, 245, 234, 0.5);">
       <div class="max-w-4xl mx-auto px-4 py-12">
         <div class="flex items-baseline justify-between mb-6">
           <div>
-            <div class="text-xs uppercase tracking-[0.3em]" style="color:#9a5614;">Coming to {{ city.name }}</div>
-            <h2 class="mt-2 text-2xl leading-tight" style="font-family:'Playfair Display', serif; color:#3b1f0d;">
-              Upcoming <em class="italic" style="color:#dc2626;">festivals.</em>
+            <div class="text-xs uppercase tracking-[0.3em]" style="color:var(--wd-amber-600);">Coming to {{ city.name }}</div>
+            <h2 class="mt-2 text-2xl leading-tight" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">
+              Upcoming <em class="italic" style="color:var(--wd-red-600);">festivals.</em>
             </h2>
           </div>
           <NuxtLink
             to="/festivals"
             class="text-xs italic hover:underline"
-            style="color:#9a5614; font-family:'Playfair Display', serif;"
+            style="color:var(--wd-amber-600); font-family:var(--wd-font-display);"
           >
             All festivals →
           </NuxtLink>
@@ -872,16 +873,16 @@ onMounted(() => {
                   {{ f.name.charAt(0) }}
                 </div>
                 <div class="flex-1 min-w-0">
-                  <h3 class="font-bold text-lg leading-tight" style="color:#3b1f0d;">
+                  <h3 class="font-bold text-lg leading-tight" style="color:var(--wd-brown-900);">
                     {{ f.name }}
                   </h3>
-                  <div class="flex items-center gap-4 mt-1 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+                  <div class="flex items-center gap-4 mt-1 text-xs" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
                     <span class="inline-flex items-center gap-1">
-                      <Calendar class="w-3 h-3" style="color:#9a5614;" />
+                      <Calendar class="w-3 h-3" style="color:var(--wd-amber-600);" />
                       {{ f.when }}
                     </span>
                     <span v-if="f.venueName" class="inline-flex items-center gap-1 min-w-0">
-                      <MapPin class="w-3 h-3 shrink-0" style="color:#9a5614;" />
+                      <MapPin class="w-3 h-3 shrink-0" style="color:var(--wd-amber-600);" />
                       <span class="truncate">{{ f.venueName }}</span>
                     </span>
                   </div>
@@ -934,8 +935,8 @@ onMounted(() => {
             class="inline-flex items-center justify-center w-6 h-6 rounded-full text-[11px] font-black bg-white"
             :style="{ color: accent }"
           >{{ weekCount }}</span>
-          <span style="font-family:'Playfair Display', serif; letter-spacing:0.01em;">in your week</span>
-          <span style="font-family:'Caveat', cursive; font-size:16px; opacity:0.85;">— see dashboard</span>
+          <span style="font-family:var(--wd-font-display); letter-spacing:0.01em;">in your week</span>
+          <span style="font-family:var(--wd-font-display);font-style:italic; font-size:16px; opacity:0.85;">— see dashboard</span>
           <ArrowRight class="w-4 h-4" />
         </NuxtLink>
       </Transition>

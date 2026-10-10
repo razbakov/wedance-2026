@@ -16,7 +16,7 @@ useHead({
   link: [
     { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
     { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
-    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Caveat:wght@400;700&display=swap' },
+    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&display=swap' },
   ],
 })
 
@@ -82,13 +82,13 @@ const sections = [
 </script>
 
 <template>
-  <div class="min-h-screen" style="background:#fbf5ea; color:#3b1f0d; font-family:'Playfair Display', serif;">
+  <div class="min-h-screen" style="background:var(--wd-cream); color:var(--wd-brown-900); font-family:var(--wd-font-display);">
     <SiteHeader />
 
     <section class="max-w-2xl mx-auto px-4 pt-12 pb-4">
-      <div class="text-sm tracking-widest uppercase mb-3" style="color:#9a5614;">Legal</div>
-      <h1 class="text-4xl sm:text-5xl leading-tight" style="color:#3b1f0d;">Booking Terms</h1>
-      <p class="mt-4 text-sm leading-relaxed" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+      <div class="text-sm tracking-widest uppercase mb-3" style="color:var(--wd-amber-600);">Legal</div>
+      <h1 class="text-4xl sm:text-5xl leading-tight" style="color:var(--wd-brown-900);">Booking Terms</h1>
+      <p class="mt-4 text-sm leading-relaxed" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
         These terms apply when you use WeDance to send a venue booking request.
         Please read them before submitting a request.
       </p>
@@ -96,19 +96,19 @@ const sections = [
 
     <section class="max-w-2xl mx-auto px-4 pb-16">
       <div v-for="s in sections" :key="s.heading" class="mt-8">
-        <h2 class="text-lg font-bold" style="color:#3b1f0d; font-family: system-ui, sans-serif;">{{ s.heading }}</h2>
+        <h2 class="text-lg font-bold" style="color:var(--wd-brown-900); font-family:var(--wd-font-sans);">{{ s.heading }}</h2>
         <ul class="mt-3 space-y-2">
           <!-- eslint-disable-next-line vue/no-v-html -->
-          <li v-for="(item, i) in s.items" :key="i" class="flex items-start gap-2 text-sm leading-relaxed" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
-            <span class="mt-0.5 shrink-0" style="color:#dc2626;">·</span>
+          <li v-for="(item, i) in s.items" :key="i" class="flex items-start gap-2 text-sm leading-relaxed" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
+            <span class="mt-0.5 shrink-0" style="color:var(--wd-red-600);">·</span>
             <span v-html="item" />
           </li>
         </ul>
       </div>
 
-      <div class="mt-10 rounded-xl p-4 text-sm" style="background:#dc262610; border:1px solid #dc262633; color:#5b3a1d; font-family: system-ui, sans-serif;">
+      <div class="mt-10 rounded-xl p-4 text-sm" style="background:color-mix(in srgb, var(--wd-red-600) 6.3%, transparent); border:1px solid color-mix(in srgb, var(--wd-red-600) 20%, transparent); color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
         These terms are under legal review and may change before the booking feature is promoted publicly.
-        Questions? Contact <a href="mailto:hello@wedance.vip" class="underline font-bold" style="color:#dc2626;">hello@wedance.vip</a>.
+        Questions? Contact <a href="mailto:hello@wedance.vip" class="underline font-bold" style="color:var(--wd-red-600);">hello@wedance.vip</a>.
       </div>
     </section>
 
