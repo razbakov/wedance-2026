@@ -24,7 +24,7 @@ const coreSwatches = core.map(c => {
   const hex = WD[c.key]
   const onCream = contrastRatio(hex, WD.cream)
   const onWhite = contrastRatio(hex, '#ffffff')
-  return { ...c, hex, token: `--wd-${kebab(c.key)}`, cls: `bg-wd-${kebab(c.key)}`, onCream, onWhite }
+  return { ...c, hex, token: `--wd-${kebab(c.key)}`, onCream, onWhite }
 })
 
 const coreKeys = new Set<string>(core.map(c => c.key))
@@ -97,7 +97,8 @@ const border = WD.red600 + '55'`
     <DesignSection id="core" title="Core palette" lead="The colours that make a screen look like WeDance. Contrast is measured against cream (the page) and white (cards).">
       <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         <div v-for="c in coreSwatches" :key="c.key" class="rounded-2xl border border-border overflow-hidden bg-card">
-          <div class="h-24" :class="c.cls" />
+          <!-- var(), not a built class name: Tailwind only generates classes it finds literally in source -->
+          <div class="h-24" :style="{ background: `var(${c.token})` }" />
           <div class="p-3 space-y-0.5">
             <div class="text-sm font-bold">{{ c.role }}</div>
             <div class="font-mono text-[11px] text-secondary">{{ c.token }}</div>
