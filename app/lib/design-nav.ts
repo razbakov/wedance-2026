@@ -28,6 +28,12 @@ export const designNav: DocSection[] = [
     ],
   },
   {
+    title: 'Brand',
+    items: [
+      { title: 'Logo, voice & imagery', to: '/design/brand', status: 'beta', summary: 'Logo use, tone of voice, photo rules.' },
+    ],
+  },
+  {
     title: 'Foundations',
     items: [
       { title: 'Colors', to: '/design/foundations/colors', status: 'stable', summary: 'Core, semantic, status and extended palettes with contrast.' },
@@ -63,12 +69,6 @@ export const designNav: DocSection[] = [
       { title: 'Cards', to: '/design/patterns/cards', status: 'beta', summary: 'Event, festival, artist and plan cards.' },
       { title: 'Heroes', to: '/design/patterns/heroes', status: 'beta', summary: 'Page headers with photo and title.' },
       { title: 'Empty states', to: '/design/patterns/empty-states', status: 'beta', summary: 'What to show when there is nothing yet.' },
-    ],
-  },
-  {
-    title: 'Brand',
-    items: [
-      { title: 'Logo, voice & imagery', to: '/design/brand', status: 'beta', summary: 'Logo use, tone of voice, photo rules.' },
     ],
   },
 ]
