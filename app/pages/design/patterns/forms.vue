@@ -165,7 +165,7 @@ const copy = [
     </DesignSection>
 
     <DesignSection id="copy" title="Error message copy" lead="Say what to do, in plain words, in one short sentence ending with a full stop. Messages live in shared/validation so the same mistake reads the same everywhere.">
-      <div class="overflow-x-auto rounded-xl border border-border">
+      <div tabindex="0" role="region" aria-label="Scrollable table" class="overflow-x-auto rounded-xl border border-border">
         <table class="w-full text-sm text-left">
           <thead class="bg-muted text-[11px] uppercase tracking-wider text-muted-foreground">
             <tr><th scope="col" class="px-4 py-2.5 font-bold">Instead of</th><th scope="col" class="px-4 py-2.5 font-bold">Write</th></tr>

@@ -160,7 +160,7 @@ const migrate = `<!-- Before: hand-rolled (≈28 copies across pages) -->
     </DesignSection>
 
     <DesignSection id="states" title="States" lead="Hover a button to see its hover state; tab to see the focus ring.">
-      <div class="overflow-x-auto rounded-2xl border border-border bg-card">
+      <div tabindex="0" role="region" aria-label="Scrollable table" class="overflow-x-auto rounded-2xl border border-border bg-card">
         <table class="w-full text-sm">
           <thead class="bg-muted text-[11px] uppercase tracking-wider text-muted-foreground">
             <tr>

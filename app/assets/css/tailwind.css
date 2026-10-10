@@ -22,7 +22,7 @@
  *   --wd-font-display  'Playfair Display', serif  — headings, brand; italic for highlights
  *   --wd-font-sans     system-ui, sans-serif      — body, UI
  *
- * Extended palette (--wd-purple-500 … --wd-blue-600) is listed on /styleguide.
+ * Extended palette (--wd-purple-500 … --wd-blue-600) is listed on /design/foundations/colors.
  * JS mirror: app/lib/brand.ts (WD).
  */
 
@@ -318,7 +318,7 @@
   /* Brand CTA (.wd-cta) — warm gradient pill with breathing drift, shimmer sweep,
      hover lift, press feedback and a click ripple. Pair with layout utilities, e.g.
      class="wd-cta inline-flex items-center gap-2 px-6 py-3 rounded-full text-white
-     text-sm font-bold uppercase tracking-wider". Shown on /styleguide. */
+     text-sm font-bold uppercase tracking-wider". Documented on /design/components/button. */
   .wd-cta {
     background: linear-gradient(135deg, var(--wd-red-600), var(--wd-orange-500));
     background-size: 200% 200%;

@@ -6,7 +6,7 @@ defineProps<{
 </script>
 
 <template>
-  <div class="overflow-x-auto rounded-xl border border-border">
+  <div tabindex="0" role="region" aria-label="Props" class="overflow-x-auto rounded-xl border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
     <table class="w-full text-sm text-left">
       <thead class="bg-muted text-[11px] uppercase tracking-wider text-muted-foreground">
         <tr>

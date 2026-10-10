@@ -84,7 +84,7 @@ const a11y = [
     </DesignSection>
 
     <DesignSection id="anatomy" title="Anatomy" lead="Six parts, all optional. Use only what the content needs — a teacher tile may be just Card + CardContent.">
-      <div class="overflow-x-auto rounded-xl border border-border">
+      <div tabindex="0" role="region" aria-label="Scrollable table" class="overflow-x-auto rounded-xl border border-border">
         <table class="w-full text-sm text-left">
           <thead class="bg-muted text-[11px] uppercase tracking-wider text-muted-foreground">
             <tr>

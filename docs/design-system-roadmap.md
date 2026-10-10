@@ -2,7 +2,7 @@
 
 Status as of 2026-10-10. Base branch: `wed-ds-phase2` (tokens, font consolidation, Button fix, `/design` shell + foundations).
 
-## Wave 1 — running in parallel (one branch + worktree each)
+## Wave 1 — done 2026-10-10 (merged in `wds-integrate`)
 
 | # | Branch | Task | Owns |
 |---|---|---|---|
@@ -22,3 +22,27 @@ Integration: merge all seven into `wed-ds-phase2`, resolve `design-nav.ts` / `ta
 - Move pages from raw palette (`--wd-*`, ~2,700 uses) to semantic tokens; adopt shadow/motion/type tokens; replace inline `style=""` with utilities.
 - Dark mode: decide keep or remove (currently defined but never switched on, and pages bypass the semantic layer).
 - Promote one-off hex values (~30) to tokens or delete them; lower the drift-ratchet baseline to zero.
+
+### Found during wave 1 (fix in wave 2)
+
+Product (from the patterns + guardrails agents):
+- Hydration mismatch: sun-ray SVG `Math.cos/sin` differs server vs client (FestivalHero, homepage, city fallback hero) — round coordinates.
+- `<button>` nested in `<a>` on festival cards (`festivals/index.vue`) and `EventSchedule` — use the stretched-link pattern.
+- Plan cards in `YearPlan.vue` / `SharedYearPlan.vue` are clickable `<div>`s — not keyboard reachable.
+- No `<main>` landmark on `/`, `/festivals`, `/cities/munich`, `/for-organizers`, `/artists`.
+- Unlabelled search input on `/festivals` + `/artists`; two unnamed `<select>` on `/artists` (axe critical).
+- Links distinguished by colour only on several routes; accent-on-tint chips below 4.5:1 (`/cities/munich`).
+- Mock data uses pravatar/dicebear faces — breaks "every face real" where mocks render.
+- `logo.svg` wordmark is `#2A1B3C` (off-palette); no light-on-dark logo.
+- `CommunityGroupsSection` renders nothing when a city has no groups; empty states inconsistent (WeekDrawer, MyPlan, AttendeeRoster, WeeklyCalendar filters).
+- Festival card + wavy divider copy-pasted across ~5 pages each → make components.
+- 7 literal `font-family: system-ui` left (ActivitiesTab ×2, onboarding, for-events, auth/verify, admin/community-groups, admin/giveaways); 86 hex literals in 20 files (ratchet baseline).
+
+Design-system decisions pending (Commander):
+- Forms: mark optional fields "(optional)" (current) vs asterisk on required? Keep a cream background option for admin forms?
+- Checkbox: native (accessible, current) vs reka-ui for full brand styling?
+- Button: add an `accent` prop for non-red buttons (festival accent, purple, green→cyan)? Loading state 80% opacity or full?
+- Lip shadow depth: pages use 4px slightly more than the documented 3px — one standard or two tokens?
+- Dark mode: keep or remove.
+
+Infra notes: parallel worktrees sharing one `node_modules` also share the Nuxt build cache (`node_modules/.cache/nuxt`) — parallel builds collide; set `buildDir` per worktree next time.

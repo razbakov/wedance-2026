@@ -23,13 +23,13 @@ export const buttonVariants = cva(
         default: "bg-primary text-primary-foreground hover:bg-primary/90 disabled:hover:bg-primary",
         // Outlined so it never reads as the (also red) primary; fills on hover.
         destructive:
-          "border border-destructive bg-background text-destructive hover:bg-destructive hover:text-destructive-foreground disabled:hover:bg-background disabled:hover:text-destructive",
+          "border border-destructive bg-background text-wd-red-800 hover:bg-destructive hover:text-destructive-foreground disabled:hover:bg-background disabled:hover:text-wd-red-800",
         outline:
           "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
+        link: "text-wd-red-800 underline-offset-4 hover:underline",
 
         // ── Brand ──────────────────────────────────────────────────────────
         // The one hero action per screen. Global .wd-cta (tailwind.css) brings the
@@ -38,9 +38,9 @@ export const buttonVariants = cva(
         // Solid primary with the brand lip — the primary action inside cards, forms, modals.
         pill: `bg-primary text-primary-foreground shadow-[0_3px_0_-1px_var(--wd-red-800)] hover:bg-primary/92 enabled:hover:-translate-y-px enabled:active:translate-y-px enabled:active:shadow-[0_1px_0_-1px_var(--wd-red-800)] disabled:hover:bg-primary ${BRAND}`,
         // Tinted primary — secondary actions that should still feel warm.
-        soft: `bg-primary/8 text-primary hover:bg-primary/15 disabled:hover:bg-primary/8 ${BRAND}`,
+        soft: `bg-primary/8 text-wd-red-800 hover:bg-primary/15 disabled:hover:bg-primary/8 ${BRAND}`,
         // White pill, coloured border — the alternative next to a cta or pill.
-        "outline-pill": `border-2 border-primary/30 bg-card text-primary hover:border-primary hover:bg-primary/5 disabled:hover:border-primary/30 disabled:hover:bg-card ${BRAND}`,
+        "outline-pill": `border-2 border-primary/30 bg-card text-wd-red-800 hover:border-primary hover:bg-primary/5 disabled:hover:border-primary/30 disabled:hover:bg-card ${BRAND}`,
       },
       size: {
         "default": "h-10 px-4 py-2",

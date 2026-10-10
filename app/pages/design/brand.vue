@@ -159,7 +159,7 @@ const photoRules = [
       </ul>
 
       <h3 class="font-display font-bold text-xl mt-8 mb-3">Words</h3>
-      <div class="overflow-x-auto rounded-xl border border-border">
+      <div tabindex="0" role="region" aria-label="Scrollable table" class="overflow-x-auto rounded-xl border border-border">
         <table class="w-full text-sm text-left">
           <thead class="bg-muted text-[11px] uppercase tracking-wider text-muted-foreground">
             <tr>

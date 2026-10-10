@@ -30,6 +30,6 @@ async function copy() {
         {{ copied ? 'Copied' : 'Copy' }}
       </button>
     </div>
-    <pre class="overflow-x-auto px-4 pb-4 pt-2 text-[13px] leading-relaxed font-mono"><code>{{ code.trim() }}</code></pre>
+    <pre tabindex="0" :aria-label="`${lang || 'vue'} code example`" class="overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring px-4 pb-4 pt-2 text-[13px] leading-relaxed font-mono"><code>{{ code.trim() }}</code></pre>
   </div>
 </template>

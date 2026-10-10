@@ -83,21 +83,27 @@ const accent = [WD.red600, WD.cyan600][i]   // accent + '55' still works
         <div v-for="s in sections" :key="s.title">
           <h3 class="text-[11px] uppercase tracking-wider font-bold text-muted-foreground mb-3">{{ s.title }}</h3>
           <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            <component
-              :is="item.status === 'planned' ? 'div' : resolveComponent('NuxtLink')"
-              v-for="item in s.items"
-              :key="item.to"
-              v-bind="item.status === 'planned' ? {} : { to: item.to }"
-              class="group rounded-2xl border border-border bg-card p-4 transition-colors"
-              :class="item.status === 'planned' ? 'opacity-60' : 'hover:border-primary/40 hover:bg-accent/40'"
-            >
-              <div class="flex items-center justify-between gap-2">
-                <span class="font-bold">{{ item.title }}</span>
-                <DesignStatus :status="item.status" />
+            <template v-for="item in s.items" :key="item.to">
+              <NuxtLink
+                v-if="item.status !== 'planned'"
+                :to="item.to"
+                class="group rounded-2xl border border-border bg-card p-4 transition-colors hover:border-primary/40 hover:bg-accent/40"
+              >
+                <div class="flex items-center justify-between gap-2">
+                  <span class="font-bold">{{ item.title }}</span>
+                  <DesignStatus :status="item.status" />
+                </div>
+                <p class="text-sm text-muted-foreground mt-1">{{ item.summary }}</p>
+                <ArrowRight class="w-4 h-4 mt-2 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+              </NuxtLink>
+              <div v-else class="rounded-2xl border border-dashed border-border bg-card/60 p-4">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="font-bold text-muted-foreground">{{ item.title }}</span>
+                  <DesignStatus :status="item.status" />
+                </div>
+                <p class="text-sm text-muted-foreground mt-1">{{ item.summary }}</p>
               </div>
-              <p class="text-sm text-muted-foreground mt-1">{{ item.summary }}</p>
-              <ArrowRight v-if="item.status !== 'planned'" class="w-4 h-4 mt-2 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
-            </component>
+            </template>
           </div>
         </div>
       </div>

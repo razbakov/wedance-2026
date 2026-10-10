@@ -12,7 +12,7 @@ export const controlVariants = cva(
   [
     "w-full min-w-0 border border-input bg-card text-foreground font-sans text-sm",
     "placeholder:text-muted-foreground/60 outline-none transition-[border-color,box-shadow] duration-150",
-    "focus:border-primary/60 focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--wd-red-600)_15%,transparent)]",
+    "focus:border-primary/60 focus:shadow-wd-focus",
     "aria-[invalid=true]:border-destructive aria-[invalid=true]:focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--destructive)_18%,transparent)]",
     "disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground disabled:opacity-70",
   ],

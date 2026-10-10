@@ -31,7 +31,7 @@ const slug = (p: string) => (p === '/' ? 'home' : p.replace(/^\//, '').replace(/
 export const DESIGN_ROUTES: Route[] = designNav
   .flatMap(s => s.items)
   .filter(i => i.status !== 'planned' && pageExists(i.to))
-  .map(i => ({ path: i.to, name: slug(i.to), fullPage: true }))
+  .map(i => ({ path: i.to, name: slug(i.to), fullPage: false }))
 
 /**
  * Key product routes. Their content comes from the database, so only the first
@@ -46,4 +46,4 @@ export const PRODUCT_ROUTES: Route[] = [
 ].map(p => ({ path: p, name: slug(p), fullPage: false }))
 
 /** Pages that render the shared ui components in every variant. */
-export const COMPONENT_SHOWCASE_ROUTES = ['/styleguide', ...DESIGN_ROUTES.map(r => r.path)]
+export const COMPONENT_SHOWCASE_ROUTES = [...DESIGN_ROUTES.map(r => r.path)]

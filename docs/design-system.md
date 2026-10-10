@@ -195,7 +195,7 @@ Automated checks so the system can't drift or break silently. Each failure messa
 | Token drift | `bun run test:tokens` (also part of `bun run test`) | yes (`unit`) | a file gains a literal 6/8-digit hex; an inline `font-family` that isn't `var(--wd-font-*)`; a Google Fonts URL loading anything but Playfair Display; a quoted comma list in a font token (`'Caveat, cursive'` = one bogus family) |
 | Component contract | `bun run test:design` | yes (`e2e-smoke`) | a `<Button>` that isn't a `<button>`/`<a href>`; a disabled Button without the `disabled` attribute or `cursor: not-allowed`; an enabled one without `cursor: pointer`; Button/Badge text contrast < 4.5:1 |
 | Accessibility | `bun run test:design` | `/design` pages only | built-in: `<html lang>`, `<main>`, one `<h1>`, img alt, names on buttons/links/inputs; plus axe-core WCAG 2.1 A/AA when `@axe-core/playwright` is installed (skipped otherwise) |
-| Visual regression | `bun run test:visual` | no (local) | a screenshot of a `/design` page (full page) or key product route (first viewport, data masked) at 1280 and 375 differs from its baseline |
+| Visual regression | `bun run test:visual` | no (local) | the first viewport of a `/design` page or key product route (data masked) at 1280 and 375 differs from its baseline |
 
 **Ratchets, not walls.** Existing debt is frozen, new debt fails:
 

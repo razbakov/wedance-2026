@@ -1,7 +1,7 @@
 {
   "$comment": "Design-system ratchet. Numbers may only go DOWN. Regenerate with `bun scripts/design-guardrails/update-baseline.ts` after removing hex/font literals. See docs/design-system.md → Guardrails.",
   "hex": {
-    "total": 96,
+    "total": 86,
     "perFile": {
       "app/components/ActivitiesTab.vue": 3,
       "app/components/AvailabilityCalendar.vue": 2,
@@ -22,8 +22,7 @@
       "app/pages/onboarding.vue": 5,
       "app/pages/organizers/create.vue": 13,
       "app/pages/organizers/index.vue": 1,
-      "app/pages/settings.vue": 4,
-      "app/pages/styleguide.vue": 10
+      "app/pages/settings.vue": 4
     }
   },
   "fontFamily": {

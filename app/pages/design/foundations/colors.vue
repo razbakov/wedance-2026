@@ -133,7 +133,7 @@ const border = WD.red600 + '55'`
     </DesignSection>
 
     <DesignSection id="contrast" title="Text contrast" lead="Common pairings checked against WCAG 2.2. Body text needs AA (4.5:1); large or bold text needs 3:1.">
-      <div class="overflow-x-auto rounded-xl border border-border">
+      <div tabindex="0" role="region" aria-label="Scrollable table" class="overflow-x-auto rounded-xl border border-border">
         <table class="w-full text-sm">
           <thead class="bg-muted text-[11px] uppercase tracking-wider text-muted-foreground">
             <tr>

@@ -12,7 +12,8 @@ import { expect, test } from '@playwright/test'
 import { gotoStable } from './helpers'
 import { COMPONENT_SHOWCASE_ROUTES, PRODUCT_ROUTES } from './pages'
 
-const BUTTON_SEL = '[class*="disabled:cursor-not-allowed"][class*="focus-visible:ring-ring"][class*="ring-offset-background"]'
+// :not(input…) — form controls share the focus-ring classes but aren't Buttons.
+const BUTTON_SEL = '[class*="disabled:cursor-not-allowed"][class*="focus-visible:ring-ring"][class*="ring-offset-background"]:not(input, select, textarea)'
 const BADGE_SEL = '[class*="focus:ring-ring"][class*="rounded-full"][class*="px-2.5"][class*="py-0.5"]'
 const MIN_CONTRAST = 4.5
 
@@ -36,6 +37,7 @@ interface Probe {
   href: string | null
   disabled: boolean
   ariaDisabled: boolean
+  busy: boolean
   cursor: string
   tabIndex: number
   contrast: number | null
@@ -105,6 +107,7 @@ function probe(args: { buttonSel: string, badgeSel: string }): Probe[] {
         href: el.getAttribute('href'),
         disabled,
         ariaDisabled: el.getAttribute('aria-disabled') === 'true',
+        busy: el.getAttribute('aria-busy') === 'true',
         cursor: cs.cursor,
         tabIndex: el.tabIndex,
         contrast: contrast === null ? null : Math.round(contrast * 100) / 100,
@@ -141,7 +144,8 @@ test.describe('component contract', () => {
       // Disabled looks AND behaves disabled.
       const fakeDisabled = buttons.filter(p => p.ariaDisabled && !p.disabled && p.tag === 'button')
       expect(fakeDisabled.map(describeProbe), 'Disabled <button> needs the `disabled` attribute, not just aria-disabled').toEqual([])
-      const badCursor = buttons.filter(p => p.disabled && p.cursor !== 'not-allowed')
+      // A loading Button (aria-busy) is disabled but shows the progress cursor on purpose.
+      const badCursor = buttons.filter(p => p.disabled && p.cursor !== (p.busy ? 'progress' : 'not-allowed'))
       expect(badCursor.map(describeProbe), 'Disabled Button must show cursor: not-allowed').toEqual([])
       const noPointer = buttons.filter(p => !p.disabled && p.cursor !== 'pointer')
       expect(noPointer.map(describeProbe), 'Enabled Button must show cursor: pointer').toEqual([])
@@ -153,10 +157,11 @@ test.describe('component contract', () => {
   }
 
   test('the showcase actually renders components (guards against an empty selector)', async ({ page }) => {
-    const probes = await probePage(page, '/styleguide')
+    const probes = await probePage(page, '/design/components/button')
     expect(probes.filter(p => p.kind === 'button').length).toBeGreaterThan(5)
-    expect(probes.filter(p => p.kind === 'badge').length).toBeGreaterThan(2)
-    expect(probes.some(p => p.disabled), 'styleguide shows a disabled Button').toBe(true)
+    const badges = await probePage(page, '/design/components/badge')
+    expect(badges.filter(p => p.kind === 'badge').length).toBeGreaterThan(2)
+    expect(probes.some(p => p.disabled), 'the Button docs show a disabled Button').toBe(true)
   })
 
   for (const route of PRODUCT_ROUTES) {

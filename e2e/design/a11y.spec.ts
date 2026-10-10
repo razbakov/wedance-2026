@@ -15,7 +15,7 @@
  * Fix a violation → delete or lower its entry. Never raise one silently.
  */
 import { createRequire } from 'node:module'
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { expect, test } from '@playwright/test'
 import { gotoStable } from './helpers'
 import { DESIGN_ROUTES, PRODUCT_ROUTES } from './pages'
@@ -85,9 +85,27 @@ function countByRule(findings: Finding[]) {
   return findings.reduce<Record<string, number>>((m, f) => ((m[f.rule] = (m[f.rule] ?? 0) + 1), m), {})
 }
 
+const BASELINE_URL = new URL('./a11y-baseline.json', import.meta.url)
+
+/**
+ * A11Y_UPDATE_BASELINE=1 rewrites the entry for this page with today's counts
+ * (product routes as "*"). Run with --workers=1 so writes don't race. Use it to
+ * register a NEW page or to lower counts after fixes — never to hide a regression.
+ */
+function writeBaseline(key: string, counts: Record<string, number>) {
+  const current: Baseline = JSON.parse(readFileSync(BASELINE_URL, 'utf8'))
+  const isProduct = PRODUCT_ROUTES.some(r => key.endsWith(` ${r.path}`))
+  const entry = Object.fromEntries(Object.entries(counts).sort().map(([rule, n]) => [rule, isProduct ? '*' : n]))
+  if (Object.keys(entry).length) current[key] = entry
+  else delete current[key]
+  const sorted = Object.fromEntries(Object.entries(current).sort(([a], [b]) => a.localeCompare(b)))
+  writeFileSync(BASELINE_URL, JSON.stringify(sorted, null, 2) + '\n')
+}
+
 function assertWithinBaseline(key: string, findings: Finding[], details: string) {
-  const allowed = BASELINE[key] ?? {}
   const counts = countByRule(findings)
+  if (process.env.A11Y_UPDATE_BASELINE) return writeBaseline(key, counts)
+  const allowed = BASELINE[key] ?? {}
   const over = Object.entries(counts).filter(([rule, n]) => allowed[rule] !== '*' && n > (allowed[rule] ?? 0))
   const msg = over.map(([rule, n]) => `${rule}: ${n} (baseline ${allowed[rule] ?? 0})`).join(', ')
   expect(over, `New accessibility violations on ${key} — ${msg}\n${details}\nFix them; if a count went down, lower it in e2e/design/a11y-baseline.json.`).toEqual([])

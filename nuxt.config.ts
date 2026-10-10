@@ -10,6 +10,7 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   app: {
     head: {
+      htmlAttrs: { lang: 'en' },
       link: [
         // WeDance flame mark, tinted V3 red (#dc2626 — same red as
         // "night" in the homepage H1). Modern browsers use the SVG;

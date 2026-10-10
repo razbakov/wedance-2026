@@ -1,169 +1,201 @@
 {
   "axe desktop /": {
-    "color-contrast": "*",
-    "html-has-lang": "*"
+    "color-contrast": "*"
   },
   "axe desktop /artists": {
     "color-contrast": "*",
-    "html-has-lang": "*",
     "link-in-text-block": "*",
     "select-name": "*"
   },
   "axe desktop /cities/munich": {
     "color-contrast": "*",
-    "html-has-lang": "*",
     "link-in-text-block": "*"
   },
   "axe desktop /design": {
-    "color-contrast": 67,
-    "html-has-lang": 1
+    "color-contrast": 11
+  },
+  "axe desktop /design/brand": {
+    "color-contrast": 1
+  },
+  "axe desktop /design/components": {
+    "color-contrast": 2
+  },
+  "axe desktop /design/components/avatar": {
+    "color-contrast": 2
+  },
+  "axe desktop /design/components/badge": {
+    "color-contrast": 1
+  },
+  "axe desktop /design/components/button": {
+    "color-contrast": 1
+  },
+  "axe desktop /design/components/card": {
+    "color-contrast": 1
+  },
+  "axe desktop /design/components/checkbox": {
+    "color-contrast": 1
+  },
+  "axe desktop /design/components/dialog": {
+    "color-contrast": 1
+  },
+  "axe desktop /design/components/field": {
+    "color-contrast": 1
+  },
+  "axe desktop /design/components/input": {
+    "color-contrast": 1
+  },
+  "axe desktop /design/components/select": {
+    "color-contrast": 1
+  },
+  "axe desktop /design/components/separator": {
+    "color-contrast": 1
+  },
+  "axe desktop /design/components/tabs": {
+    "color-contrast": 1
+  },
+  "axe desktop /design/components/textarea": {
+    "color-contrast": 1
   },
   "axe desktop /design/foundations/colors": {
-    "color-contrast": 52,
-    "html-has-lang": 1
+    "color-contrast": 28
   },
   "axe desktop /design/foundations/elevation": {
-    "color-contrast": 25,
-    "html-has-lang": 1
+    "color-contrast": 1
+  },
+  "axe desktop /design/foundations/icons": {
+    "color-contrast": 2
   },
   "axe desktop /design/foundations/motion": {
-    "color-contrast": 25,
-    "html-has-lang": 1,
-    "scrollable-region-focusable": 1
+    "color-contrast": 1
+  },
+  "axe desktop /design/foundations/spacing": {
+    "color-contrast": 1
   },
   "axe desktop /design/foundations/typography": {
-    "color-contrast": 25,
-    "html-has-lang": 1
+    "color-contrast": 1
+  },
+  "axe desktop /design/patterns/cards": {
+    "color-contrast": 26,
+    "nested-interactive": 1
+  },
+  "axe desktop /design/patterns/empty-states": {
+    "color-contrast": 4
+  },
+  "axe desktop /design/patterns/forms": {
+    "color-contrast": 1
+  },
+  "axe desktop /design/patterns/heroes": {
+    "color-contrast": 6
   },
   "axe desktop /festivals": {
     "color-contrast": "*",
-    "html-has-lang": "*",
     "link-in-text-block": "*"
   },
   "axe desktop /for-organizers": {
     "color-contrast": "*",
-    "html-has-lang": "*",
     "link-in-text-block": "*"
   },
   "axe mobile /": {
-    "color-contrast": "*",
-    "html-has-lang": "*"
+    "color-contrast": "*"
   },
   "axe mobile /artists": {
     "color-contrast": "*",
-    "html-has-lang": "*",
     "link-in-text-block": "*",
     "select-name": "*"
   },
   "axe mobile /cities/munich": {
     "color-contrast": "*",
-    "html-has-lang": "*",
     "link-in-text-block": "*"
   },
   "axe mobile /design": {
-    "color-contrast": 43,
-    "html-has-lang": 1,
-    "scrollable-region-focusable": 1
+    "color-contrast": 11
+  },
+  "axe mobile /design/components": {
+    "color-contrast": 2
+  },
+  "axe mobile /design/components/avatar": {
+    "color-contrast": 1
+  },
+  "axe mobile /design/components/badge": {
+    "color-contrast": 1
+  },
+  "axe mobile /design/components/button": {
+    "color-contrast": 1
   },
   "axe mobile /design/foundations/colors": {
-    "color-contrast": 28,
-    "html-has-lang": 1,
-    "scrollable-region-focusable": 2
+    "color-contrast": 28
   },
   "axe mobile /design/foundations/elevation": {
-    "html-has-lang": 1
+    "color-contrast": 1
+  },
+  "axe mobile /design/foundations/icons": {
+    "color-contrast": 2
   },
   "axe mobile /design/foundations/motion": {
-    "html-has-lang": 1,
-    "scrollable-region-focusable": 2
+    "color-contrast": 1
+  },
+  "axe mobile /design/foundations/spacing": {
+    "color-contrast": 1
   },
   "axe mobile /design/foundations/typography": {
-    "color-contrast": 1,
-    "html-has-lang": 1,
-    "scrollable-region-focusable": 1
+    "color-contrast": 1
+  },
+  "axe mobile /design/patterns/cards": {
+    "color-contrast": 25,
+    "nested-interactive": 1
+  },
+  "axe mobile /design/patterns/empty-states": {
+    "color-contrast": 3
+  },
+  "axe mobile /design/patterns/heroes": {
+    "color-contrast": 1
   },
   "axe mobile /festivals": {
     "color-contrast": "*",
-    "html-has-lang": "*",
     "link-in-text-block": "*"
   },
   "axe mobile /for-organizers": {
     "color-contrast": "*",
-    "html-has-lang": "*",
     "link-in-text-block": "*"
   },
   "basic desktop /": {
-    "html-lang": "*",
     "landmark-main": "*"
   },
   "basic desktop /artists": {
-    "html-lang": "*",
-    "landmark-main": "*",
-    "input-label": "*"
-  },
-  "basic desktop /cities/munich": {
-    "html-lang": "*",
+    "input-label": "*",
     "landmark-main": "*"
   },
-  "basic desktop /design": {
-    "html-lang": 1
+  "basic desktop /cities/munich": {
+    "landmark-main": "*"
   },
-  "basic desktop /design/foundations/colors": {
-    "html-lang": 1
-  },
-  "basic desktop /design/foundations/elevation": {
-    "html-lang": 1
-  },
-  "basic desktop /design/foundations/motion": {
-    "html-lang": 1
-  },
-  "basic desktop /design/foundations/typography": {
-    "html-lang": 1
+  "basic desktop /design/patterns/heroes": {
+    "single-h1": 1
   },
   "basic desktop /festivals": {
-    "html-lang": "*",
-    "landmark-main": "*",
-    "input-label": "*"
+    "input-label": "*",
+    "landmark-main": "*"
   },
   "basic desktop /for-organizers": {
-    "html-lang": "*",
     "landmark-main": "*"
   },
   "basic mobile /": {
-    "html-lang": "*",
     "landmark-main": "*"
   },
   "basic mobile /artists": {
-    "html-lang": "*",
-    "landmark-main": "*",
-    "input-label": "*"
-  },
-  "basic mobile /cities/munich": {
-    "html-lang": "*",
+    "input-label": "*",
     "landmark-main": "*"
   },
-  "basic mobile /design": {
-    "html-lang": 1
+  "basic mobile /cities/munich": {
+    "landmark-main": "*"
   },
-  "basic mobile /design/foundations/colors": {
-    "html-lang": 1
-  },
-  "basic mobile /design/foundations/elevation": {
-    "html-lang": 1
-  },
-  "basic mobile /design/foundations/motion": {
-    "html-lang": 1
-  },
-  "basic mobile /design/foundations/typography": {
-    "html-lang": 1
+  "basic mobile /design/patterns/heroes": {
+    "single-h1": 1
   },
   "basic mobile /festivals": {
-    "html-lang": "*",
-    "landmark-main": "*",
-    "input-label": "*"
+    "input-label": "*",
+    "landmark-main": "*"
   },
   "basic mobile /for-organizers": {
-    "html-lang": "*",
     "landmark-main": "*"
   }
 }
