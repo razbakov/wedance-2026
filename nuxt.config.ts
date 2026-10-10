@@ -22,6 +22,8 @@ export default defineNuxtConfig({
     '/datenschutz': { redirect: { to: '/privacy-policy', statusCode: 301 } },
     '/impressum': { redirect: { to: '/imprint', statusCode: 301 } },
     '/agb': { redirect: { to: '/terms', statusCode: 301 } },
+    // The old single-page styleguide was replaced by the /design docs.
+    '/styleguide': { redirect: { to: '/design', statusCode: 301 } },
   },
   nitro: {
     preset: 'vercel',

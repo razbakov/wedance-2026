@@ -40,7 +40,7 @@ Before doing any work, read these files:
 - Asset exports if applicable
 
 ### Design system
-- **Source of truth: `docs/design-system.md`** (tokens, fonts, rules) and the live `/styleguide` page. Read both before any UI work.
+- **Source of truth: `docs/design-system.md`** (tokens, fonts, rules) and the live `/design` docs (component pages under `/design/components`). Read both before any UI work.
 - Never introduce inline hex or a new font — use `var(--wd-*)` / `WD.*` and `font-display` / `font-sans`; propose new tokens in a PR.
 - Maintain consistency across screens
 - Document reusable patterns and components
