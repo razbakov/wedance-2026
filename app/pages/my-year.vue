@@ -4,14 +4,6 @@ import { Button } from '~/components/ui/button'
 
 definePageMeta({ layout: false })
 
-useHead({
-  link: [
-    { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
-    { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
-    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&display=swap' },
-  ],
-})
-
 const route = useRoute()
 const router = useRouter()
 const { $trpc } = useNuxtApp()
