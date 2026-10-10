@@ -44,6 +44,12 @@ const overlapSlugs = computed(() => {
   return props.viewerFestivalSlugs.filter((s) => sharerSlugs.has(s))
 })
 
+// Full festival objects for the overlap (for listing names)
+const overlapFestivals = computed(() => {
+  const slugs = new Set(overlapSlugs.value)
+  return props.festivals.filter((f) => slugs.has(f.slug))
+})
+
 const totalWorkshops = computed(() => props.festivals.reduce((sum, f) => sum + f.workshopCount, 0))
 const totalLooking = computed(() => props.festivals.reduce((sum, f) => sum + f.lookingCount, 0))
 
@@ -102,16 +108,38 @@ function formatDateRange(start: string, end: string): string {
       </button>
     </div>
 
-    <!-- Overlap banner -->
-    <div v-if="overlapSlugs.length > 0" class="rounded-xl border-2 border-dashed p-4 flex items-center gap-3" style="border-color:var(--wd-cyan-600); background:rgba(8, 145, 178, 0.06);">
-      <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style="background:rgba(8, 145, 178, 0.12);">
-        <Calendar class="w-4 h-4" style="color:var(--wd-cyan-600);" />
+    <!-- Overlap banner — shared festivals -->
+    <div v-if="overlapSlugs.length > 0" class="rounded-xl border-2 border-dashed p-4 space-y-2" style="border-color:var(--wd-cyan-600); background:rgba(8, 145, 178, 0.06);">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style="background:rgba(8, 145, 178, 0.12);">
+          <Calendar class="w-4 h-4" style="color:var(--wd-cyan-600);" />
+        </div>
+        <div>
+          <p class="text-sm font-bold" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">
+            You overlap on {{ overlapSlugs.length }} {{ overlapSlugs.length === 1 ? 'festival' : 'festivals' }}!
+          </p>
+          <p class="text-xs" style="color:var(--wd-brown-700);">You and {{ sharer.name }} are both going to:</p>
+        </div>
+      </div>
+      <ul class="ml-11 space-y-1">
+        <li v-for="f in overlapFestivals" :key="f.slug" class="text-xs font-medium flex items-center gap-1.5" style="color:var(--wd-cyan-600);">
+          <Check class="w-3 h-3 shrink-0" />
+          {{ f.name }}
+        </li>
+      </ul>
+    </div>
+
+    <!-- No overlap banner -->
+    <div v-else class="rounded-xl border-2 border-dashed p-4 flex items-center gap-3" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); background:rgba(251,245,234,0.8);">
+      <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style="background:rgba(59, 31, 13, 0.06);">
+        <Calendar class="w-4 h-4" style="color:var(--wd-amber-600);" />
       </div>
       <div>
         <p class="text-sm font-bold" style="font-family:var(--wd-font-display); color:var(--wd-brown-900);">
-          You overlap on {{ overlapSlugs.length }} {{ overlapSlugs.length === 1 ? 'festival' : 'festivals' }}!
+          No festival overlap yet
         </p>
-        <p class="text-xs" style="color:var(--wd-brown-700);">You and {{ sharer.name }} are going to the same events.</p>
+        <p v-if="viewerFestivalSlugs.length > 0" class="text-xs" style="color:var(--wd-brown-700);">You and {{ sharer.name }} aren't going to the same festivals — browse theirs and add one to your plan!</p>
+        <p v-else class="text-xs" style="color:var(--wd-brown-700);">Add festivals to your plan to see where you overlap with {{ sharer.name }}!</p>
       </div>
     </div>
 

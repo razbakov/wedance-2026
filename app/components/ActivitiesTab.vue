@@ -4,7 +4,8 @@
  * V3 tropical style. Collapsible sections; same props/emits as before.
  */
 import type { RideShare, GroupDinner, ExtraActivity } from '~/types/festival'
-import { Car, BedDouble, UtensilsCrossed, Compass, ChevronDown, Check, MessageCircle } from 'lucide-vue-next'
+import type { RoommateEntry } from '~/composables/useRoommates'
+import { Car, BedDouble, UtensilsCrossed, Compass, ChevronDown, Check, MessageCircle, MapPin, ExternalLink } from 'lucide-vue-next'
 import { RidePostSchema } from '#shared/validation'
 import { WD } from '~/lib/brand'
 
@@ -13,6 +14,8 @@ const props = defineProps<{
   groupDinners: GroupDinner[]
   extraActivities: ExtraActivity[]
   lookingForRoommate: boolean
+  roommateOthers: RoommateEntry[]
+  hotelSearchUrl?: string
   isSignedIn: boolean
 }>()
 
@@ -59,8 +62,8 @@ const totalEvents = computed(() => props.groupDinners.length + props.extraActivi
 
 // Shared field + button styles (V3)
 const fieldClass = 'mt-1 w-full rounded-xl border px-3 py-2 text-sm outline-none transition-all'
-const fieldStyle = 'background:white; border-color:#3b1f0d33; color:#3b1f0d; font-family: system-ui, sans-serif;'
-const labelStyle = 'color:#9a5614; font-family: system-ui, sans-serif;'
+const fieldStyle = 'background:white; border-color:color-mix(in srgb, var(--wd-brown-900) 20%, transparent); color:var(--wd-brown-900); font-family:var(--wd-font-sans);'
+const labelStyle = 'color:var(--wd-amber-600); font-family:var(--wd-font-sans);'
 
 // Section definitions drive the accordion headers
 const sections = [
@@ -71,7 +74,11 @@ const sections = [
 
 function badgeFor(key: string): string | null {
   if (key === 'rides') return props.rideShares.length ? `${props.rideShares.length} sharing` : null
-  if (key === 'rooms') return props.lookingForRoommate ? 'Looking' : null
+  if (key === 'rooms') {
+    if (props.roommateOthers.length > 0) return `${props.roommateOthers.length} looking`
+    if (props.lookingForRoommate) return 'Looking'
+    return null
+  }
   if (key === 'dinners') return totalEvents.value ? `${totalEvents.value} events` : null
   return null
 }
@@ -185,7 +192,7 @@ function badgeFor(key: string): string | null {
       </div>
 
       <!-- ROOMS -->
-      <div v-if="sec.key === 'rooms' && expandedSections.has('rooms')" class="px-4 pb-4">
+      <div v-if="sec.key === 'rooms' && expandedSections.has('rooms')" class="px-4 pb-4 grid gap-3">
         <div v-if="!isSignedIn" class="rounded-xl border p-3 text-center" style="border-color:color-mix(in srgb, var(--wd-brown-900) 8.2%, transparent); background:color-mix(in srgb, var(--wd-brown-900) 2%, transparent);">
           <p class="text-sm mb-2" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">Sign in to find a roommate</p>
           <button
@@ -214,6 +221,32 @@ function badgeFor(key: string): string | null {
           <p v-if="lookingForRoommate" class="text-xs" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
             Other attendees looking for roommates will see you. Share your plan to connect.
           </p>
+        </div>
+
+        <!-- Others looking for roommates -->
+        <div v-if="roommateOthers.length" class="grid gap-1.5">
+          <p class="text-[10px] font-bold uppercase tracking-widest" :style="labelStyle">Others looking for roommates</p>
+          <div v-for="person in roommateOthers" :key="person.username || person.name" class="flex items-center gap-2.5 py-1.5 px-2 rounded-lg" style="background:color-mix(in srgb, var(--wd-brown-900) 2%, transparent);">
+            <img v-if="person.photo" :src="person.photo" :alt="person.name" class="w-8 h-8 rounded-full shrink-0 object-cover">
+            <span v-else class="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-xs font-bold" style="background:color-mix(in srgb, var(--wd-green-600) 9.4%, transparent); color:var(--wd-green-600);">{{ person.name.charAt(0) }}</span>
+            <div class="min-w-0 flex-1 text-xs" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
+              <component :is="person.username ? 'a' : 'span'" :href="person.username ? `/u/${person.username}` : undefined" class="font-bold" :style="person.username ? 'color:var(--wd-brown-900); text-decoration:underline; text-underline-offset:2px;' : 'color:var(--wd-brown-900);'">{{ person.name }}</component>
+              <span v-if="person.city" class="ml-1 inline-flex items-center gap-0.5"><MapPin class="w-3 h-3 inline" style="color:var(--wd-amber-600);" />{{ person.city }}</span>
+            </div>
+            <span class="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shrink-0" style="background:color-mix(in srgb, var(--wd-green-600) 9.4%, transparent); color:var(--wd-green-600);">Looking</span>
+          </div>
+        </div>
+
+        <!-- Hotel fallback when no roommates found -->
+        <div v-if="!roommateOthers.length && isSignedIn && hotelSearchUrl" class="rounded-xl border p-3 text-center" style="border-color:color-mix(in srgb, var(--wd-brown-900) 8.2%, transparent); background:color-mix(in srgb, var(--wd-brown-900) 2%, transparent);">
+          <p class="text-xs mb-2" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">No one is looking for a roommate yet. You can also check hotels nearby.</p>
+          <a
+            :href="hotelSearchUrl"
+            target="_blank"
+            rel="noopener"
+            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider"
+            style="background:white; color:var(--wd-green-600); border:1.5px solid color-mix(in srgb, var(--wd-green-600) 33.3%, transparent);"
+          ><ExternalLink class="w-3 h-3" /> Search hotels</a>
         </div>
       </div>
 

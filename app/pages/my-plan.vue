@@ -14,6 +14,7 @@ import * as meneate from '~/data/mock-meneate'
 import * as cityMunich from '~/data/mock-city-munich'
 import * as cityBerlin from '~/data/mock-city-berlin'
 import type { CityEvent } from '~/types/city'
+import { eventLocalDate, eventLocalTime, eventLocalWeekday } from '#shared/utils/eventTime'
 import * as cubanFire from '~/data/mock-cuban-fire'
 import * as caribbeanUrbanFire from '~/data/mock-caribbean-urban-fire'
 import { WD } from '~/lib/brand'
@@ -208,11 +209,51 @@ const catalogue = [
 
 type CatalogueEntry = typeof catalogue[number]
 
-const picked = computed(() =>
-  catalogue
-    .filter(f => effectivePickIds.value.has(f.slug))
+// Real festival data from the DB, fetched via plan.myPlan for signed-in users.
+// These are the user's actual picked festivals resolved against the festivals table.
+const dbFestivals = ref<CatalogueEntry[]>([])
+
+async function loadMyPlanFestivals() {
+  try {
+    const rows = await $trpc.plan.myPlan.query()
+    dbFestivals.value = rows.map(r => ({
+      slug: r.slug,
+      name: r.name,
+      startDate: r.startDate,
+      endDate: r.endDate,
+      location: [r.location, r.country].filter(Boolean).join(', '),
+      venue: '',
+      logo: r.logo,
+      accentColor: r.accentColor || WD.purple500,
+      workshopCount: r.workshopCount,
+      ticketUrl: '',
+      ticketFromPrice: undefined as number | undefined,
+      earlyBirdDeadline: undefined as string | undefined,
+    }))
+  } catch (err) {
+    console.warn('[my-plan] loadMyPlanFestivals failed:', err)
+  }
+}
+
+const picked = computed(() => {
+  // Preview mode: use mock catalogue only.
+  if (previewMode.value) {
+    return catalogue
+      .filter(f => effectivePickIds.value.has(f.slug))
+      .sort((a, b) => a.startDate.localeCompare(b.startDate))
+  }
+
+  // Real mode: merge DB festivals with mock catalogue entries.
+  // DB data wins when slugs overlap; mock-only slugs still in yearPlanIds
+  // are included as fallback (they exist in the plan but not yet in the
+  // festivals table — e.g. hand-seeded mock entries).
+  const dbSlugs = new Set(dbFestivals.value.map(f => f.slug))
+  const fromMock = catalogue
+    .filter(f => effectivePickIds.value.has(f.slug) && !dbSlugs.has(f.slug))
+
+  return [...dbFestivals.value, ...fromMock]
     .sort((a, b) => a.startDate.localeCompare(b.startDate))
-)
+})
 
 // City events by slug — used by autoFillPlan to seed courses and socials.
 const cityEventsMap: Record<string, CityEvent[]> = {
@@ -245,8 +286,11 @@ function autoFillPlan() {
   })
 
   // --- City events → courses + socials ---
+  // Prefer real DB events; fall back to mock only if none loaded yet.
   const citySlug = (city || '').trim().toLowerCase()
-  const cityEvents = cityEventsMap[citySlug] || []
+  const cityEvents = realCityEvents.value.length > 0
+    ? realCityEvents.value
+    : (cityEventsMap[citySlug] || [])
   const matchedEvents = cityEvents.filter(e =>
     upperStyles.some(s => e.style.toUpperCase().includes(s)),
   )
@@ -264,7 +308,7 @@ function autoFillPlan() {
     weekday: WEEKDAY_SHORT[e.day] || e.day,
     time: e.time,
     venue: e.venue,
-    nextClassDate: '',
+    nextClassDate: e.date || '',
     attended: 0,
     total: 0,
     paidThroughMonth: false,
@@ -275,7 +319,7 @@ function autoFillPlan() {
   const { $trpc: trpc } = useNuxtApp()
   for (const e of classEvents.slice(0, 3)) {
     trpc.plan.add
-      .mutate({ itemType: 'event', itemId: e.id, metadata: { type: 'class', style: e.style, school: e.organizer, venue: e.venue, weekday: e.day, time: e.time } })
+      .mutate({ itemType: 'event', itemId: e.id, metadata: { type: 'class', style: e.style, school: e.organizer, venue: e.venue, weekday: e.day, time: e.time, date: e.date || '' } })
       .catch((err) => { console.warn('[my-plan] autoFill persist course failed:', err) })
   }
 
@@ -373,23 +417,26 @@ const monthsGrid = computed(() =>
 const todayMonth = ref(-1)
 onMounted(() => {
   todayMonth.value = new Date().getMonth()
-  // Fetch real hangouts data for signed-in users with a city
+  // Fetch real hangouts data and city events for signed-in users with a city
   if (isSignedIn.value && !previewMode.value && dancerCity.value) {
     fetchHangouts()
+    loadCityEvents()
   }
-  // Load persisted goals, enrolled courses and socials from DB
+  // Load persisted goals, enrolled courses, socials, and real festivals from DB
   if (isSignedIn.value && !previewMode.value) {
     loadGoalsFromDb()
     loadCoursesFromDb()
     loadSocialsFromDb()
     loadDiscoverDeck()
+    loadMyPlanFestivals()
   }
 })
 
-// Refetch hangouts when city changes
+// Refetch hangouts and city events when city changes
 watch(() => dancerCity.value, () => {
   if (isSignedIn.value && !previewMode.value && dancerCity.value) {
     fetchHangouts()
+    loadCityEvents()
   }
 })
 
@@ -605,6 +652,7 @@ type Track = {
   state: { text: string; tone: 'done' | 'urgent' | 'todo' | 'muted' }
   action: TrackAction | null
   altAction?: TrackAction  // "or X" fallback — used on tracks where WeDance has a native path (sharing) and Google is the fallback
+  onAction?: () => void    // When set, action renders as a button (calls this) instead of a link
   toggleKey?: TrackKey
   done: boolean
 }
@@ -657,7 +705,8 @@ function tracks(f: CatalogueEntry): Track[] {
       icon: Plane,
       label: 'Travel',
       state: p.travelBooked ? { text: 'Booked', tone: 'done' } : { text: 'Not booked', tone: 'todo' },
-      action: p.travelBooked ? null : { label: 'Find a ride', href: `/festivals/${f.slug}#activities`, external: false },
+      action: p.travelBooked ? null : { label: rideOpenSlugs.value.has(f.slug) ? 'Close rides' : 'Find a ride', href: '#', external: false },
+      onAction: p.travelBooked ? undefined : () => toggleRidePanel(f.slug),
       altAction: p.travelBooked ? undefined : { label: 'or flights', href: flightsLink(f), external: true },
       toggleKey: 'travelBooked',
       done: !!p.travelBooked,
@@ -739,6 +788,15 @@ const toneStyle = (tone: 'done' | 'urgent' | 'todo' | 'muted') => {
 const expandedSlugs = ref<Set<string>>(new Set(
   isPreviewInitial ? ['bachata-stars-barcelona-2026'] : [],
 ))
+
+// Which festivals have the "Find a ride" panel open (toggled from the Travel track).
+const rideOpenSlugs = ref<Set<string>>(new Set())
+
+function toggleRidePanel(slug: string) {
+  const s = new Set(rideOpenSlugs.value)
+  if (s.has(slug)) s.delete(slug); else s.add(slug)
+  rideOpenSlugs.value = s
+}
 
 function toggleExpanded(slug: string) {
   const s = new Set(expandedSlugs.value)
@@ -840,17 +898,70 @@ const previewCourses: Course[] = [
 ]
 const courses = ref<Course[]>(isPreviewInitial ? previewCourses : [])
 
-// Enrollment picker — shows available classes from the city data.
+// Enrollment picker — shows available classes from real DB events.
 const showEnrollPicker = ref(false)
 const WEEKDAY_SHORT_ENROLL: Record<string, string> = { Monday: 'Mon', Tuesday: 'Tue', Wednesday: 'Wed', Thursday: 'Thu', Friday: 'Fri', Saturday: 'Sat', Sunday: 'Sun' }
 const STYLE_COLORS_ENROLL: Record<string, string> = { Salsa: WD.red600, Bachata: WD.violet600, Kizomba: WD.pink500, Timba: WD.cyan600 }
 
+// v3 event type → CityEvent type mapping (same as city page).
+const EVENT_TYPE_MAP: Record<string, string> = { Course: 'class', Workshop: 'workshop', Party: 'social', Concert: 'social', Show: 'social' }
+
+// Real upcoming events for the user's city, loaded from DB.
+const realCityEvents = ref<CityEvent[]>([])
+async function loadCityEvents() {
+  const citySlug = (dancerCity.value || '').trim().toLowerCase()
+  if (!citySlug) return
+  try {
+    const rows = await $trpc.events.byCity.query({ citySlug })
+    realCityEvents.value = rows
+      .filter((e: any) => !e.isFestival)
+      .map((e: any) => ({
+        id: e.id,
+        name: e.name || 'Event',
+        type: (EVENT_TYPE_MAP[e.type] || 'social') as CityEvent['type'],
+        style: (e.styles as string[])?.[0] || '',
+        day: eventLocalWeekday(e.startDate, e.timezone) as CityEvent['day'],
+        time: eventLocalTime(e.startDate, e.timezone),
+        duration: e.endDate ? Math.round((new Date(e.endDate).getTime() - new Date(e.startDate).getTime()) / 60000) : 0,
+        venue: e.venueName || '',
+        address: e.venueAddress || '',
+        organizer: e.organizerName || '',
+        organizerId: e.organizerUsername || undefined,
+        level: undefined,
+        accentColor: WD.red600,
+        attendeeCount: 0,
+        recurring: false,
+        date: eventLocalDate(e.startDate, e.timezone),
+      } as CityEvent))
+  } catch (err) {
+    console.warn('[my-plan] loadCityEvents failed:', err)
+  }
+}
+
+const todayISO = computed(() => {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+})
+
+// 'YYYY-MM-DD' → 'Mon Oct 13' (human-readable short date).
+function formatShortDate(iso: string): string {
+  if (!iso) return ''
+  const d = new Date(`${iso}T12:00:00Z`)
+  if (isNaN(d.getTime())) return iso
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })
+}
+
+// Merge real DB events with mock fallback (mock only if no real events loaded).
 const availableClasses = computed(() => {
   const citySlug = (dancerCity.value || '').trim().toLowerCase()
-  const cityEvents = cityEventsMap[citySlug] || []
   const enrolledIds = new Set(courses.value.map(c => c.id))
-  return cityEvents
+  // Prefer real events from DB; fall back to mock data only if DB returned nothing.
+  const source = realCityEvents.value.length > 0
+    ? realCityEvents.value
+    : (cityEventsMap[citySlug] || [])
+  return source
     .filter(e => e.type === 'class' && !enrolledIds.has(e.id))
+    .filter(e => !e.date || e.date >= todayISO.value)
 })
 
 function enrollClass(e: CityEvent) {
@@ -863,7 +974,7 @@ function enrollClass(e: CityEvent) {
     weekday: WEEKDAY_SHORT_ENROLL[e.day] || e.day,
     time: e.time,
     venue: e.venue,
-    nextClassDate: '',
+    nextClassDate: e.date || '',
     attended: 0,
     total: 0,
     paidThroughMonth: false,
@@ -875,7 +986,7 @@ function enrollClass(e: CityEvent) {
   // Persist the enrollment
   const { $trpc } = useNuxtApp()
   $trpc.plan.add
-    .mutate({ itemType: 'event', itemId: e.id, metadata: { type: 'class', style: e.style, school: e.organizer, venue: e.venue, weekday: e.day, time: e.time } })
+    .mutate({ itemType: 'event', itemId: e.id, metadata: { type: 'class', style: e.style, school: e.organizer, venue: e.venue, weekday: e.day, time: e.time, date: e.date || '' } })
     .catch((err) => {
       console.warn('[my-plan] enrollCourse failed:', err)
     })
@@ -906,6 +1017,8 @@ function loadCoursesFromDb() {
       for (const r of rows) {
         if (r.itemType === 'event' && r.metadata && (r.metadata as Record<string, string>).type === 'class') {
           const m = r.metadata as Record<string, string>
+          // Skip courses with a specific past date — they already happened.
+          if (m.date && m.date < todayISO.value) continue
           dbCourses.push({
             id: r.itemId,
             school: m.school || '',
@@ -915,7 +1028,7 @@ function loadCoursesFromDb() {
             weekday: (m.weekday && WEEKDAY_SHORT_ENROLL[m.weekday]) || m.weekday || '',
             time: m.time || '',
             venue: m.venue || '',
-            nextClassDate: '',
+            nextClassDate: m.date || '',
             attended: 0,
             total: 0,
             paidThroughMonth: false,
@@ -991,6 +1104,11 @@ watch([isSignedIn, onboardedAtReal, yearPlanIds], () => {
     nextTick(() => autoFillPlan())
   }
 }, { immediate: true })
+
+// Only show socials that are upcoming (no date = recurring/always shown; with date = future only).
+const upcomingSocials = computed(() =>
+  socials.value.filter(s => !s.dateISO || s.dateISO >= todayISO.value),
+)
 
 function toggleSocialRsvp(id: string) {
   socials.value = socials.value.map(s => s.id === id ? { ...s, rsvpd: !s.rsvpd } : s)
@@ -1178,13 +1296,13 @@ const heatItems = computed<HeatItem[]>(() => {
       key: `course-${c.id}`,
       label: `${c.school} · pay for July`,
       detail: `${c.style} ${c.level} · ${c.weekday} ${c.time}`,
-      href: '#courses',
+      href: `/events/${c.id}`,
       color: WD.amber500,
       urgency: 70,
     })
   })
-  // Socials: this-week RSVPs still open
-  socials.value.filter(s => !s.rsvpd).slice(0, 2).forEach(s => {
+  // Socials: this-week RSVPs still open (upcoming only)
+  upcomingSocials.value.filter(s => !s.rsvpd).slice(0, 2).forEach(s => {
     items.push({
       key: `social-${s.id}`,
       label: `${s.name} · ${s.dayLabel} ${s.time}`,
@@ -2109,8 +2227,17 @@ function cardSummary(f: CatalogueEntry) {
                   <span style="font-family:var(--wd-font-sans);">{{ t.state.text }}</span>
                 </span>
 
+                <button
+                  v-if="t.action && t.onAction"
+                  type="button"
+                  class="text-xs font-bold italic hover:underline ml-auto whitespace-nowrap"
+                  :style="{ color: f.accentColor }"
+                  @click.stop="t.onAction()"
+                >
+                  {{ t.action.label }} →
+                </button>
                 <NuxtLink
-                  v-if="t.action && !t.action.external"
+                  v-else-if="t.action && !t.action.external"
                   :to="t.action.href"
                   class="text-xs font-bold italic hover:underline ml-auto whitespace-nowrap"
                   :style="{ color: f.accentColor }"
@@ -2160,6 +2287,18 @@ function cardSummary(f: CatalogueEntry) {
                 </button>
               </div>
             </div>
+
+            <!-- FIND A RIDE PANEL -->
+            <FindRidePanel
+              v-if="rideOpenSlugs.has(f.slug)"
+              :festival-slug="f.slug"
+              :festival-location="f.location"
+              :festival-start-date="f.startDate"
+              :accent-color="f.accentColor"
+              :is-signed-in="isSignedIn && !previewMode"
+              class="mt-4"
+              @sign-in="openAuth('signin')"
+            />
 
             <!-- WORKSHOP PICKER -->
             <div v-if="getWorkshopsForFestival(f.slug).length > 0" class="mt-6 pt-6 border-t" style="border-color:color-mix(in srgb, var(--wd-brown-900) 5.1%, transparent);">
@@ -2300,10 +2439,10 @@ function cardSummary(f: CatalogueEntry) {
         <!-- Enroll picker — available classes from the city -->
         <div v-if="showEnrollPicker" class="rounded-2xl bg-white p-5 border mb-4" style="border-color:color-mix(in srgb, var(--wd-amber-600) 33.3%, transparent); box-shadow: 0 4px 16px rgba(59,31,18,0.06);">
           <div class="text-sm font-bold mb-3" style="color:var(--wd-brown-900); font-family:var(--wd-font-display);">
-            Weekly classes in {{ dancerCity || 'your city' }}
+            Upcoming classes in {{ dancerCity || 'your city' }}
           </div>
           <div v-if="!availableClasses.length" class="text-xs py-2" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
-            All available classes enrolled. Check your city page for more.
+            No upcoming classes found. Check your city page for more.
           </div>
           <div v-else class="space-y-2">
             <div
@@ -2317,7 +2456,7 @@ function cardSummary(f: CatalogueEntry) {
               <div class="flex-1 min-w-0">
                 <div class="text-sm font-bold" style="color:var(--wd-brown-900);">{{ cls.name }}</div>
                 <div class="text-xs" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
-                  {{ cls.day }} {{ cls.time }} · {{ cls.venue }} · {{ cls.level || 'All levels' }}
+                  {{ cls.date ? formatShortDate(cls.date) : cls.day }}, {{ cls.time }} · {{ cls.venue }} · {{ cls.level || 'All levels' }}
                 </div>
               </div>
               <span class="text-xs font-bold italic shrink-0" style="color:var(--wd-red-600);">+ Add</span>
@@ -2365,13 +2504,20 @@ function cardSummary(f: CatalogueEntry) {
                 </div>
               </div>
               <div class="flex items-center gap-2 shrink-0">
-                <span
-                  class="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full whitespace-nowrap"
-                  :style="c.paidThroughMonth
-                    ? { color: 'var(--wd-green-600)', background: 'color-mix(in srgb, var(--wd-green-600) 9.4%, transparent)' }
-                    : { color: 'var(--wd-red-600)', background: 'color-mix(in srgb, var(--wd-red-600) 9.4%, transparent)' }"
+                <NuxtLink
+                  v-if="!c.paidThroughMonth"
+                  :to="`/events/${c.id}`"
+                  class="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity"
+                  :style="{ color: 'var(--wd-red-600)', background: 'color-mix(in srgb, var(--wd-red-600) 9.4%, transparent)' }"
                 >
-                  {{ c.paidThroughMonth ? 'Paid' : 'Pay due' }}
+                  Pay due
+                </NuxtLink>
+                <span
+                  v-else
+                  class="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full whitespace-nowrap"
+                  :style="{ color: 'var(--wd-green-600)', background: 'color-mix(in srgb, var(--wd-green-600) 9.4%, transparent)' }"
+                >
+                  Paid
                 </span>
                 <button
                   type="button"
@@ -2387,7 +2533,7 @@ function cardSummary(f: CatalogueEntry) {
             <div class="mt-3 space-y-1.5 text-xs" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
               <div class="flex items-center gap-2">
                 <Calendar class="w-3 h-3" style="color:var(--wd-amber-600);" />
-                Next class <strong>{{ c.weekday }} {{ c.time }}</strong>
+                Next class <strong>{{ c.nextClassDate ? formatShortDate(c.nextClassDate) : c.weekday }}, {{ c.time }}</strong>
               </div>
               <div class="flex items-center gap-2">
                 <MapPin class="w-3 h-3" style="color:var(--wd-amber-600);" />
@@ -2428,7 +2574,7 @@ function cardSummary(f: CatalogueEntry) {
           </NuxtLink>
         </div>
 
-        <div v-if="!socials.length" class="rounded-2xl p-6 text-center border-2 border-dashed" style="border-color:color-mix(in srgb, var(--wd-brown-900) 20%, transparent); background:rgba(255,255,255,0.5);">
+        <div v-if="!upcomingSocials.length" class="rounded-2xl p-6 text-center border-2 border-dashed" style="border-color:color-mix(in srgb, var(--wd-brown-900) 20%, transparent); background:rgba(255,255,255,0.5);">
           <Sparkles class="w-8 h-8 mx-auto mb-3" style="color:var(--wd-amber-600);" />
           <p class="text-sm" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
             <template v-if="dancerCity">
@@ -2441,7 +2587,7 @@ function cardSummary(f: CatalogueEntry) {
         </div>
         <div v-else class="rounded-2xl bg-white border overflow-hidden" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);">
           <div
-            v-for="(s, i) in socials"
+            v-for="(s, i) in upcomingSocials"
             :key="s.id"
             class="flex flex-wrap items-center gap-3 px-4 py-3"
             :class="i > 0 ? 'border-t' : ''"
