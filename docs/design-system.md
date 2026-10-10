@@ -2,7 +2,7 @@
 
 Design tokens, font families, and component conventions for the 2026 tropical aesthetic.
 
-Live reference: [`/styleguide`](/styleguide) (noindex, internal only).
+Live reference: [`/design`](/design) — the design system docs (foundations, components, patterns; noindex, internal only). The old `/styleguide` page redirects there.
 
 ## Tokens
 
@@ -58,7 +58,7 @@ These drive all shared UI components (`app/components/ui/*`). Prefer these over 
 
 ### 4. Extended palette
 
-Accents and tints pages use beyond the core brand (purple, pink, violet, sky, rose, sand, extra amber/red/green/cyan steps …). Full list with swatches on `/styleguide`; definitions in `tailwind.css` under "Extended palette". Same naming: `var(--wd-purple-500)`, `bg-wd-purple-500`.
+Accents and tints pages use beyond the core brand (purple, pink, violet, sky, rose, sand, extra amber/red/green/cyan steps …). Full list with swatches on [`/design/foundations/colors`](/design/foundations/colors); definitions in `tailwind.css` under "Extended palette". Same naming: `var(--wd-purple-500)`, `bg-wd-purple-500`.
 
 ### 5. JS mirror — `app/lib/brand.ts`
 
