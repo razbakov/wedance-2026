@@ -7,7 +7,7 @@ defineProps<{ id: string; message?: string }>()
 </script>
 
 <template>
-  <span v-if="message" :id="id" class="mt-1 block text-xs font-bold" style="color:#dc2626; font-family: system-ui, sans-serif;">
+  <span v-if="message" :id="id" class="mt-1 block text-xs font-bold text-destructive font-sans">
     {{ message }}
   </span>
 </template>

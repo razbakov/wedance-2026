@@ -1,49 +1,104 @@
 @import "tailwindcss";
 
+/*
+ * WeDance Design Tokens
+ * =====================
+ * Extracted from the existing warm-tropical V3 aesthetic.
+ *
+ * Brand palette (hex reference):
+ *   cream       #fbf5ea   — page background
+ *   brown-900   #3b1f0d   — heading text, deepest brown
+ *   brown-700   #5b3a1d   — body text
+ *   amber-600   #9a5614   — accent labels, section heads, captions
+ *   red-600     #dc2626   — primary CTA, links, danger
+ *   red-800     #b91c1c   — button shadow / hover
+ *   orange-500  #f97316   — gradient accent
+ *   green-600   #16a34a   — success
+ *   cyan-600    #0891b2   — info
+ *   amber-500   #f59e0b   — warning
+ *
+ * Font families:
+ *   --font-display   'Playfair Display', serif    — headings, brand
+ *   --font-sans      system-ui, sans-serif        — body, UI
+ *   --font-accent    'Caveat', cursive            — handwritten highlights
+ *   --font-marker    'Permanent Marker', cursive  — playful emphasis
+ *   --font-impact    'Anton', sans-serif          — bold impact headers
+ *   --font-serif-alt 'DM Serif Display', serif    — alt serif display
+ */
+
 @layer base {
   :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
-    --destructive-foreground: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
+    /* ── Brand primitives ── */
+    --wd-cream: #fbf5ea;
+    --wd-brown-900: #3b1f0d;
+    --wd-brown-700: #5b3a1d;
+    --wd-amber-600: #9a5614;
+    --wd-red-600: #dc2626;
+    --wd-red-800: #b91c1c;
+    --wd-orange-500: #f97316;
+    --wd-green-600: #16a34a;
+    --wd-cyan-600: #0891b2;
+    --wd-amber-500: #f59e0b;
+
+    /* ── Semantic tokens (shadcn mapping) ── */
+    --background: var(--wd-cream);
+    --foreground: var(--wd-brown-900);
+    --card: #ffffff;
+    --card-foreground: var(--wd-brown-900);
+    --popover: #ffffff;
+    --popover-foreground: var(--wd-brown-900);
+    --primary: var(--wd-red-600);
+    --primary-foreground: #ffffff;
+    --secondary: var(--wd-amber-600);
+    --secondary-foreground: var(--wd-cream);
+    --muted: color-mix(in oklch, var(--wd-cream) 60%, var(--wd-brown-900) 5%);
+    --muted-foreground: var(--wd-brown-700);
+    --accent: color-mix(in oklch, var(--wd-amber-600) 12%, var(--wd-cream));
+    --accent-foreground: var(--wd-amber-600);
+    --destructive: var(--wd-red-600);
+    --destructive-foreground: var(--wd-red-600);
+    --border: color-mix(in srgb, var(--wd-brown-900) 13%, transparent);
+    --input: color-mix(in srgb, var(--wd-brown-900) 20%, transparent);
+    --ring: var(--wd-amber-600);
+
+    /* ── Semantic extras (not in shadcn defaults) ── */
+    --success: var(--wd-green-600);
+    --success-foreground: #ffffff;
+    --info: var(--wd-cyan-600);
+    --info-foreground: #ffffff;
+    --warning: var(--wd-amber-500);
+    --warning-foreground: var(--wd-brown-900);
+
     --radius: 0.625rem;
   }
 
   .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.145 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.145 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.985 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.396 0.141 25.723);
-    --destructive-foreground: oklch(0.637 0.237 25.331);
-    --border: oklch(0.269 0 0);
-    --input: oklch(0.269 0 0);
-    --ring: oklch(0.439 0 0);
+    --background: #1a0f05;
+    --foreground: var(--wd-cream);
+    --card: #261a0d;
+    --card-foreground: var(--wd-cream);
+    --popover: #261a0d;
+    --popover-foreground: var(--wd-cream);
+    --primary: var(--wd-red-600);
+    --primary-foreground: #ffffff;
+    --secondary: var(--wd-amber-600);
+    --secondary-foreground: var(--wd-cream);
+    --muted: #261a0d;
+    --muted-foreground: #b89a7a;
+    --accent: #3a2510;
+    --accent-foreground: var(--wd-cream);
+    --destructive: #991b1b;
+    --destructive-foreground: #fca5a5;
+    --border: #3a2510;
+    --input: #3a2510;
+    --ring: var(--wd-amber-600);
+
+    --success: #22c55e;
+    --success-foreground: #14532d;
+    --info: #22d3ee;
+    --info-foreground: #164e63;
+    --warning: #fbbf24;
+    --warning-foreground: #1a0f05;
   }
 }
 
@@ -53,17 +108,19 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: system-ui, sans-serif;
   }
   /* Fields flagged by useFormValidation. !important beats the inline border
      colours most form inputs set. */
   input[aria-invalid="true"],
   textarea[aria-invalid="true"],
   select[aria-invalid="true"] {
-    border-color: #dc2626 !important;
+    border-color: var(--destructive) !important;
   }
 }
 
 @theme inline {
+  /* ── Colors ── */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -83,8 +140,38 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+
+  /* ── Semantic status colours ── */
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+
+  /* ── Brand primitives (for direct use where semantic tokens don't fit) ── */
+  --color-wd-cream: var(--wd-cream);
+  --color-wd-brown-900: var(--wd-brown-900);
+  --color-wd-brown-700: var(--wd-brown-700);
+  --color-wd-amber-600: var(--wd-amber-600);
+  --color-wd-red-600: var(--wd-red-600);
+  --color-wd-red-800: var(--wd-red-800);
+  --color-wd-orange-500: var(--wd-orange-500);
+  --color-wd-green-600: var(--wd-green-600);
+  --color-wd-cyan-600: var(--wd-cyan-600);
+  --color-wd-amber-500: var(--wd-amber-500);
+
+  /* ── Radii ── */
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+
+  /* ── Font families ── */
+  --font-display: 'Playfair Display', serif;
+  --font-sans: system-ui, sans-serif;
+  --font-accent: 'Caveat', cursive;
+  --font-marker: 'Permanent Marker', cursive;
+  --font-impact: 'Anton', sans-serif;
+  --font-serif-alt: 'DM Serif Display', serif;
 }
