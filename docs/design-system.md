@@ -140,13 +140,21 @@ Consolidated 2026-10-10 to one pair. Caveat, Permanent Marker, Anton and DM Seri
 | `--wd-font-display` + italic | `font-display italic` | `…;font-style:italic` | Playfair Display italic | Handwritten-feel highlights (the old Caveat slot) |
 | `--wd-font-sans` | `font-sans` | `font-family:var(--wd-font-sans)` | system-ui, sans-serif | Body text, UI, forms |
 
+## Decisions (2026-10-10)
+
+- **Light only.** No dark theme; the `.dark` tokens were removed. Don't use `dark:` utilities — in Tailwind v4 they follow the OS setting and darken parts of a light page.
+- **Forms:** mark optional fields with "(optional)" (`<Field optional>`); never asterisks on required ones. One look everywhere — admin forms use the same white controls, no cream variant.
+- **Checkbox:** native `<input type="checkbox">` with `accent-primary` — accessible on every OS; no custom-drawn box.
+- **Button accent:** brand variants take `accent="<colour>"` for non-red buttons (festival accent, categories). The colour must reach 4.5:1 with white.
+- **Lip shadow:** one depth, 3px (`shadow-wd-lip`). Existing 4px lips migrate to it when touched.
+
 ## Rules
 
 1. **No new inline hex.** Use a token or Tailwind class. If none fits, propose a new token in a PR.
 2. **Semantic first.** Reach for `text-foreground`, `bg-primary`, `text-muted-foreground` before `text-wd-brown-900`.
 3. **Brand primitives for one-offs.** Gradient CTAs, specific decorative elements — use `--wd-*` tokens directly.
-4. **Font classes, not inline font-family.** Use `font-display`, `font-sans`, `font-accent`, etc.
-5. **Dark mode coherent.** Every new component must look correct in `.dark` — the token layer handles the swap.
+4. **Font classes, not inline font-family.** Use `font-display`, `font-sans` (italic display for highlights).
+5. **Light only.** No `.dark` theme and no `dark:` utilities (see Decisions).
 
 ## Font loading
 

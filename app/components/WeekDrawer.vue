@@ -81,10 +81,10 @@ function levelChilis(level?: string): number {
 }
 
 const typeBadge: Record<string, { label: string; class: string }> = {
-  class: { label: 'Class', class: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300' },
-  social: { label: 'Social', class: 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300' },
-  practica: { label: 'Practica', class: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300' },
-  workshop: { label: 'Workshop', class: 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300' },
+  class: { label: 'Class', class: 'bg-blue-100 text-blue-700' },
+  social: { label: 'Social', class: 'bg-rose-100 text-rose-700' },
+  practica: { label: 'Practica', class: 'bg-amber-100 text-amber-700' },
+  workshop: { label: 'Workshop', class: 'bg-purple-100 text-purple-700' },
 }
 </script>
 

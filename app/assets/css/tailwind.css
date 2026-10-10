@@ -107,34 +107,8 @@
     --radius: 0.625rem;
   }
 
-  .dark {
-    --background: #1a0f05;
-    --foreground: var(--wd-cream);
-    --card: #261a0d;
-    --card-foreground: var(--wd-cream);
-    --popover: #261a0d;
-    --popover-foreground: var(--wd-cream);
-    --primary: var(--wd-red-600);
-    --primary-foreground: #ffffff;
-    --secondary: var(--wd-amber-600);
-    --secondary-foreground: var(--wd-cream);
-    --muted: #261a0d;
-    --muted-foreground: #b89a7a;
-    --accent: #3a2510;
-    --accent-foreground: var(--wd-cream);
-    --destructive: #991b1b;
-    --destructive-foreground: #ffffff;
-    --border: #3a2510;
-    --input: #3a2510;
-    --ring: var(--wd-amber-600);
-
-    --success: #22c55e;
-    --success-foreground: #14532d;
-    --info: #22d3ee;
-    --info-foreground: #164e63;
-    --warning: #fbbf24;
-    --warning-foreground: #1a0f05;
-  }
+  /* No dark theme (decided 2026-10-10): WeDance is cream-on-brown only. Don't add dark: utilities —
+     in Tailwind v4 they follow the OS setting and would darken parts of a light page. */
 }
 
 @layer base {

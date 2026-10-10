@@ -70,29 +70,29 @@ const flightsHref = computed(() =>
 )
 
 const fieldClass = 'mt-1 w-full rounded-xl border px-3 py-2 text-sm outline-none transition-all'
-const fieldStyle = 'background:white; border-color:#3b1f0d33; color:#3b1f0d; font-family: system-ui, sans-serif;'
-const labelStyle = 'color:#9a5614; font-family: system-ui, sans-serif;'
+const fieldStyle = 'background:white; border-color:color-mix(in srgb, var(--wd-brown-900) 20%, transparent); color:var(--wd-brown-900); font-family:var(--wd-font-sans);'
+const labelStyle = 'color:var(--wd-amber-600); font-family:var(--wd-font-sans);'
 
 const hasOwnRide = computed(() => rideShares.value.some(r => r.isOwn))
 const othersRides = computed(() => rideShares.value.filter(r => !r.isOwn))
 </script>
 
 <template>
-  <div class="rounded-xl border overflow-hidden" style="border-color:#0891b255; background:white;">
+  <div class="rounded-xl border overflow-hidden" style="border-color:color-mix(in srgb, var(--wd-cyan-600) 33.3%, transparent); background:white;">
     <!-- Header -->
-    <div class="flex items-center gap-2 px-3 py-2.5" style="background:#0891b20a;">
-      <Car class="w-4 h-4 shrink-0" style="color:#0891b2; stroke-width:1.75;" />
-      <span class="text-sm font-bold" style="color:#3b1f0d; font-family:'Playfair Display', serif;">
+    <div class="flex items-center gap-2 px-3 py-2.5" style="background:color-mix(in srgb, var(--wd-cyan-600) 3.9%, transparent);">
+      <Car class="w-4 h-4 shrink-0" style="color:var(--wd-cyan-600); stroke-width:1.75;" />
+      <span class="text-sm font-bold" style="color:var(--wd-brown-900); font-family:var(--wd-font-display);">
         Find a ride
       </span>
-      <span v-if="rideShares.length && !loading" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ml-auto" style="background:#0891b218; color:#0891b2;">
+      <span v-if="rideShares.length && !loading" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ml-auto" style="background:color-mix(in srgb, var(--wd-cyan-600) 9.4%, transparent); color:var(--wd-cyan-600);">
         {{ rideShares.length }} sharing
       </span>
     </div>
 
     <div class="px-3 pb-3 grid gap-2.5">
       <!-- Loading -->
-      <p v-if="loading" class="text-xs py-2" style="color:#9a5614; font-family: system-ui, sans-serif;">
+      <p v-if="loading" class="text-xs py-2" style="color:var(--wd-amber-600); font-family:var(--wd-font-sans);">
         Loading rides...
       </p>
 
@@ -103,7 +103,7 @@ const othersRides = computed(() => rideShares.value.filter(r => !r.isOwn))
             v-for="ride in rideShares"
             :key="ride.id"
             class="flex items-center gap-2.5 py-2 px-2.5 rounded-lg"
-            style="background:#3b1f0d05;"
+            style="background:color-mix(in srgb, var(--wd-brown-900) 2%, transparent);"
           >
             <img
               v-if="ride.dancerPhoto"
@@ -111,11 +111,11 @@ const othersRides = computed(() => rideShares.value.filter(r => !r.isOwn))
               :alt="ride.dancerName"
               class="w-7 h-7 rounded-full shrink-0 object-cover"
             >
-            <span v-else class="w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold" style="background:#0891b218; color:#0891b2;">
+            <span v-else class="w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold" style="background:color-mix(in srgb, var(--wd-cyan-600) 9.4%, transparent); color:var(--wd-cyan-600);">
               {{ ride.dancerName.charAt(0) }}
             </span>
-            <div class="min-w-0 flex-1 text-xs" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
-              <span class="font-bold" style="color:#3b1f0d;">{{ ride.dancerName }}</span>
+            <div class="min-w-0 flex-1 text-xs" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
+              <span class="font-bold" style="color:var(--wd-brown-900);">{{ ride.dancerName }}</span>
               <span class="ml-1">
                 {{ ride.type === 'offering' ? 'from' : 'looking from' }} {{ ride.originCity }}
               </span>
@@ -124,21 +124,21 @@ const othersRides = computed(() => rideShares.value.filter(r => !r.isOwn))
             </div>
             <span
               class="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shrink-0"
-              :style="ride.type === 'offering' ? { background: '#16a34a18', color: '#16a34a' } : { background: '#f59e0b18', color: '#f59e0b' }"
+              :style="ride.type === 'offering' ? { background: 'color-mix(in srgb, var(--wd-green-600) 9.4%, transparent)', color: 'var(--wd-green-600)' } : { background: 'color-mix(in srgb, var(--wd-amber-500) 9.4%, transparent)', color: 'var(--wd-amber-500)' }"
             >{{ ride.type === 'offering' ? 'Offering' : 'Looking' }}</span>
             <button
               v-if="ride.isOwn"
               type="button"
               class="text-[10px] font-bold italic hover:underline shrink-0"
-              style="color:#dc2626;"
+              style="color:var(--wd-red-600);"
               @click="onDeleteRide"
             >Remove</button>
           </div>
         </div>
 
         <!-- No rides — flights fallback -->
-        <div v-if="!rideShares.length" class="rounded-lg px-3 py-3 text-center" style="background:#3b1f0d05;">
-          <p class="text-xs mb-2" style="color:#5b3a1d; font-family: system-ui, sans-serif;">
+        <div v-if="!rideShares.length" class="rounded-lg px-3 py-3 text-center" style="background:color-mix(in srgb, var(--wd-brown-900) 2%, transparent);">
+          <p class="text-xs mb-2" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">
             No ride-shares yet. Be the first to offer one, or search flights.
           </p>
           <a
@@ -146,7 +146,7 @@ const othersRides = computed(() => rideShares.value.filter(r => !r.isOwn))
             target="_blank"
             rel="noopener noreferrer"
             class="inline-flex items-center gap-1 text-xs font-bold hover:underline"
-            style="color:#0891b2; font-family: system-ui, sans-serif;"
+            style="color:var(--wd-cyan-600); font-family:var(--wd-font-sans);"
           >
             <Plane class="w-3.5 h-3.5" /> Search flights <ExternalLink class="w-2.5 h-2.5" />
           </a>
@@ -159,30 +159,30 @@ const othersRides = computed(() => rideShares.value.filter(r => !r.isOwn))
             target="_blank"
             rel="noopener noreferrer"
             class="inline-flex items-center gap-1 text-[10px] italic hover:underline"
-            style="color:#9a5614; font-family:'Playfair Display', serif;"
+            style="color:var(--wd-amber-600); font-family:var(--wd-font-display);"
           >
             or flights <ExternalLink class="w-2.5 h-2.5" />
           </a>
         </div>
 
         <!-- Offer form (signed in) -->
-        <div v-if="isSignedIn && !hasOwnRide" class="rounded-xl border p-3 grid gap-2" style="border-color:#3b1f0d15; background:#3b1f0d05;">
+        <div v-if="isSignedIn && !hasOwnRide" class="rounded-xl border p-3 grid gap-2" style="border-color:color-mix(in srgb, var(--wd-brown-900) 8.2%, transparent); background:color-mix(in srgb, var(--wd-brown-900) 2%, transparent);">
           <p class="text-[10px] font-bold uppercase tracking-widest" :style="labelStyle">Offer or find a ride</p>
           <div class="flex gap-2">
             <button
               type="button"
               class="flex-1 text-xs font-bold py-2 rounded-lg transition-all"
               :style="rideMode === 'offering'
-                ? { background: '#0891b2', color: 'white' }
-                : { background: 'white', color: '#5b3a1d', border: '1px solid #3b1f0d22' }"
+                ? { background: 'var(--wd-cyan-600)', color: 'white' }
+                : { background: 'white', color: 'var(--wd-brown-700)', border: '1px solid color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent)' }"
               @click="rideMode = rideMode === 'offering' ? null : 'offering'"
             >Offering a ride</button>
             <button
               type="button"
               class="flex-1 text-xs font-bold py-2 rounded-lg transition-all"
               :style="rideMode === 'looking'
-                ? { background: '#0891b2', color: 'white' }
-                : { background: 'white', color: '#5b3a1d', border: '1px solid #3b1f0d22' }"
+                ? { background: 'var(--wd-cyan-600)', color: 'white' }
+                : { background: 'white', color: 'var(--wd-brown-700)', border: '1px solid color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent)' }"
               @click="rideMode = rideMode === 'looking' ? null : 'looking'"
             >Looking for a ride</button>
           </div>
@@ -207,19 +207,19 @@ const othersRides = computed(() => rideShares.value.filter(r => !r.isOwn))
               type="button"
               class="w-full py-2.5 rounded-full text-white text-xs font-bold uppercase tracking-wider"
               :disabled="submitting"
-              style="background:#0891b2; box-shadow: 0 3px 0 -1px #0e7490;"
+              style="background:var(--wd-cyan-600); box-shadow: 0 3px 0 -1px var(--wd-cyan-700);"
               @click="submitRide"
             >{{ submitting ? 'Posting...' : 'Post my ride' }}</button>
           </div>
         </div>
 
         <!-- Not signed in -->
-        <div v-if="!isSignedIn" class="rounded-xl border p-3 text-center" style="border-color:#3b1f0d15; background:#3b1f0d05;">
-          <p class="text-xs mb-2" style="color:#5b3a1d; font-family: system-ui, sans-serif;">Sign in to share or find a ride</p>
+        <div v-if="!isSignedIn" class="rounded-xl border p-3 text-center" style="border-color:color-mix(in srgb, var(--wd-brown-900) 8.2%, transparent); background:color-mix(in srgb, var(--wd-brown-900) 2%, transparent);">
+          <p class="text-xs mb-2" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">Sign in to share or find a ride</p>
           <button
             type="button"
             class="px-4 py-2 rounded-full text-white text-xs font-bold uppercase tracking-wider"
-            style="background:#0891b2; box-shadow: 0 3px 0 -1px #0e7490;"
+            style="background:var(--wd-cyan-600); box-shadow: 0 3px 0 -1px var(--wd-cyan-700);"
             @click="emit('sign-in')"
           >Sign in</button>
         </div>

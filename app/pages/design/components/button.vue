@@ -145,6 +145,17 @@ const migrate = `<!-- Before: hand-rolled (≈28 copies across pages) -->
       </div>
     </DesignSection>
 
+    <DesignSection id="accent" title="Accent colour" lead="Brand variants re-tint with accent — for a festival's own colour or a category. The accent must reach 4.5:1 against white.">
+      <DesignExample code='<Button variant="pill" accent="var(--wd-violet-600)">Add to my plan</Button>
+<Button variant="soft" accent="var(--wd-cyan-700)">Share ride</Button>
+<Button variant="cta" :accent="festival.accentColor">Book ticket</Button>'>
+        <Button variant="pill" accent="var(--wd-violet-600)">Add to my plan</Button>
+        <Button variant="soft" accent="var(--wd-cyan-700)">Share ride</Button>
+        <Button variant="outline-pill" accent="var(--wd-green-700)">I'm going</Button>
+        <Button variant="cta" accent="var(--wd-cyan-700)">Book ticket</Button>
+      </DesignExample>
+    </DesignSection>
+
     <DesignSection id="sizes" title="Sizes">
       <DesignExample
         code='<Button variant="pill" size="pill-sm">Ask locals</Button>

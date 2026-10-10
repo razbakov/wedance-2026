@@ -19,7 +19,21 @@ const props = defineProps({
   disabled: { type: Boolean, default: false },
   // Shows a spinner, sets aria-busy and disables the button while an action runs.
   loading: { type: Boolean, default: false },
+  // Re-tints the brand variants (cta, pill, soft, outline-pill) with another colour,
+  // e.g. a festival's accent or var(--wd-violet-600). Must reach 4.5:1 with white.
+  accent: { type: String, default: undefined },
 })
+
+// The variants read --primary (fill/tint), --wd-red-800 (text, lip shadow) and the
+// .wd-cta gradient stops; overriding them locally re-tints one button only.
+const accentStyle = computed(() => props.accent
+  ? {
+      "--primary": props.accent,
+      "--wd-red-600": props.accent,
+      "--wd-red-800": `color-mix(in srgb, ${props.accent} 75%, black)`,
+      "--wd-orange-500": `color-mix(in srgb, ${props.accent} 70%, white)`,
+    }
+  : undefined)
 </script>
 
 <template>
@@ -29,6 +43,7 @@ const props = defineProps({
     :class="cn(buttonVariants({ variant, size }), props.class)"
     :disabled="disabled || loading || undefined"
     :aria-busy="loading || undefined"
+    :style="accentStyle"
   >
     <Loader2 v-if="loading && !asChild" class="animate-spin" aria-hidden="true" />
     <slot />
