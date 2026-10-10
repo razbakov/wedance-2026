@@ -20,7 +20,9 @@ useHead({
   ],
 })
 
-type Artist = { username: string; name: string; photo: string | null; city: string | null; styles: string[]; bio: string | null }
+type Artist = { username: string; name: string; photo: string | null; city: string | null; styles: string[]; languages: string[]; bio: string | null }
+
+const langLabel: Record<string, string> = { en: 'EN', es: 'ES', de: 'DE', fr: 'FR', pt: 'PT', it: 'IT', ru: 'RU', hu: 'HU', sl: 'SL' }
 
 const { $trpc } = useNuxtApp()
 const artists = ref<Artist[]>([])
@@ -211,6 +213,9 @@ const NuxtLinkC = resolveComponent('NuxtLink')
             <p v-if="a.city" class="text-xs inline-flex items-center gap-1 mt-0.5 text-white/80" style="font-family: system-ui, sans-serif;">
               <MapPin class="w-3 h-3" /> {{ a.city }}
             </p>
+            <div v-if="a.languages?.length" class="flex gap-1 mt-1">
+              <span v-for="l in a.languages.slice(0, 3)" :key="l" class="text-[9px] font-bold tracking-wide px-1 py-px rounded text-white/90" style="background:rgba(255,255,255,0.2); backdrop-filter: blur(4px);">{{ langLabel[l] || l.toUpperCase() }}</span>
+            </div>
           </div>
         </component>
       </div>

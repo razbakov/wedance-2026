@@ -309,6 +309,8 @@ export const profiles = pgTable('profiles', {
   photo: text('photo'),
   bio: text('bio'),
   styles: json('styles').$type<string[]>().default([]),
+  // Spoken languages (ISO 639-1 codes, e.g. ['en', 'es', 'de']).
+  languages: json('languages').$type<string[]>().default([]),
   address: text('address'),
   // Venue floor type matters to dancers (parquet / tiles / concrete).
   floorType: text('floor_type'),

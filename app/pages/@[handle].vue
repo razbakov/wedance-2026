@@ -91,6 +91,7 @@ const directionsUrl = computed(() => {
 
 const typeLabel: Record<string, string> = { venue: 'Venue', artist: 'Artist', organizer: 'Organizer' }
 const socialIcon: Record<string, any> = { instagram: Instagram, youtube: Youtube, facebook: Facebook, website: Globe }
+const langLabel: Record<string, string> = { en: 'English', es: 'Spanish', de: 'German', fr: 'French', pt: 'Portuguese', it: 'Italian', ru: 'Russian', hu: 'Hungarian', sl: 'Slovenian' }
 const initials = computed(() => {
   const n = (profile.value?.name || '').trim()
   return n ? n.split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('') : '?'
@@ -192,6 +193,10 @@ useHead(() => ({
             <p v-if="profile.bio" class="mt-5 text-sm leading-relaxed" style="color:#5b3a1d; font-family: system-ui, sans-serif;">{{ profile.bio }}</p>
             <div v-if="profile.styles?.length" class="mt-3 flex flex-wrap gap-1.5">
               <span v-for="st in profile.styles" :key="st" class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider" style="background:#dc262614; color:#dc2626; font-family: system-ui, sans-serif;">{{ st }}</span>
+            </div>
+            <div v-if="profile.languages?.length" class="mt-2 flex flex-wrap items-center gap-1.5">
+              <span class="text-[10px] uppercase tracking-wider" style="color:#9a5614; font-family: system-ui, sans-serif;">Speaks</span>
+              <span v-for="lang in profile.languages" :key="lang" class="text-[10px] font-bold tracking-wide px-1.5 py-0.5 rounded" style="background:#0891b214; color:#0891b2; font-family: system-ui, sans-serif;">{{ langLabel[lang] || lang.toUpperCase() }}</span>
             </div>
             <div v-if="profile.socials?.length" class="mt-4 flex items-center gap-2">
               <a v-for="s in profile.socials" :key="s.platform" :href="s.url" target="_blank" rel="noopener" class="inline-flex items-center justify-center w-9 h-9 rounded-full" style="background:#dc262614; color:#dc2626;" :aria-label="s.platform"><component :is="socialIcon[s.platform] || Globe" class="w-4 h-4" /></a>
