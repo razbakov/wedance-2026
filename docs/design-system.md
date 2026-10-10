@@ -68,6 +68,68 @@ Rule of thumb: **CSS context → `var(--wd-*)`; JS value → `WD.*`.**
 
 Alpha tints in CSS: `color-mix(in srgb, var(--wd-red-600) 13%, transparent)` (not `#dc262622`).
 
+### 6. Shadows (`--wd-shadow-*` → `shadow-wd-*`)
+
+Five recipes, documented on `/design/foundations/elevation`. Values are copied from the recipes pages already use, so swapping an inline shadow for the token is a visual no-op.
+
+| Token | Utility | Value | Use |
+|---|---|---|---|
+| `--wd-shadow-lip` | `shadow-wd-lip` | `0 3px 0 -1px var(--wd-red-800)` | Hard under-edge on pill buttons |
+| `--wd-shadow-card` | `shadow-wd-card` | `0 1px 0 color-mix(in srgb, var(--wd-brown-900) 4%, transparent), 0 6px 18px rgba(59,31,18,0.04)` | Cards on cream |
+| `--wd-shadow-sticker` | `shadow-wd-sticker` | `3px 4px 0 -1px currentColor` | Offset accent shadow on festival / plan cards |
+| `--wd-shadow-float` | `shadow-wd-float` | `0 6px 20px rgba(0,0,0,0.18), 0 3px 0 -1px rgba(0,0,0,0.15)` | Floating buttons, popovers |
+| `--wd-shadow-focus` | `shadow-wd-focus` | `0 0 0 3px color-mix(in srgb, var(--wd-red-600) 15%, transparent)` | Soft halo on focused inputs |
+
+**Recolouring lip and sticker:** set `--wd-shadow-color` on the element and use the utility (`class="shadow-wd-sticker" :style="{ '--wd-shadow-color': accent }"`). The utilities inline the recipe, so the variable resolves on that element. `var(--wd-shadow-lip|sticker)` in inline CSS resolves at `:root` and always gets the default colour.
+
+Not tokens (yet): the 4px-deep lip on large CTAs (`0 4px 0 -1px …`, ~20 uses) and larger sticker offsets on hero art. Promote when one becomes a rule.
+
+### 7. Motion (`--wd-duration-*`, `--wd-ease-*`)
+
+| Token | Value | Tailwind | Use |
+|---|---|---|---|
+| `--wd-duration-instant` | `80ms` | `duration-wd-instant` | Press feedback |
+| `--wd-duration-quick` | `150ms` | `duration-wd-quick` | Colour / border hovers |
+| `--wd-duration-standard` | `220ms` | `duration-wd-standard` | Lift, scale, small moves |
+| `--wd-duration-slow` | `380ms` | `duration-wd-slow` | Ripples, entrances |
+| `--wd-ease-spring` | `cubic-bezier(0.34, 1.56, 0.64, 1)` | `ease-wd-spring` | Playful overshoot |
+| `--wd-ease-out` | `ease-out` (CSS keyword) | `ease-wd-out` | Arriving, settling |
+| `--wd-ease-in-out` | `ease-in-out` | `ease-wd-in-out` | Back-and-forth loops |
+
+`.wd-cta` uses these tokens for its transitions and ripple (computed values unchanged). Its ambient loops (4.5s / 6s) and 800ms gradient shift stay literal — nothing else should use them. Note `ease-wd-out` is the CSS keyword, not Tailwind's `ease-out` curve.
+
+### 8. Small type sizes (`text-eyebrow`, `text-meta`, `text-tag`)
+
+Below `text-xs` (12px) the Tailwind scale stops, so pages used arbitrary sizes. Survey 2026-10-10 (product pages; sketches and `/design` excluded): 292 `text-[Npx]`, of which `text-[10px]` ×216, `text-[11px]` ×46, `text-[9px]` ×29. Those three became `@theme` tokens:
+
+| Utility | Size | Replaces | Use |
+|---|---|---|---|
+| `text-eyebrow` | 10px | `text-[10px]` | Eyebrows, section labels, status pills (usually `uppercase tracking-[0.3em] font-bold`) |
+| `text-meta` | 11px | `text-[11px]` | Meta lines under card titles |
+| `text-tag` | 9px | `text-[9px]` | Tiny tags inside cards / chips — never reading text |
+
+They set font-size only (no line-height token), exactly like the arbitrary class, so swapping is a no-op (verified: computed font-size and line-height identical, with and without `leading-*`). Not tokenised: 12px = `text-xs`; 13px appears only in the docs; 7–8px only in sketches. Existing pages are **not** migrated yet — do it when a page is next touched.
+
+## Spacing & layout
+
+Documented on `/design/foundations/spacing`. No custom spacing tokens — Tailwind's 4px scale.
+
+- **Steps in use:** 0.5 · 1 · 1.5 · 2 · 3 · 4 · 6 · 8 · 12 · 16 · 20. Most common: `gap-2` (324), `px-4` (256), `gap-3` (197).
+- **Containers:** `max-w-xl` (forms) · `2xl` · `3xl` (reading) · `4xl` · `5xl` (default wide page) · `6xl` · `7xl` (headers/footers). Standard shell: `max-w-5xl mx-auto px-4`.
+- **Gutter:** `px-4` on every screen size.
+- **Section rhythm:** `py-16` landing sections, `py-12` content pages, `py-20` heroes; title → content `mt-6`–`mt-8`; cards `gap-4`.
+- **Breakpoints:** Tailwind defaults. Mobile first; `sm:` does most of the work (426 uses), `md:` 85, `lg:` 35, `xl:` almost never.
+
+## Icons
+
+Documented on `/design/foundations/icons`. `lucide-vue-next` only — 106 distinct icons across 72 files.
+
+- **Stroke:** default 2px everywhere (476 uses, none override it). Don't pass `stroke-width`.
+- **Colour:** `currentColor` — colour the parent. Status colours only when the icon is the status.
+- **Sizes:** `w-3` (with 10–11px text) · `w-3.5` (with `text-xs/sm`) · **`w-4` default** · `w-5` (icon-only buttons, headers) · `w-6` (feature tiles) · `w-8` (empty states). Always set `h-*` too (or `size-*`).
+- **Alignment:** `inline-flex items-center gap-1.5`; `shrink-0` on the icon when text wraps.
+- **A11y:** decorative icons `aria-hidden="true"`; icon-only buttons need an `aria-label` naming the action and a ≥40px hit area (`p-2` around `w-5`).
+
 ## Font Families
 
 Consolidated 2026-10-10 to one pair. Caveat, Permanent Marker, Anton and DM Serif Display are retired.
@@ -110,4 +172,4 @@ What still holds a literal hex (by design or below the token threshold):
 - `app/pages/sketches/**` — frozen design explorations, not product.
 - `app/data/mock-*.ts` — festival accent colours are content, not design.
 - ~30 one-off colours used ≤3 times (e.g. `#166534`, `#f5f0e8`, `#1f0f06`). Promote to a token the second time someone needs one.
-- `rgba(...)` shadows — left as-is.
+- `rgba(...)` shadows — left inline; the five common recipes are now tokens (`shadow-wd-*`, see Tokens §6). Migrate when a page is next touched.
