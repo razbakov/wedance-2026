@@ -44,10 +44,23 @@ const myFestivalsRaw = ref<Array<{
   workshopCount: number; ticketStatus: 'purchased' | 'not-purchased'; referralDiscountPercent: number
 }>>([])
 
+// ── Suggestions data ──
+const suggestionsRaw = ref<Array<{
+  slug: string; name: string; startDate: string; endDate: string
+  location: string; country: string; logo: string; accentColor: string; styles: string[]
+  signupCount: number
+}>>([])
+
 function fetchMyPlan() {
   if (!isSignedIn.value) return
   $trpc.plan.myPlan.query().then((rows) => {
     myFestivalsRaw.value = rows
+  }).catch(() => {})
+}
+
+function fetchSuggestions() {
+  $trpc.plan.suggestions.query().then((rows) => {
+    suggestionsRaw.value = rows
   }).catch(() => {})
 }
 
@@ -60,9 +73,13 @@ if (import.meta.client) {
   }
 
   fetchMyPlan()
+  fetchSuggestions()
 
   // Re-fetch when the plan changes (add/remove festival) so stats update.
-  watch(yearPlanIds, fetchMyPlan)
+  watch(yearPlanIds, () => {
+    fetchMyPlan()
+    fetchSuggestions()
+  })
 }
 
 // Map shared data into YearPlanFestival shape.
@@ -105,6 +122,26 @@ const myFestivals = computed<YearPlanFestival[]>(() => {
     ticketStatus: f.ticketStatus,
     friendsGoing: [],
     referralDiscountPercent: f.referralDiscountPercent,
+  }))
+})
+
+// Map suggestions into YearPlanFestival shape.
+const suggestions = computed<YearPlanFestival[]>(() => {
+  return suggestionsRaw.value.map((f) => ({
+    slug: f.slug,
+    name: f.name,
+    startDate: f.startDate,
+    endDate: f.endDate,
+    location: f.location,
+    country: f.country,
+    logo: f.logo,
+    accentColor: f.accentColor,
+    styles: f.styles,
+    workshopCount: 0,
+    role: null,
+    lookingCount: 0,
+    ticketStatus: 'not-purchased' as const,
+    friendsGoing: [],
   }))
 })
 
@@ -161,6 +198,15 @@ function onCreateYearPlan() {
   router.replace({ query: {} })
 }
 
+function onAddFestival(slug: string) {
+  if (!isSignedIn.value) {
+    navigateTo('/onboarding')
+    return
+  }
+  const { addFestival } = useYearPlan()
+  addFestival(slug)
+}
+
 function onAddFriend() {
   useTrack().track('shared_plan_signup', { surface: 'my-year', sharer: sharer.value.name })
   navigateTo('/onboarding')
@@ -202,10 +248,11 @@ useHead({
     <template v-else>
       <YearPlan
         :festivals="myFestivals"
-        :suggestions="[]"
+        :suggestions="suggestions"
         :stats="stats"
         :is-signed-in="isSignedIn"
         @open-festival="openFestival"
+        @add-festival="onAddFestival"
         @share="showShareModal = true"
         @sign-in="() => {}"
       />
