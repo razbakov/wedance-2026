@@ -13,6 +13,10 @@
     "test:e2e:headed": "bddgen && playwright test --headed",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:tokens": "vitest run scripts/design-guardrails",
+    "test:design": "playwright test -c playwright.design.config.ts contract a11y",
+    "test:visual": "playwright test -c playwright.design.config.ts visual",
+    "test:visual:update": "playwright test -c playwright.design.config.ts visual --update-snapshots",
     "db:push": "drizzle-kit push",
     "db:seed": "bun run server/database/seed.ts",
     "sync:v3-events": "bun scripts/sync-v3-events.ts",
@@ -48,6 +52,7 @@
   },
   "packageManager": "yarn@1.22.22+sha1.ac34549e6aa8e7ead463a7407e1c7390f61a6610",
   "devDependencies": {
+    "@axe-core/playwright": "^4.10.2",
     "@playwright/test": "^1.58.2",
     "@types/pg": "^8.23.1",
     "@vitest/coverage-v8": "^4.1.0",
