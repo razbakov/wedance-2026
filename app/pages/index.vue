@@ -126,7 +126,7 @@ const attendees = [
             </h1>
             <p class="mt-6 text-base sm:text-lg leading-relaxed max-w-md mx-auto md:mx-0" style="color:var(--wd-brown-700);">
               Every dance. Every teacher. Every city.
-              <span style="color:var(--wd-brown-900);">Every face — real.</span>
+              Every face — <strong style="color:var(--wd-red-600);">real</strong>.
             </p>
             <div class="mt-8 flex items-center justify-center md:justify-start gap-5">
               <NuxtLink
