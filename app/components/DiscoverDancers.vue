@@ -916,7 +916,7 @@ function endorsementCount(dancer: DiscoverDancer, styleName: string): number {
                 </p>
 
                 <!-- Feedback sent, waiting for theirs -->
-                <div v-else-if="isFeedbackSent(entry.dancer.id)" class="space-y-1.5">
+                <div v-if="isFeedbackSent(entry.dancer.id)" class="space-y-1.5">
                   <div class="p-2 rounded bg-muted/50 border">
                     <p class="text-[10px] font-medium text-muted-foreground mb-0.5">You wrote:</p>
                     <p class="text-xs italic">"{{ myFeedbackSent.get(entry.dancer.id) }}"</p>
