@@ -36,10 +36,21 @@ const myFestivalsRaw = ref<Array<{
   workshopCount: number; ticketStatus: 'purchased' | 'not-purchased'; referralDiscountPercent: number
 }>>([])
 
+// friendsGoing per festival slug (fetched in batch after plan loads)
+const goingBySlug = ref<Record<string, Array<{ name: string; photo: string | null; username: string | null }>>>({})
+
+async function fetchGoingBatch(slugs: string[]) {
+  if (slugs.length === 0) return
+  try {
+    goingBySlug.value = await $trpc.plan.goingBatch.query({ itemType: 'festival', itemIds: slugs })
+  } catch { /* non-critical */ }
+}
+
 function fetchMyPlan() {
   if (!isSignedIn.value) return
   $trpc.plan.myPlan.query().then((rows) => {
     myFestivalsRaw.value = rows
+    fetchGoingBatch(rows.map(r => r.slug))
   }).catch(() => {})
 }
 
@@ -48,6 +59,9 @@ if (import.meta.client) {
   if (isSharedView.value && sharerUsername.value) {
     $trpc.plan.sharedPlan.query({ username: sharerUsername.value }).then((result) => {
       sharedData.value = result
+      if (result?.festivals.length) {
+        fetchGoingBatch(result.festivals.map(f => f.slug))
+      }
     }).catch(() => {})
   }
 
@@ -74,7 +88,7 @@ const sharedFestivals = computed<YearPlanFestival[]>(() => {
     role: null,
     lookingCount: 0,
     ticketStatus: f.hasTicket ? 'purchased' as const : 'not-purchased' as const,
-    friendsGoing: [],
+    friendsGoing: (goingBySlug.value[f.slug] ?? []).map(d => ({ name: d.name, photo: d.photo ?? '' })),
     referralDiscountPercent: f.referralDiscountPercent,
   }))
 })
@@ -95,7 +109,7 @@ const myFestivals = computed<YearPlanFestival[]>(() => {
     role: null,
     lookingCount: 0,
     ticketStatus: f.ticketStatus,
-    friendsGoing: [],
+    friendsGoing: (goingBySlug.value[f.slug] ?? []).map(d => ({ name: d.name, photo: d.photo ?? '' })),
     referralDiscountPercent: f.referralDiscountPercent,
   }))
 })
