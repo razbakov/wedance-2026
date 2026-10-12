@@ -11,7 +11,7 @@ const tone = (s: string) => (s === 'accepted' ? 'good' : s === 'superseded' ? 'n
 </script>
 
 <template>
-  <DesignPage v-if="adr" :eyebrow="adr.id" site="WeDance Architecture" :title="adr.title">
+  <DesignPage v-if="adr" :eyebrow="adr.id" site="WeDance Architecture" :title="adr.title" :description="adr.summary ?? `${adr.id} (${adr.status}): ${adr.title}.`">
     <div class="flex flex-wrap items-center gap-3 -mt-6">
       <ArchPill :tone="tone(adr.status)">{{ adr.status }}</ArchPill>
       <span v-if="adr.date" class="text-sm text-muted-foreground">{{ adr.date }}</span>
