@@ -101,15 +101,15 @@ bun run build         # production build — also regenerates the architecture d
       <p class="text-sm text-muted-foreground mt-3">
         Tests that need a database skip themselves when none is configured. The Playwright suites
         (<code class="font-mono text-[13px]">bun run test:e2e</code>, <code class="font-mono text-[13px]">bun run test:design</code>)
-        expect a running app; see <a :href="`${REPO_URL}/blob/main/docs/design-system.md`" class="font-bold text-primary hover:underline">docs/design-system.md</a>.
+        expect a running app; see <a :href="`${REPO_URL}/blob/main/docs/design-system.md`" class="font-bold text-wd-red-800 hover:underline">docs/design-system.md</a>.
       </p>
     </DesignSection>
 
     <DesignSection id="next" title="Next">
       <p class="text-muted-foreground">
-        Read <a :href="CONTRIBUTING_URL" class="font-bold text-primary hover:underline">CONTRIBUTING.md</a> before you open a pull request,
-        then explore the <NuxtLink to="/docs/design" class="font-bold text-primary hover:underline">design system</NuxtLink>
-        and the <NuxtLink to="/docs/architecture" class="font-bold text-primary hover:underline">architecture</NuxtLink>.
+        Read <a :href="CONTRIBUTING_URL" class="font-bold text-wd-red-800 hover:underline">CONTRIBUTING.md</a> before you open a pull request,
+        then explore the <NuxtLink to="/docs/design" class="font-bold text-wd-red-800 hover:underline">design system</NuxtLink>
+        and the <NuxtLink to="/docs/architecture" class="font-bold text-wd-red-800 hover:underline">architecture</NuxtLink>.
       </p>
     </DesignSection>
   </DesignPage>

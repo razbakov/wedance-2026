@@ -75,7 +75,7 @@ const accent = [WD.red600, WD.cyan600][i]   // accent + '55' still works
           <DesignStatus status="planned" class="mt-1" />
         </div>
       </div>
-      <p class="text-sm text-muted-foreground mt-3">Components only. <NuxtLink to="/docs/design/components" class="font-bold text-primary hover:underline">See all components →</NuxtLink></p>
+      <p class="text-sm text-muted-foreground mt-3">Components only. <NuxtLink to="/docs/design/components" class="font-bold text-wd-red-800 hover:underline">See all components →</NuxtLink></p>
     </DesignSection>
 
     <DesignSection id="explore" title="Explore">
@@ -109,7 +109,7 @@ const accent = [WD.red600, WD.cyan600][i]   // accent + '55' still works
       </div>
       <p class="text-sm text-muted-foreground mt-8">
         Looking for how the app itself is built — data model, API, story map?
-        <NuxtLink to="/docs/architecture" class="font-bold text-primary hover:underline">See the architecture docs →</NuxtLink>
+        <NuxtLink to="/docs/architecture" class="font-bold text-wd-red-800 hover:underline">See the architecture docs →</NuxtLink>
       </p>
     </DesignSection>
   </DesignPage>

@@ -11,7 +11,7 @@
     "link-in-text-block": "*"
   },
   "axe desktop /docs/design": {
-    "color-contrast": 11
+    "color-contrast": 10
   },
   "axe desktop /docs/design/brand": {
     "color-contrast": 1
@@ -111,7 +111,7 @@
     "link-in-text-block": "*"
   },
   "axe mobile /docs/design": {
-    "color-contrast": 11
+    "color-contrast": 10
   },
   "axe mobile /docs/design/components": {
     "color-contrast": 2

@@ -117,7 +117,7 @@ const steps = [
       <DesignSection id="quick-start" title="Quick start" lead="Bun, Node.js and Docker are all you need. The full guide sets up a local database so you never touch production.">
         <DesignCode :code="quickStart" lang="bash" />
         <p class="text-sm mt-4">
-          <NuxtLink to="/docs/getting-started" class="font-bold text-primary hover:underline">Read the full quick start →</NuxtLink>
+          <NuxtLink to="/docs/getting-started" class="font-bold text-wd-red-800 hover:underline">Read the full quick start →</NuxtLink>
         </p>
       </DesignSection>
 
@@ -131,8 +131,8 @@ const steps = [
         </ol>
         <p class="text-sm text-muted-foreground mt-4">
           The details — branch names, commit style, which tests to run — are in
-          <a :href="CONTRIBUTING_URL" class="font-bold text-primary hover:underline">CONTRIBUTING.md</a>.
-          Everyone taking part follows the <a :href="`${REPO_URL}/blob/main/CODE_OF_CONDUCT.md`" class="font-bold text-primary hover:underline">Code of Conduct</a>.
+          <a :href="CONTRIBUTING_URL" class="font-bold text-wd-red-800 hover:underline">CONTRIBUTING.md</a>.
+          Everyone taking part follows the <a :href="`${REPO_URL}/blob/main/CODE_OF_CONDUCT.md`" class="font-bold text-wd-red-800 hover:underline">Code of Conduct</a>.
         </p>
       </DesignSection>
 
