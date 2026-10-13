@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { eq, and, or, gte, lt, inArray, desc, asc, sql } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
-import { router, protectedProcedure } from '../trpc'
+import { router, protectedProcedure, publicProcedure } from '../trpc'
 import { events, profiles, profileMembers, profileClaims, cities } from '../../database/schema'
 import { slugify, randomSuffix } from '../../utils/slug'
 import { resolveTimezone } from '../../utils/v3EventSync'
@@ -179,6 +179,20 @@ export const businessEventsRouter = router({
       return {
         upcoming: shaped.filter((e: any) => new Date(e.endDate ?? e.startDate).getTime() >= now),
         past: shaped.filter((e: any) => new Date(e.endDate ?? e.startDate).getTime() < now).reverse().slice(0, 30),
+      }
+    }),
+
+  // For the public event page: may the viewer edit this event? Same rule as
+  // requireEventManager (hosted events only; host's managers or an admin).
+  canEdit: publicProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      if (!ctx.dancerId) return { canEdit: false }
+      try {
+        await requireEventManager({ ...ctx, dancerId: ctx.dancerId }, input.id)
+        return { canEdit: true }
+      } catch {
+        return { canEdit: false }
       }
     }),
 

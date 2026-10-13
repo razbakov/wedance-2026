@@ -5,7 +5,7 @@
  * festival section language; sections appear only when the event has that
  * content, so an event can grow into a full festival-grade page over time.
  */
-import { Check, Plus, ArrowLeft, MapPin, Globe, User, Euro, Users } from 'lucide-vue-next'
+import { Check, Plus, ArrowLeft, MapPin, Globe, User, Euro, Users, Pencil } from 'lucide-vue-next'
 import { findMockEvent } from '~/lib/mockEvents'
 import { formatEventWhen, eventLocalDate } from '#shared/utils/eventTime'
 import { Button } from '~/components/ui/button'
@@ -62,6 +62,15 @@ async function load() {
   } finally { pending.value = false }
 }
 onMounted(load)
+
+// Managers of the hosting profile (and admins) get an Edit button. Bookings and
+// synced events have no host on WeDance, so nobody edits them here.
+const canEdit = ref(false)
+watch(() => ev.value?.id, async (eid) => {
+  canEdit.value = false
+  if (!eid || !isUuid(eid)) return
+  try { canEdit.value = (await $trpc.businessEvents.canEdit.query({ id: eid })).canEdit } catch { /* stays hidden */ }
+})
 
 function fromSyncedEvent(e: any) {
   return {
@@ -176,6 +185,15 @@ useHead(() => ({
           <span class="ml-auto font-bold whitespace-nowrap shrink-0 text-primary">View festival →</span>
         </div>
       </NuxtLink>
+
+      <div v-if="canEdit" class="border-b bg-secondary/[8%] border-border">
+        <div class="max-w-3xl mx-auto px-4 py-2 flex items-center gap-3 text-sm font-sans">
+          <span class="text-muted-foreground">You manage this event.</span>
+          <Button variant="outline-pill" size="pill-sm" class="ml-auto" as-child>
+            <NuxtLink :to="`/business/events/${ev.id}`"><Pencil /> Edit event</NuxtLink>
+          </Button>
+        </div>
+      </div>
 
       <!-- Same hero as festivals -->
       <FestivalHero :festival="asFestival" review-target-type="event" entity-label="event" cta-anchor="#going" cta-fallback-label="I'm going" :picked="picked" :date-label="ev.when" @pick="onPick" />
