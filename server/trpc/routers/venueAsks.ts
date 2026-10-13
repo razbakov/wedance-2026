@@ -37,7 +37,7 @@ export const venueAsksRouter = router({
     .input(z.object({ eventId: z.string().uuid(), venue: z.string().min(1).max(200), request: requestInput }))
     .mutation(async ({ ctx, input }) => {
       await requireEventManager(ctx, input.eventId)
-      const [v] = await ctx.db.select({ id: profiles.id, type: profiles.type, name: profiles.name, username: profiles.username, city: profiles.city, socials: profiles.socials }).from(profiles).where(eq(profiles.username, input.venue))
+      const [v] = await ctx.db.select({ id: profiles.id, type: profiles.type, name: profiles.name, username: profiles.username, city: profiles.city, socials: profiles.socials, contact: profiles.contact, mapUrl: profiles.mapUrl }).from(profiles).where(eq(profiles.username, input.venue))
       if (!v || v.type !== 'venue') throw new TRPCError({ code: 'NOT_FOUND', message: 'That venue isn’t on WeDance.' })
       const request: VenueRequest = { guests: input.request.guests ?? null, needs: input.request.needs, note: input.request.note }
       const [existing] = await ctx.db.select({ id: profileInvites.id, token: profileInvites.token, status: profileInvites.status, notifiedAt: profileInvites.notifiedAt }).from(profileInvites)

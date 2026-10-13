@@ -440,6 +440,7 @@ export const businessEventsRouter = router({
           from ev group by venue_username
         )
         select p.username, p.name, p.photo, p.address, p.floor_type as "floorType", p.claimed, p.booking_model as "bookingModel",
+          p.capacity, p.venue_type as "venueType", p.amenities,
           coalesce(st.nights, 0)::int as nights, coalesce(st.classes, 0)::int as classes,
           coalesce(st.style_nights, 0)::int as "styleNights", coalesce(st.weekday_nights, 0)::int as "weekdayNights",
           coalesce(st.night_styles, '[]'::jsonb) as "nightStyles", coalesce(st.busy, '[]'::jsonb) as busy,

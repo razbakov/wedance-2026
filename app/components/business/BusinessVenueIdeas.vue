@@ -9,6 +9,7 @@
  */
 import type { PropType } from 'vue'
 import { Building2, Check, Send } from 'lucide-vue-next'
+import { venueTypeLabel } from '#shared/types/venueDetails'
 
 const model = defineModel<string | null>({ default: null })
 const props = defineProps({
@@ -93,6 +94,8 @@ function pick(v: any) {
               <li v-if="v.classesThen && !v.busy.length" class="text-muted-foreground">{{ v.classesThen }} class{{ v.classesThen === 1 ? '' : 'es' }} that day</li>
               <li v-if="v.managed">Runs its page on WeDance</li>
               <li v-if="v.spaces.length">{{ v.spaces.length }} space{{ v.spaces.length === 1 ? '' : 's' }} to book{{ v.spaces.some((s: any) => s.capacity) ? ` · up to ${Math.max(...v.spaces.map((s: any) => s.capacity || 0))} people` : '' }}</li>
+              <li v-if="v.venueType && v.venueType !== 'Other'" class="text-muted-foreground">{{ venueTypeLabel(v.venueType) }}</li>
+              <li v-if="v.capacity" class="text-muted-foreground">Holds {{ v.capacity }}</li>
               <li v-if="v.floorType" class="text-muted-foreground">{{ v.floorType }} floor</li>
               <li v-if="asked[v.username]" class="font-bold">{{ ASKED[asked[v.username]!] }}</li>
             </ul>

@@ -319,8 +319,17 @@ export const profiles = pgTable('profiles', {
   // 'OpenAir' | 'Indoor' | … — an OpenAir community spot (e.g. Pinakothek) is a
   // free commons, not a commercial rental.
   venueType: text('venue_type'),
-  // Drawn map of the areas (image URL).
+  // Drawn map of the areas (image URL) — or, for most imported venues, their
+  // Google Maps link (maps.google.com/?cid=…).
   mapUrl: text('map_url'),
+  // Venue details (migration 0036, shared/types/venueDetails.ts): v3's
+  // amenities, how many people it holds, opening hours, the floor plan image,
+  // and booking contacts only signed-in organizers see (never public).
+  amenities: jsonb('amenities').$type<string[]>().notNull().default([]),
+  capacity: integer('capacity'),
+  openingHours: jsonb('opening_hours').$type<import('../../shared/types/venueDetails').OpeningHours>().notNull().default([]),
+  floorPlan: text('floor_plan'),
+  contact: jsonb('contact').$type<import('../../shared/types/venueDetails').VenueContact>().notNull().default({}),
   // Community guidelines the space runs by (the "politics" a moderator proposes).
   guidelines: text('guidelines'),
   // 'free' (community commons, moderator-managed) | 'commercial' (venue rental).

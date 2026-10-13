@@ -280,7 +280,7 @@ export const artistInvitesRouter = router({
     .input(z.object({ eventId: z.string().uuid(), handle: z.string().min(1).max(200) }))
     .mutation(async ({ ctx, input }) => {
       await requireEventManager(ctx, input.eventId)
-      const [p] = await ctx.db.select({ id: profiles.id, name: profiles.name, username: profiles.username, city: profiles.city, socials: profiles.socials }).from(profiles).where(eq(profiles.username, input.handle))
+      const [p] = await ctx.db.select({ id: profiles.id, name: profiles.name, username: profiles.username, city: profiles.city, socials: profiles.socials, contact: profiles.contact, mapUrl: profiles.mapUrl }).from(profiles).where(eq(profiles.username, input.handle))
       if (!p) throw new TRPCError({ code: 'NOT_FOUND', message: 'That artist isn’t on WeDance.' })
       const [existing] = await ctx.db.select({ token: profileInvites.token, status: profileInvites.status, notifiedAt: profileInvites.notifiedAt }).from(profileInvites)
         .where(and(eq(profileInvites.eventId, input.eventId), eq(profileInvites.profileId, p.id)))
