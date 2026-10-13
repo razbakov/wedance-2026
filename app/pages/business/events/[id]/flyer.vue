@@ -16,7 +16,9 @@ definePageMeta({ layout: 'business' })
 const route = useRoute()
 const { $trpc } = useNuxtApp()
 const id = computed(() => String(route.params.id))
-const editor = computed(() => `/business/events/${id.value}`)
+// A content-plan post (?post=…), else the event's flyer.
+const postId = computed(() => (route.query.post as string) || null)
+const editor = computed(() => postId.value ? `/business/events/${id.value}?tab=plan` : `/business/events/${id.value}`)
 
 type Ev = Awaited<ReturnType<typeof $trpc.businessEvents.get.query>>
 type State = Awaited<ReturnType<typeof $trpc.businessFlyers.state.query>>
@@ -46,6 +48,13 @@ const stageIndex = computed(() => stages.value.findIndex(s => s.on))
 const batchId = ref<string | null>(null)
 const rows = ref<Row[]>([])
 const refreshing = computed(() => route.query.refresh === '1')
+const POST_TITLE: Record<string, string> = { announcement: 'Flyer', artist: 'Artist post', lineup: 'Line-up post', programme: 'Programme post', passes: 'Passes post', countdown: 'Countdown', 'last-call': 'Last tickets', thanks: 'Thank you' }
+const postTitle = computed(() => {
+  const p = st.value?.post
+  if (!p || p.kind === 'announcement') return 'Flyer'
+  const who = p.subject ? st.value?.people.find((x: any) => x.username === p.subject)?.name : null
+  return who ? `${POST_TITLE[p.kind]} · ${who}` : POST_TITLE[p.kind] ?? 'Post'
+})
 let timer: ReturnType<typeof setInterval> | undefined
 // Waiting for one painting (`id`) to have its picture, then `then` runs; the
 // read-back check keeps updating in the background. id null: no wait.
@@ -131,7 +140,7 @@ async function makeFromLook() {
   lookError.value = null
   try {
     const { id: fid, batchId: b } = await $trpc.businessFlyers.make.mutate({
-      eventId: id.value, look: { name: look.name, description: look.description, palette: look.palette }, references: uploads.value.map(u => u.url),
+      eventId: id.value, postId: postId.value, look: { name: look.name, description: look.description, palette: look.palette }, references: uploads.value.map(u => u.url),
     })
     painting()
     watchBatch(b, fid, () => showVersion(fid))
@@ -147,7 +156,7 @@ async function makeInSavedLook(lookId: string) {
   path.value = 'saved'
   savedLookId.value = lookId
   try {
-    const { id: fid, batchId: b } = await $trpc.businessFlyers.make.mutate({ eventId: id.value, lookId })
+    const { id: fid, batchId: b } = await $trpc.businessFlyers.make.mutate({ eventId: id.value, postId: postId.value, lookId })
     painting()
     watchBatch(b, fid, () => showVersion(fid))
   } catch (e: any) {
@@ -172,7 +181,7 @@ async function showDirections() {
   if (!feeling.value.length) { briefError.value = 'Pick at least one feeling.'; return }
   briefError.value = null
   try {
-    const { batchId: b } = await $trpc.businessFlyers.directions.mutate({ eventId: id.value, feelings: feeling.value, inspiration: liked.value })
+    const { batchId: b } = await $trpc.businessFlyers.directions.mutate({ eventId: id.value, postId: postId.value, feelings: feeling.value, inspiration: liked.value })
     picked.value = []
     // Straight to the grid: each direction appears as soon as it's painted.
     watchBatch(b, null)
@@ -307,7 +316,7 @@ onMounted(async () => {
   try {
     ;[ev.value, st.value] = await Promise.all([
       $trpc.businessEvents.get.query({ id: id.value }),
-      $trpc.businessFlyers.state.query({ eventId: id.value }),
+      $trpc.businessFlyers.state.query({ eventId: id.value, postId: postId.value }),
     ])
   } catch (e: any) {
     loadError.value = e?.message || 'Could not load this event.'
@@ -347,7 +356,7 @@ const faces = computed(() => st.value?.pictured.length ?? 0)
     <AdminState v-else-if="!ev || !st" kind="loading" />
 
     <template v-else>
-      <AdminPageHeader :eyebrow="ev.host?.name || 'Event'" :title="`Flyer · ${ev.name}`" :back="{ to: editor, label: 'Back to the event' }" />
+      <AdminPageHeader :eyebrow="ev.host?.name || 'Event'" :title="`${postTitle} · ${ev.name}`" :back="{ to: editor, label: postId ? 'Back to the content plan' : 'Back to the event' }" />
       <p class="mt-1 text-sm text-muted-foreground"><CalendarDays class="inline size-4" aria-hidden="true" /> {{ ev.date.split('-').reverse().join('.') }} · {{ ev.startTime }}{{ ev.endTime ? `–${ev.endTime}` : '' }}</p>
 
       <details class="mt-3 max-w-xl rounded-xl border bg-card px-3 py-2 text-xs">

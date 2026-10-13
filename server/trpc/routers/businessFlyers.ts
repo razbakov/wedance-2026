@@ -2,9 +2,10 @@ import { z } from 'zod'
 import { eq, and, desc, isNotNull, inArray, lt } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { router, protectedProcedure } from '../trpc'
-import { events, eventFlyers, brandLooks, profiles } from '../../database/schema'
+import { events, eventFlyers, eventPosts, brandLooks, profiles } from '../../database/schema'
 import { requireEventManager } from './businessEvents'
-import { flyerSource, flyerStatusFor, runFlyer, texts } from '../../utils/flyer/paint'
+import { announcementPost, flyerSource, runFlyer, texts } from '../../utils/flyer/paint'
+import { flyerChanges } from '../../../shared/utils/flyer'
 import { askAboutImages, fetchImage, writeJson, type InlineImage } from '../../utils/flyer/gemini'
 import { DIRECTIONS, LOOK_PROMPT } from '../../../shared/utils/flyer'
 import { LANGUAGES, captionPrompt, composeCaption, instagramOf, type CaptionContext, type CaptionWords } from '../../../shared/utils/caption'
@@ -54,6 +55,15 @@ const look = z.object({
   palette: z.array(z.object({ name: z.string().max(40), hex: z.string().regex(/^#[0-9a-fA-F]{6}$/) })).max(8).optional(),
   inspiration: z.string().url().nullable().optional(),
 })
+
+/** The post a flyer action is for: the one asked for, else the event's announcement. */
+async function postFor(ctx: any, ev: any, postId?: string | null) {
+  const id = postId ?? await announcementPost(ctx.db, ev.id)
+  const [p] = await ctx.db.select().from(eventPosts).where(and(eq(eventPosts.id, id), eq(eventPosts.eventId, ev.id)))
+  if (!p) throw new TRPCError({ code: 'NOT_FOUND', message: 'That post isn’t in this event’s plan.' })
+  return p as { id: string; kind: any; subject: string | null; format: string; dueOn: string | null }
+}
+const postId = z.string().uuid().nullable().optional()
 
 function start(ctx: any, id: string) {
   const job = runFlyer(ctx.db, id)
@@ -118,16 +128,24 @@ export const businessFlyersRouter = router({
 
   // Everything the editor's flyer panel and the flyer page need.
   state: protectedProcedure
-    .input(z.object({ eventId: z.string().uuid() }))
+    .input(z.object({ eventId: z.string().uuid(), postId }))
     .query(async ({ ctx, input }) => {
       const ev = await requireEventManager(ctx, input.eventId)
-      const st = (await flyerStatusFor(ctx.db, [ev])).get(ev.id)!
+      const post = await postFor(ctx, ev, input.postId)
+      // The post's kept version and what changed since it was made.
+      const source = await flyerSource(ctx.db, ev, post)
+      const [keptRow] = await ctx.db.select().from(eventFlyers).where(and(eq(eventFlyers.postId, post.id), isNotNull(eventFlyers.keptAt))).limit(1)
+      const st = {
+        source, kept: keptRow ?? null,
+        changes: keptRow ? flyerChanges({ lines: texts(keptRow.lines), pictured: keptRow.pictured }, { lines: texts(source.lines), pictured: source.pictured }) : [],
+      }
       const looks = await ctx.db.select({ id: brandLooks.id, name: brandLooks.name, description: brandLooks.description, palette: brandLooks.palette })
         .from(brandLooks).where(eq(brandLooks.profileId, ev.hostProfileId)).orderBy(desc(brandLooks.updatedAt))
       // A sitting still painting (or just finished) — so a reload picks it up.
       const [latest] = await ctx.db.select({ batchId: eventFlyers.batchId, status: eventFlyers.status, createdAt: eventFlyers.createdAt })
-        .from(eventFlyers).where(eq(eventFlyers.eventId, ev.id)).orderBy(desc(eventFlyers.createdAt)).limit(1)
+        .from(eventFlyers).where(eq(eventFlyers.postId, post.id)).orderBy(desc(eventFlyers.createdAt)).limit(1)
       return {
+        post: { id: post.id, kind: post.kind, subject: post.subject, format: post.format },
         lines: texts(st.source.lines),
         pictured: st.source.pictured,
         people: st.source.people,
@@ -159,9 +177,10 @@ export const businessFlyersRouter = router({
 
   // A new flyer in a look (a saved one, or the one just read). Starts a sitting.
   make: protectedProcedure
-    .input(z.object({ eventId: z.string().uuid(), lookId: z.string().uuid().nullable().optional(), look: look.optional(), references: z.array(z.string().url()).max(5).optional() }))
+    .input(z.object({ eventId: z.string().uuid(), postId, lookId: z.string().uuid().nullable().optional(), look: look.optional(), references: z.array(z.string().url()).max(5).optional() }))
     .mutation(async ({ ctx, input }) => {
       const ev = await requireEventManager(ctx, input.eventId)
+      const post = await postFor(ctx, ev, input.postId)
       let spec = input.look ?? null
       if (input.lookId) {
         const [l] = await ctx.db.select().from(brandLooks).where(and(eq(brandLooks.id, input.lookId), eq(brandLooks.profileId, ev.hostProfileId)))
@@ -169,10 +188,10 @@ export const businessFlyersRouter = router({
         spec = { name: l.name, description: l.description, palette: l.palette }
       }
       if (!spec) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Pick a look first.' })
-      const src = await flyerSource(ctx.db, ev)
+      const src = await flyerSource(ctx.db, ev, post)
       const batchId = crypto.randomUUID()
       const [f] = await ctx.db.insert(eventFlyers).values({
-        eventId: ev.id, batchId, lookId: input.lookId ?? null,
+        eventId: ev.id, postId: post.id, batchId, lookId: input.lookId ?? null,
         look: { ...spec, references: input.references ?? [] } as any,
         mode: 'paint', lines: src.lines, pictured: src.pictured, createdBy: ctx.dancerId,
       }).returning({ id: eventFlyers.id })
@@ -182,14 +201,15 @@ export const businessFlyersRouter = router({
 
   // Starting fresh: four different directions painted for this event.
   directions: protectedProcedure
-    .input(z.object({ eventId: z.string().uuid(), feelings: z.array(z.string().max(30)).min(1).max(3), inspiration: z.string().url().nullable().optional() }))
+    .input(z.object({ eventId: z.string().uuid(), postId, feelings: z.array(z.string().max(30)).min(1).max(3), inspiration: z.string().url().nullable().optional() }))
     .mutation(async ({ ctx, input }) => {
       const ev = await requireEventManager(ctx, input.eventId)
-      const src = await flyerSource(ctx.db, ev)
+      const post = await postFor(ctx, ev, input.postId)
+      const src = await flyerSource(ctx.db, ev, post)
       const batchId = crypto.randomUUID()
       const mood = `The mood: ${input.feelings.join(', ').toLowerCase()}.`
       const rows = await ctx.db.insert(eventFlyers).values(DIRECTIONS.map(d => ({
-        eventId: ev.id, batchId, mode: 'direction', lines: src.lines, pictured: src.pictured, createdBy: ctx.dancerId,
+        eventId: ev.id, postId: post.id, batchId, mode: 'direction', lines: src.lines, pictured: src.pictured, createdBy: ctx.dancerId,
         look: { name: d.name, description: `${d.description} ${mood}`, inspiration: input.inspiration ?? null } as any,
       }))).returning({ id: eventFlyers.id })
       for (const r of rows) start(ctx, r.id)
@@ -213,9 +233,10 @@ export const businessFlyersRouter = router({
     .input(z.object({ flyerId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const { f, ev } = await flyerForManager(ctx, input.flyerId)
-      const src = await flyerSource(ctx.db, ev)
+      const post = await postFor(ctx, ev, f.postId)
+      const src = await flyerSource(ctx.db, ev, post)
       const [n] = await ctx.db.insert(eventFlyers).values({
-        eventId: f.eventId, batchId: f.batchId, lookId: f.lookId, look: f.look,
+        eventId: f.eventId, postId: post.id, batchId: f.batchId, lookId: f.lookId, look: f.look,
         // A repainted direction stays a direction; a failed fix or refresh paints fresh.
         mode: f.mode === 'direction' ? 'direction' : 'paint',
         lines: src.lines, pictured: src.pictured, createdBy: ctx.dancerId,
@@ -231,7 +252,7 @@ export const businessFlyersRouter = router({
       const { f } = await flyerForManager(ctx, input.flyerId)
       if (!f.url || !['ready', 'checking'].includes(f.status)) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Wait until this flyer is painted.' })
       const [n] = await ctx.db.insert(eventFlyers).values({
-        eventId: f.eventId, batchId: f.batchId, lookId: f.lookId, look: f.look, mode: 'fix', baseFlyerId: f.id,
+        eventId: f.eventId, postId: f.postId, batchId: f.batchId, lookId: f.lookId, look: f.look, mode: 'fix', baseFlyerId: f.id,
         lines: f.lines, pictured: f.pictured, notes: input.notes, createdBy: ctx.dancerId,
       }).returning({ id: eventFlyers.id })
       start(ctx, n!.id)
@@ -242,10 +263,13 @@ export const businessFlyersRouter = router({
   // painting in the same look when the faces changed. No kept flyer but a saved
   // look (next week's date): a new painting in that look.
   refresh: protectedProcedure
-    .input(z.object({ eventId: z.string().uuid() }))
+    .input(z.object({ eventId: z.string().uuid(), postId }))
     .mutation(async ({ ctx, input }) => {
       const ev = await requireEventManager(ctx, input.eventId)
-      const st = (await flyerStatusFor(ctx.db, [ev])).get(ev.id)!
+      const post = await postFor(ctx, ev, input.postId)
+      const source = await flyerSource(ctx.db, ev, post)
+      const [keptRow] = await ctx.db.select().from(eventFlyers).where(and(eq(eventFlyers.postId, post.id), isNotNull(eventFlyers.keptAt))).limit(1)
+      const st = { source, kept: keptRow ?? null }
       const batchId = crypto.randomUUID()
       let values: Record<string, unknown>
       if (st.kept) {
@@ -257,7 +281,7 @@ export const businessFlyersRouter = router({
         values = { lookId: l.id, look: { name: l.name, description: l.description, palette: l.palette }, mode: 'paint' }
       }
       const [n] = await ctx.db.insert(eventFlyers).values({
-        eventId: ev.id, batchId, lines: st.source.lines, pictured: st.source.pictured, createdBy: ctx.dancerId, ...values,
+        eventId: ev.id, postId: post.id, batchId, lines: st.source.lines, pictured: st.source.pictured, createdBy: ctx.dancerId, ...values,
       } as any).returning({ id: eventFlyers.id })
       start(ctx, n!.id)
       return { id: n!.id, batchId }
@@ -296,10 +320,12 @@ export const businessFlyersRouter = router({
         }).returning({ id: brandLooks.id })
         lookId = l!.id
       }
-      await ctx.db.update(eventFlyers).set({ keptAt: null }).where(and(eq(eventFlyers.eventId, ev.id), isNotNull(eventFlyers.keptAt)))
+      // One kept per post.
+      const post = await postFor(ctx, ev, f.postId)
+      await ctx.db.update(eventFlyers).set({ keptAt: null }).where(and(eq(eventFlyers.postId, post.id), isNotNull(eventFlyers.keptAt)))
       await ctx.db.update(eventFlyers).set({ keptAt: new Date(), lookId, look: { ...(f.look as any), name: input.lookName ?? (f.look as any).name }, updatedAt: new Date() }).where(eq(eventFlyers.id, f.id))
-      // No cover yet → the flyer is the cover.
-      if (!ev.cover) await ctx.db.update(events).set({ cover: f.url, updatedAt: new Date() }).where(eq(events.id, ev.id))
+      // No cover yet → the event's flyer is the cover.
+      if (!ev.cover && post.kind === 'announcement') await ctx.db.update(events).set({ cover: f.url, updatedAt: new Date() }).where(eq(events.id, ev.id))
       return { kept: true, lookId }
     }),
 })

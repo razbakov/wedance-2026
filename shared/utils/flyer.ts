@@ -26,7 +26,7 @@ export type FlyerSource = {
   price?: string | null
 }
 
-export type FlyerLine = { label: 'title' | 'date' | 'time' | 'agenda' | 'line-up' | 'music' | 'entry' | 'venue'; text: string }
+export type FlyerLine = { label: 'kicker' | 'title' | 'subtitle' | 'date' | 'time' | 'agenda' | 'detail' | 'line-up' | 'music' | 'entry' | 'venue'; text: string }
 
 const clean = (s: string) => s.trim().replace(/\s+/g, ' ')
 const up = (s: string) => clean(s).toUpperCase()
@@ -69,6 +69,56 @@ export function flyerLines(e: FlyerSource): FlyerLine[] {
   return out
 }
 
+/** A content-plan post's words (shared/utils/posts.ts): its own lines, from the event's. */
+export type PostSource = FlyerSource & {
+  kind: import('./posts').PostKind
+  /** Artist post: who it's about, and what they do at the event. */
+  artist?: { name: string; styles?: string[]; sessions?: string[] } | null
+  /** Festival passes, "FULL PASS · 210 €". */
+  passes?: string[]
+  /** Programme highlights, "SAT 11:00 · TIMBA · BARBARA JIMENEZ". */
+  programme?: string[]
+}
+
+/** The lines of a post. The announcement is the event's flyer; the others reuse its date and venue lines. */
+export function postLines(p: PostSource): FlyerLine[] {
+  const base = flyerLines(p)
+  if (p.kind === 'announcement') return base
+  const pick = (...labels: FlyerLine['label'][]) => base.filter(l => labels.includes(l.label))
+  const title = up(p.name)
+  const when = pick('date', 'time')
+  const where = pick('venue')
+  const kicker = (t: string): FlyerLine => ({ label: 'kicker', text: t })
+  switch (p.kind) {
+    case 'artist': {
+      const a = p.artist
+      if (!a) return base
+      return [
+        kicker('IN THE LINE-UP'),
+        { label: 'title', text: up(a.name) },
+        { label: 'subtitle', text: title },
+        ...pick('date'),
+        ...(a.sessions ?? []).slice(0, 3).map(t => ({ label: 'detail' as const, text: up(t) })),
+        ...(a.styles?.length ? [{ label: 'music' as const, text: up(a.styles.slice(0, 3).join(' × ')) }] : []),
+        ...where,
+      ]
+    }
+    case 'lineup': return [kicker('LINE-UP'), { label: 'title', text: title }, ...pick('date'), ...pick('line-up'), ...where]
+    case 'programme': {
+      const items = (p.programme?.length ? p.programme : (p.agenda ?? []).map(a => `${a.time} ${a.what}`)).slice(0, 6)
+      return [kicker('PROGRAMME'), { label: 'title', text: title }, ...pick('date'), ...items.map(t => ({ label: 'detail' as const, text: up(t) })), ...where]
+    }
+    case 'passes': {
+      const items = (p.passes?.length ? p.passes : priceLines(p.price)).slice(0, 5)
+      return [kicker('PASSES'), { label: 'title', text: title }, ...pick('date'), ...items.map(t => ({ label: 'detail' as const, text: up(t) })), ...where]
+    }
+    case 'countdown': return [kicker('ONE WEEK TO GO'), { label: 'title', text: title }, ...when, ...where]
+    case 'last-call': return [kicker('LAST TICKETS'), { label: 'title', text: title }, ...when, ...pick('entry'), ...where]
+    case 'thanks': return [kicker('THANK YOU'), { label: 'title', text: title }, { label: 'subtitle', text: 'SEE YOU NEXT TIME' }]
+  }
+  return base
+}
+
 /** What a kept flyer differs from the event now: old → new pairs, then photo changes. */
 export function flyerChanges(was: { lines: string[]; pictured: string[] }, now: { lines: string[]; pictured: string[] }) {
   const added = now.lines.filter(t => !was.lines.includes(t))
@@ -87,9 +137,13 @@ function textBlock(lines: FlyerLine[]) {
   const [title] = by('title'); const [date] = by('date'); const [time] = by('time') as (string | undefined)[]
   const agenda = by('agenda'); const [names] = by('line-up'); const [music] = by('music')
   const [entry] = by('entry'); const [venue] = by('venue')
+  const [kicker] = by('kicker'); const [subtitle] = by('subtitle'); const details = by('detail')
   return [
-    `"${date}" at the top.`,
+    kicker ? `Small label "${kicker}" at the very top.` : null,
+    date ? `"${date}" ${kicker ? 'under it' : 'at the top'}.` : null,
     `Huge title "${title}".`,
+    subtitle ? `Under the title, smaller: "${subtitle}".` : null,
+    details.length ? `A short list, one line each: ${details.map(d => `"${d}"`).join(', ')}.` : null,
     // Worded so Gemini doesn't paint a literal "LINE-UP" label.
     names ? `Under the title, the artists' names "${names}".` : null,
     music ? `Genre line "${music}".` : null,
@@ -104,13 +158,15 @@ function textBlock(lines: FlyerLine[]) {
 const CLEAR_TEXT = 'Keep every letter fully visible: no person, hand, hat or object may cover or cut off any part of the text.'
 
 /** A full painting: the look, the people (as photos), every line spelled out. */
-export function paintPrompt(lines: FlyerLine[], look: FlyerLook, opts: { people: number; notes?: string | null; inspiration?: boolean } = { people: 0 }) {
+export function paintPrompt(lines: FlyerLine[], look: FlyerLook, opts: { people: number; notes?: string | null; inspiration?: boolean; format?: 'post' | 'story' } = { people: 0 }) {
   const who = opts.people === 1
     ? ' featuring the person from the first photo as the artist, big in the centre, keeping their real face'
     : opts.people > 1 ? ` featuring the ${opts.people} people from the first ${opts.people} photos as the artists, big, keeping their real faces` : ''
   const palette = look.palette?.length ? `Colours: ${look.palette.map(p => `${p.name} ${p.hex}`).join(', ')}.` : null
   return [
-    `Tall vertical 9:16 Instagram story poster for a dance event${who}.`,
+    opts.format === 'post'
+      ? `Portrait 4:5 Instagram feed poster for a dance event${who}.`
+      : `Tall vertical 9:16 Instagram story poster for a dance event${who}.`,
     clean(look.description),
     palette,
     opts.inspiration ? 'The last image is a flyer the organizer likes: borrow its mood only. Do not copy its text, people or layout.' : null,

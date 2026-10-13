@@ -1,5 +1,5 @@
 ---
-status: proposal — not built
+status: built — confirmation steps 1–4, content plan (event_posts, migration 0037, the "Content plan" tab)
 created: 2026-10-14 09:00
 builds on: docs/proposals/2026-10-12-flyer-journeys.md (journey 3, the launch campaign; journey 4, the people around the flyer)
 ---

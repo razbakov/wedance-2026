@@ -875,9 +875,29 @@ export const brandLooks = pgTable('brand_looks', {
   index('brand_looks_profile_idx').on(t.profileId),
 ])
 
+// Content plan (migration 0037): an event's posts, each with its own flyer
+// versions (event_flyers.post_id) and one kept. Kinds: shared/utils/posts.ts.
+export const eventPosts = pgTable('event_posts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  eventId: uuid('event_id').notNull().references(() => events.id, { onDelete: 'cascade' }),
+  kind: text('kind').notNull().$type<import('../../shared/utils/posts').PostKind>(),
+  // The artist an artist post is about (their handle).
+  subject: text('subject'),
+  dueOn: date('due_on'),
+  // 'post' 4:5 · 'story' 9:16
+  format: text('format').notNull().default('post').$type<'post' | 'story'>(),
+  status: text('status').notNull().default('planned').$type<'planned' | 'posted' | 'dropped'>(),
+  sort: integer('sort').notNull().default(0),
+  createdBy: uuid('created_by').references(() => dancers.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+}, (t) => [index('event_posts_event_idx').on(t.eventId)])
+
 export const eventFlyers = pgTable('event_flyers', {
   id: uuid('id').primaryKey().defaultRandom(),
   eventId: uuid('event_id').notNull().references(() => events.id, { onDelete: 'cascade' }),
+  // The post this version is for (0037); one kept per post.
+  postId: uuid('post_id').references(() => eventPosts.id, { onDelete: 'cascade' }),
   // One sitting: the four directions, or a flyer and its repaints — the versions you compare.
   batchId: uuid('batch_id').notNull(),
   lookId: uuid('look_id').references(() => brandLooks.id, { onDelete: 'set null' }),
