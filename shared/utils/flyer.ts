@@ -158,8 +158,11 @@ function textBlock(lines: FlyerLine[]) {
 const CLEAR_TEXT = 'Keep every letter fully visible: no person, hand, hat or object may cover or cut off any part of the text.'
 
 /** A full painting: the look, the people (as photos), every line spelled out. */
-export function paintPrompt(lines: FlyerLine[], look: FlyerLook, opts: { people: number; notes?: string | null; inspiration?: boolean; format?: 'post' | 'story' } = { people: 0 }) {
-  const who = opts.people === 1
+export function paintPrompt(lines: FlyerLine[], look: FlyerLook, opts: { people: number; grid?: string[]; notes?: string | null; inspiration?: boolean; format?: 'post' | 'story' } = { people: 0 }) {
+  // Many artists (a festival's line-up): one grid of their photos.
+  const who = opts.grid?.length
+    ? ` featuring all ${opts.grid.length} artists as a line-up: the first image is a grid of their photos, in this order: ${opts.grid.join(', ')}. Paint every one of them as a portrait, keeping their real faces, all the same size, each with their name just under their portrait`
+    : opts.people === 1
     ? ' featuring the person from the first photo as the artist, big in the centre, keeping their real face'
     : opts.people > 1 ? ` featuring the ${opts.people} people from the first ${opts.people} photos as the artists, big, keeping their real faces` : ''
   const palette = look.palette?.length ? `Colours: ${look.palette.map(p => `${p.name} ${p.hex}`).join(', ')}.` : null

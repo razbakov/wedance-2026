@@ -6,36 +6,11 @@ import { events, eventFlyers, eventPosts, brandLooks, profiles } from '../../dat
 import { requireEventManager } from './businessEvents'
 import { announcementPost, flyerSource, runFlyer, texts } from '../../utils/flyer/paint'
 import { flyerChanges } from '../../../shared/utils/flyer'
-import { askAboutImages, fetchImage, writeJson, type InlineImage } from '../../utils/flyer/gemini'
+import { askAboutImages, fetchImage, type InlineImage } from '../../utils/flyer/gemini'
 import { DIRECTIONS, LOOK_PROMPT } from '../../../shared/utils/flyer'
-import { LANGUAGES, captionPrompt, composeCaption, instagramOf, type CaptionContext, type CaptionWords } from '../../../shared/utils/caption'
-import { priceLines } from '../../../shared/utils/flyer'
+import { LANGUAGES } from '../../../shared/utils/caption'
 
-// Who the caption may tag: the artists', venue's and host's Instagram on WeDance.
-async function captionContext(db: any, ev: any) {
-  const src = await flyerSource(db, ev)
-  const handles = [...(ev.artists ?? []), ev.venueUsername].filter(Boolean)
-  const rows = handles.length ? await db.select({ username: profiles.username, name: profiles.name, address: profiles.address, socials: profiles.socials }).from(profiles).where(inArray(profiles.username, handles)) : []
-  const [host] = await db.select({ name: profiles.name, socials: profiles.socials }).from(profiles).where(eq(profiles.id, ev.hostProfileId))
-  const byHandle = new Map<string, any>(rows.map((r: any) => [r.username, r]))
-  const venue = ev.venueUsername ? byHandle.get(ev.venueUsername) : null
-  const caption: CaptionContext = {
-    title: ev.name ?? '',
-    startDate: ev.startDate,
-    endDate: ev.endDate,
-    timezone: ev.timezone,
-    agenda: ev.agenda ?? [],
-    styles: ev.styles ?? [],
-    prices: priceLines(ev.price),
-    host: { name: host?.name ?? '', instagram: instagramOf(host?.socials) },
-    venue: venue ? { name: venue.name, address: venue.address, instagram: instagramOf(venue.socials) } : (ev.venueName ? { name: ev.venueName, address: ev.venueAddress, instagram: null } : null),
-    artists: (ev.artists ?? []).map((h: string) => ({ name: ev.flyerOptions?.names?.[h] || byHandle.get(h)?.name || h, instagram: instagramOf(byHandle.get(h)?.socials) })),
-    description: ev.description,
-    ticketUrl: ev.ticketUrl,
-  }
-  // The flyer's lines: a caption written from other lines is out of date.
-  return { caption, lines: texts(src.lines) }
-}
+import { captionContext, writeCaption } from '../../utils/flyer/caption'
 
 /**
  * Business mode — an event's flyer. The event editor is step one (the details
@@ -102,16 +77,12 @@ export const businessFlyersRouter = router({
     .input(z.object({ eventId: z.string().uuid(), language: z.enum(LANGUAGES.map(l => l.value) as [string, ...string[]]).default('en+de') }))
     .mutation(async ({ ctx, input }) => {
       const ev = await requireEventManager(ctx, input.eventId)
-      const c = await captionContext(ctx.db, ev)
-      // Gemini writes the hook, call to action and hashtags; the details are fixed lines.
-      let words: CaptionWords
+      let caption
       try {
-        words = await writeJson<CaptionWords>(captionPrompt(c.caption, input.language))
+        caption = await writeCaption(ctx.db, ev, null, input.language)
       } catch (e: any) {
         throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: e?.message || 'Couldn’t write the caption. Try again.' })
       }
-      const text = composeCaption(c.caption, input.language, words)
-      const caption = { language: input.language, text, lines: c.lines, writtenAt: new Date().toISOString() }
       await ctx.db.update(events).set({ caption, updatedAt: new Date() }).where(eq(events.id, ev.id))
       return caption
     }),

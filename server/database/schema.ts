@@ -888,6 +888,8 @@ export const eventPosts = pgTable('event_posts', {
   format: text('format').notNull().default('post').$type<'post' | 'story'>(),
   status: text('status').notNull().default('planned').$type<'planned' | 'posted' | 'dropped'>(),
   sort: integer('sort').notNull().default(0),
+  // Its Instagram caption, like events.caption (the announcement's is events.caption).
+  caption: jsonb('caption').$type<{ language: string; text: string; lines: string[]; writtenAt: string } | null>(),
   createdBy: uuid('created_by').references(() => dancers.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),

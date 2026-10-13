@@ -13,11 +13,14 @@ CREATE TABLE IF NOT EXISTS "event_posts" (
   "format" text DEFAULT 'post' NOT NULL,
   "status" text DEFAULT 'planned' NOT NULL,
   "sort" integer DEFAULT 0 NOT NULL,
+  "caption" jsonb,
   "created_by" uuid REFERENCES "dancers"("id") ON DELETE SET NULL,
   "created_at" timestamp DEFAULT now(),
   "updated_at" timestamp DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS "event_posts_event_idx" ON "event_posts" ("event_id");
+-- caption: the post's Instagram caption (the announcement's stays events.caption).
+ALTER TABLE "event_posts" ADD COLUMN IF NOT EXISTS "caption" jsonb;
 ALTER TABLE "event_flyers" ADD COLUMN IF NOT EXISTS "post_id" uuid REFERENCES "event_posts"("id") ON DELETE CASCADE;
 INSERT INTO "event_posts" ("event_id", "kind", "format")
   SELECT DISTINCT f."event_id", 'announcement', 'story' FROM "event_flyers" f

@@ -14,9 +14,15 @@ import { events, profiles, eventFlyers, eventPosts } from '../../database/schema
 import { postLines, flyerChanges, paintPrompt, fixPrompt, refreshPrompt, checkFlyerText, type FlyerLine, type FlyerCheck } from '../../../shared/utils/flyer'
 import type { PostKind } from '../../../shared/utils/posts'
 import { paintWithRetries, readText, fetchImage, IMAGE_MODEL, type InlineImage } from './gemini'
+import { faceGrid } from './grid'
 
-/** More faces → more refusals and smaller faces; the editor warns above two. */
+/**
+ * Up to two faces are painted each from its own photo (truest likeness). More
+ * — a festival's line-up — go in as one grid of photos, and every artist is
+ * painted as a portrait (server/utils/flyer/grid.ts). 16 at most.
+ */
 export const MAX_FACES = 2
+export const MAX_GRID = 16
 
 type Post = { kind: PostKind; subject?: string | null } | null
 
@@ -149,9 +155,20 @@ export async function runFlyer(db: any, flyerId: string) {
     } else {
       const [post] = f.postId ? await db.select({ kind: eventPosts.kind, subject: eventPosts.subject }).from(eventPosts).where(eq(eventPosts.id, f.postId)) : [null]
       const src = await flyerSource(db, ev, post)
-      const faces = (await Promise.all(src.photos.slice(0, MAX_FACES).map(fetchImage))).filter(Boolean) as InlineImage[]
+      const many = src.photos.length > MAX_FACES
+      // A couple on one photo is one tile with both names.
+      const tiles: { url: string; name: string }[] = []
+      src.photos.forEach((url, i) => {
+        const t = tiles.find(x => x.url === url)
+        if (t) t.name = `${t.name} & ${src.pictured[i]}`
+        else tiles.push({ url, name: src.pictured[i]! })
+      })
+      const loaded = await Promise.all(tiles.slice(0, many ? MAX_GRID : MAX_FACES).map(t => fetchImage(t.url)))
+      const ok = loaded.map((img, i) => ({ img, name: tiles[i]!.name })).filter(x => x.img) as { img: InlineImage; name: string }[]
+      const grid = many && ok.length > MAX_FACES ? await faceGrid(ok.map(x => x.img)) : null
+      const faces = grid ? [grid] : ok.map(x => x.img)
       const inspiration = look.inspiration ? await fetchImage(look.inspiration) : null
-      prompt = paintPrompt(lines, look, { people: faces.length, notes: f.notes, inspiration: !!inspiration, format: await formatOf(db, f.postId) })
+      prompt = paintPrompt(lines, look, { people: grid ? 0 : faces.length, grid: grid ? ok.map(x => x.name) : undefined, notes: f.notes, inspiration: !!inspiration, format: await formatOf(db, f.postId) })
       images = inspiration ? [...faces, inspiration] : faces
     }
 

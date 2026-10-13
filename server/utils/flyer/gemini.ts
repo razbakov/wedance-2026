@@ -93,7 +93,9 @@ export async function writeText(prompt: string): Promise<string> {
 /** Fetch a photo URL as an inline image (line-up reference photos). */
 export async function fetchImage(url: string): Promise<InlineImage | null> {
   try {
-    const res = await fetch(url)
+    // Photos stored as site paths ("/people/silvio.jpg", the festival imports).
+    const abs = url.startsWith('/') ? `${(useRuntimeConfig().siteUrl || 'https://2026.wedance.vip').replace(/\/$/, '')}${url}` : url
+    const res = await fetch(abs)
     if (!res.ok) return null
     const mimeType = (res.headers.get('content-type') || 'image/jpeg').split(';')[0]!
     if (!mimeType.startsWith('image/')) return null

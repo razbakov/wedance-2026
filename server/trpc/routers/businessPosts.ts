@@ -2,7 +2,9 @@ import { z } from 'zod'
 import { eq, and, inArray, isNotNull, desc } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { router, protectedProcedure } from '../trpc'
-import { eventPosts, eventFlyers, profiles, profileInvites } from '../../database/schema'
+import { eventPosts, eventFlyers, profiles, profileInvites, events } from '../../database/schema'
+import { writeCaption } from '../../utils/flyer/caption'
+import { LANGUAGES } from '../../../shared/utils/caption'
 import { requireEventManager } from './businessEvents'
 import { announcementPost, flyerSource, texts } from '../../utils/flyer/paint'
 import { flyerChanges } from '../../../shared/utils/flyer'
@@ -19,6 +21,14 @@ import { eventLocalDate } from '../../../shared/utils/eventTime'
  * (profile_invites.posts_ok_at) before it counts as ready.
  */
 const KINDS = Object.keys(POST_KINDS) as [PostKind, ...PostKind[]]
+const language = z.enum(LANGUAGES.map(l => l.value) as [string, ...string[]]).default('en+de')
+type Caption = { language: string; text: string; lines: string[]; writtenAt: string }
+// The announcement's caption is the event's (the Details tab shows it too).
+const captionOf = (p: any, ev: any): Caption | null => (p.kind === 'announcement' ? ev.caption : p.caption) ?? null
+async function saveCaptionFor(db: any, p: any, ev: any, caption: Caption) {
+  if (p.kind === 'announcement') await db.update(events).set({ caption, updatedAt: new Date() }).where(eq(events.id, ev.id))
+  await db.update(eventPosts).set({ caption, updatedAt: new Date() }).where(eq(eventPosts.id, p.id))
+}
 const ymd = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 const FESTIVAL_TYPES = ['Festival', 'Weekender', 'Congress']
 
@@ -55,8 +65,10 @@ export const businessPostsRouter = router({
         const mine = flyers.filter((f: any) => f.postId === p.id)
         const kept = mine.find((f: any) => f.keptAt) ?? null
         const painting = mine.find((f: any) => f.status === 'painting' || f.status === 'checking') ?? null
-        const src = kept ? await flyerSource(ctx.db, ev, p) : null
-        const stale = kept && src ? flyerChanges({ lines: texts(kept.lines), pictured: kept.pictured }, { lines: texts(src.lines), pictured: src.pictured }).length > 0 : false
+        const src = await flyerSource(ctx.db, ev, p)
+        const stale = kept ? flyerChanges({ lines: texts(kept.lines), pictured: kept.pictured }, { lines: texts(src.lines), pictured: src.pictured }).length > 0 : false
+        const cap = captionOf(p, ev)
+        const now = texts(src.lines)
         const who = p.subject ? people.find((x: any) => x.username === p.subject) : null
         out.push({
           id: p.id, kind: p.kind as PostKind, label: POST_KINDS[p.kind as PostKind]?.label ?? p.kind,
@@ -65,6 +77,7 @@ export const businessPostsRouter = router({
           flyer: kept ? { url: kept.url, stale } : null,
           painting: painting ? { batchId: painting.batchId } : null,
           versions: mine.length,
+          caption: cap ? { text: cap.text, language: cap.language, changed: now.some(l => !cap.lines.includes(l)) || cap.lines.some(l => !now.includes(l)) } : null,
           // An artist post needs the artist's OK on their link.
           waitingFor: p.kind === 'artist' && who && !okIds.has(who.id) ? (ev.flyerOptions?.names?.[who.username] || who.name) : null,
           inLineup: p.kind !== 'artist' || (ev.artists ?? []).includes(p.subject),
@@ -72,6 +85,49 @@ export const businessPostsRouter = router({
       }
       out.sort((a: any, b: any) => (a.status === 'dropped' ? 1 : 0) - (b.status === 'dropped' ? 1 : 0) || String(a.dueOn ?? '9').localeCompare(String(b.dueOn ?? '9')))
       return out
+    }),
+
+  // A post's Instagram caption: Gemini writes the hook, call to action and
+  // hashtags for what the post is for; the details are fixed lines.
+  writeCaption: protectedProcedure
+    .input(z.object({ id: z.string().uuid(), language }))
+    .mutation(async ({ ctx, input }) => {
+      const { p, ev } = await postForManager(ctx, input.id)
+      try {
+        const caption = await writeCaption(ctx.db, ev, p, input.language)
+        await saveCaptionFor(ctx.db, p, ev, caption)
+        return caption
+      } catch (e: any) {
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: e?.message || 'Couldn’t write the caption. Try again.' })
+      }
+    }),
+
+  // The organizer's own edit of a caption.
+  saveCaption: protectedProcedure
+    .input(z.object({ id: z.string().uuid(), text: z.string().max(5000) }))
+    .mutation(async ({ ctx, input }) => {
+      const { p, ev } = await postForManager(ctx, input.id)
+      const cap = captionOf(p, ev)
+      if (!cap) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Write the caption first.' })
+      await saveCaptionFor(ctx.db, p, ev, { ...cap, text: input.text })
+      return { saved: true }
+    }),
+
+  // Captions for every post that has none yet (the plan's "Write the captions").
+  writeCaptions: protectedProcedure
+    .input(z.object({ eventId: z.string().uuid(), language }))
+    .mutation(async ({ ctx, input }) => {
+      const ev = await requireEventManager(ctx, input.eventId)
+      const posts = await ctx.db.select().from(eventPosts).where(eq(eventPosts.eventId, ev.id))
+      let written = 0
+      let failed = 0
+      for (const p of posts.filter((x: any) => x.status !== 'dropped' && !captionOf(x, ev)).slice(0, 30)) {
+        try {
+          await saveCaptionFor(ctx.db, p, ev, await writeCaption(ctx.db, ev, p, input.language))
+          written++
+        } catch { failed++ }
+      }
+      return { written, failed }
     }),
 
   // WeDance's plan for this event: adds the posts it doesn't have yet.

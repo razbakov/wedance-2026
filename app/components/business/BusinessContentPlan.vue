@@ -13,6 +13,7 @@
 import { Sparkles, Wand2, Plus, X, Check, Clock, AlertTriangle, Loader2, CalendarDays, Image as ImageIcon, RefreshCw, Download } from 'lucide-vue-next'
 import type { PropType } from 'vue'
 import { POST_KINDS, type PostKind } from '#shared/utils/posts'
+import { LANGUAGES } from '#shared/utils/caption'
 
 const props = defineProps({
   eventId: { type: String, required: true },
@@ -78,6 +79,26 @@ async function update(p: Post, set: { dueOn?: string | null; format?: 'post' | '
 }
 async function remove(p: Post) {
   try { await $trpc.businessPosts.remove.mutate({ id: p.id }); await load(); emit('changed') } catch (e: any) { error.value = e?.message || 'Couldn’t remove it.' }
+}
+
+// --- captions: one language for the plan, and "write the missing ones"
+const language = ref('en+de')
+watch(posts, (p) => { const l = p?.find(x => x.caption)?.caption?.language; if (l) language.value = l }, { once: true })
+const missingCaptions = computed(() => live.value.filter(p => !p.caption).length)
+const writingAll = ref(false)
+async function writeAll() {
+  writingAll.value = true
+  error.value = null
+  drafted.value = null
+  try {
+    const r = await $trpc.businessPosts.writeCaptions.mutate({ eventId: props.eventId, language: language.value })
+    drafted.value = `Wrote ${r.written} ${r.written === 1 ? 'caption' : 'captions'}${r.failed ? `; ${r.failed} didn’t work, try those again` : ''}.`
+    await load()
+  } catch (e: any) {
+    error.value = e?.message || 'Couldn’t write the captions.'
+  } finally {
+    writingAll.value = false
+  }
 }
 
 // --- add a post
@@ -155,6 +176,12 @@ const download = (url: string) => url.replace('/upload/', '/upload/fl_attachment
             <Button type="button" variant="outline" size="sm" @click="adding = !adding"><Plus /> Add a post</Button>
           </div>
         </div>
+        <div class="mt-3 flex flex-wrap items-center gap-2 border-t pt-3 text-sm">
+          <span class="text-muted-foreground">Captions in</span>
+          <div class="w-48"><Select v-model="language" :options="LANGUAGES.map(l => ({ label: l.label, value: l.value }))" size="sm" aria-label="Caption language" /></div>
+          <Button v-if="missingCaptions" type="button" variant="outline" size="sm" :loading="writingAll" @click="writeAll"><Wand2 /> Write the {{ missingCaptions }} missing {{ missingCaptions === 1 ? 'caption' : 'captions' }}</Button>
+          <span v-else class="text-xs text-wd-green-700">Every post has its caption.</span>
+        </div>
         <p v-if="drafted" class="mt-2 text-sm text-wd-green-700" role="status">{{ drafted }}</p>
         <div v-if="adding" class="mt-3 grid gap-2 rounded-xl border p-3 sm:grid-cols-[1fr_1fr_10rem_auto] sm:items-end">
           <Field id="add-kind" label="Post"><Select v-model="add.kind" :options="kindOptions" /></Field>
@@ -193,6 +220,7 @@ const download = (url: string) => url.replace('/upload/', '/upload/fl_attachment
                 <button v-for="f in (['post', 'story'] as const)" :key="f" type="button" class="px-2 py-0.5" :class="p.format === f ? 'bg-secondary/15 font-bold' : ''" :aria-pressed="p.format === f" @click="p.format !== f && update(p, { format: f })">{{ f === 'post' ? 'Post 4:5' : 'Story 9:16' }}</button>
               </div>
             </div>
+            <BusinessPostCaption v-if="p.status !== 'dropped'" :post-id="p.id" :caption="p.caption" :language="language" @changed="load" />
           </div>
           <div class="flex shrink-0 flex-col items-end gap-1.5">
             <!-- The next post due leads; the rest wait their turn. -->
