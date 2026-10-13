@@ -64,8 +64,11 @@ export function planVenueDetails(v3Venues: any[], local: LocalVenue[]): { plans:
   let skippedOwned = 0
   const seen = new Set<string>()
   for (const v of v3Venues) {
-    const r = matchVenue(v, local)
+    let r = matchVenue(v, local)
     if (!r) { unmatched++; continue }
+    // A merged copy fills the venue it merged into.
+    for (let i = 0; i < 5 && r?.sourceRef?.mergedInto; i++) r = local.find(x => x.username === r!.sourceRef!.mergedInto) ?? r
+    if (!r) continue
     if (seen.has(r.id)) continue
     seen.add(r.id)
     if (r.claimed || r.managed) { skippedOwned++; continue }

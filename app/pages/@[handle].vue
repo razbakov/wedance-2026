@@ -60,6 +60,9 @@ async function resolve() {
       managed.value = access.managed
       return
     }
+    // An old handle: merged into another profile, or renamed.
+    const moved = await $trpc.entity.movedTo.query({ handle: handle.value }).catch(() => null)
+    if (moved) { await navigateTo(`/@${moved.handle}`, { replace: true, redirectCode: 301 }); return }
     try {
       await $trpc.profile.getByUsername.query({ username: handle.value })
       await navigateTo(`/u/${handle.value}`, { replace: true })

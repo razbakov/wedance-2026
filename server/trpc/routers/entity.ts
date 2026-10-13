@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { eq, and } from 'drizzle-orm'
+import { eq, and, sql } from 'drizzle-orm'
 import { router, publicProcedure } from '../trpc'
 import { profiles, bookableSpaces } from '../../database/schema'
 
@@ -106,6 +106,28 @@ export const entityRouter = router({
           eq(profiles.status, 'visible'),
         ))
       return rows
+    }),
+
+  // Where an old handle lives now: a copy merged into another profile
+  // (source_ref.mergedInto), or a handle that was renamed (source_ref.oldHandles).
+  // Null when it never existed.
+  movedTo: publicProcedure
+    .input(z.object({ handle: z.string().min(1).max(200) }))
+    .query(async ({ ctx, input }) => {
+      let h = input.handle
+      for (let i = 0; i < 5; i++) {
+        const [now] = await ctx.db.select({ username: profiles.username }).from(profiles)
+          .where(and(eq(profiles.username, h), eq(profiles.status, 'visible')))
+        if (now) return i ? { handle: now.username } : null
+        const [renamed] = await ctx.db.select({ username: profiles.username }).from(profiles)
+          .where(sql`${profiles.sourceRef}->'oldHandles' ? ${h}`).limit(1)
+        if (renamed) { h = renamed.username; continue }
+        const [merged] = await ctx.db.select({ into: sql<string | null>`${profiles.sourceRef}->>'mergedInto'` }).from(profiles)
+          .where(eq(profiles.username, h)).limit(1)
+        if (merged?.into) { h = merged.into; continue }
+        return null
+      }
+      return null
     }),
 
   getByHandle: publicProcedure
