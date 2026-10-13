@@ -4,6 +4,7 @@ import { TRPCError } from '@trpc/server'
 import { router, publicProcedure, protectedProcedure } from '../trpc'
 import { profiles, profileMembers, profileSuggestions, profileInvites, events } from '../../database/schema'
 import { requireEventManager } from './businessEvents'
+import { citySlugFor } from './business'
 import { grant, logAccess } from '../../utils/profileAccess'
 import { instagramUrl, parseInstagramHandle } from '../../../shared/utils/instagram'
 import { videoEmbedUrl } from '../../../shared/utils/video'
@@ -19,7 +20,23 @@ import { videoEmbedUrl } from '../../../shared/utils/video'
  * is the invitation); once someone manages the page, only its team, signed in.
  */
 
-type Kind = 'photo' | 'video' | 'name'
+// Photos and videos add to a list; the rest replace one field.
+type Kind = 'photo' | 'video' | 'name' | 'bio' | 'city' | 'styles' | 'instagram' | 'website' | 'facebook'
+const SINGLE: Kind[] = ['name', 'bio', 'city', 'styles', 'instagram', 'website', 'facebook']
+const SOCIAL: Kind[] = ['instagram', 'website', 'facebook']
+const socialOf = (p: any, platform: string) => ((p.socials ?? []) as any[]).find(s => s.platform === platform)?.url ?? ''
+/** A profile's current value for a single-value field, as stored in a suggestion. */
+function currentOf(p: any, kind: Kind): string {
+  if (kind === 'styles') return JSON.stringify(p.styles ?? [])
+  if (SOCIAL.includes(kind)) return socialOf(p, kind)
+  return (p[kind] as string | null) ?? ''
+}
+function withSocial(p: any, platform: string, url: string) {
+  const others = ((p.socials ?? []) as any[]).filter(s => s.platform !== platform)
+  if (!url) return others
+  const v = platform === 'instagram' ? (parseInstagramHandle(url) ? instagramUrl(parseInstagramHandle(url)!) : url) : url
+  return [...others, { platform, url: v }]
+}
 const token = () => crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '').slice(0, 8)
 
 async function isMember(db: any, profileId: string, dancerId: string | null) {
@@ -36,6 +53,10 @@ async function hasTeam(db: any, profileId: string) {
 /** Approving a suggestion: what it changes on the profile. */
 async function apply(db: any, p: any, kind: Kind, value: string) {
   if (kind === 'name') return db.update(profiles).set({ name: value }).where(eq(profiles.id, p.id))
+  if (kind === 'bio') return db.update(profiles).set({ bio: value || null }).where(eq(profiles.id, p.id))
+  if (kind === 'city') return db.update(profiles).set({ city: value || null, citySlug: await citySlugFor(db, value || null) }).where(eq(profiles.id, p.id))
+  if (kind === 'styles') return db.update(profiles).set({ styles: JSON.parse(value) }).where(eq(profiles.id, p.id))
+  if (SOCIAL.includes(kind)) return db.update(profiles).set({ socials: withSocial(p, kind, value) }).where(eq(profiles.id, p.id))
   if (kind === 'photo') {
     const photos = [...(p.photos ?? [])]
     if (!photos.some((x: any) => x.url === value)) photos.push({ url: value })
@@ -77,7 +98,7 @@ export const artistInvitesRouter = router({
     .input(z.object({
       eventId: z.string().uuid(),
       handle: z.string().min(1).max(200),
-      kind: z.enum(['photo', 'video', 'name']),
+      kind: z.enum(['photo', 'video', 'name', 'bio', 'city', 'styles', 'instagram', 'website', 'facebook']),
       value: z.string().trim().min(1).max(500),
     }))
     .mutation(async ({ ctx, input }) => {
@@ -95,10 +116,10 @@ export const artistInvitesRouter = router({
         await apply(ctx.db, p, input.kind, value)
         return { status: 'applied' as const }
       }
-      // A newer name replaces an older pending one.
-      if (input.kind === 'name') {
+      // A newer value for a field replaces an older pending one.
+      if (SINGLE.includes(input.kind)) {
         await ctx.db.update(profileSuggestions).set({ status: 'rejected', decidedAt: new Date() })
-          .where(and(eq(profileSuggestions.profileId, p.id), eq(profileSuggestions.kind, 'name'), eq(profileSuggestions.status, 'pending')))
+          .where(and(eq(profileSuggestions.profileId, p.id), eq(profileSuggestions.kind, input.kind), eq(profileSuggestions.status, 'pending')))
       }
       await ctx.db.insert(profileSuggestions)
         .values({ profileId: p.id, kind: input.kind, value, eventId: input.eventId, suggestedBy: ctx.dancerId })
@@ -115,13 +136,84 @@ export const artistInvitesRouter = router({
       const rows = await ctx.db.select({ username: profiles.username, kind: profileSuggestions.kind, value: profileSuggestions.value })
         .from(profileSuggestions).innerJoin(profiles, eq(profiles.id, profileSuggestions.profileId))
         .where(and(inArray(profiles.username, input.handles), eq(profileSuggestions.status, 'pending')))
-      const out: Record<string, { photos: string[]; videos: string[]; name: string | null }> = {}
+      const out: Record<string, { photos: string[]; videos: string[]; name: string | null; fields: string[] }> = {}
       for (const r of rows) {
-        const o = (out[r.username] ??= { photos: [], videos: [], name: null })
+        const o = (out[r.username] ??= { photos: [], videos: [], name: null, fields: [] })
         if (r.kind === 'name') o.name = r.value
-        else (r.kind === 'photo' ? o.photos : o.videos).push(r.value)
+        else if (r.kind === 'photo') o.photos.push(r.value)
+        else if (r.kind === 'video') o.videos.push(r.value)
+        else o.fields.push(r.kind)
       }
       return out
+    }),
+
+  // An artist's page as the line-up's editor shows it, with what's waiting to be approved.
+  profile: protectedProcedure
+    .input(z.object({ eventId: z.string().uuid(), handle: z.string().min(1).max(200) }))
+    .query(async ({ ctx, input }) => {
+      await requireEventManager(ctx, input.eventId)
+      const [p] = await ctx.db.select().from(profiles).where(eq(profiles.username, input.handle))
+      if (!p) throw new TRPCError({ code: 'NOT_FOUND', message: 'That artist isn’t on WeDance.' })
+      const pending = await ctx.db.select({ kind: profileSuggestions.kind, value: profileSuggestions.value }).from(profileSuggestions)
+        .where(and(eq(profileSuggestions.profileId, p.id), eq(profileSuggestions.status, 'pending')))
+      return {
+        username: p.username, name: p.name, city: p.city ?? '', bio: p.bio ?? '', styles: (p.styles ?? []) as string[],
+        // The main photo first, then the gallery (the main one isn't always in it).
+        photo: p.photo as string | null, photos: [...new Set([p.photo, ...((p.photos ?? []) as { url: string }[]).map(x => x.url)].filter(Boolean))] as string[],
+        videos: ((p.videos ?? []) as { url: string }[]).map(x => x.url),
+        instagram: socialOf(p, 'instagram'), website: socialOf(p, 'website'), facebook: socialOf(p, 'facebook'),
+        // My own page (I'm on its team): changes save directly.
+        mine: await isMember(ctx.db, p.id, ctx.dancerId),
+        managed: await hasTeam(ctx.db, p.id),
+        pending: pending as { kind: Kind; value: string }[],
+      }
+    }),
+
+  // Save the line-up editor's changes to an artist's page: directly on a page I
+  // manage, else as suggestions the artist approves through their link.
+  saveProfile: protectedProcedure
+    .input(z.object({
+      eventId: z.string().uuid(),
+      handle: z.string().min(1).max(200),
+      name: z.string().trim().min(1).max(120).optional(),
+      city: z.string().trim().max(120).optional(),
+      bio: z.string().trim().max(4000).optional(),
+      styles: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
+      instagram: z.string().trim().max(300).optional(),
+      website: z.string().trim().max(300).optional(),
+      facebook: z.string().trim().max(300).optional(),
+      addPhotos: z.array(z.string().url()).max(20).default([]),
+      addVideos: z.array(videoUrl).max(10).default([]),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      await requireEventManager(ctx, input.eventId)
+      let [p] = await ctx.db.select().from(profiles).where(eq(profiles.username, input.handle))
+      if (!p) throw new TRPCError({ code: 'NOT_FOUND', message: 'That artist isn’t on WeDance.' })
+      const mine = await isMember(ctx.db, p.id, ctx.dancerId)
+      const changes: { kind: Kind; value: string }[] = []
+      for (const k of SINGLE) {
+        const v = (input as any)[k]
+        if (v === undefined) continue
+        const value = k === 'styles' ? JSON.stringify(v) : String(v)
+        if (value !== currentOf(p, k)) changes.push({ kind: k, value })
+      }
+      for (const url of input.addPhotos) changes.push({ kind: 'photo', value: url })
+      for (const url of input.addVideos.filter(Boolean)) changes.push({ kind: 'video', value: url })
+      if (mine) {
+        for (const c of changes) { await apply(ctx.db, p, c.kind, c.value); p = (await ctx.db.select().from(profiles).where(eq(profiles.id, p.id)))[0] ?? p }
+        return { status: 'applied' as const, count: changes.length }
+      }
+      for (const c of changes) {
+        // A newer value for a field replaces an older pending one.
+        if (SINGLE.includes(c.kind)) {
+          await ctx.db.update(profileSuggestions).set({ status: 'rejected', decidedAt: new Date() })
+            .where(and(eq(profileSuggestions.profileId, p.id), eq(profileSuggestions.kind, c.kind), eq(profileSuggestions.status, 'pending')))
+        }
+        await ctx.db.insert(profileSuggestions)
+          .values({ profileId: p.id, kind: c.kind, value: c.value, eventId: input.eventId, suggestedBy: ctx.dancerId })
+          .onConflictDoNothing()
+      }
+      return { status: 'pending' as const, count: changes.length }
     }),
 
   // The personal link for an artist in this event's line-up (the same one each time).
@@ -136,7 +228,10 @@ export const artistInvitesRouter = router({
       const t = existing?.token ?? token()
       if (!existing) await ctx.db.insert(profileInvites).values({ token: t, profileId: p.id, eventId: input.eventId, createdBy: ctx.dancerId })
       const site = (useRuntimeConfig().siteUrl || 'https://2026.wedance.vip').replace(/\/$/, '')
-      return { url: `${site}/confirm/${t}` }
+      // For the popup's instructions and the message to paste.
+      const [e] = await ctx.db.select({ name: events.name, hostProfileId: events.hostProfileId }).from(events).where(eq(events.id, input.eventId))
+      const [h] = e?.hostProfileId ? await ctx.db.select({ name: profiles.name }).from(profiles).where(eq(profiles.id, e.hostProfileId)) : [null]
+      return { url: `${site}/confirm/${t}`, eventName: e?.name ?? '', host: h?.name ?? null, managed: await hasTeam(ctx.db, p.id) }
     }),
 
   // What the confirmation page shows.
@@ -162,7 +257,7 @@ export const artistInvitesRouter = router({
         profile: {
           username: p.username, name: p.name, type: p.type, photo: p.photo, photos: (p.photos ?? []) as { url: string }[],
           videos: (p.videos ?? []) as { url: string }[], bio: p.bio ?? '', styles: (p.styles ?? []) as string[],
-          instagram: ((p.socials ?? []) as any[]).find(s => s.platform === 'instagram')?.url ?? '',
+          instagram: socialOf(p, 'instagram'), website: socialOf(p, 'website'), facebook: socialOf(p, 'facebook'), city: p.city ?? '',
         },
         pending, event, managed, member, canAnswer, signedIn: !!ctx.dancerId,
       }
@@ -177,6 +272,10 @@ export const artistInvitesRouter = router({
       name: z.string().trim().min(1).max(120).optional(),
       bio: z.string().trim().max(2000).optional(),
       instagram: z.string().trim().max(300).optional(),
+      city: z.string().trim().max(120).optional(),
+      styles: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
+      website: z.string().trim().max(300).optional(),
+      facebook: z.string().trim().max(300).optional(),
       addPhotos: z.array(z.string().url()).max(20).default([]),
       addVideos: z.array(videoUrl).max(10).default([]),
       // Photos already on the page may be site paths ("/people/silvio.jpg"), not URLs.
@@ -201,11 +300,13 @@ export const artistInvitesRouter = router({
       const set: Record<string, unknown> = {}
       if (input.name && input.name !== p.name) set.name = input.name
       if (input.bio !== undefined) set.bio = input.bio || null
-      if (input.instagram !== undefined) {
-        const ig = parseInstagramHandle(input.instagram)
-        const others = ((p.socials ?? []) as any[]).filter(s => s.platform !== 'instagram')
-        set.socials = ig ? [...others, { platform: 'instagram', url: instagramUrl(ig) }] : others
+      let socials = p.socials ?? []
+      for (const k of ['instagram', 'website', 'facebook'] as const) {
+        if (input[k] !== undefined) socials = withSocial({ socials }, k, input[k]!)
       }
+      if (['instagram', 'website', 'facebook'].some(k => (input as any)[k] !== undefined)) set.socials = socials
+      if (input.city !== undefined && input.city !== (p.city ?? '')) { set.city = input.city || null; set.citySlug = await citySlugFor(ctx.db, input.city || null) }
+      if (input.styles !== undefined) set.styles = input.styles
       if (input.removePhotos.length) {
         const photos = (p.photos ?? []).filter((x: any) => !input.removePhotos.includes(x.url))
         set.photos = photos

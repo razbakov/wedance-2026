@@ -378,11 +378,12 @@ export const businessEventsRouter = router({
     .input(z.object({ handles: z.array(z.string().min(1).max(200)).max(40) }))
     .query(async ({ ctx, input }) => {
       if (!input.handles.length) return []
-      const rows = await ctx.db.select({ username: profiles.username, name: profiles.name, photo: profiles.photo, photos: profiles.photos })
+      const rows = await ctx.db.select({ username: profiles.username, name: profiles.name, photo: profiles.photo, photos: profiles.photos, styles: profiles.styles })
         .from(profiles).where(inArray(profiles.username, input.handles))
       return rows.map((r: any) => ({
         username: r.username,
         name: r.name,
+        styles: (r.styles ?? []) as string[],
         // Main photo first, then the gallery, no duplicates.
         photos: [...new Set([r.photo, ...((r.photos ?? []) as { url: string }[]).map(p => p.url)].filter(Boolean))] as string[],
       }))

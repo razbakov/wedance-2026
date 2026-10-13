@@ -26,7 +26,22 @@ const error = ref<string | null>(null)
 const step = ref<'check' | 'account' | 'done'>('check')
 
 // The answer, built up on the page.
-const form = reactive({ name: '', bio: '', instagram: '', mainPhoto: null as string | null })
+const form = reactive({ name: '', bio: '', city: '', styles: [] as string[], instagram: '', website: '', facebook: '', mainPhoto: null as string | null })
+// Fields the organizer may have suggested a new value for (shown as "Use theirs / Keep mine").
+const FIELDS = [
+  { kind: 'name', label: 'Name' }, { kind: 'bio', label: 'About' }, { kind: 'city', label: 'City' }, { kind: 'styles', label: 'Dance styles' },
+  { kind: 'instagram', label: 'Instagram' }, { kind: 'website', label: 'Website' }, { kind: 'facebook', label: 'Facebook' },
+] as const
+type FieldKind = (typeof FIELDS)[number]['kind']
+const show = (k: FieldKind, v: string) => (k === 'styles' ? (JSON.parse(v) as string[]).join(', ') : v) || '(empty)'
+function setField(k: FieldKind, v: string) {
+  if (k === 'styles') form.styles = JSON.parse(v || '[]')
+  else (form as any)[k] = v
+}
+const currentValue = (k: FieldKind) => {
+  const p = data.value!.profile as any
+  return k === 'styles' ? JSON.stringify(p.styles ?? []) : (p[k] ?? '')
+}
 const decisions = ref<Record<string, boolean>>({})
 const removePhotos = ref<string[]>([])
 const addPhotos = ref<string[]>([])
@@ -37,14 +52,10 @@ async function load() {
   try {
     data.value = await $trpc.artistInvites.get.query(key.value)
     const p = data.value.profile
-    form.name = p.name
-    form.bio = p.bio
-    form.instagram = p.instagram
-    form.mainPhoto = p.photo
-    // Approve what the organizer sent by default; the artist turns off what's wrong.
-    decisions.value = Object.fromEntries(data.value.pending.filter(s => s.kind !== 'name').map(s => [s.id, true]))
-    const name = data.value.pending.find(s => s.kind === 'name')
-    if (name) { decisions.value[name.id] = true; form.name = name.value }
+    Object.assign(form, { name: p.name, bio: p.bio, city: p.city, styles: [...p.styles], instagram: p.instagram, website: p.website, facebook: p.facebook, mainPhoto: p.photo })
+    // Approve what the organizer sent by default (the field shows it); the artist turns off what's wrong.
+    decisions.value = Object.fromEntries(data.value.pending.map(s => [s.id, true]))
+    for (const s of data.value.pending) if (FIELDS.some(f => f.kind === s.kind)) setField(s.kind as FieldKind, s.value)
   } catch (e: any) {
     error.value = e?.message || 'This link doesn’t work.'
   }
@@ -52,11 +63,14 @@ async function load() {
 onMounted(load)
 watch(isSignedIn, () => load())
 
-const pendingName = computed(() => data.value?.pending.find(s => s.kind === 'name') ?? null)
-function useName(theirs: boolean) {
-  if (!pendingName.value || !data.value) return
-  decisions.value[pendingName.value.id] = theirs
-  form.name = theirs ? pendingName.value.value : data.value.profile.name
+const pendingFields = computed(() => (data.value?.pending ?? [])
+  .filter(s => FIELDS.some(f => f.kind === s.kind) && s.value !== currentValue(s.kind as FieldKind))
+  .map(s => ({ ...s, label: FIELDS.find(f => f.kind === s.kind)!.label })))
+function useTheirs(id: string, theirs: boolean) {
+  const s = data.value?.pending.find(x => x.id === id)
+  if (!s) return
+  decisions.value[id] = theirs
+  setField(s.kind as FieldKind, theirs ? s.value : currentValue(s.kind as FieldKind))
 }
 const pendingPhotos = computed(() => data.value?.pending.filter(s => s.kind === 'photo') ?? [])
 const pendingVideos = computed(() => data.value?.pending.filter(s => s.kind === 'video') ?? [])
@@ -108,7 +122,11 @@ async function save() {
       decisions: Object.entries(decisions.value).map(([id, approve]) => ({ id, approve })),
       name: form.name.trim(),
       bio: form.bio,
+      city: form.city,
+      styles: form.styles,
       instagram: form.instagram,
+      website: form.website,
+      facebook: form.facebook,
       addPhotos: addPhotos.value,
       addVideos: addVideos.value,
       removePhotos: removePhotos.value,
@@ -211,11 +229,24 @@ const fmtDate = (d: string | Date | null, tz?: string | null) => d ? new Date(d)
               <Field id="c-name" label="Your name as it should appear">
                 <Input v-model="form.name" />
               </Field>
-              <div v-if="pendingName && pendingName.value !== data.profile.name" class="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                <span class="text-muted-foreground">The organizer wrote “{{ pendingName.value }}”. Your page says “{{ data.profile.name }}”.</span>
-                <Button type="button" size="sm" :variant="decisions[pendingName.id] ? 'soft' : 'ghost'" @click="useName(true)">Use theirs</Button>
-                <Button type="button" size="sm" :variant="decisions[pendingName.id] ? 'ghost' : 'soft'" @click="useName(false)">Keep mine</Button>
-              </div>
+              <Field id="c-city" label="City" optional class="mt-3"><CityCombobox v-model="form.city" placeholder="e.g. Vienna" /></Field>
+              <Field label="Dance styles" class="mt-3"><DanceStylePicker v-model="form.styles" /></Field>
+            </section>
+
+            <!-- What the organizer changed, field by field -->
+            <section v-if="pendingFields.length" class="rounded-2xl border-2 border-secondary/30 bg-card p-4">
+              <p class="flex items-center gap-1.5 text-sm font-bold"><Clock class="size-4 text-muted-foreground" aria-hidden="true" /> Changes from {{ data.event?.host || 'the organizer' }}</p>
+              <ul class="mt-2 grid gap-3">
+                <li v-for="s in pendingFields" :key="s.id" class="text-sm">
+                  <p class="font-bold">{{ s.label }}</p>
+                  <p class="text-xs"><span class="text-muted-foreground">Theirs:</span> {{ show(s.kind as any, s.value) }}</p>
+                  <p class="text-xs"><span class="text-muted-foreground">Yours now:</span> {{ show(s.kind as any, currentValue(s.kind as any)) }}</p>
+                  <div class="mt-1 flex gap-2">
+                    <Button type="button" size="sm" :variant="decisions[s.id] ? 'soft' : 'ghost'" @click="useTheirs(s.id, true)">Use theirs</Button>
+                    <Button type="button" size="sm" :variant="decisions[s.id] ? 'ghost' : 'soft'" @click="useTheirs(s.id, false)">Keep mine</Button>
+                  </div>
+                </li>
+              </ul>
             </section>
 
             <!-- Photos -->
@@ -276,6 +307,8 @@ const fmtDate = (d: string | Date | null, tz?: string | null) => d ? new Date(d)
                   <Input v-model="form.instagram" class="pl-10" placeholder="instagram.com/yourname" />
                 </div>
               </Field>
+              <Field id="c-web" label="Website" optional class="mt-3"><Input v-model="form.website" placeholder="https://…" /></Field>
+              <Field id="c-fb" label="Facebook" optional class="mt-3"><Input v-model="form.facebook" placeholder="facebook.com/…" /></Field>
             </section>
 
             <p v-if="error" class="text-sm text-destructive" role="alert">{{ error }}</p>

@@ -899,7 +899,7 @@ export const eventFlyers = pgTable('event_flyers', {
 export const profileSuggestions = pgTable('profile_suggestions', {
   id: uuid('id').primaryKey().defaultRandom(),
   profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
-  kind: text('kind').notNull().$type<'photo' | 'video' | 'name'>(),
+  kind: text('kind').notNull().$type<'photo' | 'video' | 'name' | 'bio' | 'city' | 'styles' | 'instagram' | 'website' | 'facebook'>(),
   value: text('value').notNull(),
   eventId: uuid('event_id').references(() => events.id, { onDelete: 'set null' }),
   suggestedBy: uuid('suggested_by').references(() => dancers.id, { onDelete: 'set null' }),
