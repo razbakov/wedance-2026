@@ -191,6 +191,13 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
       </div>
     </section>
 
+    <!-- Music -->
+    <section class="rounded-2xl border bg-card p-4">
+      <Field id="ev-styles" label="The music">
+        <DanceStylePicker v-model="form.styles" />
+      </Field>
+    </section>
+
     <!-- When, with what else is on those days -->
     <section class="rounded-2xl border bg-card p-4">
       <div class="flex items-center justify-between gap-2">
@@ -257,13 +264,6 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
         {{ [venueText, form.city].filter(Boolean).join(' · ') || 'No venue yet' }}
         <template v-if="form.festival?.practicalInfo?.length"><br><span class="text-muted-foreground">{{ form.festival.practicalInfo.length }} lines of practical info</span></template>
       </p>
-    </section>
-
-    <!-- Music -->
-    <section class="rounded-2xl border bg-card p-4">
-      <Field id="ev-styles" label="The music">
-        <DanceStylePicker v-model="form.styles" />
-      </Field>
     </section>
 
     <!-- Programme: an agenda, or a festival's sessions day by day -->
