@@ -89,7 +89,7 @@ export const businessFlyersRouter = router({
       } catch (e: any) {
         throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: e?.message || 'Couldn’t write the caption. Try again.' })
       }
-      text = keepVerifiedMentions(text.replace(/^```\w*\n?|```$/g, '').trim(), [...c.artists.map(a => a.instagram), c.venue?.instagram, c.host.instagram])
+      text = keepVerifiedMentions(text.replace(/^```\w*\n?|```$/g, '').trim(), [...c.artists.map((a: { instagram: string | null }) => a.instagram), c.venue?.instagram, c.host.instagram])
       if (!text) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'The caption came back empty. Try again.' })
       const caption = { language: input.language, text, lines: c.lines, writtenAt: new Date().toISOString() }
       await ctx.db.update(events).set({ caption, updatedAt: new Date() }).where(eq(events.id, ev.id))
