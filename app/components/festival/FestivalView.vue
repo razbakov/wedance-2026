@@ -3,13 +3,6 @@ import type { Festival, Teacher, Workshop, PlanEntry, DanceRole, DancePartner, F
 import { ArrowRight, Sparkles, Check } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
 import { artistPlaces, artistLanguages } from '~/data/artists'
-import * as salsaOpen from '~/data/mock-festival'
-import * as meneate from '~/data/mock-meneate'
-import * as cubanFire from '~/data/mock-cuban-fire'
-import * as caribbeanUrbanFire from '~/data/mock-caribbean-urban-fire'
-import * as aguaPichi from '~/data/mock-agua-pichi'
-import { liteFestivals } from '~/data/mock-festivals-lite'
-import type { FestivalDetail } from '~/server/api/festivals/[slug].get'
 import { WD } from '~/lib/brand'
 import { accentText } from '~/lib/accent'
 
@@ -24,56 +17,14 @@ const CHIP = {
 const route = useRoute()
 const router = useRouter()
 
-const hardcodedFestivals: Record<string, { festival: Festival; workshops: Workshop[]; teachers: Teacher[] }> = {
-  'salsa-open-berlin-2026': { festival: salsaOpen.mockFestival, workshops: salsaOpen.mockWorkshops, teachers: salsaOpen.mockTeachers },
-  'meneate-viena-2026': { festival: meneate.mockFestival, workshops: meneate.mockWorkshops, teachers: meneate.mockTeachers },
-  'cuban-fire-munich-2026': { festival: cubanFire.mockFestival, workshops: cubanFire.mockWorkshops, teachers: cubanFire.mockTeachers },
-  'caribbean-urban-fire-munich-2026': { festival: caribbeanUrbanFire.mockFestival, workshops: caribbeanUrbanFire.mockWorkshops, teachers: caribbeanUrbanFire.mockTeachers },
-  'agua-pichi-2027': { festival: aguaPichi.mockFestival, workshops: aguaPichi.mockWorkshops, teachers: aguaPichi.mockTeachers },
-  ...liteFestivals,
-}
-
-const slug = route.params.slug as string
-let data: { festival: Festival; workshops: Workshop[]; teachers: Teacher[] } | undefined = hardcodedFestivals[slug]
-
-// DB fallback: if the slug isn't in the hardcoded map, fetch from the database.
-// This makes DB-only festivals (added via the admin/sync) render a detail page
-// instead of 404-ing.
-if (!data) {
-  const { data: dbRow } = await useFetch<FestivalDetail>(`/api/festivals/${slug}`)
-  if (dbRow.value) {
-    const r = dbRow.value
-    data = {
-      festival: {
-        name: r.name,
-        slug: r.slug,
-        startDate: r.startDate ?? '',
-        endDate: r.endDate ?? '',
-        description: r.description ?? '',
-        logo: r.logo ?? '',
-        accentColor: r.accentColor ?? WD.amber600,
-        socialLinks: [],
-        venue: {
-          name: [r.city, r.country].filter(Boolean).join(', ') || 'TBA',
-          address: [r.city, r.country].filter(Boolean).join(', ') || '',
-          coordinates: { lat: 0, lng: 0 },
-          practicalInfo: [],
-        },
-        attendeeCount: r.signupCount,
-        ticketUrl: r.ticketUrl ?? undefined,
-      },
-      workshops: [],
-      teachers: [],
-    }
-  }
-}
-
-if (!data) {
-  throw createError({ statusCode: 404, statusMessage: 'Festival not found', fatal: true })
-}
+// The festival, its workshops and teachers come from the event (events.festival
+// query, server/utils/festivalView.ts); this component renders them.
+const props = defineProps<{ data: { festival: Festival; workshops: Workshop[]; teachers: Teacher[]; eventId: string } }>()
+const data = props.data
 const festival = data.festival
 const workshops = data.workshops
 const teachers = data.teachers
+const slug = festival.slug
 
 // Live "planning" count from the DB — replaces the hardcoded mock value.
 const liveAttendeeCount = ref(festival.attendeeCount)
@@ -1077,7 +1028,6 @@ function isTopPass(t: TicketOption, i: number): boolean {
 // ActivitiesTab, MySpace, Lineup, ScheduleTab, VenueTab, CartDrawer,
 // SharedPlanView, modals) still carry shadcn styling — those get
 // restyled in a follow-up pass.
-definePageMeta({ layout: false })
 
 useHead({
   title: `${festival.name} | WeDance`,
@@ -1129,7 +1079,7 @@ useHead({
         >
           <NuxtLink
             v-if="!heroVisible"
-            :to="`/festivals/${festival.slug}`"
+            :to="`/events/${festival.slug}`"
             class="flex items-center gap-2 shrink-0 pr-3 mr-1 border-r"
             style="border-color:color-mix(in srgb, var(--wd-brown-900) 8.2%, transparent);"
             @click.prevent="scrollTo('about')"
@@ -1184,6 +1134,11 @@ useHead({
           <p class="text-sm mb-4" style="color:var(--wd-brown-700); font-family:var(--wd-font-sans);">See who else is planning to be there — mark yourself as going so others see you too.</p>
           <FestivalFriends :festival-slug="festival.slug" :accent-color="festival.accentColor" class="mb-6" />
           <GoingSection ref="goingSectionRef" :festival-slug="festival.slug" :accent-color="festival.accentColor" />
+          <!-- Verified ticket holders: the TicketTailor claim flow exists for Charanga only (/charanga/claim). -->
+          <div v-if="festival.slug === 'charanga-habanera-munich-2026'" class="mt-6">
+            <h3 class="mb-3 text-lg font-bold font-display">Verified attendees</h3>
+            <AttendeeRoster :festival-slug="festival.slug" />
+          </div>
         </section>
 
         <section id="discover" class="scroll-mt-16">
@@ -1320,7 +1275,7 @@ useHead({
           <div
             v-if="hasTicket"
             class="rounded-2xl p-5 sm:p-6 mb-6"
-            style="background:linear-gradient(135deg, #dcfce7, #d1fae5); border:1px solid color-mix(in srgb, var(--wd-green-600) 20%, transparent);"
+            style="background:linear-gradient(135deg, color-mix(in srgb, var(--wd-green-600) 14%, white), color-mix(in srgb, var(--wd-green-600) 19%, white)); border:1px solid color-mix(in srgb, var(--wd-green-600) 20%, transparent);"
           >
             <div class="flex items-start gap-3">
               <div class="w-9 h-9 rounded-full flex items-center justify-center shrink-0 bg-white">
@@ -1416,7 +1371,7 @@ useHead({
           <div
             v-if="referralInfo && !hasTicket"
             class="rounded-2xl p-4 sm:p-5 mb-6 flex items-center gap-3"
-            style="background:linear-gradient(135deg, #dcfce7, #d1fae5); border:1px solid color-mix(in srgb, var(--wd-green-600) 20%, transparent);"
+            style="background:linear-gradient(135deg, color-mix(in srgb, var(--wd-green-600) 14%, white), color-mix(in srgb, var(--wd-green-600) 19%, white)); border:1px solid color-mix(in srgb, var(--wd-green-600) 20%, transparent);"
           >
             <div class="w-9 h-9 rounded-full flex items-center justify-center shrink-0 bg-white">
               <span class="text-lg font-black text-wd-green-600">%</span>
@@ -1729,7 +1684,7 @@ useHead({
             class="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl bg-background"
           >
             <!-- Success header -->
-            <div class="p-6 sm:p-8 text-center" style="background:linear-gradient(135deg, var(--wd-green-600), #22c55e);">
+            <div class="p-6 sm:p-8 text-center" style="background:linear-gradient(135deg, var(--wd-green-600), color-mix(in srgb, var(--wd-green-600) 75%, white));">
               <div class="w-16 h-16 rounded-full mx-auto mb-3 flex items-center justify-center" style="background:rgba(255,255,255,0.25);">
                 <Check class="w-8 h-8 text-white" />
               </div>
@@ -1796,7 +1751,7 @@ useHead({
             class="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl bg-background"
           >
             <!-- Nudge header -->
-            <div class="p-6 sm:p-8 text-center" style="background:linear-gradient(135deg, var(--wd-red-600), #ef4444);">
+            <div class="p-6 sm:p-8 text-center" style="background:linear-gradient(135deg, var(--wd-red-600), color-mix(in srgb, var(--wd-red-600) 80%, white));">
               <div class="text-2xl font-black text-white font-display">
                 One more step
               </div>

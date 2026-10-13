@@ -4,6 +4,7 @@ import { router, publicProcedure, protectedProcedure } from '../trpc'
 import { planItems, dancers, festivals, festivalSignups, events } from '../../database/schema'
 import { getReferralDiscountPercent, getEarlyBirdInfo } from '../../utils/ticket-prices'
 import { eventPath } from '../../../shared/utils/eventSlug'
+import { festivalPath } from '../../../shared/utils/eventSlug'
 
 export const planRouter = router({
   count: publicProcedure
@@ -981,7 +982,7 @@ export const planRouter = router({
         startDate = f.startDate ?? ''
         endDate = f.endDate ?? ''
         styles = (f.styles as string[]) ?? []
-        link = `/festivals/${f.slug}`
+        link = `${festivalPath(f.slug)}`
         itemSlug = f.slug
       }
     } else {

@@ -13,6 +13,7 @@ import { WD } from '~/lib/brand'
 import { mixHex, readableOn } from '~/lib/contrast'
 import { readableAccent } from '~/lib/accent'
 import { isUuid, eventSlug } from '#shared/utils/eventSlug'
+import { festivalPath } from '#shared/utils/eventSlug'
 
 definePageMeta({ layout: false })
 
@@ -35,6 +36,7 @@ function onPick() {
 
 const id = computed(() => String(route.params.id))
 const ev = ref<any>(null)
+const festivalData = ref<Awaited<ReturnType<typeof $trpc.events.festival.query>> | null>(null)
 const pending = ref(true)
 const failed = ref(false)
 
@@ -48,6 +50,8 @@ async function load() {
     try {
       // A dated public event (wedance.vip mirror) — adapt to the booking shape.
       const e = await $trpc.events.get.query({ id: id.value })
+      // A festival renders the festival page (programme, passes, line-up, dinners…).
+      if (e.festival) festivalData.value = await $trpc.events.festival.query({ id: e.id })
       ev.value = fromSyncedEvent(e)
       // An old /events/<id> link, or a name that changed since → the current
       // address, without a new history entry.
@@ -164,7 +168,8 @@ useHead(() => ({
 </script>
 
 <template>
-  <div class="min-h-screen bg-background text-foreground font-display">
+  <FestivalView v-if="festivalData && !pending" :data="festivalData" />
+  <div v-else class="min-h-screen bg-background text-foreground font-display">
     <SiteHeader />
 
     <main>
@@ -180,7 +185,7 @@ useHead(() => ({
 
     <template v-else>
       <!-- Part-of-festival banner (workshops / festival schedule items) -->
-      <NuxtLink v-if="parentFestival" :to="`/festivals/${parentFestival.slug}`" class="block border-b hover:brightness-95 transition-all bg-primary/[6.3%] border-border">
+      <NuxtLink v-if="parentFestival" :to="`${festivalPath(parentFestival.slug)}`" class="block border-b hover:brightness-95 transition-all bg-primary/[6.3%] border-border">
         <div class="max-w-3xl mx-auto px-4 py-2.5 flex items-center gap-2 text-sm text-muted-foreground font-sans">
           <span class="text-eyebrow uppercase tracking-widest font-black shrink-0 text-primary">Festival</span>
           <span class="truncate">Part of <b class="text-foreground">{{ parentFestival.name }}</b></span>

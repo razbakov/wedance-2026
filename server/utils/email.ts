@@ -1,4 +1,5 @@
 import { Resend } from 'resend'
+import { festivalPath } from '../../shared/utils/eventSlug'
 
 let _resend: Resend | null = null
 
@@ -101,7 +102,7 @@ export async function sendTicketConfirmationEmail(params: TicketConfirmationPara
 
   const dateRange = formatDateRange(params.startDate, params.endDate)
 
-  const festivalUrl = `${siteUrl}/festivals/${params.festivalSlug}`
+  const festivalUrl = `${siteUrl}${festivalPath(params.festivalSlug)}`
 
   await resend.emails.send({
     from: config.resendFromEmail || 'WeDance <noreply@wedance.vip>',

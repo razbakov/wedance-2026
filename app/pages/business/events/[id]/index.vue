@@ -44,6 +44,8 @@ const initial = computed<Partial<BusinessEventValues>>(() => ev.value
       artists: ev.value.artists, styles: ev.value.styles, description: ev.value.description,
       cover: ev.value.cover ?? '', ticketUrl: ev.value.ticketUrl ?? '', price: ev.value.price, published: ev.value.published,
       agenda: ev.value.agenda, showAgenda: ev.value.flyerOptions.showAgenda !== false, photos: ev.value.flyerOptions.photos ?? {},
+      // The key isn't editable: dancers' plans and picks hang on it.
+      festival: ev.value.festival ? (({ key: _k, ...rest }) => rest)(ev.value.festival) : null,
     }
   : {})
 

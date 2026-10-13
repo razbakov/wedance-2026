@@ -709,6 +709,9 @@ export const events = pgTable('events', {
   // on the event page; the v3 sync no longer overwrites an edited event.
   editedAt: timestamp('edited_at'),
   editedBy: uuid('edited_by').references(() => dancers.id, { onDelete: 'set null' }),
+  // Festivals are events (migration 0032): logo, links, passes, programme…
+  // (shared/types/festivalDetails.ts). Null for an ordinary event.
+  festival: jsonb('festival').$type<import('../../shared/types/festivalDetails').FestivalDetails | null>(),
 }, (t) => [
   index('events_host_profile_idx').on(t.hostProfileId),
   uniqueIndex('events_slug_uidx').on(t.slug).where(sql`${t.slug} IS NOT NULL`),

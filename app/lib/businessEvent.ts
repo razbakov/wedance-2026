@@ -23,6 +23,9 @@ export function toBusinessEventInput(v: BusinessEventValues) {
     published: v.published,
     agenda: v.agenda,
     // Only the line-up's photo choices; a removed artist's choice is dropped.
+    festival: v.festival
+      ? { ...v.festival, logo: v.festival.logo || '', accentColor: v.festival.accentColor || '' }
+      : null,
     flyerOptions: {
       showAgenda: v.showAgenda,
       photos: Object.fromEntries(Object.entries(v.photos).filter(([h]) => v.artists.includes(h))),

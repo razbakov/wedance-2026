@@ -32,6 +32,8 @@ export type BusinessEventValues = {
   agenda: { time: string; what: string }[]
   showAgenda: boolean
   photos: Record<string, string | null>
+  /** A festival's page; null for an ordinary event. */
+  festival: Omit<import('#shared/types/festivalDetails').FestivalDetails, 'key'> | null
 }
 
 const props = defineProps({
@@ -55,7 +57,7 @@ const blank = (): BusinessEventValues => ({
   hostUsername: '', name: '', type: 'Party', date: '', startTime: '20:00', endTime: '', endDate: '',
   city: '', venueUsername: null, venueName: '', venueAddress: '', artists: [], styles: [],
   description: '', cover: '', ticketUrl: '', price: '', published: true,
-  agenda: [], showAgenda: true, photos: {},
+  agenda: [], showAgenda: true, photos: {}, festival: null,
 })
 const form = reactive<BusinessEventValues>({ ...blank(), ...clone(props.initial) })
 // Prices are edited one per line.
@@ -67,6 +69,17 @@ const venueManual = ref(!form.venueUsername && !!form.venueName)
 const multiDay = ref(!!form.endDate)
 const isMultiDayType = computed(() => ['Festival', 'Weekender', 'Congress'].includes(form.type))
 watch(isMultiDayType, (v) => { if (v) multiDay.value = true })
+
+// A festival gets its page: look, links, passes, programme. Its days come from its dates.
+const isFestival = computed(() => isMultiDayType.value || !!form.festival)
+watch(isFestival, (v) => { if (v && !form.festival) form.festival = { socialLinks: [], practicalInfo: [], passes: [], sessions: [], videos: {} } }, { immediate: true })
+const festivalDays = computed(() => {
+  if (!form.date) return []
+  const last = multiDay.value && form.endDate ? form.endDate : form.date
+  const out: string[] = []
+  for (let d = new Date(`${form.date}T12:00:00Z`); d <= new Date(`${last}T12:00:00Z`) && out.length < 31; d = new Date(d.getTime() + 86400_000)) out.push(d.toISOString().slice(0, 10))
+  return out
+})
 
 // Honest Saved / Unsaved: the page resets `initial` after a save.
 const snapshot = ref(JSON.stringify(form))
@@ -111,6 +124,16 @@ function submit() {
     venueName: venueManual.value ? form.venueName : '',
     venueAddress: venueManual.value ? form.venueAddress : '',
     agenda: form.agenda.filter(a => a.what.trim()),
+    // Unfinished rows (no title / no name) aren't saved.
+    festival: form.festival
+      ? {
+          ...clone(form.festival),
+          sessions: (form.festival.sessions ?? []).filter(s => s.title.trim()),
+          passes: (form.festival.passes ?? []).filter(p => p.name.trim()),
+          socialLinks: (form.festival.socialLinks ?? []).filter(l => l.url.trim()),
+          practicalInfo: (form.festival.practicalInfo ?? []).map(l => l.trim()).filter(Boolean),
+        }
+      : null,
   })
   return true
 }
@@ -202,8 +225,8 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
       </p>
     </section>
 
-    <!-- Agenda -->
-    <section class="rounded-2xl border bg-card p-4">
+    <!-- Agenda (a festival has its programme instead) -->
+    <section v-if="!isFestival" class="rounded-2xl border bg-card p-4">
       <div class="flex items-center justify-between gap-2">
         <h2 class="flex items-center gap-1.5 text-sm font-bold"><ListOrdered class="size-4 text-muted-foreground" aria-hidden="true" /> Agenda <span class="font-normal text-muted-foreground">(optional)</span></h2>
         <Button v-if="mode === 'edit'" type="button" variant="ghost" size="sm" :aria-expanded="isOpen('agenda')" @click="toggle('agenda')"><template v-if="isOpen('agenda')"><Check /> Done</template><template v-else><Pencil /> Edit</template></Button>
@@ -259,6 +282,8 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
       <p class="text-xs text-muted-foreground">DJs, teachers, performers. Everyone is named on the flyer. Pick the photo it uses, or “Name only”.</p>
       <BusinessLineupPicker v-model="form.artists" v-model:photos="form.photos" class="mt-3" />
     </section>
+
+    <BusinessFestivalEditor v-if="isFestival && form.festival" v-model="form.festival" :days="festivalDays" :lineup="form.artists" />
 
     <!-- Cover -->
     <section class="rounded-2xl border bg-card p-4">

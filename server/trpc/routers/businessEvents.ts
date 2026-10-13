@@ -25,6 +25,38 @@ const EVENT_TYPES = ['Party', 'Workshop', 'Course', 'Festival', 'Weekender', 'Co
 const ymd = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Pick a date.')
 const hhmm = z.string().regex(/^\d{2}:\d{2}$/, 'Pick a time.')
 
+const ymdStr = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+const text = (max: number) => z.string().trim().max(max)
+const festivalInput = z.object({
+  logo: z.string().url().or(z.literal('')).optional(),
+  accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).or(z.literal('')).optional(),
+  socialLinks: z.array(z.object({ platform: text(20), url: z.string().url() })).max(10).default([]),
+  practicalInfo: z.array(text(300)).max(30).default([]),
+  passes: z.array(z.object({
+    name: text(80).min(1, 'Name every pass.'),
+    price: z.number().min(0).max(100000),
+    days: z.array(text(12)).max(14).default([]),
+    description: text(300).optional(),
+    soldOut: z.boolean().optional(),
+    workshopCount: z.number().int().min(0).max(100).optional(),
+    includesParty: z.boolean().optional(),
+  })).max(30).default([]),
+  sessions: z.array(z.object({
+    id: z.string().trim().min(1).max(60),
+    date: ymdStr,
+    time: z.string().regex(/^\d{2}:\d{2}$/, 'Give every session a time.'),
+    duration: z.number().int().min(5).max(1440),
+    type: z.enum(['workshop', 'party']),
+    title: text(160).min(1, 'Give every session a title.'),
+    artist: text(200).default(''),
+    style: text(40).default(''),
+    level: z.enum(['Beginner', 'Intermediate', 'Advanced']).default('Beginner'),
+    room: text(60).optional(),
+    venue: text(200).optional(),
+    description: text(1000).optional(),
+  })).max(300).default([]),
+  videos: z.record(z.string(), z.string().url()).default({}),
+})
 const eventInput = z.object({
   name: z.string().trim().min(1, 'Add a name.').max(160),
   type: z.enum(EVENT_TYPES),
@@ -51,6 +83,9 @@ const eventInput = z.object({
     showAgenda: z.boolean().optional(),
     photos: z.record(z.string(), z.string().url().nullable()).optional(),
   }).default({}),
+  // A festival's page (logo, links, passes, programme…); null for an ordinary
+  // event. Its permanent key is set by the server, never by the form.
+  festival: festivalInput.nullable().optional(),
 })
 type EventInput = z.infer<typeof eventInput>
 
@@ -148,6 +183,10 @@ async function toRow(db: any, host: { username: string; type: string } | null, i
     published: input.published,
     agenda: input.agenda.filter(a => a.what),
     flyerOptions: input.flyerOptions,
+    // Festival details: the key stays (dancers' plans and picks hang on it).
+    ...(input.festival !== undefined
+      ? { festival: input.festival ? { ...input.festival, key: existing?.festival?.key ?? existing?.slug ?? null } : (existing?.festival ?? null) }
+      : {}),
     archived: false,
     updatedAt: new Date(),
   }
@@ -258,6 +297,7 @@ export const businessEventsRouter = router({
         published: ev.published,
         agenda: (ev.agenda ?? []) as { time: string; what: string }[],
         flyerOptions: (ev.flyerOptions ?? {}) as { showAgenda?: boolean; photos?: Record<string, string | null> },
+        festival: (ev.festival ?? null) as import('../../../shared/types/festivalDetails').FestivalDetails | null,
         timezone: tz,
         missing: (await checklistFor(ctx.db, [ev])).get(ev.id) ?? [],
       }
@@ -268,8 +308,10 @@ export const businessEventsRouter = router({
     .mutation(async ({ ctx, input }) => {
       const host = await requireMember(ctx, input.hostUsername)
       const row = await toRow(ctx.db, host, input)
+      const slug = `${slugify(input.name)}-${randomSuffix(5)}`
       const [ev] = await ctx.db.insert(events)
-        .values({ ...row, hostProfileId: host.id, source: 'wedance-business', slug: `${slugify(input.name)}-${randomSuffix(5)}` })
+        // A new festival's permanent key is its first slug.
+        .values({ ...row, hostProfileId: host.id, source: 'wedance-business', slug, ...(input.festival ? { festival: { ...input.festival, key: slug } } : {}) })
         .returning({ id: events.id })
       return { id: ev!.id }
     }),

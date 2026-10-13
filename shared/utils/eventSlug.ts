@@ -41,3 +41,7 @@ export function eventKey(param: string): { id: string } | { short: string } | nu
   const short = param.toLowerCase().match(/(?:^|-)([0-9a-f]{8})$/)?.[1]
   return short ? { short } : null
 }
+
+// Festivals are events: /events/<festival key> finds the festival and switches
+// to its current URL.
+export const festivalPath = (key: string) => `/events/${key}`

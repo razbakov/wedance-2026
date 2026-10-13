@@ -3,6 +3,7 @@ import { and, asc, eq, gte, lt, or, sql, type SQL } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { router, publicProcedure } from '../trpc'
 import { events } from '../../database/schema'
+import { festivalView } from '../../utils/festivalView'
 import { eventKey } from '../../../shared/utils/eventSlug'
 
 /**
@@ -95,15 +96,17 @@ export const eventsRouter = router({
       }
     }),
 
-  // By id, or by the URL /events/<name>-<short id> (the 8 characters at the end
-  // are the start of the id; the name part doesn't matter).
+  // By id; by a festival's key or a stored slug (/events/meneate-viena-2026, the
+  // links festival cards and old plans make); or by the URL /events/<name>-<short
+  // id> (the 8 characters at the end are the start of the id).
   get: publicProcedure
     .input(z.object({ id: z.string().min(1).max(200) }))
     .query(async ({ ctx, input }) => {
       const key = eventKey(input.id)
-      if (!key) throw new TRPCError({ code: 'NOT_FOUND', message: 'Event not found.' })
-      const match = 'id' in key ? eq(events.id, key.id) : sql`${events.id}::text LIKE ${`${key.short}%`}`
-      const [ev] = await selectCards(ctx.db, and(match, eq(events.published, true)), 1, {
+      const exact = key && 'id' in key
+        ? eq(events.id, key.id)
+        : or(eq(events.slug, input.id), sql`${events.festival}->>'key' = ${input.id}`)
+      const extra = {
         description: events.description,
         link: events.link,
         ticketUrl: events.ticketUrl,
@@ -121,8 +124,22 @@ export const eventsRouter = router({
             then (select p.name from profiles p where p.id = ${events.hostProfileId})
           else 'WeDance' end`,
         agenda: events.agenda,
-      })
+        festival: events.festival,
+      }
+      let [ev] = await selectCards(ctx.db, and(exact, eq(events.published, true)), 1, extra)
+      if (!ev && key && 'short' in key) [ev] = await selectCards(ctx.db, and(sql`${events.id}::text LIKE ${`${key.short}%`}`, eq(events.published, true)), 1, extra)
       if (!ev) throw new TRPCError({ code: 'NOT_FOUND', message: 'Event not found.' })
       return ev
+    }),
+
+  // A festival event in the shape the festival page renders (Festival,
+  // workshops, teachers — app/types/festival.ts), built from the event, its
+  // festival details and its line-up's profiles.
+  festival: publicProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const [ev] = await ctx.db.select().from(events).where(and(eq(events.id, input.id), eq(events.published, true)))
+      if (!ev?.festival) throw new TRPCError({ code: 'NOT_FOUND', message: 'Festival not found.' })
+      return festivalView(ctx.db, ev)
     }),
 })

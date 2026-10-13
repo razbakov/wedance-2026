@@ -8,6 +8,7 @@
  * 2026 tropical style.
  */
 import { MapPin, Pencil, ArrowLeft, Instagram, Youtube, Globe, Play, EyeOff, Calendar } from 'lucide-vue-next'
+import { festivalPath } from '#shared/utils/eventSlug'
 
 definePageMeta({ layout: false })
 
@@ -196,7 +197,7 @@ useHead(() => ({
           <NuxtLink
             v-for="f in upcomingFestivals"
             :key="f.slug"
-            :to="`/festivals/${f.slug}`"
+            :to="`${festivalPath(f.slug)}`"
             class="flex items-center gap-3 rounded-xl p-3 no-underline transition-colors hover:brightness-[0.97]"
             style="background:white; border:1px solid color-mix(in srgb, var(--wd-brown-900) 10%, transparent);"
           >
