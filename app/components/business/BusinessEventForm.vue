@@ -76,7 +76,9 @@ watch(isMultiDayType, (v) => { if (v) multiDay.value = true })
 
 // Every event has the same cards; a festival's extras (logo and links, practical
 // info, passes, programme by day) go inside them. Its days come from its dates.
-const isFestival = computed(() => isMultiDayType.value || !!form.festival)
+// Only these types get a festival page; switching away keeps the details in
+// the form (switch back and they're there) but saves the event without them.
+const isFestival = isMultiDayType
 watch(isFestival, (v) => { if (v && !form.festival) form.festival = { socialLinks: [], practicalInfo: [], passes: [], sessions: [], videos: {} } }, { immediate: true })
 const festivalDays = computed(() => {
   if (!form.date) return []
@@ -130,7 +132,7 @@ function submit() {
     venueAddress: venueManual.value ? form.venueAddress : '',
     agenda: form.agenda.filter(a => a.what.trim()),
     // Unfinished rows (no title / no name) aren't saved.
-    festival: form.festival
+    festival: form.festival && isFestival.value
       ? {
           ...clone(form.festival),
           sessions: (form.festival.sessions ?? []).filter(s => s.title.trim()),
@@ -274,11 +276,11 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
           class="mt-4"
           @pick="v => { venueManual = false; pickedVenue = v.name }"
         />
-        <BusinessFestivalEditor v-if="form.festival" v-model="form.festival" part="practical" :days="festivalDays" class="mt-4" />
+        <BusinessFestivalEditor v-if="isFestival && form.festival" v-model="form.festival" part="practical" :days="festivalDays" class="mt-4" />
       </div>
       <p v-else class="mt-1 text-sm">
         {{ [venueText, form.city].filter(Boolean).join(' · ') || 'No venue yet' }}
-        <template v-if="form.festival?.practicalInfo?.length"><br><span class="text-muted-foreground">{{ form.festival.practicalInfo.length }} lines of practical info</span></template>
+        <template v-if="isFestival && form.festival?.practicalInfo?.length"><br><span class="text-muted-foreground">{{ form.festival.practicalInfo.length }} lines of practical info</span></template>
       </p>
     </section>
 
@@ -288,7 +290,7 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
         <h2 class="flex items-center gap-1.5 text-sm font-bold"><ListOrdered class="size-4 text-muted-foreground" aria-hidden="true" /> Programme <span class="font-normal text-muted-foreground">(optional)</span></h2>
         <Button v-if="mode === 'edit'" type="button" variant="ghost" size="sm" :aria-expanded="isOpen('agenda')" @click="toggle('agenda')"><template v-if="isOpen('agenda')"><Check /> Done</template><template v-else><Pencil /> Edit</template></Button>
       </div>
-      <template v-if="form.festival">
+      <template v-if="isFestival && form.festival">
         <BusinessFestivalEditor v-if="isOpen('agenda')" v-model="form.festival" part="programme" :days="festivalDays" :lineup="form.artists" :styles="form.styles" class="mt-3" />
         <p v-else class="mt-1 text-sm text-muted-foreground">{{ sessionsText }}</p>
       </template>
@@ -304,7 +306,7 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
         <li v-for="(a, i) in form.agenda" :key="i"><span class="font-bold tabular-nums">{{ a.time }}</span> {{ a.what }}</li>
       </ul>
       <p v-else class="mt-1 text-sm text-muted-foreground">Workshops, show, DJ sets: what happens when.</p>
-      <label v-if="!form.festival && form.agenda.length" class="mt-3 flex items-center gap-2 text-xs text-muted-foreground"><Checkbox v-model="form.showAgenda" /> Put the agenda on the flyer</label>
+      <label v-if="!isFestival && form.agenda.length" class="mt-3 flex items-center gap-2 text-xs text-muted-foreground"><Checkbox v-model="form.showAgenda" /> Put the agenda on the flyer</label>
     </section>
 
     <!-- Entry and tickets -->
@@ -323,11 +325,11 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
         <Field id="ev-ticket" label="Ticket link" optional :error="errors.ticketUrl" class="mt-2" hint="For Tickettailor, use the checkout link so people land on the ticket list.">
           <Input v-model="form.ticketUrl" type="url" placeholder="https://…" />
         </Field>
-        <BusinessFestivalEditor v-if="form.festival" v-model="form.festival" part="passes" :days="festivalDays" class="mt-4" />
+        <BusinessFestivalEditor v-if="isFestival && form.festival" v-model="form.festival" part="passes" :days="festivalDays" class="mt-4" />
       </div>
       <div v-else class="mt-1 text-sm">
         <p>{{ prices.filter(Boolean).join(' · ') || 'No price yet' }}</p>
-        <p v-if="form.festival?.passes?.length">Passes: {{ form.festival.passes.map(p => p.name).filter(Boolean).join(' · ') }}</p>
+        <p v-if="isFestival && form.festival?.passes?.length">Passes: {{ form.festival.passes.map(p => p.name).filter(Boolean).join(' · ') }}</p>
         <p class="truncate text-xs text-muted-foreground">{{ form.ticketUrl ? `Tickets: ${form.ticketUrl}` : 'No ticket link' }}</p>
       </div>
     </section>
@@ -353,7 +355,7 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
       <Field label="Cover photo" optional class="mt-3" hint="The picture on the event page and in search. Leave it empty and your flyer becomes the cover.">
         <div class="max-w-xs"><ImageUpload v-model="form.cover" folder="events" /></div>
       </Field>
-      <BusinessFestivalEditor v-if="form.festival" v-model="form.festival" part="branding" :days="festivalDays" class="mt-4" />
+      <BusinessFestivalEditor v-if="isFestival && form.festival" v-model="form.festival" part="branding" :days="festivalDays" class="mt-4" />
     </section>
 
     <div class="mt-3 flex flex-wrap items-center gap-3">

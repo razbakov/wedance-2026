@@ -23,6 +23,8 @@ import { asksWaitingFor } from './venueAsks'
  */
 
 const EVENT_TYPES = ['Party', 'Workshop', 'Course', 'Festival', 'Weekender', 'Congress', 'Concert', 'Show'] as const
+/** The types that get a festival page (events.festival). */
+const FESTIVAL_TYPES = ['Festival', 'Weekender', 'Congress'] as const
 const ymd = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Pick a date.')
 const hhmm = z.string().regex(/^\d{2}:\d{2}$/, 'Pick a time.')
 
@@ -188,8 +190,11 @@ async function toRow(db: any, host: { username: string; type: string } | null, i
     agenda: input.agenda.filter(a => a.what),
     flyerOptions: input.flyerOptions,
     // Festival details: the key stays (dancers' plans and picks hang on it).
+    // Only multi-day types have a festival page; an event changed to a
+    // single-night type (Party, Course…) loses it, else it would still render
+    // as a festival.
     ...(input.festival !== undefined
-      ? { festival: input.festival ? { ...input.festival, key: existing?.festival?.key ?? existing?.slug ?? null } : (existing?.festival ?? null) }
+      ? { festival: !FESTIVAL_TYPES.includes(input.type as any) ? null : input.festival ? { ...input.festival, key: existing?.festival?.key ?? existing?.slug ?? null } : (existing?.festival ?? null) }
       : {}),
     archived: false,
     updatedAt: new Date(),

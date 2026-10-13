@@ -168,7 +168,7 @@ useHead(() => ({
 </script>
 
 <template>
-  <FestivalView v-if="festivalData && !pending" :data="festivalData" :edit-to="canEdit ? `/business/events/${festivalData.eventId}` : undefined" />
+  <FestivalView v-if="festivalData && !pending" :data="festivalData" :type="ev?.eventType" :edit-to="canEdit ? `/business/events/${festivalData.eventId}` : undefined" />
   <div v-else class="min-h-screen bg-background text-foreground font-display">
     <SiteHeader />
 

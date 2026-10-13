@@ -23,7 +23,10 @@ const props = defineProps<{
   data: { festival: Festival; workshops: Workshop[]; teachers: Teacher[]; eventId: string }
   /** Set for the festival's managers (and admins): the Business editor. */
   editTo?: string
+  /** The event's type ("Weekender"), for the wording: "You manage this weekender". */
+  type?: string | null
 }>()
+const kind = computed(() => (props.type || 'festival').toLowerCase())
 const data = props.data
 const festival = data.festival
 const workshops = data.workshops
@@ -1065,9 +1068,9 @@ useHead({
 
     <div v-if="editTo" class="border-b bg-secondary/[8%] border-border">
       <div class="max-w-3xl mx-auto px-4 py-2 flex items-center gap-3 text-sm font-sans">
-        <span class="text-muted-foreground">You manage this festival.</span>
+        <span class="text-muted-foreground">You manage this {{ kind }}.</span>
         <Button variant="outline-pill" size="pill-sm" class="ml-auto" as-child>
-          <NuxtLink :to="editTo"><Pencil /> Edit festival</NuxtLink>
+          <NuxtLink :to="editTo"><Pencil /> Edit {{ kind }}</NuxtLink>
         </Button>
       </div>
     </div>
