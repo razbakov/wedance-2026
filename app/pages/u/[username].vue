@@ -38,6 +38,9 @@ async function load() {
       yearPlan.value = result
     }).catch(() => {})
   } catch {
+    // An old handle: forward to the dancer's readable one.
+    const moved = await $trpc.profile.movedTo.query({ username: username.value }).catch(() => null)
+    if (moved) { await navigateTo(`/u/${moved.username}`, { replace: true, redirectCode: 301 }); return }
     profile.value = null
     failed.value = true
   } finally {

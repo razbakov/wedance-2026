@@ -19,6 +19,8 @@ export const dancers = pgTable('dancers', {
   // for dancers created before this field existed. Nullable so legacy rows stay
   // valid until backfilled; unique so the URL is a stable identity.
   username: text('username').unique(),
+  // Earlier handles (0036), so old /u/<handle> links forward.
+  oldUsernames: jsonb('old_usernames').$type<string[]>().notNull().default([]),
   // Profile detail rendered on /u/<username>: a short bio + social links.
   bio: text('bio'),
   instagram: text('instagram'),

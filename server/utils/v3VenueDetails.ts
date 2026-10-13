@@ -52,7 +52,8 @@ export function matchVenue(v3: any, local: LocalVenue[]) {
   const byFid = local.find(r => r.sourceRef?.firebaseId === v3.id)
   if (byFid) return byFid
   if (pid) {
-    const hit = local.find(r => r.username.toLowerCase() === pid.toLowerCase() || r.sourceRef?.sourceId === `place:${pid}`)
+    const hit = local.find(r => r.username.toLowerCase() === pid.toLowerCase() || r.sourceRef?.sourceId === `place:${pid}` || r.sourceRef?.placeId === pid
+      || ((r.sourceRef?.oldHandles ?? []) as string[]).includes(pid))
     if (hit) return hit
   }
   return local.find(r => r.username.toLowerCase() === String(v3.username ?? '').toLowerCase()) ?? null

@@ -10,6 +10,7 @@
 -- Rollback: ALTER TABLE "profiles" DROP COLUMN IF EXISTS "amenities", DROP COLUMN IF EXISTS "capacity",
 --           DROP COLUMN IF EXISTS "opening_hours", DROP COLUMN IF EXISTS "floor_plan", DROP COLUMN IF EXISTS "contact",
 --           DROP COLUMN IF EXISTS "lat", DROP COLUMN IF EXISTS "lng";
+--           ALTER TABLE "dancers" DROP COLUMN IF EXISTS "old_usernames";
 ALTER TABLE "profiles" ADD COLUMN IF NOT EXISTS "amenities" jsonb DEFAULT '[]'::jsonb NOT NULL;
 ALTER TABLE "profiles" ADD COLUMN IF NOT EXISTS "capacity" integer;
 ALTER TABLE "profiles" ADD COLUMN IF NOT EXISTS "opening_hours" jsonb DEFAULT '[]'::jsonb NOT NULL;
@@ -17,3 +18,6 @@ ALTER TABLE "profiles" ADD COLUMN IF NOT EXISTS "floor_plan" text;
 ALTER TABLE "profiles" ADD COLUMN IF NOT EXISTS "contact" jsonb DEFAULT '{}'::jsonb NOT NULL;
 ALTER TABLE "profiles" ADD COLUMN IF NOT EXISTS "lat" double precision;
 ALTER TABLE "profiles" ADD COLUMN IF NOT EXISTS "lng" double precision;
+-- Readable handles (scripts/readable-handles.ts): a dancer's earlier handles,
+-- so old /u/<handle> links forward. (Profiles keep theirs in source_ref.oldHandles.)
+ALTER TABLE "dancers" ADD COLUMN IF NOT EXISTS "old_usernames" jsonb DEFAULT '[]'::jsonb NOT NULL;

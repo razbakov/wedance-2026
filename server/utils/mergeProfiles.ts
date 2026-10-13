@@ -115,8 +115,10 @@ export function findDuplicates(rows: DupRow[], cityKeys: Set<string>): DupGroup[
         if (row.managed) return { row, merge: false, reason: 'both run by people on WeDance' }
         if (type === 'venue' && cityKeys.has(key)) return { row, merge: false, reason: 'the name is just a city' }
         if (!row.events) return { row, merge: true, reason: 'empty copy' }
-        if (base(row.username) === base(keep.username)) return { row, merge: true, reason: 'numbered copy' }
-        if (plain(row.username) === plain(keep.username)) return { row, merge: true, reason: 'same handle, other punctuation' }
+        // Handles only tell organizers and artists apart: a venue's handle can be
+        // "<street>-2" for a different place, so venues go by address.
+        if (type !== 'venue' && base(row.username) === base(keep.username)) return { row, merge: true, reason: 'numbered copy' }
+        if (type !== 'venue' && plain(row.username) === plain(keep.username)) return { row, merge: true, reason: 'same handle, other punctuation' }
         if (type === 'venue') {
           const a = addrKey(row.address), k = addrKey(keep.address)
           if ((a && k && a === k) || sameAddress(row.address, keep.address)) return { row, merge: true, reason: 'same address' }
@@ -173,23 +175,32 @@ const FILL = ['photo', 'bio', 'city', 'city_slug', 'address', 'lat', 'lng', 'map
  * Merge `from` into `to`: move every reference, fill `to`'s empty fields,
  * hide `from`. Returns what it touched (for the backup / report).
  */
+/**
+ * Point everything that names a profile by its handle at another handle:
+ * events (venue, organizer, line-up, flyer options, festival programme) and
+ * moderator handles. Used when merging and when renaming a handle.
+ */
+export async function moveHandleRefs(db: any, from: string, to: string, count: (k: string, n: number) => void = () => {}) {
+  const q = async (s: any) => { const r: any = await db.execute(s); return (r.rows ?? r) as any[] }
+  count('events.venue', (await q(sql`update events set venue_username = ${to} where venue_username = ${from} returning id`)).length)
+  count('events.organizer', (await q(sql`update events set organizer_username = ${to} where organizer_username = ${from} returning id`)).length)
+  const evs = await q(sql`select id, artists, flyer_options as "flyerOptions", festival from events
+    where artists::jsonb ? ${from} or flyer_options->'photos' ? ${from} or flyer_options->'names' ? ${from}
+      or festival::text like ${`%"${from}"%`}`)
+  for (const e of evs) {
+    const n = renameInEvent(e, from, to)
+    await q(sql`update events set artists = ${JSON.stringify(n.artists)}::jsonb, flyer_options = ${JSON.stringify(n.flyerOptions)}::jsonb, festival = ${n.festival ? JSON.stringify(n.festival) : null}::jsonb where id = ${e.id}`)
+  }
+  count('events.lineup', evs.length)
+  count('profiles.moderator_handle', (await q(sql`update profiles set moderator_handle = ${to} where moderator_handle = ${from} returning id`)).length)
+}
+
 export async function mergeProfile(db: any, from: { id: string; username: string }, to: { id: string; username: string }) {
   const q = async (s: any) => { const r: any = await db.execute(s); return (r.rows ?? r) as any[] }
   const touched: Record<string, number> = {}
   const count = (k: string, n: number) => { if (n) touched[k] = (touched[k] ?? 0) + n }
-  // Events by handle (venue / organizer) and by host id.
-  count('events.venue', (await q(sql`update events set venue_username = ${to.username} where venue_username = ${from.username} returning id`)).length)
-  count('events.organizer', (await q(sql`update events set organizer_username = ${to.username} where organizer_username = ${from.username} returning id`)).length)
+  await moveHandleRefs(db, from.username, to.username, count)
   count('events.host', (await q(sql`update events set host_profile_id = ${to.id} where host_profile_id = ${from.id} returning id`)).length)
-  // Line-ups, flyer options, festival programmes (handles inside JSON).
-  const evs = await q(sql`select id, artists, flyer_options as "flyerOptions", festival from events
-    where artists::jsonb ? ${from.username} or flyer_options->'photos' ? ${from.username} or flyer_options->'names' ? ${from.username}
-      or festival::text like ${`%"${from.username}"%`}`)
-  for (const e of evs) {
-    const n = renameInEvent(e, from.username, to.username)
-    await q(sql`update events set artists = ${JSON.stringify(n.artists)}::jsonb, flyer_options = ${JSON.stringify(n.flyerOptions)}::jsonb, festival = ${n.festival ? JSON.stringify(n.festival) : null}::jsonb where id = ${e.id}`)
-  }
-  count('events.lineup', evs.length)
   // Rows with a unique (…, profile) pair: drop the copy's where the one that stays has its own.
   count('artist_follows', (await q(sql`delete from artist_follows f where f.profile_id = ${from.id} and exists (select 1 from artist_follows g where g.profile_id = ${to.id} and g.dancer_id = f.dancer_id) returning f.id`)).length)
   count('profile_invites', (await q(sql`delete from profile_invites i where i.profile_id = ${from.id} and exists (select 1 from profile_invites j where j.profile_id = ${to.id} and j.event_id = i.event_id) returning i.id`)).length)
@@ -201,7 +212,6 @@ export async function mergeProfile(db: any, from: { id: string; username: string
   ] as const) {
     count(`${table}.${col}`, (await q(sql`update ${sql.identifier(table)} set ${sql.identifier(col)} = ${to.id} where ${sql.identifier(col)} = ${from.id} returning 1 as x`)).length)
   }
-  count('profiles.moderator_handle', (await q(sql`update profiles set moderator_handle = ${to.username} where moderator_handle = ${from.username} returning id`)).length)
   // Fill the empty fields of the one that stays.
   const [a] = await q(sql`select * from profiles where id = ${to.id}`)
   const [b] = await q(sql`select * from profiles where id = ${from.id}`)

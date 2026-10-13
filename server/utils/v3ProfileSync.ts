@@ -200,6 +200,10 @@ export function planProfiles(input: {
     const ref = raw.sourceRef ?? {}
     put(byId, (ref.sourceId as string) ?? (ref.firebaseId as string) ?? null, r)
     put(byHandle, raw.username.toLowerCase(), r)
+    // Renamed to a readable handle (scripts/readable-handles.ts): the old handle
+    // and the Google place id still find it.
+    for (const old of (ref.oldHandles ?? []) as string[]) put(byHandle, String(old).toLowerCase(), r)
+    if (ref.placeId) put(byHandle, String(ref.placeId).toLowerCase(), r)
     put(byNameCity, nameKey(raw.type, raw.name, raw.citySlug), r)
     if (r.type === 'venue') {
       put(venueByAddr, addressKey(raw.address) ? `${addressKey(raw.address)}|${raw.citySlug}` : null, r)
@@ -211,6 +215,7 @@ export function planProfiles(input: {
       }
     }
     taken.add(raw.username.toLowerCase())
+    for (const old of (ref.oldHandles ?? []) as string[]) taken.add(String(old).toLowerCase())
   }
   const v3ById = new Map(input.v3Profiles.map(p => [p.id, p]))
   const v3ByHandle = new Map<string, V3Profile>()
@@ -334,13 +339,14 @@ export function planProfiles(input: {
       decided.set(key, row.username)
       return row.username
     }
-    // Create: v4 convention keys venues by Google place id; else a readable handle.
+    // Create with a readable handle (the venue's name, else name + city); the
+    // Google place id is kept in source_ref.placeId for matching.
     const name = addrLike ? (v.address?.split(',')[0]?.trim() || v.name || 'Venue') : v.name!
-    const username = pick(v.placeId ?? `${handleSlug(name)}-${city.slug}`)
+    const username = pick(taken.has(handleSlug(name)) ? `${handleSlug(name)}-${city.slug}` : handleSlug(name))
     const f = {
       username, type: 'venue' as const, name, city: city.name, citySlug: city.slug, photo: null, bio: null, styles: [],
       address: v.address, socials: [] as any[],
-      sourceRef: { source: V3_SOURCE, sourceId: v.placeId ? `place:${v.placeId}` : `venue:${aKey ?? normName(name)}|${city.slug}`, v3Venue: true, lat: v.lat, lng: v.lng },
+      sourceRef: { source: V3_SOURCE, sourceId: v.placeId ? `place:${v.placeId}` : `venue:${aKey ?? normName(name)}|${city.slug}`, v3Venue: true, lat: v.lat, lng: v.lng, ...(v.placeId ? { placeId: v.placeId } : {}) },
     }
     plan.ops.push({ op: 'create', fields: f }); plan.stats.venue.created++; plan.stats.venue.profiles++
     plan.newProfiles.set(username, name)

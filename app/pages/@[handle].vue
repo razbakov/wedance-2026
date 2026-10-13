@@ -67,7 +67,11 @@ async function resolve() {
       await $trpc.profile.getByUsername.query({ username: handle.value })
       await navigateTo(`/u/${handle.value}`, { replace: true })
       return
-    } catch { isStub.value = true }
+    } catch {
+      const dancerMoved = await $trpc.profile.movedTo.query({ username: handle.value }).catch(() => null)
+      if (dancerMoved) { await navigateTo(`/u/${dancerMoved.username}`, { replace: true, redirectCode: 301 }); return }
+      isStub.value = true
+    }
   } catch { isStub.value = true }
   pending.value = false
 }
