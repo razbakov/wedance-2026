@@ -1229,18 +1229,19 @@ useHead({
           </div>
           <p class="text-sm mb-4 text-muted-foreground font-sans">Tap an artist to filter the schedule to their sessions — or open their full profile.</p>
           <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <ArtistCard
-              v-for="c in lineupCards"
-              :key="c.teacher.id"
-              :artist="c.teacher"
-              :accent="c.accent"
-              :origin="c.origin"
-              :residence="c.residence"
-              :languages="c.languages"
-              selectable
-              :selected="selectedTeacherId === c.teacher.id"
-              @select="toggleTeacherFilter(c.teacher.id)"
-            />
+            <div v-for="c in lineupCards" :key="c.teacher.id" class="relative">
+              <ArtistCard
+                :artist="c.teacher"
+                :accent="c.accent"
+                :origin="c.origin"
+                :residence="c.residence"
+                :languages="c.languages"
+                selectable
+                :selected="selectedTeacherId === c.teacher.id"
+                @select="toggleTeacherFilter(c.teacher.id)"
+              />
+              <span v-if="c.teacher.tbc" class="pointer-events-none absolute right-3 top-3 rounded-full bg-card/95 px-2 py-0.5 text-eyebrow font-bold uppercase tracking-wider text-muted-foreground shadow-sm font-sans">To be confirmed</span>
+            </div>
           </div>
         </section>
 

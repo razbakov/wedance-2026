@@ -919,6 +919,14 @@ export const profileInvites = pgTable('profile_invites', {
   createdBy: uuid('created_by').references(() => dancers.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow(),
   lastUsedAt: timestamp('last_used_at'),
+  // The artist's answer (migration 0034): in or not, programme right or what's
+  // wrong, OK for posts using their photo, and anything else they want to say.
+  status: text('status').notNull().default('invited').$type<'invited' | 'confirmed' | 'declined'>(),
+  respondedAt: timestamp('responded_at'),
+  programmeOk: boolean('programme_ok'),
+  programmeNote: text('programme_note'),
+  postsOkAt: timestamp('posts_ok_at'),
+  message: text('message'),
 }, (t) => [
   uniqueIndex('profile_invites_token_uidx').on(t.token),
   uniqueIndex('profile_invites_event_profile_uidx').on(t.eventId, t.profileId),

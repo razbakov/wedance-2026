@@ -39,16 +39,18 @@ async function load(handles: string[]) {
     people.value = next
   } catch { /* rows fall back to @handle, no photos */ }
 }
-watch(artists, h => { load(h); loadPending() }, { immediate: true })
 
 // What's waiting for each artist to approve.
-type Pending = Record<string, { photos: string[]; videos: string[]; name: string | null; fields: string[] }>
+type Answer = { status: string; programmeOk: boolean | null; programmeNote: string | null; postsOk: boolean; message: string | null; respondedAt: string | Date | null } | null
+type Pending = Record<string, { photos: string[]; videos: string[]; name: string | null; fields: string[]; answer: Answer }>
 const pending = ref<Pending>({})
 async function loadPending() {
   if (!props.eventId || !artists.value.length) return
   try { pending.value = await $trpc.artistInvites.pending.query({ eventId: props.eventId, handles: artists.value }) } catch { /* chips stay hidden */ }
 }
 const error = ref<string | null>(null)
+// After `pending` exists: loading runs right away.
+watch(artists, h => { load(h); loadPending() }, { immediate: true })
 
 // Photos: theirs, then any uploaded here (pending on their page), then this event's own.
 const choice = (h: string) => (h in photos.value ? photos.value[h] : (people.value.get(h)?.photos[0] ?? null))
@@ -89,6 +91,16 @@ async function onSaved(h: string, r: { status: 'applied' | 'pending'; name: stri
 
 // "Confirm": the popup with their personal link and a message to send.
 const confirming = ref<string | null>(null)
+// Their answer on the link: in or not, programme, posts.
+function answerOf(h: string): { tone: 'success' | 'warning' | 'danger' | 'neutral'; text: string; detail?: string } {
+  const a = pending.value[h]?.answer
+  if (!a) return { tone: 'neutral', text: 'Not asked yet' }
+  if (a.status === 'declined') return { tone: 'danger', text: 'Can’t make it', detail: a.message || undefined }
+  if (a.status !== 'confirmed') return { tone: 'neutral', text: 'Asked, no answer yet' }
+  const notes = [a.programmeOk === false && `Programme: ${a.programmeNote}`, a.message].filter(Boolean).join(' · ')
+  return { tone: a.programmeOk === false ? 'warning' : 'success', text: a.programmeOk === false ? 'Confirmed · programme needs a change' : 'Confirmed', detail: notes || (a.postsOk ? undefined : 'Hasn’t OK’d posts with their photo yet') }
+}
+
 const FIELD: Record<string, string> = { bio: 'about', city: 'city', styles: 'styles', instagram: 'Instagram', website: 'website', facebook: 'Facebook' }
 const waiting = (h: string) => {
   const p = pending.value[h]
@@ -112,6 +124,10 @@ const waiting = (h: string) => {
           <div class="min-w-[10rem] flex-1">
             <p class="truncate text-sm font-bold">{{ nameOf(h) }}</p>
             <p class="truncate text-xs text-muted-foreground">@{{ h }}<template v-if="people.get(h)?.styles?.length"> · {{ people.get(h)!.styles.slice(0, 4).join(', ') }}</template><template v-if="choice(h) === null"> · name only</template></p>
+            <p v-if="eventId" class="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
+              <AdminStatus :tone="answerOf(h).tone">{{ answerOf(h).text }}</AdminStatus>
+              <span v-if="answerOf(h).detail" class="text-muted-foreground">{{ answerOf(h).detail }}</span>
+            </p>
             <p v-if="waiting(h)" class="mt-1 inline-flex items-center gap-1 text-xs text-wd-amber-800"><Clock class="size-3" aria-hidden="true" /> Waiting for them: {{ waiting(h) }}</p>
           </div>
           <div class="flex shrink-0 items-center gap-1">

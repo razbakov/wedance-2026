@@ -1,8 +1,9 @@
 import { z } from 'zod'
-import { eq, and, inArray, desc } from 'drizzle-orm'
+import { eq, and, inArray, desc, isNotNull, sql } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { router, publicProcedure, protectedProcedure } from '../trpc'
-import { profiles, profileMembers, profileSuggestions, profileInvites, events } from '../../database/schema'
+import { profiles, profileMembers, profileSuggestions, profileInvites, events, eventFlyers, planItems } from '../../database/schema'
+import { eventLocalDate, eventLocalTime } from '../../../shared/utils/eventTime'
 import { requireEventManager } from './businessEvents'
 import { citySlugFor } from './business'
 import { grant, logAccess } from '../../utils/profileAccess'
@@ -85,6 +86,53 @@ async function resolve(ctx: any, input: { token?: string; username?: string }) {
   return { invite, p, managed, member, canAnswer: !managed || member || !!ctx.isAdmin }
 }
 
+/**
+ * What the artist sees first: the event in a few lines, who's organizing,
+ * who else is in the line-up — then their own programme and the flyer they're on.
+ */
+async function eventContext(db: any, eventId: string, p: any) {
+  const [e] = await db.select().from(events).where(eq(events.id, eventId))
+  if (!e) return null
+  const tz = e.timezone || 'Europe/Berlin'
+  const [host] = e.hostProfileId ? await db.select({ name: profiles.name, username: profiles.username, socials: profiles.socials }).from(profiles).where(eq(profiles.id, e.hostProfileId)) : [null]
+  const handles: string[] = e.artists ?? []
+  const others = handles.length
+    ? await db.select({ username: profiles.username, name: profiles.name, photo: profiles.photo }).from(profiles).where(inArray(profiles.username, handles))
+    : []
+  const sessions = ((e.festival?.sessions ?? []) as any[])
+  // Their programme: festival sessions they're on, else agenda lines naming them.
+  const myName = (e.flyerOptions?.names?.[p.username] || p.name || '').toLowerCase()
+  const programme = sessions.length
+    ? sessions.filter(s => s.artist === p.username || (s.with ?? []).includes(p.username)).sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
+      .map(s => ({
+        date: s.date, time: s.time, duration: s.duration, title: s.title, room: s.room ?? '', style: s.style ?? '', level: s.level ?? '', venue: s.venue ?? '', type: s.type,
+        // Who they teach it with, by name.
+        with: [s.artist, ...(s.with ?? [])].filter(h => h && h !== p.username).map(h => e.flyerOptions?.names?.[h] || others.find((o: any) => o.username === h)?.name || h),
+      }))
+    : ((e.agenda ?? []) as { time: string; what: string }[]).filter(a => myName && a.what.toLowerCase().includes(myName))
+      .map(a => ({ date: eventLocalDate(e.startDate, tz), time: a.time, duration: 0, title: a.what, room: '', style: '', level: '', venue: '', type: 'workshop', with: [] as string[] }))
+  const [kept] = await db.select({ url: eventFlyers.url, pictured: eventFlyers.pictured }).from(eventFlyers)
+    .where(and(eq(eventFlyers.eventId, eventId), isNotNull(eventFlyers.keptAt))).limit(1)
+  const [planning] = e.festival?.key
+    ? await db.select({ n: sql<number>`count(*)::int` }).from(planItems).where(and(eq(planItems.itemType, 'festival'), eq(planItems.itemId, e.festival.key)))
+    : [{ n: 0 }]
+  return {
+    name: e.name ?? '', type: e.type ?? '', description: String(e.description ?? '').slice(0, 700),
+    startDate: e.startDate, endDate: e.endDate, timezone: tz,
+    startDay: eventLocalDate(e.startDate, tz), endDay: e.endDate ? eventLocalDate(e.endDate, tz) : null,
+    startTime: eventLocalTime(e.startDate, tz),
+    venue: e.venueName ?? '', address: e.venueAddress ?? '', city: e.city ?? '',
+    otherVenues: [...new Set(sessions.map(s => s.venue).filter(Boolean))] as string[],
+    styles: (e.styles ?? []) as string[],
+    host: host ? { name: host.name, username: host.username, instagram: ((host.socials ?? []) as any[]).find(x => x.platform === 'instagram')?.url ?? null } : (e.organizerName ? { name: e.organizerName, username: null, instagram: null } : null),
+    lineup: others.filter((o: any) => o.username !== p.username).map((o: any) => ({ username: o.username, name: e.flyerOptions?.names?.[o.username] || o.name, photo: o.photo })),
+    stats: { workshops: sessions.filter(s => s.type !== 'party').length, parties: sessions.filter(s => s.type === 'party').length, planning: planning?.n ?? 0 },
+    path: `/events/${e.festival?.key ?? e.id}`,
+    programme,
+    flyer: kept?.url ? { url: kept.url, pictured: ((kept.pictured ?? []) as string[]).some(n => n.toLowerCase() === myName) } : null,
+  }
+}
+
 const videoUrl = z.string().trim().max(300).transform((v, c) => {
   const e = videoEmbedUrl(v)
   if (!e) c.addIssue({ code: 'custom', message: 'Paste a YouTube or Vimeo link.' })
@@ -136,9 +184,18 @@ export const artistInvitesRouter = router({
       const rows = await ctx.db.select({ username: profiles.username, kind: profileSuggestions.kind, value: profileSuggestions.value })
         .from(profileSuggestions).innerJoin(profiles, eq(profiles.id, profileSuggestions.profileId))
         .where(and(inArray(profiles.username, input.handles), eq(profileSuggestions.status, 'pending')))
-      const out: Record<string, { photos: string[]; videos: string[]; name: string | null; fields: string[] }> = {}
+      type Answer = { status: string; programmeOk: boolean | null; programmeNote: string | null; postsOk: boolean; message: string | null; respondedAt: Date | null } | null
+      const out: Record<string, { photos: string[]; videos: string[]; name: string | null; fields: string[]; answer: Answer }> = {}
+      const answers = await ctx.db.select({
+        username: profiles.username, status: profileInvites.status, programmeOk: profileInvites.programmeOk, programmeNote: profileInvites.programmeNote,
+        postsOkAt: profileInvites.postsOkAt, message: profileInvites.message, respondedAt: profileInvites.respondedAt,
+      }).from(profileInvites).innerJoin(profiles, eq(profiles.id, profileInvites.profileId))
+        .where(and(eq(profileInvites.eventId, input.eventId), inArray(profiles.username, input.handles)))
+      for (const a of answers) {
+        out[a.username] = { photos: [], videos: [], name: null, fields: [], answer: { status: a.status, programmeOk: a.programmeOk, programmeNote: a.programmeNote, postsOk: !!a.postsOkAt, message: a.message, respondedAt: a.respondedAt } }
+      }
       for (const r of rows) {
-        const o = (out[r.username] ??= { photos: [], videos: [], name: null, fields: [] })
+        const o = (out[r.username] ??= { photos: [], videos: [], name: null, fields: [], answer: null })
         if (r.kind === 'name') o.name = r.value
         else if (r.kind === 'photo') o.photos.push(r.value)
         else if (r.kind === 'video') o.videos.push(r.value)
@@ -245,13 +302,7 @@ export const artistInvitesRouter = router({
       }).from(profileSuggestions).leftJoin(events, eq(events.id, profileSuggestions.eventId))
         .where(and(eq(profileSuggestions.profileId, p.id), eq(profileSuggestions.status, 'pending')))
         .orderBy(desc(profileSuggestions.createdAt))
-      let event: { name: string; startDate: Date | null; timezone: string | null; host: string | null } | null = null
-      if (invite?.eventId) {
-        const [e] = await ctx.db.select({ name: events.name, startDate: events.startDate, timezone: events.timezone, hostProfileId: events.hostProfileId, organizerName: events.organizerName })
-          .from(events).where(eq(events.id, invite.eventId))
-        const [h] = e?.hostProfileId ? await ctx.db.select({ name: profiles.name }).from(profiles).where(eq(profiles.id, e.hostProfileId)) : [null]
-        if (e) event = { name: e.name ?? '', startDate: e.startDate, timezone: e.timezone, host: h?.name ?? e.organizerName ?? null }
-      }
+      const event = invite?.eventId ? await eventContext(ctx.db, invite.eventId, p) : null
       if (invite) await ctx.db.update(profileInvites).set({ lastUsedAt: new Date() }).where(eq(profileInvites.id, invite.id))
       return {
         profile: {
@@ -260,6 +311,13 @@ export const artistInvitesRouter = router({
           instagram: socialOf(p, 'instagram'), website: socialOf(p, 'website'), facebook: socialOf(p, 'facebook'), city: p.city ?? '',
         },
         pending, event, managed, member, canAnswer, signedIn: !!ctx.dancerId,
+        answer: invite ? {
+          status: invite.status as 'invited' | 'confirmed' | 'declined',
+          programmeOk: invite.programmeOk as boolean | null,
+          programmeNote: invite.programmeNote as string | null,
+          postsOk: !!invite.postsOkAt,
+          message: invite.message as string | null,
+        } : null,
       }
     }),
 
@@ -281,10 +339,25 @@ export const artistInvitesRouter = router({
       // Photos already on the page may be site paths ("/people/silvio.jpg"), not URLs.
       removePhotos: z.array(z.string().min(1).max(500)).max(50).default([]),
       mainPhoto: z.string().min(1).max(500).nullable().optional(),
+      // The line-up answers (an invite for an event only).
+      participation: z.enum(['confirmed', 'declined']).optional(),
+      programmeOk: z.boolean().optional(),
+      programmeNote: z.string().trim().max(2000).optional(),
+      postsOk: z.boolean().optional(),
+      message: z.string().trim().max(2000).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const { p: profile, canAnswer } = await resolve(ctx, input)
+      const { p: profile, canAnswer, invite } = await resolve(ctx, input)
       if (!canAnswer) throw new TRPCError({ code: 'FORBIDDEN', message: 'This page has an owner now. Sign in as them to answer.' })
+      if (invite && (input.participation || input.programmeOk !== undefined || input.postsOk !== undefined || input.message !== undefined)) {
+        await ctx.db.update(profileInvites).set({
+          ...(input.participation ? { status: input.participation } : {}),
+          ...(input.programmeOk !== undefined ? { programmeOk: input.programmeOk, programmeNote: input.programmeOk ? null : (input.programmeNote || null) } : {}),
+          ...(input.postsOk !== undefined ? { postsOkAt: input.postsOk ? new Date() : null } : {}),
+          ...(input.message !== undefined ? { message: input.message || null } : {}),
+          respondedAt: new Date(),
+        }).where(eq(profileInvites.id, invite.id))
+      }
       let p = profile
       const reload = async () => { [p] = await ctx.db.select().from(profiles).where(eq(profiles.id, profile.id)) }
       const ids = input.decisions.map(d => d.id)

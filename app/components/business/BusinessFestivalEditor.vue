@@ -155,7 +155,7 @@ const LEVELS = ['Beginner', 'Intermediate', 'Advanced']
               <span class="w-12 shrink-0 font-bold tabular-nums">{{ s.time }}</span>
               <span class="min-w-0 flex-1 truncate">
                 <span class="font-bold">{{ s.title || 'Untitled' }}</span>
-                <span class="text-muted-foreground">{{ [s.type === 'party' ? 'Party' : s.style, s.artist && nameOf(s.artist), s.room].filter(Boolean).map(x => ` · ${x}`).join('') }}</span>
+                <span class="text-muted-foreground">{{ [s.type === 'party' ? 'Party' : s.style, s.artist && [s.artist, ...(s.with ?? [])].map(nameOf).join(' & '), s.room].filter(Boolean).map(x => ` · ${x}`).join('') }}</span>
               </span>
               <ChevronUp v-if="open === s.id" class="size-4 shrink-0" aria-hidden="true" /><ChevronDown v-else class="size-4 shrink-0" aria-hidden="true" />
             </button>
@@ -168,6 +168,20 @@ const LEVELS = ['Beginner', 'Intermediate', 'Advanced']
               <Field :id="`s-artist-${s.id}`" label="Artist" class="sm:col-span-2" hint="From the line-up.">
                 <Select v-model="s.artist" :options="[{ label: 'Nobody', value: '' }, ...lineup.map(h => ({ label: nameOf(h), value: h }))]" />
               </Field>
+              <div v-if="lineup.length > 1" class="sm:col-span-4">
+                <p class="text-sm font-bold">Teaching with <span class="font-normal text-muted-foreground">(optional)</span></p>
+                <div class="mt-1 flex flex-wrap gap-1.5">
+                  <Button
+                    v-for="h in lineup.filter(x => x !== s.artist)"
+                    :key="h"
+                    type="button"
+                    size="sm"
+                    :variant="(s.with ?? []).includes(h) ? 'soft' : 'outline'"
+                    :aria-pressed="(s.with ?? []).includes(h)"
+                    @click="s.with = (s.with ?? []).includes(h) ? s.with!.filter(x => x !== h) : [...(s.with ?? []), h]"
+                  >{{ nameOf(h) }}</Button>
+                </div>
+              </div>
               <Field :id="`s-style-${s.id}`" label="Style"><Input v-model="s.style" placeholder="Son" /></Field>
               <Field :id="`s-level-${s.id}`" label="Level"><Select v-model="s.level" :options="LEVELS" /></Field>
               <Field :id="`s-room-${s.id}`" label="Room" optional><Input v-model="s.room" placeholder="Havana" /></Field>

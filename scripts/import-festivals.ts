@@ -174,9 +174,17 @@ for (const f of FESTIVALS) {
   const days: string[] = []
   for (let d = new Date(`${fest.startDate}T12:00:00Z`); d <= new Date(`${fest.endDate}T12:00:00Z`); d = new Date(d.getTime() + 86400_000)) days.push(d.toISOString().slice(0, 10))
   const dateOf = (weekday: string) => days.find(d => WEEKDAYS[new Date(`${d}T12:00:00Z`).getUTCDay()] === weekday) ?? days[0]!
+  // A couple sharing one Instagram account teaches together: a session of one lists the other.
+  const partnersOf = (teacherId: string) => {
+    const t = f.teachers.find((x: any) => x.id === teacherId)
+    const ig = t ? igOf(t.socialLinks) : null
+    if (!ig || (igCount.get(ig) ?? 0) < 2) return []
+    return f.teachers.filter((x: any) => x.id !== teacherId && igOf(x.socialLinks) === ig).map((x: any) => handleOf.get(x.id)).filter(Boolean) as string[]
+  }
   const sessions: FestivalSession[] = f.workshops.map((w: any) => ({
     id: w.id, date: dateOf(w.day), time: w.time, duration: w.duration ?? 60, type: w.type === 'party' ? 'party' : 'workshop',
     title: w.title, artist: handleOf.get(w.teacherId) ?? '', style: w.style ?? '', level: w.level ?? 'Beginner',
+    ...(partnersOf(w.teacherId).length ? { with: partnersOf(w.teacherId) } : {}),
     ...(w.room ? { room: w.room } : {}), ...(w.venue ? { venue: w.venue } : {}), ...(w.description ? { description: w.description } : {}),
   }))
   const firstTime = sessions.filter(s => s.date === days[0]).map(s => s.time).sort()[0] ?? '12:00'

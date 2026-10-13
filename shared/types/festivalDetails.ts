@@ -26,6 +26,8 @@ export type FestivalSession = {
   title: string
   /** Artist profile handle (in the line-up), or '' for none. */
   artist: string
+  /** Who they teach it with (couples, a band): more line-up handles. */
+  with?: string[]
   style: string
   level: 'Beginner' | 'Intermediate' | 'Advanced'
   room?: string

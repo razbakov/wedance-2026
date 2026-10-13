@@ -49,6 +49,7 @@ const festivalInput = z.object({
     type: z.enum(['workshop', 'party']),
     title: text(160).min(1, 'Give every session a title.'),
     artist: text(200).default(''),
+    with: z.array(text(200)).max(6).optional(),
     style: text(40).default(''),
     level: z.enum(['Beginner', 'Intermediate', 'Advanced']).default('Beginner'),
     room: text(60).optional(),

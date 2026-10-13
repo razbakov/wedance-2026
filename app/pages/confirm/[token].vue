@@ -8,7 +8,7 @@
  * /confirm/@<handle> is the same page for someone who already manages it
  * (from the Business inbox): it needs them signed in.
  */
-import { Check, X, ImagePlus, Loader2, Star, Plus, Clock, PartyPopper, Instagram } from 'lucide-vue-next'
+import { Check, X, ImagePlus, Loader2, Star, Plus, Clock, PartyPopper, Instagram, MapPin, CalendarDays, Users, ExternalLink, ThumbsUp, MessageSquare } from 'lucide-vue-next'
 import { videoEmbedUrl } from '#shared/utils/video'
 
 definePageMeta({ layout: false })
@@ -111,8 +111,30 @@ function addVideo() {
   newVideo.value = ''
 }
 
+// The line-up answers.
+const answer = reactive({ participation: null as 'confirmed' | 'declined' | null, programmeOk: null as boolean | null, programmeNote: '', postsOk: false, message: '' })
+watch(data, (d) => {
+  const a = d?.answer
+  if (!a) return
+  answer.participation = a.status === 'invited' ? null : a.status
+  answer.programmeOk = a.programmeOk
+  answer.programmeNote = a.programmeNote ?? ''
+  answer.postsOk = a.postsOk
+  answer.message = a.message ?? ''
+})
+const declined = computed(() => answer.participation === 'declined')
+const fmtDays = (e: NonNullable<Data['event']>) => {
+  const f = (d: string, o: Intl.DateTimeFormatOptions) => new Date(`${d}T12:00:00Z`).toLocaleDateString('en-GB', { ...o, timeZone: 'UTC' })
+  return e.endDay && e.endDay !== e.startDay
+    ? `${f(e.startDay, { weekday: 'short', day: 'numeric', month: 'short' })} – ${f(e.endDay, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}`
+    : `${f(e.startDay, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} · ${e.startTime}`
+}
+const fmtSession = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
+
 const saving = ref(false)
 async function save() {
+  if (data.value?.event && !answer.participation) { error.value = 'Tell them whether you’re in.'; return }
+  if (data.value?.event && !declined.value && answer.programmeOk === false && !answer.programmeNote.trim()) { error.value = 'Say what’s wrong with the programme.'; return }
   if (!form.name.trim()) { error.value = 'Add your name.'; return }
   saving.value = true
   error.value = null
@@ -131,9 +153,14 @@ async function save() {
       addVideos: addVideos.value,
       removePhotos: removePhotos.value,
       mainPhoto: form.mainPhoto,
+      ...(data.value?.event ? {
+        participation: answer.participation!,
+        ...(declined.value ? {} : { programmeOk: answer.programmeOk ?? true, programmeNote: answer.programmeNote, postsOk: answer.postsOk }),
+        message: answer.message,
+      } : {}),
     })
     // Nobody owns the page yet → offer it to them; else done.
-    step.value = data.value && !data.value.managed && 'token' in key.value ? 'account' : 'done'
+    step.value = data.value && !data.value.managed && 'token' in key.value && !declined.value ? 'account' : 'done'
     window.scrollTo({ top: 0, behavior: 'smooth' })
   } catch (e: any) {
     error.value = e?.message || 'Couldn’t save. Try again.'
@@ -214,7 +241,36 @@ const fmtDate = (d: string | Date | null, tz?: string | null) => d ? new Date(d)
           <h1 class="mt-1 font-display text-3xl font-bold">
             {{ data.event ? `${data.event.host || 'An organizer'} added you to ${data.event.name}` : 'Your page on WeDance' }}
           </h1>
-          <p v-if="data.event" class="mt-1 text-sm text-muted-foreground">{{ fmtDate(data.event.startDate, data.event.timezone) }} · Check what they need for the flyer and the event page. Change anything that’s wrong.</p>
+          <p v-if="data.event" class="mt-1 text-sm text-muted-foreground">You’re in their line-up. A few quick checks, then they can promote you right.</p>
+
+          <!-- 1 · About the event -->
+          <section v-if="data.event" class="mt-6 rounded-2xl border bg-card p-4">
+            <p class="text-eyebrow font-bold uppercase tracking-[0.3em] text-secondary">About the event</p>
+            <h2 class="mt-1 font-display text-xl font-bold">{{ data.event.name }} <span v-if="data.event.type" class="text-sm font-normal text-muted-foreground">· {{ data.event.type }}</span></h2>
+            <p class="mt-2 flex items-start gap-1.5 text-sm"><CalendarDays class="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" /> {{ fmtDays(data.event) }}</p>
+            <p v-if="data.event.venue" class="mt-1 flex items-start gap-1.5 text-sm"><MapPin class="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              <span>{{ data.event.venue }}<template v-if="data.event.address">, {{ data.event.address }}</template><template v-if="data.event.otherVenues.length"><br><span class="text-muted-foreground">Also at: {{ data.event.otherVenues.join(' · ') }}</span></template></span>
+            </p>
+            <p v-if="data.event.host" class="mt-1 flex items-start gap-1.5 text-sm"><Users class="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              <span>Organized by <NuxtLink v-if="data.event.host.username" :to="`/@${data.event.host.username}`" target="_blank" class="font-bold hover:underline">{{ data.event.host.name }}</NuxtLink><span v-else class="font-bold">{{ data.event.host.name }}</span><template v-if="data.event.host.instagram"> · <a :href="data.event.host.instagram" target="_blank" rel="noopener" class="hover:underline">Instagram</a></template></span>
+            </p>
+            <div v-if="data.event.styles.length" class="mt-2 flex flex-wrap gap-1">
+              <span v-for="st in data.event.styles" :key="st" class="rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider">{{ st }}</span>
+            </div>
+            <p v-if="data.event.description" class="mt-3 line-clamp-4 text-sm text-muted-foreground">{{ data.event.description }}</p>
+            <p v-if="data.event.stats.workshops || data.event.stats.parties || data.event.stats.planning" class="mt-2 text-xs text-muted-foreground">
+              {{ [data.event.stats.workshops && `${data.event.stats.workshops} workshops`, data.event.stats.parties && `${data.event.stats.parties} parties`, data.event.stats.planning && `${data.event.stats.planning} dancers planning to come`].filter(Boolean).join(' · ') }}
+            </p>
+            <template v-if="data.event.lineup.length">
+              <p class="mt-3 text-xs font-bold">Also in the line-up</p>
+              <div class="mt-1.5 flex flex-wrap gap-2">
+                <span v-for="a in data.event.lineup" :key="a.username" class="inline-flex items-center gap-1.5 rounded-full border bg-background py-0.5 pl-0.5 pr-2 text-xs">
+                  <img v-if="a.photo" :src="a.photo" alt="" class="size-5 rounded-full object-cover"><span v-else class="size-5 rounded-full bg-muted" /> {{ a.name }}
+                </span>
+              </div>
+            </template>
+            <NuxtLink :to="data.event.path" target="_blank" class="mt-3 inline-flex items-center gap-1 text-xs font-bold text-secondary hover:underline">See the event page <ExternalLink class="size-3" aria-hidden="true" /></NuxtLink>
+          </section>
 
           <div v-if="!data.canAnswer" class="mt-6 rounded-2xl bg-secondary/10 p-4 text-sm">
             <p class="font-bold">This page has an owner.</p>
@@ -223,7 +279,55 @@ const fmtDate = (d: string | Date | null, tz?: string | null) => d ? new Date(d)
             <SignUpModal v-model:open="showSignIn" action="signin" />
           </div>
 
-          <form v-else class="mt-6 grid gap-4" novalidate @submit.prevent="save">
+          <form v-else class="mt-4 grid gap-4" novalidate @submit.prevent="save">
+            <template v-if="data.event">
+              <!-- 2 · I'm in -->
+              <section class="rounded-2xl border bg-card p-4">
+                <p class="text-sm font-bold">Are you in?</p>
+                <div class="mt-2 grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Are you in?">
+                  <button type="button" role="radio" :aria-checked="answer.participation === 'confirmed'" class="rounded-xl border-2 p-3 text-left text-sm focus-visible:shadow-wd-focus" :class="answer.participation === 'confirmed' ? 'border-primary bg-primary/5' : 'border-input'" @click="answer.participation = 'confirmed'">
+                    <span class="font-bold">Yes, I’m in</span><span class="block text-xs text-muted-foreground">You’ll show as confirmed on the event.</span>
+                  </button>
+                  <button type="button" role="radio" :aria-checked="answer.participation === 'declined'" class="rounded-xl border-2 p-3 text-left text-sm focus-visible:shadow-wd-focus" :class="answer.participation === 'declined' ? 'border-primary bg-primary/5' : 'border-input'" @click="answer.participation = 'declined'">
+                    <span class="font-bold">I can’t make it</span><span class="block text-xs text-muted-foreground">They’ll take you off the line-up.</span>
+                  </button>
+                </div>
+              </section>
+
+              <template v-if="!declined">
+                <!-- 3 · Your programme -->
+                <section class="rounded-2xl border bg-card p-4">
+                  <p class="text-sm font-bold">Your programme</p>
+                  <ul v-if="data.event.programme.length" class="mt-2 grid gap-1.5">
+                    <li v-for="(x, i) in data.event.programme" :key="i" class="rounded-xl bg-background px-3 py-2 text-sm">
+                      <span class="font-bold tabular-nums">{{ fmtSession(x.date) }} · {{ x.time }}</span><span v-if="x.duration" class="text-muted-foreground"> · {{ x.duration }} min</span>
+                      <span class="block">{{ x.title }}<span v-if="x.with.length" class="text-muted-foreground"> · with {{ x.with.join(' & ') }}</span></span>
+                      <span class="block text-xs text-muted-foreground">{{ [x.type === 'party' ? 'Party' : x.style, x.type !== 'party' && x.level, x.room && `Room ${x.room}`, x.venue].filter(Boolean).join(' · ') }}</span>
+                    </li>
+                  </ul>
+                  <p v-else class="mt-1 text-sm text-muted-foreground">No sessions with your name in the programme yet.</p>
+                  <div class="mt-3 flex flex-wrap gap-2">
+                    <Button type="button" size="sm" :variant="answer.programmeOk === true ? 'soft' : 'outline'" @click="answer.programmeOk = true"><ThumbsUp /> {{ data.event.programme.length ? 'That’s right' : 'OK' }}</Button>
+                    <Button type="button" size="sm" :variant="answer.programmeOk === false ? 'soft' : 'outline'" @click="answer.programmeOk = false"><MessageSquare /> Something’s wrong</Button>
+                  </div>
+                  <Field v-if="answer.programmeOk === false" id="c-prog" label="What should change?" class="mt-2" hint="E.g. “I can only teach Saturday”, “that’s Intermediate”, “I teach it with Ana”.">
+                    <Textarea v-model="answer.programmeNote" :rows="3" />
+                  </Field>
+                </section>
+
+                <!-- 4 · Your posts -->
+                <section class="rounded-2xl border bg-card p-4">
+                  <p class="text-sm font-bold">Posts about you</p>
+                  <div v-if="data.event.flyer" class="mt-2 flex items-start gap-3">
+                    <img :src="data.event.flyer.url" alt="The event’s flyer" class="w-28 rounded-lg border">
+                    <p class="text-sm text-muted-foreground">The event’s flyer {{ data.event.flyer.pictured ? 'uses your photo' : 'names you' }}. More posts, like your own announcement, will show here before they go out.</p>
+                  </div>
+                  <p v-else class="mt-1 text-sm text-muted-foreground">Nothing posted yet. Posts about you, like your announcement, will show here before they go out.</p>
+                  <label class="mt-3 flex items-start gap-2 text-sm"><Checkbox v-model="answer.postsOk" class="mt-0.5" /> OK to use my name and photos to promote this event</label>
+                </section>
+              </template>
+              <p class="text-eyebrow font-bold uppercase tracking-[0.3em] text-secondary">Your page</p>
+            </template>
             <!-- Name -->
             <section class="rounded-2xl border bg-card p-4">
               <Field id="c-name" label="Your name as it should appear">
@@ -311,9 +415,12 @@ const fmtDate = (d: string | Date | null, tz?: string | null) => d ? new Date(d)
               <Field id="c-fb" label="Facebook" optional class="mt-3"><Input v-model="form.facebook" placeholder="facebook.com/…" /></Field>
             </section>
 
+            <Field v-if="data.event" id="c-msg" label="Anything else for the organizer?" optional>
+              <Textarea v-model="answer.message" :rows="2" />
+            </Field>
             <p v-if="error" class="text-sm text-destructive" role="alert">{{ error }}</p>
             <div>
-              <Button type="submit" variant="pill" :loading="saving"><Check /> Looks good, save</Button>
+              <Button type="submit" variant="pill" :loading="saving"><Check /> {{ data.event ? 'Send my answer' : 'Looks good, save' }}</Button>
             </div>
           </form>
         </template>

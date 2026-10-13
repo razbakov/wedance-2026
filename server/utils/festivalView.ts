@@ -6,7 +6,7 @@
  * line-up's artist profiles the teachers.
  */
 import { and, eq, inArray, like, sql } from 'drizzle-orm'
-import { profiles, planItems } from '../database/schema'
+import { profiles, planItems, profileInvites, profileMembers } from '../database/schema'
 import { eventLocalDate } from '../../shared/utils/eventTime'
 import type { Festival, Teacher, Workshop } from '../../app/types/festival'
 import type { FestivalDetails } from '../../shared/types/festivalDetails'
@@ -62,6 +62,10 @@ export async function festivalView(db: any, ev: any): Promise<{ festival: Festiv
       socialLinks: p?.socials ?? [],
     }
   })
+  // Confirmed: they said "I'm in" on their link, or their page is run by the
+  // organizer's own team. Everyone else shows as "to be confirmed".
+  const confirmed = await confirmedArtists(db, ev, handles)
+  for (const t of teachers) t.tbc = !confirmed.has(t.id)
   const workshops: Workshop[] = (f.sessions ?? [])
     .slice()
     .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
@@ -75,10 +79,31 @@ export async function festivalView(db: any, ev: any): Promise<{ festival: Festiv
       style: s.style,
       level: s.level,
       teacherId: s.artist,
+      ...(s.with?.length ? { withIds: s.with } : {}),
       goingCount: going.get(s.id) ?? 0,
       type: s.type,
       ...(s.venue ? { venue: s.venue } : {}),
       ...(s.description ? { description: s.description } : {}),
     }))
   return { festival, workshops, teachers, eventId: ev.id }
+}
+
+/** Line-up handles that have confirmed they're in this event. */
+export async function confirmedArtists(db: any, ev: any, handles: string[]): Promise<Set<string>> {
+  if (!handles.length) return new Set()
+  const ids = await db.select({ id: profiles.id, username: profiles.username }).from(profiles).where(inArray(profiles.username, handles))
+  if (!ids.length) return new Set()
+  const byId = new Map<string, string>(ids.map((r: any) => [r.id, r.username]))
+  const said = await db.select({ profileId: profileInvites.profileId }).from(profileInvites)
+    .where(and(eq(profileInvites.eventId, ev.id), eq(profileInvites.status, 'confirmed'), inArray(profileInvites.profileId, [...byId.keys()])))
+  const out = new Set<string>(said.map((r: any) => byId.get(r.profileId)!))
+  if (ev.hostProfileId) {
+    const hostTeam = (await db.select({ dancerId: profileMembers.dancerId }).from(profileMembers).where(eq(profileMembers.profileId, ev.hostProfileId))).map((r: any) => r.dancerId)
+    if (hostTeam.length) {
+      const own = await db.select({ profileId: profileMembers.profileId }).from(profileMembers)
+        .where(and(inArray(profileMembers.profileId, [...byId.keys()]), inArray(profileMembers.dancerId, hostTeam)))
+      for (const r of own) out.add(byId.get(r.profileId)!)
+    }
+  }
+  return out
 }
