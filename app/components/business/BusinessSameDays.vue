@@ -54,7 +54,7 @@ const where = (e: any) => [e.venueName, e.organizerName && e.organizerName !== e
 </script>
 
 <template>
-  <div class="rounded-xl bg-muted/50 p-3">
+  <div class="min-w-0 rounded-xl bg-muted/50 p-3">
     <p class="flex items-center gap-1.5 text-sm font-bold"><CalendarSearch class="size-4 text-muted-foreground" aria-hidden="true" /> Also on these days</p>
     <p v-if="!from" class="mt-1 text-xs text-muted-foreground">Pick a date to see what else is on.</p>
     <p v-else-if="!city" class="mt-1 text-xs text-muted-foreground">Set the city under “Where” to see what else is on.</p>
@@ -63,8 +63,8 @@ const where = (e: any) => [e.venueName, e.organizerName && e.organizerName !== e
       <p class="mt-1 text-xs text-muted-foreground" aria-live="polite">
         {{ data.inCity.length ? `${data.inCity.length} other event${data.inCity.length === 1 ? '' : 's'} in ${data.city}` : `Nothing else in ${data.city} on WeDance` }}<template v-if="data.festivals.length"> · {{ data.festivals.length }} festival{{ data.festivals.length === 1 ? '' : 's' }} elsewhere in {{ data.country }}</template>.
       </p>
-      <ul v-if="nights.length" class="mt-2 grid gap-1 text-sm">
-        <li v-for="e in nights" :key="e.id" class="flex gap-2">
+      <ul v-if="nights.length" class="mt-2 grid grid-cols-1 gap-1 text-sm">
+        <li v-for="e in nights" :key="e.id" class="flex min-w-0 gap-2">
           <span class="w-32 shrink-0 whitespace-nowrap tabular-nums text-muted-foreground">{{ when(e) }}</span>
           <span class="min-w-0 flex-1 truncate">
             <NuxtLink :to="eventPath(e)" target="_blank" class="font-bold hover:underline">{{ e.name }}</NuxtLink>
@@ -75,8 +75,8 @@ const where = (e: any) => [e.venueName, e.organizerName && e.organizerName !== e
       </ul>
       <details v-if="classes.length" class="mt-2 text-sm">
         <summary class="cursor-pointer text-xs font-bold text-secondary">{{ classes.length }} class{{ classes.length === 1 ? '' : 'es' }} and workshop{{ classes.length === 1 ? '' : 's' }}</summary>
-        <ul class="mt-1 grid gap-1">
-          <li v-for="e in classes" :key="e.id" class="flex gap-2">
+        <ul class="mt-1 grid grid-cols-1 gap-1">
+          <li v-for="e in classes" :key="e.id" class="flex min-w-0 gap-2">
             <span class="w-32 shrink-0 whitespace-nowrap tabular-nums text-muted-foreground">{{ when(e) }}</span>
             <span class="min-w-0 flex-1 truncate">
               <NuxtLink :to="eventPath(e)" target="_blank" class="font-bold hover:underline">{{ e.name }}</NuxtLink>
@@ -88,8 +88,8 @@ const where = (e: any) => [e.venueName, e.organizerName && e.organizerName !== e
       </details>
       <template v-if="data.festivals.length">
         <p class="mt-3 text-xs font-bold uppercase tracking-wider text-secondary">Festivals in {{ data.country }}</p>
-        <ul class="mt-1 grid gap-1 text-sm">
-          <li v-for="e in data.festivals" :key="e.id" class="flex gap-2">
+        <ul class="mt-1 grid grid-cols-1 gap-1 text-sm">
+          <li v-for="e in data.festivals" :key="e.id" class="flex min-w-0 gap-2">
             <span class="w-32 shrink-0 whitespace-nowrap tabular-nums text-muted-foreground">{{ when(e) }}</span>
             <span class="min-w-0 flex-1 truncate">
               <NuxtLink :to="eventPath(e)" target="_blank" class="font-bold hover:underline">{{ e.name }}</NuxtLink>

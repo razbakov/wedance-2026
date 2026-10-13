@@ -161,7 +161,7 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
 </script>
 
 <template>
-  <form novalidate class="grid content-start gap-3" @submit.prevent="submit">
+  <form novalidate class="grid grid-cols-1 content-start gap-3" @submit.prevent="submit">
     <!-- When: first, with what else is on those days -->
     <section class="rounded-2xl border bg-card p-4">
       <div class="flex items-center justify-between gap-2">
