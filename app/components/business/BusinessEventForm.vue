@@ -187,7 +187,7 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
           <Checkbox v-model="multiDay" /> Runs over several days
         </label>
         <p class="mt-1 text-xs text-muted-foreground">Times are local to the event’s city.</p>
-        <BusinessSameDays :city="form.city" :from="form.date" :to="multiDay ? form.endDate : ''" :except-id="eventId" class="mt-4" />
+        <BusinessSameDays :city="form.city" :from="form.date" :to="multiDay ? form.endDate : ''" :except-id="eventId" :styles="form.styles" class="mt-4" />
       </div>
       <p v-else class="mt-1 text-sm">{{ whenText || 'No date yet' }}</p>
     </section>
