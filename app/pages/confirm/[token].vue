@@ -207,7 +207,7 @@ const fmtDate = (d: string | Date | null, tz?: string | null) => d ? new Date(d)
         <section v-if="step === 'done'" class="rounded-2xl border bg-card p-6 text-center shadow-wd-card">
           <PartyPopper class="mx-auto size-8 text-primary" aria-hidden="true" />
           <h1 class="mt-2 font-display text-2xl font-bold">Thank you, {{ form.name }}</h1>
-          <p class="mt-1 text-sm text-muted-foreground">Your page is up to date{{ data.event ? ` and ${data.event.host || 'the organizer'} can use it for ${data.event.name}` : '' }}.</p>
+          <p class="mt-1 text-sm text-muted-foreground">Your page is up to date{{ data.event ? ` and ${data.event.host?.name || 'the organizer'} can use it for ${data.event.name}` : '' }}.</p>
           <div class="mt-5 flex flex-wrap justify-center gap-2">
             <Button variant="pill" as-child><NuxtLink :to="`/@${data.profile.username}`">See your page</NuxtLink></Button>
             <Button v-if="isSignedIn" variant="outline-pill" as-child><NuxtLink :to="`/business/profiles/${data.profile.username}`">Manage it in Business</NuxtLink></Button>
@@ -239,7 +239,7 @@ const fmtDate = (d: string | Date | null, tz?: string | null) => d ? new Date(d)
         <template v-else>
           <p class="text-eyebrow font-bold uppercase tracking-[0.3em] text-secondary">WeDance</p>
           <h1 class="mt-1 font-display text-3xl font-bold">
-            {{ data.event ? `${data.event.host || 'An organizer'} added you to ${data.event.name}` : 'Your page on WeDance' }}
+            {{ data.event ? `${data.event.host?.name || 'An organizer'} added you to ${data.event.name}` : 'Your page on WeDance' }}
           </h1>
           <p v-if="data.event" class="mt-1 text-sm text-muted-foreground">You’re in their line-up. A few quick checks, then they can promote you right.</p>
 
@@ -339,7 +339,7 @@ const fmtDate = (d: string | Date | null, tz?: string | null) => d ? new Date(d)
 
             <!-- What the organizer changed, field by field -->
             <section v-if="pendingFields.length" class="rounded-2xl border-2 border-secondary/30 bg-card p-4">
-              <p class="flex items-center gap-1.5 text-sm font-bold"><Clock class="size-4 text-muted-foreground" aria-hidden="true" /> Changes from {{ data.event?.host || 'the organizer' }}</p>
+              <p class="flex items-center gap-1.5 text-sm font-bold"><Clock class="size-4 text-muted-foreground" aria-hidden="true" /> Changes from {{ data.event?.host?.name || 'the organizer' }}</p>
               <ul class="mt-2 grid gap-3">
                 <li v-for="s in pendingFields" :key="s.id" class="text-sm">
                   <p class="font-bold">{{ s.label }}</p>
@@ -371,7 +371,7 @@ const fmtDate = (d: string | Date | null, tz?: string | null) => d ? new Date(d)
                 </label>
               </div>
               <template v-if="pendingPhotos.length">
-                <p class="mt-4 flex items-center gap-1.5 text-sm font-bold"><Clock class="size-4 text-muted-foreground" aria-hidden="true" /> Added by {{ data.event?.host || 'an organizer' }}</p>
+                <p class="mt-4 flex items-center gap-1.5 text-sm font-bold"><Clock class="size-4 text-muted-foreground" aria-hidden="true" /> Added by {{ data.event?.host?.name || 'an organizer' }}</p>
                 <div class="mt-2 flex flex-wrap gap-3">
                   <label v-for="s in pendingPhotos" :key="s.id" class="relative cursor-pointer">
                     <img :src="s.value" alt="Photo the organizer added" class="h-32 w-24 rounded-xl border-2 object-cover" :class="decisions[s.id] ? 'border-primary' : 'border-transparent opacity-50'">
