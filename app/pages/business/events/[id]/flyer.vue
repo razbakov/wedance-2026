@@ -47,7 +47,10 @@ const batchId = ref<string | null>(null)
 const rows = ref<Row[]>([])
 const refreshing = computed(() => route.query.refresh === '1')
 let timer: ReturnType<typeof setInterval> | undefined
-let onSettled: (() => void) | null = null
+// Waiting for one painting (`id`) to have its picture, then `then` runs; the
+// read-back check keeps updating in the background. id null: no wait.
+let awaiting: { id: string | null; then: () => void } | null = null
+const active = (r: Row) => r.status === 'painting' || r.status === 'checking'
 async function pollOnce() {
   if (!batchId.value) return
   try {
@@ -55,17 +58,22 @@ async function pollOnce() {
   } catch (e: any) {
     error.value = e?.message || 'Lost track of the flyer. Reload the page.'
   }
-  if (!rows.value.some(r => r.status === 'painting')) {
+  if (awaiting) {
+    const r = awaiting.id ? rows.value.find(x => x.id === awaiting!.id) : null
+    if (!awaiting.id || (r && (r.url || !active(r)))) {
+      const cb = awaiting.then
+      awaiting = null
+      cb()
+    }
+  }
+  if (!rows.value.some(active)) {
     clearInterval(timer)
     timer = undefined
-    const cb = onSettled
-    onSettled = null
-    cb?.()
   }
 }
-function watchBatch(b: string, then: () => void) {
+function watchBatch(b: string, waitFor: string | null, then: () => void = () => {}) {
   batchId.value = b
-  onSettled = then
+  awaiting = { id: waitFor, then }
   clearInterval(timer)
   timer = setInterval(pollOnce, 3000)
   void pollOnce()
@@ -78,10 +86,8 @@ let msgTimer: ReturnType<typeof setTimeout>[] = []
 function painting(what = 'Painting your story…') {
   msgTimer.forEach(clearTimeout)
   paintMsg.value = what
-  msgTimer = [
-    setTimeout(() => (paintMsg.value = 'Reading every word back…'), 35_000),
-    setTimeout(() => (paintMsg.value = 'A word was off: painting it again…'), 60_000),
-  ]
+  // The picture shows as soon as it's painted; its words are checked afterwards.
+  msgTimer = [setTimeout(() => (paintMsg.value = 'Still painting: about half a minute more…'), 30_000)]
   go('painting')
 }
 onBeforeUnmount(() => msgTimer.forEach(clearTimeout))
@@ -124,11 +130,11 @@ async function makeFromLook() {
   if (look.description.trim().length < 10) { lookError.value = 'Describe the look in a sentence or two.'; return }
   lookError.value = null
   try {
-    const { batchId: b } = await $trpc.businessFlyers.make.mutate({
+    const { id: fid, batchId: b } = await $trpc.businessFlyers.make.mutate({
       eventId: id.value, look: { name: look.name, description: look.description, palette: look.palette }, references: uploads.value.map(u => u.url),
     })
     painting()
-    watchBatch(b, toResult)
+    watchBatch(b, fid, () => showVersion(fid))
   } catch (e: any) {
     lookError.value = e?.message || 'Couldn’t start the flyer.'
   }
@@ -141,9 +147,9 @@ async function makeInSavedLook(lookId: string) {
   path.value = 'saved'
   savedLookId.value = lookId
   try {
-    const { batchId: b } = await $trpc.businessFlyers.make.mutate({ eventId: id.value, lookId })
+    const { id: fid, batchId: b } = await $trpc.businessFlyers.make.mutate({ eventId: id.value, lookId })
     painting()
-    watchBatch(b, toResult)
+    watchBatch(b, fid, () => showVersion(fid))
   } catch (e: any) {
     error.value = e?.message || 'Couldn’t start the flyer.'
   }
@@ -168,15 +174,21 @@ async function showDirections() {
   try {
     const { batchId: b } = await $trpc.businessFlyers.directions.mutate({ eventId: id.value, feelings: feeling.value, inspiration: liked.value })
     picked.value = []
-    painting('Painting four directions…')
-    watchBatch(b, () => { step.value = 'directions' })
+    // Straight to the grid: each direction appears as soon as it's painted.
+    watchBatch(b, null)
+    go('directions')
   } catch (e: any) {
     briefError.value = e?.message || 'Couldn’t start the directions.'
   }
 }
 
 // ---------------------------------------------------------------- directions
-const directions = computed(() => rows.value.filter(r => r.mode === 'direction'))
+// One tile per direction: its latest painting (a retry replaces the one that failed).
+const directions = computed(() => {
+  const latest = new Map<string, Row>()
+  for (const r of rows.value) if (r.mode === 'direction') latest.set(r.lookName ?? r.id, r)
+  return [...latest.values()]
+})
 const picked = ref<string[]>([])
 const pickError = ref<string | null>(null)
 function pick(rid: string) {
@@ -192,8 +204,14 @@ function useDirections() {
 
 // ---------------------------------------------------------------- result
 // Versions you compare: everything painted in this sitting, except directions you didn't pick.
-const versions = computed(() => rows.value.filter(r => r.status === 'ready' && (r.mode !== 'direction' || picked.value.includes(r.id))))
-const failed = computed(() => rows.value.filter(r => r.status === 'failed' && r.mode !== 'direction'))
+const versions = computed(() => rows.value.filter(r => r.url && ['ready', 'checking'].includes(r.status) && (r.mode !== 'direction' || picked.value.includes(r.id))))
+const failed = computed(() => rows.value.filter(r => ['failed', 'stopped'].includes(r.status) && r.mode !== 'direction'))
+/** Open a version on the result step (its check may still be running). */
+function showVersion(fid: string) {
+  currentId.value = versions.value.some(v => v.id === fid) ? fid : currentId.value
+  msgTimer.forEach(clearTimeout)
+  step.value = 'result'
+}
 const currentId = ref<string | null>(null)
 const current = computed(() => versions.value.find(v => v.id === currentId.value) ?? versions.value[versions.value.length - 1] ?? null)
 function toResult() {
@@ -206,6 +224,39 @@ const FIXES = ['Person lower', 'Bigger date', 'Bigger names', 'Less busy', 'Brig
 const chosenFixes = ref<string[]>([])
 const fixNote = ref('')
 const fixError = ref<string | null>(null)
+// "Stop": drop paintings still running (nothing more is spent on them).
+const stillPainting = computed(() => rows.value.filter(r => r.status === 'painting'))
+async function stopPainting(ids: string[]) {
+  if (!ids.length) return
+  try {
+    await $trpc.businessFlyers.stop.mutate({ flyerIds: ids })
+    await pollOnce()
+  } catch (e: any) {
+    error.value = e?.message || 'Couldn’t stop it.'
+  }
+}
+
+// "Paint again": a fresh painting in the same look (one more Gemini call).
+const repainting = ref(false)
+async function repaint(fromId: string, back: 'result' | 'directions') {
+  repainting.value = true
+  error.value = null
+  try {
+    const { id: nid } = await $trpc.businessFlyers.again.mutate({ flyerId: fromId })
+    if (back === 'directions') {
+      // The new direction replaces the one that didn't work in the picker.
+      watchBatch(batchId.value!, null)
+    } else {
+      painting('Painting it again…')
+      watchBatch(batchId.value!, nid, () => showVersion(nid))
+    }
+  } catch (e: any) {
+    error.value = e?.message || 'Couldn’t paint it again.'
+  } finally {
+    repainting.value = false
+  }
+}
+
 async function paintAgain() {
   const notes = [...chosenFixes.value, fixNote.value.trim()].filter(Boolean).join('. ')
   if (!notes) { fixError.value = 'Pick a change or write what should be different.'; return }
@@ -216,7 +267,7 @@ async function paintAgain() {
     chosenFixes.value = []
     fixNote.value = ''
     painting('Changing it…')
-    watchBatch(batchId.value!, () => { currentId.value = fid; step.value = 'result' })
+    watchBatch(batchId.value!, fid, () => showVersion(fid))
   } catch (e: any) {
     fixError.value = e?.message || 'Couldn’t paint it again.'
   }
@@ -268,19 +319,23 @@ onMounted(async () => {
     await pollOnce()
     const isDirections = rows.value.some(r => r.mode === 'direction')
     const busy = rows.value.some(r => r.status === 'painting')
+    const last = rows.value[rows.value.length - 1]
     if (isDirections) {
       path.value = 'fresh'
       // Opening a version ("Change it") → straight to it; otherwise pick again.
       const f = route.query.flyer as string | undefined
       const base = rows.value.find(r => r.id === f)
       if (base) picked.value = [rows.value.find(r => r.mode === 'direction' && (r.id === f))?.id ?? f!]
-      if (busy) { painting('Painting four directions…'); watchBatch(b, () => { step.value = picked.value.length ? 'result' : 'directions' }) }
-      else if (picked.value.length) toResult()
+      if (rows.value.some(active)) watchBatch(b, null)
+      if (picked.value.length) toResult()
       else step.value = 'directions'
-    } else if (busy) {
+    } else if (busy && last && !last.url) {
       painting(refreshing.value ? 'Putting the new details on your flyer…' : 'Painting your story…')
-      watchBatch(b, toResult)
-    } else toResult()
+      watchBatch(b, last.id, () => showVersion(last.id))
+    } else {
+      if (rows.value.some(active)) watchBatch(b, null)
+      toResult()
+    }
   }
 })
 const faces = computed(() => st.value?.pictured.length ?? 0)
@@ -448,7 +503,8 @@ const faces = computed(() => st.value?.pictured.length ?? 0)
       <section v-else-if="step === 'painting'" class="mt-10 flex flex-col items-center text-center" role="status">
         <Loader2 class="size-8 animate-spin text-primary" aria-hidden="true" />
         <p class="mt-3 font-display text-xl font-bold">{{ paintMsg }}</p>
-        <p class="mt-1 text-sm text-muted-foreground">{{ paintMsg.includes('four') ? 'Four at once: about two minutes.' : 'Usually under a minute.' }} You can leave this page: the event page shows it when it’s done.</p>
+        <p class="mt-1 text-sm text-muted-foreground">Usually under a minute. You see it as soon as it’s painted; its words are checked right after.</p>
+        <Button v-if="stillPainting.length" variant="ghost" size="sm" class="mt-4" @click="stopPainting(stillPainting.map(r => r.id)).then(back)"><X /> Stop</Button>
       </section>
 
       <!-- 1b · Four directions -->
@@ -458,7 +514,7 @@ const faces = computed(() => st.value?.pictured.length ?? 0)
         <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <template v-for="d in directions" :key="d.id">
             <button
-              v-if="d.status === 'ready'"
+              v-if="d.url && ['ready', 'checking'].includes(d.status)"
               type="button"
               class="overflow-hidden rounded-2xl border-2 bg-card text-left focus-visible:shadow-wd-focus"
               :class="picked.includes(d.id) ? 'border-primary' : 'border-transparent'"
@@ -467,14 +523,26 @@ const faces = computed(() => st.value?.pictured.length ?? 0)
             >
               <img :src="d.url!" :alt="d.lookName || 'Direction'" class="aspect-[9/16] w-full object-cover">
               <span class="flex items-center gap-1 p-2 text-sm font-bold"><Check v-if="picked.includes(d.id)" class="size-4 text-primary" aria-hidden="true" /> {{ d.lookName }}</span>
+              <span v-if="d.status === 'checking'" class="flex items-center gap-1 px-2 pb-2 text-[11px] text-muted-foreground"><Loader2 class="size-3 animate-spin" aria-hidden="true" /> Checking the words…</span>
+              <span v-else-if="d.check && !d.check.ok" class="flex items-center gap-1 px-2 pb-2 text-[11px] text-wd-amber-800"><AlertTriangle class="size-3" aria-hidden="true" /> {{ d.check.missing.length }} {{ d.check.missing.length === 1 ? 'line' : 'lines' }} unreadable</span>
             </button>
+            <div v-else-if="d.status === 'painting'" class="flex aspect-[9/16] flex-col items-center justify-center rounded-2xl border bg-muted p-3 text-center text-xs text-muted-foreground" role="status">
+              <Loader2 class="size-5 animate-spin" aria-hidden="true" />
+              <p class="mt-1 font-bold">{{ d.lookName }}</p>
+              <p class="mt-0.5">Painting…</p>
+            </div>
             <div v-else class="flex aspect-[9/16] flex-col items-center justify-center rounded-2xl border bg-muted p-3 text-center text-xs text-muted-foreground">
               <AlertTriangle class="size-5" aria-hidden="true" />
               <p class="mt-1 font-bold">{{ d.lookName }} didn’t work</p>
               <p class="mt-0.5">{{ d.error }}</p>
+              <Button type="button" variant="outline-pill" size="pill-sm" class="mt-3" :loading="repainting" @click="repaint(d.id, 'directions')"><RotateCcw /> Try again</Button>
             </div>
           </template>
         </div>
+        <p v-if="stillPainting.length" class="mt-3 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+          {{ stillPainting.length }} still painting. Found one you like?
+          <Button variant="ghost" size="sm" @click="stopPainting(stillPainting.map(r => r.id))"><X /> Stop the rest</Button>
+        </p>
         <p v-if="pickError" class="mt-2 text-sm text-destructive" role="alert">{{ pickError }}</p>
         <div class="mt-6 flex flex-wrap gap-2">
           <Button variant="outline-pill" @click="showDirections"><RotateCcw /> Show 4 more</Button>
@@ -487,7 +555,10 @@ const faces = computed(() => st.value?.pictured.length ?? 0)
         <div v-if="!current" class="rounded-2xl border bg-card p-5">
           <p class="font-bold">This flyer didn’t work.</p>
           <p v-for="f in failed" :key="f.id" class="mt-1 text-sm text-muted-foreground">{{ f.error }}</p>
-          <Button variant="pill" class="mt-3" as-child><NuxtLink :to="editor">Back to the event</NuxtLink></Button>
+          <div class="mt-3 flex flex-wrap gap-2">
+            <Button v-if="failed.length" variant="pill" :loading="repainting" @click="repaint(failed[failed.length - 1]!.id, 'result')"><RotateCcw /> Paint it again</Button>
+            <Button variant="outline-pill" as-child><NuxtLink :to="editor">Back to the event</NuxtLink></Button>
+          </div>
         </div>
         <template v-else>
           <div class="flex flex-wrap items-baseline justify-between gap-2">
@@ -502,7 +573,16 @@ const faces = computed(() => st.value?.pictured.length ?? 0)
               <figcaption class="mt-1.5 text-xs"><span class="font-bold">Instagram story</span> <span class="text-muted-foreground">1080×1920</span><template v-if="current.notes"> · <span class="text-muted-foreground">changed: {{ current.notes }}</span></template></figcaption>
             </figure>
             <div class="grid content-start gap-4">
-              <div v-if="current.check?.ok" class="rounded-2xl bg-success/10 p-4">
+              <div v-if="current.status === 'checking'" class="rounded-2xl border bg-card p-4" role="status">
+                <p class="flex items-center gap-1.5 text-sm font-bold"><Loader2 class="size-4 animate-spin" aria-hidden="true" /> Reading every word back…</p>
+                <p class="mt-1 text-xs text-muted-foreground">Checking each line against your event. Look at it meanwhile.</p>
+              </div>
+              <div v-else-if="!current.check" class="rounded-2xl bg-warning/10 p-4">
+                <p class="flex items-center gap-1.5 text-sm font-bold"><AlertTriangle class="size-4" aria-hidden="true" /> We couldn’t check the words on this one</p>
+                <p class="mt-1 text-xs text-muted-foreground">Read it carefully before posting, or paint it again.</p>
+                <Button variant="outline-pill" size="pill-sm" class="mt-3" :loading="repainting" @click="repaint(current.id, 'result')"><RotateCcw /> Paint again</Button>
+              </div>
+              <div v-else-if="current.check.ok" class="rounded-2xl bg-success/10 p-4">
                 <p class="flex items-center gap-1.5 text-sm font-bold text-wd-green-700"><Check class="size-4" aria-hidden="true" /> Every word matches your event</p>
                 <details class="mt-1">
                   <summary class="cursor-pointer text-xs text-muted-foreground">What we checked</summary>
@@ -513,7 +593,8 @@ const faces = computed(() => st.value?.pictured.length ?? 0)
               <div v-else class="rounded-2xl bg-warning/10 p-4">
                 <p class="flex items-center gap-1.5 text-sm font-bold"><AlertTriangle class="size-4" aria-hidden="true" /> We couldn’t read every line</p>
                 <ul class="mt-1 grid gap-0.5 text-xs"><li v-for="m in current.check?.missing ?? []" :key="m">✗ {{ m }}</li></ul>
-                <p class="mt-2 text-xs text-muted-foreground">It may be fine and just hard to read. Check it, or ask for a change below (e.g. “Bigger date”).</p>
+                <p class="mt-2 text-xs text-muted-foreground">Look at the flyer: it may be fine and just hard to read. If a word is really wrong or covered, paint it again (a new picture), or ask for a change below (e.g. “Bigger date”).</p>
+                <Button variant="outline-pill" size="pill-sm" class="mt-3" :loading="repainting" @click="repaint(current.id, 'result')"><RotateCcw /> Paint again</Button>
               </div>
               <div class="rounded-2xl border bg-card p-4">
                 <p class="text-sm font-bold">Want something different?</p>
@@ -522,7 +603,7 @@ const faces = computed(() => st.value?.pictured.length ?? 0)
                 </div>
                 <Input v-model="fixNote" class="mt-2" placeholder="Or say it: less neon, warmer light" aria-label="What should be different" @input="fixError = null" />
                 <p v-if="fixError" class="mt-1 text-xs text-destructive" role="alert">{{ fixError }}</p>
-                <Button variant="outline-pill" size="pill-sm" class="mt-3" @click="paintAgain"><Wand2 /> Paint again</Button>
+                <Button variant="outline-pill" size="pill-sm" class="mt-3" @click="paintAgain"><Wand2 /> Make this change</Button>
                 <p class="mt-1 text-xs text-muted-foreground">Changes this version and keeps it, so you can compare. A different photo or wording? <NuxtLink :to="editor" class="font-bold text-secondary hover:underline">Change it in the event</NuxtLink>.</p>
               </div>
               <div class="flex flex-wrap gap-2">

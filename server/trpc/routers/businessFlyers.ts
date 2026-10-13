@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { eq, and, desc, isNotNull, inArray } from 'drizzle-orm'
+import { eq, and, desc, isNotNull, inArray, lt } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { router, protectedProcedure } from '../trpc'
 import { events, eventFlyers, brandLooks, profiles } from '../../database/schema'
@@ -45,6 +45,8 @@ async function captionContext(db: any, ev: any) {
  *
  * Every procedure checks that the caller manages the event's host profile.
  */
+
+const STALE_MS = 4 * 60_000
 
 const look = z.object({
   name: z.string().trim().max(60).optional(),
@@ -194,12 +196,40 @@ export const businessFlyersRouter = router({
       return { batchId, ids: rows.map((r: any) => r.id) }
     }),
 
+  // "Stop": the organizer has what they need; paintings still running are dropped
+  // (never uploaded or read back).
+  stop: protectedProcedure
+    .input(z.object({ flyerIds: z.array(z.string().uuid()).min(1).max(20) }))
+    .mutation(async ({ ctx, input }) => {
+      const rows = await ctx.db.select({ id: eventFlyers.id, eventId: eventFlyers.eventId }).from(eventFlyers).where(inArray(eventFlyers.id, input.flyerIds))
+      for (const eventId of new Set(rows.map((r: any) => r.eventId as string))) await requireEventManager(ctx, eventId)
+      await ctx.db.update(eventFlyers).set({ status: 'stopped', error: 'Stopped.', updatedAt: new Date() })
+        .where(and(inArray(eventFlyers.id, input.flyerIds), eq(eventFlyers.status, 'painting')))
+      return { stopped: true }
+    }),
+
+  // "Paint again": a new painting from the same look and lines, in the same sitting.
+  again: protectedProcedure
+    .input(z.object({ flyerId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const { f, ev } = await flyerForManager(ctx, input.flyerId)
+      const src = await flyerSource(ctx.db, ev)
+      const [n] = await ctx.db.insert(eventFlyers).values({
+        eventId: f.eventId, batchId: f.batchId, lookId: f.lookId, look: f.look,
+        // A repainted direction stays a direction; a failed fix or refresh paints fresh.
+        mode: f.mode === 'direction' ? 'direction' : 'paint',
+        lines: src.lines, pictured: src.pictured, createdBy: ctx.dancerId,
+      }).returning({ id: eventFlyers.id })
+      start(ctx, n!.id)
+      return { id: n!.id, batchId: f.batchId }
+    }),
+
   // "Want something different?" — an edit of this flyer; the picture stays.
   fix: protectedProcedure
     .input(z.object({ flyerId: z.string().uuid(), notes: z.string().trim().min(2, 'Say what should be different.').max(500) }))
     .mutation(async ({ ctx, input }) => {
       const { f } = await flyerForManager(ctx, input.flyerId)
-      if (f.status !== 'ready') throw new TRPCError({ code: 'BAD_REQUEST', message: 'Wait until this flyer is ready.' })
+      if (!f.url || !['ready', 'checking'].includes(f.status)) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Wait until this flyer is painted.' })
       const [n] = await ctx.db.insert(eventFlyers).values({
         eventId: f.eventId, batchId: f.batchId, lookId: f.lookId, look: f.look, mode: 'fix', baseFlyerId: f.id,
         lines: f.lines, pictured: f.pictured, notes: input.notes, createdBy: ctx.dancerId,
@@ -237,6 +267,13 @@ export const businessFlyersRouter = router({
   batch: protectedProcedure
     .input(z.object({ batchId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
+      // A painting that hasn't finished in 4 minutes has stopped (a restart, a
+      // timeout): mark it failed so the page offers a retry instead of waiting.
+      await ctx.db.update(eventFlyers).set({ status: 'failed', error: 'Painting stopped before it finished. Paint it again.', updatedAt: new Date() })
+        .where(and(eq(eventFlyers.batchId, input.batchId), eq(eventFlyers.status, 'painting'), lt(eventFlyers.createdAt, new Date(Date.now() - STALE_MS))))
+      // Painted but never checked: show it unchecked.
+      await ctx.db.update(eventFlyers).set({ status: 'ready', updatedAt: new Date() })
+        .where(and(eq(eventFlyers.batchId, input.batchId), eq(eventFlyers.status, 'checking'), lt(eventFlyers.createdAt, new Date(Date.now() - STALE_MS))))
       const rows = await ctx.db.select().from(eventFlyers).where(eq(eventFlyers.batchId, input.batchId)).orderBy(eventFlyers.createdAt)
       if (!rows.length) throw new TRPCError({ code: 'NOT_FOUND', message: 'Nothing painted here.' })
       await requireEventManager(ctx, rows[0]!.eventId)
@@ -249,7 +286,7 @@ export const businessFlyersRouter = router({
     .input(z.object({ flyerId: z.string().uuid(), lookName: z.string().trim().min(1).max(60).optional() }))
     .mutation(async ({ ctx, input }) => {
       const { f, ev } = await flyerForManager(ctx, input.flyerId)
-      if (f.status !== 'ready' || !f.url) throw new TRPCError({ code: 'BAD_REQUEST', message: 'This flyer isn’t ready.' })
+      if (!f.url || !['ready', 'checking'].includes(f.status)) throw new TRPCError({ code: 'BAD_REQUEST', message: 'This flyer isn’t painted yet.' })
       let lookId = f.lookId as string | null
       if (!lookId && input.lookName) {
         const spec = f.look as any

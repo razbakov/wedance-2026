@@ -4,8 +4,8 @@
  *
  * paint / direction: a new poster from the look, the artists' photos and every
  * line. fix / refresh: an edit of an existing poster (keeps the picture, changes
- * what was asked or the words). Each round is read back and checked; up to three
- * rounds until every line is on it, keeping the best. Recipe and lessons:
+ * what was asked or the words). Painted once per click and read back; the check
+ * is shown to the organizer, who decides whether to paint again. Recipe and lessons:
  * ~/Orgs/LaClave/assets/flyer-style.md (story first, one photo per person, retries).
  */
 import cloudinary from 'cloudinary'
@@ -85,6 +85,8 @@ export async function runFlyer(db: any, flyerId: string) {
   const [f] = await db.select().from(eventFlyers).where(eq(eventFlyers.id, flyerId))
   if (!f) return
   const set = (v: Record<string, unknown>) => db.update(eventFlyers).set({ ...v, updatedAt: new Date() }).where(eq(eventFlyers.id, flyerId))
+  // Stopped by the organizer meanwhile: spend nothing more on it.
+  const stopped = async () => (await db.select({ status: eventFlyers.status }).from(eventFlyers).where(eq(eventFlyers.id, flyerId)))[0]?.status === 'stopped'
   try {
     const [ev] = await db.select().from(events).where(eq(events.id, f.eventId))
     const [host] = ev?.hostProfileId ? await db.select({ username: profiles.username }).from(profiles).where(eq(profiles.id, ev.hostProfileId)) : [null]
@@ -107,16 +109,19 @@ export async function runFlyer(db: any, flyerId: string) {
       images = inspiration ? [...faces, inspiration] : faces
     }
 
-    let best: { img: InlineImage; check: FlyerCheck } | null = null
-    for (let round = 0; round < 3; round++) {
-      const img = await paintWithRetries(prompt, images, '9:16')
-      const check = checkFlyerText(lines, await readText(img))
-      if (!best || check.missing.length < best.check.missing.length) best = { img, check }
-      if (check.ok) break
-    }
-    const up = await upload(best!.img, host?.username ?? 'unknown')
-    await set({ status: 'ready', url: up.url, width: up.width, height: up.height, check: best!.check, prompt, model: IMAGE_MODEL, error: null })
+    // One painting per click. No automatic repaints: each one costs money, so
+    // the organizer sees the result and decides.
+    const img = await paintWithRetries(prompt, images, '9:16')
+    if (await stopped()) return
+    const up = await upload(img, host?.username ?? 'unknown')
+    // The picture shows now; the words are read back while the organizer looks at it.
+    await set({ status: 'checking', url: up.url, width: up.width, height: up.height, prompt, model: IMAGE_MODEL, error: null })
+    const check: FlyerCheck = checkFlyerText(lines, await readText(img))
+    await set({ status: 'ready', check })
   } catch (e: any) {
-    await set({ status: 'failed', error: e?.message || 'Something went wrong while painting.' })
+    if (await stopped()) return
+    // Painted but the read-back failed: keep the picture, just unchecked.
+    const [row] = await db.select({ url: eventFlyers.url }).from(eventFlyers).where(eq(eventFlyers.id, flyerId))
+    await set(row?.url ? { status: 'ready', check: null } : { status: 'failed', error: e?.message || 'Something went wrong while painting.' })
   }
 }

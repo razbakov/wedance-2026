@@ -44,11 +44,20 @@ export function flyerLines(e: FlyerSource): FlyerLine[] {
   const names = e.artists.map(a => clean(a.name)).filter(Boolean)
   // "Neuhauser Str. 47, München" → "LUMA · NEUHAUSER STR. 47 · MÜNCHEN"
   const venue = e.venueName ? up([e.venueName, ...(e.venueAddress ? e.venueAddress.split(/\s*,\s*/) : [])].filter(Boolean).join(' · ')) : null
-  const out: FlyerLine[] = [
-    { label: 'title', text: up(e.name) },
-    { label: 'date', text: up(`${eventLocalWeekday(e.startDate, tz)} ${Number(d.slice(8))} ${month}`) },
-    { label: 'time', text: end && end !== start ? `${start} – ${end}` : start },
-  ]
+  // Several days (a festival): the dates, no time. One night: weekday, date and time.
+  const lastDay = e.endDate ? eventLocalDate(e.endDate, tz) : d
+  const multiDay = lastDay > d && (new Date(e.endDate!).getTime() - new Date(e.startDate).getTime()) > 24 * 3600_000
+  const monthOf = (x: string) => new Date(`${x}T12:00:00Z`).toLocaleDateString('en-GB', { month: 'long', timeZone: 'UTC' })
+  const out: FlyerLine[] = multiDay
+    ? [
+        { label: 'title', text: up(e.name) },
+        { label: 'date', text: up(monthOf(lastDay) === month ? `${Number(d.slice(8))} – ${Number(lastDay.slice(8))} ${month}` : `${Number(d.slice(8))} ${month} – ${Number(lastDay.slice(8))} ${monthOf(lastDay)}`) },
+      ]
+    : [
+        { label: 'title', text: up(e.name) },
+        { label: 'date', text: up(`${eventLocalWeekday(e.startDate, tz)} ${Number(d.slice(8))} ${month}`) },
+        { label: 'time', text: end && end !== start ? `${start} – ${end}` : start },
+      ]
   if (e.showAgenda !== false) {
     for (const a of e.agenda ?? []) if (clean(a.what)) out.push({ label: 'agenda', text: clean(`${a.time} ${a.what}`) })
   }
@@ -75,7 +84,7 @@ export function flyerChanges(was: { lines: string[]; pictured: string[] }, now: 
 
 function textBlock(lines: FlyerLine[]) {
   const by = (l: FlyerLine['label']) => lines.filter(x => x.label === l).map(x => x.text)
-  const [title] = by('title'); const [date] = by('date'); const [time] = by('time')
+  const [title] = by('title'); const [date] = by('date'); const [time] = by('time') as (string | undefined)[]
   const agenda = by('agenda'); const [names] = by('line-up'); const [music] = by('music')
   const [entry] = by('entry'); const [venue] = by('venue')
   return [
@@ -84,7 +93,7 @@ function textBlock(lines: FlyerLine[]) {
     // Worded so Gemini doesn't paint a literal "LINE-UP" label.
     names ? `Under the title, the artists' names "${names}".` : null,
     music ? `Genre line "${music}".` : null,
-    `Big time badge "${time}".`,
+    time ? `Big time badge "${time}".` : null,
     agenda.length ? `A small programme list, one line each: ${agenda.map(a => `"${a}"`).join(', ')}.` : null,
     entry ? `Entry line "${entry}".` : null,
     venue ? `Bottom bar with a location pin: "${venue}".` : null,

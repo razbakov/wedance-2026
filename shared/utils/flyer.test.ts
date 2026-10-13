@@ -98,3 +98,18 @@ describe('a line painted twice', () => {
     expect(c.extra).toEqual(['TIMBA × BACHATA (twice)'])
   })
 })
+
+describe('a festival over several days', () => {
+  it('shows the dates and no time', () => {
+    const lines = flyerLines({ name: 'Menéate Viena', startDate: '2026-11-26T20:00:00Z', endDate: '2026-11-29T22:59:00Z', timezone: 'Europe/Vienna', artists: [] })
+    expect(lines.map(l => l.text)).toEqual(['MENÉATE VIENA', '26 – 29 NOVEMBER'])
+  })
+  it('spans months', () => {
+    const lines = flyerLines({ name: 'X', startDate: '2026-10-30T10:00:00Z', endDate: '2026-11-01T20:00:00Z', timezone: 'Europe/Berlin', artists: [] })
+    expect(lines[1]!.text).toBe('30 OCTOBER – 1 NOVEMBER')
+  })
+  it('a night past midnight is still one night', () => {
+    const lines = flyerLines({ name: 'X', startDate: '2026-10-15T20:00:00Z', endDate: '2026-10-16T01:00:00Z', timezone: 'Europe/Berlin', artists: [] })
+    expect(lines.map(l => l.label)).toEqual(['title', 'date', 'time'])
+  })
+})

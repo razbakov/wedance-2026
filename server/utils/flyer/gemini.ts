@@ -16,12 +16,22 @@ function key() {
   return k
 }
 
+// A call that hangs would leave a flyer "painting" or "checking" forever.
+// Painting gets 2 minutes, reading text 1.
 async function call(model: string, body: unknown) {
-  const res = await fetch(`${API}/${model}:generateContent?key=${key()}`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  })
+  const ms = model === IMAGE_MODEL ? 120_000 : 60_000
+  let res: Response
+  try {
+    res = await fetch(`${API}/${model}:generateContent?key=${key()}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(ms),
+    })
+  } catch (e: any) {
+    if (e?.name === 'TimeoutError' || e?.name === 'AbortError') throw new Error(model === IMAGE_MODEL ? 'Painting took too long. Try again.' : 'Reading the words took too long.')
+    throw e
+  }
   const json: any = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(json?.error?.message || `Gemini ${res.status}`)
   return json
@@ -42,7 +52,8 @@ export async function paint(prompt: string, images: InlineImage[], aspectRatio: 
 }
 
 /** Paint with retries on soft refusals (the La Clave recipe: up to ~8 tries). */
-export async function paintWithRetries(prompt: string, images: InlineImage[], aspectRatio: '9:16' | '4:5', tries = 5) {
+// Two tries: Gemini sometimes returns no image (a soft refusal); more tries cost more.
+export async function paintWithRetries(prompt: string, images: InlineImage[], aspectRatio: '9:16' | '4:5', tries = 2) {
   let lastError: unknown = null
   for (let i = 0; i < tries; i++) {
     try {

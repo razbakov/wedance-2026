@@ -870,7 +870,7 @@ export const eventFlyers = pgTable('event_flyers', {
   look: jsonb('look').$type<FlyerLookSpec>().notNull(),
   mode: text('mode').notNull().default('paint'), // paint · direction · fix · refresh
   baseFlyerId: uuid('base_flyer_id'),
-  status: text('status').notNull().default('painting'), // painting · ready · failed
+  status: text('status').notNull().default('painting'), // painting · checking (picture done, words being read) · ready · failed · stopped
   url: text('url'),
   width: integer('width'),
   height: integer('height'),
