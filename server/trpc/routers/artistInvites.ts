@@ -2,7 +2,8 @@ import { z } from 'zod'
 import { eq, and, inArray, desc, isNotNull, sql } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { router, publicProcedure, protectedProcedure } from '../trpc'
-import { profiles, profileMembers, profileSuggestions, profileInvites, events, eventFlyers, planItems } from '../../database/schema'
+import { profiles, profileMembers, profileSuggestions, profileInvites, events, eventFlyers, planItems, dancers } from '../../database/schema'
+import { sendInviteEmail } from '../../utils/email'
 import { eventLocalDate, eventLocalTime } from '../../../shared/utils/eventTime'
 import { requireEventManager } from './businessEvents'
 import { citySlugFor } from './business'
@@ -281,7 +282,7 @@ export const artistInvitesRouter = router({
       await requireEventManager(ctx, input.eventId)
       const [p] = await ctx.db.select({ id: profiles.id, name: profiles.name, username: profiles.username, city: profiles.city, socials: profiles.socials }).from(profiles).where(eq(profiles.username, input.handle))
       if (!p) throw new TRPCError({ code: 'NOT_FOUND', message: 'That artist isn’t on WeDance.' })
-      const [existing] = await ctx.db.select({ token: profileInvites.token, status: profileInvites.status }).from(profileInvites)
+      const [existing] = await ctx.db.select({ token: profileInvites.token, status: profileInvites.status, notifiedAt: profileInvites.notifiedAt }).from(profileInvites)
         .where(and(eq(profileInvites.eventId, input.eventId), eq(profileInvites.profileId, p.id)))
       const t = existing?.token ?? token()
       if (!existing) await ctx.db.insert(profileInvites).values({ token: t, profileId: p.id, eventId: input.eventId, createdBy: ctx.dancerId })
@@ -289,7 +290,44 @@ export const artistInvitesRouter = router({
       // For the popup's instructions and the message to paste.
       const [e] = await ctx.db.select({ name: events.name, hostProfileId: events.hostProfileId }).from(events).where(eq(events.id, input.eventId))
       const [h] = e?.hostProfileId ? await ctx.db.select({ name: profiles.name }).from(profiles).where(eq(profiles.id, e.hostProfileId)) : [null]
-      return { url: `${site}/confirm/${t}`, eventName: e?.name ?? '', host: h?.name ?? null, managed: await hasTeam(ctx.db, p.id), answered: !!existing && existing.status !== 'invited', contacts: contactsFor(p) }
+      return { url: `${site}/confirm/${t}`, eventName: e?.name ?? '', host: h?.name ?? null, managed: await hasTeam(ctx.db, p.id), answered: !!existing && existing.status !== 'invited', notifiedAt: existing?.notifiedAt ?? null, contacts: contactsFor(p) }
+    }),
+
+  // Email the people who run the page about its link (an artist's line-up
+  // link or a venue ask): only pages with a team, at most once a day per link.
+  // Their addresses stay private; the organizer sees how many were emailed.
+  notify: protectedProcedure
+    .input(z.object({ eventId: z.string().uuid(), handle: z.string().min(1).max(200) }))
+    .mutation(async ({ ctx, input }) => {
+      await requireEventManager(ctx, input.eventId)
+      const [inv] = await ctx.db.select({ id: profileInvites.id, token: profileInvites.token, kind: profileInvites.kind, request: profileInvites.request, notifiedAt: profileInvites.notifiedAt, profileId: profiles.id, profileName: profiles.name })
+        .from(profileInvites).innerJoin(profiles, eq(profiles.id, profileInvites.profileId))
+        .where(and(eq(profileInvites.eventId, input.eventId), eq(profiles.username, input.handle)))
+      if (!inv) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Make their link first.' })
+      if (inv.notifiedAt && Date.now() - +new Date(inv.notifiedAt) < 24 * 3600_000) {
+        throw new TRPCError({ code: 'TOO_MANY_REQUESTS', message: 'They were emailed about it in the last day.' })
+      }
+      const team = await ctx.db.select({ email: dancers.email, name: dancers.name }).from(profileMembers)
+        .innerJoin(dancers, eq(dancers.id, profileMembers.dancerId)).where(eq(profileMembers.profileId, inv.profileId))
+      if (!team.length) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Nobody runs their page on WeDance yet: send them the message instead.' })
+      const [e] = await ctx.db.select().from(events).where(eq(events.id, input.eventId))
+      const [h] = e?.hostProfileId ? await ctx.db.select({ name: profiles.name }).from(profiles).where(eq(profiles.id, e.hostProfileId)) : [null]
+      const tz = e?.timezone || 'Europe/Berlin'
+      const day = (d: Date) => new Date(d).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: tz })
+      const when = e?.startDate
+        ? (e.endDate && eventLocalDate(e.endDate, tz) !== eventLocalDate(e.startDate, tz) ? `${day(e.startDate)} – ${day(e.endDate)}` : `${day(e.startDate)} · ${eventLocalTime(e.startDate, tz)}`)
+        : ''
+      const r = (inv.request ?? {}) as { guests?: number | null; needs?: string[]; note?: string }
+      const lines = inv.kind === 'venue'
+        ? [r.guests ? `About ${r.guests} dancers` : '', r.needs?.length ? `Needs: ${r.needs.join(', ')}` : '', r.note ? `“${r.note}”` : ''].filter(Boolean)
+        : [e?.venueName ? `At ${e.venueName}` : '', e?.city ?? ''].filter(Boolean)
+      const site = (useRuntimeConfig().siteUrl || 'https://2026.wedance.vip').replace(/\/$/, '')
+      for (const m of team) {
+        await sendInviteEmail({ to: m.email, name: m.name, kind: inv.kind as 'artist' | 'venue', host: h?.name || 'An organizer', profileName: inv.profileName, eventName: e?.name ?? 'their event', when, lines, link: `${site}/confirm/${inv.token}` })
+      }
+      const at = new Date()
+      await ctx.db.update(profileInvites).set({ notifiedAt: at }).where(eq(profileInvites.id, inv.id))
+      return { sent: team.length, notifiedAt: at }
     }),
 
   // What the confirmation page shows.

@@ -70,7 +70,7 @@ async function copy(what: 'link' | 'message') {
         <div>
           <Button type="button" variant="pill" @click="copy('message')"><Check v-if="copied === 'message'" /><MessageCircle v-else /> {{ copied === 'message' ? 'Copied' : 'Copy message' }}</Button>
         </div>
-        <BusinessContactLinks :contacts="link.contacts" :managed="link.managed" :answered="link.answered" />
+        <BusinessContactLinks :contacts="link.contacts" :managed="link.managed" :answered="link.answered" :event-id="eventId" :handle="handle" :notified-at="link.notifiedAt" />
       </template>
     </DialogContent>
   </Dialog>

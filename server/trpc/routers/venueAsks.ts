@@ -40,7 +40,7 @@ export const venueAsksRouter = router({
       const [v] = await ctx.db.select({ id: profiles.id, type: profiles.type, name: profiles.name, username: profiles.username, city: profiles.city, socials: profiles.socials }).from(profiles).where(eq(profiles.username, input.venue))
       if (!v || v.type !== 'venue') throw new TRPCError({ code: 'NOT_FOUND', message: 'That venue isn’t on WeDance.' })
       const request: VenueRequest = { guests: input.request.guests ?? null, needs: input.request.needs, note: input.request.note }
-      const [existing] = await ctx.db.select({ id: profileInvites.id, token: profileInvites.token, status: profileInvites.status }).from(profileInvites)
+      const [existing] = await ctx.db.select({ id: profileInvites.id, token: profileInvites.token, status: profileInvites.status, notifiedAt: profileInvites.notifiedAt }).from(profileInvites)
         .where(and(eq(profileInvites.eventId, input.eventId), eq(profileInvites.profileId, v.id)))
       const t = existing?.token ?? token()
       if (existing) await ctx.db.update(profileInvites).set({ kind: 'venue', request }).where(eq(profileInvites.id, existing.id))
@@ -48,7 +48,7 @@ export const venueAsksRouter = router({
       const site = (useRuntimeConfig().siteUrl || 'https://2026.wedance.vip').replace(/\/$/, '')
       const [e] = await ctx.db.select({ name: events.name, hostProfileId: events.hostProfileId }).from(events).where(eq(events.id, input.eventId))
       const [h] = e?.hostProfileId ? await ctx.db.select({ name: profiles.name }).from(profiles).where(eq(profiles.id, e.hostProfileId)) : [null]
-      return { url: `${site}/confirm/${t}`, eventName: e?.name ?? '', host: h?.name ?? null, venueName: v.name, managed: await hasTeam(ctx.db, v.id), answered: !!existing && existing.status !== 'invited', contacts: contactsFor(v) }
+      return { url: `${site}/confirm/${t}`, eventName: e?.name ?? '', host: h?.name ?? null, venueName: v.name, managed: await hasTeam(ctx.db, v.id), answered: !!existing && existing.status !== 'invited', notifiedAt: existing?.notifiedAt ?? null, contacts: contactsFor(v), handle: v.username }
     }),
 
   // The venues asked for this event and their answers, for the editor.

@@ -934,6 +934,8 @@ export const profileInvites = pgTable('profile_invites', {
   terms: jsonb('terms').$type<import('../../shared/types/venueAsk').VenueTerms | null>(),
   alternative: text('alternative'),
   outcome: text('outcome').$type<'booked' | 'elsewhere' | null>(),
+  // When the page's team was last emailed about this link (0035).
+  notifiedAt: timestamp('notified_at'),
 }, (t) => [
   uniqueIndex('profile_invites_token_uidx').on(t.token),
   uniqueIndex('profile_invites_event_profile_uidx').on(t.eventId, t.profileId),
