@@ -150,9 +150,11 @@ const whenText = computed(() => {
   const day = multiDay.value && form.endDate ? `${fmtDate(form.date)} – ${fmtDate(form.endDate)}` : fmtDate(form.date)
   return [day, [form.startTime, form.endTime].filter(Boolean).join('–')].filter(Boolean).join(' · ')
 })
+// The name of a venue picked from the ideas (the saved label is the old venue's).
+const pickedVenue = ref('')
 const venueText = computed(() => venueManual.value
   ? [form.venueName, form.venueAddress].filter(Boolean).join(' · ')
-  : form.venueUsername ? (props.labels.venue || '@' + form.venueUsername) : '')
+  : form.venueUsername ? (pickedVenue.value || props.labels.venue || '@' + form.venueUsername) : '')
 const sessionsText = computed(() => {
   const n = form.festival?.sessions?.length ?? 0
   return n ? `${n} session${n === 1 ? '' : 's'} over ${festivalDays.value.length || 1} day${festivalDays.value.length === 1 ? '' : 's'}` : 'Workshops and parties, day by day.'
@@ -239,6 +241,16 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
             <MapPin class="size-3.5" aria-hidden="true" /> {{ venueManual ? 'Pick a venue on WeDance instead' : 'Venue isn’t on WeDance? Type it in' }}
           </button>
         </Field>
+        <BusinessVenueIdeas
+          v-model="form.venueUsername"
+          :city="form.city"
+          :from="form.date"
+          :to="multiDay ? form.endDate : ''"
+          :styles="form.styles"
+          :except-id="eventId"
+          class="mt-4"
+          @pick="v => { venueManual = false; pickedVenue = v.name }"
+        />
         <BusinessFestivalEditor v-if="form.festival" v-model="form.festival" part="practical" :days="festivalDays" class="mt-4" />
       </div>
       <p v-else class="mt-1 text-sm">

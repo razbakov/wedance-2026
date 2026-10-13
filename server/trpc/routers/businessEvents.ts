@@ -391,6 +391,82 @@ export const businessEventsRouter = router({
     }),
 
   // Profile picker for venue and line-up fields.
+  // Venues to consider for a date, from what WeDance knows: who hosts nights
+  // (and which music) in the city over the past year, whether they're free those
+  // days, if they host on that weekday, if someone runs their page here, and
+  // their bookable spaces. Busy venues stay listed, marked, after the free ones.
+  venueIdeas: protectedProcedure
+    .input(z.object({
+      city: text(120).min(1),
+      from: ymdStr,
+      to: ymdStr.optional(),
+      styles: z.array(text(60)).max(20).default([]),
+      exceptId: z.string().uuid().optional(),
+      limit: z.number().int().min(1).max(40).default(8),
+    }))
+    .query(async ({ ctx, input }) => {
+      const loc = await cityInfo(ctx.db, input.city)
+      const last = input.to && input.to >= input.from ? input.to : input.from
+      const tz = loc.timezone
+      // Local days → weekday names (Thursday…), for "hosts on Thursdays".
+      const weekdays: string[] = []
+      for (let d = new Date(`${input.from}T12:00:00Z`); d <= new Date(`${last}T12:00:00Z`) && weekdays.length < 7; d = new Date(d.getTime() + 86400_000))
+        weekdays.push(d.toLocaleDateString('en-GB', { weekday: 'long', timeZone: 'UTC' }))
+      const styles = JSON.stringify(input.styles)
+      const res: any = await ctx.db.execute(sql`
+        with ev as (
+          select e.id, e.name, e.type, e.styles, e.start_date, coalesce(e.end_date, e.start_date) as end_date, e.venue_username,
+                 -- Stored as UTC without a zone: read it as UTC, then the city's wall clock.
+                 trim(to_char(e.start_date at time zone 'UTC' at time zone ${tz}, 'Day')) as weekday,
+                 (e.start_date at time zone 'UTC' at time zone ${tz})::date as day,
+                 e.type in ('Course', 'Workshop') as is_class
+          from events e
+          where e.city_slug = ${loc.citySlug} and e.venue_username is not null and e.published and not e.archived
+            and e.start_date > now() - interval '12 months' and e.start_date < now() + interval '9 months'
+            ${input.exceptId ? sql`and e.id <> ${input.exceptId}` : sql``}
+        ),
+        stats as (
+          select venue_username,
+            count(*) filter (where type not in ('Course', 'Workshop')) as nights,
+            count(*) filter (where type in ('Course', 'Workshop')) as classes,
+            count(*) filter (where type not in ('Course', 'Workshop') and styles::jsonb ?| array(select jsonb_array_elements_text(${styles}::jsonb))) as style_nights,
+            count(*) filter (where type not in ('Course', 'Workshop') and weekday in (select jsonb_array_elements_text(${JSON.stringify(weekdays)}::jsonb))) as weekday_nights,
+            (select jsonb_agg(x) from (select distinct jsonb_array_elements_text(s2.styles::jsonb) x from ev s2 where s2.venue_username = ev.venue_username and s2.type not in ('Course', 'Workshop')) t) as night_styles,
+            -- Taken: a night there on those days. Classes don't take the evening, they're counted.
+            jsonb_agg(jsonb_build_object('name', name, 'type', type, 'start', to_char(start_date, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')) order by start_date)
+              filter (where not is_class and day between ${input.from}::date and ${last}::date) as busy,
+            count(*) filter (where is_class and day between ${input.from}::date and ${last}::date) as classes_then
+          from ev group by venue_username
+        )
+        select p.username, p.name, p.photo, p.address, p.floor_type as "floorType", p.claimed, p.booking_model as "bookingModel",
+          coalesce(st.nights, 0)::int as nights, coalesce(st.classes, 0)::int as classes,
+          coalesce(st.style_nights, 0)::int as "styleNights", coalesce(st.weekday_nights, 0)::int as "weekdayNights",
+          coalesce(st.night_styles, '[]'::jsonb) as "nightStyles", coalesce(st.busy, '[]'::jsonb) as busy,
+          coalesce(st.classes_then, 0)::int as "classesThen",
+          exists (select 1 from profile_members m where m.profile_id = p.id) as managed,
+          (select jsonb_agg(jsonb_build_object('name', b.name, 'capacity', b.capacity, 'priceInfo', b.price_info) order by b.sort_order) from bookable_spaces b where b.profile_id = p.id) as spaces
+        from profiles p
+        left join stats st on st.venue_username = p.username
+        -- In the city by its page or by its events (many synced pages have no city).
+        where p.type = 'venue' and p.status = 'visible'
+          and (st.venue_username is not null or (p.city_slug = ${loc.citySlug} and ( exists (select 1 from profile_members m where m.profile_id = p.id) or exists (select 1 from bookable_spaces b where b.profile_id = p.id))))
+      `)
+      const rows: any[] = res.rows ?? res
+      const score = (v: any) => (v.busy.length ? -1000 : 0) + v.styleNights * 3 + v.weekdayNights * 2 + v.nights + (v.managed ? 8 : 0) + (v.spaces?.length ? 8 : 0) + Math.min(v.classes, 10) * 0.2
+      rows.sort((a, b) => score(b) - score(a) || a.name.localeCompare(b.name))
+      return {
+        city: loc.city,
+        weekdays: [...new Set(weekdays)],
+        total: rows.length,
+        venues: rows.slice(0, input.limit).map(v => ({
+          ...v,
+          busy: (v.busy as any[]).map(b => ({ name: b.name, type: b.type, time: eventLocalTime(new Date(b.start), tz), day: eventLocalDate(new Date(b.start), tz) })),
+          nightStyles: (v.nightStyles as string[]).slice(0, 6),
+          spaces: v.spaces ?? [],
+        })),
+      }
+    }),
+
   searchProfiles: protectedProcedure
     .input(z.object({ q: z.string().trim().min(2).max(80), type: z.enum(['artist', 'venue', 'organizer']).optional() }))
     .query(async ({ ctx, input }) => {
