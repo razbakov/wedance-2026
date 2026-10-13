@@ -455,7 +455,7 @@ export const businessEventsRouter = router({
         from profiles p
         left join stats st on st.venue_username = p.username
         -- In the city by its page or by its events (many synced pages have no city).
-        where p.type = 'venue' and p.status = 'visible'
+        where p.type = 'venue' and p.status = 'visible' and p.venue_type is distinct from 'Closed'
           and (st.venue_username is not null or (p.city_slug = ${loc.citySlug} and ( exists (select 1 from profile_members m where m.profile_id = p.id) or exists (select 1 from bookable_spaces b where b.profile_id = p.id))))
       `)
       const rows: any[] = res.rows ?? res

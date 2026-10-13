@@ -330,6 +330,9 @@ export const profiles = pgTable('profiles', {
   openingHours: jsonb('opening_hours').$type<import('../../shared/types/venueDetails').OpeningHours>().notNull().default([]),
   floorPlan: text('floor_plan'),
   contact: jsonb('contact').$type<import('../../shared/types/venueDetails').VenueContact>().notNull().default({}),
+  // Where the venue is (0036), from its Google listing.
+  lat: doublePrecision('lat'),
+  lng: doublePrecision('lng'),
   // Community guidelines the space runs by (the "politics" a moderator proposes).
   guidelines: text('guidelines'),
   // 'free' (community commons, moderator-managed) | 'commercial' (venue rental).
