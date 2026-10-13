@@ -162,7 +162,34 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
 
 <template>
   <form novalidate class="grid grid-cols-1 content-start gap-3" @submit.prevent="submit">
-    <!-- When: first, with what else is on those days -->
+    <!-- The event -->
+    <section class="rounded-2xl border bg-card p-4">
+      <div class="flex items-center justify-between gap-2">
+        <h2 class="flex items-center gap-1.5 text-sm font-bold"><FileText class="size-4 text-muted-foreground" aria-hidden="true" /> The event</h2>
+        <Button v-if="mode === 'edit'" type="button" variant="ghost" size="sm" :aria-expanded="isOpen('event')" @click="toggle('event')"><template v-if="isOpen('event')"><Check /> Done</template><template v-else><Pencil /> Edit</template></Button>
+      </div>
+      <div v-if="isOpen('event')" class="mt-3 grid gap-4 sm:grid-cols-2">
+        <Field v-if="hosts.length" id="ev-host" label="Run by" :error="errors.host" class="sm:col-span-2">
+          <Select v-model="form.hostUsername" :options="hosts.map(h => ({ label: h.name, value: h.username }))" placeholder="Pick one of your profiles" />
+        </Field>
+        <Field id="ev-name" label="Name" :error="errors.name" class="sm:col-span-2" hint="The title on the flyer.">
+          <Input v-model="form.name" placeholder="e.g. La Clave Thursday" />
+        </Field>
+        <Field id="ev-type" label="Type">
+          <Select v-model="form.type" :options="TYPES" />
+        </Field>
+        <Field id="ev-description" label="Description" optional class="sm:col-span-2" hint="On the event page, not on the flyer.">
+          <Textarea v-model="form.description" placeholder="What dancers should know: music, level, dress code, what’s included." />
+        </Field>
+      </div>
+      <div v-else class="mt-1 text-sm">
+        <p class="font-bold">{{ form.name || 'Untitled' }}</p>
+        <p class="text-muted-foreground">{{ [form.type, hostText && `run by ${hostText}`].filter(Boolean).join(' · ') }}</p>
+        <p v-if="form.description" class="mt-1 line-clamp-2 text-muted-foreground">{{ form.description }}</p>
+      </div>
+    </section>
+
+    <!-- When, with what else is on those days -->
     <section class="rounded-2xl border bg-card p-4">
       <div class="flex items-center justify-between gap-2">
         <h2 class="flex items-center gap-1.5 text-sm font-bold"><CalendarDays class="size-4 text-muted-foreground" aria-hidden="true" /> When</h2>
@@ -218,33 +245,6 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
         {{ [venueText, form.city].filter(Boolean).join(' · ') || 'No venue yet' }}
         <template v-if="form.festival?.practicalInfo?.length"><br><span class="text-muted-foreground">{{ form.festival.practicalInfo.length }} lines of practical info</span></template>
       </p>
-    </section>
-
-    <!-- The event -->
-    <section class="rounded-2xl border bg-card p-4">
-      <div class="flex items-center justify-between gap-2">
-        <h2 class="flex items-center gap-1.5 text-sm font-bold"><FileText class="size-4 text-muted-foreground" aria-hidden="true" /> The event</h2>
-        <Button v-if="mode === 'edit'" type="button" variant="ghost" size="sm" :aria-expanded="isOpen('event')" @click="toggle('event')"><template v-if="isOpen('event')"><Check /> Done</template><template v-else><Pencil /> Edit</template></Button>
-      </div>
-      <div v-if="isOpen('event')" class="mt-3 grid gap-4 sm:grid-cols-2">
-        <Field v-if="hosts.length" id="ev-host" label="Run by" :error="errors.host" class="sm:col-span-2">
-          <Select v-model="form.hostUsername" :options="hosts.map(h => ({ label: h.name, value: h.username }))" placeholder="Pick one of your profiles" />
-        </Field>
-        <Field id="ev-name" label="Name" :error="errors.name" class="sm:col-span-2" hint="The title on the flyer.">
-          <Input v-model="form.name" placeholder="e.g. La Clave Thursday" />
-        </Field>
-        <Field id="ev-type" label="Type">
-          <Select v-model="form.type" :options="TYPES" />
-        </Field>
-        <Field id="ev-description" label="Description" optional class="sm:col-span-2" hint="On the event page, not on the flyer.">
-          <Textarea v-model="form.description" placeholder="What dancers should know: music, level, dress code, what’s included." />
-        </Field>
-      </div>
-      <div v-else class="mt-1 text-sm">
-        <p class="font-bold">{{ form.name || 'Untitled' }}</p>
-        <p class="text-muted-foreground">{{ [form.type, hostText && `run by ${hostText}`].filter(Boolean).join(' · ') }}</p>
-        <p v-if="form.description" class="mt-1 line-clamp-2 text-muted-foreground">{{ form.description }}</p>
-      </div>
     </section>
 
     <!-- Music -->
