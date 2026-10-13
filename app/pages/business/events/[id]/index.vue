@@ -146,6 +146,11 @@ async function archive() {
         <Check class="size-4" aria-hidden="true" /> {{ notice }}
       </p>
 
+      <p v-if="ev.synced" class="mt-4 rounded-2xl bg-secondary/10 p-4 text-sm" role="status">
+        <span class="font-bold">This event comes from wedance.vip.</span>
+        <span class="text-muted-foreground"> Check the details and save: it shows as “Checked” to dancers, the daily sync stops overwriting it{{ ev.host ? `, and it moves to ${ev.host.name}’s events` : '' }}. Then you can make its flyer.</span>
+      </p>
+
       <p v-if="route.query.flyer && !route.query.created" class="mt-4 rounded-2xl bg-secondary/10 p-4 text-sm" role="status">
         <span class="font-bold">Check the details, then make the flyer.</span>
         <span class="text-muted-foreground"> What’s here goes on it word for word. The panel shows exactly which words.</span>
@@ -160,7 +165,7 @@ async function archive() {
         </ul>
       </section>
 
-      <div class="mt-4 grid gap-5 lg:grid-cols-[minmax(0,1fr)_19rem]">
+      <div class="mt-4 grid gap-5" :class="ev.synced ? '' : 'lg:grid-cols-[minmax(0,1fr)_19rem]'">
         <BusinessEventForm
           ref="formRef"
           :initial="initial"
@@ -169,7 +174,7 @@ async function archive() {
           submit-label="Save changes"
           @submit="save"
         />
-        <div class="order-first grid content-start gap-4 lg:order-none">
+        <div v-if="!ev.synced" class="order-first grid content-start gap-4 lg:order-none">
           <BusinessFlyerPanel ref="panelRef" :event-id="ev.id" :highlight="!!route.query.flyer" @go="onFlyer" />
           <BusinessCaption ref="captionRef" :event-id="ev.id" />
         </div>

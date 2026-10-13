@@ -705,6 +705,10 @@ export const events = pgTable('events', {
   // The Instagram caption to post with the flyer (migration 0030), plus the
   // lines it was written from (out of date when the details change).
   caption: jsonb('caption').$type<{ language: string; text: string; lines: string[]; writtenAt: string } | null>(),
+  // Last checked by a person on WeDance (migration 0031): shown as "Checked by"
+  // on the event page; the v3 sync no longer overwrites an edited event.
+  editedAt: timestamp('edited_at'),
+  editedBy: uuid('edited_by').references(() => dancers.id, { onDelete: 'set null' }),
 }, (t) => [
   index('events_host_profile_idx').on(t.hostProfileId),
   uniqueIndex('events_slug_uidx').on(t.slug).where(sql`${t.slug} IS NOT NULL`),

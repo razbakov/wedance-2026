@@ -62,15 +62,37 @@ async function profilesIManage(ctx: { db: any; dancerId: string }) {
     .where(eq(profileMembers.dancerId, ctx.dancerId))
 }
 
-// An event is editable by managers of its host profile (admins: any hosted event).
+// The profile that runs an event: its host; for a synced event (no host yet),
+// its organizer's profile on WeDance, else its venue's.
+export async function eventHostProfile(db: any, ev: any): Promise<{ id: string; username: string; type: string; name: string } | null> {
+  const cols = { id: profiles.id, username: profiles.username, type: profiles.type, name: profiles.name }
+  if (ev.hostProfileId) {
+    const [h] = await db.select(cols).from(profiles).where(eq(profiles.id, ev.hostProfileId))
+    return h ?? null
+  }
+  const handles = [ev.organizerUsername, ev.venueUsername].filter(Boolean) as string[]
+  if (!handles.length) return null
+  const rows = await db.select(cols).from(profiles).where(inArray(profiles.username, handles))
+  return rows.find((r: any) => r.username === ev.organizerUsername) ?? rows.find((r: any) => r.username === ev.venueUsername) ?? null
+}
+
+// Every event is editable. A hosted event: by its host's managers. A synced
+// event: by the managers of its organizer's or venue's profile. Admins: any.
 export async function requireEventManager(ctx: { db: any; dancerId: string; isAdmin?: boolean }, id: string) {
   const [ev] = await ctx.db.select().from(events).where(eq(events.id, id))
   if (!ev) throw new TRPCError({ code: 'NOT_FOUND', message: 'Event not found.' })
-  if (!ev.hostProfileId) throw new TRPCError({ code: 'FORBIDDEN', message: 'This event isn’t managed on WeDance.' })
   if (ctx.isAdmin) return ev
-  const [m] = await ctx.db.select({ id: profileMembers.id }).from(profileMembers)
-    .where(and(eq(profileMembers.profileId, ev.hostProfileId), eq(profileMembers.dancerId, ctx.dancerId)))
-  if (!m) throw new TRPCError({ code: 'FORBIDDEN', message: 'You don’t manage this event.' })
+  const handles = [ev.organizerUsername, ev.venueUsername].filter(Boolean) as string[]
+  const candidates: string[] = ev.hostProfileId
+    ? [ev.hostProfileId]
+    : handles.length
+      ? (await ctx.db.select({ id: profiles.id }).from(profiles).where(inArray(profiles.username, handles))).map((p: any) => p.id)
+      : []
+  const [m] = candidates.length
+    ? await ctx.db.select({ id: profileMembers.id }).from(profileMembers)
+      .where(and(inArray(profileMembers.profileId, candidates), eq(profileMembers.dancerId, ctx.dancerId)))
+    : []
+  if (!m) throw new TRPCError({ code: 'FORBIDDEN', message: 'You don’t manage this event. Its organizer or venue can edit it, or a WeDance admin.' })
   return ev
 }
 
@@ -85,7 +107,7 @@ async function cityInfo(db: any, name: string | null | undefined) {
 }
 
 // Build the DB row from the form. Times are local to the event's city.
-async function toRow(db: any, host: { username: string; type: string }, input: EventInput) {
+async function toRow(db: any, host: { username: string; type: string } | null, input: EventInput, existing?: any) {
   let venue: { username: string; name: string; address: string | null; city: string | null } | null = null
   if (input.venueUsername) {
     const [v] = await db.select({ username: profiles.username, name: profiles.name, address: profiles.address, city: profiles.city })
@@ -112,10 +134,11 @@ async function toRow(db: any, host: { username: string; type: string }, input: E
     city: loc.city,
     citySlug: loc.citySlug,
     country: loc.country,
-    venueUsername: venue?.username ?? (host.type === 'venue' && !input.venueName ? host.username : null),
+    venueUsername: venue?.username ?? (host?.type === 'venue' && !input.venueName ? host.username : null),
     venueName: venue?.name ?? input.venueName ?? null,
     venueAddress: venue?.address ?? input.venueAddress ?? null,
-    organizerUsername: host.type === 'organizer' ? host.username : null,
+    // A synced event keeps its organizer when the editor isn't it (an admin, the venue).
+    organizerUsername: host?.type === 'organizer' ? host.username : (existing?.organizerUsername ?? null),
     artists: input.artists,
     styles: input.styles,
     description: input.description,
@@ -200,7 +223,7 @@ export const businessEventsRouter = router({
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const ev = await requireEventManager(ctx, input.id)
-      const [host] = await ctx.db.select({ username: profiles.username, name: profiles.name, type: profiles.type }).from(profiles).where(eq(profiles.id, ev.hostProfileId))
+      const host = await eventHostProfile(ctx.db, ev)
       const [venue] = ev.venueUsername
         ? await ctx.db.select({ name: profiles.name, address: profiles.address }).from(profiles).where(eq(profiles.username, ev.venueUsername))
         : [null]
@@ -211,7 +234,10 @@ export const businessEventsRouter = router({
         || (end.getTime() - new Date(ev.startDate).getTime() < 18 * 3600_000)
       return {
         id: ev.id,
-        host,
+        host: host ? { username: host.username, name: host.name, type: host.type } : null,
+        // Synced from wedance.vip and not saved here yet: the first save takes it over.
+        synced: !ev.hostProfileId,
+        editedAt: ev.editedAt as Date | null,
         name: ev.name ?? '',
         type: (EVENT_TYPES as readonly string[]).includes(ev.type) ? ev.type : 'Party',
         date: eventLocalDate(ev.startDate, tz),
@@ -252,9 +278,16 @@ export const businessEventsRouter = router({
     .input(eventInput.extend({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const ev = await requireEventManager(ctx, input.id)
-      const [host] = await ctx.db.select({ username: profiles.username, type: profiles.type }).from(profiles).where(eq(profiles.id, ev.hostProfileId))
+      const host = await eventHostProfile(ctx.db, ev)
       const { id: _id, ...fields } = input
-      await ctx.db.update(events).set(await toRow(ctx.db, host!, fields)).where(eq(events.id, ev.id))
+      await ctx.db.update(events).set({
+        ...(await toRow(ctx.db, host, fields, ev)),
+        // Someone checked it: shown on the event page, and the sync leaves it alone.
+        editedAt: new Date(),
+        editedBy: ctx.dancerId,
+        // A synced event moves to the profile that runs it, into its Business events.
+        hostProfileId: ev.hostProfileId ?? host?.id ?? null,
+      }).where(eq(events.id, ev.id))
       return { saved: true }
     }),
 

@@ -112,6 +112,14 @@ export const eventsRouter = router({
         venueLng: events.venueLng,
         archived: events.archived,
         source: events.source,
+        // "Checked by …": who last edited it on WeDance — the host profile when
+        // the editor is on its team, else WeDance (an admin checked it).
+        editedAt: events.editedAt,
+        checkedBy: sql<string | null>`case
+          when ${events.editedAt} is null then null
+          when exists (select 1 from profile_members m where m.profile_id = ${events.hostProfileId} and m.dancer_id = ${events.editedBy})
+            then (select p.name from profiles p where p.id = ${events.hostProfileId})
+          else 'WeDance' end`,
         agenda: events.agenda,
       })
       if (!ev) throw new TRPCError({ code: 'NOT_FOUND', message: 'Event not found.' })

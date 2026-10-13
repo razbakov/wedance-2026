@@ -88,6 +88,8 @@ function fromSyncedEvent(e: any) {
     ticketUrl: e.ticketUrl || '',
     link: e.link || '',
     price: e.price || '',
+    editedAt: e.editedAt || null,
+    checkedBy: e.checkedBy || null,
     // The night's programme (business-mode events): [{ time, what }].
     agenda: (e.agenda || []) as { time: string; what: string }[],
     cover: e.cover || '',
@@ -193,6 +195,12 @@ useHead(() => ({
             <NuxtLink :to="`/business/events/${ev.id}`"><Pencil /> Edit event</NuxtLink>
           </Button>
         </div>
+      </div>
+
+      <div v-if="ev.editedAt" class="max-w-3xl mx-auto px-4 pt-3 font-sans">
+        <p class="inline-flex items-center gap-1.5 rounded-full bg-success/10 px-3 py-1 text-xs font-bold text-wd-green-700">
+          <Check class="size-3.5" aria-hidden="true" /> Checked{{ ev.checkedBy ? ` by ${ev.checkedBy}` : '' }} · {{ new Date(ev.editedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) }}
+        </p>
       </div>
 
       <!-- Same hero as festivals -->
