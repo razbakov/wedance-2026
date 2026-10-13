@@ -236,6 +236,13 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
       </p>
     </section>
 
+    <!-- Music -->
+    <section class="rounded-2xl border bg-card p-4">
+      <Field id="ev-styles" label="The music">
+        <DanceStylePicker v-model="form.styles" />
+      </Field>
+    </section>
+
     <!-- Programme: an agenda, or a festival's sessions day by day -->
     <section class="rounded-2xl border bg-card p-4">
       <div class="flex items-center justify-between gap-2">
@@ -284,13 +291,6 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
         <p v-if="form.festival?.passes?.length">Passes: {{ form.festival.passes.map(p => p.name).filter(Boolean).join(' · ') }}</p>
         <p class="truncate text-xs text-muted-foreground">{{ form.ticketUrl ? `Tickets: ${form.ticketUrl}` : 'No ticket link' }}</p>
       </div>
-    </section>
-
-    <!-- Music -->
-    <section class="rounded-2xl border bg-card p-4">
-      <Field id="ev-styles" label="The music">
-        <DanceStylePicker v-model="form.styles" />
-      </Field>
     </section>
 
     <!-- Line-up -->
