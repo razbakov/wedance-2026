@@ -3,6 +3,7 @@ import { eq, and, ne, sql, inArray, gte, lt, asc, ilike } from 'drizzle-orm'
 import { router, publicProcedure, protectedProcedure } from '../trpc'
 import { planItems, dancers, festivals, festivalSignups, events } from '../../database/schema'
 import { getReferralDiscountPercent, getEarlyBirdInfo } from '../../utils/ticket-prices'
+import { eventPath } from '../../../shared/utils/eventSlug'
 
 export const planRouter = router({
   count: publicProcedure
@@ -1004,7 +1005,7 @@ export const planRouter = router({
         startDate = e.startDate?.toISOString() ?? ''
         endDate = e.endDate?.toISOString() ?? ''
         styles = (e.styles as string[]) ?? []
-        link = `/events/${e.id}`
+        link = eventPath(e)
       }
     }
 

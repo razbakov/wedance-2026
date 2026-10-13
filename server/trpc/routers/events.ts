@@ -3,6 +3,7 @@ import { and, asc, eq, gte, lt, or, sql, type SQL } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { router, publicProcedure } from '../trpc'
 import { events } from '../../database/schema'
+import { eventKey } from '../../../shared/utils/eventSlug'
 
 /**
  * Public dated events from the `events` table — today the live mirror of
@@ -94,10 +95,15 @@ export const eventsRouter = router({
       }
     }),
 
+  // By id, or by the URL /events/<name>-<short id> (the 8 characters at the end
+  // are the start of the id; the name part doesn't matter).
   get: publicProcedure
-    .input(z.object({ id: z.string().uuid() }))
+    .input(z.object({ id: z.string().min(1).max(200) }))
     .query(async ({ ctx, input }) => {
-      const [ev] = await selectCards(ctx.db, and(eq(events.id, input.id), eq(events.published, true)), 1, {
+      const key = eventKey(input.id)
+      if (!key) throw new TRPCError({ code: 'NOT_FOUND', message: 'Event not found.' })
+      const match = 'id' in key ? eq(events.id, key.id) : sql`${events.id}::text LIKE ${`${key.short}%`}`
+      const [ev] = await selectCards(ctx.db, and(match, eq(events.published, true)), 1, {
         description: events.description,
         link: events.link,
         ticketUrl: events.ticketUrl,

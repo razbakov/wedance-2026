@@ -7,6 +7,7 @@ import { Check, ExternalLink, Repeat, Archive } from 'lucide-vue-next'
 import type { BusinessEventValues } from '~/components/business/BusinessEventForm.vue'
 import { toBusinessEventInput } from '~/lib/businessEvent'
 import { eventLocalDate } from '#shared/utils/eventTime'
+import { eventPath } from '#shared/utils/eventSlug'
 
 definePageMeta({ layout: 'business' })
 
@@ -136,7 +137,7 @@ async function archive() {
         :back="{ to: '/business/events', label: 'Events' }"
       >
         <Button v-if="ev.published" variant="outline-pill" size="pill-sm" as-child>
-          <NuxtLink :to="`/events/${ev.id}`" target="_blank"><ExternalLink /> View as dancers see it</NuxtLink>
+          <NuxtLink :to="eventPath({ id: ev.id, name: ev.name })" target="_blank"><ExternalLink /> View as dancers see it</NuxtLink>
         </Button>
       </AdminPageHeader>
 

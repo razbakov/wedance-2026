@@ -9,6 +9,7 @@ import { zonedToUtc, eventLocalDate, eventLocalTime, eventLocalWeekday } from '.
 import { requireMember, linksInstagram } from './business'
 import { parseInstagramHandle, handleFromInstagram, instagramUrl } from '../../../shared/utils/instagram'
 import { joinRequestsForOwner } from './businessTeam'
+import { eventPath } from '../../../shared/utils/eventSlug'
 import { flyerStatusFor } from '../../utils/flyer/paint'
 
 /**
@@ -258,6 +259,8 @@ export const businessEventsRouter = router({
           ...copy,
           seriesId,
           slug: `${slugify(ev.name ?? 'event')}-${randomSuffix(5)}`,
+          // A caption is written for one date; each copy writes its own.
+          caption: null,
           // Same wall-clock time a week later: re-derive in the event's zone so
           // a series crossing the DST switch doesn't drift by an hour.
           startDate: zonedToUtc(eventLocalDate(new Date(new Date(ev.startDate).getTime() + shift), ev.timezone), eventLocalTime(ev.startDate, ev.timezone), ev.timezone),
@@ -420,7 +423,7 @@ export const businessEventsRouter = router({
 
     const comingUp = [
       ...hosted.map((e: any) => ({ id: e.id, name: e.name, startDate: e.startDate, timezone: e.timezone, published: e.published, role: 'host' as const, to: `/business/events/${e.id}`, missing: checks.get(e.id) ?? [] })),
-      ...othersGigs.map((g: any) => ({ id: g.id, name: g.name, startDate: g.startDate, timezone: g.timezone, published: true, role: 'lineup' as const, to: `/events/${g.id}`, missing: [] as string[] })),
+      ...othersGigs.map((g: any) => ({ id: g.id, name: g.name, startDate: g.startDate, timezone: g.timezone, published: true, role: 'lineup' as const, to: eventPath(g), missing: [] as string[] })),
     ]
       .filter(e => new Date(e.startDate) < in14)
       .sort((a, b) => +new Date(a.startDate) - +new Date(b.startDate))

@@ -12,6 +12,7 @@ import { getStyleColors } from '~/lib/style-colors'
 import { Button } from '~/components/ui/button'
 import { WD } from '~/lib/brand'
 import { mixHex, readableOn } from '~/lib/contrast'
+import { eventPath } from '#shared/utils/eventSlug'
 
 const props = defineProps<{
   events: CityEvent[]
@@ -114,7 +115,7 @@ const today = new Date().toLocaleDateString('en-US', { weekday: 'long' }) as Day
 const isRealEvent = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(String(id))
 function eventHref(e: CityEvent): string | undefined {
   if ((e as any).venueHandle) return `/@${(e as any).venueHandle}`
-  if (isRealEvent(e.id)) return `/events/${e.id}`
+  if (isRealEvent(e.id)) return eventPath(e)
   return undefined
 }
 </script>

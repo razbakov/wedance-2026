@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * /events/<id> — a single event, rendered through the SAME rich view as a
+ * /events/<name>-<short id> (old /events/<id> links redirect here) — a single event, rendered through the SAME rich view as a
  * festival (an event is just a smaller festival). It reuses FestivalHero and the
  * festival section language; sections appear only when the event has that
  * content, so an event can grow into a full festival-grade page over time.
@@ -12,10 +12,12 @@ import { Button } from '~/components/ui/button'
 import { WD } from '~/lib/brand'
 import { mixHex, readableOn } from '~/lib/contrast'
 import { readableAccent } from '~/lib/accent'
+import { isUuid, eventSlug } from '#shared/utils/eventSlug'
 
 definePageMeta({ layout: false })
 
 const route = useRoute()
+const router = useRouter()
 const { $trpc } = useNuxtApp()
 const { weekPlanIds, toggleEvent } = useWeekPlan()
 
@@ -39,11 +41,18 @@ const failed = ref(false)
 async function load() {
   pending.value = true; failed.value = false
   try {
+    // Booking requests are only linked by their full id; anything else is a dated event.
+    if (!isUuid(id.value)) throw new Error('not a booking')
     ev.value = await $trpc.booking.getEvent.query({ id: id.value })
   } catch {
     try {
       // A dated public event (wedance.vip mirror) — adapt to the booking shape.
-      ev.value = fromSyncedEvent(await $trpc.events.get.query({ id: id.value }))
+      const e = await $trpc.events.get.query({ id: id.value })
+      ev.value = fromSyncedEvent(e)
+      // An old /events/<id> link, or a name that changed since → the current
+      // address, without a new history entry.
+      const canonical = eventSlug(e)
+      if (id.value !== canonical) router.replace({ path: `/events/${canonical}`, query: route.query, hash: route.hash })
     } catch {
       // Neither — fall back to a mock city event so it still has a page.
       const mock = findMockEvent(id.value)

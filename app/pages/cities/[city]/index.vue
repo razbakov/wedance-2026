@@ -21,6 +21,7 @@ import { isFreePrice, isTasterCandidate } from '#shared/utils/taster'
 import { Button } from '~/components/ui/button'
 import { WD } from '~/lib/brand'
 import { mixHex, readableOn } from '~/lib/contrast'
+import { eventPath } from '#shared/utils/eventSlug'
 
 definePageMeta({ layout: false })
 
@@ -633,7 +634,7 @@ onMounted(() => {
           <NuxtLink
             v-for="e in tasterClasses"
             :key="e.id"
-            :to="e.venueHandle ? `/@${e.venueHandle}` : `/events/${e.id}`"
+            :to="e.venueHandle ? `/@${e.venueHandle}` : eventPath(e)"
             data-testid="taster-class"
             class="group rounded-xl p-3 border flex items-center gap-3 hover:-translate-y-0.5 transition-all border-wd-brown-900/[12.2%] bg-background/[50.2%]"
           >
@@ -725,7 +726,7 @@ onMounted(() => {
             <NuxtLink
               v-for="e in g.items"
               :key="e.id"
-              :to="e.venueHandle ? `/@${e.venueHandle}` : `/events/${e.id}`"
+              :to="e.venueHandle ? `/@${e.venueHandle}` : eventPath(e)"
               class="group rounded-xl bg-white p-3 border flex items-center gap-3 hover:-translate-y-0.5 transition-all border-wd-brown-900/[12.2%]"
               style="box-shadow:0 1px 0 color-mix(in srgb, var(--wd-brown-900) 5.1%, transparent);"
             >
@@ -874,7 +875,7 @@ onMounted(() => {
           <NuxtLink
             v-for="f in cityFestivals"
             :key="f.id"
-            :to="`/events/${f.id}`"
+            :to="eventPath(f)"
             class="group block rounded-2xl overflow-hidden bg-white border transition-all hover:-translate-y-1"
             :style="{ borderColor: f.accentColor + '55', boxShadow: '0 1px 0 ' + f.accentColor + '22, 0 8px 22px rgba(59,31,18,0.05)' }"
           >

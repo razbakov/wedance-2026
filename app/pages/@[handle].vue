@@ -14,6 +14,7 @@
 import { eventLocalDate, eventLocalTime } from '#shared/utils/eventTime'
 import { bookingRequestSchema } from '#shared/validation'
 import { MapPin, Instagram, Youtube, Globe, Facebook, LayoutGrid, ArrowLeft, Check, Calendar, ScrollText, ShieldCheck, Trees, Plus, Heart } from 'lucide-vue-next'
+import { eventPath } from '#shared/utils/eventSlug'
 
 definePageMeta({ layout: false })
 
@@ -106,7 +107,7 @@ const scheduleCards = computed(() => [
     eventDate: eventLocalDate(e.startDate, e.timezone), startTime: eventLocalTime(e.startDate, e.timezone),
     endTime: e.endDate ? eventLocalTime(e.endDate, e.timezone) : undefined,
     location: e.venueUsername === profile.value?.username ? (e.organizerName || '') : (e.venueName || ''),
-    href: `/events/${e.id}`,
+    href: eventPath(e),
   })),
 ])
 // Busy schools have 100+ dated classes — show the next ones, expand on demand.
