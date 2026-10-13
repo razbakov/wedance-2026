@@ -72,9 +72,14 @@ const byDay = computed(() => {
   const all = [...props.days]
   // Sessions on a date outside the festival's days still show, so nothing is lost.
   for (const s of sessions.value) if (!all.includes(s.date)) all.push(s.date)
-  return all.sort().map(d => ({ date: d, items: sessions.value.filter(s => s.date === d).sort((a, b) => a.time.localeCompare(b.time)) }))
+  // The open session keeps its place while its time is typed (re-sorting on each
+  // key would move it away and lose focus); it moves when it's closed.
+  const timeOf = (x: FestivalSession) => (x.id === open.value && heldTime.value != null ? heldTime.value : x.time)
+  return all.sort().map(d => ({ date: d, items: sessions.value.filter(s => s.date === d).sort((a, b) => timeOf(a).localeCompare(timeOf(b))) }))
 })
 const open = ref<string | null>(null)
+const heldTime = ref<string | null>(null)
+watch(open, (id) => { heldTime.value = id ? sessions.value.find(x => x.id === id)?.time ?? null : null })
 function addSession(date: string, type: 'workshop' | 'party') {
   const id = `s-${Math.random().toString(36).slice(2, 8)}`
   sessions.value.push({ id, date, time: type === 'party' ? '22:00' : '18:00', duration: type === 'party' ? 240 : 60, type, title: '', artist: '', style: '', level: 'Beginner' } as FestivalSession)
