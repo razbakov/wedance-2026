@@ -7,8 +7,6 @@
  *   <BusinessSameDays :city="form.city" :from="form.date" :to="form.endDate" :except-id="eventId" />
  */
 import { CalendarSearch } from 'lucide-vue-next'
-import { eventPath } from '#shared/utils/eventSlug'
-import { eventLocalTime } from '#shared/utils/eventTime'
 
 const props = defineProps({
   city: { type: String, default: '' },
@@ -36,21 +34,11 @@ watch(() => [props.city, props.from, props.to], () => {
   }, 300)
 }, { immediate: true })
 
-const part = (iso: string, tz: string | null | undefined, o: Intl.DateTimeFormatOptions) => new Date(iso).toLocaleDateString('en-GB', { ...o, timeZone: tz || 'Europe/Berlin' })
-const when = (e: any) => {
-  const day = part(e.startDate, e.timezone, { weekday: 'short', day: 'numeric', month: 'short' })
-  const multi = e.isFestival || ['Festival', 'Weekender', 'Congress'].includes(e.type)
-  const last = e.endDate ? part(e.endDate, e.timezone, { weekday: 'short', day: 'numeric', month: 'short' }) : day
-  if (!multi || last === day) return `${day} · ${eventLocalTime(e.startDate, e.timezone || undefined)}`
-  // "16 – 18 Oct" in one month, else "30 Oct – 1 Nov".
-  const sameMonth = part(e.startDate, e.timezone, { month: 'short' }) === part(e.endDate, e.timezone, { month: 'short' })
-  return `${part(e.startDate, e.timezone, sameMonth ? { day: 'numeric' } : { day: 'numeric', month: 'short' })} – ${part(e.endDate, e.timezone, { day: 'numeric', month: 'short' })}`
-}
 // Classes rarely compete with a night out: they fold away under the rest.
 const isClass = (e: any) => ['Workshop', 'Course'].includes(e.type)
 const nights = computed(() => (data.value?.inCity ?? []).filter(e => !isClass(e)))
 const classes = computed(() => (data.value?.inCity ?? []).filter(isClass))
-const where = (e: any) => [e.venueName, e.organizerName && e.organizerName !== e.venueName ? e.organizerName : ''].filter(Boolean).join(' · ')
+const manyDays = computed(() => !!props.to && props.to > props.from)
 </script>
 
 <template>
@@ -63,40 +51,14 @@ const where = (e: any) => [e.venueName, e.organizerName && e.organizerName !== e
       <p class="mt-1 text-xs text-muted-foreground" aria-live="polite">
         {{ data.inCity.length ? `${data.inCity.length} other event${data.inCity.length === 1 ? '' : 's'} in ${data.city}` : `Nothing else in ${data.city} on WeDance` }}<template v-if="data.festivals.length"> · {{ data.festivals.length }} festival{{ data.festivals.length === 1 ? '' : 's' }} elsewhere in {{ data.country }}</template>.
       </p>
-      <ul v-if="nights.length" class="mt-2 grid grid-cols-1 gap-1 text-sm">
-        <li v-for="e in nights" :key="e.id" class="flex min-w-0 gap-2">
-          <span class="w-32 shrink-0 whitespace-nowrap tabular-nums text-muted-foreground">{{ when(e) }}</span>
-          <span class="min-w-0 flex-1 truncate">
-            <NuxtLink :to="eventPath(e)" target="_blank" class="font-bold hover:underline">{{ e.name }}</NuxtLink>
-            <span v-if="where(e)" class="text-muted-foreground"> · {{ where(e) }}</span>
-            <span v-if="e.styles?.length" class="text-muted-foreground"> · {{ e.styles.slice(0, 3).join(', ') }}</span>
-          </span>
-        </li>
-      </ul>
-      <details v-if="classes.length" class="mt-2 text-sm">
+      <BusinessSameDaysList v-if="nights.length" :events="nights" :many-days="manyDays" class="mt-3" />
+      <details v-if="classes.length" class="mt-3">
         <summary class="cursor-pointer text-xs font-bold text-secondary">{{ classes.length }} class{{ classes.length === 1 ? '' : 'es' }} and workshop{{ classes.length === 1 ? '' : 's' }}</summary>
-        <ul class="mt-1 grid grid-cols-1 gap-1">
-          <li v-for="e in classes" :key="e.id" class="flex min-w-0 gap-2">
-            <span class="w-32 shrink-0 whitespace-nowrap tabular-nums text-muted-foreground">{{ when(e) }}</span>
-            <span class="min-w-0 flex-1 truncate">
-              <NuxtLink :to="eventPath(e)" target="_blank" class="font-bold hover:underline">{{ e.name }}</NuxtLink>
-              <span v-if="where(e)" class="text-muted-foreground"> · {{ where(e) }}</span>
-              <span v-if="e.styles?.length" class="text-muted-foreground"> · {{ e.styles.slice(0, 3).join(', ') }}</span>
-            </span>
-          </li>
-        </ul>
+        <BusinessSameDaysList :events="classes" :many-days="manyDays" class="mt-2" />
       </details>
       <template v-if="data.festivals.length">
-        <p class="mt-3 text-xs font-bold uppercase tracking-wider text-secondary">Festivals in {{ data.country }}</p>
-        <ul class="mt-1 grid grid-cols-1 gap-1 text-sm">
-          <li v-for="e in data.festivals" :key="e.id" class="flex min-w-0 gap-2">
-            <span class="w-32 shrink-0 whitespace-nowrap tabular-nums text-muted-foreground">{{ when(e) }}</span>
-            <span class="min-w-0 flex-1 truncate">
-              <NuxtLink :to="eventPath(e)" target="_blank" class="font-bold hover:underline">{{ e.name }}</NuxtLink>
-              <span class="text-muted-foreground"> · {{ e.city }}</span>
-            </span>
-          </li>
-        </ul>
+        <p class="mt-4 text-xs font-bold uppercase tracking-wider text-secondary">Festivals elsewhere in {{ data.country }}</p>
+        <BusinessSameDaysList :events="data.festivals" with-city class="mt-2" />
       </template>
     </template>
   </div>
