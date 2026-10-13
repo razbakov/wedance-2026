@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Festival, Teacher, Workshop, PlanEntry, DanceRole, DancePartner, FestivalFriend, PartnerMatch, ExtraActivity, SwipeCard, FreemiumState } from '~/types/festival'
-import { ArrowRight, Sparkles, Check } from 'lucide-vue-next'
+import { ArrowRight, Sparkles, Check, Pencil } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
 import { artistPlaces, artistLanguages } from '~/data/artists'
 import { WD } from '~/lib/brand'
@@ -19,7 +19,11 @@ const router = useRouter()
 
 // The festival, its workshops and teachers come from the event (events.festival
 // query, server/utils/festivalView.ts); this component renders them.
-const props = defineProps<{ data: { festival: Festival; workshops: Workshop[]; teachers: Teacher[]; eventId: string } }>()
+const props = defineProps<{
+  data: { festival: Festival; workshops: Workshop[]; teachers: Teacher[]; eventId: string }
+  /** Set for the festival's managers (and admins): the Business editor. */
+  editTo?: string
+}>()
 const data = props.data
 const festival = data.festival
 const workshops = data.workshops
@@ -1058,6 +1062,15 @@ useHead({
   <div v-else class="min-h-screen bg-background text-foreground font-display">
     <!-- V3 header — same as /, /festivals, /organizers -->
     <SiteHeader />
+
+    <div v-if="editTo" class="border-b bg-secondary/[8%] border-border">
+      <div class="max-w-3xl mx-auto px-4 py-2 flex items-center gap-3 text-sm font-sans">
+        <span class="text-muted-foreground">You manage this festival.</span>
+        <Button variant="outline-pill" size="pill-sm" class="ml-auto" as-child>
+          <NuxtLink :to="editTo"><Pencil /> Edit festival</NuxtLink>
+        </Button>
+      </div>
+    </div>
 
     <div ref="heroRef">
       <FestivalHero :festival="heroFestival" :picked="yearPlanIds.has(festival.slug)" @pick="onPick" />
