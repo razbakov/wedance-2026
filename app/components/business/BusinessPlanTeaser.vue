@@ -34,6 +34,6 @@ const fmtDay = (d: string | null) => d ? new Date(`${d}T12:00:00Z`).toLocaleDate
       <p class="mt-1 font-display text-lg font-bold leading-tight">{{ ready }} of {{ live.length }} posts ready</p>
       <p v-if="next" class="mt-1 text-xs text-muted-foreground">Next: {{ next.kind === 'artist' ? next.subjectName : next.kind === 'announcement' ? 'the flyer' : next.label.toLowerCase() }}{{ next.dueOn ? ` · ${fmtDay(next.dueOn)}` : '' }}</p>
     </template>
-    <span class="mt-3 inline-flex items-center gap-1 text-sm font-bold text-primary group-hover:underline">{{ planned ? 'Open the content plan' : 'Make my content plan' }} <ArrowRight class="size-4" aria-hidden="true" /></span>
+    <span class="mt-3 inline-flex items-center gap-1 text-sm font-bold text-primary group-hover:underline">{{ planned ? 'Open the content plan' : 'Draft my content plan' }} <ArrowRight class="size-4" aria-hidden="true" /></span>
   </button>
 </template>

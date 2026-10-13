@@ -50,11 +50,16 @@ const ready = computed(() => live.value.filter(p => p.flyer && !p.flyer.stale &&
 const next = computed(() => live.value.find(p => p.status === 'planned'))
 
 const proposing = ref(false)
+const drafted = ref<string | null>(null)
 async function propose() {
   proposing.value = true
   error.value = null
+  drafted.value = null
   try {
-    await $trpc.businessPosts.propose.mutate({ eventId: props.eventId })
+    const r = await $trpc.businessPosts.propose.mutate({ eventId: props.eventId })
+    drafted.value = r.added
+      ? `Drafted ${r.added} ${r.added === 1 ? 'post' : 'posts'} with dates. Change, drop or add any.`
+      : 'Your plan already has every post WeDance suggests for this event.'
     await load()
     emit('changed')
   } catch (e: any) {
@@ -130,10 +135,10 @@ const download = (url: string) => url.replace('/upload/', '/upload/fl_attachment
           <li class="flex items-start gap-2"><Check class="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" /> You decide each one: nothing is posted for you</li>
         </ul>
         <div class="mt-6 flex flex-wrap items-center gap-3">
-          <Button variant="cta" :loading="proposing" @click="propose"><Wand2 /> Make my content plan</Button>
+          <Button variant="cta" :loading="proposing" @click="propose"><Wand2 /> Draft my content plan</Button>
           <Button v-if="live[0]" variant="ghost" @click="open(live[0])">{{ live[0].flyer ? 'Open the flyer' : 'Just the flyer for now' }}</Button>
         </div>
-        <p class="mt-2 text-xs text-muted-foreground">Making the plan lists the posts. Each one is painted only when you click it.</p>
+        <p class="mt-2 text-xs text-muted-foreground">Drafting lists the posts with dates, from the line-up, passes and programme. Each one is painted only when you click it.</p>
       </div>
     </section>
 
@@ -146,10 +151,11 @@ const download = (url: string) => url.replace('/upload/', '/upload/fl_attachment
             <p v-if="next" class="text-xs text-muted-foreground">Next: {{ title(next) }} · {{ fmtDay(next.dueOn) }}</p>
           </div>
           <div class="flex flex-wrap gap-2">
-            <Button type="button" variant="ghost" size="sm" :loading="proposing" @click="propose"><Wand2 /> Fill in WeDance’s plan</Button>
+            <Button type="button" variant="soft" size="sm" :loading="proposing" title="Adds the posts WeDance suggests that aren’t in the plan yet: new artists, passes, programme…" @click="propose"><Wand2 /> Draft the content plan</Button>
             <Button type="button" variant="outline" size="sm" @click="adding = !adding"><Plus /> Add a post</Button>
           </div>
         </div>
+        <p v-if="drafted" class="mt-2 text-sm text-wd-green-700" role="status">{{ drafted }}</p>
         <div v-if="adding" class="mt-3 grid gap-2 rounded-xl border p-3 sm:grid-cols-[1fr_1fr_10rem_auto] sm:items-end">
           <Field id="add-kind" label="Post"><Select v-model="add.kind" :options="kindOptions" /></Field>
           <Field v-if="add.kind === 'artist'" id="add-artist" label="Artist"><Select v-model="add.subject" :options="[{ label: 'Pick from the line-up', value: '' }, ...lineup.map(a => ({ label: a.name, value: a.username }))]" /></Field>
