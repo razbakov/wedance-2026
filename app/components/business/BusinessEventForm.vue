@@ -7,7 +7,7 @@
  * converts with the city's timezone). Emits `submit` with the form values.
  */
 import type { PropType } from 'vue'
-import { MapPin, Pencil, Check, Plus, X, FileText, ListOrdered, Ticket, Users, Image as ImageIcon } from 'lucide-vue-next'
+import { MapPin, Pencil, Check, Plus, X, FileText, ListOrdered, Ticket, Users, Palette } from 'lucide-vue-next'
 import { priceLines } from '#shared/utils/flyer'
 
 export type BusinessEventValues = {
@@ -74,7 +74,8 @@ const multiDay = ref(!!form.endDate)
 const isMultiDayType = computed(() => ['Festival', 'Weekender', 'Congress'].includes(form.type))
 watch(isMultiDayType, (v) => { if (v) multiDay.value = true })
 
-// A festival gets its page: look, links, passes, programme. Its days come from its dates.
+// Every event has the same cards; a festival's extras (logo and links, practical
+// info, passes, programme by day) go inside them. Its days come from its dates.
 const isFestival = computed(() => isMultiDayType.value || !!form.festival)
 watch(isFestival, (v) => { if (v && !form.festival) form.festival = { socialLinks: [], practicalInfo: [], passes: [], sessions: [], videos: {} } }, { immediate: true })
 const festivalDays = computed(() => {
@@ -152,6 +153,10 @@ const whenText = computed(() => {
 const venueText = computed(() => venueManual.value
   ? [form.venueName, form.venueAddress].filter(Boolean).join(' · ')
   : form.venueUsername ? (props.labels.venue || '@' + form.venueUsername) : '')
+const sessionsText = computed(() => {
+  const n = form.festival?.sessions?.length ?? 0
+  return n ? `${n} session${n === 1 ? '' : 's'} over ${festivalDays.value.length || 1} day${festivalDays.value.length === 1 ? '' : 's'}` : 'Workshops and parties, day by day.'
+})
 const hostText = computed(() => props.hosts.find(h => h.username === form.hostUsername)?.name || props.labels.host || '')
 </script>
 
@@ -222,20 +227,26 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
             <MapPin class="size-3.5" aria-hidden="true" /> {{ venueManual ? 'Pick a venue on WeDance instead' : 'Venue isn’t on WeDance? Type it in' }}
           </button>
         </Field>
+        <BusinessFestivalEditor v-if="form.festival" v-model="form.festival" part="practical" :days="festivalDays" class="mt-4" />
       </div>
       <p v-else class="mt-1 text-sm">
         {{ whenText || 'No date yet' }}<br>
         <span class="text-muted-foreground">{{ venueText || 'No venue yet' }}</span>
+        <template v-if="form.festival?.practicalInfo?.length"><br><span class="text-muted-foreground">{{ form.festival.practicalInfo.length }} lines of practical info</span></template>
       </p>
     </section>
 
-    <!-- Agenda (a festival has its programme instead) -->
-    <section v-if="!isFestival" class="rounded-2xl border bg-card p-4">
+    <!-- Programme: an agenda, or a festival's sessions day by day -->
+    <section class="rounded-2xl border bg-card p-4">
       <div class="flex items-center justify-between gap-2">
-        <h2 class="flex items-center gap-1.5 text-sm font-bold"><ListOrdered class="size-4 text-muted-foreground" aria-hidden="true" /> Agenda <span class="font-normal text-muted-foreground">(optional)</span></h2>
+        <h2 class="flex items-center gap-1.5 text-sm font-bold"><ListOrdered class="size-4 text-muted-foreground" aria-hidden="true" /> Programme <span class="font-normal text-muted-foreground">(optional)</span></h2>
         <Button v-if="mode === 'edit'" type="button" variant="ghost" size="sm" :aria-expanded="isOpen('agenda')" @click="toggle('agenda')"><template v-if="isOpen('agenda')"><Check /> Done</template><template v-else><Pencil /> Edit</template></Button>
       </div>
-      <div v-if="isOpen('agenda')" class="mt-3 grid gap-2">
+      <template v-if="form.festival">
+        <BusinessFestivalEditor v-if="isOpen('agenda')" v-model="form.festival" part="programme" :days="festivalDays" :lineup="form.artists" :styles="form.styles" class="mt-3" />
+        <p v-else class="mt-1 text-sm text-muted-foreground">{{ sessionsText }}</p>
+      </template>
+      <div v-else-if="isOpen('agenda')" class="mt-3 grid gap-2">
         <div v-for="(a, i) in form.agenda" :key="i" class="flex gap-2">
           <Input v-model="a.time" class="w-24" placeholder="19:00" :aria-label="`Time, line ${i + 1}`" />
           <Input v-model="a.what" class="flex-1" placeholder="Bachata workshop · Alösha" :aria-label="`What happens, line ${i + 1}`" />
@@ -247,7 +258,7 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
         <li v-for="(a, i) in form.agenda" :key="i"><span class="font-bold tabular-nums">{{ a.time }}</span> {{ a.what }}</li>
       </ul>
       <p v-else class="mt-1 text-sm text-muted-foreground">Workshops, show, DJ sets: what happens when.</p>
-      <label v-if="form.agenda.length" class="mt-3 flex items-center gap-2 text-xs text-muted-foreground"><Checkbox v-model="form.showAgenda" /> Put the agenda on the flyer</label>
+      <label v-if="!form.festival && form.agenda.length" class="mt-3 flex items-center gap-2 text-xs text-muted-foreground"><Checkbox v-model="form.showAgenda" /> Put the agenda on the flyer</label>
     </section>
 
     <!-- Entry and tickets -->
@@ -266,9 +277,11 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
         <Field id="ev-ticket" label="Ticket link" optional :error="errors.ticketUrl" class="mt-2" hint="For Tickettailor, use the checkout link so people land on the ticket list.">
           <Input v-model="form.ticketUrl" type="url" placeholder="https://…" />
         </Field>
+        <BusinessFestivalEditor v-if="form.festival" v-model="form.festival" part="passes" :days="festivalDays" class="mt-4" />
       </div>
       <div v-else class="mt-1 text-sm">
         <p>{{ prices.filter(Boolean).join(' · ') || 'No price yet' }}</p>
+        <p v-if="form.festival?.passes?.length">Passes: {{ form.festival.passes.map(p => p.name).filter(Boolean).join(' · ') }}</p>
         <p class="truncate text-xs text-muted-foreground">{{ form.ticketUrl ? `Tickets: ${form.ticketUrl}` : 'No ticket link' }}</p>
       </div>
     </section>
@@ -294,15 +307,14 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
       />
     </section>
 
-    <BusinessFestivalEditor v-if="isFestival && form.festival" v-model="form.festival" :days="festivalDays" :lineup="form.artists" />
-
-    <!-- Cover -->
+    <!-- Branding -->
     <section class="rounded-2xl border bg-card p-4">
-      <h2 class="flex items-center gap-1.5 text-sm font-bold"><ImageIcon class="size-4 text-muted-foreground" aria-hidden="true" /> Cover photo <span class="font-normal text-muted-foreground">(optional)</span></h2>
-      <p class="text-xs text-muted-foreground">The picture on the event page and in search. Leave it empty and your flyer becomes the cover.</p>
-      <div class="mt-3 max-w-xs">
-        <ImageUpload v-model="form.cover" folder="events" />
-      </div>
+      <h2 class="flex items-center gap-1.5 text-sm font-bold"><Palette class="size-4 text-muted-foreground" aria-hidden="true" /> Branding</h2>
+      <p class="text-xs text-muted-foreground">How the event looks on WeDance.</p>
+      <Field label="Cover photo" optional class="mt-3" hint="The picture on the event page and in search. Leave it empty and your flyer becomes the cover.">
+        <div class="max-w-xs"><ImageUpload v-model="form.cover" folder="events" /></div>
+      </Field>
+      <BusinessFestivalEditor v-if="form.festival" v-model="form.festival" part="branding" :days="festivalDays" class="mt-4" />
     </section>
 
     <div class="mt-3 flex flex-wrap items-center gap-3">

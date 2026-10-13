@@ -1,24 +1,29 @@
 <script setup lang="ts">
 /**
- * The festival part of the event editor: what a festival page shows beyond an
- * event — its look and links, practical info, passes, and the programme of
- * workshops and parties day by day. Teacher videos live in the line-up.
+ * The festival fields of the event editor, one part at a time, so they sit
+ * inside the same cards every event has (Branding, When and where, Entry and
+ * tickets, Programme): logo, colour and links · practical info · passes · the
+ * programme of workshops and parties day by day. Teacher videos live in the
+ * line-up.
  *
- *   <BusinessFestivalEditor v-model="form.festival" :days="festivalDays" :lineup="form.artists" />
+ *   <BusinessFestivalEditor v-model="form.festival" part="programme" :days="festivalDays" :lineup="form.artists" />
  *
  * Session ids are kept as they are: dancers' picks are stored by them.
  */
 import type { PropType } from 'vue'
-import { Plus, X, Palette, Ticket, CalendarRange, ChevronDown, ChevronUp, Link as LinkIcon, Info } from 'lucide-vue-next'
+import { Plus, X, ChevronDown, ChevronUp, Pencil, Check } from 'lucide-vue-next'
 import type { FestivalDetails, FestivalPass, FestivalSession } from '#shared/types/festivalDetails'
 
 type Editable = Omit<FestivalDetails, 'key'>
 const model = defineModel<Editable>({ required: true })
 const props = defineProps({
+  part: { type: String as PropType<'branding' | 'practical' | 'passes' | 'programme'>, required: true },
   /** The festival's days, yyyy-mm-dd, from its dates. */
   days: { type: Array as PropType<string[]>, required: true },
   /** Line-up handles, for the session artist and the videos. */
   lineup: { type: Array as PropType<string[]>, default: () => [] },
+  /** The event's music: the styles a session can be. Empty = every style. */
+  styles: { type: Array as PropType<string[]>, default: () => [] },
 })
 
 // Lists always exist, so rows can be added straight away.
@@ -31,6 +36,7 @@ model.value.videos ??= {}
 const { $trpc } = useNuxtApp()
 const names = ref(new Map<string, string>())
 watch(() => props.lineup, async (h) => {
+  if (props.part !== 'programme') return
   const missing = h.filter(x => !names.value.has(x))
   if (!missing.length) return
   try {
@@ -53,7 +59,8 @@ const info = computed(() => model.value.practicalInfo!)
 
 // --- passes
 const passes = computed(() => model.value.passes!)
-function addPass() { passes.value.push({ name: '', price: 0, days: [] }) }
+const openPass = ref<number | null>(null)
+function addPass() { passes.value.push({ name: '', price: 0, days: [] }); openPass.value = passes.value.length - 1 }
 function toggleDay(p: FestivalPass, d: string) {
   const i = p.days.indexOf(d)
   i > -1 ? p.days.splice(i, 1) : p.days.push(d)
@@ -81,11 +88,9 @@ const LEVELS = ['Beginner', 'Intermediate', 'Advanced']
 </script>
 
 <template>
-  <div class="grid gap-3">
-    <!-- Look and links -->
-    <section class="rounded-2xl border bg-card p-4">
-      <h2 class="flex items-center gap-1.5 text-sm font-bold"><Palette class="size-4 text-muted-foreground" aria-hidden="true" /> Festival page</h2>
-      <div class="mt-3 grid gap-4 sm:grid-cols-[10rem_1fr]">
+  <!-- Logo, colour, links -->
+  <div v-if="part === 'branding'">
+      <div class="grid gap-4 sm:grid-cols-[10rem_1fr]">
         <Field label="Logo" optional>
           <ImageUpload v-model="model.logo" folder="events" />
         </Field>
@@ -97,7 +102,7 @@ const LEVELS = ['Beginner', 'Intermediate', 'Advanced']
         </Field>
       </div>
 
-      <p class="mt-4 flex items-center gap-1.5 text-sm font-bold"><LinkIcon class="size-4 text-muted-foreground" aria-hidden="true" /> Links</p>
+      <p class="mt-4 text-sm font-bold">Links</p>
       <div class="mt-2 grid gap-2">
         <div v-for="(l, i) in links" :key="i" class="flex gap-2">
           <div class="w-36 shrink-0"><Select v-model="l.platform" :options="PLATFORMS" :aria-label="`Link ${i + 1} type`" /></div>
@@ -107,7 +112,11 @@ const LEVELS = ['Beginner', 'Intermediate', 'Advanced']
         <Button type="button" variant="ghost" size="sm" class="justify-self-start" @click="links.push({ platform: 'website', url: '' })"><Plus /> Add a link</Button>
       </div>
 
-      <p class="mt-4 flex items-center gap-1.5 text-sm font-bold"><Info class="size-4 text-muted-foreground" aria-hidden="true" /> Practical info</p>
+  </div>
+
+  <!-- Practical info -->
+  <div v-else-if="part === 'practical'">
+      <p class="text-sm font-bold">Practical info <span class="font-normal text-muted-foreground">(optional)</span></p>
       <p class="text-xs text-muted-foreground">Venues, transport, payment, what to bring: one line each.</p>
       <div class="mt-2 grid gap-2">
         <div v-for="(_, i) in info" :key="i" class="flex gap-2">
@@ -116,38 +125,48 @@ const LEVELS = ['Beginner', 'Intermediate', 'Advanced']
         </div>
         <Button type="button" variant="ghost" size="sm" class="justify-self-start" @click="info.push('')"><Plus /> Add a line</Button>
       </div>
+  </div>
 
-    </section>
-
-    <!-- Passes -->
-    <section class="rounded-2xl border bg-card p-4">
-      <h2 class="flex items-center gap-1.5 text-sm font-bold"><Ticket class="size-4 text-muted-foreground" aria-hidden="true" /> Passes</h2>
+  <!-- Passes -->
+  <div v-else-if="part === 'passes'">
+      <p class="text-sm font-bold">Passes</p>
       <p class="text-xs text-muted-foreground">What dancers can buy. The page recommends the best-value pass for the sessions they pick.</p>
       <div class="mt-3 grid gap-3">
-        <div v-for="(p, i) in passes" :key="i" class="rounded-xl border p-3">
-          <div class="flex flex-wrap items-end gap-2">
-            <Field :id="`pass-name-${i}`" label="Name" class="min-w-[10rem] flex-1"><Input v-model="p.name" placeholder="Full Pass" /></Field>
-            <Field :id="`pass-price-${i}`" label="Price (€)" class="w-28"><Input v-model.number="p.price" type="number" min="0" step="1" /></Field>
-            <label class="mb-2 inline-flex items-center gap-2 text-sm"><Checkbox v-model="p.soldOut" /> Sold out</label>
-            <Button type="button" variant="ghost" size="icon-sm" class="mb-1" :aria-label="`Remove pass ${p.name || i + 1}`" @click="passes.splice(i, 1)"><X /></Button>
+        <div v-for="(p, i) in passes" :key="i" class="rounded-xl border">
+          <div class="flex items-center gap-3 px-3 py-2 text-sm">
+            <span class="min-w-0 flex-1 truncate">
+              <span class="font-bold">{{ p.name || 'Untitled pass' }}</span>
+              <span class="tabular-nums"> · {{ p.price }} €</span>
+              <span class="text-muted-foreground"> · {{ p.days.length ? p.days.join(', ') : 'All days' }}</span>
+              <span v-if="p.description" class="text-muted-foreground"> · {{ p.description }}</span>
+              <Badge v-if="p.soldOut" variant="outline" class="ml-1.5">Sold out</Badge>
+            </span>
+            <Button type="button" variant="ghost" size="sm" :aria-expanded="openPass === i" @click="openPass = openPass === i ? null : i"><template v-if="openPass === i"><Check /> Done</template><template v-else><Pencil /> Edit</template></Button>
           </div>
-          <Field :id="`pass-desc-${i}`" label="What’s included" optional class="mt-2"><Input v-model="p.description" placeholder="All workshops + all parties" /></Field>
-          <div class="mt-2 flex flex-wrap items-center gap-2 text-sm">
-            <span class="text-xs text-muted-foreground">Days:</span>
-            <label v-for="d in weekdays" :key="d" class="inline-flex items-center gap-1.5"><Checkbox :model-value="p.days.includes(d)" @update:model-value="toggleDay(p, d)" /> {{ d }}</label>
-            <span class="text-xs text-muted-foreground">{{ p.days.length ? '' : '(none ticked = all days)' }}</span>
+          <div v-if="openPass === i" class="border-t p-3">
+            <div class="flex flex-wrap items-end gap-2">
+              <Field :id="`pass-name-${i}`" label="Name" class="min-w-[10rem] flex-1"><Input v-model="p.name" placeholder="Full Pass" /></Field>
+              <Field :id="`pass-price-${i}`" label="Price (€)" class="w-28"><Input v-model.number="p.price" type="number" min="0" step="1" /></Field>
+              <label class="mb-2 inline-flex items-center gap-2 text-sm"><Checkbox v-model="p.soldOut" /> Sold out</label>
+              <Button type="button" variant="ghost" size="icon-sm" class="mb-1" :aria-label="`Remove pass ${p.name || i + 1}`" @click="passes.splice(i, 1); openPass = null"><X /></Button>
+            </div>
+            <Field :id="`pass-desc-${i}`" label="What’s included" optional class="mt-2"><Input v-model="p.description" placeholder="All workshops + all parties" /></Field>
+            <div class="mt-2 flex flex-wrap items-center gap-2 text-sm">
+              <span class="text-xs text-muted-foreground">Days:</span>
+              <label v-for="d in weekdays" :key="d" class="inline-flex items-center gap-1.5"><Checkbox :model-value="p.days.includes(d)" @update:model-value="toggleDay(p, d)" /> {{ d }}</label>
+              <span class="text-xs text-muted-foreground">{{ p.days.length ? '' : '(none ticked = all days)' }}</span>
+            </div>
           </div>
         </div>
         <Button type="button" variant="ghost" size="sm" class="justify-self-start" @click="addPass"><Plus /> Add a pass</Button>
       </div>
-    </section>
+  </div>
 
-    <!-- Programme -->
-    <section class="rounded-2xl border bg-card p-4">
-      <h2 class="flex items-center gap-1.5 text-sm font-bold"><CalendarRange class="size-4 text-muted-foreground" aria-hidden="true" /> Programme</h2>
+  <!-- Programme -->
+  <div v-else>
       <p class="text-xs text-muted-foreground">Workshops and parties, day by day. Dancers pick from it to build their plan.</p>
       <p v-if="!days.length" class="mt-3 text-sm text-muted-foreground">Set the festival’s first and last day under “When and where” to plan its days.</p>
-      <div v-for="d in byDay" :key="d.date" class="mt-4">
+      <div v-for="d in byDay" :key="d.date" class="mt-4 first:mt-0">
         <h3 class="text-xs font-bold uppercase tracking-wider text-secondary">{{ fmtDay(d.date) }} <span v-if="!days.includes(d.date)" class="normal-case text-destructive">· outside the festival’s dates</span></h3>
         <ul class="mt-2 grid gap-2">
           <li v-for="s in d.items" :key="s.id" class="rounded-xl border">
@@ -182,7 +201,16 @@ const LEVELS = ['Beginner', 'Intermediate', 'Advanced']
                   >{{ nameOf(h) }}</Button>
                 </div>
               </div>
-              <Field :id="`s-style-${s.id}`" label="Style"><Input v-model="s.style" placeholder="Son" /></Field>
+              <Field :id="`s-style-${s.id}`" label="Style" class="sm:col-span-4" :hint="styles.length ? 'From the event’s music.' : undefined">
+                <DanceStylePicker
+                  :model-value="s.style ? [s.style] : []"
+                  single
+                  :options="styles.length ? styles : undefined"
+                  :searchable="!styles.length || styles.length > 8"
+                  label="Session style"
+                  @update:model-value="(v: string[]) => (s.style = v[0] ?? '')"
+                />
+              </Field>
               <Field :id="`s-level-${s.id}`" label="Level"><Select v-model="s.level" :options="LEVELS" /></Field>
               <Field :id="`s-room-${s.id}`" label="Room" optional><Input v-model="s.room" placeholder="Havana" /></Field>
               <Field :id="`s-venue-${s.id}`" label="Other venue" optional class="sm:col-span-3" hint="Only if not the main venue."><Input v-model="s.venue" placeholder="Danzón, Johannesgasse 3, 1010 Vienna" /></Field>
@@ -198,6 +226,5 @@ const LEVELS = ['Beginner', 'Intermediate', 'Advanced']
           <Button type="button" variant="ghost" size="sm" @click="addSession(d.date, 'party')"><Plus /> Party</Button>
         </div>
       </div>
-    </section>
   </div>
 </template>
