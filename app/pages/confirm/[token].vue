@@ -8,7 +8,7 @@
  * create an account with email and password and the page is theirs.
  *
  * /confirm/@<handle> is the same page for someone who already manages it
- * (from the Business inbox): it needs them signed in.
+ * (from "Needs you" on the Business home): it needs them signed in.
  */
 import { VENUE_INCLUDES } from '#shared/types/venueAsk'
 import { Check, X, ImagePlus, Loader2, Star, Plus, Clock, PartyPopper, Instagram, MapPin, CalendarDays, Users, ExternalLink, ThumbsUp, MessageSquare } from 'lucide-vue-next'

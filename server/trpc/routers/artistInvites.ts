@@ -281,7 +281,7 @@ export const artistInvitesRouter = router({
       await requireEventManager(ctx, input.eventId)
       const [p] = await ctx.db.select({ id: profiles.id, name: profiles.name, username: profiles.username, city: profiles.city, socials: profiles.socials }).from(profiles).where(eq(profiles.username, input.handle))
       if (!p) throw new TRPCError({ code: 'NOT_FOUND', message: 'That artist isn’t on WeDance.' })
-      const [existing] = await ctx.db.select({ token: profileInvites.token }).from(profileInvites)
+      const [existing] = await ctx.db.select({ token: profileInvites.token, status: profileInvites.status }).from(profileInvites)
         .where(and(eq(profileInvites.eventId, input.eventId), eq(profileInvites.profileId, p.id)))
       const t = existing?.token ?? token()
       if (!existing) await ctx.db.insert(profileInvites).values({ token: t, profileId: p.id, eventId: input.eventId, createdBy: ctx.dancerId })
@@ -289,7 +289,7 @@ export const artistInvitesRouter = router({
       // For the popup's instructions and the message to paste.
       const [e] = await ctx.db.select({ name: events.name, hostProfileId: events.hostProfileId }).from(events).where(eq(events.id, input.eventId))
       const [h] = e?.hostProfileId ? await ctx.db.select({ name: profiles.name }).from(profiles).where(eq(profiles.id, e.hostProfileId)) : [null]
-      return { url: `${site}/confirm/${t}`, eventName: e?.name ?? '', host: h?.name ?? null, managed: await hasTeam(ctx.db, p.id), contacts: contactsFor(p) }
+      return { url: `${site}/confirm/${t}`, eventName: e?.name ?? '', host: h?.name ?? null, managed: await hasTeam(ctx.db, p.id), answered: !!existing && existing.status !== 'invited', contacts: contactsFor(p) }
     }),
 
   // What the confirmation page shows.

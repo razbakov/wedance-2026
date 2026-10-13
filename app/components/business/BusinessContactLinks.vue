@@ -11,8 +11,10 @@ import type { Contact } from '#shared/utils/contacts'
 
 defineProps({
   contacts: { type: Array as PropType<Contact[]>, required: true },
-  /** Someone runs the page here: it's in their Business inbox too. */
+  /** Someone runs the page here: unanswered, it also waits on their Business home. */
   managed: { type: Boolean, default: false },
+  /** They've answered already. */
+  answered: { type: Boolean, default: false },
 })
 const ICON = { instagram: Instagram, facebook: Facebook, telegram: Send, whatsapp: MessageCircle, website: Globe, maps: MapPin, search: Search } as const
 </script>
@@ -23,7 +25,8 @@ const ICON = { instagram: Instagram, facebook: Facebook, telegram: Send, whatsap
     <p class="text-xs text-muted-foreground">
       <template v-if="contacts[0]?.kind === 'search'">We don’t have their contact yet: find them, then paste the message.</template>
       <template v-else>Copy the message, then paste it there.</template>
-      <template v-if="managed"> They run their page on WeDance, so it’s in their Business inbox too.</template>
+      <template v-if="managed && answered"> They’ve answered already: send the link again only if something changed.</template>
+      <template v-else-if="managed"> They run their page on WeDance: it also waits for them under “Needs you” on their Business home. WeDance doesn’t notify them, so a message still helps.</template>
     </p>
     <ul class="mt-2 grid gap-1.5">
       <li v-for="c in contacts" :key="c.url">

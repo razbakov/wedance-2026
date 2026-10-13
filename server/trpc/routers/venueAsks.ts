@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { eq, and, ne, desc, inArray } from 'drizzle-orm'
+import { eq, and, ne, desc, inArray, gte } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { router, protectedProcedure } from '../trpc'
 import { profiles, profileMembers, profileInvites, events } from '../../database/schema'
@@ -14,7 +14,7 @@ import { contactsFor } from '../../../shared/utils/contacts'
  * artists) and answers: can host it, another date, or no — with its terms.
  * The organizer compares the answers and books one; the others' links then say
  * it was booked elsewhere. A venue whose page someone runs here also gets the
- * ask in its Business inbox.
+ * ask under "Needs you" on its Business home (no notification is sent).
  *
  * Terms are only for the organizer who asked (and the venue).
  */
@@ -40,7 +40,7 @@ export const venueAsksRouter = router({
       const [v] = await ctx.db.select({ id: profiles.id, type: profiles.type, name: profiles.name, username: profiles.username, city: profiles.city, socials: profiles.socials }).from(profiles).where(eq(profiles.username, input.venue))
       if (!v || v.type !== 'venue') throw new TRPCError({ code: 'NOT_FOUND', message: 'That venue isn’t on WeDance.' })
       const request: VenueRequest = { guests: input.request.guests ?? null, needs: input.request.needs, note: input.request.note }
-      const [existing] = await ctx.db.select({ id: profileInvites.id, token: profileInvites.token }).from(profileInvites)
+      const [existing] = await ctx.db.select({ id: profileInvites.id, token: profileInvites.token, status: profileInvites.status }).from(profileInvites)
         .where(and(eq(profileInvites.eventId, input.eventId), eq(profileInvites.profileId, v.id)))
       const t = existing?.token ?? token()
       if (existing) await ctx.db.update(profileInvites).set({ kind: 'venue', request }).where(eq(profileInvites.id, existing.id))
@@ -48,7 +48,7 @@ export const venueAsksRouter = router({
       const site = (useRuntimeConfig().siteUrl || 'https://2026.wedance.vip').replace(/\/$/, '')
       const [e] = await ctx.db.select({ name: events.name, hostProfileId: events.hostProfileId }).from(events).where(eq(events.id, input.eventId))
       const [h] = e?.hostProfileId ? await ctx.db.select({ name: profiles.name }).from(profiles).where(eq(profiles.id, e.hostProfileId)) : [null]
-      return { url: `${site}/confirm/${t}`, eventName: e?.name ?? '', host: h?.name ?? null, venueName: v.name, managed: await hasTeam(ctx.db, v.id), contacts: contactsFor(v) }
+      return { url: `${site}/confirm/${t}`, eventName: e?.name ?? '', host: h?.name ?? null, venueName: v.name, managed: await hasTeam(ctx.db, v.id), answered: !!existing && existing.status !== 'invited', contacts: contactsFor(v) }
     }),
 
   // The venues asked for this event and their answers, for the editor.
@@ -101,10 +101,14 @@ export const venueAsksRouter = router({
     }),
 })
 
-/** Venue asks waiting on pages I manage, for the Business inbox. */
-export async function venueAsksFor(db: any, profileIds: string[]) {
+/**
+ * Links waiting for an answer on pages I manage, for "Needs you" on the
+ * Business home: venues asked to host an event, artists asked to confirm
+ * they're in a line-up. Answered ones leave the list.
+ */
+export async function asksWaitingFor(db: any, profileIds: string[]) {
   if (!profileIds.length) return []
-  return db.select({ token: profileInvites.token, venueName: profiles.name, eventName: events.name, startDate: events.startDate })
+  return db.select({ token: profileInvites.token, kind: profileInvites.kind, profileName: profiles.name, eventName: events.name, startDate: events.startDate, timezone: events.timezone })
     .from(profileInvites).innerJoin(profiles, eq(profiles.id, profileInvites.profileId)).innerJoin(events, eq(events.id, profileInvites.eventId))
-    .where(and(inArray(profileInvites.profileId, profileIds), eq(profileInvites.kind, 'venue'), eq(profileInvites.status, 'invited')))
+    .where(and(inArray(profileInvites.profileId, profileIds), eq(profileInvites.status, 'invited'), gte(events.endDate, new Date())))
 }

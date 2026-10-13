@@ -50,7 +50,7 @@ async function copy(what: 'link' | 'message') {
         <li class="flex gap-2"><span class="font-bold text-secondary">1.</span> They see what you need for {{ link?.eventName || 'your event' }}: name, photos, video, about, links.</li>
         <li class="flex gap-2"><span class="font-bold text-secondary">2.</span> They approve your changes, fix what’s wrong, or add more photos.</li>
         <li class="flex gap-2"><span class="font-bold text-secondary">3.</span>
-          <span v-if="link?.managed">Their page has an owner: they approve it signed in, and see it in their Business inbox too.</span>
+          <span v-if="link?.managed">Their page has an owner: they answer signed in. Until they do, it waits under “Needs you” on their Business home.</span>
           <span v-else>No one manages their page yet: they can create an account with email and password and make it theirs.</span>
         </li>
       </ol>
@@ -70,7 +70,7 @@ async function copy(what: 'link' | 'message') {
         <div>
           <Button type="button" variant="pill" @click="copy('message')"><Check v-if="copied === 'message'" /><MessageCircle v-else /> {{ copied === 'message' ? 'Copied' : 'Copy message' }}</Button>
         </div>
-        <BusinessContactLinks :contacts="link.contacts" :managed="link.managed" />
+        <BusinessContactLinks :contacts="link.contacts" :managed="link.managed" :answered="link.answered" />
       </template>
     </DialogContent>
   </Dialog>

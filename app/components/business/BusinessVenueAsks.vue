@@ -183,7 +183,7 @@ const tone = (s: string) => s === 'confirmed' ? 'text-wd-green-700' : s === 'dec
           <Button type="button" variant="pill" @click="copy('message')"><Check v-if="copied === 'message'" /><MessageCircle v-else /> {{ copied === 'message' ? 'Copied' : 'Copy message' }}</Button>
           <Button type="button" variant="ghost" @click="link = null"><X /> Change what you asked</Button>
         </div>
-        <BusinessContactLinks :contacts="link.contacts" :managed="link.managed" />
+        <BusinessContactLinks :contacts="link.contacts" :managed="link.managed" :answered="link.answered" />
       </template>
     </DialogContent>
   </Dialog>

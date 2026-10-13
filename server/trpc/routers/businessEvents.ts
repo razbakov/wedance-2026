@@ -11,7 +11,7 @@ import { parseInstagramHandle, handleFromInstagram, instagramUrl } from '../../.
 import { joinRequestsForOwner } from './businessTeam'
 import { eventPath } from '../../../shared/utils/eventSlug'
 import { flyerStatusFor } from '../../utils/flyer/paint'
-import { venueAsksFor } from './venueAsks'
+import { asksWaitingFor } from './venueAsks'
 
 /**
  * Business mode — events a profile runs, and the /business home inbox.
@@ -542,10 +542,14 @@ export const businessEventsRouter = router({
       }
     }
 
-    // Organizers asking a venue I manage to host their event.
-    for (const a of await venueAsksFor(ctx.db, mine.filter((p: any) => p.type === 'venue').map((p: any) => p.id))) {
-      const tz = 'Europe/Berlin'
-      needs.push({ kind: 'venue-ask', tone: 'info', title: `${a.eventName}: can ${a.venueName} host it?`, detail: a.startDate ? `${eventLocalWeekday(a.startDate, tz).slice(0, 3)} ${eventLocalDate(a.startDate, tz)} · say yes, suggest another date, or no, with your terms.` : 'Say yes, suggest another date, or no, with your terms.', to: `/confirm/${a.token}` })
+    // Organizers waiting on a page I manage: a venue asked to host their event,
+    // an artist asked to confirm they're in the line-up.
+    for (const a of await asksWaitingFor(ctx.db, mine.map((p: any) => p.id))) {
+      const tz = a.timezone || 'Europe/Berlin'
+      const when = a.startDate ? `${eventLocalWeekday(a.startDate, tz).slice(0, 3)} ${eventLocalDate(a.startDate, tz)} · ` : ''
+      needs.push(a.kind === 'venue'
+        ? { kind: 'venue-ask', tone: 'info', title: `${a.eventName}: can ${a.profileName} host it?`, detail: `${when}say yes, suggest another date, or no, with your terms.`, to: `/confirm/${a.token}` }
+        : { kind: 'lineup-ask', tone: 'info', title: `${a.eventName}: is ${a.profileName} in?`, detail: `${when}you’re in their line-up. Confirm, check your programme and the posts about you.`, to: `/confirm/${a.token}` })
     }
 
     for (const j of await joinRequestsForOwner(ctx.db, ctx.dancerId)) {
