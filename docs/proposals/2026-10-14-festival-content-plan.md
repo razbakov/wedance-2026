@@ -68,7 +68,50 @@ confirmed ones only.
 - A reminder to the organizer on the post's date.
 - For each artist: their post and caption to repost (the share kit).
 
+## 3. The plan replaces the flyer panel (every event, not only festivals)
+
+Today an event has **one** flyer: `event_flyers.kept_at` keeps one per event,
+and the editor's right-hand panel is that flyer. The plan generalises it:
+an event has **posts**, and each post has its own flyer (painted, read back,
+kept) and caption. A party's plan is one post, so a party looks like today;
+a festival's plan is the table above.
+
+**Data**
+- `event_posts`: id, event_id, kind (`announcement` · `save-the-date` ·
+  `artist` · `lineup` · `programme` · `passes` · `countdown` · `last-call` ·
+  `today` · `thanks`), subject (an artist handle for `artist`), due_on (date),
+  format (`post` 4:5 · `story` 9:16), status (`planned` · `ready` ·
+  `posted` · `dropped`), caption, sort.
+- `event_flyers.post_id`: the post a version belongs to; "kept" becomes one
+  per post. Existing flyers move to a first `announcement` post per event
+  (one migration, nothing repainted).
+- Each kind decides its words (`flyerSource` per kind): an artist post is
+  their name, styles, sessions and the festival's name and dates; a passes
+  post is the passes; the announcement is today's flyer.
+
+**Editor**
+- The right-hand panel becomes **Posts**: a list with date, kind, thumbnail
+  and status (Planned · Waiting for the artist · Ready · Out of date ·
+  Posted). The next one due sits on top, big, as the flyer does today.
+- "Make the plan" fills the default posts from the event (one per artist
+  from the line-up, passes only if there are passes…); the organizer drops,
+  moves or adds posts.
+- A post opens `/business/events/<id>/posts/<post>`: today's flyer page
+  with that post's words. Its look defaults to the event's (Branding), so
+  the whole campaign looks like one festival.
+- Cost: nothing paints until the organizer clicks, per post or "Paint all
+  planned" (with the count and an estimate before it starts).
+
+**Artists**
+- An `artist` post waits for that artist's step 4 on their link; the
+  confirmation page shows that post's flyer and caption.
+
 ## Decisions before building
+
+0. **Panel for ordinary events**: keep the single flyer exactly as now and
+   show the plan only for festivals, or one Posts panel for every event
+   (recommended: same editor for every type, as with the cards).
+
 
 1. **Unconfirmed artists on the public page**: show them as "to be confirmed"
    (recommended), show them as usual, or leave them off until they confirm.
