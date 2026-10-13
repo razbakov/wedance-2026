@@ -1,5 +1,5 @@
 ---
-status: proposal — part 1 built (venue ideas), part 2 not built (asking venues)
+status: built — venue ideas, asking venues (migration 0035), contacts in the ask
 created: 2026-10-14 12:00
 builds on: docs/proposals/2026-10-14-festival-content-plan.md (the artist confirmation link)
 ---

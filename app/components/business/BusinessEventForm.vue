@@ -7,7 +7,7 @@
  * converts with the city's timezone). Emits `submit` with the form values.
  */
 import type { PropType } from 'vue'
-import { MapPin, CalendarDays, Pencil, Check, Plus, X, FileText, ListOrdered, Ticket, Users, Palette } from 'lucide-vue-next'
+import { MapPin, CalendarDays, Send, Pencil, Check, Plus, X, FileText, ListOrdered, Ticket, Users, Palette } from 'lucide-vue-next'
 import { priceLines } from '#shared/utils/flyer'
 
 export type BusinessEventValues = {
@@ -150,6 +150,9 @@ const whenText = computed(() => {
   const day = multiDay.value && form.endDate ? `${fmtDate(form.date)} – ${fmtDate(form.endDate)}` : fmtDate(form.date)
   return [day, [form.startTime, form.endTime].filter(Boolean).join('–')].filter(Boolean).join(' · ')
 })
+// Venues asked to host it (username → their answer), and the Ask popup.
+const asks = ref<{ open: (v: { username: string; name: string }) => void } | null>(null)
+const asked = ref<Record<string, string>>({})
 // The name of a venue picked from the ideas (the saved label is the old venue's).
 const pickedVenue = ref('')
 const venueText = computed(() => venueManual.value
@@ -248,8 +251,21 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
             <MapPin class="size-3.5" aria-hidden="true" /> {{ venueManual ? 'Pick a venue on WeDance instead' : 'Venue isn’t on WeDance? Type it in' }}
           </button>
         </Field>
+        <!-- Asking the picked venue (from search) when it isn't asked yet -->
+        <Button
+          v-if="eventId && !venueManual && form.venueUsername && !asked[form.venueUsername]"
+          type="button"
+          variant="ghost"
+          size="sm"
+          class="mt-1"
+          @click="asks?.open({ username: form.venueUsername!, name: venueText || form.venueUsername! })"
+        ><Send /> Ask {{ venueText || 'this venue' }} to host it</Button>
+        <BusinessVenueAsks ref="asks" v-model:asked="asked" :event-id="eventId" class="mt-4" @booked="v => { form.venueUsername = v.username; venueManual = false; pickedVenue = v.name }" />
         <BusinessVenueIdeas
           v-model="form.venueUsername"
+          :asked="asked"
+          :can-ask="!!eventId"
+          @ask="v => asks?.open(v)"
           :city="form.city"
           :from="form.date"
           :to="multiDay ? form.endDate : ''"

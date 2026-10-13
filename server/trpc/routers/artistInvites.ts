@@ -9,6 +9,7 @@ import { citySlugFor } from './business'
 import { grant, logAccess } from '../../utils/profileAccess'
 import { instagramUrl, parseInstagramHandle } from '../../../shared/utils/instagram'
 import { videoEmbedUrl } from '../../../shared/utils/video'
+import { contactsFor } from '../../../shared/utils/contacts'
 
 /**
  * Artist confirmation. An organizer's photo, video or name for an artist in
@@ -278,7 +279,7 @@ export const artistInvitesRouter = router({
     .input(z.object({ eventId: z.string().uuid(), handle: z.string().min(1).max(200) }))
     .mutation(async ({ ctx, input }) => {
       await requireEventManager(ctx, input.eventId)
-      const [p] = await ctx.db.select({ id: profiles.id }).from(profiles).where(eq(profiles.username, input.handle))
+      const [p] = await ctx.db.select({ id: profiles.id, name: profiles.name, username: profiles.username, city: profiles.city, socials: profiles.socials }).from(profiles).where(eq(profiles.username, input.handle))
       if (!p) throw new TRPCError({ code: 'NOT_FOUND', message: 'That artist isn’t on WeDance.' })
       const [existing] = await ctx.db.select({ token: profileInvites.token }).from(profileInvites)
         .where(and(eq(profileInvites.eventId, input.eventId), eq(profileInvites.profileId, p.id)))
@@ -288,7 +289,7 @@ export const artistInvitesRouter = router({
       // For the popup's instructions and the message to paste.
       const [e] = await ctx.db.select({ name: events.name, hostProfileId: events.hostProfileId }).from(events).where(eq(events.id, input.eventId))
       const [h] = e?.hostProfileId ? await ctx.db.select({ name: profiles.name }).from(profiles).where(eq(profiles.id, e.hostProfileId)) : [null]
-      return { url: `${site}/confirm/${t}`, eventName: e?.name ?? '', host: h?.name ?? null, managed: await hasTeam(ctx.db, p.id) }
+      return { url: `${site}/confirm/${t}`, eventName: e?.name ?? '', host: h?.name ?? null, managed: await hasTeam(ctx.db, p.id), contacts: contactsFor(p) }
     }),
 
   // What the confirmation page shows.
@@ -309,10 +310,19 @@ export const artistInvitesRouter = router({
           username: p.username, name: p.name, type: p.type, photo: p.photo, photos: (p.photos ?? []) as { url: string }[],
           videos: (p.videos ?? []) as { url: string }[], bio: p.bio ?? '', styles: (p.styles ?? []) as string[],
           instagram: socialOf(p, 'instagram'), website: socialOf(p, 'website'), facebook: socialOf(p, 'facebook'), city: p.city ?? '',
+          address: p.address ?? '', floorType: p.floorType ?? '',
         },
         pending, event, managed, member, canAnswer, signedIn: !!ctx.dancerId,
+        // An artist's line-up link, or a venue being asked to host the event.
+        kind: (invite?.kind ?? 'artist') as 'artist' | 'venue',
+        ask: invite?.kind === 'venue' ? {
+          request: (invite.request ?? {}) as import('../../../shared/types/venueAsk').VenueRequest,
+          terms: (invite.terms ?? null) as import('../../../shared/types/venueAsk').VenueTerms | null,
+          alternative: invite.alternative as string | null,
+          outcome: invite.outcome as 'booked' | 'elsewhere' | null,
+        } : null,
         answer: invite ? {
-          status: invite.status as 'invited' | 'confirmed' | 'declined',
+          status: invite.status as 'invited' | 'confirmed' | 'declined' | 'proposed',
           programmeOk: invite.programmeOk as boolean | null,
           programmeNote: invite.programmeNote as string | null,
           postsOk: !!invite.postsOkAt,
@@ -345,11 +355,33 @@ export const artistInvitesRouter = router({
       programmeNote: z.string().trim().max(2000).optional(),
       postsOk: z.boolean().optional(),
       message: z.string().trim().max(2000).optional(),
+      // A venue's answer (an ask to host the event): can host · another date · can't.
+      venueAnswer: z.enum(['confirmed', 'proposed', 'declined']).optional(),
+      alternative: z.string().trim().max(500).optional(),
+      terms: z.object({
+        rent: z.string().trim().max(200).optional(),
+        minSpend: z.string().trim().max(200).optional(),
+        doorSplit: z.string().trim().max(200).optional(),
+        deposit: z.string().trim().max(200).optional(),
+        includes: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
+        capacity: z.number().int().min(1).max(100_000).nullable().optional(),
+        notes: z.string().trim().max(2000).optional(),
+      }).optional(),
+      address: z.string().trim().max(300).optional(),
+      floorType: z.string().trim().max(60).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const { p: profile, canAnswer, invite } = await resolve(ctx, input)
       if (!canAnswer) throw new TRPCError({ code: 'FORBIDDEN', message: 'This page has an owner now. Sign in as them to answer.' })
-      if (invite && (input.participation || input.programmeOk !== undefined || input.postsOk !== undefined || input.message !== undefined)) {
+      if (invite?.kind === 'venue' && (input.venueAnswer || input.message !== undefined)) {
+        await ctx.db.update(profileInvites).set({
+          ...(input.venueAnswer ? { status: input.venueAnswer } : {}),
+          alternative: input.venueAnswer === 'proposed' ? (input.alternative || null) : null,
+          terms: input.venueAnswer && input.venueAnswer !== 'declined' ? (input.terms ?? null) : null,
+          ...(input.message !== undefined ? { message: input.message || null } : {}),
+          respondedAt: new Date(),
+        }).where(eq(profileInvites.id, invite.id))
+      } else if (invite && (input.participation || input.programmeOk !== undefined || input.postsOk !== undefined || input.message !== undefined)) {
         await ctx.db.update(profileInvites).set({
           ...(input.participation ? { status: input.participation } : {}),
           ...(input.programmeOk !== undefined ? { programmeOk: input.programmeOk, programmeNote: input.programmeOk ? null : (input.programmeNote || null) } : {}),
@@ -380,6 +412,8 @@ export const artistInvitesRouter = router({
       if (['instagram', 'website', 'facebook'].some(k => (input as any)[k] !== undefined)) set.socials = socials
       if (input.city !== undefined && input.city !== (p.city ?? '')) { set.city = input.city || null; set.citySlug = await citySlugFor(ctx.db, input.city || null) }
       if (input.styles !== undefined) set.styles = input.styles
+      if (input.address !== undefined) set.address = input.address || null
+      if (input.floorType !== undefined) set.floorType = input.floorType || null
       if (input.removePhotos.length) {
         const photos = (p.photos ?? []).filter((x: any) => !input.removePhotos.includes(x.url))
         set.photos = photos

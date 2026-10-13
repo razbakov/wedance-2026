@@ -11,6 +11,7 @@ import { parseInstagramHandle, handleFromInstagram, instagramUrl } from '../../.
 import { joinRequestsForOwner } from './businessTeam'
 import { eventPath } from '../../../shared/utils/eventSlug'
 import { flyerStatusFor } from '../../utils/flyer/paint'
+import { venueAsksFor } from './venueAsks'
 
 /**
  * Business mode — events a profile runs, and the /business home inbox.
@@ -539,6 +540,12 @@ export const businessEventsRouter = router({
       for (const g of sugg) {
         needs.push({ kind: 'suggestions', tone: 'info', title: `${g.n} ${g.n === 1 ? 'change' : 'changes'} suggested for ${g.name}`, detail: 'An organizer added photos, a video or your name for their event. Approve or turn them down.', to: `/confirm/@${g.username}` })
       }
+    }
+
+    // Organizers asking a venue I manage to host their event.
+    for (const a of await venueAsksFor(ctx.db, mine.filter((p: any) => p.type === 'venue').map((p: any) => p.id))) {
+      const tz = 'Europe/Berlin'
+      needs.push({ kind: 'venue-ask', tone: 'info', title: `${a.eventName}: can ${a.venueName} host it?`, detail: a.startDate ? `${eventLocalWeekday(a.startDate, tz).slice(0, 3)} ${eventLocalDate(a.startDate, tz)} · say yes, suggest another date, or no, with your terms.` : 'Say yes, suggest another date, or no, with your terms.', to: `/confirm/${a.token}` })
     }
 
     for (const j of await joinRequestsForOwner(ctx.db, ctx.dancerId)) {

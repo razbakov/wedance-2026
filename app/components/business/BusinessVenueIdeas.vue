@@ -8,7 +8,7 @@
  *   <BusinessVenueIdeas v-model="form.venueUsername" :city="form.city" :from="form.date" :to="form.endDate" :styles="form.styles" :except-id="eventId" />
  */
 import type { PropType } from 'vue'
-import { Building2, Check } from 'lucide-vue-next'
+import { Building2, Check, Send } from 'lucide-vue-next'
 
 const model = defineModel<string | null>({ default: null })
 const props = defineProps({
@@ -17,8 +17,13 @@ const props = defineProps({
   to: { type: String, default: '' },
   styles: { type: Array as PropType<string[]>, default: () => [] },
   exceptId: { type: String, default: undefined },
+  /** Venues already asked (username → their answer), from BusinessVenueAsks. */
+  asked: { type: Object as PropType<Record<string, string>>, default: () => ({}) },
+  /** Asking needs the saved event. */
+  canAsk: { type: Boolean, default: false },
 })
-const emit = defineEmits<{ pick: [venue: { username: string; name: string }] }>()
+const emit = defineEmits<{ pick: [venue: { username: string; name: string }]; ask: [venue: { username: string; name: string }] }>()
+const ASKED: Record<string, string> = { invited: 'Asked · waiting', confirmed: 'Asked · can host it', proposed: 'Asked · another date', declined: 'Asked · can’t', booked: 'Booked', elsewhere: 'Asked' }
 
 const { $trpc } = useNuxtApp()
 type Result = Awaited<ReturnType<typeof $trpc.businessEvents.venueIdeas.query>>
@@ -68,7 +73,7 @@ function pick(v: any) {
     <p v-else-if="loading && !data" class="mt-1 text-xs text-muted-foreground">Looking…</p>
     <template v-else-if="data">
       <p class="mt-1 text-xs text-muted-foreground">
-        For {{ dayLabel }}, from what’s on WeDance: who hosts nights in {{ data.city }}{{ styles.length ? ` with ${styles.join(', ')}` : '' }}, and who already has one then.
+        For {{ dayLabel }}, from what’s on WeDance: who hosts nights in {{ data.city }}{{ styles.length ? ` with ${styles.join(', ')}` : '' }}, and who already has one then. <template v-if="canAsk">Ask a few: they answer with their terms.</template><template v-else>Save the event to ask them.</template>
       </p>
       <p v-if="!data.venues.length" class="mt-2 text-sm text-muted-foreground">No venues in {{ data.city }} on WeDance yet.</p>
       <ul class="mt-3 grid grid-cols-1 gap-2">
@@ -89,11 +94,15 @@ function pick(v: any) {
               <li v-if="v.managed">Runs its page on WeDance</li>
               <li v-if="v.spaces.length">{{ v.spaces.length }} space{{ v.spaces.length === 1 ? '' : 's' }} to book{{ v.spaces.some((s: any) => s.capacity) ? ` · up to ${Math.max(...v.spaces.map((s: any) => s.capacity || 0))} people` : '' }}</li>
               <li v-if="v.floorType" class="text-muted-foreground">{{ v.floorType }} floor</li>
+              <li v-if="asked[v.username]" class="font-bold">{{ ASKED[asked[v.username]!] }}</li>
             </ul>
           </div>
-          <Button type="button" size="sm" :variant="model === v.username ? 'soft' : 'outline'" class="shrink-0 self-center" :aria-pressed="model === v.username" @click="pick(v)">
-            <template v-if="model === v.username"><Check /> Picked</template><template v-else>Pick</template>
-          </Button>
+          <div class="flex shrink-0 flex-col items-stretch justify-center gap-1.5">
+            <Button type="button" size="sm" :variant="model === v.username ? 'soft' : 'outline'" :aria-pressed="model === v.username" @click="pick(v)">
+              <template v-if="model === v.username"><Check /> Picked</template><template v-else>Pick</template>
+            </Button>
+            <Button v-if="!asked[v.username]" type="button" size="sm" variant="ghost" :disabled="!canAsk" :title="canAsk ? undefined : 'Save the event first'" @click="emit('ask', { username: v.username, name: v.name })"><Send /> Ask</Button>
+          </div>
         </li>
       </ul>
       <Button v-if="data.total > data.venues.length" type="button" variant="ghost" size="sm" class="mt-2" :loading="loading" @click="limit += 10">Show more ({{ data.total - data.venues.length }})</Button>

@@ -921,12 +921,19 @@ export const profileInvites = pgTable('profile_invites', {
   lastUsedAt: timestamp('last_used_at'),
   // The artist's answer (migration 0034): in or not, programme right or what's
   // wrong, OK for posts using their photo, and anything else they want to say.
-  status: text('status').notNull().default('invited').$type<'invited' | 'confirmed' | 'declined'>(),
+  status: text('status').notNull().default('invited').$type<'invited' | 'confirmed' | 'declined' | 'proposed'>(),
   respondedAt: timestamp('responded_at'),
   programmeOk: boolean('programme_ok'),
   programmeNote: text('programme_note'),
   postsOkAt: timestamp('posts_ok_at'),
   message: text('message'),
+  // Asking a venue (migration 0035): the same link, kind 'venue'. Status then
+  // means can host (confirmed) · another date (proposed) · can't (declined).
+  kind: text('kind').notNull().default('artist').$type<'artist' | 'venue'>(),
+  request: jsonb('request').$type<import('../../shared/types/venueAsk').VenueRequest | null>(),
+  terms: jsonb('terms').$type<import('../../shared/types/venueAsk').VenueTerms | null>(),
+  alternative: text('alternative'),
+  outcome: text('outcome').$type<'booked' | 'elsewhere' | null>(),
 }, (t) => [
   uniqueIndex('profile_invites_token_uidx').on(t.token),
   uniqueIndex('profile_invites_event_profile_uidx').on(t.eventId, t.profileId),

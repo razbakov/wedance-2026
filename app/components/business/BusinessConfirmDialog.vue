@@ -64,12 +64,13 @@ async function copy(what: 'link' | 'message') {
             <Button type="button" variant="outline-pill" size="pill-sm" @click="copy('link')"><Check v-if="copied === 'link'" /><Link2 v-else /> {{ copied === 'link' ? 'Copied' : 'Copy link' }}</Button>
           </div>
         </Field>
-        <Field :id="`confirm-msg-${handle}`" label="A message to send" hint="Paste it into WhatsApp, Instagram or Telegram.">
+        <Field :id="`confirm-msg-${handle}`" label="A message to send">
           <Textarea :model-value="message" readonly :rows="4" class="text-sm" />
         </Field>
         <div>
           <Button type="button" variant="pill" @click="copy('message')"><Check v-if="copied === 'message'" /><MessageCircle v-else /> {{ copied === 'message' ? 'Copied' : 'Copy message' }}</Button>
         </div>
+        <BusinessContactLinks :contacts="link.contacts" :managed="link.managed" />
       </template>
     </DialogContent>
   </Dialog>
