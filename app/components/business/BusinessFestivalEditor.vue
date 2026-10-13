@@ -1,15 +1,15 @@
 <script setup lang="ts">
 /**
  * The festival part of the event editor: what a festival page shows beyond an
- * event — its look and links, practical info, passes, the programme of
- * workshops and parties day by day, and teacher videos.
+ * event — its look and links, practical info, passes, and the programme of
+ * workshops and parties day by day. Teacher videos live in the line-up.
  *
  *   <BusinessFestivalEditor v-model="form.festival" :days="festivalDays" :lineup="form.artists" />
  *
  * Session ids are kept as they are: dancers' picks are stored by them.
  */
 import type { PropType } from 'vue'
-import { Plus, X, Palette, Ticket, CalendarRange, ChevronDown, ChevronUp, Video, Link as LinkIcon, Info } from 'lucide-vue-next'
+import { Plus, X, Palette, Ticket, CalendarRange, ChevronDown, ChevronUp, Link as LinkIcon, Info } from 'lucide-vue-next'
 import type { FestivalDetails, FestivalPass, FestivalSession } from '#shared/types/festivalDetails'
 
 type Editable = Omit<FestivalDetails, 'key'>
@@ -50,7 +50,6 @@ const weekdays = computed(() => [...new Set(props.days.map(weekday))])
 const PLATFORMS = ['website', 'instagram', 'facebook', 'youtube', 'tiktok', 'whatsapp', 'telegram']
 const links = computed(() => model.value.socialLinks!)
 const info = computed(() => model.value.practicalInfo!)
-const videos = computed(() => model.value.videos!)
 
 // --- passes
 const passes = computed(() => model.value.passes!)
@@ -118,16 +117,6 @@ const LEVELS = ['Beginner', 'Intermediate', 'Advanced']
         <Button type="button" variant="ghost" size="sm" class="justify-self-start" @click="info.push('')"><Plus /> Add a line</Button>
       </div>
 
-      <template v-if="lineup.length">
-        <p class="mt-4 flex items-center gap-1.5 text-sm font-bold"><Video class="size-4 text-muted-foreground" aria-hidden="true" /> Teacher videos <span class="font-normal text-muted-foreground">(optional)</span></p>
-        <p class="text-xs text-muted-foreground">A YouTube embed link per artist, shown on their card in the line-up.</p>
-        <div class="mt-2 grid gap-2">
-          <div v-for="h in lineup" :key="h" class="grid items-center gap-2 sm:grid-cols-[12rem_1fr]">
-            <span class="truncate text-sm">{{ nameOf(h) }}</span>
-            <Input :model-value="videos[h] ?? ''" placeholder="https://www.youtube.com/embed/…" :aria-label="`Video of ${nameOf(h)}`" @update:model-value="(v: string | number | null | undefined) => { const s = String(v ?? '').trim(); if (s) videos[h] = s; else delete videos[h] }" />
-          </div>
-        </div>
-      </template>
     </section>
 
     <!-- Passes -->

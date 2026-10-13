@@ -333,6 +333,8 @@ export const profiles = pgTable('profiles', {
   socials: json('socials').$type<{ platform: string; url: string }[]>().default([]),
   // Gallery for artists/venues; `photo` stays the hero (the one flyers and cards use).
   photos: jsonb('photos').$type<{ url: string }[]>().notNull().default([]),
+  // Video links (YouTube embed URLs) on the artist's page (migration 0033).
+  videos: jsonb('videos').$type<{ url: string }[]>().notNull().default([]),
   claimed: boolean('claimed').default(false),
   status: text('status').notNull().default('visible').$type<'visible' | 'hidden'>(),
   createdAt: timestamp('created_at').defaultNow(),
@@ -701,7 +703,7 @@ export const events = pgTable('events', {
   // and optionally on the flyer, and which photo of each artist the flyer uses
   // (a URL, or null = name only; unset = their main photo).
   agenda: jsonb('agenda').$type<{ time: string; what: string }[]>().notNull().default([]),
-  flyerOptions: jsonb('flyer_options').$type<{ showAgenda?: boolean; photos?: Record<string, string | null> }>().notNull().default({}),
+  flyerOptions: jsonb('flyer_options').$type<{ showAgenda?: boolean; photos?: Record<string, string | null>; names?: Record<string, string> }>().notNull().default({}),
   // The Instagram caption to post with the flyer (migration 0030), plus the
   // lines it was written from (out of date when the details change).
   caption: jsonb('caption').$type<{ language: string; text: string; lines: string[]; writtenAt: string } | null>(),
@@ -887,4 +889,37 @@ export const eventFlyers = pgTable('event_flyers', {
 }, (t) => [
   index('event_flyers_event_idx').on(t.eventId, t.createdAt),
   index('event_flyers_batch_idx').on(t.batchId),
+])
+
+// ---------------------------------------------------------------------------
+// Artist confirmation (migration 0033). An organizer's photos, video and name
+// for an artist in their line-up are suggestions on the artist's profile until
+// the artist approves them through a personal link (profile_invites).
+// ---------------------------------------------------------------------------
+export const profileSuggestions = pgTable('profile_suggestions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
+  kind: text('kind').notNull().$type<'photo' | 'video' | 'name'>(),
+  value: text('value').notNull(),
+  eventId: uuid('event_id').references(() => events.id, { onDelete: 'set null' }),
+  suggestedBy: uuid('suggested_by').references(() => dancers.id, { onDelete: 'set null' }),
+  status: text('status').notNull().default('pending').$type<'pending' | 'approved' | 'rejected'>(),
+  decidedAt: timestamp('decided_at'),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (t) => [
+  index('profile_suggestions_profile_idx').on(t.profileId, t.status),
+  uniqueIndex('profile_suggestions_pending_uidx').on(t.profileId, t.kind, t.value).where(sql`${t.status} = 'pending'`),
+])
+
+export const profileInvites = pgTable('profile_invites', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  token: text('token').notNull(),
+  profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
+  eventId: uuid('event_id').references(() => events.id, { onDelete: 'cascade' }),
+  createdBy: uuid('created_by').references(() => dancers.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow(),
+  lastUsedAt: timestamp('last_used_at'),
+}, (t) => [
+  uniqueIndex('profile_invites_token_uidx').on(t.token),
+  uniqueIndex('profile_invites_event_profile_uidx').on(t.eventId, t.profileId),
 ])

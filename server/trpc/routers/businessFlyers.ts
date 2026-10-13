@@ -28,7 +28,7 @@ async function captionContext(db: any, ev: any) {
     prices: priceLines(ev.price),
     host: { name: host?.name ?? '', instagram: instagramOf(host?.socials) },
     venue: venue ? { name: venue.name, address: venue.address, instagram: instagramOf(venue.socials) } : (ev.venueName ? { name: ev.venueName, address: ev.venueAddress, instagram: null } : null),
-    artists: (ev.artists ?? []).map((h: string) => ({ name: byHandle.get(h)?.name ?? h, instagram: instagramOf(byHandle.get(h)?.socials) })),
+    artists: (ev.artists ?? []).map((h: string) => ({ name: ev.flyerOptions?.names?.[h] || byHandle.get(h)?.name || h, instagram: instagramOf(byHandle.get(h)?.socials) })),
     description: ev.description,
     ticketUrl: ev.ticketUrl,
   }

@@ -29,7 +29,7 @@ export async function flyerSource(db: any, ev: any) {
     const p = byHandle.get(h)
     // Unset = their main photo; null = name only; a URL = the photo picked for this event.
     const photo = h in chosen ? chosen[h] : (p?.photo || null)
-    return { username: h, name: (p?.name as string) || h, photo: photo || null }
+    return { username: h, name: ev.flyerOptions?.names?.[h] || (p?.name as string) || h, photo: photo || null }
   })
   // The venue as it is now: a venue on WeDance may have been renamed or got its
   // address after the event copied them.

@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { eq, and, or, gte, lt, inArray, desc, asc, sql } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { router, protectedProcedure, publicProcedure } from '../trpc'
-import { events, profiles, profileMembers, profileClaims, cities } from '../../database/schema'
+import { events, profiles, profileMembers, profileClaims, cities, profileSuggestions } from '../../database/schema'
 import { slugify, randomSuffix } from '../../utils/slug'
 import { resolveTimezone } from '../../utils/v3EventSync'
 import { zonedToUtc, eventLocalDate, eventLocalTime, eventLocalWeekday } from '../../../shared/utils/eventTime'
@@ -82,6 +82,8 @@ const eventInput = z.object({
   flyerOptions: z.object({
     showAgenda: z.boolean().optional(),
     photos: z.record(z.string(), z.string().url().nullable()).optional(),
+    // How this event names an artist (suggested to their profile until they approve).
+    names: z.record(z.string(), z.string().trim().min(1).max(120)).optional(),
   }).default({}),
   // A festival's page (logo, links, passes, programme…); null for an ordinary
   // event. Its permanent key is set by the server, never by the form.
@@ -296,7 +298,7 @@ export const businessEventsRouter = router({
         price: ev.price ?? '',
         published: ev.published,
         agenda: (ev.agenda ?? []) as { time: string; what: string }[],
-        flyerOptions: (ev.flyerOptions ?? {}) as { showAgenda?: boolean; photos?: Record<string, string | null> },
+        flyerOptions: (ev.flyerOptions ?? {}) as { showAgenda?: boolean; photos?: Record<string, string | null>; names?: Record<string, string> },
         festival: (ev.festival ?? null) as import('../../../shared/types/festivalDetails').FestivalDetails | null,
         timezone: tz,
         missing: (await checklistFor(ctx.db, [ev])).get(ev.id) ?? [],
@@ -448,6 +450,17 @@ export const businessEventsRouter = router({
       needs.push(c.status === 'pending'
         ? { kind: 'claim', tone: 'neutral', title: `Claim for ${c.name} is waiting for review`, detail: 'We check every claim by hand.', to: '/business/profiles' }
         : { kind: 'claim', tone: 'danger', title: `Claim for ${c.name} wasn’t approved`, detail: 'Send a new request with proof we can check.', to: `/business/claim?profile=${c.username}` })
+    }
+
+    // Organizers' suggestions waiting on an artist page I manage.
+    if (mine.length) {
+      const sugg = await ctx.db.select({ username: profiles.username, name: profiles.name, n: sql<number>`count(*)::int` })
+        .from(profileSuggestions).innerJoin(profiles, eq(profiles.id, profileSuggestions.profileId))
+        .where(and(inArray(profileSuggestions.profileId, mine.map((p: any) => p.id)), eq(profileSuggestions.status, 'pending')))
+        .groupBy(profiles.username, profiles.name)
+      for (const g of sugg) {
+        needs.push({ kind: 'suggestions', tone: 'info', title: `${g.n} ${g.n === 1 ? 'change' : 'changes'} suggested for ${g.name}`, detail: 'An organizer added photos, a video or your name for their event. Approve or turn them down.', to: `/confirm/@${g.username}` })
+      }
     }
 
     for (const j of await joinRequestsForOwner(ctx.db, ctx.dancerId)) {

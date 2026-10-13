@@ -29,6 +29,7 @@ export function toBusinessEventInput(v: BusinessEventValues) {
     flyerOptions: {
       showAgenda: v.showAgenda,
       photos: Object.fromEntries(Object.entries(v.photos).filter(([h]) => v.artists.includes(h))),
+      names: Object.fromEntries(Object.entries(v.names).filter(([h, n]) => v.artists.includes(h) && n.trim())),
     },
   }
 }

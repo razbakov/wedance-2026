@@ -32,6 +32,8 @@ export type BusinessEventValues = {
   agenda: { time: string; what: string }[]
   showAgenda: boolean
   photos: Record<string, string | null>
+  /** How this event names an artist (handle → name). */
+  names: Record<string, string>
   /** A festival's page; null for an ordinary event. */
   festival: Omit<import('#shared/types/festivalDetails').FestivalDetails, 'key'> | null
 }
@@ -44,6 +46,8 @@ const props = defineProps({
   submitLabel: { type: String, default: 'Save' },
   /** 'create' opens every card; 'edit' shows them read-only with an Edit button. */
   mode: { type: String as PropType<'create' | 'edit'>, default: 'edit' },
+  /** The saved event (edit mode): suggestions to artists and their confirmation links need it. */
+  eventId: { type: String, default: undefined },
   /** Display names for the read-only cards (the venue picker stores a handle). */
   labels: { type: Object as PropType<{ venue?: string; host?: string }>, default: () => ({}) },
 })
@@ -57,7 +61,7 @@ const blank = (): BusinessEventValues => ({
   hostUsername: '', name: '', type: 'Party', date: '', startTime: '20:00', endTime: '', endDate: '',
   city: '', venueUsername: null, venueName: '', venueAddress: '', artists: [], styles: [],
   description: '', cover: '', ticketUrl: '', price: '', published: true,
-  agenda: [], showAgenda: true, photos: {}, festival: null,
+  agenda: [], showAgenda: true, photos: {}, names: {}, festival: null,
 })
 const form = reactive<BusinessEventValues>({ ...blank(), ...clone(props.initial) })
 // Prices are edited one per line.
@@ -280,7 +284,14 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
     <section class="rounded-2xl border bg-card p-4">
       <h2 class="flex items-center gap-1.5 text-sm font-bold"><Users class="size-4 text-muted-foreground" aria-hidden="true" /> Line-up</h2>
       <p class="text-xs text-muted-foreground">DJs, teachers, performers. Everyone is named on the flyer. Pick the photo it uses, or “Name only”.</p>
-      <BusinessLineupPicker v-model="form.artists" v-model:photos="form.photos" class="mt-3" />
+      <BusinessLineupPicker
+        v-model="form.artists"
+        v-model:photos="form.photos"
+        v-model:names="form.names"
+        :videos="form.festival?.videos"
+        :event-id="eventId"
+        class="mt-3"
+      />
     </section>
 
     <BusinessFestivalEditor v-if="isFestival && form.festival" v-model="form.festival" :days="festivalDays" :lineup="form.artists" />

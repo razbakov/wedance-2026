@@ -43,7 +43,7 @@ const initial = computed<Partial<BusinessEventValues>>(() => ev.value
       venueAddress: ev.value.venueUsername ? '' : ev.value.venueAddress,
       artists: ev.value.artists, styles: ev.value.styles, description: ev.value.description,
       cover: ev.value.cover ?? '', ticketUrl: ev.value.ticketUrl ?? '', price: ev.value.price, published: ev.value.published,
-      agenda: ev.value.agenda, showAgenda: ev.value.flyerOptions.showAgenda !== false, photos: ev.value.flyerOptions.photos ?? {},
+      agenda: ev.value.agenda, showAgenda: ev.value.flyerOptions.showAgenda !== false, photos: ev.value.flyerOptions.photos ?? {}, names: ev.value.flyerOptions.names ?? {},
       // The key isn't editable: dancers' plans and picks hang on it.
       festival: ev.value.festival ? (({ key: _k, ...rest }) => rest)(ev.value.festival) : null,
     }
@@ -170,6 +170,7 @@ async function archive() {
       <div class="mt-4 grid gap-5" :class="ev.synced ? '' : 'lg:grid-cols-[minmax(0,1fr)_19rem]'">
         <BusinessEventForm
           ref="formRef"
+          :event-id="ev.id"
           :initial="initial"
           :labels="{ venue: ev.venueName, host: ev.host?.name }"
           :saving="saving"

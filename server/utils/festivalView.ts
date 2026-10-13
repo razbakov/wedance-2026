@@ -18,7 +18,7 @@ export async function festivalView(db: any, ev: any): Promise<{ festival: Festiv
   const tz = ev.timezone || 'Europe/Berlin'
   const handles: string[] = ev.artists ?? []
   const people = handles.length
-    ? await db.select({ username: profiles.username, name: profiles.name, photo: profiles.photo, bio: profiles.bio, styles: profiles.styles, socials: profiles.socials })
+    ? await db.select({ username: profiles.username, name: profiles.name, photo: profiles.photo, bio: profiles.bio, styles: profiles.styles, socials: profiles.socials, videos: profiles.videos })
       .from(profiles).where(inArray(profiles.username, handles))
     : []
   const byHandle = new Map<string, any>(people.map((p: any) => [p.username, p]))
@@ -52,11 +52,13 @@ export async function festivalView(db: any, ev: any): Promise<{ festival: Festiv
     const p = byHandle.get(h)
     return {
       id: h,
-      name: p?.name ?? h,
-      photo: p?.photo ?? '',
+      name: ev.flyerOptions?.names?.[h] || p?.name || h,
+      // The photo picked for this event (null = name only), else their main one.
+      photo: (h in (ev.flyerOptions?.photos ?? {}) ? ev.flyerOptions.photos[h] : p?.photo) ?? '',
       bio: p?.bio ?? '',
       styles: p?.styles ?? [],
-      ...(f.videos?.[h] ? { videoUrl: f.videos[h] } : {}),
+      // This event's video for them, else the first on their own page.
+      ...((f.videos?.[h] || p?.videos?.[0]?.url) ? { videoUrl: f.videos?.[h] || p.videos[0].url } : {}),
       socialLinks: p?.socials ?? [],
     }
   })
