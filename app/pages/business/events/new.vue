@@ -1,6 +1,8 @@
 <script setup lang="ts">
 /**
  * /business/events/new — create an event for one of my profiles.
+ * ?artist=<handle> starts it with that artist in the line-up (from their
+ * booking page, /@handle/book).
  */
 import type { BusinessEventValues } from '~/components/business/BusinessEventForm.vue'
 import { toBusinessEventInput } from '~/lib/businessEvent'
@@ -9,6 +11,8 @@ definePageMeta({ layout: 'business' })
 useHead({ title: 'New event | Business | WeDance' })
 
 const { $trpc } = useNuxtApp()
+const route = useRoute()
+const artist = typeof route.query.artist === 'string' ? route.query.artist.replace(/^@/, '') : ''
 const businessProfile = useBusinessProfile()
 const hosts = ref<{ username: string; name: string; type: string; city: string | null }[] | null>(null)
 const error = ref<string | null>(null)
@@ -26,7 +30,7 @@ onMounted(async () => {
 const initial = computed<Partial<BusinessEventValues>>(() => {
   const list = hosts.value ?? []
   const host = list.find(h => h.username === businessProfile.value) ?? (list.length === 1 ? list[0] : list.find(h => h.type === 'organizer'))
-  return { hostUsername: host?.username ?? '', city: host?.city ?? '' }
+  return { hostUsername: host?.username ?? '', city: host?.city ?? '', ...(artist ? { artists: [artist] } : {}) }
 })
 
 async function create(v: BusinessEventValues) {
