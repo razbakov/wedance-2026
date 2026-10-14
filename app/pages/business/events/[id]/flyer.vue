@@ -10,6 +10,7 @@
  * version. Gemini paints for real; every version is read back and checked.
  */
 import { Upload, Sparkles, Check, ArrowLeft, ArrowRight, Loader2, Wand2, Download, ImagePlus, X, PartyPopper, CalendarDays, Pencil, AlertTriangle, RotateCcw, Palette } from 'lucide-vue-next'
+import { DIRECTIONS } from '#shared/utils/flyer'
 
 definePageMeta({ layout: 'business' })
 
@@ -177,11 +178,39 @@ async function addLiked(e: Event) {
   likedUploading.value = true
   try { liked.value = await uploadFile(f) } catch { briefError.value = 'That flyer didn’t upload. Try again.' } finally { likedUploading.value = false }
 }
-async function showDirections() {
-  if (!feeling.value.length) { briefError.value = 'Pick at least one feeling.'; return }
+// Which directions to paint: the four built-in ones, the profile's style ideas,
+// and new ideas generated here (text only). Up to four at a time.
+const BUILT_IN = DIRECTIONS.map(d => ({ key: `b:${d.name}`, name: d.name!, hint: d.hint, pick: { builtIn: d.name! } }))
+const ideaCards = computed(() => (st.value?.ideas ?? []).map((l: any) => ({ key: `l:${l.id}`, name: l.name, hint: (l.description.split('. ')[0]!.length > 90 ? `${l.description.slice(0, 88).replace(/\s+\S*$/, '')}…` : l.description.split('. ')[0]!), pick: { lookId: l.id } })))
+const choices = computed(() => [...ideaCards.value, ...BUILT_IN])
+const chosen = ref<string[]>(BUILT_IN.map(b => b.key))
+function choose4(key: string) {
+  const i = chosen.value.indexOf(key)
+  if (i > -1) chosen.value.splice(i, 1)
+  else if (chosen.value.length < 4) chosen.value.push(key)
+}
+const generating = ref(false)
+async function moreIdeas() {
+  generating.value = true
   briefError.value = null
   try {
-    const { batchId: b } = await $trpc.businessFlyers.directions.mutate({ eventId: id.value, postId: postId.value, feelings: feeling.value, inspiration: liked.value })
+    const fresh = await $trpc.businessLooks.generate.mutate({ eventId: id.value, feelings: feeling.value, count: 4 })
+    st.value = { ...st.value!, ideas: [...fresh.map(l => ({ id: l.id, name: l.name, description: l.description, palette: l.palette, source: 'generated' })), ...(st.value?.ideas ?? [])] } as any
+    // Pick the new ones (they lead the list).
+    chosen.value = fresh.slice(0, 4).map(l => `l:${l.id}`)
+  } catch (e: any) {
+    briefError.value = e?.message || 'Couldn’t come up with more styles.'
+  } finally {
+    generating.value = false
+  }
+}
+async function showDirections() {
+  if (!feeling.value.length) { briefError.value = 'Pick at least one feeling.'; return }
+  if (!chosen.value.length) { briefError.value = 'Pick at least one direction.'; return }
+  briefError.value = null
+  try {
+    const picks = chosen.value.map(k => choices.value.find(c => c.key === k)?.pick).filter(Boolean) as any[]
+    const { batchId: b } = await $trpc.businessFlyers.directions.mutate({ eventId: id.value, postId: postId.value, feelings: feeling.value, inspiration: liked.value, picks })
     picked.value = []
     // Straight to the grid: each direction appears as soon as it's painted.
     watchBatch(b, null)
@@ -408,7 +437,7 @@ const faces = computed(() => st.value?.pictured.length ?? 0)
           <button type="button" class="rounded-2xl border-2 bg-card p-5 text-left transition-colors hover:border-primary/50 focus-visible:shadow-wd-focus" @click="path = 'fresh'; go('brief')">
             <Sparkles class="size-6 text-primary" aria-hidden="true" />
             <p class="mt-2 font-display text-lg font-bold">{{ st.looks.length ? 'Something new' : 'No, start fresh' }}</p>
-            <p class="mt-1 text-sm text-muted-foreground">Tell us the feeling. We’ll show you four directions.</p>
+            <p class="mt-1 text-sm text-muted-foreground">Tell us the feeling. Pick up to four directions, or have new ones written for you.</p>
           </button>
         </div>
       </section>
@@ -479,13 +508,35 @@ const faces = computed(() => st.value?.pictured.length ?? 0)
         <h2 class="font-display text-2xl font-bold">How should it feel?</h2>
         <p class="mt-1 text-sm text-muted-foreground">
           The music comes from your event: <span class="font-bold text-foreground">{{ ev.styles.join(', ') || 'none set' }}</span>.
-          You’ll see four directions next, painted for this event.
+          Pick up to four directions below: each is painted for this event.
         </p>
         <div class="mt-4 grid gap-5 rounded-2xl border bg-card p-5">
           <div>
             <p class="text-sm font-bold">The feeling <span class="font-normal text-muted-foreground">(pick up to 3)</span></p>
             <div class="mt-2 flex flex-wrap gap-2">
               <Button v-for="f in FEELING" :key="f" size="sm" :variant="feeling.includes(f) ? 'soft' : 'outline'" :aria-pressed="feeling.includes(f)" :disabled="!feeling.includes(f) && feeling.length >= 3" @click="toggle(feeling, f); briefError = null">{{ f }}</Button>
+            </div>
+          </div>
+          <div>
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <p class="text-sm font-bold">Directions to paint <span class="font-normal text-muted-foreground">(up to 4 · {{ chosen.length }} picked)</span></p>
+              <Button type="button" variant="outline" size="sm" :loading="generating" @click="moreIdeas"><Sparkles /> More styles</Button>
+            </div>
+            <p class="text-xs text-muted-foreground">New styles are written for {{ ev.host?.name || 'you' }} from your music and the feeling, and saved to your <NuxtLink v-if="ev.host" :to="`/business/profiles/${ev.host.username}/styles`" class="font-bold text-secondary hover:underline">styles</NuxtLink><span v-else>styles</span>. Only the ones you pick are painted.</p>
+            <div class="mt-2 grid gap-2 sm:grid-cols-2">
+              <button
+                v-for="c in choices"
+                :key="c.key"
+                type="button"
+                class="rounded-xl border-2 p-3 text-left text-sm focus-visible:shadow-wd-focus disabled:opacity-50"
+                :class="chosen.includes(c.key) ? 'border-primary bg-primary/5' : 'border-input'"
+                :aria-pressed="chosen.includes(c.key)"
+                :disabled="!chosen.includes(c.key) && chosen.length >= 4"
+                @click="choose4(c.key)"
+              >
+                <span class="flex items-center gap-1.5 font-bold"><Check v-if="chosen.includes(c.key)" class="size-4 text-primary" aria-hidden="true" /> {{ c.name }}<span v-if="c.key.startsWith('l:')" class="rounded-full bg-secondary/15 px-1.5 text-[10px] font-bold uppercase tracking-wider text-secondary">New</span></span>
+                <span class="mt-0.5 block text-xs text-muted-foreground">{{ c.hint }}</span>
+              </button>
             </div>
           </div>
           <div>
@@ -503,8 +554,8 @@ const faces = computed(() => st.value?.pictured.length ?? 0)
         <p v-if="briefError" class="mt-2 text-sm text-destructive" role="alert">{{ briefError }}</p>
         <div class="mt-6 flex flex-wrap items-center gap-3">
           <Button variant="outline-pill" @click="back"><ArrowLeft /> Back</Button>
-          <Button variant="cta" :disabled="likedUploading" @click="showDirections"><Wand2 /> Show me 4 directions</Button>
-          <span class="text-xs text-muted-foreground">About two minutes.</span>
+          <Button variant="cta" :disabled="likedUploading || !chosen.length" @click="showDirections"><Wand2 /> Paint {{ chosen.length }} {{ chosen.length === 1 ? 'direction' : 'directions' }}</Button>
+          <span class="text-xs text-muted-foreground">About two minutes. Each one is a painting.</span>
         </div>
       </section>
 
@@ -518,7 +569,7 @@ const faces = computed(() => st.value?.pictured.length ?? 0)
 
       <!-- 1b · Four directions -->
       <section v-else-if="step === 'directions'" class="mt-6">
-        <h2 class="font-display text-2xl font-bold">Four directions for {{ ev.name }}</h2>
+        <h2 class="font-display text-2xl font-bold">{{ directions.length === 4 ? 'Four directions' : directions.length === 1 ? 'A direction' : `${directions.length} directions` }} for {{ ev.name }}</h2>
         <p class="mt-1 text-sm text-muted-foreground">Pick one or two you like. You can change them next.</p>
         <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <template v-for="d in directions" :key="d.id">
@@ -554,7 +605,7 @@ const faces = computed(() => st.value?.pictured.length ?? 0)
         </p>
         <p v-if="pickError" class="mt-2 text-sm text-destructive" role="alert">{{ pickError }}</p>
         <div class="mt-6 flex flex-wrap gap-2">
-          <Button variant="outline-pill" @click="showDirections"><RotateCcw /> Show 4 more</Button>
+          <Button variant="outline-pill" @click="go('brief')"><RotateCcw /> Paint other directions</Button>
           <Button variant="pill" @click="useDirections">Use {{ picked.length === 2 ? 'these' : 'this' }} <ArrowRight /></Button>
         </div>
       </section>

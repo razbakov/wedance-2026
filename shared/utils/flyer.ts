@@ -207,6 +207,22 @@ export const LOOK_PROMPT = [
   'Reply as JSON: {"name": "...", "description": "...", "palette": [{"name": "...", "hex": "#rrggbb"}]}',
 ].join('\n')
 
+/**
+ * More style ideas for a profile (Gemini text model, JSON out): new visual
+ * directions that fit its music and city and differ from the ones it has.
+ * Painted only when the organizer picks them.
+ */
+export function styleIdeasPrompt(c: { name: string; styles: string[]; city?: string | null; feelings?: string[]; existing: string[]; count: number }) {
+  return [
+    `Suggest ${c.count} distinct visual styles for dance-event flyers by ${c.name}${c.city ? ` in ${c.city}` : ''}. The music: ${c.styles.join(', ') || 'social dance'}.`,
+    c.feelings?.length ? `The feeling they want: ${c.feelings.join(', ').toLowerCase()}.` : null,
+    c.existing.length ? `Different from the styles they already have: ${c.existing.join('; ')}.` : null,
+    'Make them clearly different from each other: setting, era, colours, lettering. Each must work as a poster with a photo of the artists and clear, readable text.',
+    'For each: "name" (1–3 words), "hint" (up to 8 words), "description" (3–4 sentences: the scene and background, the colours, the lettering — shape, weight and colour of the title and of the times —, how people are shown, the layout; no dates, names, places, prices or other words to print), and "palette" (3–5 colours, each {"name", "hex": "#rrggbb"}).',
+    'Reply as JSON: {"styles": [{"name": "...", "hint": "...", "description": "...", "palette": [{"name": "...", "hex": "#rrggbb"}]}]}',
+  ].filter(Boolean).join('\n')
+}
+
 /** Starting points when an organizer has no flyers yet: four different directions. */
 export const DIRECTIONS: (FlyerLook & { hint: string })[] = [
   { name: 'Neon street', hint: 'Red neon, night, gold title', description: 'Red-neon Havana street at night: old colonial balconies, red and gold neon light along the facades, red palm leaves in the corners, a golden spotlight on the street. Tall condensed uppercase lettering, gold headline, white times.' },

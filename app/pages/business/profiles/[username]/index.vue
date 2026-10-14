@@ -3,7 +3,7 @@
  * /business/profiles/<handle> — edit a profile you manage: details, photos (one is the main
  * photo used on cards and flyers), links, and venue details for venues.
  */
-import { ExternalLink, Star, Trash2, Check, Users } from 'lucide-vue-next'
+import { ExternalLink, Star, Trash2, Check, Users, Palette } from 'lucide-vue-next'
 import type { VenueDetailsValue } from '~/components/business/BusinessVenueDetails.vue'
 import type { Room } from '~/components/business/BusinessVenueRooms.vue'
 
@@ -150,6 +150,9 @@ const photoHint = computed(() => loaded.value?.type === 'artist'
       >
         <Button variant="outline-pill" size="pill-sm" as-child>
           <NuxtLink :to="`/business/profiles/${loaded.username}/team`"><Users /> Team</NuxtLink>
+        </Button>
+        <Button variant="outline-pill" size="pill-sm" as-child>
+          <NuxtLink :to="`/business/profiles/${loaded.username}/styles`"><Palette /> Flyer styles</NuxtLink>
         </Button>
         <Button variant="outline-pill" size="pill-sm" as-child>
           <NuxtLink :to="`/@${loaded.username}`" target="_blank"><ExternalLink /> View page</NuxtLink>

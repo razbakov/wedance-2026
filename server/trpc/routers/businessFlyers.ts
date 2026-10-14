@@ -110,8 +110,11 @@ export const businessFlyersRouter = router({
         source, kept: keptRow ?? null,
         changes: keptRow ? flyerChanges({ lines: texts(keptRow.lines), pictured: keptRow.pictured }, { lines: texts(source.lines), pictured: source.pictured }) : [],
       }
-      const looks = await ctx.db.select({ id: brandLooks.id, name: brandLooks.name, description: brandLooks.description, palette: brandLooks.palette })
+      const all = await ctx.db.select({ id: brandLooks.id, name: brandLooks.name, description: brandLooks.description, palette: brandLooks.palette, source: brandLooks.source })
         .from(brandLooks).where(eq(brandLooks.profileId, ev.hostProfileId)).orderBy(desc(brandLooks.updatedAt))
+      // The profile's own styles; ideas (generated, never painted and kept) are offered as directions.
+      const looks = all.filter((l: any) => l.source !== 'generated')
+      const ideas = all.filter((l: any) => l.source === 'generated')
       // A sitting still painting (or just finished) — so a reload picks it up.
       const [latest] = await ctx.db.select({ batchId: eventFlyers.batchId, status: eventFlyers.status, createdAt: eventFlyers.createdAt })
         .from(eventFlyers).where(eq(eventFlyers.postId, post.id)).orderBy(desc(eventFlyers.createdAt)).limit(1)
@@ -123,6 +126,7 @@ export const businessFlyersRouter = router({
         kept: st.kept ? { ...shape(st.kept), lookId: st.kept.lookId } : null,
         changes: st.changes,
         looks,
+        ideas,
         latestBatch: latest ?? null,
       }
     }),
@@ -172,16 +176,31 @@ export const businessFlyersRouter = router({
 
   // Starting fresh: four different directions painted for this event.
   directions: protectedProcedure
-    .input(z.object({ eventId: z.string().uuid(), postId, feelings: z.array(z.string().max(30)).min(1).max(3), inspiration: z.string().url().nullable().optional() }))
+    .input(z.object({
+      eventId: z.string().uuid(), postId, feelings: z.array(z.string().max(30)).min(1).max(3), inspiration: z.string().url().nullable().optional(),
+      // Which directions to paint (up to 4): built-in ones by name, the profile's styles and ideas by id. Default: the four built-in.
+      picks: z.array(z.union([z.object({ builtIn: z.string().max(60) }), z.object({ lookId: z.string().uuid() })])).min(1).max(4).optional(),
+    }))
     .mutation(async ({ ctx, input }) => {
       const ev = await requireEventManager(ctx, input.eventId)
       const post = await postFor(ctx, ev, input.postId)
       const src = await flyerSource(ctx.db, ev, post)
       const batchId = crypto.randomUUID()
       const mood = `The mood: ${input.feelings.join(', ').toLowerCase()}.`
-      const rows = await ctx.db.insert(eventFlyers).values(DIRECTIONS.map(d => ({
-        eventId: ev.id, postId: post.id, batchId, mode: 'direction', lines: src.lines, pictured: src.pictured, createdBy: ctx.dancerId,
-        look: { name: d.name, description: `${d.description} ${mood}`, inspiration: input.inspiration ?? null } as any,
+      const specs: { lookId: string | null; name: string; description: string; palette?: any[] }[] = []
+      for (const p of input.picks ?? DIRECTIONS.map(d => ({ builtIn: d.name! }))) {
+        if ('builtIn' in p) {
+          const d = DIRECTIONS.find(x => x.name === p.builtIn)
+          if (d) specs.push({ lookId: null, name: d.name!, description: d.description })
+        } else {
+          const [l] = await ctx.db.select().from(brandLooks).where(and(eq(brandLooks.id, p.lookId), eq(brandLooks.profileId, ev.hostProfileId)))
+          if (l) specs.push({ lookId: l.id, name: l.name, description: l.description, palette: l.palette })
+        }
+      }
+      if (!specs.length) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Pick at least one direction.' })
+      const rows = await ctx.db.insert(eventFlyers).values(specs.map(d => ({
+        eventId: ev.id, postId: post.id, batchId, mode: 'direction', lookId: d.lookId, lines: src.lines, pictured: src.pictured, createdBy: ctx.dancerId,
+        look: { name: d.name, description: `${d.description} ${mood}`, palette: d.palette ?? [], inspiration: input.inspiration ?? null } as any,
       }))).returning({ id: eventFlyers.id })
       for (const r of rows) start(ctx, r.id)
       return { batchId, ids: rows.map((r: any) => r.id) }
@@ -283,6 +302,8 @@ export const businessFlyersRouter = router({
       const { f, ev } = await flyerForManager(ctx, input.flyerId)
       if (!f.url || !['ready', 'checking'].includes(f.status)) throw new TRPCError({ code: 'BAD_REQUEST', message: 'This flyer isn’t painted yet.' })
       let lookId = f.lookId as string | null
+      // Kept from an idea: it becomes one of the profile's own styles.
+      if (lookId) await ctx.db.update(brandLooks).set({ source: 'directions', updatedAt: new Date() }).where(and(eq(brandLooks.id, lookId), eq(brandLooks.source, 'generated')))
       if (!lookId && input.lookName) {
         const spec = f.look as any
         const [l] = await ctx.db.insert(brandLooks).values({
