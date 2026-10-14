@@ -75,10 +75,20 @@ describe('checkFlyerText', () => {
 
 describe('paintPrompt', () => {
   it('spells out every line and the people', () => {
-    const p = paintPrompt(flyerLines(ev), { description: 'Red neon street.' }, { people: 1 })
-    expect(p).toContain('person from the first photo')
+    const p = paintPrompt(flyerLines(ev), { description: 'Red neon street.' }, { people: ['Yunior'] })
+    expect(p).toContain('featuring the person from image 1 as the artist')
+    expect(p).toContain('Layout: the date and the title in the top 38%')
     expect(p).toContain('"LUMA · NEUHAUSER STR. 47 · MÜNCHEN"')
     expect(p).toContain('"19:00 Reparto workshop · Yunior"')
+  })
+})
+
+describe('paintPrompt, the house way', () => {
+  it('names the style reference as image 1 and numbers the photos after it', () => {
+    const p = paintPrompt(flyerLines(ev), { description: 'Red neon street.' }, { styleRef: true, people: ['Yunior', 'Alösha'] })
+    expect(p).toContain('Image 1 is the STYLE and LAYOUT reference')
+    expect(p).toContain('Image 2: Yunior. Image 3: Alösha.')
+    expect(p).toContain('Tall vertical 9:16')
   })
 })
 

@@ -56,6 +56,7 @@ async function flyerForManager(ctx: any, id: string) {
 const shape = (f: any) => ({
   id: f.id, batchId: f.batchId, status: f.status, url: f.url, mode: f.mode, error: f.error,
   lookName: f.look?.name ?? null, check: f.check, notes: f.notes, keptAt: f.keptAt, createdAt: f.createdAt,
+  width: f.width, height: f.height,
 })
 
 export const businessFlyersRouter = router({
@@ -230,6 +231,20 @@ export const businessFlyersRouter = router({
         // A repainted direction stays a direction; a failed fix or refresh paints fresh.
         mode: f.mode === 'direction' ? 'direction' : 'paint',
         lines: src.lines, pictured: src.pictured, createdBy: ctx.dancerId,
+      }).returning({ id: eventFlyers.id })
+      start(ctx, n!.id)
+      return { id: n!.id, batchId: f.batchId }
+    }),
+
+  // "Make the 4:5 feed post": recompose this story into it (the picture, people and words stay).
+  feed: protectedProcedure
+    .input(z.object({ flyerId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const { f } = await flyerForManager(ctx, input.flyerId)
+      if (!f.url || !['ready', 'checking'].includes(f.status)) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Wait until this flyer is painted.' })
+      const [n] = await ctx.db.insert(eventFlyers).values({
+        eventId: f.eventId, postId: f.postId, batchId: f.batchId, lookId: f.lookId, look: f.look, mode: 'recompose', baseFlyerId: f.id,
+        lines: f.lines, pictured: f.pictured, createdBy: ctx.dancerId,
       }).returning({ id: eventFlyers.id })
       start(ctx, n!.id)
       return { id: n!.id, batchId: f.batchId }

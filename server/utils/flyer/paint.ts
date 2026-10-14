@@ -9,19 +9,21 @@
  * ~/Orgs/LaClave/assets/flyer-style.md (story first, one photo per person, retries).
  */
 import cloudinary from 'cloudinary'
-import { eq, and, inArray, isNotNull } from 'drizzle-orm'
-import { events, profiles, eventFlyers, eventPosts } from '../../database/schema'
-import { postLines, flyerChanges, paintPrompt, fixPrompt, refreshPrompt, checkFlyerText, type FlyerLine, type FlyerCheck } from '../../../shared/utils/flyer'
+import { eq, and, inArray, isNotNull, desc } from 'drizzle-orm'
+import { events, profiles, eventFlyers, eventPosts, brandLooks } from '../../database/schema'
+import { postLines, flyerChanges, paintPrompt, fixPrompt, refreshPrompt, recomposePrompt, checkFlyerText, type FlyerLine, type FlyerCheck } from '../../../shared/utils/flyer'
+import sharp from 'sharp'
 import type { PostKind } from '../../../shared/utils/posts'
 import { paintWithRetries, readText, fetchImage, IMAGE_MODEL, type InlineImage } from './gemini'
 import { faceGrid } from './grid'
 
 /**
- * Up to two faces are painted each from its own photo (truest likeness). More
- * — a festival's line-up — go in as one grid of photos, and every artist is
- * painted as a portrait (server/utils/flyer/grid.ts). 16 at most.
+ * Up to four people go in as their own photos, numbered and named (the
+ * image-from-gemini skill's way). More — a festival's line-up — go in as one
+ * grid of photos, and every artist is painted as a portrait
+ * (server/utils/flyer/grid.ts). 16 at most.
  */
-export const MAX_FACES = 2
+export const MAX_FACES = 4
 export const MAX_GRID = 16
 
 type Post = { kind: PostKind; subject?: string | null } | null
@@ -123,12 +125,32 @@ async function formatOf(db: any, postId: string | null): Promise<'post' | 'story
   return p?.format === 'post' ? 'post' : 'story'
 }
 
-async function upload(img: InlineImage, folder: string) {
+// Instagram's exact sizes: Gemini returns near-sizes (768×1376, 928×1152).
+const SIZE = { '9:16': { width: 1080, height: 1920 }, '4:5': { width: 1080, height: 1350 } } as const
+
+async function upload(img: InlineImage, folder: string, aspect: '9:16' | '4:5') {
   const config = useRuntimeConfig()
   cloudinary.v2.config({ cloud_name: config.public.cloudinaryCloudName, api_key: config.cloudinaryApiKey, api_secret: config.cloudinaryApiSecret })
+  const fitted = await sharp(Buffer.from(img.data, 'base64')).resize({ ...SIZE[aspect], fit: 'cover', position: 'centre' }).png().toBuffer()
   // Data URI, not a file path: Bun's file uploads to Cloudinary fail.
-  const res = await cloudinary.v2.uploader.upload(`data:${img.mimeType};base64,${img.data}`, { folder: `wedance-2026/flyers/${folder}` })
+  const res = await cloudinary.v2.uploader.upload(`data:image/png;base64,${fitted.toString('base64')}`, { folder: `wedance-2026/flyers/${folder}` })
   return { url: res.secure_url as string, width: res.width as number, height: res.height as number }
+}
+
+/**
+ * The style's reference flyer (image 1 of a painting): a flyer painted and
+ * kept in that look, else one it was read from. Directions and fresh ideas
+ * have none.
+ */
+async function styleReference(db: any, f: any): Promise<string | null> {
+  const look = f.look as { references?: string[] }
+  if (look?.references?.[0]) return look.references[0]
+  if (!f.lookId) return null
+  const [kept] = await db.select({ url: eventFlyers.url }).from(eventFlyers)
+    .where(and(eq(eventFlyers.lookId, f.lookId), isNotNull(eventFlyers.keptAt), isNotNull(eventFlyers.url))).orderBy(desc(eventFlyers.keptAt)).limit(1)
+  if (kept?.url) return kept.url
+  const [l] = await db.select({ references: brandLooks.references }).from(brandLooks).where(eq(brandLooks.id, f.lookId))
+  return (l?.references as { url: string }[] | undefined)?.[0]?.url ?? null
 }
 
 /** Paint one flyer row (status 'painting') and store the best round. Never throws. */
@@ -146,12 +168,16 @@ export async function runFlyer(db: any, flyerId: string) {
 
     let prompt: string
     let images: InlineImage[]
-    if (f.mode === 'fix' || f.mode === 'refresh') {
-      const [base] = await db.select({ url: eventFlyers.url }).from(eventFlyers).where(eq(eventFlyers.id, f.baseFlyerId))
+    // A new painting is always a 9:16 story; the 4:5 post is recomposed from it.
+    let aspect: '9:16' | '4:5' = '9:16'
+    if (f.mode === 'fix' || f.mode === 'refresh' || f.mode === 'recompose') {
+      const [base] = await db.select({ url: eventFlyers.url, width: eventFlyers.width, height: eventFlyers.height }).from(eventFlyers).where(eq(eventFlyers.id, f.baseFlyerId))
       const img = base?.url ? await fetchImage(base.url) : null
       if (!img) throw new Error('The flyer to change is gone. Make a new one instead.')
-      prompt = f.mode === 'fix' ? fixPrompt(lines, f.notes ?? '') : refreshPrompt(lines)
+      prompt = f.mode === 'fix' ? fixPrompt(lines, f.notes ?? '') : f.mode === 'refresh' ? refreshPrompt(lines) : recomposePrompt(lines)
       images = [img]
+      // An edit keeps its shape; a recompose makes the feed post.
+      aspect = f.mode === 'recompose' || (base.width && base.height && base.height / base.width < 1.5) ? '4:5' : '9:16'
     } else {
       const [post] = f.postId ? await db.select({ kind: eventPosts.kind, subject: eventPosts.subject }).from(eventPosts).where(eq(eventPosts.id, f.postId)) : [null]
       const src = await flyerSource(db, ev, post)
@@ -167,20 +193,30 @@ export async function runFlyer(db: any, flyerId: string) {
       const ok = loaded.map((img, i) => ({ img, name: tiles[i]!.name })).filter(x => x.img) as { img: InlineImage; name: string }[]
       const grid = many && ok.length > MAX_FACES ? await faceGrid(ok.map(x => x.img)) : null
       const faces = grid ? [grid] : ok.map(x => x.img)
+      const refUrl = await styleReference(db, f)
+      const ref = refUrl ? await fetchImage(refUrl) : null
       const inspiration = look.inspiration ? await fetchImage(look.inspiration) : null
-      prompt = paintPrompt(lines, look, { people: grid ? 0 : faces.length, grid: grid ? ok.map(x => x.name) : undefined, notes: f.notes, inspiration: !!inspiration, format: await formatOf(db, f.postId) })
-      images = inspiration ? [...faces, inspiration] : faces
+      prompt = paintPrompt(lines, look, { people: grid ? [] : ok.map(x => x.name), grid: grid ? ok.map(x => x.name) : undefined, styleRef: !!ref, notes: f.notes, inspiration: !!inspiration })
+      images = [...(ref ? [ref] : []), ...faces, ...(inspiration ? [inspiration] : [])]
     }
 
-    // One painting per click. No automatic repaints: each one costs money, so
-    // the organizer sees the result and decides.
-    const img = await paintWithRetries(prompt, images, (await formatOf(db, f.postId)) === 'post' ? '4:5' : '9:16')
+    // One painting per click (plus the post's recompose below). No automatic
+    // repaints: each costs money, so the organizer sees the result and decides.
+    const img = await paintWithRetries(prompt, images, aspect)
     if (await stopped()) return
-    const up = await upload(img, host?.username ?? 'unknown')
+    const up = await upload(img, host?.username ?? 'unknown', aspect)
     // The picture shows now; the words are read back while the organizer looks at it.
     await set({ status: 'checking', url: up.url, width: up.width, height: up.height, prompt, model: IMAGE_MODEL, error: null })
     const check: FlyerCheck = checkFlyerText(lines, await readText(img))
     await set({ status: 'ready', check })
+    // A feed post (4:5): recompose the story into it, the house way.
+    if (f.mode === 'paint' && (await formatOf(db, f.postId)) === 'post') {
+      const [n] = await db.insert(eventFlyers).values({
+        eventId: f.eventId, postId: f.postId, batchId: f.batchId, lookId: f.lookId, look: f.look, mode: 'recompose', baseFlyerId: f.id,
+        lines: f.lines, pictured: f.pictured, createdBy: f.createdBy,
+      }).returning({ id: eventFlyers.id })
+      await runFlyer(db, n!.id)
+    }
   } catch (e: any) {
     if (await stopped()) return
     // Painted but the read-back failed: keep the picture, just unchecked.

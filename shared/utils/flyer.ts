@@ -157,26 +157,51 @@ function textBlock(lines: FlyerLine[]) {
 // The reader marks covered letters; this keeps the painter from covering them.
 const CLEAR_TEXT = 'Keep every letter fully visible: no person, hand, hat or object may cover or cut off any part of the text.'
 
-/** A full painting: the look, the people (as photos), every line spelled out. */
-export function paintPrompt(lines: FlyerLine[], look: FlyerLook, opts: { people: number; grid?: string[]; notes?: string | null; inspiration?: boolean; format?: 'post' | 'story' } = { people: 0 }) {
-  // Many artists (a festival's line-up): one grid of their photos.
+/**
+ * A full painting, the way the house process does it (~/Orgs/LaClave/assets/
+ * flyer-style.md, the image-from-gemini skill): the style reference flyer as
+ * image 1, then each artist's photo, numbered and named; the look; a strict
+ * layout in percentages (else heads cover the title); every word spelled out.
+ * Always a 9:16 story: the 4:5 feed post is recomposed from it (painting the
+ * feed straight from photos was refused far more often). Short on purpose:
+ * shorter prompts pass more often.
+ */
+export function paintPrompt(lines: FlyerLine[], look: FlyerLook, opts: { people?: string[]; grid?: string[]; styleRef?: boolean; notes?: string | null; inspiration?: boolean } = {}) {
+  let n = 0
+  const style = opts.styleRef ? ++n : 0
+  const people = opts.people ?? []
+  const first = n + 1
+  n += opts.grid?.length ? 1 : people.length
   const who = opts.grid?.length
-    ? ` featuring all ${opts.grid.length} artists as a line-up: the first image is a grid of their photos, in this order: ${opts.grid.join(', ')}. Paint every one of them as a portrait, keeping their real faces, all the same size, each with their name just under their portrait`
-    : opts.people === 1
-    ? ' featuring the person from the first photo as the artist, big in the centre, keeping their real face'
-    : opts.people > 1 ? ` featuring the ${opts.people} people from the first ${opts.people} photos as the artists, big, keeping their real faces` : ''
+    ? `, featuring all ${opts.grid.length} artists as a line-up of portraits, all the same size, each with their name just under it. Image ${first} is a grid of their photos, in this order: ${opts.grid.join(', ')}. Keep their real faces`
+    : people.length === 1
+      ? `, featuring the person from image ${first} as the artist, big in the centre`
+      : people.length > 1 ? `, featuring the ${people.length} artists from the photos, big` : ''
   const palette = look.palette?.length ? `Colours: ${look.palette.map(p => `${p.name} ${p.hex}`).join(', ')}.` : null
+  const hasPeople = people.length > 0 || !!opts.grid?.length
   return [
-    opts.format === 'post'
-      ? `Portrait 4:5 Instagram feed poster for a dance event${who}.`
-      : `Tall vertical 9:16 Instagram story poster for a dance event${who}.`,
+    `Tall vertical 9:16 Instagram story poster for a dance event${who}.`,
+    style ? `Image ${style} is the STYLE and LAYOUT reference: match its scene, colours, lettering and layout closely. Do not copy its words, people or dates.` : null,
+    people.length > 1 ? people.map((name, i) => `Image ${first + i}: ${name}.`).join(' ') : null,
     clean(look.description),
     palette,
+    hasPeople
+      ? 'Layout: the date and the title in the top 38%; the artists from 40% to 85% of the height, below the title, never covering any text; the details in the bottom 15%.'
+      : 'Layout: the date and the title in the top third; the details below, with room to breathe.',
     opts.inspiration ? 'The last image is a flyer the organizer likes: borrow its mood only. Do not copy its text, people or layout.' : null,
     opts.notes?.trim() ? `Also: ${clean(opts.notes)}` : null,
     `Exact text on the poster, spelled exactly, nothing else: ${textBlock(lines)}`,
     CLEAR_TEXT,
   ].filter(Boolean).join('\n')
+}
+
+/** The 4:5 feed post from a finished story: the same poster, recomposed (the house way). */
+export function recomposePrompt(lines: FlyerLine[]) {
+  return [
+    'Recompose this exact poster into a vertical 4:5 Instagram feed format. Keep the same scene, people, style, colours and all the text; move things so everything fits, nothing cropped.',
+    `The text stays exactly, spelled exactly: ${textBlock(lines)}`,
+    CLEAR_TEXT,
+  ].join('\n')
 }
 
 /** Edit the given poster: keep it, change only what's asked. Keeps the picture. */
@@ -198,10 +223,16 @@ export function refreshPrompt(lines: FlyerLine[]) {
   ].join('\n')
 }
 
-/** Read a look off flyers the organizer made before (Gemini text model, JSON out). */
+/**
+ * Read a look off flyers the organizer made before (Gemini text model, JSON
+ * out) — written the way the proven styles are (~/Orgs/LaClave/assets/
+ * flyer-style.md): the scene, then the lettering of each kind of text, so the
+ * next flyer matches element by element. The flyers are kept as the style's
+ * reference images (image 1 of every painting in it).
+ */
 export const LOOK_PROMPT = [
-  'These are dance-event flyers by one organizer. Describe their shared visual style so a new flyer can be painted in the same style.',
-  'In 3–4 sentences cover: the scene and background, the colours, the lettering (shape, weight, colour of the title and of the times), how people are shown, and the layout.',
+  'These are dance-event flyers by one organizer. Describe their shared visual style so a new flyer can be painted in exactly the same style.',
+  'Write it as one paragraph of 4–6 sentences, like a brief to a poster designer: the scene and background (setting, light, objects, textures); the lettering of each kind of text — the main title, the date, the genre or music line, the times, any box or badge (e.g. for workshops or entry), and the footer location line (font shape, weight, colour, effects like glow or gradient); how the people are shown; the layout from top to bottom.',
   'Do not mention any dates, names, places, prices or other words printed on them.',
   'Also give the 3–5 main colours with a short name and a hex value, and a 1–3 word name for the style.',
   'Reply as JSON: {"name": "...", "description": "...", "palette": [{"name": "...", "hex": "#rrggbb"}]}',
@@ -223,12 +254,16 @@ export function styleIdeasPrompt(c: { name: string; styles: string[]; city?: str
   ].filter(Boolean).join('\n')
 }
 
-/** Starting points when an organizer has no flyers yet: four different directions. */
+/**
+ * Starting points when an organizer has no flyers yet: the house's proven
+ * styles (~/Orgs/LaClave/assets/flyer-style.md Styles A and B,
+ * ~/Orgs/ikigai/ops/design/flyer-styles.md Styles B and D), lettering included.
+ */
 export const DIRECTIONS: (FlyerLook & { hint: string })[] = [
-  { name: 'Neon street', hint: 'Red neon, night, gold title', description: 'Red-neon Havana street at night: old colonial balconies, red and gold neon light along the facades, red palm leaves in the corners, a golden spotlight on the street. Tall condensed uppercase lettering, gold headline, white times.' },
-  { name: 'Revolution poster', hint: 'Bold flag shapes, halftone, cream paper', description: 'Bold propaganda-poster style on cream paper: big red and blue flag-like shapes with a white star, halftone print texture, the person in high-contrast duotone. Heavy blocky uppercase lettering in red and navy.' },
-  { name: 'Tropical', hint: 'Palms, warm sunset, vintage', description: 'Warm vintage tropical poster: sunset orange and pink sky, palm silhouettes, soft film grain, dancers silhouetted in the back. Elegant retro script for the title, cream condensed uppercase for the details.' },
-  { name: 'Afro club', hint: 'Purple and gold, stage lights', description: 'Luxury club poster: deep purple and magenta, stage lasers and haze, a blurred dancing crowd, gold geometric borders and confetti. 3D metallic gold title, white details.' },
+  { name: 'Neon street', hint: 'Red neon Havana, gold title', description: 'Red-neon Havana street at night: crumbling colonial balconies, red and gold neon light streaks along the facades, red palm leaves framing the corners, a golden spotlight cone on the empty street. Tall condensed uppercase lettering: gold-gradient headline and date, red and gold genre words, white times. A red-glow rounded box for workshops or entry. Footer: a thin gold rule and a gold location pin with the place.' },
+  { name: 'Cuban vintage', hint: '1950s Havana poster, cream paper', description: 'Vintage 1950s Cuban propaganda and Havana cabaret poster: aged cream paper texture with fold creases, screen-print look, red, navy and mustard palette, halftone sun rays behind the headline, old Havana facades and a classic car silhouette at the edges, distressed ink. Red script headline with a gold outline, navy condensed sans for the info lines, a red ticket-style box with a gold border, the location bar at the bottom.' },
+  { name: 'Afro club', hint: 'Purple and gold, stage lights', description: 'Luxury Afro-fusion club poster: purple and magenta with gold, stage lasers and haze, a blurred dancing crowd, kente-cloth strips, gold geometric African-pattern borders, gold palm and monstera leaves, gold confetti. 3D metallic gold title, a gold ribbon subtitle, a colourful genre line, a round gold time medallion, white details.' },
+  { name: 'Afro-tropical', hint: 'Bold street party, deep purple', description: 'Bold Afro-Caribbean street party poster on a deep purple background: vibrant orange, green, yellow and magenta, flat graphic African-print patterns and tropical leaves as borders, spiral sunburst shapes, a calm dark spotlight behind the people. Chunky playful display type with drop shadows: orange headline with a magenta shadow, yellow and green info lines, a patterned-border box for workshops or entry.' },
 ]
 
 // Read-back comparison: case, spacing, dash and bullet variants don't count as

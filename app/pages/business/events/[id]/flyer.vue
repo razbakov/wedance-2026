@@ -276,6 +276,24 @@ async function stopPainting(ids: string[]) {
 
 // "Paint again": a fresh painting in the same look (one more Gemini call).
 const repainting = ref(false)
+// A story → its 4:5 feed post, recomposed from it (the same picture and words).
+const isStory = computed(() => !!current.value?.width && !!current.value?.height && current.value.height / current.value.width > 1.5)
+const feeding = ref(false)
+async function makeFeed() {
+  if (!current.value) return
+  feeding.value = true
+  error.value = null
+  try {
+    const { id: nid, batchId: b } = await $trpc.businessFlyers.feed.mutate({ flyerId: current.value.id })
+    painting('Turning it into the 4:5 feed post…')
+    watchBatch(b, nid, () => showVersion(nid))
+  } catch (e: any) {
+    error.value = e?.message || 'Couldn’t make the feed post.'
+  } finally {
+    feeding.value = false
+  }
+}
+
 async function repaint(fromId: string, back: 'result' | 'directions') {
   repainting.value = true
   error.value = null
@@ -668,6 +686,7 @@ const faces = computed(() => st.value?.pictured.length ?? 0)
               </div>
               <div class="flex flex-wrap gap-2">
                 <Button variant="ghost" size="sm" as-child><a :href="download(current.url!)" download><Download /> Download</a></Button>
+                <Button v-if="isStory" variant="ghost" size="sm" :loading="feeding" @click="makeFeed"><Wand2 /> Make the 4:5 feed post</Button>
               </div>
               <Button variant="pill" :loading="keeping" @click="choose">{{ hasLook ? 'Use this flyer' : 'This is the one' }} <ArrowRight /></Button>
             </div>

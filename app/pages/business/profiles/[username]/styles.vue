@@ -71,6 +71,37 @@ async function blank() {
   } catch (e: any) { error.value = e?.message || 'Couldn’t add a style.' }
 }
 
+// --- from the organizer's own flyers (the house way)
+const uploads = ref<string[]>([])
+const uploading = ref(0)
+const reading = ref(false)
+async function addFlyers(e: Event) {
+  const input = e.target as HTMLInputElement
+  const files = Array.from(input.files ?? []).filter(f => f.type.startsWith('image/')).slice(0, 5 - uploads.value.length)
+  input.value = ''
+  for (const f of files) {
+    uploading.value++
+    try {
+      const body = new FormData()
+      body.append('file', f)
+      const res = await fetch('/api/media/image?folder=flyers', { method: 'POST', body })
+      if (!res.ok) throw new Error()
+      uploads.value.push((await res.json()).url)
+    } catch { error.value = 'A flyer didn’t upload. Try again.' } finally { uploading.value-- }
+  }
+}
+async function readStyle() {
+  reading.value = true
+  error.value = null
+  try {
+    const l = await $trpc.businessLooks.read.mutate({ username: username.value, urls: uploads.value })
+    uploads.value = []
+    notice.value = `Read “${l.name}” off your flyers. Check the prompt and save.`
+    await load()
+    editing.value = l.id
+  } catch (e: any) { error.value = e?.message || 'Couldn’t read the flyers.' } finally { reading.value = false }
+}
+
 // --- generate
 const FEELING = ['Warm', 'Bold', 'Street', 'Vintage', 'Tropical', 'Elegant', 'Club', 'Minimal']
 const feeling = ref<string[]>([])
@@ -107,16 +138,32 @@ function addColour(id: string) {
       <AdminState v-if="error" kind="error" :message="error" />
       <p v-if="notice" role="status" class="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-success/10 px-3 py-2 text-sm font-bold text-wd-green-700"><Check class="size-4" aria-hidden="true" /> {{ notice }}</p>
 
-      <!-- Generate -->
+      <!-- From your flyers: the house way to a style -->
       <section class="mt-6 rounded-2xl border-2 border-primary/30 bg-gradient-to-br from-primary/10 via-card to-secondary/10 p-5">
-        <p class="flex items-center gap-1.5 text-eyebrow font-bold uppercase tracking-[0.3em] text-primary"><Sparkles class="size-4" aria-hidden="true" /> More styles</p>
-        <p class="mt-1 font-display text-xl font-bold">New directions for {{ data.profile.name }}</p>
-        <p class="mt-1 text-sm text-muted-foreground">Written from your music and city, different from the styles you have. Nothing is painted until you pick one for a flyer.</p>
+        <p class="flex items-center gap-1.5 text-eyebrow font-bold uppercase tracking-[0.3em] text-primary"><ImageIcon class="size-4" aria-hidden="true" /> A style from your flyers</p>
+        <p class="mt-1 font-display text-xl font-bold">Add 2–5 flyers you’ve posted</p>
+        <p class="mt-1 text-sm text-muted-foreground">WeDance reads the scene, colours and lettering, and every new flyer in this style is painted with your flyers as its reference, so it looks like yours.</p>
+        <div class="mt-3 flex flex-wrap items-center gap-2">
+          <img v-for="u in uploads" :key="u" :src="u" alt="" class="h-24 rounded-lg border">
+          <span v-for="n in uploading" :key="`u${n}`" class="grid h-24 w-16 place-items-center rounded-lg border bg-muted text-xs text-muted-foreground">…</span>
+          <label v-if="uploads.length + uploading < 5" class="flex h-24 w-20 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-input text-center text-[11px] text-muted-foreground has-[:focus-visible]:shadow-wd-focus">
+            <Plus class="size-4" aria-hidden="true" /> Add flyers
+            <input type="file" accept="image/*" multiple class="sr-only" @change="addFlyers">
+          </label>
+        </div>
+        <Button variant="cta" class="mt-4" :disabled="!uploads.length || uploading > 0" :loading="reading" @click="readStyle"><Wand2 /> Read my style</Button>
+      </section>
+
+      <!-- Ideas: written, not read -->
+      <section class="mt-4 rounded-2xl border bg-card p-5">
+        <p class="flex items-center gap-1.5 text-eyebrow font-bold uppercase tracking-[0.3em] text-secondary"><Sparkles class="size-4" aria-hidden="true" /> No flyers yet?</p>
+        <p class="mt-1 font-display text-lg font-bold">Ideas to try</p>
+        <p class="mt-1 text-sm text-muted-foreground">Written from your music and city. Paint one for a flyer: the one you keep becomes your style, with that flyer as its reference.</p>
         <div class="mt-3 flex flex-wrap gap-1.5">
           <Button v-for="f in FEELING" :key="f" type="button" size="sm" :variant="feeling.includes(f) ? 'soft' : 'outline'" :aria-pressed="feeling.includes(f)" @click="feeling = feeling.includes(f) ? feeling.filter(x => x !== f) : [...feeling, f]">{{ f }}</Button>
         </div>
         <div class="mt-4 flex flex-wrap gap-2">
-          <Button variant="cta" :loading="generating" @click="generate"><Wand2 /> Generate 4 styles</Button>
+          <Button variant="outline-pill" :loading="generating" @click="generate"><Wand2 /> Write 4 ideas</Button>
           <Button variant="outline-pill" @click="blank"><Plus /> Write one yourself</Button>
         </div>
       </section>

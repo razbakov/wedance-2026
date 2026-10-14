@@ -5,8 +5,8 @@ import { router, protectedProcedure } from '../trpc'
 import { brandLooks, profiles, eventFlyers } from '../../database/schema'
 import { requireMember } from './business'
 import { requireEventManager } from './businessEvents'
-import { writeJson } from '../../utils/flyer/gemini'
-import { DIRECTIONS, styleIdeasPrompt } from '../../../shared/utils/flyer'
+import { writeJson, askAboutImages, fetchImage, type InlineImage } from '../../utils/flyer/gemini'
+import { DIRECTIONS, LOOK_PROMPT, styleIdeasPrompt } from '../../../shared/utils/flyer'
 
 /**
  * Business mode — a profile's flyer styles (brand_looks): the looks its flyers
@@ -88,6 +88,26 @@ export const businessLooksRouter = router({
       // Flyers painted in it keep their own copy of the look (event_flyers.look).
       await ctx.db.delete(brandLooks).where(eq(brandLooks.id, input.id))
       return { removed: true }
+    }),
+
+  // The house way to a style: read it off 2–5 flyers the organizer made. The
+  // flyers stay with it as its reference images (image 1 of every painting in it).
+  read: protectedProcedure
+    .input(who.extend({ urls: z.array(z.string().url()).min(1).max(5) }))
+    .mutation(async ({ ctx, input }) => {
+      const p = await profileFor(ctx, input)
+      const imgs = (await Promise.all(input.urls.map(fetchImage))).filter(Boolean) as InlineImage[]
+      if (!imgs.length) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Couldn’t open those images. Try uploading them again.' })
+      let r: { name?: string; description?: string; palette?: { name: string; hex: string }[] }
+      try { r = await askAboutImages(LOOK_PROMPT, imgs) } catch (e: any) {
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: e?.message || 'Couldn’t read the flyers. Try again.' })
+      }
+      const [l] = await ctx.db.insert(brandLooks).values({
+        profileId: p.id, name: String(r.name ?? 'My style').slice(0, 60), description: String(r.description ?? '').slice(0, 4000) || 'Describe the scene, the lettering of each kind of text, the people and the layout.',
+        palette: (r.palette ?? []).filter(c => /^#[0-9a-fA-F]{6}$/.test(c?.hex ?? '')).slice(0, 6),
+        references: input.urls.map(url => ({ url })), source: 'flyers', createdBy: ctx.dancerId,
+      }).returning()
+      return shape(l)
     }),
 
   // New style ideas for the profile, written by Gemini (text only: nothing is painted).

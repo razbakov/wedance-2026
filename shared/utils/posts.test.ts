@@ -42,8 +42,8 @@ describe('postLines', () => {
 import { paintPrompt } from './flyer'
 describe('paintPrompt with a line-up grid', () => {
   it('asks for every artist as a portrait, in order', () => {
-    const p = paintPrompt([{ label: 'title', text: 'X' }], { description: 'Neon.' }, { people: 0, grid: ['Barbara Jimenez', 'Emilia Pedra & Alexei Ramos', 'Silvio Leroy'] })
-    expect(p).toContain('featuring all 3 artists as a line-up')
+    const p = paintPrompt([{ label: 'title', text: 'X' }], { description: 'Neon.' }, { grid: ['Barbara Jimenez', 'Emilia Pedra & Alexei Ramos', 'Silvio Leroy'] })
+    expect(p).toContain('featuring all 3 artists as a line-up of portraits')
     expect(p).toContain('in this order: Barbara Jimenez, Emilia Pedra & Alexei Ramos, Silvio Leroy')
   })
 })
