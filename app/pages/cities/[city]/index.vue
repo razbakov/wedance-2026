@@ -9,9 +9,9 @@
  * Shared child components (Lineup, TeacherProfile, WeeklyCalendar,
  * WeekDrawer) still carry shadcn styling and will get restyled in a
  * follow-up pass.
- * ?style=<Style> preselects the style filter; ?taster=1 (from the
- * /find-your-dance "free taster class" pick) shows a "Your first class"
- * section of upcoming classes, free-priced ones first (P1006).
+ * ?style=<Style> preselects the style filter; ?taster=1 shows a
+ * "Your first class" section of upcoming classes, free-priced ones
+ * first (P1006).
  */
 import { sameDanceStyle, sortDanceStyles } from '#shared/dance-styles'
 import { MapPin, Calendar, ArrowRight, Sparkles } from 'lucide-vue-next'
@@ -230,7 +230,7 @@ useHead(() => ({
   ],
 }))
 
-// Style filter — preselected from ?style= (the /find-your-dance quick picks).
+// Style filter — preselected from ?style= query param.
 const selectedStyle = ref(typeof route.query.style === 'string' ? route.query.style.trim() : '')
 
 // People tabs (now also includes Venues — same Lineup shape with auto-generated avatars).
@@ -618,7 +618,7 @@ onMounted(() => {
       </div>
     </section>
 
-    <!-- YOUR FIRST CLASS — ?taster=1 from the /find-your-dance taster pick (P1006) -->
+    <!-- YOUR FIRST CLASS — ?taster=1 (P1006) -->
     <section v-if="tasterMode" id="taster" data-testid="taster-section" class="max-w-4xl mx-auto px-4 pt-12 scroll-mt-4">
       <div class="rounded-2xl p-5 sm:p-6 bg-white border border-wd-green-600/[33.3%]" style="box-shadow: 0 1px 0 color-mix(in srgb, var(--wd-green-600) 13.3%, transparent), 0 8px 22px rgba(59,31,18,0.05);">
         <div class="text-xs uppercase tracking-[0.3em] flex items-center gap-1.5 text-success">

@@ -37,7 +37,7 @@ const stages = [
     detail: 'Free taster classes. Pick by feeling, not guessing.',
     icon: Compass,
     horizon: 'first night',
-    href: '/find-your-dance',
+    href: '/cities',
     isStartingPoint: true,
   },
   {

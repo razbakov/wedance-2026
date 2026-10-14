@@ -3,8 +3,8 @@
  * /cities — the directory, backed by real migrated data (entity.listCities).
  * Each city card shows its real community size (venues · artists · organizers)
  * and links to /cities/[slug]. No mock data.
- * Intent from /find-your-dance (?style=Salsa, ?taster=1) is carried through to
- * the city page so its style filter / taster-class section pick it up.
+ * Intent query params (?style=Salsa, ?taster=1) are carried through to
+ * the city page so its style filter / taster-class section pick them up.
  */
 import { Search, MapPin, ArrowRight, Users } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
@@ -25,7 +25,7 @@ useHead({
 
 const route = useRoute()
 
-// Intent handed over by /find-your-dance — forwarded on every city link.
+// Intent query params — forwarded on every city link.
 const taster = computed(() => route.query.taster === '1')
 const style = computed(() => (typeof route.query.style === 'string' ? route.query.style.trim() : ''))
 const intentQuery = computed(() => ({

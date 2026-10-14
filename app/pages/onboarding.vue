@@ -39,7 +39,7 @@ interface Persona {
 const PERSONAS: Persona[] = [
   { key: 'social', emoji: '💃', label: 'Dance socially', blurb: 'Find where to dance this week in your city.', landing: '/my-plan', collects: { city: true, styles: true, role: true } },
   { key: 'festivals', emoji: '✈️', label: 'Travel to festivals', blurb: 'Plan your festival year and see who\'s going.', landing: '/festivals', collects: { styles: true, role: true } },
-  { key: 'learn', emoji: '🎓', label: 'Learn a dance', blurb: 'Start or level up — find your dance and classes.', landing: '/find-your-dance', collects: {} },
+  { key: 'learn', emoji: '🎓', label: 'Learn a dance', blurb: 'Start or level up — find your dance and classes.', landing: '/cities', collects: {} },
   { key: 'perform', emoji: '🎧', label: 'Perform / DJ', blurb: 'Get booked and find gigs.', landing: '/artists', collects: {} },
   { key: 'organize', emoji: '📣', label: 'Run events', blurb: 'Fill your floor — list socials and classes.', landing: '/for-organizers', collects: {} },
 ]
@@ -243,7 +243,7 @@ async function skip() {
             />
             <FieldError id="onb-styles-error" :message="errors.danceStyles" />
             <NuxtLink
-              to="/find-your-dance"
+              to="/cities"
               class="inline-block text-xs italic hover:underline pt-1 text-secondary font-display"
             >
               Don't know which dance? →
