@@ -1,8 +1,8 @@
 import { z } from 'zod'
-import { eq, and, desc } from 'drizzle-orm'
+import { eq, and, desc, inArray, isNotNull } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { router, protectedProcedure } from '../trpc'
-import { brandLooks, profiles } from '../../database/schema'
+import { brandLooks, profiles, eventFlyers } from '../../database/schema'
 import { requireMember } from './business'
 import { requireEventManager } from './businessEvents'
 import { writeJson } from '../../utils/flyer/gemini'
@@ -50,7 +50,17 @@ export const businessLooksRouter = router({
     .query(async ({ ctx, input }) => {
       const p = await profileFor(ctx, input)
       const rows = await ctx.db.select().from(brandLooks).where(eq(brandLooks.profileId, p.id)).orderBy(desc(brandLooks.updatedAt))
-      return { profile: { username: p.username, name: p.name }, looks: rows.map(shape), builtIn: DIRECTIONS.map(d => ({ name: d.name!, hint: d.hint, description: d.description })) }
+      // A preview: the latest flyer painted in the style (a kept one first), else a flyer it was read from.
+      const ids = rows.map((r: any) => r.id)
+      const painted = ids.length
+        ? await ctx.db.select({ lookId: eventFlyers.lookId, url: eventFlyers.url, keptAt: eventFlyers.keptAt, createdAt: eventFlyers.createdAt })
+          .from(eventFlyers).where(and(inArray(eventFlyers.lookId, ids), isNotNull(eventFlyers.url))).orderBy(desc(eventFlyers.createdAt))
+        : []
+      const preview = (l: any) => {
+        const mine = painted.filter((f: any) => f.lookId === l.id)
+        return (mine.find((f: any) => f.keptAt) ?? mine[0])?.url ?? l.references?.[0]?.url ?? null
+      }
+      return { profile: { username: p.username, name: p.name }, looks: rows.map((l: any) => ({ ...shape(l), preview: preview(l) as string | null, flyers: painted.filter((f: any) => f.lookId === l.id).length })), builtIn: DIRECTIONS.map(d => ({ name: d.name!, hint: d.hint, description: d.description })) }
     }),
 
   create: protectedProcedure

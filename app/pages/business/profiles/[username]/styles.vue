@@ -6,7 +6,7 @@
  * from — edit it as text — plus its colours. "Generate more styles" writes new
  * ideas (text only: nothing is painted until one is picked on a flyer).
  */
-import { Palette, Sparkles, Plus, Trash2, Copy, Check, X, Wand2 } from 'lucide-vue-next'
+import { Palette, Sparkles, Plus, Trash2, Copy, Check, X, Wand2, Pencil, Image as ImageIcon } from 'lucide-vue-next'
 
 definePageMeta({ layout: 'business' })
 const route = useRoute()
@@ -34,6 +34,12 @@ const mine = computed(() => (data.value?.looks ?? []).filter(l => !l.idea))
 const ideas = computed(() => (data.value?.looks ?? []).filter(l => l.idea))
 const dirty = (l: Look) => { const d = drafts[l.id]; return !!d && (d.name !== l.name || d.description !== l.description || JSON.stringify(d.palette) !== JSON.stringify(l.palette)) }
 
+// The style being edited (a dialog over the previews).
+const editing = ref<string | null>(null)
+const editLook = computed(() => data.value?.looks.find(l => l.id === editing.value) ?? null)
+const summary = (t: string) => { const first = t.split(/(?<=\.)\s/)[0] ?? t; return first.length > 120 ? `${first.slice(0, 118).replace(/\s+\S*$/, '')}…` : first }
+const swatch = (pal: { hex: string }[]) => pal.length ? `linear-gradient(135deg, ${pal.map((c, i) => `${c.hex} ${Math.round((i / Math.max(1, pal.length - 1)) * 100)}%`).join(', ')})` : undefined
+
 const busy = ref<string | null>(null)
 async function save(l: Look, keep = false) {
   const d = drafts[l.id]!
@@ -42,13 +48,14 @@ async function save(l: Look, keep = false) {
   try {
     await $trpc.businessLooks.update.mutate({ id: l.id, name: d.name, description: d.description, palette: d.palette, keep })
     notice.value = keep ? `“${d.name}” is now one of your styles.` : `Saved “${d.name}”.`
+    editing.value = null
     await load()
   } catch (e: any) { error.value = e?.message || 'Couldn’t save.' } finally { busy.value = null }
 }
 const confirmDelete = ref<string | null>(null)
 async function remove(l: Look) {
   busy.value = l.id
-  try { await $trpc.businessLooks.remove.mutate({ id: l.id }); confirmDelete.value = null; notice.value = `Deleted “${l.name}”.`; await load() } catch (e: any) { error.value = e?.message || 'Couldn’t delete.' } finally { busy.value = null }
+  try { await $trpc.businessLooks.remove.mutate({ id: l.id }); confirmDelete.value = null; editing.value = null; notice.value = `Deleted “${l.name}”.`; await load() } catch (e: any) { error.value = e?.message || 'Couldn’t delete.' } finally { busy.value = null }
 }
 async function duplicate(src: { name: string; description: string; palette?: { name: string; hex: string }[] }) {
   try {
@@ -119,56 +126,92 @@ function addColour(id: string) {
         <section v-if="group.list.length" class="mt-8">
           <h2 class="text-eyebrow font-bold uppercase tracking-[0.3em] text-secondary">{{ group.title }}</h2>
           <p class="text-sm text-muted-foreground">{{ group.hint }}</p>
-          <div class="mt-3 grid gap-3 lg:grid-cols-2">
-            <article v-for="l in group.list" :key="l.id" class="rounded-2xl border bg-card p-4">
-              <div class="flex items-start gap-2">
-                <Palette class="mt-2 size-5 shrink-0 text-primary" aria-hidden="true" />
-                <Field :id="`look-name-${l.id}`" label="Name" class="flex-1"><Input v-model="drafts[l.id]!.name" /></Field>
-              </div>
-              <Field :id="`look-prompt-${l.id}`" label="The prompt" class="mt-3" hint="What WeDance tells the painter. The event’s words, people and shape are added for each flyer.">
-                <Textarea v-model="drafts[l.id]!.description" :rows="7" class="font-mono text-xs leading-relaxed" />
-              </Field>
-              <p class="mt-3 text-sm font-bold">Colours</p>
-              <div class="mt-1.5 flex flex-wrap items-center gap-2">
-                <span v-for="(c, i) in drafts[l.id]!.palette" :key="c.hex + i" class="inline-flex items-center gap-1.5 rounded-full border bg-card py-1 pl-1 pr-1.5 text-xs">
-                  <span class="size-5 rounded-full border" :style="{ background: c.hex }" />
-                  <input v-model="c.name" class="w-24 bg-transparent outline-none" :aria-label="`Colour ${i + 1} name`">
-                  <button type="button" class="rounded-full p-0.5 text-muted-foreground hover:text-foreground" :aria-label="`Remove ${c.name}`" @click="drafts[l.id]!.palette.splice(i, 1)"><X class="size-3" /></button>
+          <div class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            <article v-for="l in group.list" :key="l.id" class="flex flex-col overflow-hidden rounded-2xl border bg-card">
+              <button type="button" class="relative block aspect-[4/5] w-full overflow-hidden bg-muted" :aria-label="`Edit ${l.name}`" @click="editing = l.id">
+                <img v-if="l.preview" :src="l.preview" :alt="`A flyer in ${l.name}`" class="size-full object-cover">
+                <span v-else class="flex size-full flex-col items-center justify-center gap-2 p-4 text-center" :style="{ background: swatch(l.palette) }">
+                  <span class="rounded-xl bg-card/85 px-3 py-2 font-display text-lg font-bold leading-tight">{{ l.name }}</span>
+                  <span v-if="!l.palette.length" class="flex items-center gap-1 text-xs text-muted-foreground"><ImageIcon class="size-3.5" aria-hidden="true" /> Not painted yet</span>
                 </span>
-                <span class="inline-flex items-center gap-1">
-                  <input :id="`look-colour-${l.id}`" type="color" class="h-7 w-9 cursor-pointer rounded border" aria-label="Pick a colour">
-                  <Button type="button" variant="ghost" size="sm" @click="addColour(l.id)"><Plus /> Colour</Button>
-                </span>
-              </div>
-              <div v-if="l.references.length" class="mt-3 flex gap-2">
-                <img v-for="r in l.references.slice(0, 4)" :key="r.url" :src="r.url" alt="A flyer it was read from" class="h-16 rounded-md border">
-              </div>
-              <div class="mt-4 flex flex-wrap items-center gap-2">
-                <Button v-if="dirty(l)" type="button" variant="pill" size="pill-sm" :loading="busy === l.id" @click="save(l)">Save</Button>
-                <Button v-if="l.idea" type="button" variant="outline-pill" size="pill-sm" :loading="busy === l.id" @click="save(l, true)"><Check /> Keep as mine</Button>
-                <Button type="button" variant="ghost" size="sm" @click="duplicate({ name: drafts[l.id]!.name, description: drafts[l.id]!.description, palette: drafts[l.id]!.palette })"><Copy /> Duplicate</Button>
-                <template v-if="confirmDelete === l.id">
-                  <span class="text-sm">Delete “{{ l.name }}”?</span>
-                  <Button type="button" variant="destructive" size="sm" :loading="busy === l.id" @click="remove(l)">Yes, delete</Button>
-                  <Button type="button" variant="ghost" size="sm" @click="confirmDelete = null">Keep it</Button>
-                </template>
-                <Button v-else type="button" variant="ghost" size="sm" class="text-destructive" @click="confirmDelete = l.id"><Trash2 /> Delete</Button>
+                <span v-if="l.idea" class="absolute left-2 top-2 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">Idea</span>
+              </button>
+              <div class="flex flex-1 flex-col p-3">
+                <p class="font-bold leading-snug">{{ l.name }}</p>
+                <p class="mt-0.5 line-clamp-3 flex-1 text-xs text-muted-foreground">{{ summary(l.description) }}</p>
+                <div v-if="l.palette.length" class="mt-2 flex gap-1" :aria-label="`Colours: ${l.palette.map(c => c.name).join(', ')}`">
+                  <span v-for="c in l.palette" :key="c.hex" class="size-4 rounded-full border" :style="{ background: c.hex }" :title="c.name" />
+                </div>
+                <div class="mt-2 flex flex-wrap items-center gap-1">
+                  <Button type="button" variant="outline" size="sm" @click="editing = l.id"><Pencil /> Edit</Button>
+                  <Button v-if="l.idea" type="button" variant="ghost" size="sm" :loading="busy === l.id" @click="save(l, true)"><Check /> Keep</Button>
+                </div>
+                <p v-if="l.flyers" class="mt-1 text-[11px] text-muted-foreground">{{ l.flyers }} {{ l.flyers === 1 ? 'flyer' : 'flyers' }} painted in it</p>
               </div>
             </article>
           </div>
         </section>
       </template>
 
+      <!-- Editing one style -->
+      <Dialog :open="!!editLook" @update:open="v => { if (!v) { editing = null; confirmDelete = null } }">
+        <DialogContent v-if="editLook && drafts[editLook.id]" class="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle class="flex items-center gap-2"><Palette class="size-5 text-primary" aria-hidden="true" /> {{ editLook.name }}</DialogTitle>
+            <DialogDescription>The prompt is what WeDance tells the painter. The event’s words, people and shape are added for each flyer.</DialogDescription>
+          </DialogHeader>
+          <div class="grid gap-4 sm:grid-cols-[1fr_9rem]">
+            <div class="grid content-start gap-3">
+              <Field :id="`look-name-${editLook.id}`" label="Name"><Input v-model="drafts[editLook.id]!.name" /></Field>
+              <Field :id="`look-prompt-${editLook.id}`" label="The prompt">
+                <Textarea v-model="drafts[editLook.id]!.description" :rows="10" class="font-mono text-xs leading-relaxed" />
+              </Field>
+            </div>
+            <img v-if="editLook.preview" :src="editLook.preview" alt="" class="hidden w-full rounded-xl border sm:block">
+          </div>
+          <div>
+            <p class="text-sm font-bold">Colours</p>
+            <div class="mt-1.5 flex flex-wrap items-center gap-2">
+              <span v-for="(c, i) in drafts[editLook.id]!.palette" :key="c.hex + i" class="inline-flex items-center gap-1.5 rounded-full border bg-card py-1 pl-1 pr-1.5 text-xs">
+                <span class="size-5 rounded-full border" :style="{ background: c.hex }" />
+                <input v-model="c.name" class="w-24 bg-transparent outline-none" :aria-label="`Colour ${i + 1} name`">
+                <button type="button" class="rounded-full p-0.5 text-muted-foreground hover:text-foreground" :aria-label="`Remove ${c.name}`" @click="drafts[editLook.id]!.palette.splice(i, 1)"><X class="size-3" /></button>
+              </span>
+              <span class="inline-flex items-center gap-1">
+                <input :id="`look-colour-${editLook.id}`" type="color" class="h-7 w-9 cursor-pointer rounded border" aria-label="Pick a colour">
+                <Button type="button" variant="ghost" size="sm" @click="addColour(editLook.id)"><Plus /> Colour</Button>
+              </span>
+            </div>
+          </div>
+          <div v-if="editLook.references.length">
+            <p class="text-sm font-bold">Read from</p>
+            <div class="mt-1.5 flex gap-2"><img v-for="r in editLook.references.slice(0, 5)" :key="r.url" :src="r.url" alt="A flyer it was read from" class="h-20 rounded-md border"></div>
+          </div>
+          <div class="flex flex-wrap items-center gap-2 border-t pt-3">
+            <Button type="button" variant="pill" size="pill-sm" :disabled="!dirty(editLook)" :loading="busy === editLook.id" @click="save(editLook)">Save</Button>
+            <Button v-if="editLook.idea" type="button" variant="outline-pill" size="pill-sm" :loading="busy === editLook.id" @click="save(editLook, true)"><Check /> Keep as mine</Button>
+            <Button type="button" variant="ghost" size="sm" @click="duplicate({ name: drafts[editLook.id]!.name, description: drafts[editLook.id]!.description, palette: drafts[editLook.id]!.palette })"><Copy /> Duplicate</Button>
+            <span class="flex-1" />
+            <template v-if="confirmDelete === editLook.id">
+              <span class="text-sm">Delete it?</span>
+              <Button type="button" variant="destructive" size="sm" :loading="busy === editLook.id" @click="remove(editLook)">Yes, delete</Button>
+              <Button type="button" variant="ghost" size="sm" @click="confirmDelete = null">Keep it</Button>
+            </template>
+            <Button v-else type="button" variant="ghost" size="sm" class="text-destructive" @click="confirmDelete = editLook.id"><Trash2 /> Delete</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <!-- Built-in -->
       <section class="mt-8">
         <h2 class="text-eyebrow font-bold uppercase tracking-[0.3em] text-secondary">Built in</h2>
         <p class="text-sm text-muted-foreground">WeDance’s four starting points. Copy one to make it yours and change it.</p>
-        <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <article v-for="b in data.builtIn" :key="b.name" class="flex flex-col rounded-2xl border bg-card p-4">
+        <div class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          <article v-for="b in data.builtIn" :key="b.name" class="flex flex-col rounded-2xl border bg-card p-3">
             <p class="font-bold">{{ b.name }}</p>
             <p class="text-xs text-muted-foreground">{{ b.hint }}</p>
-            <p class="mt-2 line-clamp-5 flex-1 text-xs text-muted-foreground">{{ b.description }}</p>
-            <Button type="button" variant="ghost" size="sm" class="mt-2 justify-self-start" @click="duplicate(b)"><Copy /> Make it mine</Button>
+            <details class="mt-1 flex-1 text-xs text-muted-foreground"><summary class="cursor-pointer font-bold text-secondary">The prompt</summary><p class="mt-1">{{ b.description }}</p></details>
+            <Button type="button" variant="outline" size="sm" class="mt-2 self-start" @click="duplicate(b)"><Copy /> Make it mine</Button>
           </article>
         </div>
       </section>
