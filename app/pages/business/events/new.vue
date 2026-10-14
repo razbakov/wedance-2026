@@ -13,6 +13,9 @@ useHead({ title: 'New event | Business | WeDance' })
 const { $trpc } = useNuxtApp()
 const route = useRoute()
 const artist = typeof route.query.artist === 'string' ? route.query.artist.replace(/^@/, '') : ''
+// ?type=Festival (from /organizers and the "list your festival" links).
+const TYPES = ['Party', 'Workshop', 'Course', 'Festival', 'Weekender', 'Congress', 'Concert', 'Show']
+const type = typeof route.query.type === 'string' && TYPES.includes(route.query.type) ? route.query.type : ''
 const businessProfile = useBusinessProfile()
 const hosts = ref<{ username: string; name: string; type: string; city: string | null }[] | null>(null)
 const error = ref<string | null>(null)
@@ -30,7 +33,7 @@ onMounted(async () => {
 const initial = computed<Partial<BusinessEventValues>>(() => {
   const list = hosts.value ?? []
   const host = list.find(h => h.username === businessProfile.value) ?? (list.length === 1 ? list[0] : list.find(h => h.type === 'organizer'))
-  return { hostUsername: host?.username ?? '', city: host?.city ?? '', ...(artist ? { artists: [artist] } : {}) }
+  return { hostUsername: host?.username ?? '', city: host?.city ?? '', ...(artist ? { artists: [artist] } : {}), ...(type ? { type } : {}) }
 })
 
 async function create(v: BusinessEventValues) {
