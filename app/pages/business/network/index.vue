@@ -1,11 +1,13 @@
 <script setup lang="ts">
 /**
- * /business/profiles — profiles I manage and my claim requests.
+ * /business/network — "Network". Today: the pages I manage and my claim
+ * requests. Planned: the artists, venues and organizers I work with (people
+ * I book, venues I play at), so this page grows into my business network.
  */
 import { ArrowRight, Search, Plus } from 'lucide-vue-next'
 
 definePageMeta({ layout: 'business' })
-useHead({ title: 'My profiles | Business | WeDance' })
+useHead({ title: 'Network | Business | WeDance' })
 
 const { $trpc } = useNuxtApp()
 type Data = Awaited<ReturnType<typeof $trpc.business.myProfiles.query>>
@@ -19,7 +21,7 @@ async function load() {
   try {
     data.value = await $trpc.business.myProfiles.query()
   } catch (e: any) {
-    error.value = e?.message || 'Could not load your profiles.'
+    error.value = e?.message || 'Could not load your network.'
   } finally {
     loading.value = false
   }
@@ -31,9 +33,9 @@ const typeLabel: Record<string, string> = { artist: 'Artist', venue: 'Venue', or
 
 <template>
   <div>
-    <AdminPageHeader eyebrow="Business" title="My profiles" description="The artist, venue and organizer pages you manage on WeDance.">
+    <AdminPageHeader eyebrow="Business" title="Network" description="Your pages on WeDance: the start of your dance business network.">
       <Button variant="outline-pill" size="pill-sm" as-child>
-        <NuxtLink to="/business/claim"><Search /> Find my profile</NuxtLink>
+        <NuxtLink to="/business/claim"><Search /> Find my page</NuxtLink>
       </Button>
       <Button variant="pill" size="pill-sm" as-child>
         <NuxtLink to="/business/new"><Plus /> Create</NuxtLink>
@@ -47,29 +49,32 @@ const typeLabel: Record<string, string> = { artist: 'Artist', venue: 'Venue', or
       <AdminState
         v-if="!data.managed.length && !data.claims.length"
         kind="empty"
-        message="You don’t manage any profiles yet."
-        hint="Your page may already exist: WeDance lists thousands of artists, venues and organizers. Find it and claim it, or create a new one."
+        message="Your network starts with your own page."
+        hint="It may already be here: WeDance lists thousands of artists, venues and organizers. Find yours and claim it, or create a new one."
       />
 
-      <div v-if="data.managed.length" class="mt-6 grid gap-3">
-        <NuxtLink
-          v-for="p in data.managed"
-          :key="p.username"
-          :to="`/business/profiles/${p.username}`"
-          class="group flex items-center gap-4 rounded-2xl border bg-card p-4 shadow-wd-card transition-colors hover:bg-accent/40"
-        >
-          <img v-if="p.photo" :src="p.photo" :alt="p.name" class="size-12 rounded-xl object-cover bg-muted">
-          <div v-else class="size-12 rounded-xl bg-muted" />
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-2">
-              <h3 class="text-base font-bold leading-tight truncate">{{ p.name }}</h3>
-              <AdminStatus>{{ typeLabel[p.type] || p.type }}</AdminStatus>
+      <section v-if="data.managed.length" class="mt-6">
+        <h2 class="text-eyebrow font-bold uppercase tracking-[0.3em] text-secondary">Your pages</h2>
+        <div class="mt-3 grid gap-3">
+          <NuxtLink
+            v-for="p in data.managed"
+            :key="p.username"
+            :to="`/business/network/${p.username}`"
+            class="group flex items-center gap-4 rounded-2xl border bg-card p-4 shadow-wd-card transition-colors hover:bg-accent/40"
+          >
+            <img v-if="p.photo" :src="p.photo" :alt="p.name" class="size-12 rounded-xl object-cover bg-muted">
+            <div v-else class="size-12 rounded-xl bg-muted" />
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2">
+                <h3 class="text-base font-bold leading-tight truncate">{{ p.name }}</h3>
+                <AdminStatus>{{ typeLabel[p.type] || p.type }}</AdminStatus>
+              </div>
+              <p class="mt-0.5 text-sm text-muted-foreground truncate">@{{ p.username }}<template v-if="p.city"> · {{ p.city }}</template></p>
             </div>
-            <p class="mt-0.5 text-sm text-muted-foreground truncate">@{{ p.username }}<template v-if="p.city"> · {{ p.city }}</template></p>
-          </div>
-          <ArrowRight class="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" aria-hidden="true" />
-        </NuxtLink>
-      </div>
+            <ArrowRight class="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" aria-hidden="true" />
+          </NuxtLink>
+        </div>
+      </section>
 
       <section v-if="data.claims.length" class="mt-8">
         <h2 class="text-eyebrow font-bold uppercase tracking-[0.3em] text-secondary">Your requests</h2>
