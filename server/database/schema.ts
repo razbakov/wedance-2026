@@ -46,6 +46,9 @@ export const dancers = pgTable('dancers', {
   // magic link). Ticket claiming (claim.ts) requires this to prevent an
   // attacker from registering someone else's email and grabbing their tickets.
   emailVerifiedAt: timestamp('email_verified_at'),
+  // Provenance (added by scripts/migrate/00-schema.mjs for the v4→2026 migration).
+  // { v4UserId, firebaseId, v4Email }. Rollback key: DELETE WHERE source_ref IS NOT NULL.
+  sourceRef: jsonb('source_ref').$type<Record<string, unknown>>(),
   createdAt: timestamp('created_at').defaultNow(),
 })
 
@@ -843,6 +846,23 @@ export const artistFollows = pgTable('artist_follows', {
 }, (t) => [
   unique('artist_follows_dancer_profile').on(t.dancerId, t.profileId),
   index('artist_follows_profile_idx').on(t.profileId),
+])
+
+// ---------------------------------------------------------------------------
+// Follows — the v4 follow graph, migrated by scripts/migrate/05-follows.mjs.
+// A dancer follows a profile handle (venue / artist / organizer). This is the
+// production-only legacy table created by 00-schema.mjs; it is NOT in the old
+// Drizzle journal and must be in schema.ts so `drizzle-kit generate` never
+// proposes dropping it (667 edges + rollback key).
+// ---------------------------------------------------------------------------
+export const follows = pgTable('follows', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  followerId: uuid('follower_id').notNull().references(() => dancers.id),
+  targetUsername: text('target_username').notNull(),
+  sourceRef: jsonb('source_ref').$type<Record<string, unknown>>(),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (t) => [
+  unique('follows_follower_target').on(t.followerId, t.targetUsername),
 ])
 
 /**
