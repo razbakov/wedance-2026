@@ -36,20 +36,20 @@ export const DOMAINS: Domain[] = [
   {
     id: 'events',
     title: 'Events & plans',
-    summary: 'Dated public events (v4 archive + live v3 mirror), their flyers and the hosts\' saved flyer looks, and each dancer\'s week/year plan.',
-    tables: ['events', 'planItems', 'brandLooks', 'eventFlyers', 'eventPosts', 'aiUsage'],
+    summary: 'Dated public events (v4 archive + live v3 mirror), their flyers and the hosts\' saved flyer looks, each dancer\'s week/year plan, and the unified attendance model.',
+    tables: ['events', 'planItems', 'attendances', 'dancerGoals', 'brandLooks', 'eventFlyers', 'eventPosts', 'aiUsage'],
   },
   {
     id: 'directory',
     title: 'Profiles & cities',
     summary: 'Venue / artist / organiser profiles under /@handle, canonical cities, follows and the per-city community-group directory.',
-    tables: ['profiles', 'profileMembers', 'profileClaims', 'profileAccessLog', 'profileSuggestions', 'profileInvites', 'artistFollows', 'follows', 'organizerSubscriptions', 'networkLinks', 'cities', 'communityGroups', 'communityGroupReports'],
+    tables: ['profiles', 'profileMembers', 'profileClaims', 'profileAccessLog', 'profileSuggestions', 'profileInvites', 'follows', 'legacyFollows', 'profileAffiliations', 'handles', 'organizerSubscriptions', 'networkLinks', 'cities', 'communityGroups', 'communityGroupReports'],
   },
   {
     id: 'booking',
     title: 'Venue booking & governance',
     summary: 'Bookable spaces, availability and booking requests, plus moderator elections and guideline versions for free community spaces.',
-    tables: ['bookableSpaces', 'availabilitySlots', 'bookingRequests', 'bookingInquiries', 'moderatorElections', 'electionCandidates', 'electionVotes', 'electionVoteHistory', 'guidelineVersions'],
+    tables: ['bookableSpaces', 'availabilitySlots', 'bookingRequests', 'bookingInquiries', 'moderatorElections', 'electionCandidates', 'electionVotes', 'electionVoteHistory', 'guidelineVersions', 'inboundRequests', 'deliveries'],
   },
   {
     id: 'engagement',

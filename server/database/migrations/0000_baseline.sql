@@ -18,12 +18,24 @@ CREATE TABLE "ai_usage" (
 	"error" text
 );
 --> statement-breakpoint
-CREATE TABLE "artist_follows" (
+CREATE TABLE "attendances" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"dancer_id" uuid NOT NULL,
-	"profile_id" uuid NOT NULL,
+	"event_id" uuid NOT NULL,
+	"dancer_id" uuid,
+	"buyer_email" text,
+	"status" text NOT NULL,
+	"source" text DEFAULT 'click' NOT NULL,
+	"order_id" uuid,
+	"visibility" text DEFAULT 'hidden' NOT NULL,
+	"partner_status" text,
+	"travel_booked_at" timestamp,
+	"stay_booked_at" timestamp,
+	"vacation_booked_at" timestamp,
+	"checked_in_at" timestamp,
+	"verified_at" timestamp,
 	"created_at" timestamp DEFAULT now(),
-	CONSTRAINT "artist_follows_dancer_profile" UNIQUE("dancer_id","profile_id")
+	"updated_at" timestamp DEFAULT now(),
+	CONSTRAINT "attendances_event_dancer" UNIQUE("event_id","dancer_id")
 );
 --> statement-breakpoint
 CREATE TABLE "availability_slots" (
@@ -92,6 +104,7 @@ CREATE TABLE "booking_requests" (
 	"moderated_by_id" uuid,
 	"moderated_at" timestamp,
 	"moderation_note" text,
+	"notified_at" timestamp,
 	"created_at" timestamp DEFAULT now()
 );
 --> statement-breakpoint
@@ -106,6 +119,22 @@ CREATE TABLE "brand_looks" (
 	"created_by" uuid,
 	"created_at" timestamp DEFAULT now(),
 	"updated_at" timestamp DEFAULT now()
+);
+--> statement-breakpoint
+CREATE TABLE "cities" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"google_place_id" text NOT NULL,
+	"slug" text NOT NULL,
+	"name" text NOT NULL,
+	"local_name" text,
+	"country" text,
+	"country_code" text,
+	"region" text,
+	"lat" double precision,
+	"lng" double precision,
+	"alt_names" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "city_battle_votes" (
@@ -158,6 +187,18 @@ CREATE TABLE "community_groups" (
 	"created_at" timestamp DEFAULT now()
 );
 --> statement-breakpoint
+CREATE TABLE "dancer_goals" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"dancer_id" uuid NOT NULL,
+	"kind" text NOT NULL,
+	"title" text NOT NULL,
+	"target" text,
+	"period_year" integer,
+	"metadata" jsonb,
+	"created_at" timestamp DEFAULT now(),
+	"updated_at" timestamp DEFAULT now()
+);
+--> statement-breakpoint
 CREATE TABLE "dancers" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"email" text NOT NULL,
@@ -188,6 +229,20 @@ CREATE TABLE "dancers" (
 	CONSTRAINT "dancers_email_unique" UNIQUE("email"),
 	CONSTRAINT "dancers_neon_auth_id_unique" UNIQUE("neon_auth_id"),
 	CONSTRAINT "dancers_username_unique" UNIQUE("username")
+);
+--> statement-breakpoint
+CREATE TABLE "deliveries" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"subject_type" text NOT NULL,
+	"subject_id" uuid NOT NULL,
+	"channel" text NOT NULL,
+	"target" text NOT NULL,
+	"status" text DEFAULT 'pending' NOT NULL,
+	"attempts" integer DEFAULT 0 NOT NULL,
+	"last_error" text,
+	"external_ref" text,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"delivered_at" timestamp
 );
 --> statement-breakpoint
 CREATE TABLE "dinner_group_members" (
@@ -417,11 +472,13 @@ CREATE TABLE "festivals" (
 --> statement-breakpoint
 CREATE TABLE "follows" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"follower_id" uuid NOT NULL,
-	"target_username" text NOT NULL,
-	"source_ref" jsonb,
+	"dancer_id" uuid NOT NULL,
+	"profile_id" uuid,
+	"target_dancer_id" uuid,
 	"created_at" timestamp DEFAULT now(),
-	CONSTRAINT "follows_follower_target" UNIQUE("follower_id","target_username")
+	CONSTRAINT "follows_dancer_profile" UNIQUE("dancer_id","profile_id"),
+	CONSTRAINT "follows_dancer_dancer" UNIQUE("dancer_id","target_dancer_id"),
+	CONSTRAINT "follows_exactly_one_target" CHECK (num_nonnulls("follows"."profile_id", "follows"."target_dancer_id") = 1)
 );
 --> statement-breakpoint
 CREATE TABLE "gigs" (
@@ -441,6 +498,7 @@ CREATE TABLE "gigs" (
 	"entity_url" text,
 	"status" text DEFAULT 'open' NOT NULL,
 	"dancer_id" uuid,
+	"poster_profile_id" uuid,
 	"created_at" timestamp DEFAULT now(),
 	"updated_at" timestamp DEFAULT now()
 );
@@ -481,6 +539,16 @@ CREATE TABLE "guideline_versions" (
 	"created_at" timestamp DEFAULT now()
 );
 --> statement-breakpoint
+CREATE TABLE "handles" (
+	"handle" text PRIMARY KEY NOT NULL,
+	"dancer_id" uuid,
+	"profile_id" uuid,
+	"created_at" timestamp DEFAULT now(),
+	CONSTRAINT "handles_dancer_id_unique" UNIQUE("dancer_id"),
+	CONSTRAINT "handles_profile_id_unique" UNIQUE("profile_id"),
+	CONSTRAINT "handles_exactly_one_target" CHECK (num_nonnulls("handles"."dancer_id", "handles"."profile_id") = 1)
+);
+--> statement-breakpoint
 CREATE TABLE "hangout_rsvps" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"hangout_id" uuid NOT NULL,
@@ -502,6 +570,30 @@ CREATE TABLE "hangouts" (
 	"dancer_id" uuid NOT NULL,
 	"created_at" timestamp DEFAULT now(),
 	"updated_at" timestamp DEFAULT now()
+);
+--> statement-breakpoint
+CREATE TABLE "inbound_requests" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"kind" text NOT NULL,
+	"status" text DEFAULT 'new' NOT NULL,
+	"dancer_id" uuid,
+	"email" text,
+	"name" text,
+	"event_id" uuid,
+	"profile_id" uuid,
+	"gig_id" uuid,
+	"payload" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now()
+);
+--> statement-breakpoint
+CREATE TABLE "legacy_follows" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"dancer_id" uuid NOT NULL,
+	"target_username" text NOT NULL,
+	"source" text DEFAULT 'v4' NOT NULL,
+	"created_at" timestamp DEFAULT now(),
+	CONSTRAINT "legacy_follows_dancer_target" UNIQUE("dancer_id","target_username")
 );
 --> statement-breakpoint
 CREATE TABLE "moderator_elections" (
@@ -565,6 +657,15 @@ CREATE TABLE "profile_access_log" (
 	"created_at" timestamp DEFAULT now()
 );
 --> statement-breakpoint
+CREATE TABLE "profile_affiliations" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"artist_profile_id" uuid NOT NULL,
+	"organizer_profile_id" uuid NOT NULL,
+	"kind" text NOT NULL,
+	"created_at" timestamp DEFAULT now(),
+	CONSTRAINT "profile_affiliations_pair" UNIQUE("artist_profile_id","organizer_profile_id")
+);
+--> statement-breakpoint
 CREATE TABLE "profile_claims" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"profile_id" uuid NOT NULL,
@@ -609,6 +710,8 @@ CREATE TABLE "profile_members" (
 	"role" text DEFAULT 'owner' NOT NULL,
 	"title" text,
 	"added_by" uuid,
+	"term_start" date,
+	"term_end" date,
 	"created_at" timestamp DEFAULT now(),
 	CONSTRAINT "profile_members_profile_dancer" UNIQUE("profile_id","dancer_id")
 );
@@ -657,6 +760,7 @@ CREATE TABLE "profiles" (
 	"videos" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"claimed" boolean DEFAULT false,
 	"status" text DEFAULT 'visible' NOT NULL,
+	"roles" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"created_at" timestamp DEFAULT now(),
 	"source_ref" jsonb,
 	CONSTRAINT "profiles_username_unique" UNIQUE("username")
@@ -725,8 +829,8 @@ CREATE TABLE "video_votes" (
 ALTER TABLE "ai_usage" ADD CONSTRAINT "ai_usage_event_id_events_id_fk" FOREIGN KEY ("event_id") REFERENCES "public"."events"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "ai_usage" ADD CONSTRAINT "ai_usage_flyer_id_event_flyers_id_fk" FOREIGN KEY ("flyer_id") REFERENCES "public"."event_flyers"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "ai_usage" ADD CONSTRAINT "ai_usage_dancer_id_dancers_id_fk" FOREIGN KEY ("dancer_id") REFERENCES "public"."dancers"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "artist_follows" ADD CONSTRAINT "artist_follows_dancer_id_dancers_id_fk" FOREIGN KEY ("dancer_id") REFERENCES "public"."dancers"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "artist_follows" ADD CONSTRAINT "artist_follows_profile_id_profiles_id_fk" FOREIGN KEY ("profile_id") REFERENCES "public"."profiles"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "attendances" ADD CONSTRAINT "attendances_event_id_events_id_fk" FOREIGN KEY ("event_id") REFERENCES "public"."events"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "attendances" ADD CONSTRAINT "attendances_dancer_id_dancers_id_fk" FOREIGN KEY ("dancer_id") REFERENCES "public"."dancers"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "availability_slots" ADD CONSTRAINT "availability_slots_space_id_bookable_spaces_id_fk" FOREIGN KEY ("space_id") REFERENCES "public"."bookable_spaces"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "bookable_spaces" ADD CONSTRAINT "bookable_spaces_profile_id_profiles_id_fk" FOREIGN KEY ("profile_id") REFERENCES "public"."profiles"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "booking_inquiries" ADD CONSTRAINT "booking_inquiries_profile_id_profiles_id_fk" FOREIGN KEY ("profile_id") REFERENCES "public"."profiles"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -742,6 +846,7 @@ ALTER TABLE "city_battle_votes" ADD CONSTRAINT "city_battle_votes_voter_dancer_i
 ALTER TABLE "city_videos" ADD CONSTRAINT "city_videos_dancer_id_dancers_id_fk" FOREIGN KEY ("dancer_id") REFERENCES "public"."dancers"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "community_group_reports" ADD CONSTRAINT "community_group_reports_group_id_community_groups_id_fk" FOREIGN KEY ("group_id") REFERENCES "public"."community_groups"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "community_group_reports" ADD CONSTRAINT "community_group_reports_dancer_id_dancers_id_fk" FOREIGN KEY ("dancer_id") REFERENCES "public"."dancers"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "dancer_goals" ADD CONSTRAINT "dancer_goals_dancer_id_dancers_id_fk" FOREIGN KEY ("dancer_id") REFERENCES "public"."dancers"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "dinner_group_members" ADD CONSTRAINT "dinner_group_members_group_id_dinner_groups_id_fk" FOREIGN KEY ("group_id") REFERENCES "public"."dinner_groups"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "dinner_group_members" ADD CONSTRAINT "dinner_group_members_dancer_id_dancers_id_fk" FOREIGN KEY ("dancer_id") REFERENCES "public"."dancers"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "dinner_groups" ADD CONSTRAINT "dinner_groups_dinner_id_dinners_id_fk" FOREIGN KEY ("dinner_id") REFERENCES "public"."dinners"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -772,16 +877,26 @@ ALTER TABLE "festival_signups" ADD CONSTRAINT "festival_signups_dancer_id_dancer
 ALTER TABLE "festival_submissions" ADD CONSTRAINT "festival_submissions_submitted_by_id_dancers_id_fk" FOREIGN KEY ("submitted_by_id") REFERENCES "public"."dancers"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "festival_waves" ADD CONSTRAINT "festival_waves_dancer_id_dancers_id_fk" FOREIGN KEY ("dancer_id") REFERENCES "public"."dancers"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "festival_waves" ADD CONSTRAINT "festival_waves_target_dancer_id_dancers_id_fk" FOREIGN KEY ("target_dancer_id") REFERENCES "public"."dancers"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "follows" ADD CONSTRAINT "follows_follower_id_dancers_id_fk" FOREIGN KEY ("follower_id") REFERENCES "public"."dancers"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "follows" ADD CONSTRAINT "follows_dancer_id_dancers_id_fk" FOREIGN KEY ("dancer_id") REFERENCES "public"."dancers"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "follows" ADD CONSTRAINT "follows_profile_id_profiles_id_fk" FOREIGN KEY ("profile_id") REFERENCES "public"."profiles"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "follows" ADD CONSTRAINT "follows_target_dancer_id_dancers_id_fk" FOREIGN KEY ("target_dancer_id") REFERENCES "public"."dancers"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "gigs" ADD CONSTRAINT "gigs_dancer_id_dancers_id_fk" FOREIGN KEY ("dancer_id") REFERENCES "public"."dancers"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "gigs" ADD CONSTRAINT "gigs_poster_profile_id_profiles_id_fk" FOREIGN KEY ("poster_profile_id") REFERENCES "public"."profiles"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "giveaway_entries" ADD CONSTRAINT "giveaway_entries_giveaway_id_giveaways_id_fk" FOREIGN KEY ("giveaway_id") REFERENCES "public"."giveaways"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "giveaway_entries" ADD CONSTRAINT "giveaway_entries_dancer_id_dancers_id_fk" FOREIGN KEY ("dancer_id") REFERENCES "public"."dancers"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "guideline_versions" ADD CONSTRAINT "guideline_versions_profile_id_profiles_id_fk" FOREIGN KEY ("profile_id") REFERENCES "public"."profiles"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "guideline_versions" ADD CONSTRAINT "guideline_versions_election_id_moderator_elections_id_fk" FOREIGN KEY ("election_id") REFERENCES "public"."moderator_elections"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "guideline_versions" ADD CONSTRAINT "guideline_versions_moderator_dancer_id_dancers_id_fk" FOREIGN KEY ("moderator_dancer_id") REFERENCES "public"."dancers"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "handles" ADD CONSTRAINT "handles_dancer_id_dancers_id_fk" FOREIGN KEY ("dancer_id") REFERENCES "public"."dancers"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "handles" ADD CONSTRAINT "handles_profile_id_profiles_id_fk" FOREIGN KEY ("profile_id") REFERENCES "public"."profiles"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "hangout_rsvps" ADD CONSTRAINT "hangout_rsvps_hangout_id_hangouts_id_fk" FOREIGN KEY ("hangout_id") REFERENCES "public"."hangouts"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "hangout_rsvps" ADD CONSTRAINT "hangout_rsvps_dancer_id_dancers_id_fk" FOREIGN KEY ("dancer_id") REFERENCES "public"."dancers"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "hangouts" ADD CONSTRAINT "hangouts_dancer_id_dancers_id_fk" FOREIGN KEY ("dancer_id") REFERENCES "public"."dancers"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "inbound_requests" ADD CONSTRAINT "inbound_requests_dancer_id_dancers_id_fk" FOREIGN KEY ("dancer_id") REFERENCES "public"."dancers"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "inbound_requests" ADD CONSTRAINT "inbound_requests_event_id_events_id_fk" FOREIGN KEY ("event_id") REFERENCES "public"."events"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "inbound_requests" ADD CONSTRAINT "inbound_requests_profile_id_profiles_id_fk" FOREIGN KEY ("profile_id") REFERENCES "public"."profiles"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "inbound_requests" ADD CONSTRAINT "inbound_requests_gig_id_gigs_id_fk" FOREIGN KEY ("gig_id") REFERENCES "public"."gigs"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "legacy_follows" ADD CONSTRAINT "legacy_follows_dancer_id_dancers_id_fk" FOREIGN KEY ("dancer_id") REFERENCES "public"."dancers"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "moderator_elections" ADD CONSTRAINT "moderator_elections_profile_id_profiles_id_fk" FOREIGN KEY ("profile_id") REFERENCES "public"."profiles"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "network_links" ADD CONSTRAINT "network_links_profile_id_profiles_id_fk" FOREIGN KEY ("profile_id") REFERENCES "public"."profiles"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "network_links" ADD CONSTRAINT "network_links_other_profile_id_profiles_id_fk" FOREIGN KEY ("other_profile_id") REFERENCES "public"."profiles"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -792,6 +907,8 @@ ALTER TABLE "plan_items" ADD CONSTRAINT "plan_items_dancer_id_dancers_id_fk" FOR
 ALTER TABLE "profile_access_log" ADD CONSTRAINT "profile_access_log_profile_id_profiles_id_fk" FOREIGN KEY ("profile_id") REFERENCES "public"."profiles"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "profile_access_log" ADD CONSTRAINT "profile_access_log_actor_id_dancers_id_fk" FOREIGN KEY ("actor_id") REFERENCES "public"."dancers"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "profile_access_log" ADD CONSTRAINT "profile_access_log_subject_id_dancers_id_fk" FOREIGN KEY ("subject_id") REFERENCES "public"."dancers"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "profile_affiliations" ADD CONSTRAINT "profile_affiliations_artist_profile_id_profiles_id_fk" FOREIGN KEY ("artist_profile_id") REFERENCES "public"."profiles"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "profile_affiliations" ADD CONSTRAINT "profile_affiliations_organizer_profile_id_profiles_id_fk" FOREIGN KEY ("organizer_profile_id") REFERENCES "public"."profiles"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "profile_claims" ADD CONSTRAINT "profile_claims_profile_id_profiles_id_fk" FOREIGN KEY ("profile_id") REFERENCES "public"."profiles"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "profile_claims" ADD CONSTRAINT "profile_claims_dancer_id_dancers_id_fk" FOREIGN KEY ("dancer_id") REFERENCES "public"."dancers"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "profile_claims" ADD CONSTRAINT "profile_claims_decided_by_dancers_id_fk" FOREIGN KEY ("decided_by") REFERENCES "public"."dancers"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
@@ -815,13 +932,23 @@ ALTER TABLE "video_votes" ADD CONSTRAINT "video_votes_loser_video_id_city_videos
 ALTER TABLE "video_votes" ADD CONSTRAINT "video_votes_voter_dancer_id_dancers_id_fk" FOREIGN KEY ("voter_dancer_id") REFERENCES "public"."dancers"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "ai_usage_created_idx" ON "ai_usage" USING btree ("created_at");--> statement-breakpoint
 CREATE INDEX "ai_usage_purpose_idx" ON "ai_usage" USING btree ("purpose");--> statement-breakpoint
-CREATE INDEX "artist_follows_profile_idx" ON "artist_follows" USING btree ("profile_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "attendances_event_email_uidx" ON "attendances" USING btree ("event_id",lower("buyer_email")) WHERE "attendances"."dancer_id" IS NULL;--> statement-breakpoint
+CREATE INDEX "attendances_event_status_idx" ON "attendances" USING btree ("event_id","status") WHERE "attendances"."visibility" <> 'hidden';--> statement-breakpoint
+CREATE INDEX "attendances_dancer_idx" ON "attendances" USING btree ("dancer_id");--> statement-breakpoint
 CREATE INDEX "availability_slots_space_idx" ON "availability_slots" USING btree ("space_id");--> statement-breakpoint
 CREATE INDEX "booking_inquiries_profile_idx" ON "booking_inquiries" USING btree ("profile_id","created_at");--> statement-breakpoint
 CREATE INDEX "booking_inquiries_email_idx" ON "booking_inquiries" USING btree ("email","created_at");--> statement-breakpoint
 CREATE INDEX "brand_looks_profile_idx" ON "brand_looks" USING btree ("profile_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "cities_google_place_id_uidx" ON "cities" USING btree ("google_place_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "cities_slug_uidx" ON "cities" USING btree ("slug");--> statement-breakpoint
+CREATE INDEX "cities_name_lower_idx" ON "cities" USING btree (lower("name"));--> statement-breakpoint
+CREATE INDEX "cities_local_name_lower_idx" ON "cities" USING btree (lower("local_name"));--> statement-breakpoint
+CREATE INDEX "cities_alt_names_gin_idx" ON "cities" USING gin ("alt_names");--> statement-breakpoint
 CREATE INDEX "city_battle_votes_session_idx" ON "city_battle_votes" USING btree ("voter_session_id","competition_month");--> statement-breakpoint
 CREATE INDEX "city_battle_votes_month_idx" ON "city_battle_votes" USING btree ("competition_month");--> statement-breakpoint
+CREATE INDEX "dancer_goals_dancer_idx" ON "dancer_goals" USING btree ("dancer_id");--> statement-breakpoint
+CREATE INDEX "deliveries_status_idx" ON "deliveries" USING btree ("status","created_at");--> statement-breakpoint
+CREATE INDEX "deliveries_subject_idx" ON "deliveries" USING btree ("subject_type","subject_id");--> statement-breakpoint
 CREATE INDEX "election_vote_history_idx" ON "election_vote_history" USING btree ("election_id","voter_dancer_id");--> statement-breakpoint
 CREATE INDEX "event_flyers_event_idx" ON "event_flyers" USING btree ("event_id","created_at");--> statement-breakpoint
 CREATE INDEX "event_flyers_batch_idx" ON "event_flyers" USING btree ("batch_id");--> statement-breakpoint
@@ -834,13 +961,19 @@ CREATE INDEX "events_city_start_idx" ON "events" USING btree ("city_slug","start
 CREATE INDEX "events_venue_username_idx" ON "events" USING btree ("venue_username");--> statement-breakpoint
 CREATE INDEX "events_organizer_username_idx" ON "events" USING btree ("organizer_username");--> statement-breakpoint
 CREATE INDEX "festival_waves_target_idx" ON "festival_waves" USING btree ("festival_slug","target_dancer_id");--> statement-breakpoint
+CREATE INDEX "follows_profile_idx" ON "follows" USING btree ("profile_id");--> statement-breakpoint
+CREATE INDEX "follows_target_dancer_idx" ON "follows" USING btree ("target_dancer_id");--> statement-breakpoint
 CREATE INDEX "guideline_versions_profile_idx" ON "guideline_versions" USING btree ("profile_id");--> statement-breakpoint
+CREATE INDEX "inbound_requests_kind_status_idx" ON "inbound_requests" USING btree ("kind","status");--> statement-breakpoint
+CREATE INDEX "inbound_requests_profile_idx" ON "inbound_requests" USING btree ("profile_id");--> statement-breakpoint
+CREATE INDEX "inbound_requests_created_idx" ON "inbound_requests" USING btree ("created_at");--> statement-breakpoint
 CREATE INDEX "moderator_elections_profile_idx" ON "moderator_elections" USING btree ("profile_id");--> statement-breakpoint
 CREATE INDEX "network_links_profile_idx" ON "network_links" USING btree ("profile_id");--> statement-breakpoint
 CREATE INDEX "org_sub_profile_idx" ON "organizer_subscriptions" USING btree ("profile_id");--> statement-breakpoint
 CREATE INDEX "org_sub_dancer_idx" ON "organizer_subscriptions" USING btree ("dancer_id");--> statement-breakpoint
 CREATE INDEX "plan_items_dancer_idx" ON "plan_items" USING btree ("dancer_id");--> statement-breakpoint
 CREATE INDEX "profile_access_log_profile_idx" ON "profile_access_log" USING btree ("profile_id","created_at");--> statement-breakpoint
+CREATE INDEX "profile_affiliations_organizer_idx" ON "profile_affiliations" USING btree ("organizer_profile_id");--> statement-breakpoint
 CREATE INDEX "profile_claims_status_idx" ON "profile_claims" USING btree ("status");--> statement-breakpoint
 CREATE UNIQUE INDEX "profile_invites_token_uidx" ON "profile_invites" USING btree ("token");--> statement-breakpoint
 CREATE UNIQUE INDEX "profile_invites_event_profile_uidx" ON "profile_invites" USING btree ("event_id","profile_id");--> statement-breakpoint

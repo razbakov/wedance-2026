@@ -1,5 +1,19 @@
-import { pgTable, uuid, text, integer, boolean, timestamp, date, unique, index, json, jsonb, doublePrecision, uniqueIndex, numeric } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, text, integer, boolean, timestamp, date, unique, index, json, jsonb, doublePrecision, uniqueIndex, numeric, check } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
+
+// ---------------------------------------------------------------------------
+// Handle registry (ADR-004, Step 12). One namespace for dancer and profile
+// URLs: `/@<handle>` resolves through this table. citext for
+// case-insensitive uniqueness. Exactly one of dancer_id / profile_id is set.
+// ---------------------------------------------------------------------------
+export const handles = pgTable('handles', {
+  handle: text('handle').primaryKey(),
+  dancerId: uuid('dancer_id').unique().references(() => dancers.id, { onDelete: 'cascade' }),
+  profileId: uuid('profile_id').unique().references(() => profiles.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (t) => [
+  check('handles_exactly_one_target', sql`num_nonnulls(${t.dancerId}, ${t.profileId}) = 1`),
+])
 
 export const dancers = pgTable('dancers', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -358,6 +372,10 @@ export const profiles = pgTable('profiles', {
   videos: jsonb('videos').$type<{ url: string }[]>().notNull().default([]),
   claimed: boolean('claimed').default(false),
   status: text('status').notNull().default('visible').$type<'visible' | 'hidden'>(),
+  // Step 14 (ADR-004): profile roles — teacher, dj, performer, mc, band,
+  // photographer, videographer; school, promoter, festival, community.
+  // GIN-indexed for "all DJs in Munich" queries.
+  roles: jsonb('roles').$type<string[]>().notNull().default([]),
   createdAt: timestamp('created_at').defaultNow(),
   // Provenance (added by scripts/migrate/00-schema.mjs; in Drizzle since 0022).
   // v4 imports: { v4ProfileId, firebaseId, v4Type }. v3 sync: { source: 'wedance-v3', sourceId, … }.
@@ -371,10 +389,14 @@ export const profileMembers = pgTable('profile_members', {
   id: uuid('id').primaryKey().defaultRandom(),
   profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
   dancerId: uuid('dancer_id').notNull().references(() => dancers.id, { onDelete: 'cascade' }),
-  role: text('role').notNull().default('owner').$type<'owner' | 'editor'>(),
+  role: text('role').notNull().default('owner').$type<'owner' | 'editor' | 'moderator'>(),
   // Public title on the team list ("Promoter", "Resident DJ") — not a permission (0027).
   title: text('title'),
   addedBy: uuid('added_by').references(() => dancers.id, { onDelete: 'set null' }),
+  // Step 13 (ADR-004): moderator term boundaries — set when election.close
+  // grants the moderator membership. Null for owner/editor roles.
+  termStart: date('term_start'),
+  termEnd: date('term_end'),
   createdAt: timestamp('created_at').defaultNow(),
 }, (t) => [
   unique('profile_members_profile_dancer').on(t.profileId, t.dancerId),
@@ -416,6 +438,19 @@ export const profileClaims = pgTable('profile_claims', {
 }, (t) => [
   unique('profile_claims_profile_dancer').on(t.profileId, t.dancerId),
   index('profile_claims_status_idx').on(t.status),
+])
+
+// Step 14 (ADR-004): artist ↔ organiser affiliations ("teaches at", "resident
+// DJ at", "member of"). Links an artist profile to an organiser/venue profile.
+export const profileAffiliations = pgTable('profile_affiliations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  artistProfileId: uuid('artist_profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
+  organizerProfileId: uuid('organizer_profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
+  kind: text('kind').notNull().$type<'teaches_at' | 'resident' | 'member'>(),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (t) => [
+  unique('profile_affiliations_pair').on(t.artistProfileId, t.organizerProfileId),
+  index('profile_affiliations_organizer_idx').on(t.organizerProfileId),
 ])
 
 // Who got, lost or changed access to a profile, and who did it (0027) — the
@@ -483,6 +518,8 @@ export const bookingRequests = pgTable('booking_requests', {
   moderatedById: uuid('moderated_by_id').references(() => dancers.id),
   moderatedAt: timestamp('moderated_at'),
   moderationNote: text('moderation_note'),
+  // Step 16 (ADR-010): when delivery outbox last notified venue members.
+  notifiedAt: timestamp('notified_at'),
   createdAt: timestamp('created_at').defaultNow(),
 })
 
@@ -651,6 +688,9 @@ export const gigs = pgTable('gigs', {
   // Soft delete: gigs can be marked closed without removing from history
   status: text('status').notNull().default('open').$type<'open' | 'closed'>(),
   dancerId: uuid('dancer_id').references(() => dancers.id),
+  // Step 14 (ADR-004): the professional profile who posted this gig — links
+  // gig to its page on WeDance. Nullable for gigs without a profile.
+  posterProfileId: uuid('poster_profile_id').references(() => profiles.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 })
@@ -694,6 +734,82 @@ export const planItems = pgTable(
     index('plan_items_dancer_idx').on(t.dancerId),
   ],
 )
+
+// ---------------------------------------------------------------------------
+// Attendances (ADR-008, migration 0044). One row per dancer per event: replaces
+// the festival/event rows of `plan_items` (Going clicks) and `festival_signups`
+// (ticket holders). Status ladder: interested → going → ticket_holder. One
+// visibility setting replaces both `plan_items.share_going` and
+// `festival_signups.roster_visibility`. Default visibility = hidden (opt-in).
+//
+// Phase 4 expand step: this table is created alongside the old tables. New
+// Going clicks dual-write here and to `plan_items`; the old reads stay on
+// `plan_items`/`festival_signups` until the switch step. `order_id` is nullable
+// and has no FK yet (the `orders` table ships in Phase 3 Step 22).
+// ---------------------------------------------------------------------------
+export const attendances = pgTable('attendances', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  eventId: uuid('event_id').notNull().references(() => events.id, { onDelete: 'cascade' }),
+  // Nullable for unclaimed ticket-holder stubs (buyer hasn't signed in yet).
+  dancerId: uuid('dancer_id').references(() => dancers.id, { onDelete: 'cascade' }),
+  // For stubs: the buyer's email until they claim. CHECK enforces at least one.
+  buyerEmail: text('buyer_email'),
+  // Status ladder: interested → going → ticket_holder. Only a paid/verified
+  // order sets ticket_holder. Cancelling "going" never removes a ticket.
+  status: text('status').notNull().$type<'interested' | 'going' | 'ticket_holder'>(),
+  // How the attendance was created.
+  source: text('source').notNull().default('click').$type<'click' | 'free_pass' | 'social_pass' | 'stripe' | 'tickettailor' | 'claim'>(),
+  // Links to the order that proves the ticket. Nullable; no FK until the
+  // orders table exists (Phase 3 Step 22).
+  orderId: uuid('order_id'),
+  // One visibility setting: hidden (default, opt-in), public_minimal (name +
+  // city), public_full (+ photo). Replaces both share_going and roster_visibility.
+  visibility: text('visibility').notNull().default('hidden').$type<'hidden' | 'public_minimal' | 'public_full'>(),
+  // Partner matching (was localStorage). Nullable = not set.
+  partnerStatus: text('partner_status').$type<'looking' | 'found'>(),
+  // Logistics timestamps (were localStorage toggles).
+  travelBookedAt: timestamp('travel_booked_at'),
+  stayBookedAt: timestamp('stay_booked_at'),
+  vacationBookedAt: timestamp('vacation_booked_at'),
+  // Organiser door flow.
+  checkedInAt: timestamp('checked_in_at'),
+  // Set when verified via TicketTailor webhook or Stripe payment confirmation.
+  verifiedAt: timestamp('verified_at'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+}, (t) => [
+  // One attendance per dancer per event.
+  unique('attendances_event_dancer').on(t.eventId, t.dancerId),
+  // One unclaimed stub per email per event (stubs have dancer_id NULL).
+  uniqueIndex('attendances_event_email_uidx')
+    .on(t.eventId, sql`lower(${t.buyerEmail})`)
+    .where(sql`${t.dancerId} IS NULL`),
+  // Public list query: events with visible attendees.
+  index('attendances_event_status_idx')
+    .on(t.eventId, t.status)
+    .where(sql`${t.visibility} <> 'hidden'`),
+  // My attendance lookups.
+  index('attendances_dancer_idx').on(t.dancerId),
+])
+
+// ---------------------------------------------------------------------------
+// Dancer goals (ADR-009, migration 0044). Goals were stored as plan_items with
+// item_type='goal' and the goal itself in metadata. Now they have their own
+// table with typed columns.
+// ---------------------------------------------------------------------------
+export const dancerGoals = pgTable('dancer_goals', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  dancerId: uuid('dancer_id').notNull().references(() => dancers.id, { onDelete: 'cascade' }),
+  kind: text('kind').notNull(),
+  title: text('title').notNull(),
+  target: text('target'),
+  periodYear: integer('period_year'),
+  metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+}, (t) => [
+  index('dancer_goals_dancer_idx').on(t.dancerId),
+])
 
 export const hangoutRsvps = pgTable('hangout_rsvps', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -835,34 +951,36 @@ export const referrals = pgTable('referrals', {
 ])
 
 // ---------------------------------------------------------------------------
-// Artist Follows — a dancer follows a professional artist profile to track
-// where they appear across festivals and cities (RAZ-55).
-// ---------------------------------------------------------------------------
-export const artistFollows = pgTable('artist_follows', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  dancerId: uuid('dancer_id').notNull().references(() => dancers.id),
-  profileId: uuid('profile_id').notNull().references(() => profiles.id),
-  createdAt: timestamp('created_at').defaultNow(),
-}, (t) => [
-  unique('artist_follows_dancer_profile').on(t.dancerId, t.profileId),
-  index('artist_follows_profile_idx').on(t.profileId),
-])
-
-// ---------------------------------------------------------------------------
-// Follows — the v4 follow graph, migrated by scripts/migrate/05-follows.mjs.
-// A dancer follows a profile handle (venue / artist / organizer). This is the
-// production-only legacy table created by 00-schema.mjs; it is NOT in the old
-// Drizzle journal and must be in schema.ts so `drizzle-kit generate` never
-// proposes dropping it (667 edges + rollback key).
+// Follows — unified follow graph (ADR-004, Step 15). A dancer follows either
+// a professional profile (venue/artist/organizer) OR another dancer. Exactly
+// one of profile_id / target_dancer_id is set per row. Renamed from
+// `artist_follows` (migration 0044). Mutual dancer→dancer follows = friends.
 // ---------------------------------------------------------------------------
 export const follows = pgTable('follows', {
   id: uuid('id').primaryKey().defaultRandom(),
-  followerId: uuid('follower_id').notNull().references(() => dancers.id),
-  targetUsername: text('target_username').notNull(),
-  sourceRef: jsonb('source_ref').$type<Record<string, unknown>>(),
+  dancerId: uuid('dancer_id').notNull().references(() => dancers.id),
+  profileId: uuid('profile_id').references(() => profiles.id),
+  // Step 15: dancer→dancer follows (RAZ-319 decided: mutual = friends).
+  targetDancerId: uuid('target_dancer_id').references(() => dancers.id),
   createdAt: timestamp('created_at').defaultNow(),
 }, (t) => [
-  unique('follows_follower_target').on(t.followerId, t.targetUsername),
+  unique('follows_dancer_profile').on(t.dancerId, t.profileId),
+  unique('follows_dancer_dancer').on(t.dancerId, t.targetDancerId),
+  index('follows_profile_idx').on(t.profileId),
+  index('follows_target_dancer_idx').on(t.targetDancerId),
+  check('follows_exactly_one_target', sql`num_nonnulls(${t.profileId}, ${t.targetDancerId}) = 1`),
+])
+
+// Legacy follows from v4 that couldn't be resolved to a profile or dancer
+// during the Step 15 migration. Kept for provenance; no app code reads this.
+export const legacyFollows = pgTable('legacy_follows', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  dancerId: uuid('dancer_id').notNull().references(() => dancers.id),
+  targetUsername: text('target_username').notNull(),
+  source: text('source').notNull().default('v4'),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (t) => [
+  unique('legacy_follows_dancer_target').on(t.dancerId, t.targetUsername),
 ])
 
 /**
@@ -1059,6 +1177,52 @@ export const profileInvites = pgTable('profile_invites', {
 }, (t) => [
   uniqueIndex('profile_invites_token_uidx').on(t.token),
   uniqueIndex('profile_invites_event_profile_uidx').on(t.eventId, t.profileId),
+])
+
+// ---------------------------------------------------------------------------
+// Inbound requests (ADR-010, Step 16). Every public-facing request — event
+// enquiries, problem reports, gig applications, general contact — is stored
+// here first, then delivered to Linear / email by the delivery outbox.
+// ---------------------------------------------------------------------------
+export const inboundRequests = pgTable('inbound_requests', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  kind: text('kind').notNull().$type<'event_inquiry' | 'problem_report' | 'gig_application' | 'contact'>(),
+  status: text('status').notNull().default('new').$type<'new' | 'triaged' | 'in_progress' | 'answered' | 'closed' | 'spam'>(),
+  dancerId: uuid('dancer_id').references(() => dancers.id, { onDelete: 'set null' }),
+  email: text('email'),
+  name: text('name'),
+  // Polymorphic links: which entity this request is about (one or none).
+  eventId: uuid('event_id').references(() => events.id, { onDelete: 'set null' }),
+  profileId: uuid('profile_id').references(() => profiles.id, { onDelete: 'set null' }),
+  gigId: uuid('gig_id').references(() => gigs.id, { onDelete: 'set null' }),
+  // Free-form payload for kind-specific data (subject, message, details).
+  payload: jsonb('payload').$type<Record<string, unknown>>().notNull().default({}),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+}, (t) => [
+  index('inbound_requests_kind_status_idx').on(t.kind, t.status),
+  index('inbound_requests_profile_idx').on(t.profileId),
+  index('inbound_requests_created_idx').on(t.createdAt),
+])
+
+// Delivery outbox (ADR-010, Step 16). Every notification that leaves the app
+// (Linear issue, email, push). A cron picks up pending deliveries, sends them,
+// and marks them delivered. Retries capped at 3.
+export const deliveries = pgTable('deliveries', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  subjectType: text('subject_type').notNull().$type<'inbound_request' | 'booking_request' | 'booking_inquiry'>(),
+  subjectId: uuid('subject_id').notNull(),
+  channel: text('channel').notNull().$type<'linear' | 'email'>(),
+  target: text('target').notNull(), // email address or Linear team id
+  status: text('status').notNull().default('pending').$type<'pending' | 'delivered' | 'failed'>(),
+  attempts: integer('attempts').notNull().default(0),
+  lastError: text('last_error'),
+  externalRef: text('external_ref'), // Linear issue id or email message-id
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  deliveredAt: timestamp('delivered_at'),
+}, (t) => [
+  index('deliveries_status_idx').on(t.status, t.createdAt),
+  index('deliveries_subject_idx').on(t.subjectType, t.subjectId),
 ])
 
 // Booking inquiries (migration 0039): anyone asks to book an artist or venue

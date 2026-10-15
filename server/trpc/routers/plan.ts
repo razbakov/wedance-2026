@@ -1,7 +1,7 @@
 import { z } from 'zod'
-import { eq, and, ne, sql, inArray, gte, lt, asc, ilike } from 'drizzle-orm'
+import { eq, and, ne, sql, inArray, gte, lt, asc, ilike, isNotNull } from 'drizzle-orm'
 import { router, publicProcedure, protectedProcedure } from '../trpc'
-import { planItems, dancers, festivals, festivalSignups, events } from '../../database/schema'
+import { planItems, dancers, festivals, festivalSignups, events, attendances, dancerGoals } from '../../database/schema'
 import { getReferralDiscountPercent, getEarlyBirdInfo } from '../../utils/ticket-prices'
 import { eventPath } from '../../../shared/utils/eventSlug'
 import { festivalPath } from '../../../shared/utils/eventSlug'
@@ -94,6 +94,63 @@ export const planRouter = router({
         .insert(planItems)
         .values(values)
         .onConflictDoNothing()
+
+      // Phase 4 dual-write: also write to the new typed tables so they
+      // accumulate data for the switch step. Best-effort — failures here
+      // don't block the plan_items write.
+      try {
+        if (input.itemType === 'event') {
+          // itemId is an event UUID.
+          await ctx.db
+            .insert(attendances)
+            .values({
+              eventId: input.itemId,
+              dancerId: ctx.dancerId,
+              status: 'going',
+              source: 'click',
+              visibility: 'hidden',
+            })
+            .onConflictDoNothing()
+        } else if (input.itemType === 'festival') {
+          // itemId is a festival slug. Look up the matching event by slug
+          // or festival JSONB key.
+          const [ev] = await ctx.db
+            .select({ id: events.id })
+            .from(events)
+            .where(sql`${events.slug} = ${input.itemId} OR ${events.festival}->>'key' = ${input.itemId}`)
+            .limit(1)
+          if (ev) {
+            await ctx.db
+              .insert(attendances)
+              .values({
+                eventId: ev.id,
+                dancerId: ctx.dancerId,
+                status: 'going',
+                source: 'click',
+                visibility: 'hidden',
+              })
+              .onConflictDoNothing()
+          }
+        } else if (input.itemType === 'goal') {
+          // Dual-write to dancer_goals.
+          const meta = input.metadata ?? {}
+          await ctx.db
+            .insert(dancerGoals)
+            .values({
+              id: input.itemId,
+              dancerId: ctx.dancerId,
+              kind: meta.kind ?? 'custom',
+              title: meta.title ?? input.itemId,
+              target: meta.target,
+              periodYear: meta.periodYear ? parseInt(meta.periodYear) : undefined,
+              metadata: meta,
+            })
+            .onConflictDoNothing()
+        }
+      } catch {
+        // Best-effort: the attendances table may not exist yet in
+        // production (migration not yet applied). Swallow the error.
+      }
     }),
 
   updateMetadata: protectedProcedure
@@ -134,15 +191,61 @@ export const planRouter = router({
             eq(planItems.itemId, input.itemId),
           ),
         )
+
+      // Phase 4 dual-write: also remove from the new typed tables.
+      try {
+        if (input.itemType === 'event') {
+          await ctx.db
+            .delete(attendances)
+            .where(
+              and(
+                eq(attendances.eventId, input.itemId),
+                eq(attendances.dancerId, ctx.dancerId),
+                ne(attendances.status, 'ticket_holder'),
+              ),
+            )
+        } else if (input.itemType === 'festival') {
+          const [ev] = await ctx.db
+            .select({ id: events.id })
+            .from(events)
+            .where(sql`${events.slug} = ${input.itemId} OR ${events.festival}->>'key' = ${input.itemId}`)
+            .limit(1)
+          if (ev) {
+            await ctx.db
+              .delete(attendances)
+              .where(
+                and(
+                  eq(attendances.eventId, ev.id),
+                  eq(attendances.dancerId, ctx.dancerId),
+                  ne(attendances.status, 'ticket_holder'),
+                ),
+              )
+          }
+        } else if (input.itemType === 'goal') {
+          await ctx.db
+            .delete(dancerGoals)
+            .where(
+              and(
+                eq(dancerGoals.id, input.itemId),
+                eq(dancerGoals.dancerId, ctx.dancerId),
+              ),
+            )
+        }
+      } catch {
+        // Best-effort: swallow if tables don't exist yet.
+      }
     }),
 
   /**
-   * Public list of dancers who marked "Going" for a festival or event.
+   * Public list of dancers visible on a festival or event page.
    *
-   * Returns name + photo + city + username for public profiles, capped
-   * at 50.  Used by the festivals listing (avatar stack), the festival
-   * detail page ("Who's going" section), and event detail pages so
-   * visitors can see real people before they book.
+   * For **festivals**: returns verified ticket holders only (RAZ-314,
+   * "no fake friends" — RAZ-83). Queries `festival_signups` joined with
+   * `dancers`; the dancer must have `verified_ticket_holder = true`,
+   * `roster_visibility != 'hidden'`, and `profile_public = true`.
+   *
+   * For **events**: returns dancers who opted in via `share_going` on
+   * their plan item, with `profile_public = true` (unchanged behaviour).
    *
    * Accepts either `festivalSlug` (legacy shorthand for itemType=festival)
    * or the generic `itemType` + `itemId` pair.
@@ -160,6 +263,46 @@ export const planRouter = router({
       const type = input.itemType ?? 'festival'
       const id = input.itemId ?? input.festivalSlug!
 
+      // --- Festivals: verified ticket holders only (RAZ-314) ---
+      if (type === 'festival') {
+        const [festival] = await ctx.db
+          .select({ id: festivals.id })
+          .from(festivals)
+          .where(eq(festivals.slug, id))
+
+        if (!festival) return []
+
+        const rows = await ctx.db
+          .select({
+            dancerId: festivalSignups.dancerId,
+            name: dancers.name,
+            photo: dancers.photo,
+            city: dancers.city,
+            username: dancers.username,
+          })
+          .from(festivalSignups)
+          .innerJoin(dancers, eq(festivalSignups.dancerId, dancers.id))
+          .where(
+            and(
+              eq(festivalSignups.festivalId, festival.id),
+              eq(festivalSignups.verifiedTicketHolder, true),
+              isNotNull(festivalSignups.dancerId),
+              ne(festivalSignups.rosterVisibility, 'hidden'),
+              eq(dancers.profilePublic, true),
+            ),
+          )
+          .limit(50)
+
+        return rows.map(r => ({
+          dancerId: r.dancerId!,
+          name: r.name,
+          photo: r.photo,
+          city: r.city,
+          username: r.username,
+        }))
+      }
+
+      // --- Events: opt-in share_going (unchanged) ---
       const rows = await ctx.db
         .select({
           dancerId: planItems.dancerId,
