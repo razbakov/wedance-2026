@@ -1427,8 +1427,6 @@ useHead({
       @add-partner="addPartner"
     />
 
-    <SignUpModal v-model:open="showSignUp" :action="signUpAction" :prefill="signUpPrefill" />
-
     <!-- WeDance ticket checkout — buying happens here, on WeDance. -->
     <Teleport to="body">
       <Transition
@@ -1728,4 +1726,8 @@ useHead({
 
     <SiteFooter />
   </div>
+
+  <!-- Outside the v-if/v-else so the shared-plan view (Add friend / Be their
+       partner) can open it too — it used to mount only on the normal page. -->
+  <SignUpModal v-model:open="showSignUp" :action="signUpAction" :prefill="signUpPrefill" />
 </template>
