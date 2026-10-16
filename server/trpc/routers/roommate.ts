@@ -3,17 +3,16 @@ import { eq, and, ne } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { router, publicProcedure, protectedProcedure } from '../trpc'
 import { festivalRoommateLookups, festivals, dancers } from '../../database/schema'
+import { ensureFestival } from '../../utils/ensureFestival'
 
 export const roommateRouter = router({
   list: publicProcedure
     .input(z.object({ festivalSlug: z.string() }))
     .query(async ({ ctx, input }) => {
-      const [festival] = await ctx.db
-        .select({ id: festivals.id })
-        .from(festivals)
-        .where(eq(festivals.slug, input.festivalSlug))
+      const festivalId = await ensureFestival(ctx.db, input.festivalSlug)
 
-      if (!festival) return { looking: false, others: [] }
+      if (!festivalId) return { looking: false, others: [] }
+      const festival = { id: festivalId }
 
       let looking = false
 
@@ -58,12 +57,10 @@ export const roommateRouter = router({
   toggle: protectedProcedure
     .input(z.object({ festivalSlug: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const [festival] = await ctx.db
-        .select({ id: festivals.id })
-        .from(festivals)
-        .where(eq(festivals.slug, input.festivalSlug))
+      const festivalId = await ensureFestival(ctx.db, input.festivalSlug)
 
-      if (!festival) throw new TRPCError({ code: 'NOT_FOUND', message: 'Festival not found' })
+      if (!festivalId) throw new TRPCError({ code: 'NOT_FOUND', message: 'Festival not found' })
+      const festival = { id: festivalId }
 
       const [existing] = await ctx.db
         .select({ id: festivalRoommateLookups.id })

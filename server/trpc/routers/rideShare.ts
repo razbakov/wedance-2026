@@ -3,6 +3,7 @@ import { eq, and } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { router, publicProcedure, protectedProcedure } from '../trpc'
 import { festivalRideShares, festivals, dancers } from '../../database/schema'
+import { ensureFestival } from '../../utils/ensureFestival'
 
 const CONTACT_LINK_PATTERN = /^https?:\/\/(wa\.me|chat\.whatsapp\.com|t\.me|telegram\.me)\//i
 
@@ -10,12 +11,10 @@ export const rideShareRouter = router({
   list: publicProcedure
     .input(z.object({ festivalSlug: z.string() }))
     .query(async ({ ctx, input }) => {
-      const [festival] = await ctx.db
-        .select({ id: festivals.id })
-        .from(festivals)
-        .where(eq(festivals.slug, input.festivalSlug))
+      const festivalId = await ensureFestival(ctx.db, input.festivalSlug)
 
-      if (!festival) return []
+      if (!festivalId) return []
+      const festival = { id: festivalId }
 
       const rows = await ctx.db
         .select({
@@ -58,12 +57,10 @@ export const rideShareRouter = router({
       contactLink: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const [festival] = await ctx.db
-        .select({ id: festivals.id })
-        .from(festivals)
-        .where(eq(festivals.slug, input.festivalSlug))
+      const festivalId = await ensureFestival(ctx.db, input.festivalSlug)
 
-      if (!festival) throw new TRPCError({ code: 'NOT_FOUND', message: 'Festival not found' })
+      if (!festivalId) throw new TRPCError({ code: 'NOT_FOUND', message: 'Festival not found' })
+      const festival = { id: festivalId }
 
       // Validate contact link if provided
       const contactLink = input.contactLink?.trim() || null
@@ -114,12 +111,10 @@ export const rideShareRouter = router({
   delete: protectedProcedure
     .input(z.object({ festivalSlug: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const [festival] = await ctx.db
-        .select({ id: festivals.id })
-        .from(festivals)
-        .where(eq(festivals.slug, input.festivalSlug))
+      const festivalId = await ensureFestival(ctx.db, input.festivalSlug)
 
-      if (!festival) throw new TRPCError({ code: 'NOT_FOUND', message: 'Festival not found' })
+      if (!festivalId) throw new TRPCError({ code: 'NOT_FOUND', message: 'Festival not found' })
+      const festival = { id: festivalId }
 
       await ctx.db
         .delete(festivalRideShares)
