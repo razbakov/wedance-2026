@@ -47,6 +47,7 @@ export const PROCEDURE_SCOPES: Record<string, Scope | null> = {
   'festivalSignup.myTickets': 'me:read',
   'follow.myFollows': 'me:read',
   'referral.myReferrals': 'me:read',
+  'gigs.myApplications': 'me:read',
 
   // plan:write
   'plan.add': 'plan:write',
@@ -69,6 +70,8 @@ export const PROCEDURE_SCOPES: Record<string, Scope | null> = {
   'giveaway.enter': 'social:write',
   'cityVideo.vote': 'social:write',
   'profile.update': 'social:write',
+  // Applying shares the dancer's message and email with the gig's poster, like inquiries.send.
+  'gigs.applyTo': 'social:write',
 
   // business:read — only for the profiles the grant names (profile checks in the routers).
   'business.myProfiles': 'business:read',
@@ -87,6 +90,18 @@ export const PROCEDURE_SCOPES: Record<string, Scope | null> = {
   'festivalInsights.myFestivals': 'business:read',
   'festivalInsights.styleLevelMix': 'business:read',
   'artistInvites.get': 'business:read',
+  'businessEvents.seriesPreview': 'business:read',
+  'businessEvents.series': 'business:read',
+  'businessEvents.attendees': 'business:read',
+  'gigs.applications': 'business:read',
+  // Tracked links: the link is made on first use (no visible change, idempotent).
+  'referral.myLink': 'business:read',
+  'referral.myResults': 'business:read',
+  'referral.promoterDashboard': 'business:read',
+  'referral.eventLinkResults': 'business:read',
+  // Read-only-ish: may paint the event's first flyer / write a caption (drafts nobody sees).
+  'referral.promoKit': 'business:read',
+  'giveaway.proposals': 'business:read',
 
   // business:write — drafts. Publishing through these needs business:publish
   // too (businessEvents.create/update/duplicate check it themselves).
@@ -103,6 +118,10 @@ export const PROCEDURE_SCOPES: Record<string, Scope | null> = {
   'inquiries.setStatus': 'business:write',
   'inquiries.addToEvent': 'business:write',
   'booking.setAvailability': 'business:write',
+  // Publishing the dates needs business:publish too (checked inside).
+  'businessEvents.createSeries': 'business:write',
+  // A request the event's team decides on; nothing goes public by it.
+  'giveaway.propose': 'business:write',
 
   // business:publish — goes public or reaches another person.
   'business.update': 'business:publish',
@@ -113,6 +132,9 @@ export const PROCEDURE_SCOPES: Record<string, Scope | null> = {
   'businessTeam.decideJoin': 'business:publish',
   'businessTeam.setRole': 'business:publish',
   'gigs.create': 'business:publish',
+  'businessEvents.publishSeries': 'business:publish',
+  'gigs.decideApplication': 'business:publish',
+  'giveaway.decideProposal': 'business:publish',
 
   // admin — adminProcedure also requires ctx.isAdmin, which a token only
   // carries for an admin on an allowlisted app.
