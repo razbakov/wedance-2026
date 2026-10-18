@@ -15,6 +15,7 @@ import {
 import { sendMagicLinkEmail, sendPasswordResetEmail } from '../../utils/email'
 import { generateUsername } from '../../utils/slug'
 import { freeHandle } from '../../utils/handles'
+import { recordLinkAction } from '../../utils/trackedLinks'
 
 // FirebaseScrypt parameters, ported verbatim from wedance-v4
 // (server/api/auth/[...].ts). These MUST match v4 exactly so legacy user
@@ -86,6 +87,9 @@ export const authRouter = router({
         if (input.role) updateSet.role = input.role
         if (input.city) updateSet.city = input.city
 
+        // A first magic link creates the account: a promoter's link may get the credit.
+        const [before] = ctx.viaCode ? await ctx.db.select({ id: dancers.id }).from(dancers).where(eq(dancers.email, input.email)) : [null]
+
         // Upsert: create new user or update existing user's magic token.
         try {
           await ctx.db
@@ -111,9 +115,10 @@ export const authRouter = router({
 
         // Get the dancer name for the email greeting
         const [dancer] = await ctx.db
-          .select({ name: dancers.name })
+          .select({ id: dancers.id, name: dancers.name })
           .from(dancers)
           .where(eq(dancers.email, input.email))
+        if (ctx.viaCode && !before && dancer) await recordLinkAction(ctx.db, ctx.viaCode, 'signup', { dancerId: dancer.id })
 
         const config = useRuntimeConfig()
         const siteUrl = config.siteUrl || 'http://localhost:3000'
@@ -348,6 +353,9 @@ export const authRouter = router({
           message: 'Could not create your account. Please try again.',
         })
       }
+
+      // Came through a promoter's tracked link: credit the sign-up.
+      await recordLinkAction(ctx.db, ctx.viaCode, 'signup', { dancerId: dancer.id })
 
       // Booking requests they sent before they had an account become theirs.
       try {
