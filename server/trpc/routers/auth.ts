@@ -483,6 +483,15 @@ export const authRouter = router({
       }
     }),
 
+  // The signed-in dancer's account email. Not part of `me` (which the whole app
+  // reads); connected-app tools that share it with someone the dancer contacts
+  // (booking request, gig post, giveaway entry) fetch it here, under me:read.
+  myEmail: protectedProcedure.query(async ({ ctx }) => {
+    const [d] = await ctx.db.select({ email: dancers.email }).from(dancers).where(eq(dancers.id, ctx.dancerId))
+    if (!d) throw new TRPCError({ code: 'NOT_FOUND', message: 'Account not found.' })
+    return { email: d.email }
+  }),
+
   // GDPR account deletion: permanently remove the dancer and cascade delete or
   // anonymize referencing rows in FK-safe order. All writes execute atomically
   // in a transaction. Session is invalidated immediately on return.

@@ -42,6 +42,7 @@ export const PROCEDURE_SCOPES: Record<string, Scope | null> = {
 
   // me:read — the dancer's own data.
   'auth.me': 'me:read',
+  'auth.myEmail': 'me:read',
   'plan.myPlan': 'me:read',
   'plan.list': 'me:read',
   'festivalSignup.myTickets': 'me:read',
