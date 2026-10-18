@@ -694,7 +694,7 @@ const chipInk = (c: string, alpha = 0.094) => readableOn(c, mixHex(c, '#fff', al
               </Button>
               <span v-if="myGigIds.has(g.id)" class="text-xs font-bold text-secondary font-sans">Your gig</span>
               <Button
-                v-else-if="g.kind === 'role' && isSignedIn && !myApplicationFor.get(g.id)"
+                v-else-if="g.kind === 'role' && isSignedIn && !myApplicationFor.get(g.id) && applyOpen !== g.id"
                 type="button" variant="pill" size="pill-sm" class="[&_svg]:size-3.5" :accent="ink(getAccent(g.category))"
                 :aria-expanded="applyOpen === g.id ? 'true' : 'false'"
                 @click="openApply(g.id)"

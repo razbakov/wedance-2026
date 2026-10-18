@@ -623,7 +623,7 @@ export const businessEventsRouter = router({
       return {
         event: { id: ev.id, name: ev.name, date: ev.startDate ? eventLocalDate(ev.startDate, ev.timezone || 'Europe/Berlin') : null },
         ...r,
-        note: r.counts.hidden ? `${r.counts.hidden} of ${r.counts.total} aren’t named: they keep their plans private (or haven’t claimed their ticket yet).` : null,
+        summary: r.counts.hidden ? `${r.counts.hidden} of ${r.counts.total} aren’t named: they keep their plans private (or haven’t claimed their ticket yet).` : null,
         csv: input.csv ? attendeesCsv(r.attendees) : null,
       }
     }),

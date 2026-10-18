@@ -111,7 +111,8 @@ export async function kitCaption(db: Db, ev: any, opts: { language: string; link
     else if (opts.manager) await db.update(events).set({ caption: c, updatedAt: new Date() }).where(eq(events.id, ev.id))
     return { caption: c, source: 'written now' }
   } catch (e) {
-    return { caption: null, source: 'none', error: `Couldn’t write a caption right now (${(e as Error).message}). Try again later.` }
+    console.error('[promo-kit] caption failed', (e as Error).message)
+    return { caption: null, source: 'none', error: 'Couldn’t write a caption right now. Try again later, or use the organizer’s once they write one.' }
   }
 }
 

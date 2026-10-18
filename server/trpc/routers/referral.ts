@@ -280,7 +280,7 @@ export const referralRouter = router({
         flyer: {
           story: flyers.story, feed: flyers.feed,
           painting: painting ? { batchId: painting.batchId, next: 'A flyer is being painted (about a minute): poll flyer_status with this batch_id, or call promo_kit again.' } : null,
-          note: flyers.recentFailure && !flyers.story && !flyers.feed
+          hint: flyers.recentFailure && !flyers.story && !flyers.feed
             ? `The flyer painting just failed (${flyers.recentFailure}). Try again in a few minutes, or ask the organizer.`
             : !flyers.story && !flyers.feed && !painting ? 'No flyer yet. Ask the organizer, or call again with paint_if_missing.' : (flyers.story && !flyers.feed ? 'Only the story (9:16) exists; the organizer can make the 4:5 feed version from it.' : null),
         },
