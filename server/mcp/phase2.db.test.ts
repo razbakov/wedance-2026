@@ -184,7 +184,7 @@ describe.skipIf(!DATABASE_URL)('MCP phase 2 (DB)', () => {
       expect(JSON.stringify(r)).not.toContain('Private Profile')
       expect(JSON.stringify(r)).not.toContain('@test.local')
       expect(r.csv!.split('\n')).toEqual(['name,handle,city,status', `"Fan Public","${tag}-fan","Munich","ticket"`])
-      expect(r.note).toMatch(/3 of 4/)
+      expect(r.summary).toMatch(/3 of 4/)
     })
 
     it('only the event’s team, only through a granted page, only with business:read', async () => {
@@ -218,6 +218,17 @@ describe.skipIf(!DATABASE_URL)('MCP phase 2 (DB)', () => {
       await expect(noPage.caller.gigs.applyTo({ gigId: offerGig, message: 'As a page I didn’t grant.', profile: pages.artist.username })).rejects.toThrow()
       const mine = json(await callTool(TOOL_BY_NAME.get('my_gig_applications')!, {}, artist))
       expect(mine.map((a: any) => a.gig.title.untrusted_text)).toContain(`${tag} Salsa teacher`)
+    })
+
+    it('post_gig_offer, enter_giveaway, request_private_class use the account email (auth.myEmail)', async () => {
+      const pub = await app(ids.org, ['business:publish', 'me:read'], [pages.club.id])
+      const tool = TOOL_BY_NAME.get('post_gig_offer')!
+      const args = { kind: 'role', category: 'DJ', title: `${tag} DJ wanted`, poster_name: 'Club', poster_type: 'Organizer', location: 'Munich', when: 'Fridays', compensation: '€100' }
+      const pv = json(await callTool(tool, args, pub))
+      const done = json(await callTool(tool, { ...args, confirm_token: pv.confirm_token }, pub))
+      const [row] = await db.select().from(schema.gigs).where(eq(schema.gigs.id, done.id))
+      expect(row.contactEmail).toBe(`${tag}-org@test.local`)
+      await expect((await app(ids.org, ['business:read'], [pages.club.id])).caller.auth.myEmail()).rejects.toThrow(/insufficient_scope.*me:read/)
     })
 
     it('the poster sees applications and decides (preview → confirm); others can’t', async () => {
@@ -338,7 +349,7 @@ describe.skipIf(!DATABASE_URL)('MCP phase 2 (DB)', () => {
       const promo = await app(ids.promo, ['business:read'], [pages.promo.id])
       const none = await promo.caller.referral.promoKit({ eventId: otherEvent, profile: pages.promo.username, paintIfMissing: false })
       expect(none.flyer.story).toBeNull()
-      expect(none.flyer.note).toMatch(/No flyer yet/)
+      expect(none.flyer.hint).toMatch(/No flyer yet/)
       const painting = await promo.caller.referral.promoKit({ eventId: otherEvent, profile: pages.promo.username, paintIfMissing: true })
       expect(painting.flyer.painting!.batchId).toMatch(/^[0-9a-f-]{36}$/)
       const again = await promo.caller.referral.promoKit({ eventId: otherEvent, profile: pages.promo.username, paintIfMissing: true })
@@ -346,7 +357,7 @@ describe.skipIf(!DATABASE_URL)('MCP phase 2 (DB)', () => {
       const rows = await db.select().from(schema.eventFlyers).where(eq(schema.eventFlyers.eventId, otherEvent))
       expect(rows).toHaveLength(1)
       if (again.flyer.painting) expect(again.flyer.painting.batchId).toBe(painting.flyer.painting!.batchId)
-      else expect(again.flyer.note).toMatch(/just failed/)
+      else expect(again.flyer.hint).toMatch(/just failed/)
     })
 
     it('not for non-promoter pages of strangers; the team gets a kit without a link', async () => {

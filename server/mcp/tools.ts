@@ -437,7 +437,8 @@ export const TOOLS: ToolDef[] = [
     },
     run: async (t, a) => {
       const me: any = await t.caller.auth.me()
-      return t.caller.inquiries.send({ handle: a.handle, name: me.name, email: me.email, what: a.what, message: a.message, eventDate: a.date ?? '', city: a.city ?? '', guests: a.guests ?? null, budget: a.budget ?? '', phone: '', organization: '', website: '' })
+      const { email } = await t.caller.auth.myEmail()
+      return t.caller.inquiries.send({ handle: a.handle, name: me.name, email, what: a.what, message: a.message, eventDate: a.date ?? '', city: a.city ?? '', guests: a.guests ?? null, budget: a.budget ?? '', phone: '', organization: '', website: '' })
     },
   },
   {
@@ -451,8 +452,8 @@ export const TOOLS: ToolDef[] = [
     description: 'Enter the dancer into a giveaway with their account email.',
     input: { giveaway_id: z.string().uuid() },
     run: async (t, a) => {
-      const me: any = await t.caller.auth.me()
-      return t.caller.giveaway.enter({ giveawayId: a.giveaway_id, email: me.email })
+      const { email } = await t.caller.auth.myEmail()
+      return t.caller.giveaway.enter({ giveawayId: a.giveaway_id, email })
     },
   },
   {
@@ -823,8 +824,8 @@ export const TOOLS: ToolDef[] = [
     },
     preview: async (_t, a) => ({ kind: a.kind, title: a.title, by: a.poster_name, where: a.location, when: a.when, pay: a.compensation, effect: 'Publicly listed on /gigs with your account email as contact.' }),
     run: async (t, a) => {
-      const me: any = await t.caller.auth.me()
-      return t.caller.gigs.create({ kind: a.kind, category: a.category, title: a.title, posterName: a.poster_name, posterType: a.poster_type, location: a.location, styles: a.styles, when: a.when, compensation: a.compensation, deadline: a.deadline, contactEmail: me.email, contactUrl: a.contact_url })
+      const { email } = await t.caller.auth.myEmail()
+      return t.caller.gigs.create({ kind: a.kind, category: a.category, title: a.title, posterName: a.poster_name, posterType: a.poster_type, location: a.location, styles: a.styles, when: a.when, compensation: a.compensation, deadline: a.deadline, contactEmail: email, contactUrl: a.contact_url })
     },
   },
   {
