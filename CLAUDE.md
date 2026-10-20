@@ -239,7 +239,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `ticket_cta_click` | `FestivalHero` (external shop), `FestivalView` (Stripe checkout) | `slug` / `festival`, `provider` (stripe / tickettailor / external), `tickets`, … |
 | `organizer_cta_click` · `sponsor_cta_click` · `press_cta_click` · `whats_new_*_click` | marketing pages | `surface`, `kind` |
 | `app_connected` | `oauth/authorize.vue` | `scopes`, `business` |
-| `problem_report_opened` / `problem_report_submitted` | `ReportProblem` | `type` |
+| `problem_report_opened` / `problem_report_submitted` / `problem_report_screenshot` | `ReportProblem` | `type` · `captured` (screenshot) |
 
 ### Server events (`trackServer`, all prefixed `server_`)
 
