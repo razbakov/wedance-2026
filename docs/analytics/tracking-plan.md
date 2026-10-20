@@ -1,6 +1,6 @@
 # WeDance 2026 — Tracking Plan
 
-_Last updated: TIMESTAMP CEST (P0 #404, P1+P2 PR_B) · Source: code on `origin/main` @ 2e146e6, CUJ taxonomy (`docs/issues/_reference-cuj-jtbd.md`), PostHog project 29269 (last 30 days)._
+_Last updated: 2026-10-20 20:38 CEST (P0 #404, P1+P2 #407) · Source: code on `origin/main` @ 2e146e6, CUJ taxonomy (`docs/issues/_reference-cuj-jtbd.md`), PostHog project 29269 (last 30 days)._
 
 Legend: ✅ tracked · ⚠️ tracked but flawed · ❌ missing · ⏭ skipped (feature not in code) · **S** = server-side (`server_*`), **C** = client.
 Priority: **P0** this week · **P1** next sprint · **P2** later.
@@ -11,7 +11,7 @@ Priority: **P0** this week · **P1** next sprint · **P2** later.
 
 | | |
 |---|---|
-| Instrumented in code | ~67 client events, 38 server events (PR #400, P0 #404, P1+P2 PR_B) |
+| Instrumented in code | ~67 client events, 38 server events (PR #400, P0 #404, P1+P2 #407) |
 | Ever received (30 d) | 10 custom client events + autocapture/pageview/rageclick |
 | Received since #400 deploy | `city_viewed` verified firing on prod (20:05). No `server_*` yet — traffic too low, not a bug. |
 | Volume | 101 visitors / 4,067 pageviews / 3 sign-ups in 30 d |
@@ -65,19 +65,19 @@ Data-hygiene problems (fix before trusting any number):
 
 | Step | Event | Status | Props | Pri |
 |---|---|---|---|---|
-| Landing CTA click | `landing_cta_click` C | ✅ (PR_B) hero, journey stages, proof card, business cards, footer | `cta`, `section` | — |
-| Style quiz started / finished | `find_your_dance_started`, `find_your_dance_completed` C | ✅ (PR_B) — the page is not a quiz: started = first video watched (or a direct choice), completed = a style or the taster chosen | `style_chosen`, `taster`, `answers_count` (videos watched), `styles_suggested` | — |
+| Landing CTA click | `landing_cta_click` C | ✅ (#407) hero, journey stages, proof card, business cards, footer | `cta`, `section` | — |
+| Style quiz started / finished | `find_your_dance_started`, `find_your_dance_completed` C | ✅ (#407) — the page is not a quiz: started = first video watched (or a direct choice), completed = a style or the taster chosen | `style_chosen`, `taster`, `answers_count` (videos watched), `styles_suggested` | — |
 | City page view | `city_viewed` C | ✅ | `city`, `style` | — |
 | Style chip filter | `filter_used` C | ✅ | `surface`, `filter_keys` | — |
 | Class/event view | `event_viewed` C | ✅ | `event_id`, `city`, `style`, `event_type`, `synced`, `is_festival` | — |
-| Add class to week | `week_plan_add` C | ✅ + `event_type`, `city`, `surface` (PR_B) | — | — |
+| Add class to week | `week_plan_add` C | ✅ + `event_type`, `city`, `surface` (#407) | — | — |
 
 ### C2 — Student: find your teacher
 
 | Step | Event | Status | Props | Pri |
 |---|---|---|---|---|
 | Artist list search | `search_used` C | ✅ (`/artists`) | `surface`, `query_length`, `results` | — |
-| Profile view (`/@handle`, `/u/…`) | `profile_viewed` C | ✅ (PR_B) `trackOnce`; dancers send no handle | `profile` (business only), `profile_type`, `city`, `claimed`, `own`, `surface` | — |
+| Profile view (`/@handle`, `/u/…`) | `profile_viewed` C | ✅ (#407) `trackOnce`; dancers send no handle | `profile` (business only), `profile_type`, `city`, `claimed`, `own`, `surface` | — |
 | Follow / unfollow | `follow` / `unfollow` C | ✅ | `target`, `profile_type`, `surface` | — |
 | Private class / booking request | `booking_request_submitted` C + **S** | ✅ server renamed to `server_booking_request_submitted` (#404) | `booking_id`, `signed_in` | — |
 | Workshop plan / goals | `workshop_plan_add`, `goal_added` C | ✅ | — | — |
@@ -87,8 +87,8 @@ Data-hygiene problems (fix before trusting any number):
 | Step | Event | Status | Props | Pri |
 |---|---|---|---|---|
 | Venues list / search | `search_used` C on `/venues` | ⏭ skipped — `/venues` has no search box or filters (a static list); add one first if wanted | `surface=venues` | P2 |
-| Outbound click (venue site, Instagram, event link, map) | `outbound_click` C | ✅ (PR_B) one delegated listener for every external link (`plugins/06.outbound-click.client.ts`); host only, never path/query | `kind`, `platform`, `host`, `object_type`, `object_id`, `city`, `surface` | — |
-| Community group join link | `outbound_click{kind:'community_group'}` | ✅ (PR_B) | `platform`, `city` | — |
+| Outbound click (venue site, Instagram, event link, map) | `outbound_click` C | ✅ (#407) one delegated listener for every external link (`plugins/06.outbound-click.client.ts`); host only, never path/query | `kind`, `platform`, `host`, `object_type`, `object_id`, `city`, `surface` | — |
+| Community group join link | `outbound_click{kind:'community_group'}` | ✅ (#407) | `platform`, `city` | — |
 | Hangout create / RSVP | `hangout_created`, `hangout_rsvp` C | ✅ | — | — |
 | Ask locals post / answer | `ask_locals_post` ✅ / `ask_locals_answer` ⏭ | skipped — there is no answer/reply feature (`askLocals` has only `ask` + `recommend`, both tracked as `ask_locals_post`) | `city` | P2 |
 
@@ -98,26 +98,26 @@ Data-hygiene problems (fix before trusting any number):
 |---|---|---|---|---|
 | Festival list search | `search_used` C | ✅ | — | — |
 | Festival view | `festival_viewed` C | ✅ | same as `event_viewed` | — |
-| Add to year | `year_plan_add` / `_remove` C | ✅ + `festival`, `surface` (PR_B) | — | — |
+| Add to year | `year_plan_add` / `_remove` C | ✅ + `festival`, `surface` (#407) | — | — |
 | Who's going | `whos_going_profile_opened`, `going_visibility_changed`, `wave_sent` C | ✅ | — | — |
 | Festival join (roster) | `server_festival_joined` S | ✅ | `festival` | — |
-| Ticket CTA | `ticket_cta_click` C | ✅ + `provider` (PR_B) | stripe / tickettailor / external | — |
+| Ticket CTA | `ticket_cta_click` C | ✅ + `provider` (#407) | stripe / tickettailor / external | — |
 | Checkout started | `server_ticket_checkout_started` S | ✅ | `festival`, `tickets`, `referral` | — |
 | **Ticket paid** | `server_ticket_purchased` S | ✅ (#404) Stripe `checkout.session.completed` + TicketTailor first of `order.created`/`order.completed` per order; buyer's dancer id, dedupe uuid per session/order | `festival`, `amount`, `currency`, `tickets`, `provider`, `product`, `referral`, `referral_code`, `discount`, `$revenue` | — |
 | Checkout abandoned | `server_ticket_checkout_expired` S | ✅ (#404) | `festival`, `tickets`, `product`, `referral` | — |
-| Share plan link | `plan_shared` C | ✅ (PR_B) festival + year share modals; `SharePlanModal` no longer fires `shared_plan_signup` on share | `object` (festival/year), `method` (copy/native) | — |
-| Shared plan viewed | `shared_plan_viewed` C | ✅ (PR_B) | `object`, `signed_in`, `has_referral` | — |
+| Share plan link | `plan_shared` C | ✅ (#407) festival + year share modals; `SharePlanModal` no longer fires `shared_plan_signup` on share | `object` (festival/year), `method` (copy/native) | — |
+| Shared plan viewed | `shared_plan_viewed` C | ✅ (#407) | `object`, `signed_in`, `has_referral` | — |
 | Dinner / ride / roommate | `dinner_joined`, `ride_share_posted`, `roommate_search_toggled` C | ✅ | — | — |
-| Check-in at festival | `server_checked_in` S | ✅ (PR_B) `attendance.checkIn` | `event_id`, `is_festival` | — |
+| Check-in at festival | `server_checked_in` S | ✅ (#407) `attendance.checkIn` | `event_id`, `is_festival` | — |
 
 ### C5 — Pro: take the stage / get booked
 
 | Step | Event | Status | Props | Pri |
 |---|---|---|---|---|
 | Gigs CTA / gig posted | `gig_cta_click`, `gig_posted` C | ✅ | — | — |
-| Gig applied | `server_gig_applied` S | ✅ (PR_B) `gigs.applyTo` (web + MCP) | `gig_id`, `category`, `as_profile` | — |
-| Application decided | `server_gig_application_decided` S | ✅ (PR_B) | `decision`, `hours_to_decide` | — |
-| Booking request received → decided | `server_booking_decided` S | ✅ (PR_B) `election.moderateBooking` — only free spaces decide on-platform | `decision`, `hours_to_decide` | — |
+| Gig applied | `server_gig_applied` S | ✅ (#407) `gigs.applyTo` (web + MCP) | `gig_id`, `category`, `as_profile` | — |
+| Application decided | `server_gig_application_decided` S | ✅ (#407) | `decision`, `hours_to_decide` | — |
+| Booking request received → decided | `server_booking_decided` S | ✅ (#407) `election.moderateBooking` — only free spaces decide on-platform | `decision`, `hours_to_decide` | — |
 | Artist invite accepted | `server_profile_claimed{via:'invite'}` | ✅ | — | — |
 | Elections / videos | `video_vote`, `video_submit`, `election_nominated` C | ✅ | — | — |
 
@@ -125,11 +125,11 @@ Data-hygiene problems (fix before trusting any number):
 
 | Step | Event | Status | Props | Pri |
 |---|---|---|---|---|
-| For-venues / for-events CTA | `venue_cta_click` C | ✅ (PR_B) `for-venues.vue` | `cta` | — |
+| For-venues / for-events CTA | `venue_cta_click` C | ✅ (#407) `for-venues.vue` | `cta` | — |
 | Event inquiry | `event_inquiry_submitted` C + S | ✅ | `event_type`, `city` | — |
 | Inquiry to profile | `booking_inquiry_sent` C / `server_booking_inquiry_sent` S | ✅ renamed (#404) | `profile`, `delivered` | — |
-| Organiser replies / marks inquiry | `server_inquiry_replied` S | ✅ (PR_B) `inquiries.setStatus`, first move out of `new` | `hours_to_reply`, `status` | — |
-| Venue asks | `server_venue_ask_sent` / `_booked` / `_unbooked` S | ✅ (PR_B) | `event_id`, `venue` | — |
+| Organiser replies / marks inquiry | `server_inquiry_replied` S | ✅ (#407) `inquiries.setStatus`, first move out of `new` | `hours_to_reply`, `status` | — |
+| Venue asks | `server_venue_ask_sent` / `_booked` / `_unbooked` S | ✅ (#407) | `event_id`, `venue` | — |
 
 ### C7 — Organizer: run a festival (36 stories)
 
@@ -138,25 +138,25 @@ Data-hygiene problems (fix before trusting any number):
 | Organiser CTA | `organizer_cta_click` C | ✅ | `cta` | — |
 | Profile created / claimed | `server_business_profile_created`, `server_profile_claim_requested`, `server_profile_claimed` S | ✅ | — | — |
 | Event created / published | `server_event_created`, `server_event_published` S | ✅ (`channel` web/mcp) | — | — |
-| Flyer generated | `server_flyer_generated` S (+ `server_flyer_kept`) | ✅ (PR_B) all 6 paint mutations; keeping is its own event | `event_id`, `mode`, `variant_count` | — |
-| Captions / promo kit / posts | `server_caption_written`, `server_promo_kit_opened`, `server_post_proposed` | ✅ (PR_B) promo kit is server-side (`referral.promoKit` is an MCP/web mutation, no client surface) | — | — |
-| Tracked-link visit | `tracked_link_visit` C | ✅ (PR_B) | `code_type`, `referral_code`, `counted` | — |
-| Insights viewed | `organizer_insights_viewed` C | ✅ (PR_B) per festival | `festival` | — |
-| Website saved / team role set | `server_site_saved`, `server_member_role_set` S | ✅ (PR_B) | — | — |
+| Flyer generated | `server_flyer_generated` S (+ `server_flyer_kept`) | ✅ (#407) all 6 paint mutations; keeping is its own event | `event_id`, `mode`, `variant_count` | — |
+| Captions / promo kit / posts | `server_caption_written`, `server_promo_kit_opened`, `server_post_proposed` | ✅ (#407) promo kit is server-side (`referral.promoKit` is an MCP/web mutation, no client surface) | — | — |
+| Tracked-link visit | `tracked_link_visit` C | ✅ (#407) | `code_type`, `referral_code`, `counted` | — |
+| Insights viewed | `organizer_insights_viewed` C | ✅ (#407) per festival | `festival` | — |
+| Website saved / team role set | `server_site_saved`, `server_member_role_set` S | ✅ (#407) | — | — |
 | Subscription checkout | `server_subscription_checkout_started` S | ✅ | `plan` | — |
 | **Subscription paid / cancelled** | `server_subscription_activated`, `server_subscription_cancelled` S | ✅ (#404) — also fixes subscription checkouts hitting the ticket branch's "missing metadata" 400 | `plan`, `amount`, `currency`, `interval`, `$revenue` · cancelled: `reason`, `days_active` | — |
-| Group analytics | PostHog **group** `profile` = organiser username | ✅ (PR_B) client on Business mode pages + own `/@handle`; server `$groups` where a business profile is in scope | lets us count *organisations*, not people | — |
+| Group analytics | PostHog **group** `profile` = organiser username | ✅ (#407) client on Business mode pages + own `/@handle`; server `$groups` where a business profile is in scope | lets us count *organisations*, not people | — |
 
 ### C8 — Member: belong & connect
 
 | Step | Event | Status | Props | Pri |
 |---|---|---|---|---|
 | Sign-up / login | `signup_completed`, `login_completed` C + S | ✅ | `method`, `via_link` | — |
-| Onboarding steps | `onboarding_step_completed` C | ✅ (PR_B) — `repeat` flags re-onboarding of already-onboarded accounts | `step`, `intent`, `repeat` | — |
-| Profile updated | `profile_updated` C | ✅ + `fields_changed` (names only, PR_B) | — | — |
+| Onboarding steps | `onboarding_step_completed` C | ✅ (#407) — `repeat` flags re-onboarding of already-onboarded accounts | `step`, `intent`, `repeat` | — |
+| Profile updated | `profile_updated` C | ✅ + `fields_changed` (names only, #407) | — | — |
 | Connected AI app | `app_connected` C | ✅ | — | — |
-| Referral link shared | `referral_link_shared` C | ✅ (PR_B) the dancer referral link in `SharePlanModal`; the promoter link (`referral.myLink`) has no web UI (MCP only) — its use shows up as `server_promo_kit_opened` / `tracked_link_visit` | `method` | — |
-| Account deleted | `server_account_deleted` S | ✅ (PR_B) sent anonymously (account is gone) | `days_since_signup` | — |
+| Referral link shared | `referral_link_shared` C | ✅ (#407) the dancer referral link in `SharePlanModal`; the promoter link (`referral.myLink`) has no web UI (MCP only) — its use shows up as `server_promo_kit_opened` / `tracked_link_visit` | `method` | — |
+| Account deleted | `server_account_deleted` S | ✅ (#407) sent anonymously (account is gone) | `days_since_signup` | — |
 | Problem report | `problem_report_*` C | ✅ (+ replay link fixed) | — | — |
 
 ---
