@@ -1,6 +1,6 @@
 # WeDance 2026 — Tracking Plan
 
-_Last updated: 2026-10-20 20:15 CEST (P0 implemented — PR_P0) · Source: code on `origin/main` @ 2e146e6, CUJ taxonomy (`docs/issues/_reference-cuj-jtbd.md`), PostHog project 29269 (last 30 days)._
+_Last updated: 2026-10-20 20:15 CEST (P0 implemented — #404) · Source: code on `origin/main` @ 2e146e6, CUJ taxonomy (`docs/issues/_reference-cuj-jtbd.md`), PostHog project 29269 (last 30 days)._
 
 Legend: ✅ tracked · ⚠️ tracked but flawed · ❌ missing · **S** = server-side (`server_*`), **C** = client.
 Priority: **P0** this week · **P1** next sprint · **P2** later.
@@ -34,10 +34,10 @@ Live counts (30 d, `app = wedance-2026`):
 
 Data-hygiene problems (fix before trusting any number):
 
-- ✅ **Local dev sends to prod PostHog** — ~350 pageviews from `localhost:*` (the Vercel-pulled `.env` contains the prod key). Fixed at source (PR_P0): the client plugin is a no-op on a dev build and on local hosts (`app/lib/analytics-host.ts`), the server helper is off under `nuxt dev`. Keep the `$host` filter for historic data.
+- ✅ **Local dev sends to prod PostHog** — ~350 pageviews from `localhost:*` (the Vercel-pulled `.env` contains the prod key). Fixed at source (#404): the client plugin is a no-op on a dev build and on local hosts (`app/lib/analytics-host.ts`), the server helper is off under `nuxt dev`. Keep the `$host` filter for historic data.
 - ❌ **Internal users not excluded** — one person = 1,672 of 4,067 pageviews. Set PostHog test-account filter (admin dancer ids / `is_admin = true`).
 - ✅ **Server/client name mismatches** break the `server_<client name>` rule:
-  `booking_request_submitted` ↔ `server_booking_requested`, `booking_inquiry_sent` ↔ `server_inquiry_sent`. Renamed server side (PR_P0); a catalogue test keeps them gone. Old names stop on deploy — insights spanning the deploy need both names.
+  `booking_request_submitted` ↔ `server_booking_requested`, `booking_inquiry_sent` ↔ `server_inquiry_sent`. Renamed server side (#404); a catalogue test keeps them gone. Old names stop on deploy — insights spanning the deploy need both names.
 - ⚠️ v4 + 2026 share one project; every insight must filter `app = wedance-2026`.
 
 ---
@@ -79,7 +79,7 @@ Data-hygiene problems (fix before trusting any number):
 | Artist list search | `search_used` C | ✅ (`/artists`) | `surface`, `query_length`, `results` | — |
 | Profile view (`/@handle`, `/u/…`) | `profile_viewed` C | ❌ | `profile_type`, `city`, `claimed`, `surface` | **P1** |
 | Follow / unfollow | `follow` / `unfollow` C | ✅ | `target`, `profile_type`, `surface` | — |
-| Private class / booking request | `booking_request_submitted` C + **S** | ✅ server renamed to `server_booking_request_submitted` (PR_P0) | `booking_id`, `signed_in` | — |
+| Private class / booking request | `booking_request_submitted` C + **S** | ✅ server renamed to `server_booking_request_submitted` (#404) | `booking_id`, `signed_in` | — |
 | Workshop plan / goals | `workshop_plan_add`, `goal_added` C | ✅ | — | — |
 
 ### C3 — Regular: find your floor
@@ -103,8 +103,8 @@ Data-hygiene problems (fix before trusting any number):
 | Festival join (roster) | `server_festival_joined` S | ✅ | `festival` | — |
 | Ticket CTA | `ticket_cta_click` C | ✅ | add `provider` (stripe/tickettailor/external) | P1 |
 | Checkout started | `server_ticket_checkout_started` S | ✅ | `festival`, `tickets`, `referral` | — |
-| **Ticket paid** | `server_ticket_purchased` S | ✅ (PR_P0) Stripe `checkout.session.completed` + TicketTailor first of `order.created`/`order.completed` per order; buyer's dancer id, dedupe uuid per session/order | `festival`, `amount`, `currency`, `tickets`, `provider`, `product`, `referral`, `referral_code`, `discount`, `$revenue` | — |
-| Checkout abandoned | `server_ticket_checkout_expired` S | ✅ (PR_P0) | `festival`, `tickets`, `product`, `referral` | — |
+| **Ticket paid** | `server_ticket_purchased` S | ✅ (#404) Stripe `checkout.session.completed` + TicketTailor first of `order.created`/`order.completed` per order; buyer's dancer id, dedupe uuid per session/order | `festival`, `amount`, `currency`, `tickets`, `provider`, `product`, `referral`, `referral_code`, `discount`, `$revenue` | — |
+| Checkout abandoned | `server_ticket_checkout_expired` S | ✅ (#404) | `festival`, `tickets`, `product`, `referral` | — |
 | Share plan link | `plan_shared` C | ❌ (only the sign-up end `shared_plan_signup` is tracked) | `object` (week/year/festival), `method` (copy/native/whatsapp) | **P1** |
 | Shared plan viewed | `shared_plan_viewed` C | ❌ | `object`, `signed_in` | P1 |
 | Dinner / ride / roommate | `dinner_joined`, `ride_share_posted`, `roommate_search_toggled` C | ✅ | — | — |
@@ -127,7 +127,7 @@ Data-hygiene problems (fix before trusting any number):
 |---|---|---|---|---|
 | For-venues / for-events CTA | `venue_cta_click` C | ❌ (`for-venues.vue`) | `cta` | P2 |
 | Event inquiry | `event_inquiry_submitted` C + S | ✅ | `event_type`, `city` | — |
-| Inquiry to profile | `booking_inquiry_sent` C / `server_booking_inquiry_sent` S | ✅ renamed (PR_P0) | `profile`, `delivered` | — |
+| Inquiry to profile | `booking_inquiry_sent` C / `server_booking_inquiry_sent` S | ✅ renamed (#404) | `profile`, `delivered` | — |
 | Organiser replies / marks inquiry | `server_inquiry_replied` S | ❌ (`mark_inquiry`) | `hours_to_reply` | P1 |
 | Venue asks | `server_venue_ask_*` S | ❌ (`venueAsks`, 3 mutations) | — | P2 |
 
@@ -144,7 +144,7 @@ Data-hygiene problems (fix before trusting any number):
 | Insights viewed | `organizer_insights_viewed` C | ❌ (`/organizers/insights`) | `profile_type` | P1 |
 | Website saved / team role set | `server_site_saved`, `server_member_role_set` S | ❌ | — | P2 |
 | Subscription checkout | `server_subscription_checkout_started` S | ✅ | `plan` | — |
-| **Subscription paid / cancelled** | `server_subscription_activated`, `server_subscription_cancelled` S | ✅ (PR_P0) — also fixes subscription checkouts hitting the ticket branch's "missing metadata" 400 | `plan`, `amount`, `currency`, `interval`, `$revenue` · cancelled: `reason`, `days_active` | — |
+| **Subscription paid / cancelled** | `server_subscription_activated`, `server_subscription_cancelled` S | ✅ (#404) — also fixes subscription checkouts hitting the ticket branch's "missing metadata" 400 | `plan`, `amount`, `currency`, `interval`, `$revenue` · cancelled: `reason`, `days_active` | — |
 | Group analytics | PostHog **group** `profile` = organiser username | ❌ | lets us count *organisations*, not people | P2 |
 
 ### C8 — Member: belong & connect
