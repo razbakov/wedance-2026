@@ -38,7 +38,7 @@ turns red when the product is fixed so the marker gets removed.
 | RAZ-683 this-week in local time | `app/lib/cityWeek.test.ts:23`, `:49` — 9 zone/DST/week-edge cases + event-zone membership | new; extends `shared/utils/eventTime.zoned.test.ts`. Needed `app/lib/cityWeek.ts` (the city page's week logic, moved out unchanged so it can be tested) | ✅ |
 | RAZ-684 dates, styles, types, cities | `server/utils/v3EventSync.test.ts:176` — 10 date shapes, style aliases, 7 event types, city aliases | extends the existing `toMs`/`mapStyles`/`mapV3Event` tests | ✅ · ❌ `:258` non-Latin alias → empty slug (**RAZ-719**) |
 | RAZ-685 deterministic profile matching | `server/utils/v3ProfileSync.test.ts:115` — priority per role, same-city only, multiple candidates, repeat/shuffle | extends `planProfiles` tests | ✅ |
-| RAZ-686 public safe fields only | `server/utils/v3ProfileSync.test.ts:193` — allowed keys only, no contact/login data, Members-only never copied or used to fill | extends the privacy test | ✅ |
+| RAZ-686 public safe fields only | `server/utils/v3ProfileSync.test.ts:193` — allowed keys only, no contact/login data, Members-only never copied or used to fill | extends the privacy test | ✅ · ❌ `:227` a Members-only profile's city reaches the public profile (**RAZ-726**) |
 | RAZ-687 Going ≠ ticket navigation | `server/utils/v3EventSync.test.ts:267` (website stays `link`, no ticket URL) · `server/utils/v3Sync.integration.test.ts:89` · E2E `e2e/features/c3-going.feature:53` (website-only → no "Get tickets"; ticket link → "Get tickets" + independent Going; DB row `going/click`, never verified; no free-entry copy) | new | ✅ |
 | RAZ-688 auth for Going + visibility | `server/trpc/routers/authGuard.test.ts:177` — 9 Going/sharing mutations protected + rejected before any DB access; 10 public reads stay public; own-state reads protected | extends the RAZ-281 matrix | ✅ |
 | RAZ-689 optimistic Going + rollback | `app/composables/useWeekPlan.test.ts:38`, `:98` — add/remove rollback, per-item rollback, in-flight load keeps a tap (week + year plan) | new (no tests existed for these composables) | ✅ |
@@ -110,4 +110,5 @@ Only `@smoke` scenarios run in CI (after merge); the `@c3` scenarios run locally
 - **RAZ-721** no UI to opt out of "who's going" after opting in.
 - **RAZ-722** sharing Going doesn't reach `attendances.visibility` (dual-write gap).
 - **RAZ-723** city page: booked events on the wrong weekday west of UTC.
+- **RAZ-726** v3 sync copies a Members-only profile's city (found via CodeRabbit on the RAZ-686 test).
 - RAZ-297 (existing): failed discovery request shows the empty state.

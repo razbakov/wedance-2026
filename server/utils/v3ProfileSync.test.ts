@@ -221,6 +221,18 @@ describe('C3 imported profiles carry public safe fields only (RAZ-686)', () => {
     expect(JSON.stringify(p.ops)).not.toMatch(/members-only bio|private\.png|privateig|Private Name/)
   })
 
+  // KNOWN DEFECT (follow-up RAZ-726): resolvePerson reads the v3 profile's place before
+  // checking visibility, so a Members-only profile's city reaches the public profile.
+  // Expected to fail until fixed — flip to it() then.
+  it.fails('a Members-only organiser takes its city from the public event, not from its private profile', () => {
+    const p = run([ev('e1', v, { id: 'o4', username: 'ElsewhereSchool', name: 'Elsewhere School' })], [], [
+      { id: 'o4', type: 'Organiser', username: 'ElsewhereSchool', name: 'Elsewhere School', visibility: 'Members', place: 'ChIJprivatecity00000000' },
+      { id: 'c1', type: 'City', name: 'Prague', place: 'ChIJprivatecity00000000' },
+    ])
+    const c = p.ops.find(o => o.op === 'create' && o.fields.type === 'organizer')
+    expect(c && c.op === 'create' && c.fields).toMatchObject({ city: 'Munich', citySlug: 'munich' })
+  })
+
   it('never fills an existing profile from a Members-only v3 profile', () => {
     const p = run([ev('e1', v, { id: 'o3', username: 'Matched' })],
       [row({ username: 'matched', type: 'organizer', name: 'Matched', sourceRef: { firebaseId: 'o3' } })],

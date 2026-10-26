@@ -38,7 +38,12 @@ export const test = base.extend<{
     async ({}, use) => {
       const world: C3World = { run: Math.random().toString(36).slice(2, 8), ids: {}, data: {}, cleanup: [] }
       await use(world)
-      for (const fn of world.cleanup.reverse()) await fn()
+      // Run every cleanup even if one fails, then report the failures.
+      const errors: unknown[] = []
+      for (const fn of world.cleanup.reverse()) {
+        try { await fn() } catch (e) { errors.push(e) }
+      }
+      if (errors.length) throw new AggregateError(errors, `${errors.length} C3 cleanup(s) failed`)
     },
     { scope: 'test' },
   ],
