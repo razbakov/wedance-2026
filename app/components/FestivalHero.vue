@@ -58,10 +58,8 @@ const dateRange = computed(() => {
   const timeZone = String(props.festival.startDate).includes('T') ? (props.festival.timezone || 'Europe/Berlin') : 'UTC'
   const fmt = (d: Date, o: Intl.DateTimeFormatOptions) => d.toLocaleDateString('en-US', { ...o, timeZone })
   const day = { year: 'numeric', month: 'numeric', day: 'numeric' } as const
-  // Single-day (events) → one date; multi-day (festivals) → a range. A night
-  // that runs past midnight (21:00–03:00) is still one date, not "Oct 29 – Oct 30".
-  const overnight = end.getTime() - start.getTime() <= 18 * 3600_000
-  if (fmt(start, day) === fmt(end, day) || overnight) {
+  // Single-day (events) → one date; multi-day (festivals) → a range.
+  if (fmt(start, day) === fmt(end, day)) {
     return fmt(start, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
   }
   return `${fmt(start, { month: 'short', day: 'numeric' })} – ${fmt(end, { month: 'short', day: 'numeric', year: 'numeric' })}`

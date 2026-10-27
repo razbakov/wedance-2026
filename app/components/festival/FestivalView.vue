@@ -37,13 +37,7 @@ const slug = festival.slug
 
 // Live "planning" count from the DB — replaces the hardcoded mock value.
 const liveAttendeeCount = ref(festival.attendeeCount)
-const heroFestival = computed(() => ({
-  ...festival,
-  attendeeCount: rsvpPoll.value ? rsvpPoll.value.coming : liveAttendeeCount.value,
-  // A dated event knows its real start/end times (festival data carries dates
-  // only), so a night running past midnight reads as one date, not two.
-  ...(props.rsvp?.startDate ? { startDate: props.rsvp.startDate, endDate: props.rsvp.endDate || props.rsvp.startDate, timezone: props.rsvp.timezone || festival.timezone } : {}),
-}))
+const heroFestival = computed(() => ({ ...festival, attendeeCount: rsvpPoll.value ? rsvpPoll.value.coming : liveAttendeeCount.value }))
 
 // One "am I coming?" control in the hero (RAZ-731): a dated event's poll, a
 // festival's Get pass when it sells passes, else I'm going. Passes that are all

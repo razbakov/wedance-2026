@@ -2,8 +2,8 @@
 /**
  * The event RSVP as the organiser's own poll (RAZ-718), and the page's only
  * "Going?" (RAZ-731 — it sits in the hero, in place of the Going button):
- *   With my partner · I follow, need a leader · I lead, need a follower
- * (non-partner styles: I'm going · With a friend). Counts show before you
+ *   Yes, with my partner · Yes, I need a leader · Yes, I need a follower
+ * (non-partner styles: Yes · Yes, with a friend). Counts show before you
  * answer. There is no "Next time" row: tapping your answer again takes it back
  * (stored as `next`, which also follows the organiser). A tap counts at once — signed out it's saved unconfirmed against
  * this browser, and a sheet asks for an email only: the magic link carries the
@@ -15,7 +15,7 @@ import { Check, Hand, Mail } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
 import { RsvpEmailSchema } from '#shared/validation'
 import { rsvpOptions, type RsvpAnswer } from '#shared/utils/rsvp'
-import { eventLocalDate } from '#shared/utils/eventTime'
+import { eventLocalDate, eventLocalTime } from '#shared/utils/eventTime'
 import { initialsOf } from '#shared/utils/initials'
 
 const props = defineProps<{
@@ -44,8 +44,7 @@ const myOption = computed(() => allOptions.value.find(o => o.id === mine.value?.
 const going = computed(() => !!mine.value && mine.value.answer !== 'next')
 const maxVotes = computed(() => Math.max(1, ...options.value.map(o => poll.value?.counts[o.id] ?? 0)))
 
-// "Going today?" / "Going? · Thu 29 Oct" in the event's zone. No time: the
-// event's start can be the party while classes start earlier (RAZ-731).
+// "Going today at 18:00?" in the event's zone.
 const tz = computed(() => props.timezone || 'Europe/Berlin')
 const question = computed(() => {
   const day = eventLocalDate(props.startDate, tz.value)
@@ -55,7 +54,7 @@ const question = computed(() => {
     : day === eventLocalDate(new Date(now + 86400_000), tz.value)
       ? 'tomorrow'
       : new Date(props.startDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: tz.value })
-  return label === 'today' || label === 'tomorrow' ? `Going ${label}?` : `Going? · ${label}`
+  return `Going ${label} at ${eventLocalTime(props.startDate, tz.value)}?`
 })
 const ended = computed(() => {
   const end = props.endDate ? new Date(props.endDate) : new Date(new Date(props.startDate).getTime() + 3 * 3600_000)
@@ -129,7 +128,7 @@ const sheetBody = computed(() => mine.value?.answer === 'next'
   : `${org.value} sees your answer now. Confirm it with your email: we’ll send you a link, no password.`)
 
 // Pairing: wave at someone whose need fits yours.
-const pairTitle = computed(() => mine.value?.answer === 'needLeader' ? 'Leaders looking for a follower' : 'Followers looking for a leader')
+const pairTitle = computed(() => mine.value?.answer === 'needLeader' ? 'Leaders who need a follower' : 'Followers who need a leader')
 const waving = ref<string | null>(null)
 async function wave(dancerId: string) {
   if (!poll.value) return
@@ -178,11 +177,11 @@ async function wave(dancerId: string) {
         <span v-if="mine.confirmed && organizerName" class="text-muted-foreground">· you follow {{ organizerName }} for the next date</span>
       </template>
       <template v-else-if="mine.confirmed">
-        <span class="inline-flex items-center gap-1 font-bold text-wd-green-700"><Check class="size-4" aria-hidden="true" /> You’re going · {{ myOption.short }}</span>
+        <span class="inline-flex items-center gap-1 font-bold text-wd-green-700"><Check class="size-4" aria-hidden="true" /> You’re going<template v-if="mine.answer !== 'yes'"> · {{ myOption.short }}</template></span>
         <span class="text-muted-foreground">· tap again to undo</span>
       </template>
       <template v-else>
-        <span class="font-bold text-foreground">You’re going · {{ myOption.short }}</span>
+        <span class="font-bold text-foreground">You’re going<template v-if="mine.answer !== 'yes'"> · {{ myOption.short }}</template></span>
         <span class="text-muted-foreground">· unconfirmed</span>
         <Button type="button" variant="link" size="sm" class="h-auto p-0" @click="openSheet">Confirm with your email</Button>
       </template>
