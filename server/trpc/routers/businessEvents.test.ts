@@ -152,6 +152,7 @@ describe.skipIf(!DATABASE_URL)('businessEvents router', () => {
     expect(other.profiles.length).toBe(inbox.profiles.length)
     const same = await caller(owner).businessEvents.inbox({ profile: orgHandle })
     expect(same.comingUp.map((c: any) => c.id)).toEqual(expect.arrayContaining([draft.id, live.id]))
+    expect(same.needs.find((n: any) => n.to === `/business/events/${draft.id}`)?.kind).toBe('draft')
     // The stranger sees nothing of this.
     const theirs = await caller(stranger).businessEvents.inbox()
     expect(theirs.comingUp).toHaveLength(0)

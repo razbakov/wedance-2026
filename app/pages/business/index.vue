@@ -17,15 +17,19 @@ const data = ref<Inbox | null>(null)
 const loading = ref(true)
 const error = ref<string | null>(null)
 
+// Switching profiles quickly: only the latest request may fill the page.
+let latest = 0
 async function load() {
+  const run = ++latest
   loading.value = true
   error.value = null
   try {
-    data.value = await $trpc.businessEvents.inbox.query(businessProfile.value ? { profile: businessProfile.value } : undefined)
+    const res = await $trpc.businessEvents.inbox.query(businessProfile.value ? { profile: businessProfile.value } : undefined)
+    if (run === latest) data.value = res
   } catch (e: any) {
-    error.value = e?.message || 'Could not load your inbox.'
+    if (run === latest) error.value = e?.message || 'Could not load your inbox.'
   } finally {
-    loading.value = false
+    if (run === latest) loading.value = false
   }
 }
 onMounted(load)
