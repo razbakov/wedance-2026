@@ -1,7 +1,8 @@
 <script setup lang="ts">
 /**
- * /business — business home. "What needs me" across every profile I manage, then
- * the next 14 days (events I run + line-ups I'm in). Data: businessEvents.inbox.
+ * /business — business home. "What needs me" across the profiles I manage (sidebar
+ * switcher filters), then the next 14 days (events I run + line-ups I'm in).
+ * Data: businessEvents.inbox.
  */
 import { ArrowRight, Plus, Search, CalendarDays } from 'lucide-vue-next'
 import { eventLocalTime, eventLocalWeekday, eventLocalDate } from '#shared/utils/eventTime'
@@ -10,6 +11,7 @@ definePageMeta({ layout: 'business' })
 useHead({ title: 'Business | WeDance' })
 
 const { $trpc } = useNuxtApp()
+const businessProfile = useBusinessProfile()
 type Inbox = Awaited<ReturnType<typeof $trpc.businessEvents.inbox.query>>
 const data = ref<Inbox | null>(null)
 const loading = ref(true)
@@ -19,7 +21,7 @@ async function load() {
   loading.value = true
   error.value = null
   try {
-    data.value = await $trpc.businessEvents.inbox.query()
+    data.value = await $trpc.businessEvents.inbox.query(businessProfile.value ? { profile: businessProfile.value } : undefined)
   } catch (e: any) {
     error.value = e?.message || 'Could not load your inbox.'
   } finally {
@@ -27,6 +29,7 @@ async function load() {
   }
 }
 onMounted(load)
+watch(businessProfile, load)
 
 const toneOf: Record<string, 'warning' | 'info' | 'danger' | 'neutral'> = { draft: 'warning', missing: 'warning', claim: 'neutral', join: 'info' }
 const kindLabel: Record<string, string> = { draft: 'Draft', missing: 'Missing details', claim: 'Claim', join: 'Join request', booking: 'Booking' }
