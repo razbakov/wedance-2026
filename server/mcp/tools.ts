@@ -8,6 +8,7 @@ import { eventPath } from '../../shared/utils/eventSlug'
 import { eventLocalDate, eventLocalTime, eventLocalWeekday } from '../../shared/utils/eventTime'
 import { LANGUAGES } from '../../shared/utils/caption'
 import type { FestivalSession } from '../../shared/types/festivalDetails'
+import { agendaToSessions, defaultDuration, emptyEventDetails, newSessionId, type AgendaLine } from '../../shared/utils/programme'
 
 /**
  * The WeDance MCP tools. A thin adapter: every tool calls the tRPC router
@@ -78,11 +79,80 @@ function card(t: ToolCtx, e: any) {
   }
 }
 const localDay = (e: any) => eventLocalDate(e.startDate, e.timezone || 'Europe/Berlin')
-/** A festival's schedule (events.festival.sessions), in order: its programme lives there, not in `agenda`. */
+/** An event's programme (events.festival.sessions, for every type), in order. */
 export function festivalProgram(sessions: FestivalSession[] | undefined) {
   return [...(sessions ?? [])]
     .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`))
-    .map(s => ({ date: s.date, time: s.time, duration: s.duration, type: s.type, title: s.title, artist: s.artist || null, with: s.with ?? [], style: s.style, level: s.level, room: s.room ?? null, venue: s.venue ?? null }))
+    .map(s => ({ id: s.id, date: s.date, time: s.time, duration: s.duration, type: s.type, title: s.title, artist: s.artist || null, with: s.with ?? [], style: s.style, level: s.level, room: s.room ?? null, venue: s.venue ?? null }))
+}
+/** What a reader gets as the programme: the sessions, or an old event's agenda read as sessions. */
+export function readProgramme(e: { agenda?: AgendaLine[] | null; festival?: { sessions?: FestivalSession[] } | null; date?: string; startTime?: string; startDate?: any; timezone?: string | null }) {
+  if (e.festival?.sessions?.length) return festivalProgram(e.festival.sessions)
+  const tz = e.timezone || 'Europe/Berlin'
+  const at = { date: e.date ?? (e.startDate ? eventLocalDate(e.startDate, tz) : ''), startTime: e.startTime ?? (e.startDate ? eventLocalTime(e.startDate, tz) : '20:00') }
+  return festivalProgram(agendaToSessions(e.agenda ?? [], at))
+}
+
+// --- the programme ------------------------------------------------------------
+// The programme lives in events.festival.sessions for every event type, like
+// the web editor keeps it. The old `agenda` is still accepted as input but is
+// converted on write and never stored.
+const SESSION_TYPES = {
+  workshop: 'workshop', class: 'workshop', lesson: 'workshop', masterclass: 'workshop', bootcamp: 'workshop',
+  party: 'party', social: 'party', show: 'party', concert: 'party', performance: 'party', dj: 'party',
+} as const satisfies Record<string, FestivalSession['type']>
+const programmeItem = z.object({
+  id: z.string().trim().min(1).max(60).optional().describe('Keep the id from get_my_event when editing an existing item (dancers’ picks hang on it); leave out for a new one.'),
+  date: ymd.optional().describe('Day of this item (YYYY-MM-DD); default the event’s first day.'),
+  time: hhmm,
+  duration: z.number().int().min(5).max(1440).optional().describe('Minutes; default 60 for a workshop/class, 240 for a party/show.'),
+  type: z.enum(Object.keys(SESSION_TYPES) as [keyof typeof SESSION_TYPES, ...(keyof typeof SESSION_TYPES)[]]).describe('What it is: workshop/class (taught) or party/social/show/concert/dj (dancing, performing).'),
+  title: z.string().trim().min(1).max(160).describe('e.g. "Salsa on2 beginners", "Halloween party with DJ Max".'),
+  artist: z.string().max(200).transform(h => h.trim().replace(/^@/, '')).optional().describe('Handle of who teaches or plays it (added to the line-up).'),
+  with: z.array(z.string().min(1).max(200).transform(h => h.trim().replace(/^@/, ''))).max(6).optional().describe('More handles: a teaching partner, a band.'),
+  style: z.string().trim().max(40).optional().describe('e.g. "Salsa", "Bachata".'),
+  level: z.enum(['Beginner', 'Intermediate', 'Advanced']).optional(),
+  room: z.string().trim().max(60).optional(),
+  venue: z.string().trim().max(200).optional().describe('Only when it’s somewhere else than the event’s venue.'),
+  description: z.string().trim().max(1000).optional(),
+})
+type ProgrammeItem = z.output<typeof programmeItem>
+
+/** Programme items from a tool call as stored sessions (the router's festival.sessions shape). */
+export function programmeToSessions(items: ProgrammeItem[], eventDate: string): FestivalSession[] {
+  return items.map((p, i) => {
+    const type = SESSION_TYPES[p.type]
+    return {
+      id: p.id || newSessionId(i), date: p.date || eventDate, time: p.time,
+      duration: p.duration ?? defaultDuration(type), type, title: p.title,
+      artist: p.artist ?? '', ...(p.with?.length ? { with: p.with } : {}),
+      style: p.style ?? '', level: p.level ?? 'Beginner',
+      ...(p.room ? { room: p.room } : {}), ...(p.venue ? { venue: p.venue } : {}), ...(p.description ? { description: p.description } : {}),
+    }
+  })
+}
+
+/**
+ * The fields a write sends for the programme: `festival` (the editor's details
+ * container) with its sessions, and an empty `agenda`. The sessions come from
+ * `programme`, else the legacy `agenda` argument (converted like the editor's
+ * "Put it in the programme"), else what the event has (its old agenda converted).
+ * Artists named in the programme join the line-up.
+ */
+export function programmeFields(
+  cur: { agenda?: AgendaLine[] | null; festival?: Record<string, any> | null } | null,
+  args: { programme?: ProgrammeItem[]; agenda?: AgendaLine[] },
+  ev: { date: string; startTime: string; artists?: string[] },
+) {
+  const { key: _key, ...details } = { ...emptyEventDetails(), ...(cur?.festival ?? {}) } as Record<string, any>
+  const sessions: FestivalSession[] = args.programme
+    ? programmeToSessions(args.programme, ev.date)
+    : args.agenda
+      ? agendaToSessions(args.agenda, ev)
+      : details.sessions?.length ? details.sessions : agendaToSessions(cur?.agenda ?? [], ev)
+  const named = sessions.flatMap(s => [s.artist, ...(s.with ?? [])]).filter(Boolean)
+  const artists = [...new Set([...(ev.artists ?? []), ...named])]
+  return { agenda: [] as AgendaLine[], festival: { ...details, sessions }, ...(args.programme ? { artists } : {}) }
 }
 
 async function profileId(t: ToolCtx, h: string): Promise<string> {
@@ -109,20 +179,23 @@ const PATCH_FIELDS = {
   cover: z.string().url().nullable().optional().describe('Cover image URL.'),
   ticket_url: z.string().url().nullable().optional(),
   price: z.string().max(400).optional().describe('One price per line, e.g. "Workshops free\\nParty 10€".'),
-  agenda: z.array(z.object({ time: z.string().max(20), what: z.string().max(160) })).max(20).optional().describe('Programme lines, e.g. [{time:"19:00", what:"Beginner class"}].'),
+  programme: z.array(programmeItem).max(300).optional().describe('The programme, for every type: a party’s class and DJ sets, a festival’s workshops and parties by day. Replaces the whole programme (pass every item; [] clears it). Shown on the event page and, unless switched off in the editor, on the flyer.'),
+  agenda: z.array(z.object({ time: z.string().max(20), what: z.string().max(160) })).max(20).optional().describe('Old format, prefer programme. Lines like [{time:"19:00", what:"Beginner class"}] are turned into programme items.'),
 }
 type Patch = { [K in keyof typeof PATCH_FIELDS]?: any }
+/** Plain event fields; the programme (programme, agenda) goes through programmeFields. */
 function patchToInput(p: Patch) {
   const map: Record<string, string> = { start_time: 'startTime', end_time: 'endTime', end_date: 'endDate', venue_handle: 'venueUsername', venue_name: 'venueName', venue_address: 'venueAddress', ticket_url: 'ticketUrl' }
   const out: Record<string, unknown> = {}
-  for (const [k, v] of Object.entries(p)) if (v !== undefined && k in PATCH_FIELDS) out[map[k] ?? k] = v
+  for (const [k, v] of Object.entries(p)) if (v !== undefined && k in PATCH_FIELDS && k !== 'programme' && k !== 'agenda') out[map[k] ?? k] = v
   return out
 }
 /** The editor's full input for an event, with a patch on top (update replaces every field). */
 async function mergedEvent(t: ToolCtx, id: string, patch: Patch, extra: Record<string, unknown> = {}) {
   const cur: any = await t.caller.businessEvents.get({ id })
   const { id: _id, host: _h, synced: _s, recurring: _r, archived: _a, editedAt: _e, timezone: _tz, missing: _m, ...form } = cur
-  return { cur, input: { ...form, ...patchToInput(patch), ...extra, id } as any }
+  const merged = { ...form, ...patchToInput(patch), ...extra, id }
+  return { cur, input: { ...merged, ...programmeFields(cur, patch, merged) } as any }
 }
 
 // A recurring series: the template's fields (no festival end date) and the rule.
@@ -136,7 +209,8 @@ const SERIES_FIELDS = {
 }
 function seriesInput(a: any) {
   const { profile: host, every, until, count, skip, month_week, published, confirm_token: _c, ...fields } = a
-  return { ...patchToInput(fields), hostUsername: host, every, until: until ?? null, count: count ?? null, skip: skip ?? [], monthWeek: month_week ?? null, published: !!published } as any
+  const base = patchToInput(fields) as any
+  return { ...base, ...programmeFields(null, fields, base), hostUsername: host, every, until: until ?? null, count: count ?? null, skip: skip ?? [], monthWeek: month_week ?? null, published: !!published } as any
 }
 
 // --- the tools ------------------------------------------------------------------
@@ -166,11 +240,11 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'get_event', title: 'Event details', scopes: [], annotations: READ,
-    description: 'Everything about one event: description, line-up, venue, prices, ticket link, programme (agenda; for a festival, festival.program: every workshop and party by date and time). Accepts the id or the slug from its URL.',
+    description: 'Everything about one event: description, line-up, venue, prices, ticket link, programme (every workshop, class, show and party by date and time; for a festival also passes). Accepts the id or the slug from its URL.',
     input: { event: z.string().min(1).max(200).describe('Event id, or the last part of its /events/… URL.') },
     run: async (t, a) => {
       const e: any = await t.caller.events.get({ id: a.event })
-      return { ...card(t, e), description: e.description, artists: e.artists ?? [], ticketUrl: e.ticketUrl, link: e.link, country: e.country, address: e.venueAddress, agenda: e.agenda ?? [], checkedBy: e.checkedBy, festival: e.festival ? { key: e.festival.key, passes: e.festival.passes, practicalInfo: e.festival.practicalInfo, program: festivalProgram(e.festival.sessions) } : null }
+      return { ...card(t, e), description: e.description, artists: e.artists ?? [], ticketUrl: e.ticketUrl, link: e.link, country: e.country, address: e.venueAddress, programme: readProgramme(e), checkedBy: e.checkedBy, festival: e.festival ? { key: e.festival.key, passes: e.festival.passes ?? [], practicalInfo: e.festival.practicalInfo ?? [] } : null }
     },
   },
   {
@@ -526,9 +600,13 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'get_my_event', title: 'Event as its editor sees it', scopes: ['business:read'], business: true, annotations: READ,
-    description: 'An event of my pages in editable form (local date and times, line-up handles, prices, agenda, published state, missing details).',
+    description: 'An event of my pages in editable form (local date and times, line-up handles, prices, programme with item ids, published state, missing details).',
     input: { event_id: eventId },
-    run: (t, a) => t.caller.businessEvents.get({ id: a.event_id }),
+    run: async (t, a) => {
+      const { agenda, festival, ...e }: any = await t.caller.businessEvents.get({ id: a.event_id })
+      const { sessions: _s, ...details } = festival ?? {}
+      return { ...e, programme: readProgramme({ ...e, agenda, festival }), festival: festival ? details : null }
+    },
   },
   {
     name: 'inbox', title: 'Business inbox', scopes: ['business:read'], business: true, annotations: READ,
@@ -538,11 +616,12 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'create_event', title: 'Create a draft event', scopes: ['business:write'], business: true, annotations: WRITE,
-    description: 'Create an event for one of my pages as a DRAFT (not public). Times are local to the city. Publish it later with publish_event.',
+    description: 'Create an event for one of my pages as a DRAFT (not public). Times are local to the city. Put its schedule in programme (any event type). Publish it later with publish_event.',
     input: { profile: profile.describe('Handle of the page that runs the event (see my_profiles).'), ...PATCH_FIELDS, name: z.string().trim().min(1).max(160), type: PATCH_FIELDS.type.unwrap(), date: ymd, start_time: hhmm },
     run: async (t, a) => {
       const { profile: host, ...fields } = a
-      const r: any = await t.caller.businessEvents.create({ ...patchToInput(fields), hostUsername: host, published: false } as any)
+      const base = patchToInput(fields) as any
+      const r: any = await t.caller.businessEvents.create({ ...base, ...programmeFields(null, fields, base), hostUsername: host, published: false } as any)
       return { id: r.id, published: false, editor: url(t, `/business/events/${r.id}`), next: 'It is a draft. Check it with get_my_event, then publish_event when the user wants it public.' }
     },
   },
@@ -553,7 +632,9 @@ export const TOOLS: ToolDef[] = [
     confirm: async (t, a) => !!((await t.caller.businessEvents.get({ id: a.event_id })) as any).published,
     preview: async (t, a) => {
       const { cur, input } = await mergedEvent(t, a.event_id, a)
-      const changed = Object.fromEntries(Object.entries(patchToInput(a)).filter(([k, v]) => JSON.stringify(cur[k]) !== JSON.stringify(v)).map(([k, v]) => [k, { from: cur[k], to: v }]))
+      const changed: Record<string, { from: unknown; to: unknown }> = Object.fromEntries(Object.entries(patchToInput(a)).filter(([k, v]) => JSON.stringify(cur[k]) !== JSON.stringify(v)).map(([k, v]) => [k, { from: cur[k], to: v }]))
+      const [from, to] = [readProgramme(cur), festivalProgram(input.festival.sessions)]
+      if (JSON.stringify(from) !== JSON.stringify(to)) changed.programme = { from, to }
       return { event: cur.name, live: true, changes: changed, result: { name: input.name, date: input.date, startTime: input.startTime } }
     },
     run: async (t, a) => {
