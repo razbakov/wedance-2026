@@ -5,6 +5,7 @@ import { allowCors, clientIp, requestOrigin } from '../oauth/http'
 import { mcpResourceFor, resourceMetadataUrlFor, PUBLIC_SCOPES } from '../oauth/config'
 import { grantKey, hit, ipKey, LIMITS } from '../oauth/rateLimit'
 import { buildMcpServer } from './server'
+import { mcpCaller } from './caller'
 import { useDb } from '../utils/db'
 
 /**
@@ -28,7 +29,7 @@ export function authChallenge(event: H3Event, origin: string, error?: { code: st
 }
 
 async function serve(event: H3Event, req: Request, ctx: Context, origin: string) {
-  const server = buildMcpServer(ctx, origin)
+  const server = buildMcpServer(ctx, origin, mcpCaller(event, ctx.oauthClientId))
   const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true })
   try {
     await server.connect(transport)
