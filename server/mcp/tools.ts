@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { McpCaller } from './caller'
 import type { ToolAnnotations } from '@modelcontextprotocol/sdk/types.js'
 import { appRouter } from '../trpc'
 import type { Context } from '../trpc/context'
@@ -21,7 +22,7 @@ import type { FestivalSession } from '../../shared/types/festivalDetails'
  */
 
 export type Caller = ReturnType<typeof appRouter.createCaller>
-export interface ToolCtx { caller: Caller; ctx: Context; origin: string }
+export interface ToolCtx { caller: Caller; ctx: Context; origin: string; client?: McpCaller }
 
 export interface ToolDef {
   name: string

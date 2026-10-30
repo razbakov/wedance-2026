@@ -8,6 +8,8 @@ import { TOOL_BY_NAME, visibleTools, type ToolCtx, type ToolDef } from './tools'
 import { dataText, fail, ok, type ToolResult } from './format'
 import { checkConfirmToken, confirmedArgs, mintConfirmToken } from './confirm'
 import { claimConfirmNonce, finishAudit, writeAudit, type AuditWho } from './audit'
+import type { McpCaller } from './caller'
+import { trackServer } from '../utils/posthog'
 
 /**
  * One McpServer per request (stateless, so it runs on Vercel): only the tools
@@ -50,10 +52,21 @@ export async function callTool(tool: ToolDef, rawArgs: Record<string, unknown>, 
   if (!parsed.success) return fail(`Invalid arguments: ${parsed.error.issues.map(i => `${i.path.join('.') || 'input'}: ${i.message}`).join('; ')}`)
   const args = parsed.data as Record<string, unknown>
   const { ctx } = t
-  const who: AuditWho = { grantId: ctx.oauthGrantId ?? null, dancerId: ctx.dancerId, clientId: ctx.oauthClientId ?? null }
+  const who: AuditWho = {
+    grantId: ctx.oauthGrantId ?? null, dancerId: ctx.dancerId, clientId: ctx.oauthClientId ?? null,
+    clientApp: t.client?.app ?? null, userAgent: t.client?.userAgent ?? null, country: t.client?.country ?? null,
+  }
   const scopes = ctx.scopes ?? []
-  const audit = (result: 'ok' | 'error' | 'preview' | 'denied', errorCode?: string | null) =>
-    writeAudit(ctx.db, { ...who, tool: tool.name, args: confirmedArgs(args), result, errorCode, latencyMs: Date.now() - started })
+  // One PostHog event per call, whatever the outcome (anonymous calls too).
+  const track = (result: 'ok' | 'error' | 'preview' | 'denied', errorCode?: string | null) =>
+    trackServer(ctx, 'mcp_tool_called', {
+      channel: 'mcp', tool: tool.name, result, error_code: errorCode ?? null, app: who.clientApp, country: who.country,
+      anonymous: !ctx.oauthGrantId, latency_ms: Date.now() - started,
+    })
+  const audit = (result: 'ok' | 'error' | 'preview' | 'denied', errorCode?: string | null) => {
+    track(result, errorCode)
+    return writeAudit(ctx.db, { ...who, tool: tool.name, args: confirmedArgs(args), result, errorCode, latencyMs: Date.now() - started })
+  }
 
   // Listed tools already passed this; a client may still call an unlisted one.
   if (!visibleTools({ scopes, grantedProfileIds: ctx.grantedProfileIds ?? [], isAdmin: ctx.isAdmin }).includes(tool)) {
@@ -89,10 +102,12 @@ export async function callTool(tool: ToolDef, rawArgs: Record<string, unknown>, 
       if (!auditId) return fail('This confirmation was already used. Get a new preview if the user wants to do it again.')
       try {
         const result = await tool.run(t, confirmedArgs(args))
+        track('ok')
         await finishAudit(ctx.db, auditId, 'ok', Date.now() - started)
         return ok(result ?? { ok: true })
       } catch (e) {
         const { message, code } = errorText(e)
+        track('error', code)
         await finishAudit(ctx.db, auditId, 'error', Date.now() - started, code)
         return fail(message)
       }
@@ -107,9 +122,9 @@ export async function callTool(tool: ToolDef, rawArgs: Record<string, unknown>, 
   }
 }
 
-export function buildMcpServer(ctx: Context, origin: string): McpServer {
+export function buildMcpServer(ctx: Context, origin: string, client?: McpCaller): McpServer {
   const server = new McpServer(SERVER_INFO, { instructions: INSTRUCTIONS, capabilities: { tools: {}, resources: {}, prompts: {} } })
-  const t: ToolCtx = { caller: appRouter.createCaller(ctx), ctx, origin }
+  const t: ToolCtx = { caller: appRouter.createCaller(ctx), ctx, origin, client }
   const listing = { scopes: ctx.scopes ?? [], grantedProfileIds: ctx.grantedProfileIds ?? [], isAdmin: ctx.isAdmin }
 
   for (const tool of visibleTools(listing)) {

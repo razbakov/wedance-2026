@@ -1428,7 +1428,8 @@ export const oauthTokens = pgTable('oauth_tokens', {
 // Every MCP tool call: who (grant / dancer / app), which tool, what for
 // (`target`: a profile handle or event id), a hash of the input (never the
 // input), the outcome and how long it took. `confirmNonce` makes a publish
-// confirmation single use.
+// confirmation single use. `clientApp` / `userAgent` / `country`: where the
+// call came from (server/mcp/caller.ts), set for anonymous calls too.
 export const mcpAudit = pgTable('mcp_audit', {
   id: uuid('id').primaryKey().defaultRandom(),
   grantId: uuid('grant_id').references(() => oauthGrants.id, { onDelete: 'set null' }),
@@ -1442,6 +1443,9 @@ export const mcpAudit = pgTable('mcp_audit', {
   errorCode: text('error_code'),
   latencyMs: integer('latency_ms'),
   confirmNonce: text('confirm_nonce').unique(),
+  clientApp: text('client_app'),
+  userAgent: text('user_agent'),
+  country: text('country'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (t) => [
   index('mcp_audit_grant_idx').on(t.grantId, t.createdAt),
