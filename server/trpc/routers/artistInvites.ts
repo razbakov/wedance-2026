@@ -8,6 +8,7 @@ import { eventLocalDate, eventLocalTime } from '../../../shared/utils/eventTime'
 import { requireEventManager } from './businessEvents'
 import { citySlugFor } from './business'
 import { grant, logAccess, assertProfileGranted } from '../../utils/profileAccess'
+import { addProfileToOwnGrant } from '../../oauth/grants'
 import { instagramUrl, parseInstagramHandle } from '../../../shared/utils/instagram'
 import { videoEmbedUrl } from '../../../shared/utils/video'
 import { contactsFor } from '../../../shared/utils/contacts'
@@ -478,6 +479,8 @@ export const artistInvitesRouter = router({
       }
       await grant(ctx.db, p.id, ctx.dancerId, 'owner', { by: invite?.createdBy ?? null })
       await logAccess(ctx.db, { profileId: p.id, actorId: ctx.dancerId, subjectId: ctx.dancerId, action: 'approved', role: 'owner', note: 'Took over the page through an organizer’s invite link.' })
+      // Taken over through a connected app: that app may run it right away (#447).
+      await addProfileToOwnGrant(ctx, p.id)
       trackServer(ctx, 'profile_claimed', { profile: p.username, via: 'invite', ...profileGroup(p.username) })
       return { username: p.username, owner: true }
     }),

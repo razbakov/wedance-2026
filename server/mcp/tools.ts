@@ -595,9 +595,23 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'add_profile_from_instagram', title: 'Add an artist or venue from Instagram', scopes: ['business:write'], business: true, annotations: WRITE,
-    description: 'Someone for a line-up or venue who isn’t on WeDance yet: creates an unclaimed page from their Instagram handle (or returns the page that already links it).',
+    description: 'Someone ELSE for a line-up or venue who isn’t on WeDance yet: creates an unclaimed page from their Instagram handle (or returns the page that already links it). It does not make the page the user’s; for a page the user runs, use create_my_page.',
     input: { instagram: z.string().min(2).max(300).describe('Instagram handle or URL.'), type: z.enum(['artist', 'venue', 'organizer']), name: z.string().max(120).optional() },
     run: (t, a) => t.caller.businessEvents.addFromInstagram({ instagram: a.instagram, type: a.type, name: a.name }),
+  },
+  {
+    // Not `business: true`: an app connected with no pages yet must see it to make the first one.
+    name: 'create_my_page', title: 'Create a page I run', scopes: ['business:write'], annotations: WRITE,
+    description: 'Create a business page the user runs (organizer, venue, artist, promoter) with the user as owner. This app can use it right away (create_event etc.), no reconnect. Fails if the Instagram account already has a page someone else added; then the user claims it on WeDance.',
+    input: {
+      type: z.enum(['organizer', 'venue', 'artist', 'promoter']), name: z.string().trim().min(1).max(120), city: z.string().max(120).optional(),
+      instagram: z.string().min(2).max(300).optional().describe('Instagram handle or URL of the page.'),
+      handle: z.string().min(3).max(40).transform(h => h.replace(/^@/, '').toLowerCase()).optional().describe('Wanted WeDance handle (wedance.vip/@handle); made from the name when left out.'),
+    },
+    run: async (t, a) => {
+      const r: any = await t.caller.business.create({ type: a.type, name: a.name, city: a.city, instagram: a.instagram, handle: a.handle })
+      return { handle: r.username, url: url(t, `/@${r.username}`), editor: url(t, `/business/network/${r.username}`), next: 'This app can now run it: create_event with profile set to this handle.' }
+    },
   },
   {
     name: 'suggest_venues', title: 'Venue ideas for a date', scopes: ['business:read'], business: true, annotations: READ,
