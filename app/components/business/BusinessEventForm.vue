@@ -9,6 +9,7 @@
 import type { PropType } from 'vue'
 import { MapPin, CalendarDays, Send, Pencil, Check, Plus, X, FileText, ListOrdered, Ticket, Users, Palette } from 'lucide-vue-next'
 import { priceLines } from '#shared/utils/flyer'
+import { agendaToSessions, emptyEventDetails, legacyAgendaOf } from '#shared/utils/programme'
 
 export type BusinessEventValues = {
   hostUsername: string
@@ -78,7 +79,7 @@ watch(isMultiDayType, (v) => { if (v) multiDay.value = true }, { immediate: true
 // passes, practical info. Festivals (multi-day types) also get a logo, colour
 // and links under Branding. Its days come from its dates.
 const isFestival = isMultiDayType
-if (!form.festival) form.festival = { socialLinks: [], practicalInfo: [], passes: [], sessions: [], videos: {} }
+if (!form.festival) form.festival = emptyEventDetails()
 const festivalDays = computed(() => {
   if (!form.date) return []
   const last = multiDay.value && form.endDate ? form.endDate : form.date
@@ -162,17 +163,10 @@ const venueText = computed(() => venueManual.value
   ? [form.venueName, form.venueAddress].filter(Boolean).join(' · ')
   : form.venueUsername ? (pickedVenue.value || props.labels.venue || '@' + form.venueUsername) : '')
 // The old one-line agenda, shown until it's moved into the programme.
-const legacyAgenda = computed(() => (form.festival?.sessions?.length ? [] : form.agenda.filter(a => a.what.trim())))
-const PARTY = /party|social|dj|concert|show|live|open floor|fiesta|baile/i
+const legacyAgenda = computed(() => legacyAgendaOf(form))
 function agendaToProgramme() {
   if (!form.festival) return
-  const day = form.date
-  form.festival.sessions = legacyAgenda.value.map((a, i) => ({
-    id: `s-${Math.random().toString(36).slice(2, 8)}${i}`,
-    date: day, time: /^\d{1,2}:\d{2}$/.test(a.time.trim()) ? a.time.trim().padStart(5, '0') : form.startTime,
-    duration: PARTY.test(a.what) ? 240 : 60, type: PARTY.test(a.what) ? 'party' : 'workshop',
-    title: a.what.trim(), artist: '', style: '', level: 'Beginner',
-  }) as any)
+  form.festival.sessions = agendaToSessions(legacyAgenda.value, { date: form.date, startTime: form.startTime })
   form.agenda = []
   open.value = new Set([...open.value, 'agenda'])
 }

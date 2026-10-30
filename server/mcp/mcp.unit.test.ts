@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest'
 import { TRPCError } from '@trpc/server'
 import { quoteUntrusted, dataText } from './format'
 import { checkConfirmToken, mintConfirmToken } from './confirm'
+import { z } from 'zod'
 import { TOOLS, visibleTools } from './tools'
+import { legacyAgendaOf } from '../../shared/utils/programme'
 import { appRouter } from '../trpc'
 import { PROCEDURE_SCOPES, checkProcedureScope } from '../trpc/scopes'
 
@@ -123,15 +125,155 @@ describe('get_event programme', () => {
   const tool = TOOLS.find(t => t.name === 'get_event')!
   const run = (ev: any) => tool.run({ caller: { events: { get: async () => ev } }, ctx: {}, origin: 'https://x' } as any, { event: ev.id })
   const base = { id: 'e1', name: 'Fest', startDate: new Date('2026-11-06T18:00:00Z'), timezone: 'Europe/Vienna', agenda: [] }
-  it('a festival’s schedule comes from festival.sessions, in order', async () => {
+  it('the schedule comes from festival.sessions, in order', async () => {
     const session = (id: string, date: string, time: string) => ({ id, date, time, duration: 60, type: 'workshop', title: id, artist: 'ana', style: 'Salsa', level: 'Intermediate' })
-    const r: any = await run({ ...base, isFestival: true, festival: { key: 'fest-2026', sessions: [session('b', '2026-11-07', '12:00'), session('a', '2026-11-07', '10:00'), session('c', '2026-11-06', '20:00')] } })
-    expect(r.festival.program.map((s: any) => s.title)).toEqual(['c', 'a', 'b'])
-    expect(r.festival.program[0]).toMatchObject({ date: '2026-11-06', time: '20:00', type: 'workshop', artist: 'ana', with: [], room: null })
+    const r: any = await run({ ...base, isFestival: true, festival: { key: 'fest-2026', passes: [], sessions: [session('b', '2026-11-07', '12:00'), session('a', '2026-11-07', '10:00'), session('c', '2026-11-06', '20:00')] } })
+    expect(r.programme.map((s: any) => s.title)).toEqual(['c', 'a', 'b'])
+    expect(r.programme[0]).toMatchObject({ id: 'c', date: '2026-11-06', time: '20:00', type: 'workshop', artist: 'ana', with: [], room: null })
+    expect(r.festival).toEqual({ key: 'fest-2026', passes: [], practicalInfo: [] })
+    expect(r).not.toHaveProperty('agenda')
   })
-  it('an ordinary event keeps its agenda and no festival block', async () => {
-    const r: any = await run({ ...base, agenda: [{ time: '19:00', what: 'Class' }], festival: null })
-    expect(r.agenda).toEqual([{ time: '19:00', what: 'Class' }])
+  it('an old event’s agenda is read as programme sessions on its local day', async () => {
+    const r: any = await run({ ...base, agenda: [{ time: '19:00', what: 'Class' }, { time: '', what: 'Party with DJ Max' }], festival: null })
+    expect(r.programme).toMatchObject([
+      { date: '2026-11-06', time: '19:00', type: 'workshop', duration: 60, title: 'Class' },
+      // No clock time → the event's start (19:00 in Vienna).
+      { date: '2026-11-06', time: '19:00', type: 'party', duration: 240, title: 'Party with DJ Max' },
+    ])
     expect(r.festival).toBeNull()
+  })
+})
+
+// The business tools against a fake tRPC caller: what create/update send is
+// exactly what the router stores.
+describe('create_event / update_event write the programme as festival.sessions', () => {
+  const tool = (name: string) => TOOLS.find(t => t.name === name)!
+  /** Args through the tool's own schema, as the MCP server does. */
+  const args = (name: string, raw: Record<string, unknown>) => z.object(tool(name).input).parse(raw)
+  function fake(stored: any = null) {
+    const calls: Record<string, any[]> = { create: [], update: [], createSeries: [] }
+    const businessEvents = {
+      get: async () => stored,
+      create: async (i: any) => { calls.create!.push(i); return { id: '11111111-1111-4111-8111-111111111111' } },
+      update: async (i: any) => { calls.update!.push(i); return { saved: true } },
+      createSeries: async (i: any) => { calls.createSeries!.push(i); return { seriesId: 'host-x', published: false, created: [] } },
+    }
+    return { calls, t: { caller: { businessEvents }, ctx: {}, origin: 'https://x' } as any }
+  }
+  const party = { profile: '@bfest', name: 'B-FEST Halloween', type: 'Party', date: '2026-10-31', start_time: '20:00' }
+
+  it('create_event: programme → festival.sessions with defaults; no agenda stored; artists join the line-up', async () => {
+    const { calls, t } = fake()
+    await tool('create_event').run(t, args('create_event', {
+      ...party, artists: ['maria'],
+      programme: [
+        { time: '20:00', type: 'class', title: 'Bachata beginners', artist: '@ana', style: 'Bachata' },
+        { date: '2026-10-31', time: '21:00', type: 'show', title: 'Halloween show', duration: 30, level: 'Advanced' },
+        { time: '22:00', type: 'dj', title: 'Party with DJ Max', artist: 'djmax' },
+      ],
+    }))
+    const input = calls.create![0]
+    expect(input.agenda).toEqual([])
+    expect(input.hostUsername).toBe('bfest')
+    expect(input.festival).toMatchObject({ socialLinks: [], practicalInfo: [], passes: [], videos: {} })
+    expect(input.festival).not.toHaveProperty('key')
+    expect(input.festival.sessions).toMatchObject([
+      { date: '2026-10-31', time: '20:00', duration: 60, type: 'workshop', title: 'Bachata beginners', artist: 'ana', style: 'Bachata', level: 'Beginner' },
+      { date: '2026-10-31', time: '21:00', duration: 30, type: 'party', title: 'Halloween show', artist: '', level: 'Advanced' },
+      { date: '2026-10-31', time: '22:00', duration: 240, type: 'party', title: 'Party with DJ Max', artist: 'djmax' },
+    ])
+    expect(new Set(input.festival.sessions.map((s: any) => s.id)).size).toBe(3)
+    expect(input.artists).toEqual(['maria', 'ana', 'djmax'])
+    // The editor shows a programme, not "Your earlier agenda".
+    expect(legacyAgendaOf(input)).toEqual([])
+  })
+
+  it('create_event: a legacy agenda is converted like the editor’s “Put it in the programme”', async () => {
+    const { calls, t } = fake()
+    await tool('create_event').run(t, args('create_event', { ...party, agenda: [{ time: '9:30', what: 'Salsa class' }, { time: 'late', what: 'Halloween party' }, { time: '23:00', what: ' ' }] }))
+    const input = calls.create![0]
+    expect(input.agenda).toEqual([])
+    expect(input.festival.sessions).toMatchObject([
+      { date: '2026-10-31', time: '09:30', duration: 60, type: 'workshop', title: 'Salsa class', artist: '', style: '', level: 'Beginner' },
+      { date: '2026-10-31', time: '20:00', duration: 240, type: 'party', title: 'Halloween party' },
+    ])
+    expect(legacyAgendaOf(input)).toEqual([])
+  })
+
+  it('create_event: without a programme the event still gets the editor’s empty details', async () => {
+    const { calls, t } = fake()
+    await tool('create_event').run(t, args('create_event', party))
+    expect(calls.create![0]).toMatchObject({ agenda: [], festival: { sessions: [], passes: [] } })
+  })
+
+  it('the programme item schema rejects what the router would refuse', () => {
+    expect(() => args('create_event', { ...party, programme: [{ time: '8pm', type: 'party', title: 'x' }] })).toThrow()
+    expect(() => args('create_event', { ...party, programme: [{ time: '20:00', type: 'rave', title: 'x' }] })).toThrow()
+    expect(() => args('create_event', { ...party, programme: [{ time: '20:00', type: 'party', title: ' ' }] })).toThrow()
+  })
+
+  const legacy = { // the shape businessEvents.get returns for an event made by the old MCP (cf43b841…)
+    id: '22222222-2222-4222-8222-222222222222', host: { username: 'bfest' }, synced: false, recurring: false, archived: false, editedAt: null, timezone: 'Europe/Berlin', missing: [],
+    name: 'B-FEST Halloween', type: 'Party', date: '2026-10-31', startTime: '21:00', endTime: null, endDate: null, city: 'Munich', venueUsername: null, venueName: 'Club', venueAddress: '',
+    artists: [], styles: ['Bachata'], description: '', cover: null, ticketUrl: null, price: '', published: false,
+    agenda: [{ time: '21:00', what: 'Workshop' }, { time: '22:00', what: 'Party' }], flyerOptions: {}, festival: null,
+  }
+
+  it('update_event moves an old agenda into the programme, even when only another field changes', async () => {
+    const { calls, t } = fake(legacy)
+    await tool('update_event').run(t, args('update_event', { event_id: legacy.id, name: 'B-FEST Halloween 2026' }))
+    const input = calls.update![0]
+    expect(input).toMatchObject({ id: legacy.id, name: 'B-FEST Halloween 2026', agenda: [] })
+    expect(input.festival.sessions).toMatchObject([
+      { date: '2026-10-31', time: '21:00', type: 'workshop', title: 'Workshop' },
+      { date: '2026-10-31', time: '22:00', type: 'party', title: 'Party' },
+    ])
+    for (const k of ['host', 'synced', 'missing', 'timezone']) expect(input).not.toHaveProperty(k)
+    expect(legacyAgendaOf(input)).toEqual([])
+  })
+
+  it('update_event with a programme replaces the sessions, keeps given ids and the rest of the details', async () => {
+    const stored = { ...legacy, agenda: [], festival: { key: 'b-fest-abc12', passes: [{ name: 'Party', price: 10, days: [] }], sessions: [{ id: 's-keep0', date: '2026-10-31', time: '21:00', duration: 60, type: 'workshop', title: 'Old', artist: '', style: '', level: 'Beginner' }] } }
+    const { calls, t } = fake(stored)
+    await tool('update_event').run(t, args('update_event', { event_id: legacy.id, programme: [{ id: 's-keep0', time: '21:30', type: 'workshop', title: 'Bachata' }, { time: '23:00', type: 'party', title: 'Party' }] }))
+    const input = calls.update![0]
+    expect(input.festival).not.toHaveProperty('key')
+    expect(input.festival.passes).toEqual(stored.festival.passes)
+    expect(input.festival.sessions).toMatchObject([{ id: 's-keep0', time: '21:30', title: 'Bachata' }, { time: '23:00', type: 'party', title: 'Party' }])
+  })
+
+  it('update_event without programme keeps the sessions as they are', async () => {
+    const sessions = [{ id: 's-a', date: '2026-10-31', time: '21:00', duration: 60, type: 'workshop', title: 'A', artist: '', style: '', level: 'Beginner' }]
+    const { calls, t } = fake({ ...legacy, agenda: [], festival: { key: 'k', sessions } })
+    await tool('update_event').run(t, args('update_event', { event_id: legacy.id, price: '10€' }))
+    expect(calls.update![0].festival.sessions).toEqual(sessions)
+    expect(calls.update![0].artists).toEqual([])
+  })
+
+  it('update_event preview lists the programme change', async () => {
+    const { t } = fake({ ...legacy, published: true, agenda: [], festival: { key: 'k', sessions: [] } })
+    const p: any = await tool('update_event').preview!(t, args('update_event', { event_id: legacy.id, programme: [{ time: '22:00', type: 'party', title: 'Party' }] }))
+    expect(p.changes.programme.from).toEqual([])
+    expect(p.changes.programme.to).toMatchObject([{ time: '22:00', type: 'party', title: 'Party' }])
+  })
+
+  it('get_my_event returns the programme as sessions (an old agenda read as sessions)', async () => {
+    const { t } = fake(legacy)
+    const r: any = await tool('get_my_event').run(t, { event_id: legacy.id })
+    expect(r).not.toHaveProperty('agenda')
+    expect(r.festival).toBeNull()
+    expect(r.programme).toMatchObject([{ time: '21:00', type: 'workshop', title: 'Workshop' }, { time: '22:00', type: 'party', title: 'Party' }])
+    const { t: t2 } = fake({ ...legacy, agenda: [], festival: { key: 'k', passes: [], sessions: [{ id: 's-a', date: '2026-10-31', time: '21:00', duration: 60, type: 'workshop', title: 'A', artist: 'ana', style: '', level: 'Beginner' }] } })
+    const r2: any = await tool('get_my_event').run(t2, { event_id: legacy.id })
+    expect(r2.programme).toMatchObject([{ id: 's-a', title: 'A', artist: 'ana' }])
+    expect(r2.festival).toEqual({ key: 'k', passes: [] })
+  })
+
+  it('recurring_series sends the programme to every date, never an agenda', async () => {
+    const { calls, t } = fake()
+    await tool('recurring_series').run(t, args('recurring_series', { ...party, every: 'week', count: 4, agenda: [{ time: '20:00', what: 'Class' }] }))
+    const input = calls.createSeries![0]
+    expect(input.agenda).toEqual([])
+    expect(input.festival.sessions).toMatchObject([{ date: '2026-10-31', time: '20:00', type: 'workshop', title: 'Class' }])
   })
 })

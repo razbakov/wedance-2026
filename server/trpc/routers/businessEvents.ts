@@ -259,8 +259,10 @@ const listColumns = {
 }
 
 // A recurring series (recurring_series): the template event plus the rule.
-// Festivals aren't repeated this way (each edition has its own key and page).
-const seriesInput = eventInput.omit({ festival: true }).extend({
+// Festivals aren't repeated this way (each edition has its own key and page),
+// but a weekly party's programme is: each date gets a copy on its own day,
+// under its own key.
+const seriesInput = eventInput.extend({
   hostUsername: z.string().min(1),
   every: z.enum(['week', '2weeks', 'month']),
   until: ymd.nullable().optional(),
@@ -470,7 +472,8 @@ export const businessEventsRouter = router({
         // A new festival's permanent key is its first slug.
         .values({ ...row, hostProfileId: host.id, source: 'wedance-business', slug, ...(input.festival ? { festival: { ...input.festival, key: slug } } : {}) })
         .returning({ id: events.id })
-      const props = { event_id: ev!.id, is_festival: !!input.festival, host_type: host.type, city: input.city || null, ...profileGroup(host.username) }
+      // Every editor event carries details (its programme), so the type decides.
+      const props = { event_id: ev!.id, is_festival: row.isFestival, host_type: host.type, city: input.city || null, ...profileGroup(host.username) }
       trackServer(ctx, 'event_created', { ...props, published: !!input.published })
       if (input.published) trackServer(ctx, 'event_published', props)
       return { id: ev!.id }
@@ -501,7 +504,7 @@ export const businessEventsRouter = router({
         hostProfileId,
       }).where(eq(events.id, ev.id))
       // Draft → live is the publish conversion (re-saving a live event is not).
-      if (input.published && !ev.published) trackServer(ctx, 'event_published', { event_id: ev.id, is_festival: !!input.festival, host_type: host?.type ?? null, city: input.city || null, ...profileGroup(host?.username) })
+      if (input.published && !ev.published) trackServer(ctx, 'event_published', { event_id: ev.id, is_festival: ['Festival', 'Weekender', 'Congress'].includes(input.type), host_type: host?.type ?? null, city: input.city || null, ...profileGroup(host?.username) })
       return { saved: true }
     }),
 
@@ -580,7 +583,10 @@ export const businessEventsRouter = router({
       const rows = []
       for (const [i, date] of dates.entries()) {
         const row = await toRow(ctx.db, host, { ...template, date, festival: undefined } as EventInput)
-        rows.push({ ...row, ...(i === 0 ? { id: firstId } : {}), hostProfileId: host.id, source: 'wedance-business', seriesId, slug: `${slugify(input.name)}-${randomSuffix(5)}` })
+        const slug = `${slugify(input.name)}-${randomSuffix(5)}`
+        const shift = new Date(`${date}T12:00:00Z`).getTime() - new Date(`${input.date}T12:00:00Z`).getTime()
+        const festival = input.festival ? { ...shiftFestivalSessions({ ...input.festival, key: slug }, shift)!, key: slug } : null
+        rows.push({ ...row, ...(i === 0 ? { id: firstId } : {}), hostProfileId: host.id, source: 'wedance-business', seriesId, slug, ...(festival ? { festival } : {}) })
       }
       const created = await ctx.db.insert(events).values(rows).returning({ id: events.id, startDate: events.startDate, timezone: events.timezone })
       created.sort((a: any, b: any) => +new Date(a.startDate) - +new Date(b.startDate))

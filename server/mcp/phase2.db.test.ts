@@ -117,6 +117,25 @@ describe.skipIf(!DATABASE_URL)('MCP phase 2 (DB)', () => {
       expect((await org.businessEvents.get({ id: r.created[2]!.id })).startTime).toBe('19:00')
     })
 
+    it('MCP programme (#445): create_event and recurring_series store festival.sessions, never agenda', async () => {
+      const writer = await app(ids.org, ['business:write'], [pages.club.id])
+      const programme = [{ time: '20:00', type: 'class', title: 'Bachata beginners' }, { time: '21:00', type: 'party', title: 'Halloween party' }]
+      const one = json(await callTool(TOOL_BY_NAME.get('create_event')!, { profile: pages.club.username, name: `${tag} Halloween`, type: 'Party', date: futureThursday, start_time: '20:00', city: 'Munich', programme }, writer))
+      const [row] = await db.select().from(schema.events).where(eq(schema.events.id, one.id))
+      expect(row.agenda).toEqual([])
+      expect(row.festival.key).toBe(row.slug)
+      expect(row.festival.sessions).toMatchObject([{ date: futureThursday, time: '20:00', type: 'workshop' }, { date: futureThursday, time: '21:00', type: 'party', duration: 240 }])
+      // The editor and get_my_event read it as a programme.
+      expect((await web(ids.org).businessEvents.get({ id: one.id })).festival?.sessions).toHaveLength(2)
+      expect(json(await callTool(TOOL_BY_NAME.get('get_my_event')!, { event_id: one.id }, writer)).programme.map((s: any) => s.title.untrusted_text)).toEqual(['Bachata beginners', 'Halloween party'])
+
+      const series = json(await callTool(TOOL_BY_NAME.get('recurring_series')!, { profile: pages.club.username, name: `${tag} Weekly Social`, type: 'Party', date: futureThursday, start_time: '20:00', city: 'Munich', every: 'week', count: 2, agenda: [{ time: '20:00', what: 'Class' }] }, writer))
+      const rows = (await db.select().from(schema.events).where(eq(schema.events.seriesId, series.seriesId))).sort((a: any, b: any) => +a.startDate - +b.startDate)
+      expect(rows.map((e: any) => e.agenda)).toEqual([[], []])
+      expect(rows.map((e: any) => e.festival.sessions[0].date)).toEqual([futureThursday, plusDays(futureThursday, 7)])
+      expect(rows.map((e: any) => e.festival.key)).toEqual(rows.map((e: any) => e.slug))
+    })
+
     it('monthly: the same nth weekday', async () => {
       const r = await web(ids.org).businessEvents.seriesPreview({ hostUsername: pages.club.username, name: `${tag} Monthly`, ...template, date: '2031-01-19', every: 'month', count: 3, published: false } as any)
       expect(r.dates.map(d => d.date)).toEqual(['2031-01-19', '2031-02-16', '2031-03-16'])
