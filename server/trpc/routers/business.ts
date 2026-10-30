@@ -8,6 +8,7 @@ import { slugify, randomSuffix } from '../../utils/slug'
 import { parseInstagramHandle, instagramUrl } from '../../../shared/utils/instagram'
 import { grant, logAccess, assertProfileGranted, onlyGranted, type GrantCtx } from '../../utils/profileAccess'
 import { notifyDecision, notifyInfoRequired } from './businessTeam'
+import { addProfileToOwnGrant } from '../../oauth/grants'
 import { profileGroup, trackServer } from '../../utils/posthog'
 
 /**
@@ -62,6 +63,11 @@ export async function requireMember(ctx: { db: any; dancerId: string; isAdmin?: 
     .where(and(eq(profileMembers.profileId, p.id), eq(profileMembers.dancerId, ctx.dancerId)))
   if (!m) throw new TRPCError({ code: 'FORBIDDEN', message: 'You don’t manage this profile.' })
   return p
+}
+
+async function hasTeam(db: any, profileId: string) {
+  const [m] = await db.select({ id: profileMembers.id }).from(profileMembers).where(eq(profileMembers.profileId, profileId)).limit(1)
+  return !!m
 }
 
 // /@handle is shared by dancers and profiles, so a new handle must be free in both.
@@ -245,7 +251,21 @@ export const businessRouter = router({
       const ig = input.instagram ? parseInstagramHandle(input.instagram) : null
       if (input.instagram && !ig) throw new TRPCError({ code: 'BAD_REQUEST', message: 'That doesn’t look like an Instagram link or handle.' })
       if (ig) {
-        const [dupe] = await ctx.db.select({ username: profiles.username, name: profiles.name }).from(profiles).where(linksInstagram(ig)).limit(1)
+        const [dupe] = await ctx.db.select({ id: profiles.id, username: profiles.username, name: profiles.name, sourceRef: profiles.sourceRef }).from(profiles).where(linksInstagram(ig)).limit(1)
+        // A page this dancer added from Instagram a moment ago (add_profile_from_instagram)
+        // that nobody runs yet: they made it, so it becomes theirs instead of a duplicate.
+        const src = dupe?.sourceRef as { source?: string; addedBy?: string } | null | undefined
+        if (dupe && src?.source === 'wedance-business' && src.addedBy === ctx.dancerId && !(await hasTeam(ctx.db, dupe.id))) {
+          const city = input.city?.trim() || null
+          await ctx.db.update(profiles)
+            .set({ type: input.type, name: input.name, ...(city ? { city, citySlug: await citySlugFor(ctx.db, city) } : {}) })
+            .where(eq(profiles.id, dupe.id))
+          await grant(ctx.db, dupe.id, ctx.dancerId, 'owner')
+          await logAccess(ctx.db, { profileId: dupe.id, actorId: ctx.dancerId, subjectId: ctx.dancerId, action: 'created', role: 'owner', note: 'Took over a page they had added from Instagram.' })
+          await addProfileToOwnGrant(ctx, dupe.id)
+          trackServer(ctx, 'business_profile_created', { profile: dupe.username, profile_type: input.type, ...profileGroup(dupe.username) })
+          return { username: dupe.username as string }
+        }
         if (dupe) throw new TRPCError({ code: 'CONFLICT', message: `@${ig} already has a page on WeDance: ${dupe.name} (@${dupe.username}). Claim it or join its team instead.` })
       }
       let handle = input.handle || slugify(input.name)
@@ -263,6 +283,8 @@ export const businessRouter = router({
         .returning({ id: profiles.id, username: profiles.username })
       await ctx.db.insert(profileMembers).values({ profileId: p!.id, dancerId: ctx.dancerId, role: 'owner' })
       await logAccess(ctx.db, { profileId: p!.id, actorId: ctx.dancerId, subjectId: ctx.dancerId, action: 'created', role: 'owner' })
+      // Made through a connected app: that app may run it right away (#447).
+      await addProfileToOwnGrant(ctx, p!.id)
       trackServer(ctx, 'business_profile_created', { profile: p!.username, profile_type: input.type, ...profileGroup(p!.username) })
       return { username: p!.username }
     }),

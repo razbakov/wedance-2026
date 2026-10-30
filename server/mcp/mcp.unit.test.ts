@@ -38,6 +38,12 @@ describe('dynamic tool list', () => {
     expect(writer).not.toContain('publish_event')
     expect(names({ scopes: ['business:publish'], grantedProfileIds: ['p1'], isAdmin: false })).toEqual(expect.arrayContaining(['publish_event', 'invite_artist', 'create_event']))
   })
+  it('an app with business:write but no pages yet can still make the first one (#447)', () => {
+    const noPages = names({ scopes: ['business:write'], grantedProfileIds: [], isAdmin: false })
+    expect(noPages).toContain('create_my_page')
+    expect(noPages).not.toContain('create_event')
+    expect(names({ scopes: ['business:read'], grantedProfileIds: ['p1'], isAdmin: false })).not.toContain('create_my_page')
+  })
   it('admin tools only for an admin context', () => {
     expect(names({ scopes: ['admin'], grantedProfileIds: [], isAdmin: false })).not.toContain('admin_pending_claims')
     expect(names({ scopes: ['admin'], grantedProfileIds: [], isAdmin: true })).toContain('admin_pending_claims')

@@ -111,6 +111,8 @@ export const PROCEDURE_SCOPES: Record<string, Scope | null> = {
   'businessEvents.duplicate': 'business:write',
   'businessEvents.archive': 'business:write',
   'businessEvents.addFromInstagram': 'business:write',
+  // A new page the dancer runs; it joins the app's grant (server/oauth/grants.ts).
+  'business.create': 'business:write',
   'businessFlyers.make': 'business:write',
   'businessFlyers.directions': 'business:write',
   'businessFlyers.fix': 'business:write',
