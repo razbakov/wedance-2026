@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { eq, and, or, gte, lt, inArray, isNull, desc, asc, sql } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { router, protectedProcedure, publicProcedure } from '../trpc'
-import { events, profiles, profileMembers, profileClaims, cities, profileSuggestions, bookingInquiries, planItems, attendances, festivals, festivalSignups, dancers } from '../../database/schema'
+import { events, profiles, profileMembers, profileClaims, cities, profileSuggestions, bookingInquiries, planItems, attendances, festivals, festivalSignups, dancers, eventFlyers } from '../../database/schema'
 import { slugify, randomSuffix } from '../../utils/slug'
 import { resolveTimezone, seriesKey } from '../../utils/v3EventSync'
 import { zonedToUtc, eventLocalDate, eventLocalTime, eventLocalWeekday } from '../../../shared/utils/eventTime'
@@ -16,6 +16,7 @@ import { flyerStatusFor } from '../../utils/flyer/paint'
 import { asksWaitingFor } from './venueAsks'
 import type { FestivalDetails } from '../../../shared/types/festivalDetails'
 import { seriesDates, weekdayOf, MAX_SERIES } from '../../../shared/utils/recurrence'
+import { eventGaps } from '../../../shared/utils/eventChecklist'
 import { randomUUID } from 'node:crypto'
 import { profileGroup, trackServer } from '../../utils/posthog'
 
@@ -225,27 +226,31 @@ async function toRow(db: any, host: { username: string; type: string } | null, i
 }
 
 // What a published event still lacks, in plain words. Shared by the list, the
-// editor and the home inbox so they always agree.
-async function checklistFor(db: any, evs: any[]) {
+// editor and the home inbox so they always agree (and, keyed, by the MCP tools).
+async function gapsFor(db: any, evs: any[]) {
   const handles = [...new Set(evs.flatMap(e => (e.artists ?? []) as string[]))]
   const artistRows = handles.length
     ? await db.select({ username: profiles.username, photo: profiles.photo, photos: profiles.photos, socials: profiles.socials }).from(profiles).where(inArray(profiles.username, handles))
     : []
   const byHandle = new Map<string, any>(artistRows.map((a: any) => [a.username, a]))
-  return new Map(evs.map((e) => {
-    const missing: string[] = []
-    if (!e.cover) missing.push('cover photo')
-    if (!e.ticketUrl && !/free|gratis|frei/i.test(e.price ?? '')) missing.push('ticket link or “free”')
-    if (!e.venueUsername && !e.venueName) missing.push('venue')
-    if (!(e.artists ?? []).length) missing.push('line-up')
-    const noIg = (e.artists ?? []).filter((h: string) => !(byHandle.get(h)?.socials ?? []).some((s: any) => s.platform === 'instagram'))
-    if (noIg.length) missing.push(`Instagram for ${noIg.map((h: string) => '@' + h).join(', ')}`)
-    const eventPhotos: Record<string, string | null> = (e.flyerOptions as any)?.photos ?? {}
-    const hasPhoto = (h: string) => byHandle.get(h)?.photo || ((byHandle.get(h)?.photos ?? []) as { url: string }[]).length > 0 || (h in eventPhotos && eventPhotos[h] !== null)
-    const noPhoto = (e.artists ?? []).filter((h: string) => !hasPhoto(h))
-    if (noPhoto.length) missing.push(`photo for ${noPhoto.map((h: string) => '@' + h).join(', ')}`)
-    return [e.id, missing]
-  }))
+  return new Map(evs.map(e => [e.id, eventGaps(e, byHandle)]))
+}
+// Where the event's flyers stand: any finished, any still painting, one kept.
+async function flyerSummary(db: any, eventId: string) {
+  const rows: { status: string; kept: boolean; url: string | null }[] = await db
+    .select({ status: eventFlyers.status, kept: sql<boolean>`${eventFlyers.keptAt} is not null`, url: eventFlyers.url })
+    .from(eventFlyers).where(eq(eventFlyers.eventId, eventId)).orderBy(desc(eventFlyers.createdAt)).limit(50)
+  const ready = rows.filter(r => r.status === 'ready')
+  return {
+    ready: ready.length,
+    painting: rows.filter(r => r.status === 'painting' || r.status === 'checking').length,
+    kept: rows.some(r => r.kept),
+    latestUrl: (rows.find(r => r.kept) ?? ready[0])?.url ?? null,
+  }
+}
+async function checklistFor(db: any, evs: any[]) {
+  const gaps = await gapsFor(db, evs)
+  return new Map([...gaps].map(([id, g]) => [id, g.map(x => x.label)]))
 }
 
 const listColumns = {
@@ -425,6 +430,7 @@ export const businessEventsRouter = router({
       const sameDay = !end || eventLocalDate(end, tz) === eventLocalDate(ev.startDate, tz)
         // A night that ends before noon the next day reads as one date with an end time.
         || (end.getTime() - new Date(ev.startDate).getTime() < 18 * 3600_000)
+      const gaps = (await gapsFor(ctx.db, [ev])).get(ev.id) ?? []
       return {
         id: ev.id,
         host: host ? { username: host.username, name: host.name, type: host.type } : null,
@@ -456,7 +462,10 @@ export const businessEventsRouter = router({
         flyerOptions: (ev.flyerOptions ?? {}) as { showAgenda?: boolean; photos?: Record<string, string | null>; names?: Record<string, string> },
         festival: (ev.festival ?? null) as import('../../../shared/types/festivalDetails').FestivalDetails | null,
         timezone: tz,
-        missing: (await checklistFor(ctx.db, [ev])).get(ev.id) ?? [],
+        missing: gaps.map(g => g.label),
+        // The same list keyed, plus the flyer: what the MCP tools turn into next steps.
+        gaps,
+        flyer: await flyerSummary(ctx.db, ev.id),
       }
     }),
 
@@ -813,6 +822,42 @@ export const businessEventsRouter = router({
         .values({ username, type: input.type, name: input.name || handle, socials: [{ platform: 'instagram', url }], sourceRef: { source: 'wedance-business', addedBy: ctx.dancerId } })
         .returning({ username: profiles.username, name: profiles.name, type: profiles.type, city: profiles.city, photo: profiles.photo })
       return p!
+    }),
+
+  // A venue that isn't on WeDance yet, from its name and address (and Instagram
+  // when known): an unclaimed venue page, like addFromInstagram. Returns the page
+  // that already links that Instagram, or a venue of the same name in that city.
+  addVenue: protectedProcedure
+    .input(z.object({
+      name: z.string().trim().min(2).max(120),
+      address: z.string().trim().min(3).max(300),
+      city: z.string().trim().min(1).max(120),
+      instagram: z.string().trim().min(2).max(300).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const ig = input.instagram ? parseInstagramHandle(input.instagram) : null
+      if (input.instagram && !ig) throw new TRPCError({ code: 'BAD_REQUEST', message: 'That doesn’t look like an Instagram handle.' })
+      const cols = { username: profiles.username, name: profiles.name, type: profiles.type, city: profiles.city, address: profiles.address }
+      if (ig) {
+        const [byIg] = await ctx.db.select(cols).from(profiles).where(linksInstagram(ig)).limit(1)
+        if (byIg) return { ...byIg, created: false }
+      }
+      const loc = await cityInfo(ctx.db, input.city)
+      const [same] = await ctx.db.select(cols).from(profiles)
+        .where(and(eq(profiles.type, 'venue'), sql`lower(${profiles.name}) = ${input.name.toLowerCase()}`, loc.citySlug ? eq(profiles.citySlug, loc.citySlug) : sql`true`))
+        .limit(1)
+      if (same) return { ...same, created: false }
+      let username = ig ? handleFromInstagram(ig) : (slugify(input.name) || `venue-${randomSuffix(6)}`)
+      const [taken] = await ctx.db.select({ id: profiles.id }).from(profiles).where(eq(profiles.username, username))
+      if (taken) username = `${username}-${randomSuffix(4)}`
+      const [p] = await ctx.db.insert(profiles)
+        .values({
+          username, type: 'venue', name: input.name, address: input.address, city: loc.city, citySlug: loc.citySlug,
+          socials: ig ? [{ platform: 'instagram', url: instagramUrl(ig) }] : [],
+          sourceRef: { source: 'wedance-business', addedBy: ctx.dancerId },
+        })
+        .returning(cols)
+      return { ...p!, created: true }
     }),
 
   // /business home: what needs me + the next 14 days, across every profile I manage.

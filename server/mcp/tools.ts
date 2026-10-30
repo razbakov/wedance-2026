@@ -9,6 +9,7 @@ import { eventLocalDate, eventLocalTime, eventLocalWeekday } from '../../shared/
 import { LANGUAGES } from '../../shared/utils/caption'
 import type { FestivalSession } from '../../shared/types/festivalDetails'
 import { agendaToSessions, defaultDuration, emptyEventDetails, newSessionId, type AgendaLine } from '../../shared/utils/programme'
+import { setupChecklist, setupNext } from './checklist'
 
 /**
  * The WeDance MCP tools. A thin adapter: every tool calls the tRPC router
@@ -91,6 +92,16 @@ export function readProgramme(e: { agenda?: AgendaLine[] | null; festival?: { se
   const tz = e.timezone || 'Europe/Berlin'
   const at = { date: e.date ?? (e.startDate ? eventLocalDate(e.startDate, tz) : ''), startTime: e.startTime ?? (e.startDate ? eventLocalTime(e.startDate, tz) : '20:00') }
   return festivalProgram(agendaToSessions(e.agenda ?? [], at))
+}
+
+/** An event as its editor sees it, with the setup checklist (what's missing and which tool fixes it). */
+async function editorView(t: ToolCtx, id: string) {
+  const { agenda, festival, gaps, missing: _m, ...e }: any = await t.caller.businessEvents.get({ id })
+  const programme = readProgramme({ ...e, agenda, festival })
+  const editor = url(t, `/business/events/${id}`)
+  const { sessions: _s, ...details } = festival ?? {}
+  const missing = setupChecklist({ ...e, gaps }, programme, editor)
+  return { event: { ...e, programme, festival: festival ? details : null, editor }, missing }
 }
 
 // --- the programme ------------------------------------------------------------
@@ -193,7 +204,7 @@ function patchToInput(p: Patch) {
 /** The editor's full input for an event, with a patch on top (update replaces every field). */
 async function mergedEvent(t: ToolCtx, id: string, patch: Patch, extra: Record<string, unknown> = {}) {
   const cur: any = await t.caller.businessEvents.get({ id })
-  const { id: _id, host: _h, synced: _s, recurring: _r, archived: _a, editedAt: _e, timezone: _tz, missing: _m, ...form } = cur
+  const { id: _id, host: _h, synced: _s, recurring: _r, archived: _a, editedAt: _e, timezone: _tz, missing: _m, gaps: _g, flyer: _f, ...form } = cur
   const merged = { ...form, ...patchToInput(patch), ...extra, id }
   return { cur, input: { ...merged, ...programmeFields(cur, patch, merged) } as any }
 }
@@ -600,12 +611,11 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'get_my_event', title: 'Event as its editor sees it', scopes: ['business:read'], business: true, annotations: READ,
-    description: 'An event of my pages in editable form (local date and times, line-up handles, prices, programme with item ids, published state, missing details).',
+    description: 'An event of my pages in editable form (local date and times, line-up handles, prices, programme with item ids, flyer, published state) and "missing": what it still needs, each with the tool that fixes it.',
     input: { event_id: eventId },
     run: async (t, a) => {
-      const { agenda, festival, ...e }: any = await t.caller.businessEvents.get({ id: a.event_id })
-      const { sessions: _s, ...details } = festival ?? {}
-      return { ...e, programme: readProgramme({ ...e, agenda, festival }), festival: festival ? details : null }
+      const { event, missing } = await editorView(t, a.event_id)
+      return { ...event, missing }
     },
   },
   {
@@ -616,18 +626,19 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'create_event', title: 'Create a draft event', scopes: ['business:write'], business: true, annotations: WRITE,
-    description: 'Create an event for one of my pages as a DRAFT (not public). Times are local to the city. Put its schedule in programme (any event type). Publish it later with publish_event.',
+    description: 'Create an event for one of my pages as a DRAFT (not public). Times are local to the city. Before calling: find or create the venue page (venue_handle) and the artists (handles), so the programme can name who is on when (programme items with artist). Returns "missing": what is still to do, each with the tool that does it; work through it, then publish_event only when the user agrees.',
     input: { profile: profile.describe('Handle of the page that runs the event (see my_profiles).'), ...PATCH_FIELDS, name: z.string().trim().min(1).max(160), type: PATCH_FIELDS.type.unwrap(), date: ymd, start_time: hhmm },
     run: async (t, a) => {
       const { profile: host, ...fields } = a
       const base = patchToInput(fields) as any
       const r: any = await t.caller.businessEvents.create({ ...base, ...programmeFields(null, fields, base), hostUsername: host, published: false } as any)
-      return { id: r.id, published: false, editor: url(t, `/business/events/${r.id}`), next: 'It is a draft. Check it with get_my_event, then publish_event when the user wants it public.' }
+      const { missing } = await editorView(t, r.id)
+      return { id: r.id, published: false, editor: url(t, `/business/events/${r.id}`), missing, next: setupNext(missing) }
     },
   },
   {
     name: 'update_event', title: 'Edit an event', scopes: ['business:write'], business: true, annotations: WRITE,
-    description: 'Change fields of an event of my pages; fields left out stay as they are. Editing a live (published) event changes a public page, so it needs business:publish and runs as preview → confirm.',
+    description: 'Change fields of an event of my pages; fields left out stay as they are. Editing a live (published) event changes a public page, so it needs business:publish and runs as preview → confirm. Returns "missing": what the event still needs and the tool for each.',
     input: { event_id: eventId, ...PATCH_FIELDS, confirm_token: confirmToken },
     confirm: async (t, a) => !!((await t.caller.businessEvents.get({ id: a.event_id })) as any).published,
     preview: async (t, a) => {
@@ -640,7 +651,8 @@ export const TOOLS: ToolDef[] = [
     run: async (t, a) => {
       const { input } = await mergedEvent(t, a.event_id, a)
       await t.caller.businessEvents.update(input)
-      return { saved: true, id: a.event_id }
+      const { event, missing } = await editorView(t, a.event_id)
+      return { saved: true, id: a.event_id, published: !!event.published, missing, ...(event.published ? {} : { next: setupNext(missing) }) }
     },
   },
   {
@@ -676,7 +688,7 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'add_profile_from_instagram', title: 'Add an artist or venue from Instagram', scopes: ['business:write'], business: true, annotations: WRITE,
-    description: 'Someone ELSE for a line-up or venue who isn’t on WeDance yet: creates an unclaimed page from their Instagram handle (or returns the page that already links it). It does not make the page the user’s; for a page the user runs, use create_my_page.',
+    description: 'Someone ELSE for a line-up (an artist, DJ, performer) who isn’t on WeDance yet: creates an unclaimed page from their Instagram handle (or returns the page that already links it). Try find_lineup first. Not the user’s own page (create_my_page); for a venue prefer add_venue, which keeps its address.',
     input: { instagram: z.string().min(2).max(300).describe('Instagram handle or URL.'), type: z.enum(['artist', 'venue', 'organizer']), name: z.string().max(120).optional() },
     run: (t, a) => t.caller.businessEvents.addFromInstagram({ instagram: a.instagram, type: a.type, name: a.name }),
   },
@@ -695,6 +707,20 @@ export const TOOLS: ToolDef[] = [
     },
   },
   {
+    name: 'add_venue', title: 'Add a venue', scopes: ['business:write'], business: true, annotations: WRITE,
+    description: 'A venue that isn’t on WeDance yet (check find_lineup type=venue first): creates an unclaimed venue page from its name, address and city, plus its Instagram when known. Returns the existing page when that Instagram or the same name in that city is already on WeDance. Then set it on the event with venue_handle.',
+    input: {
+      name: z.string().trim().min(2).max(120).describe('The venue’s name, e.g. "Kulturhaus Mitte".'),
+      address: z.string().trim().min(3).max(300).describe('Street and number, e.g. "Heinz-Galinski-Straße 13".'),
+      city,
+      instagram: z.string().min(2).max(300).optional().describe('The venue’s Instagram handle or URL, if known.'),
+    },
+    run: async (t, a) => {
+      const r: any = await t.caller.businessEvents.addVenue({ name: a.name, address: a.address, city: a.city, instagram: a.instagram })
+      return { ...r, venue_handle: r.username, url: url(t, `/@${r.username}`) }
+    },
+  },
+  {
     name: 'suggest_venues', title: 'Venue ideas for a date', scopes: ['business:read'], business: true, annotations: READ,
     description: 'Venues in a city that fit a date: who hosts which music on that weekday, whether they’re free, rooms and capacity.',
     input: { city, from: ymd, to: ymd.optional(), styles: z.array(z.string().max(60)).max(20).default([]), limit: z.number().int().min(1).max(40).default(8) },
@@ -702,7 +728,7 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'find_lineup', title: 'Find artists or venues', scopes: ['business:read'], business: true, annotations: READ,
-    description: 'Search WeDance pages by name or handle for a line-up or venue.',
+    description: 'Search WeDance pages by name or handle for a line-up (type artist) or venue (type venue). Nothing found: add_profile_from_instagram for an artist, add_venue for a venue.',
     input: { query: z.string().min(2).max(80), type: z.enum(['artist', 'venue', 'organizer']).optional() },
     run: (t, a) => t.caller.businessEvents.searchProfiles({ q: a.query, type: a.type }),
   },

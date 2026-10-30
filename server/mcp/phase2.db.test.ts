@@ -136,6 +136,35 @@ describe.skipIf(!DATABASE_URL)('MCP phase 2 (DB)', () => {
       expect(rows.map((e: any) => e.festival.key)).toEqual(rows.map((e: any) => e.slug))
     })
 
+    it('event setup (#446): add_venue creates (then finds) a venue page; create_event returns the missing checklist', async () => {
+      const writer = await app(ids.org, ['business:read', 'business:write'], [pages.club.id])
+      const venue = { name: `${tag} Kulturhaus`, address: 'Heinz-Galinski-Straße 13', city: 'Munich', instagram: `@${tag.replace(/-/g, '_')}_venue` }
+      const made = json(await callTool(TOOL_BY_NAME.get('add_venue')!, venue, writer))
+      expect(made).toMatchObject({ type: 'venue', created: true, city: 'Munich' })
+      const [row] = await db.select().from(schema.profiles).where(eq(schema.profiles.username, made.venue_handle))
+      expect(row).toMatchObject({ type: 'venue', address: 'Heinz-Galinski-Straße 13', citySlug: 'munich' })
+      expect(row.socials[0].platform).toBe('instagram')
+      // Same Instagram, or the same name in the city without one: the existing page.
+      expect(json(await callTool(TOOL_BY_NAME.get('add_venue')!, venue, writer))).toMatchObject({ venue_handle: made.venue_handle, created: false })
+      expect(json(await callTool(TOOL_BY_NAME.get('add_venue')!, { ...venue, instagram: undefined, name: venue.name.toUpperCase() }, writer))).toMatchObject({ venue_handle: made.venue_handle, created: false })
+
+      try {
+        // Venue typed as text, a show without an artist: the checklist says what to do next.
+        const draft = json(await callTool(TOOL_BY_NAME.get('create_event')!, { profile: pages.club.username, name: `${tag} Boutique Halloween`, type: 'Party', date: futureThursday, start_time: '18:00', city: 'Munich', venue_name: 'Somewhere', programme: [{ time: '19:00', type: 'show', title: 'Burlesque show' }] }, writer))
+        const items = draft.missing.map((i: any) => i.item)
+        expect(items).toEqual(expect.arrayContaining(['Venue is not a WeDance page', 'Programme items without an artist', 'No line-up', 'No flyer yet', 'No ticket or registration link']))
+        // With the venue page and a registration link, those items go.
+        const after = json(await callTool(TOOL_BY_NAME.get('update_event')!, { event_id: draft.id, venue_handle: made.venue_handle, ticket_url: 'https://forms.gle/abc' }, writer))
+        const left = after.missing.map((i: any) => i.item)
+        expect(left).not.toContain('Venue is not a WeDance page')
+        expect(left).not.toContain('No ticket or registration link')
+        expect(left).toContain('No flyer yet')
+      } finally {
+        await db.delete(schema.events).where(eq(schema.events.venueUsername, made.venue_handle))
+        await db.delete(schema.profiles).where(eq(schema.profiles.id, row.id))
+      }
+    })
+
     it('monthly: the same nth weekday', async () => {
       const r = await web(ids.org).businessEvents.seriesPreview({ hostUsername: pages.club.username, name: `${tag} Monthly`, ...template, date: '2031-01-19', every: 'month', count: 3, published: false } as any)
       expect(r.dates.map(d => d.date)).toEqual(['2031-01-19', '2031-02-16', '2031-03-16'])

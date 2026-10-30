@@ -159,7 +159,8 @@ describe('create_event / update_event write the programme as festival.sessions',
   function fake(stored: any = null) {
     const calls: Record<string, any[]> = { create: [], update: [], createSeries: [] }
     const businessEvents = {
-      get: async () => stored,
+      // After a create, get reads back the new draft (as the router would).
+      get: async () => stored ?? { id: '11111111-1111-4111-8111-111111111111', name: calls.create![0]?.name ?? '', date: '2026-10-31', startTime: '20:00', timezone: 'Europe/Berlin', artists: [], agenda: [], festival: calls.create![0]?.festival ?? null, gaps: [{ key: 'lineup', label: 'line-up' }], flyer: { ready: 0, painting: 0, kept: false, latestUrl: null } },
       create: async (i: any) => { calls.create!.push(i); return { id: '11111111-1111-4111-8111-111111111111' } },
       update: async (i: any) => { calls.update!.push(i); return { saved: true } },
       createSeries: async (i: any) => { calls.createSeries!.push(i); return { seriesId: 'host-x', published: false, created: [] } },
