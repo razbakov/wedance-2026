@@ -688,7 +688,7 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'add_profile_from_instagram', title: 'Add an artist or venue from Instagram', scopes: ['business:write'], business: true, annotations: WRITE,
-    description: 'Someone ELSE for a line-up (an artist, DJ, performer) who isn’t on WeDance yet: creates an unclaimed page from their Instagram handle (or returns the page that already links it). Try find_lineup first. Not the user’s own page (create_my_page); for a venue prefer add_venue, which keeps its address.',
+    description: 'Someone ELSE for a line-up (an artist, DJ, performer) who isn’t on WeDance yet: creates an unclaimed page from their Instagram handle (or returns the page that already links it). Try find_lineup first. Not the user’s own page (create_my_page); for a venue prefer add_venue, which keeps its address. Fill in its bio, photo and styles afterwards with update_listed_profile.',
     input: { instagram: z.string().min(2).max(300).describe('Instagram handle or URL.'), type: z.enum(['artist', 'venue', 'organizer']), name: z.string().max(120).optional() },
     run: (t, a) => t.caller.businessEvents.addFromInstagram({ instagram: a.instagram, type: a.type, name: a.name }),
   },
@@ -708,7 +708,7 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'add_venue', title: 'Add a venue', scopes: ['business:write'], business: true, annotations: WRITE,
-    description: 'A venue that isn’t on WeDance yet (check find_lineup type=venue first): creates an unclaimed venue page from its name, address and city, plus its Instagram when known. Returns the existing page when that Instagram or the same name in that city is already on WeDance. Then set it on the event with venue_handle.',
+    description: 'A venue that isn’t on WeDance yet (check find_lineup type=venue first): creates an unclaimed venue page from its name, address and city, plus its Instagram when known. Returns the existing page when that Instagram or the same name in that city is already on WeDance. Then set it on the event with venue_handle. An existing page that lacks its address or city: update_listed_profile.',
     input: {
       name: z.string().trim().min(2).max(120).describe('The venue’s name, e.g. "Kulturhaus Mitte".'),
       address: z.string().trim().min(3).max(300).describe('Street and number, e.g. "Heinz-Galinski-Straße 13".'),
@@ -718,6 +718,28 @@ export const TOOLS: ToolDef[] = [
     run: async (t, a) => {
       const r: any = await t.caller.businessEvents.addVenue({ name: a.name, address: a.address, city: a.city, instagram: a.instagram })
       return { ...r, venue_handle: r.username, url: url(t, `/@${r.username}`) }
+    },
+  },
+  {
+    name: 'update_listed_profile', title: 'Complete a page I added', scopes: ['business:write'], business: true, annotations: IDEMPOTENT,
+    description: 'Fill in or fix an UNCLAIMED page (venue, artist, organizer) that the user added (add_venue, add_profile_from_instagram) or that is the venue, organizer or an artist of one of their events: name, bio, city, address, socials, styles, photo. Use it right after adding a page with gaps, e.g. a venue missing its address. Only the fields you pass change. No reconnect needed. Pages the user runs: update_business_profile; claimed pages someone else runs are refused (their owner edits them).',
+    input: {
+      handle,
+      name: z.string().trim().min(1).max(120).optional(),
+      bio: z.string().max(4000).optional(),
+      city: z.string().max(120).optional().describe('City in English, e.g. "Berlin"; empty clears it.'),
+      address: z.string().max(300).optional().describe('Street and number, e.g. "Heinz-Galinski-Straße 13"; empty clears it.'),
+      styles: z.array(z.string().trim().min(1).max(40)).max(20).optional().describe('Dance styles, e.g. ["Salsa", "Bachata"]; replaces the list.'),
+      socials: z.array(z.object({
+        platform: z.string().trim().min(1).max(40).describe('instagram, facebook, website, youtube, tiktok…'),
+        url: z.string().max(300).describe('Full link; empty removes that platform.'),
+      })).max(10).optional().describe('Links by platform; platforms you leave out stay as they are.'),
+      photo: z.string().url().nullable().optional().describe('Direct link to a photo (copied to WeDance, so expiring Instagram links are fine); null removes it.'),
+    },
+    run: async (t, a) => {
+      const { handle: username, ...fields } = a
+      const r: any = await t.caller.listedProfiles.update({ username, ...fields })
+      return { ...r, url: url(t, `/@${username}`) }
     },
   },
   {
@@ -873,7 +895,7 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'update_business_profile', title: 'Edit a business page', scopes: ['business:publish'], business: true, annotations: OUTWARD, confirm: true,
-    description: 'Change one of my public pages (artist, venue, organizer, promoter): name, bio, city, styles, photo, address, and for a promoter page the influencer flag. Preview → confirm.',
+    description: 'Change one of my public pages (artist, venue, organizer, promoter): name, bio, city, styles, photo, address, and for a promoter page the influencer flag. Preview → confirm. Only pages the user runs (my_profiles); an unclaimed page they added or have on their events: update_listed_profile.',
     input: {
       profile, name: z.string().trim().min(1).max(120).optional(), bio: z.string().max(4000).optional(), city: z.string().max(120).optional(),
       styles: z.array(z.string().trim().min(1).max(40)).max(20).optional(), photo: z.string().url().nullable().optional(), address: z.string().max(300).optional(),

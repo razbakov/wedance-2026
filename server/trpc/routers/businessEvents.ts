@@ -113,7 +113,7 @@ const eventInput = z.object({
 })
 type EventInput = z.infer<typeof eventInput>
 
-async function profilesIManage(ctx: { db: any; dancerId: string } & GrantCtx) {
+export async function profilesIManage(ctx: { db: any; dancerId: string } & GrantCtx) {
   const rows = await ctx.db
     .select({ id: profiles.id, username: profiles.username, name: profiles.name, type: profiles.type })
     .from(profileMembers)
@@ -151,7 +151,13 @@ export async function requireEventManager(ctx: { db: any; dancerId: string; isAd
       : []
   // A connected app may manage it only through a profile it was given.
   const candidates = onlyGranted(ctx, all, id => id)
-  if (all.length && !candidates.length) throw new TRPCError({ code: 'FORBIDDEN', message: 'This app wasn’t given access to the profile that runs this event. Reconnect it and tick the profile on the consent screen.' })
+  if (all.length && !candidates.length) {
+    // On the team but not in this app's grant → reconnect helps; not on the team → it doesn't (#454).
+    const [onTeam] = await ctx.db.select({ id: profileMembers.id }).from(profileMembers)
+      .where(and(inArray(profileMembers.profileId, all), eq(profileMembers.dancerId, ctx.dancerId))).limit(1)
+    if (!onTeam) throw new TRPCError({ code: 'FORBIDDEN', message: 'You don’t manage this event, so reconnecting won’t help. Its organizer or venue can edit it, or a WeDance admin.' })
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'This app wasn’t given access to the profile that runs this event. Reconnect it and tick the profile on the consent screen.' })
+  }
   const [m] = candidates.length
     ? await ctx.db.select({ id: profileMembers.id }).from(profileMembers)
       .where(and(inArray(profileMembers.profileId, candidates), eq(profileMembers.dancerId, ctx.dancerId)))
@@ -161,7 +167,7 @@ export async function requireEventManager(ctx: { db: any; dancerId: string; isAd
 }
 
 // Canonical city → slug, country and timezone (CityCombobox saves the English name).
-async function cityInfo(db: any, name: string | null | undefined) {
+export async function cityInfo(db: any, name: string | null | undefined) {
   if (!name) return { city: null, citySlug: null, country: null, timezone: 'Europe/Berlin' }
   const [c] = await db.select({ name: cities.name, slug: cities.slug, country: cities.country, countryCode: cities.countryCode, lng: cities.lng })
     .from(cities).where(sql`lower(${cities.name}) = lower(${name})`).limit(1)
