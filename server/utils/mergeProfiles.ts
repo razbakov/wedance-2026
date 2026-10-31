@@ -28,6 +28,7 @@
  * that stays). Nothing is deleted.
  */
 import { sql } from 'drizzle-orm'
+import { parseInstagramHandle } from '../../shared/utils/instagram'
 
 export type DupRow = {
   id: string
@@ -170,51 +171,144 @@ export function renameInEvent(ev: { artists: string[] | null; flyerOptions: any;
 }
 
 const FILL = ['photo', 'bio', 'city', 'city_slug', 'address', 'lat', 'lng', 'map_url', 'venue_type', 'floor_type', 'capacity', 'floor_plan'] as const
+// The kept profile's columns a merge may change — snapshotted so an undo puts them back.
+const SNAPSHOT = [...FILL, 'socials', 'photos', 'styles', 'amenities', 'contact', 'instagram_aliases'] as const
+const JSON_COLS: Record<string, 'json' | 'jsonb'> = { socials: 'json', styles: 'json', photos: 'jsonb', amenities: 'jsonb', contact: 'jsonb', instagram_aliases: 'jsonb' }
 
 /**
- * Merge `from` into `to`: move every reference, fill `to`'s empty fields,
- * hide `from`. Returns what it touched (for the backup / report).
+ * Every column that points at a profile by id. `same` = the other columns of a
+ * unique key with it: the copy's row only moves when the kept profile has no row
+ * for the same key (else it stays on the hidden copy — nothing is deleted).
+ * `t` is the row being moved, `x` the kept profile's row. `idCol` names the
+ * row's key for the undo (profile_sites has no id).
+ * Not moved on purpose: handles (the copy's handle keeps naming the copy, which
+ * forwards), profile_access_log (the copy's own history) and mcp_audit.
+ * server/utils/mergeProfiles.test.ts fails when a profile FK is missing here.
  */
+export const PROFILE_REFS: { table: string; col: string; same?: string; notSelf?: string; idCol?: string }[] = [
+  { table: 'events', col: 'host_profile_id' },
+  { table: 'follows', col: 'profile_id', same: 'x.dancer_id = t.dancer_id' },
+  { table: 'profile_members', col: 'profile_id', same: 'x.dancer_id = t.dancer_id' },
+  { table: 'profile_claims', col: 'profile_id', same: 'x.dancer_id = t.dancer_id' },
+  { table: 'profile_invites', col: 'profile_id', same: 'x.event_id = t.event_id' },
+  { table: 'tracked_links', col: 'profile_id', same: 'x.event_id = t.event_id' },
+  { table: 'profile_suggestions', col: 'profile_id', same: `x.kind = t.kind and x.value = t.value and x.status = 'pending' and t.status = 'pending'` },
+  { table: 'profile_contacts', col: 'profile_id', same: 'lower(x.email) = lower(t.email)' },
+  { table: 'profile_sites', col: 'profile_id', same: 'true', idCol: 'profile_id' },
+  // Pairs (notSelf): never link the kept profile to itself.
+  { table: 'network_links', col: 'profile_id', same: 'x.other_profile_id = t.other_profile_id', notSelf: 'other_profile_id' },
+  { table: 'network_links', col: 'other_profile_id', same: 'x.profile_id = t.profile_id', notSelf: 'profile_id' },
+  { table: 'profile_affiliations', col: 'artist_profile_id', same: 'x.organizer_profile_id = t.organizer_profile_id', notSelf: 'organizer_profile_id' },
+  { table: 'profile_affiliations', col: 'organizer_profile_id', same: 'x.artist_profile_id = t.artist_profile_id', notSelf: 'artist_profile_id' },
+  { table: 'bookable_spaces', col: 'profile_id' },
+  { table: 'booking_requests', col: 'profile_id' },
+  { table: 'booking_requests', col: 'organizer_id' },
+  { table: 'booking_inquiries', col: 'profile_id' },
+  { table: 'inbound_requests', col: 'profile_id' },
+  { table: 'brand_looks', col: 'profile_id' },
+  { table: 'guideline_versions', col: 'profile_id' },
+  { table: 'moderator_elections', col: 'profile_id' },
+  { table: 'organizer_subscriptions', col: 'profile_id' },
+  { table: 'gigs', col: 'poster_profile_id' },
+  { table: 'gig_applications', col: 'profile_id' },
+  { table: 'giveaway_proposals', col: 'profile_id' },
+]
+/**
+ * The PROFILE_REFS that exist in this database. Some tables in the schema were
+ * never created everywhere (e.g. profile_affiliations, inbound_requests are
+ * missing from production's 0044 partial apply), and one missing table must not
+ * stop a merge half way.
+ */
+async function liveRefs(db: any) {
+  const r: any = await db.execute(sql`select table_name as t, column_name as c from information_schema.columns
+    where table_schema = 'public' and table_name in (${sql.join([...new Set(PROFILE_REFS.map(x => x.table))].map(t => sql`${t}`), sql`, `)})`)
+  const have = new Set(((r.rows ?? r) as any[]).map(x => `${x.t}.${x.c}`))
+  return PROFILE_REFS.filter(x => have.has(`${x.table}.${x.col}`))
+}
+
+/** Profile FK columns a merge leaves alone (see PROFILE_REFS). */
+export const PROFILE_REFS_KEPT = ['handles.profile_id', 'profile_access_log.profile_id', 'mcp_audit.profile_id', 'profile_merges.from_profile_id', 'profile_merges.to_profile_id']
+
+/** Instagram handles a profile links: the main one in socials, then its aliases. */
+export function instagramHandles(p: { socials?: { platform: string; url: string }[] | null; instagram_aliases?: string[] | null; instagramAliases?: string[] | null }) {
+  const main = (p.socials ?? []).filter(s => s.platform?.toLowerCase() === 'instagram').map(s => parseInstagramHandle(s.url)).filter(Boolean) as string[]
+  const aliases = (p.instagram_aliases ?? p.instagramAliases ?? []).map(a => parseInstagramHandle(a)).filter(Boolean) as string[]
+  return [...new Set([...main, ...aliases])]
+}
+
 /**
  * Point everything that names a profile by its handle at another handle:
  * events (venue, organizer, line-up, flyer options, festival programme) and
  * moderator handles. Used when merging and when renaming a handle.
+ * `record` gets the ids it changed (and the line-ups before) for an undo.
  */
-export async function moveHandleRefs(db: any, from: string, to: string, count: (k: string, n: number) => void = () => {}) {
+export async function moveHandleRefs(db: any, from: string, to: string, count: (k: string, n: number) => void = () => {}, record?: (k: string, ids: string[]) => void, lineupsBefore?: any[]) {
   const q = async (s: any) => { const r: any = await db.execute(s); return (r.rows ?? r) as any[] }
-  count('events.venue', (await q(sql`update events set venue_username = ${to} where venue_username = ${from} returning id`)).length)
-  count('events.organizer', (await q(sql`update events set organizer_username = ${to} where organizer_username = ${from} returning id`)).length)
+  const ids = (rows: any[]) => rows.map(r => String(r.id))
+  const venue = ids(await q(sql`update events set venue_username = ${to} where venue_username = ${from} returning id`))
+  count('events.venue', venue.length); record?.('events.venue_username', venue)
+  const org = ids(await q(sql`update events set organizer_username = ${to} where organizer_username = ${from} returning id`))
+  count('events.organizer', org.length); record?.('events.organizer_username', org)
   const evs = await q(sql`select id, artists, flyer_options as "flyerOptions", festival from events
     where artists::jsonb ? ${from} or flyer_options->'photos' ? ${from} or flyer_options->'names' ? ${from}
       or festival::text like ${`%"${from}"%`}`)
   for (const e of evs) {
+    lineupsBefore?.push(e)
     const n = renameInEvent(e, from, to)
     await q(sql`update events set artists = ${JSON.stringify(n.artists)}::jsonb, flyer_options = ${JSON.stringify(n.flyerOptions)}::jsonb, festival = ${n.festival ? JSON.stringify(n.festival) : null}::jsonb where id = ${e.id}`)
   }
   count('events.lineup', evs.length)
-  count('profiles.moderator_handle', (await q(sql`update profiles set moderator_handle = ${to} where moderator_handle = ${from} returning id`)).length)
+  const mod = ids(await q(sql`update profiles set moderator_handle = ${to} where moderator_handle = ${from} returning id`))
+  count('profiles.moderator_handle', mod.length); record?.('profiles.moderator_handle', mod)
+  // Reviews of the copy (polymorphic by handle); one per dancer, so a dancer who
+  // reviewed both keeps theirs on the copy.
+  const rev = ids(await q(sql`update reviews t set target_slug = ${to} where t.target_slug = ${from} and t.target_type in ('venue', 'artist', 'organizer')
+    and not exists (select 1 from reviews x where x.target_type = t.target_type and x.target_slug = ${to} and x.dancer_id = t.dancer_id) returning t.id`))
+  count('reviews', rev.length); record?.('reviews.target_slug', rev)
 }
 
-export async function mergeProfile(db: any, from: { id: string; username: string }, to: { id: string; username: string }) {
+export type MergeResult = { touched: Record<string, number>; filled: string[]; mergeId: string }
+
+/**
+ * Merge `from` into `to`: move every reference (PROFILE_REFS + handle refs),
+ * fill `to`'s empty fields, add `from`'s Instagram accounts to `to`'s aliases,
+ * hide `from` with source_ref.mergedInto, and record it all in profile_merges
+ * (written first and kept up to date, so a merge that stops half way can still
+ * be undone). Nothing is deleted.
+ */
+export async function mergeProfile(db: any, from: { id: string; username: string }, to: { id: string; username: string }, opts: { by?: string | null } = {}): Promise<MergeResult> {
   const q = async (s: any) => { const r: any = await db.execute(s); return (r.rows ?? r) as any[] }
   const touched: Record<string, number> = {}
   const count = (k: string, n: number) => { if (n) touched[k] = (touched[k] ?? 0) + n }
-  await moveHandleRefs(db, from.username, to.username, count)
-  count('events.host', (await q(sql`update events set host_profile_id = ${to.id} where host_profile_id = ${from.id} returning id`)).length)
-  // Rows with a unique (…, profile) pair: drop the copy's where the one that stays has its own.
-  count('follows', (await q(sql`delete from follows f where f.profile_id = ${from.id} and exists (select 1 from follows g where g.profile_id = ${to.id} and g.dancer_id = f.dancer_id) returning f.id`)).length)
-  count('profile_invites', (await q(sql`delete from profile_invites i where i.profile_id = ${from.id} and exists (select 1 from profile_invites j where j.profile_id = ${to.id} and j.event_id = i.event_id) returning i.id`)).length)
-  count('profile_members', (await q(sql`delete from profile_members m where m.profile_id = ${from.id} and exists (select 1 from profile_members n where n.profile_id = ${to.id} and n.dancer_id = m.dancer_id) returning m.id`)).length)
-  for (const [table, col] of [
-    ['follows', 'profile_id'], ['bookable_spaces', 'profile_id'], ['booking_requests', 'profile_id'], ['booking_requests', 'organizer_id'],
-    ['brand_looks', 'profile_id'], ['guideline_versions', 'profile_id'], ['moderator_elections', 'profile_id'], ['profile_access_log', 'profile_id'],
-    ['profile_claims', 'profile_id'], ['profile_invites', 'profile_id'], ['profile_members', 'profile_id'], ['profile_suggestions', 'profile_id'],
-  ] as const) {
-    count(`${table}.${col}`, (await q(sql`update ${sql.identifier(table)} set ${sql.identifier(col)} = ${to.id} where ${sql.identifier(col)} = ${from.id} returning 1 as x`)).length)
-  }
-  // Fill the empty fields of the one that stays.
+  const moved: Record<string, string[]> = {}
   const [a] = await q(sql`select * from profiles where id = ${to.id}`)
   const [b] = await q(sql`select * from profiles where id = ${from.id}`)
+  const before: Record<string, unknown> = {
+    profile: Object.fromEntries(SNAPSHOT.map(c => [c, a[c] ?? null])),
+    fromStatus: b.status, lineups: [] as any[],
+  }
+  const [m] = await q(sql`insert into profile_merges (from_profile_id, to_profile_id, from_username, to_username, merged_by, before)
+    values (${from.id}, ${to.id}, ${from.username}, ${to.username}, ${opts.by ?? null}, ${JSON.stringify(before)}::jsonb) returning id`)
+  const mergeId = String(m.id)
+  const save = async () => { await q(sql`update profile_merges set moved = ${JSON.stringify(moved)}::jsonb, before = ${JSON.stringify(before)}::jsonb where id = ${mergeId}`) }
+  const record = async (k: string, ids: string[]) => { if (!ids.length) return; moved[k] = [...(moved[k] ?? []), ...ids]; await save() }
+
+  const recorded: [string, string[]][] = []
+  await moveHandleRefs(db, from.username, to.username, count, (k, ids) => { recorded.push([k, ids]) }, before.lineups as any[])
+  for (const [k, ids] of recorded) await record(k, ids)
+  if ((before.lineups as any[]).length) await save()
+
+  for (const r of await liveRefs(db)) {
+    const idCol = r.idCol ?? 'id'
+    const conflict = r.same ? sql` and not exists (select 1 from ${sql.identifier(r.table)} x where x.${sql.identifier(r.col)} = ${to.id} and ${sql.raw(r.same)})` : sql``
+    const also = r.notSelf ? sql` and t.${sql.identifier(r.notSelf)} <> ${to.id}` : sql``
+    const rows = await q(sql`update ${sql.identifier(r.table)} t set ${sql.identifier(r.col)} = ${to.id}
+      where t.${sql.identifier(r.col)} = ${from.id}${conflict}${also} returning t.${sql.identifier(idCol)} as id`)
+    count(`${r.table}.${r.col}`, rows.length)
+    await record(`${r.table}.${r.col}`, rows.map(x => String(x.id)))
+  }
+
+  // Fill the empty fields of the one that stays.
   const fill: string[] = []
   for (const c of FILL) if ((a[c] == null || a[c] === '') && b[c] != null && b[c] !== '') fill.push(c)
   for (const c of fill) await q(sql`update profiles set ${sql.identifier(c)} = (select ${sql.identifier(c)} from profiles where id = ${from.id}) where id = ${to.id}`)
@@ -225,9 +319,55 @@ export async function mergeProfile(db: any, from: { id: string; username: string
   const styles = (a.styles ?? []).length ? a.styles : (b.styles ?? [])
   const amenities = (a.amenities ?? []).length ? a.amenities : (b.amenities ?? [])
   const contact = { ...(b.contact ?? {}), ...(a.contact ?? {}) }
+  // The copy's Instagram accounts become aliases of the one that stays (its main one stays main).
+  const mainIg = instagramHandles({ socials })
+  const aliases = [...new Set([...instagramHandles(a), ...instagramHandles(b)])].filter(h => !mainIg.includes(h))
   await q(sql`update profiles set socials = ${JSON.stringify(socials)}::json, photos = ${JSON.stringify(photos)}::jsonb, styles = ${JSON.stringify(styles)}::json,
-    amenities = ${JSON.stringify(amenities)}::jsonb, contact = ${JSON.stringify(contact)}::jsonb where id = ${to.id}`)
+    amenities = ${JSON.stringify(amenities)}::jsonb, contact = ${JSON.stringify(contact)}::jsonb, instagram_aliases = ${JSON.stringify(aliases)}::jsonb where id = ${to.id}`)
   // Hide the copy, pointing at the one that stays.
   await q(sql`update profiles set status = 'hidden', source_ref = coalesce(source_ref, '{}'::jsonb) || ${JSON.stringify({ mergedInto: to.username, mergedAt: new Date().toISOString() })}::jsonb where id = ${from.id}`)
-  return { touched, filled: fill }
+  return { touched, filled: fill, mergeId }
+}
+
+/**
+ * Undo a merge from its profile_merges row: move the recorded rows back, put the
+ * line-ups and the kept profile's fields back as they were, show the copy again.
+ * Rows that changed since (e.g. an event re-pointed by hand) are left alone.
+ */
+export async function undoMerge(db: any, mergeId: string, by: string | null = null) {
+  const q = async (s: any) => { const r: any = await db.execute(s); return (r.rows ?? r) as any[] }
+  const [m] = await q(sql`select * from profile_merges where id = ${mergeId}`)
+  if (!m) throw new Error('Merge not found.')
+  if (m.undone_at) throw new Error('This merge was already undone.')
+  const moved = (m.moved ?? {}) as Record<string, string[]>
+  const before = (m.before ?? {}) as { profile?: Record<string, unknown>; fromStatus?: string; lineups?: any[] }
+  const inList = (ids: string[]) => sql.join(ids.map(i => sql`${i}`), sql`, `)
+  for (const r of await liveRefs(db)) {
+    const ids = moved[`${r.table}.${r.col}`]
+    if (!ids?.length) continue
+    const idCol = r.idCol ?? 'id'
+    // profile_sites is keyed by the profile itself: its moved "id" is the kept profile's.
+    await q(sql`update ${sql.identifier(r.table)} set ${sql.identifier(r.col)} = ${m.from_profile_id}
+      where ${sql.identifier(r.col)} = ${m.to_profile_id} and ${sql.identifier(idCol)}::text in (${inList(ids)})`)
+  }
+  const back = async (key: string, table: string, col: string) => {
+    const ids = moved[key]
+    if (ids?.length) await q(sql`update ${sql.identifier(table)} set ${sql.identifier(col)} = ${m.from_username} where ${sql.identifier(col)} = ${m.to_username} and id::text in (${inList(ids)})`)
+  }
+  await back('events.venue_username', 'events', 'venue_username')
+  await back('events.organizer_username', 'events', 'organizer_username')
+  await back('profiles.moderator_handle', 'profiles', 'moderator_handle')
+  await back('reviews.target_slug', 'reviews', 'target_slug')
+  for (const e of before.lineups ?? []) {
+    await q(sql`update events set artists = ${JSON.stringify(e.artists ?? [])}::jsonb, flyer_options = ${JSON.stringify(e.flyerOptions ?? {})}::jsonb, festival = ${e.festival ? JSON.stringify(e.festival) : null}::jsonb where id = ${e.id}`)
+  }
+  if (before.profile) {
+    const sets = Object.entries(before.profile).map(([c, v]) => JSON_COLS[c]
+      ? sql`${sql.identifier(c)} = ${v == null ? null : JSON.stringify(v)}::${sql.raw(JSON_COLS[c]!)}`
+      : sql`${sql.identifier(c)} = ${v}`)
+    if (sets.length) await q(sql`update profiles set ${sql.join(sets, sql`, `)} where id = ${m.to_profile_id}`)
+  }
+  await q(sql`update profiles set status = ${before.fromStatus ?? 'visible'}, source_ref = (coalesce(source_ref, '{}'::jsonb) - 'mergedInto' - 'mergedAt') where id = ${m.from_profile_id}`)
+  await q(sql`update profile_merges set undone_at = now(), undone_by = ${by} where id = ${mergeId}`)
+  return { fromUsername: m.from_username as string, toUsername: m.to_username as string }
 }

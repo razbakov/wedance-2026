@@ -123,6 +123,25 @@ firebase-admin). Code: `scripts/sync-v3-events.ts` (CLI) + `server/utils/v3Event
   `DELETE FROM profiles WHERE source_ref->>'source'='wedance-v3'` (after clearing the
   event links: `UPDATE events SET venue_username=NULL, artists='[]' WHERE source='wedance-v3'`).
   Display check: `bun e2e/synced-profiles.check.ts <venueHandle> <organiserHandle>`.
+  Instagram accounts (main in `socials` + `profiles.instagram_aliases`) also match people.
+
+## Duplicate profiles (#458)
+
+- **Merge:** Business → a page → "Duplicates" (`BusinessDuplicates.vue`) or MCP `merge_profiles` →
+  `business.merge` (owners of both pages, or admins). `server/utils/mergeProfiles.ts` `mergeProfile`
+  moves every profile reference (`PROFILE_REFS` — a unit test fails when a new profile FK isn't listed;
+  rows that would clash stay on the copy, nothing is deleted), handle refs (events venue/organizer/
+  line-up, reviews), fills the kept page's empty fields, turns the copy's Instagram into an alias, and
+  hides the copy with `source_ref.mergedInto` (`entity.movedTo` → `/@old` 301s to `/@kept`).
+  Audit + undo: `profile_merges` (moved row ids, kept page before) → `business.undoMerge`.
+- **Instagram aliases:** `profiles.instagram_aliases` (lowercased handles; main stays in `socials`).
+  `linksInstagram()` (business.ts) matches both and skips merged copies — used by create,
+  `addFromInstagram`, `addVenue`, search; the v3 sync indexes them too.
+- **Duplicate warning:** `server/utils/profileDupes.ts` `findLikelyDuplicates` (same Instagram,
+  handle, similar name in the same city — "Bar Buena Vista" ≈ "Buena Vista Bar" — same address or
+  ≤75 m for venues) behind `business.findExisting` (Create form), `business.duplicates`, `addVenue`
+  and MCP `create_my_page` (returns `possible_duplicates` unless `create_anyway`).
+- Bulk clean-up of obvious copies: `scripts/merge-duplicate-profiles.ts` (dry-run default).
 - **Env:** `DATABASE_URL` (target — check it before `--write`; the Vercel-pulled `.env`
   is PRODUCTION), `WEDANCE_V3_SERVICE_ACCOUNT` (JSON) or `WEDANCE_V3_SERVICE_ACCOUNT_FILE`
   (default `~/Secrets/wedance.json`).
@@ -230,6 +249,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `review_submitted` · `giveaway_entered` · `election_nominated` | `ReviewsSection` · `GiveawayCard` · `elections/[handle]` | target ids |
 | `event_created` / `event_published` | `business/events/new.vue`; publish = draft→live in `business/events/[id]` | `event_id`, `is_festival`, `city`, `style`, `published` |
 | `business_profile_created` | `business/new.vue` | `profile`, `profile_type`, `from_instagram` |
+| `profile_merged` | `BusinessDuplicates` (Business → page → Duplicates) | `profile` (kept), `merged_profile`, `moved` |
 | `profile_claim_started` / `team_join_started` | `business/claim.vue` (form opened) | `profile`, `kind` |
 | `profile_claim_requested` / `team_join_requested` | `business/claim.vue` (sent) | `profile`, `kind`, `evidence_type` |
 | `profile_claimed` | `confirm/[token].vue` (invite link) | `via`, `new_account` |
@@ -258,6 +278,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `server_profile_claim_requested` / `server_team_join_requested` | `businessTeam.requestAccess`, `business.requestClaim` | `profile`, `profile_type`, `kind`, `evidence_type` |
 | `server_profile_claimed` | `business.decideClaim` approve (claimant's id), `artistInvites.claim` | `profile`, `via` (review / invite) |
 | `server_business_profile_created` | `business.create` | `profile`, `profile_type` |
+| `server_profile_merged` | `business.merge` (web + MCP `merge_profiles`) | `profile` (kept), `merged_profile`, `profile_type`, `same_type`, `moved`, `$groups` |
 | `server_rsvp_answered` | `rsvp.answer` (signed out → unconfirmed; signed in → confirmed at once) | `event_id`, `answer`, `signed_in`, `confirmed`, `$groups` |
 | `server_rsvp_confirmed` | `rsvp.answer` signed in, folding in this browser's / magic link's unconfirmed answer | `event_id`, `answer`, `hours_to_confirm`, `$groups` |
 | `server_festival_joined` | `festivalSignup.join` | `festival` |

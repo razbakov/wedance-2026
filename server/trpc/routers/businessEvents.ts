@@ -7,6 +7,7 @@ import { slugify, randomSuffix } from '../../utils/slug'
 import { resolveTimezone, seriesKey } from '../../utils/v3EventSync'
 import { zonedToUtc, eventLocalDate, eventLocalTime, eventLocalWeekday } from '../../../shared/utils/eventTime'
 import { requireMember, linksInstagram } from './business'
+import { findLikelyDuplicates, notMerged } from '../../utils/profileDupes'
 import { onlyGranted, type GrantCtx } from '../../utils/profileAccess'
 import { assertScope } from '../scopes'
 import { parseInstagramHandle, handleFromInstagram, instagramUrl } from '../../../shared/utils/instagram'
@@ -843,10 +844,12 @@ export const businessEventsRouter = router({
         if (byIg) return { ...byIg, created: false }
       }
       const loc = await cityInfo(ctx.db, input.city)
-      const [same] = await ctx.db.select(cols).from(profiles)
-        .where(and(eq(profiles.type, 'venue'), sql`lower(${profiles.name}) = ${input.name.toLowerCase()}`, loc.citySlug ? eq(profiles.citySlug, loc.citySlug) : sql`true`))
-        .limit(1)
-      if (same) return { ...same, created: false }
+      // A venue in that city with a similar name or the same address (#458).
+      const same = loc.citySlug
+        ? (await findLikelyDuplicates(ctx.db, { name: input.name, address: input.address, citySlug: loc.citySlug, type: 'venue' })).find(d => d.type === 'venue')
+        : (await ctx.db.select(cols).from(profiles)
+            .where(and(eq(profiles.type, 'venue'), sql`lower(${profiles.name}) = ${input.name.toLowerCase()}`, notMerged)).limit(1))[0]
+      if (same) return { username: same.username, name: same.name, type: same.type, city: same.city, address: same.address, created: false }
       let username = ig ? handleFromInstagram(ig) : (slugify(input.name) || `venue-${randomSuffix(6)}`)
       const [taken] = await ctx.db.select({ id: profiles.id }).from(profiles).where(eq(profiles.username, username))
       if (taken) username = `${username}-${randomSuffix(4)}`

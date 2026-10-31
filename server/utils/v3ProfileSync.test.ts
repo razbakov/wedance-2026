@@ -138,6 +138,15 @@ describe('C3 deterministic profile matching (RAZ-685)', () => {
     expect(run([ev('e1', v, org)], existing.slice(0, 1)).links.get('e1')!.organizerUsername).toBe('name-twin')
   })
 
+  it('organiser: matches by Instagram account, main or alias (#458)', () => {
+    const org = { id: 'v3-org-ig', username: 'NewHandle', name: 'Totally New Name', instagram: 'old_school_ig' }
+    const existing = [row({ username: 'the-school', type: 'organizer', name: 'The School', socials: [{ platform: 'instagram', url: 'https://instagram.com/school_now' }], instagramAliases: ['old_school_ig'] })]
+    const p = run([ev('e1', v, org)], existing)
+    expect(p.links.get('e1')!.organizerUsername).toBe('the-school')
+    expect(p.how.organizer).toMatchObject({ instagram: 1 })
+    expect(p.ops.filter(o => o.op === 'create' && o.fields.type === 'organizer')).toHaveLength(0)
+  })
+
   it('never matches a same-named venue or organiser in another city', () => {
     const prague = { city: 'Prague', citySlug: 'prague' }
     const p = run([ev('e1', venue('Buena Vista Bar', 'Herzog-Wilhelm-Straße 8, München'), { id: 'o9', username: 'TwinSchool', name: 'Twin School' })], [
