@@ -50,7 +50,7 @@ watch(igHandle, (ig) => {
 type Existing = Awaited<ReturnType<typeof $trpc.business.findExisting.query>>
 const existing = ref<Existing>([])
 let timer: ReturnType<typeof setTimeout> | undefined
-watch(() => [igHandle.value, form.name.trim(), form.handle.trim()], () => {
+watch(() => [igHandle.value, form.name.trim(), form.handle.trim(), form.city, form.type], () => {
   clearTimeout(timer)
   timer = setTimeout(async () => {
     try {
@@ -58,6 +58,9 @@ watch(() => [igHandle.value, form.name.trim(), form.handle.trim()], () => {
         name: form.name.trim() || undefined,
         handle: form.handle.trim() || undefined,
         instagram: igHandle.value || undefined,
+        // Similar names only count in the same city (#458).
+        city: form.city || undefined,
+        type: form.type as any,
       })
     } catch { existing.value = [] }
   }, 350)
@@ -86,6 +89,7 @@ async function submit() {
 }
 
 const typeLabel: Record<string, string> = { artist: 'Artist', venue: 'Venue', organizer: 'Organizer', promoter: 'Promoter' }
+const reasonLabel: Record<string, string> = { instagram: 'same Instagram', handle: 'same handle', name: 'similar name', address: 'same address', nearby: 'next door' }
 </script>
 
 <template>
@@ -145,6 +149,7 @@ const typeLabel: Record<string, string> = { artist: 'Artist', venue: 'Venue', or
             <div class="min-w-[10rem] flex-1">
               <NuxtLink :to="`/@${p.username}`" target="_blank" class="block truncate text-sm font-bold hover:underline">{{ p.name }}</NuxtLink>
               <p class="truncate text-xs text-muted-foreground">{{ typeLabel[p.type] || p.type }} · @{{ p.username }}<template v-if="p.city"> · {{ p.city }}</template></p>
+              <p v-if="p.reasons?.length" class="truncate text-xs text-muted-foreground">{{ p.reasons.map(r => reasonLabel[r] || r).join(' · ') }}</p>
             </div>
             <Button variant="outline-pill" size="pill-sm" as-child>
               <NuxtLink :to="`/business/claim?profile=${p.username}`">{{ p.managed ? 'Join the team' : 'Claim it' }} <ArrowRight /></NuxtLink>

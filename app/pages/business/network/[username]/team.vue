@@ -73,7 +73,7 @@ const remove = (m: Team['members'][number]) =>
   }, m.me ? 'You left the team.' : `${m.name} was removed.`)
 
 const roleOptions = [{ label: 'Owner — edits and manages the team', value: 'owner' }, { label: 'Editor — edits the profile and events', value: 'editor' }]
-const actionLabel: Record<string, string> = { created: 'created the profile', requested: 'asked for access', approved: 'approved', rejected: 'declined', role_changed: 'changed the role of', removed: 'removed', left: 'left' }
+const actionLabel: Record<string, string> = { created: 'created the profile', requested: 'asked for access', approved: 'approved', rejected: 'declined', role_changed: 'changed the role of', removed: 'removed', left: 'left', merged: 'merged pages:', unmerged: 'undid a merge:' }
 const fmt = (d: string | Date | null) => (d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '')
 </script>
 
@@ -174,6 +174,7 @@ const fmt = (d: string | Date | null) => (d ? new Date(d).toLocaleDateString('en
             <template v-if="h.subjectName && h.subjectName !== h.actorName"> <span class="text-foreground">{{ h.subjectName }}</span></template>
             <template v-else-if="h.subjectName && h.action === 'removed'"> themselves</template>
             <template v-if="h.role"> ({{ h.role }}<template v-if="h.note && h.action !== 'role_changed'">, {{ h.note }}</template>)</template>
+            <template v-else-if="h.note && (h.action === 'merged' || h.action === 'unmerged')"> {{ h.note }}</template>
           </li>
         </ul>
       </section>

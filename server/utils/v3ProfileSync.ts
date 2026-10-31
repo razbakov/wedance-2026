@@ -27,6 +27,7 @@
  */
 import { and, eq, sql } from 'drizzle-orm'
 import { dancers, profiles } from '../database/schema'
+import { instagramHandles } from './mergeProfiles'
 import {
   accessToken, buildCityIndex, citySlugify, decodeValue, learnPlaceLocalities, mapStyles, mapV3Event, normName, parseVenue, resolveCity, V3_SOURCE,
   type CityIndex, type EventLinks, type ServiceAccount, type V3Doc,
@@ -130,6 +131,7 @@ export type ExistingProfile = {
   id: string; username: string; type: string; name: string; city: string | null; citySlug: string | null
   photo: string | null; bio: string | null; styles: string[] | null; address: string | null
   socials: { platform: string; url: string }[] | null; claimed: boolean | null; sourceRef: Record<string, any> | null
+  instagramAliases?: string[] | null
 }
 
 export type ProfileFields = {
@@ -143,7 +145,7 @@ export type ProfileOp =
   | { op: 'update'; id: string; username: string; fields: Partial<ProfileFields> } // our own unclaimed row
   | { op: 'fill'; id: string; username: string; fields: Partial<ProfileFields> } // someone else's unclaimed row, empty fields only
 
-export type MatchHow = 'v3-id' | 'handle' | 'name+city' | 'name-contains+city' | 'organiser-is-venue' | 'place-id' | 'address+city' | 'geo-75m' | 'created' | 'created-from-address'
+export type MatchHow = 'v3-id' | 'handle' | 'instagram' | 'name+city' | 'name-contains+city' | 'organiser-is-venue' | 'place-id' | 'address+city' | 'geo-75m' | 'created' | 'created-from-address'
 
 export type ProfilePlan = {
   ops: ProfileOp[]
@@ -176,6 +178,8 @@ export function planProfiles(input: {
   const byId = new Map<string, ExistingProfile>() // v3 profile id → row
   const byHandle = new Map<string, ExistingProfile>()
   const byNameCity = new Map<string, ExistingProfile>()
+  // Instagram account (main or alias, #458) → row: the same account is the same business.
+  const byInstagram = new Map<string, ExistingProfile>()
   const venueByAddr = new Map<string, ExistingProfile>()
   const taken = new Set<string>(input.takenHandles)
   const venuesInCity = new Map<string, ExistingProfile[]>()
@@ -205,6 +209,7 @@ export function planProfiles(input: {
     for (const old of (ref.oldHandles ?? []) as string[]) put(byHandle, String(old).toLowerCase(), r)
     if (ref.placeId) put(byHandle, String(ref.placeId).toLowerCase(), r)
     put(byNameCity, nameKey(raw.type, raw.name, raw.citySlug), r)
+    for (const ig of instagramHandles(raw)) put(byInstagram, ig, r)
     if (r.type === 'venue') {
       put(venueByAddr, addressKey(raw.address) ? `${addressKey(raw.address)}|${raw.citySlug}` : null, r)
       if (r.citySlug) { const l = venuesInCity.get(r.citySlug) ?? []; l.push(r); venuesInCity.set(r.citySlug, l) }
@@ -276,10 +281,11 @@ export function planProfiles(input: {
       photo: httpUrl(src.photo), bio: str(src.bio)?.slice(0, 2000) ?? null,
       styles: mapStyles(src.styles).styles, address: null, socials: toSocials(src),
     }
-    let row = (v3id && byId.get(v3id)) || (handle && byHandle.get(handle)) || byNameCity.get(nameKey(t, name, city?.slug) ?? '') || null
+    const igRow = instagramHandles({ socials: fields.socials }).map(h => byInstagram.get(h)).find(Boolean) ?? null
+    let row = (v3id && byId.get(v3id)) || (handle && byHandle.get(handle)) || igRow || byNameCity.get(nameKey(t, name, city?.slug) ?? '') || null
     let how: MatchHow
     if (row) {
-      how = v3id && byId.get(v3id) === row ? 'v3-id' : handle && byHandle.get(handle) === row ? 'handle' : 'name+city'
+      how = v3id && byId.get(v3id) === row ? 'v3-id' : handle && byHandle.get(handle) === row ? 'handle' : igRow === row ? 'instagram' : 'name+city'
       plan.stats[t].matched++
       if (isPublic) reconcile(row, t, fields)
       decided.set(key, row.username)
@@ -293,6 +299,7 @@ export function planProfiles(input: {
       plan.newProfiles.set(username, f.name)
       const fake = { id: '', ...f, claimed: false } as unknown as ExistingProfile
       put(byHandle, username, fake); if (v3id) put(byId, v3id, fake); put(byNameCity, nameKey(t, f.name, f.citySlug), fake)
+      for (const ig of instagramHandles(f)) put(byInstagram, ig, fake)
       decided.set(key, username)
     }
     plan.how[t][how] = (plan.how[t][how] ?? 0) + 1
@@ -424,7 +431,7 @@ export async function loadExistingProfiles(db: any): Promise<{ existing: Existin
   const cols = {
     id: profiles.id, username: profiles.username, type: profiles.type, name: profiles.name, city: profiles.city,
     citySlug: profiles.citySlug, photo: profiles.photo, bio: profiles.bio, styles: profiles.styles, address: profiles.address,
-    socials: profiles.socials, claimed: profiles.claimed, sourceRef: profiles.sourceRef,
+    socials: profiles.socials, claimed: profiles.claimed, sourceRef: profiles.sourceRef, instagramAliases: profiles.instagramAliases,
   }
   const existing: ExistingProfile[] = await db.select(cols).from(profiles)
   const d = await db.select({ u: dancers.username }).from(dancers).where(sql`${dancers.username} IS NOT NULL`)

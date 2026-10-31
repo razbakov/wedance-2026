@@ -366,6 +366,10 @@ export const profiles = pgTable('profiles', {
   moderatorHandle: text('moderator_handle'),
   moderatorSince: integer('moderator_since'),
   socials: json('socials').$type<{ platform: string; url: string }[]>().default([]),
+  // Other Instagram accounts this business has had (migration 0056, #458): lowercased
+  // handles without @. The main one stays in `socials`; these only help dedupe find
+  // this page (v3 sync, add_profile_from_instagram, add_venue, create_my_page).
+  instagramAliases: jsonb('instagram_aliases').$type<string[]>().notNull().default([]),
   // Gallery for artists/venues; `photo` stays the hero (the one flyers and cards use).
   photos: jsonb('photos').$type<{ url: string }[]>().notNull().default([]),
   // Video links (YouTube embed URLs) on the artist's page (migration 0033).
@@ -381,6 +385,27 @@ export const profiles = pgTable('profiles', {
   // v4 imports: { v4ProfileId, firebaseId, v4Type }. v3 sync: { source: 'wedance-v3', sourceId, … }.
   sourceRef: jsonb('source_ref').$type<Record<string, unknown>>(),
 })
+
+// A duplicate merged into the profile that stays (migration 0056, #458). The copy
+// is hidden with source_ref.mergedInto (so /@copy forwards); this row is the audit
+// trail and what an undo needs: the ids of every row moved, and the kept profile's
+// fields (and event line-ups) as they were before.
+export const profileMerges = pgTable('profile_merges', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  fromProfileId: uuid('from_profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
+  toProfileId: uuid('to_profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
+  fromUsername: text('from_username').notNull(),
+  toUsername: text('to_username').notNull(),
+  mergedBy: uuid('merged_by').references(() => dancers.id, { onDelete: 'set null' }),
+  mergedAt: timestamp('merged_at').defaultNow(),
+  moved: jsonb('moved').$type<Record<string, string[]>>().notNull().default({}),
+  before: jsonb('before').$type<Record<string, unknown>>().notNull().default({}),
+  undoneAt: timestamp('undone_at'),
+  undoneBy: uuid('undone_by').references(() => dancers.id, { onDelete: 'set null' }),
+}, (t) => [
+  index('profile_merges_from_idx').on(t.fromProfileId),
+  index('profile_merges_to_idx').on(t.toProfileId),
+])
 
 // Who manages a profile (hosting mode). Created when an admin approves a claim
 // or when a dancer creates a new profile. `claimed` on the profile mirrors
@@ -465,7 +490,7 @@ export const profileAccessLog = pgTable('profile_access_log', {
   profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
   actorId: uuid('actor_id').references(() => dancers.id, { onDelete: 'set null' }),
   subjectId: uuid('subject_id').references(() => dancers.id, { onDelete: 'set null' }),
-  action: text('action').notNull().$type<'created' | 'requested' | 'approved' | 'rejected' | 'role_changed' | 'removed' | 'left'>(),
+  action: text('action').notNull().$type<'created' | 'requested' | 'approved' | 'rejected' | 'role_changed' | 'removed' | 'left' | 'merged' | 'unmerged'>(),
   role: text('role'),
   note: text('note'),
   createdAt: timestamp('created_at').defaultNow(),

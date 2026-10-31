@@ -10,6 +10,7 @@ import { LANGUAGES } from '../../shared/utils/caption'
 import type { FestivalSession } from '../../shared/types/festivalDetails'
 import { agendaToSessions, defaultDuration, emptyEventDetails, newSessionId, type AgendaLine } from '../../shared/utils/programme'
 import { setupChecklist, setupNext } from './checklist'
+import { dupeReasonText } from '../utils/profileDupes'
 
 /**
  * The WeDance MCP tools. A thin adapter: every tool calls the tRPC router
@@ -695,20 +696,33 @@ export const TOOLS: ToolDef[] = [
   {
     // Not `business: true`: an app connected with no pages yet must see it to make the first one.
     name: 'create_my_page', title: 'Create a page I run', scopes: ['business:write'], annotations: WRITE,
-    description: 'Create a business page the user runs (organizer, venue, artist, promoter) with the user as owner. This app can use it right away (create_event etc.), no reconnect. Fails if the Instagram account already has a page someone else added; then the user claims it on WeDance.',
+    description: 'Create a business page the user runs (organizer, venue, artist, promoter) with the user as owner. This app can use it right away (create_event etc.), no reconnect. When WeDance already has a page with a similar name in that city (or the same handle) it creates nothing and returns possible_duplicates: ask the user whether one is theirs (then they claim it on WeDance) and only call again with create_anyway: true if none is. Fails if the Instagram account already has a page someone else added; then the user claims it on WeDance.',
     input: {
       type: z.enum(['organizer', 'venue', 'artist', 'promoter']), name: z.string().trim().min(1).max(120), city: z.string().max(120).optional(),
       instagram: z.string().min(2).max(300).optional().describe('Instagram handle or URL of the page.'),
       handle: z.string().min(3).max(40).transform(h => h.replace(/^@/, '').toLowerCase()).optional().describe('Wanted WeDance handle (wedance.vip/@handle); made from the name when left out.'),
+      create_anyway: z.boolean().optional().describe('Only after the user said none of the possible_duplicates is theirs.'),
     },
     run: async (t, a) => {
+      if (!a.create_anyway) {
+        // Same Instagram account is business.create's call (it may hand the page over); warn on the rest.
+        const dupes = ((await t.caller.business.findExisting({ name: a.name, handle: a.handle, city: a.city, type: a.type })) as any[])
+          .filter(d => !d.reasons.includes('instagram'))
+        if (dupes.length) {
+          return {
+            created: false,
+            possible_duplicates: dupes.map(d => ({ handle: d.username, name: d.name, type: d.type, city: d.city, why: dupeReasonText(d.reasons), managed: d.managed, url: url(t, `/@${d.username}`), claim: url(t, `/business/claim?profile=${d.username}`) })),
+            next: 'Ask the user whether one of these is their page. If so, they claim it (or ask its team to add them) on WeDance. If none is, call create_my_page again with create_anyway: true.',
+          }
+        }
+      }
       const r: any = await t.caller.business.create({ type: a.type, name: a.name, city: a.city, instagram: a.instagram, handle: a.handle })
       return { handle: r.username, url: url(t, `/@${r.username}`), editor: url(t, `/business/network/${r.username}`), next: 'This app can now run it: create_event with profile set to this handle.' }
     },
   },
   {
     name: 'add_venue', title: 'Add a venue', scopes: ['business:write'], business: true, annotations: WRITE,
-    description: 'A venue that isn’t on WeDance yet (check find_lineup type=venue first): creates an unclaimed venue page from its name, address and city, plus its Instagram when known. Returns the existing page when that Instagram or the same name in that city is already on WeDance. Then set it on the event with venue_handle. An existing page that lacks its address or city: update_listed_profile.',
+    description: 'A venue that isn’t on WeDance yet (check find_lineup type=venue first): creates an unclaimed venue page from its name, address and city, plus its Instagram when known. Returns the existing page when that Instagram (main or a known alias), a similar name in that city, or the same address is already on WeDance (created: false). Then set it on the event with venue_handle. An existing page that lacks its address or city: update_listed_profile.',
     input: {
       name: z.string().trim().min(2).max(120).describe('The venue’s name, e.g. "Kulturhaus Mitte".'),
       address: z.string().trim().min(3).max(300).describe('Street and number, e.g. "Heinz-Galinski-Straße 13".'),
@@ -910,6 +924,19 @@ export const TOOLS: ToolDef[] = [
     run: async (t, a) => {
       const { profile: username, confirm_token: _c, ...fields } = a
       return t.caller.business.update({ username, ...fields })
+    },
+  },
+  {
+    name: 'merge_profiles', title: 'Merge a duplicate page', scopes: ['business:publish'], business: true, annotations: OUTWARD, confirm: true,
+    description: 'Two of my pages are the same business (e.g. "Bar Buena Vista" and "Buena Vista Bar"): merge the duplicate into the one that stays. Its events, followers, team, reviews and links move over, its Instagram becomes an alias, and its old handle forwards. The user must own both pages. Undo is on WeDance (Business → the kept page). Preview → confirm.',
+    input: { from: handle.describe('Handle of the duplicate that goes away.'), into: handle.describe('Handle of the page that stays.'), confirm_token: confirmToken },
+    preview: async (t, a) => {
+      const [from, into]: any[] = await Promise.all([t.caller.business.get({ username: a.from }), t.caller.business.get({ username: a.into })])
+      return { merge: `${from.name} (@${from.username})`, into: `${into.name} (@${into.username})`, effect: `/@${from.username} will forward to /@${into.username}; everything on it moves over.` }
+    },
+    run: async (t, a) => {
+      const r: any = await t.caller.business.merge({ from: a.from, into: a.into })
+      return { merged: true, into: r.into, url: url(t, `/@${r.into}`), moved: r.moved }
     },
   },
   {
