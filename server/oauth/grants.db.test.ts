@@ -31,7 +31,7 @@ const clientIds: string[] = []
 const madeHandles: string[] = []
 
 /** Connect an app for a dancer the real way (consent → code → token) and return its MCP context. */
-async function connect(dancerId: string, scopes: string[], profileIds: string[]) {
+async function connect(dancerId: string, scopes: string[], profileIds: string[], allProfiles = false) {
   const c = await registerClient(db, { client_name: `${tag} app`, redirect_uris: [REDIRECT] })
   clientIds.push(c.client_id)
   const client = (await resolveClient(db, c.client_id))!
@@ -39,7 +39,7 @@ async function connect(dancerId: string, scopes: string[], profileIds: string[])
   const challenge = createHash('sha256').update(verifier).digest('base64url')
   const v = await validateAuthorizeRequest(db, { response_type: 'code', client_id: c.client_id, redirect_uri: REDIRECT, code_challenge: challenge, code_challenge_method: 'S256', state: 's', resource: RESOURCE, scope: scopes.join(' ') }, ORIGIN)
   if (!v.ok) throw new Error(`authorize failed: ${JSON.stringify(v)}`)
-  const { redirect } = await approveConsent(db, { token: consentToken(v.request, dancerId), dancerId, isAdmin: false, scopes, profileIds, origin: ORIGIN })
+  const { redirect } = await approveConsent(db, { token: consentToken(v.request, dancerId), dancerId, isAdmin: false, scopes, profileIds, allProfiles, origin: ORIGIN })
   const t = await exchangeCode(db, client, { code: new URL(redirect).searchParams.get('code')!, redirect_uri: REDIRECT, code_verifier: verifier, resource: RESOURCE })
   return { token: t.access_token, request: () => request(t.access_token) }
 }
@@ -160,5 +160,32 @@ describe.skipIf(!DATABASE_URL)('pages made through a connected app join its gran
     const t3 = await app2.request()
     await db.update(schema.oauthGrants).set({ revokedAt: new Date() }).where(eq(schema.oauthGrants.id, t3.ctx.oauthGrantId))
     expect(await addProfileToOwnGrant(t3.ctx, pages.existing.id)).toBe(false)
+  })
+
+  it('"All my pages" covers every page the dancer runs, including one gained after connecting (#457)', async () => {
+    const app = await connect(ids.alex, ['business:read', 'business:write'], [], true)
+    const [g] = await db.select({ all: schema.oauthGrants.allProfiles }).from(schema.oauthGrants).where(eq(schema.oauthGrants.id, (await app.request()).ctx.oauthGrantId))
+    expect(g.all).toBe(true)
+    const t = await app.request()
+    expect(t.ctx.grantedProfileIds).toEqual(expect.arrayContaining([pages.existing.id, pages.other.id]))
+    expect(t.ctx.grantedProfileIds).not.toContain(pages.foreign.id)
+    // A page made on the website after the grant (not through the app): covered on the next request.
+    const { username } = await appRouter.createCaller({ db, dancerId: ids.alex, isAdmin: false } as any).business.create({ type: 'venue', name: `${tag} Later`, city: 'Munich' })
+    madeHandles.push(username)
+    const [later] = await db.select({ id: schema.profiles.id }).from(schema.profiles).where(eq(schema.profiles.username, username))
+    const after = await app.request()
+    expect(after.ctx.grantedProfileIds).toContain(later.id)
+    const ev = await callTool(tool('create_event'), { profile: username, name: `${tag} Later night`, type: 'Party', date: '2031-06-11', start_time: '21:00' }, after)
+    expect(ev.isError, JSON.stringify(ev)).toBeFalsy()
+    // Still never someone else's page.
+    expect((await callTool(tool('create_event'), { profile: pages.foreign.username, name: `${tag} foreign`, type: 'Party', date: '2031-06-11', start_time: '21:00' }, after)).isError).toBe(true)
+  })
+
+  it('"All my pages" without a business permission grants no pages', async () => {
+    const app = await connect(ids.alex, ['me:read'], [], true)
+    const t = await app.request()
+    const [g] = await db.select({ all: schema.oauthGrants.allProfiles }).from(schema.oauthGrants).where(eq(schema.oauthGrants.id, t.ctx.oauthGrantId))
+    expect(g.all).toBe(false)
+    expect(t.ctx.grantedProfileIds).toEqual([])
   })
 })

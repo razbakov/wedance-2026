@@ -116,6 +116,8 @@ export const PROCEDURE_SCOPES: Record<string, Scope | null> = {
   // A new page the dancer runs; it joins the app's grant (server/oauth/grants.ts).
   'business.create': 'business:write',
   'businessEvents.addVenue': 'business:write',
+  // Completing an unclaimed page the dancer added or has on their events (#454); no grant needed.
+  'listedProfiles.update': 'business:write',
   'businessFlyers.make': 'business:write',
   'businessFlyers.directions': 'business:write',
   'businessFlyers.fix': 'business:write',

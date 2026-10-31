@@ -366,7 +366,7 @@ export const profiles = pgTable('profiles', {
   moderatorHandle: text('moderator_handle'),
   moderatorSince: integer('moderator_since'),
   socials: json('socials').$type<{ platform: string; url: string }[]>().default([]),
-  // Other Instagram accounts this business has had (migration 0055, #458): lowercased
+  // Other Instagram accounts this business has had (migration 0056, #458): lowercased
   // handles without @. The main one stays in `socials`; these only help dedupe find
   // this page (v3 sync, add_profile_from_instagram, add_venue, create_my_page).
   instagramAliases: jsonb('instagram_aliases').$type<string[]>().notNull().default([]),
@@ -386,7 +386,7 @@ export const profiles = pgTable('profiles', {
   sourceRef: jsonb('source_ref').$type<Record<string, unknown>>(),
 })
 
-// A duplicate merged into the profile that stays (migration 0055, #458). The copy
+// A duplicate merged into the profile that stays (migration 0056, #458). The copy
 // is hidden with source_ref.mergedInto (so /@copy forwards); this row is the audit
 // trail and what an undo needs: the ids of every row moved, and the kept profile's
 // fields (and event line-ups) as they were before.
@@ -1400,6 +1400,8 @@ export const oauthClients = pgTable('oauth_clients', {
 
 // What a dancer allowed an app: scopes and the profiles it may act for. One
 // live grant per dancer + app; consenting again replaces scopes and profiles.
+// `allProfiles` ("All my pages", #457): every page the dancer is on the team
+// of, resolved per request, so pages gained later are covered too.
 // Revoking (settings → Connected apps, or refresh-token reuse) ends every token.
 export const oauthGrants = pgTable('oauth_grants', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -1407,6 +1409,7 @@ export const oauthGrants = pgTable('oauth_grants', {
   clientId: text('client_id').notNull().references(() => oauthClients.id, { onDelete: 'cascade' }),
   scopes: jsonb('scopes').$type<string[]>().notNull().default([]),
   profileIds: jsonb('profile_ids').$type<string[]>().notNull().default([]),
+  allProfiles: boolean('all_profiles').notNull().default(false),
   revokedAt: timestamp('revoked_at'),
   revokedReason: text('revoked_reason'),
   lastUsedAt: timestamp('last_used_at'),

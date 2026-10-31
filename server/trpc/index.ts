@@ -27,6 +27,7 @@ import { followRouter } from './routers/follow'
 import { businessRouter } from './routers/business'
 import { businessEventsRouter } from './routers/businessEvents'
 import { businessFlyersRouter } from './routers/businessFlyers'
+import { listedProfilesRouter } from './routers/listedProfiles'
 import { artistInvitesRouter } from './routers/artistInvites'
 import { venueAsksRouter } from './routers/venueAsks'
 import { inquiriesRouter } from './routers/inquiries'
@@ -69,6 +70,7 @@ export const appRouter = router({
   business: businessRouter,
   businessEvents: businessEventsRouter,
   businessFlyers: businessFlyersRouter,
+  listedProfiles: listedProfilesRouter,
   artistInvites: artistInvitesRouter,
   venueAsks: venueAsksRouter,
   inquiries: inquiriesRouter,
