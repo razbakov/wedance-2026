@@ -1375,6 +1375,8 @@ export const oauthClients = pgTable('oauth_clients', {
 
 // What a dancer allowed an app: scopes and the profiles it may act for. One
 // live grant per dancer + app; consenting again replaces scopes and profiles.
+// `allProfiles` ("All my pages", #457): every page the dancer is on the team
+// of, resolved per request, so pages gained later are covered too.
 // Revoking (settings → Connected apps, or refresh-token reuse) ends every token.
 export const oauthGrants = pgTable('oauth_grants', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -1382,6 +1384,7 @@ export const oauthGrants = pgTable('oauth_grants', {
   clientId: text('client_id').notNull().references(() => oauthClients.id, { onDelete: 'cascade' }),
   scopes: jsonb('scopes').$type<string[]>().notNull().default([]),
   profileIds: jsonb('profile_ids').$type<string[]>().notNull().default([]),
+  allProfiles: boolean('all_profiles').notNull().default(false),
   revokedAt: timestamp('revoked_at'),
   revokedReason: text('revoked_reason'),
   lastUsedAt: timestamp('last_used_at'),
