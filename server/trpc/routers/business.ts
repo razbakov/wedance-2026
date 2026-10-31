@@ -6,7 +6,7 @@ import { profiles, profileMembers, profileClaims, dancers, cities, events, booka
 import { WEEKDAYS } from '../../../shared/types/venueDetails'
 import { slugify, randomSuffix } from '../../utils/slug'
 import { parseInstagramHandle, instagramUrl } from '../../../shared/utils/instagram'
-import { grant, logAccess, assertProfileGranted, onlyGranted, type GrantCtx } from '../../utils/profileAccess'
+import { grant, logAccess, assertProfileGranted, notManagedError, onlyGranted, type GrantCtx } from '../../utils/profileAccess'
 import { notifyDecision, notifyInfoRequired } from './businessTeam'
 import { addProfileToOwnGrant } from '../../oauth/grants'
 import { profileGroup, trackServer } from '../../utils/posthog'
@@ -56,12 +56,13 @@ export async function requireMember(ctx: { db: any; dancerId: string; isAdmin?: 
   const [p] = await ctx.db.select().from(profiles).where(eq(profiles.username, username))
   if (!p) throw new TRPCError({ code: 'NOT_FOUND', message: 'Profile not found.' })
   if (ctx.isAdmin) return p
-  assertProfileGranted(ctx, p.id)
   const [m] = await ctx.db
     .select({ role: profileMembers.role })
     .from(profileMembers)
     .where(and(eq(profileMembers.profileId, p.id), eq(profileMembers.dancerId, ctx.dancerId)))
-  if (!m) throw new TRPCError({ code: 'FORBIDDEN', message: 'You don’t manage this profile.' })
+  // Not on the team: say so, never "reconnect and tick" (#454).
+  if (!m) throw await notManagedError(ctx.db, p)
+  assertProfileGranted(ctx, p.id)
   return p
 }
 
