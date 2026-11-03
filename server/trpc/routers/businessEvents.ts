@@ -619,7 +619,7 @@ export const businessEventsRouter = router({
         const row = await toRow(ctx.db, host, { ...template, date, festival: undefined } as EventInput)
         const slug = `${slugify(input.name)}-${randomSuffix(5)}`
         const shift = new Date(`${date}T12:00:00Z`).getTime() - new Date(`${input.date}T12:00:00Z`).getTime()
-        const festival = input.festival ? { ...shiftFestivalSessions({ ...input.festival, key: slug }, shift)!, key: slug } : null
+        const festival = input.festival ? { ...shiftFestivalSessions({ ...input.festival, key: slug } as FestivalDetails /* durations settled above */, shift)!, key: slug } : null
         rows.push({ ...row, ...(i === 0 ? { id: firstId } : {}), hostProfileId: host.id, source: 'wedance-business', seriesId, slug, ...(festival ? { festival } : {}) })
       }
       const created = await ctx.db.insert(events).values(rows).returning({ id: events.id, startDate: events.startDate, timezone: events.timezone })
