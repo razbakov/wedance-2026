@@ -95,10 +95,8 @@ const TYPE_ICON: Record<string, Component> = { party: Music, show: Sparkles, con
 const iconOf = (w: Workshop) => TYPE_ICON[sessionType(w.type)] ?? CalendarClock
 const labelOf = (w: Workshop) => SESSION_TYPE_LABEL[sessionType(w.type)]
 const isDoors = (w: Workshop) => w.type === 'doors'
-// Filters only make sense over classes: their styles and the levels they have.
-const workshopStyles = computed(() => props.styles.filter(st => st && props.workshops.some(w => isWorkshop(w.type) && w.style === st)))
+// Style and level filters only apply to classes: no classes, no filter bar.
 const hasWorkshops = computed(() => props.workshops.some(w => isWorkshop(w.type)))
-const shownLevels = computed(() => levels.filter(l => props.workshops.some(w => isWorkshop(w.type) && w.level === l)))
 
 function teacherFor(workshop: Workshop): Teacher | undefined {
   const main = props.teachers.find((t) => t.id === workshop.teacherId)
@@ -125,11 +123,11 @@ const levelColor: Record<string, string> = {
 <template>
   <div class="space-y-6">
     <!-- Filters — V3 warm palette -->
-    <div v-if="hasWorkshops && (workshopStyles.length > 1 || shownLevels.length > 1)" class="rounded-2xl bg-card border border-border p-4 sm:p-5">
+    <div v-if="hasWorkshops" class="rounded-2xl bg-card border border-border p-4 sm:p-5">
       <div class="text-eyebrow uppercase tracking-[0.3em] font-bold mb-2 text-secondary">Filter</div>
-      <div v-if="workshopStyles.length > 1" class="flex flex-wrap gap-2 mb-3">
+      <div class="flex flex-wrap gap-2 mb-3">
         <Button
-          v-for="style in workshopStyles"
+          v-for="style in styles"
           :key="style"
           type="button"
           :variant="selectedStyle === style ? 'pill' : 'outline-pill'"
@@ -142,9 +140,9 @@ const levelColor: Record<string, string> = {
           {{ style }}
         </Button>
       </div>
-      <div v-if="shownLevels.length > 1" class="flex flex-wrap gap-2">
+      <div class="flex flex-wrap gap-2">
         <Button
-          v-for="level in shownLevels"
+          v-for="level in levels"
           :key="level"
           type="button"
           :variant="selectedLevel === level ? 'pill' : 'outline-pill'"
@@ -285,10 +283,8 @@ const levelColor: Record<string, string> = {
             {{ labelOf(party) }}
           </div>
           <h4 class="font-black leading-tight mt-1 font-display text-foreground" :class="isDoors(party) ? 'text-sm sm:text-base' : 'text-base sm:text-lg'">
-            <NuxtLink v-if="eventHref(party.id) && !isDoors(party)" :to="eventHref(party.id)">{{ party.title }}</NuxtLink>
-            <template v-else>{{ party.title }}</template>
+            {{ party.title }}
           </h4>
-          <p v-if="teacherFor(party)" class="text-xs mt-0.5 italic text-muted-foreground font-sans">{{ teacherFor(party)!.name }}</p>
           <p v-if="party.description" class="text-xs mt-1 font-sans text-muted-foreground">
             {{ party.description }}
           </p>
