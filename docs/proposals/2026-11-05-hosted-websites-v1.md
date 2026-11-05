@@ -1,7 +1,8 @@
 ---
 title: Hosted websites v1 — an organizer gets a live website in minutes, without a developer
 date: 2026-11-05 17:00
-status: proposed
+status: accepted
+decided: 2026-11-05 (Alex agreed to all four recommended decisions: D1 sites.wedance.vip/<handle>, D2 free on the WeDance address / paid own domain, D3 "Made with WeDance" on free sites, D4 new repo wedance-sites)
 owner: Forge
 ---
 
