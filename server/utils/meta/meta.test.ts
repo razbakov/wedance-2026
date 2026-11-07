@@ -6,7 +6,7 @@ import { webhookRows } from './webhookRows'
 import { signConnectState, verifyConnectState, pickAccount } from './instagramConnection'
 import { instagramLoginUrl, exchangeCode, assignedInstagramAccounts, publishImage, MetaError } from './graph'
 import { metaConfig, instagramRedirectUri } from './config'
-import { jpegUrl } from '../../trpc/routers/instagram'
+import { instagramImageUrl } from './image'
 
 beforeAll(() => { process.env.OAUTH_SIGNING_SECRET = 'test-signing-secret-at-least-32-characters' })
 
@@ -153,11 +153,22 @@ describe('Graph flows', () => {
   })
 })
 
-describe('jpegUrl', () => {
-  it('asks Cloudinary for a JPEG once, leaves other hosts alone', () => {
-    const u = 'https://res.cloudinary.com/wd/image/upload/v1/flyers/a.png'
-    expect(jpegUrl(u)).toBe('https://res.cloudinary.com/wd/image/upload/f_jpg,q_90/v1/flyers/a.png')
-    expect(jpegUrl(jpegUrl(u))).toBe(jpegUrl(u))
-    expect(jpegUrl('https://example.com/a.png')).toBe('https://example.com/a.png')
+describe('instagramImageUrl', () => {
+  const u = 'https://res.cloudinary.com/wd/image/upload/v17/flyers/club/a.png'
+  const story = { width: 1080, height: 1920 }
+  const post = { width: 1080, height: 1350 }
+  const base = 'https://res.cloudinary.com/wd/image/upload/'
+  it('fits a 9:16 flyer into 4:5 on its own blurred copy for the feed, keeps it for a story', () => {
+    expect(instagramImageUrl(u, story, 'feed')).toBe(`${base}c_fill,w_1080,h_1350,e_blur:2000/l_flyers:club:a/c_fit,w_1080,h_1350/fl_layer_apply/f_jpg,q_90/flyers/club/a.png`)
+    expect(instagramImageUrl(u, story, 'story')).toBe(`${base}f_jpg,q_90/flyers/club/a.png`)
+  })
+  it('keeps a 4:5 post for the feed, fits it into 9:16 for a story', () => {
+    expect(instagramImageUrl(u, post, 'feed')).toBe(`${base}f_jpg,q_90/flyers/club/a.png`)
+    expect(instagramImageUrl(u, post, 'story')).toBe(`${base}c_fill,w_1080,h_1920,e_blur:2000/l_flyers:club:a/c_fit,w_1080,h_1920/fl_layer_apply/f_jpg,q_90/flyers/club/a.png`)
+  })
+  it('leaves other hosts and already-transformed links alone', () => {
+    expect(instagramImageUrl('https://example.com/a.png', story, 'feed')).toBe('https://example.com/a.png')
+    const t = `${base}c_limit,w_640/v1/a.png`
+    expect(instagramImageUrl(t, story, 'feed')).toBe(t)
   })
 })

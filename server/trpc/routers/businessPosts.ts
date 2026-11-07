@@ -83,7 +83,10 @@ export const businessPostsRouter = router({
           waitingFor: p.kind === 'artist' && who && !okIds.has(who.id) ? (ev.flyerOptions?.names?.[who.username] || who.name) : null,
           inLineup: p.kind !== 'artist' || (ev.artists ?? []).includes(p.subject),
           // Published by WeDance (#501): the Instagram link, or why the last try failed.
-          instagram: p.igPermalink || p.igMediaId ? { permalink: p.igPermalink as string | null } : null,
+          instagram: {
+            feed: p.igMediaId ? { permalink: p.igPermalink as string | null } : null,
+            story: p.igStoryMediaId ? { permalink: p.igStoryPermalink as string | null } : null,
+          },
           publishError: p.publishError as string | null,
         })
       }

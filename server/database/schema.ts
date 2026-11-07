@@ -1221,6 +1221,10 @@ export const eventPosts = pgTable('event_posts', {
   igPermalink: text('ig_permalink'),
   publishedAt: timestamp('published_at'),
   publishError: text('publish_error'),
+  // The same post as an Instagram story (0064): feed and story are published separately.
+  igStoryMediaId: text('ig_story_media_id'),
+  igStoryPermalink: text('ig_story_permalink'),
+  storyPublishedAt: timestamp('story_published_at'),
 }, (t) => [index('event_posts_event_idx').on(t.eventId)])
 
 // A page's Instagram professional account, connected through WeDance's Meta app
