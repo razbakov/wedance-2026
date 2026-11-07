@@ -1216,7 +1216,41 @@ export const eventPosts = pgTable('event_posts', {
   createdBy: uuid('created_by').references(() => dancers.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
+  // Published to Instagram by WeDance (0063, #501): the media id, its link, when, or why it failed.
+  igMediaId: text('ig_media_id'),
+  igPermalink: text('ig_permalink'),
+  publishedAt: timestamp('published_at'),
+  publishError: text('publish_error'),
 }, (t) => [index('event_posts_event_idx').on(t.eventId)])
+
+// A page's Instagram professional account, connected through WeDance's Meta app
+// (migration 0063, #501 — Unified login, system-user token). One account per page.
+// token_enc: server/utils/meta/tokenCrypto.ts. Never sent to the client.
+export const instagramConnections = pgTable('instagram_connections', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  profileId: uuid('profile_id').notNull().unique().references(() => profiles.id, { onDelete: 'cascade' }),
+  igUserId: text('ig_user_id').notNull().unique(),
+  igUsername: text('ig_username').notNull(),
+  igName: text('ig_name'),
+  igPicture: text('ig_picture'),
+  tokenEnc: text('token_enc').notNull(),
+  tokenKind: text('token_kind').notNull().default('system_user').$type<'system_user' | 'user'>(),
+  tokenExpiresAt: timestamp('token_expires_at'),
+  scopes: jsonb('scopes').$type<string[]>().notNull().default([]),
+  connectedBy: uuid('connected_by').references(() => dancers.id, { onDelete: 'set null' }),
+  connectedAt: timestamp('connected_at').notNull().defaultNow(),
+  lastError: text('last_error'),
+  lastErrorAt: timestamp('last_error_at'),
+})
+
+// Meta webhook deliveries for connected accounts (0063): comments, messages, mentions.
+export const instagramWebhookEvents = pgTable('instagram_webhook_events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  igUserId: text('ig_user_id').notNull(),
+  field: text('field').notNull(),
+  payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
+  receivedAt: timestamp('received_at').notNull().defaultNow(),
+}, (t) => [index('instagram_webhook_events_account_idx').on(t.igUserId, t.receivedAt)])
 
 export const eventFlyers = pgTable('event_flyers', {
   id: uuid('id').primaryKey().defaultRandom(),

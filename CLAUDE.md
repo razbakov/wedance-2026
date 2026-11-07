@@ -234,6 +234,27 @@ schema and checked again (handles must be in the post, links written in the capt
 organisers are kept in `events.source_ref.instagram.organizers` — TODO(#456) link them as co-organisers.
 The same post for the same page returns the existing draft. Missing env → a clear error, no crash.
 
+## Connect Instagram — official Meta app (#501)
+
+Meta app **WeDance** (`2207322860205270`, business portfolio WeDance — unverified) → developers.facebook.com/apps/2207322860205270.
+New Meta apps get **Instagram API with Unified login** only (the plain "Instagram Login" setup is gone): a Facebook
+Login for Business configuration **"Connect Instagram"** (`1134955742345614`) — system-user token, never expires,
+asset Instagram account (required), permissions `instagram_basic`, `instagram_content_publish`,
+`instagram_manage_comments`, `instagram_manage_messages`, `business_management` (without it
+`/me/assigned_instagram_accounts` is empty). Dialog uses `config_id`, never `scope`. All calls on graph.facebook.com.
+
+- Owners connect on Business → page → Instagram (`BusinessInstagram.vue`) → `instagram.connectUrl` (signed `state`,
+  15 min — sessions are bearer tokens, so the redirect carries none) → `/api/meta/instagram/callback` (code →
+  token → account picked by the page's Instagram link → `instagram_connections`, token AES-GCM, `server/utils/meta/`).
+- Content plan "Post to Instagram" → `instagram.publishPost` (kept flyer as Cloudinary `f_jpg`, caption; story =
+  `STORIES`, no caption). Web only, one post per click; posts from the host page, else organiser, else venue.
+- `/api/meta/webhook` (GET verify, POST `X-Hub-Signature-256`) stores comments / messages for connected accounts in
+  `instagram_webhook_events`. `/api/meta/data-deletion` answers Meta's `signed_request`.
+- **Env:** `META_APP_SECRET` (required — App settings → Basic), `META_WEBHOOK_VERIFY_TOKEN`; optional `META_TOKEN_KEY`
+  (else derived from `OAUTH_SIGNING_SECRET`), `META_APP_ID`, `META_INSTAGRAM_CONFIG_ID`, `META_GRAPH_VERSION` (v25.0).
+- **Dev mode:** only people with a role on the app (and Instagram testers) can connect. Others need business
+  verification + App Review (screencast per permission).
+
 ## Analytics (PostHog)
 
 **Setup.** Client: `app/plugins/03.posthog.client.ts` (posthog-js, EU host, manual `$pageview`
@@ -325,6 +346,8 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `ticket_cta_click` | `FestivalHero` (external shop), `FestivalView` (Stripe checkout) | `slug` / `festival`, `provider` (stripe / tickettailor / external), `tickets`, … |
 | `organizer_cta_click` · `sponsor_cta_click` · `press_cta_click` · `whats_new_*_click` | marketing pages | `surface`, `kind` |
 | `app_connected` | `oauth/authorize.vue` | `scopes`, `business` |
+| `instagram_connect_started` | `BusinessInstagram` (Business → page → Instagram, before Meta's dialog) | `profile`, `reconnect` |
+| `instagram_post_published` | `BusinessContentPlan` "Post to Instagram" | `event_id`, `post_kind`, `format` |
 | `problem_report_opened` / `problem_report_submitted` / `problem_report_screenshot` | `ReportProblem` | `type` · `captured` (screenshot) |
 
 ### Server events (`trackServer`, all prefixed `server_`)
@@ -362,6 +385,9 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `server_venue_ask_sent` / `server_venue_ask_booked` / `server_venue_ask_unbooked` | `venueAsks.ask` / `book` / `unbook` | `event_id`, `venue`, `updated`, `guests`, `needs_count`, `venue_managed`, `$groups` |
 | `server_checked_in` | `attendance.checkIn` (door, organiser's id) | `event_id`, `is_festival`, `$groups` |
 | `server_site_saved` | `businessSite.save`, `businessSite.restore` (not when nothing changed) | `profile`, `profile_type`, `first_save`, `sections`, `locales`, `restored`, `$groups` |
+| `server_instagram_connected` | `/api/meta/instagram/callback` (Meta's redirect, account saved) | `profile`, `profile_type`, `accounts_granted`, `$groups` |
+| `server_instagram_disconnected` | `instagram.disconnect` | `profile`, `profile_type`, `$groups` |
+| `server_instagram_post_published` | `instagram.publishPost` | `event_id`, `post_kind`, `format`, `profile`, `$groups` |
 | `server_member_role_set` | `businessTeam.setRole` (role actually changed) | `profile`, `profile_type`, `from_role`, `role`, `self`, `$groups` |
 | `server_mcp_tool_called` | every MCP tool call (`server/mcp/server.ts` `callTool`), signed in or anonymous | `tool`, `result` (ok / error / preview / denied), `error_code`, `client_app` (chatgpt / claude / cursor / … — `server/mcp/caller.ts`; not `app`, which is the project filter), `country` (Vercel geo, ISO-2), `anonymous`, `latency_ms`, `channel: mcp` |
 | `server_account_deleted` | `auth.deleteAccount` — **anonymous**, no person profile | `days_since_signup` |

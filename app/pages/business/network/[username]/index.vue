@@ -303,6 +303,8 @@ const photoHint = computed(() => loaded.value?.type === 'artist'
         </div>
       </form>
 
+      <BusinessInstagram :username="loaded.username" class="mt-8" />
+
       <BusinessHandle :username="loaded.username" :instagram="socialOf(loaded, 'instagram')" class="mt-8" @renamed="onRenamed" />
 
       <BusinessDuplicates :username="loaded.username" :name="loaded.name" class="mt-8" @merged="load(true)" />

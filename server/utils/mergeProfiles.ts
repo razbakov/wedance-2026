@@ -238,6 +238,8 @@ const JSON_COLS: Record<string, 'json' | 'jsonb'> = { socials: 'json', styles: '
  */
 export const PROFILE_REFS: { table: string; col: string; same?: string; notSelf?: string; idCol?: string }[] = [
   { table: 'events', col: 'host_profile_id' },
+  // One Instagram account per page (#501): moves only when the kept page has none.
+  { table: 'instagram_connections', col: 'profile_id', same: 'true' },
   { table: 'follows', col: 'profile_id', same: 'x.dancer_id = t.dancer_id' },
   { table: 'profile_members', col: 'profile_id', same: 'x.dancer_id = t.dancer_id' },
   { table: 'profile_claims', col: 'profile_id', same: 'x.dancer_id = t.dancer_id' },

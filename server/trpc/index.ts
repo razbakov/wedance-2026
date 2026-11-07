@@ -32,6 +32,7 @@ import { artistInvitesRouter } from './routers/artistInvites'
 import { venueAsksRouter } from './routers/venueAsks'
 import { inquiriesRouter } from './routers/inquiries'
 import { businessPostsRouter } from './routers/businessPosts'
+import { instagramRouter } from './routers/instagram'
 import { businessLooksRouter } from './routers/businessLooks'
 import { businessSiteRouter } from './routers/businessSite'
 import { businessTeamRouter } from './routers/businessTeam'
@@ -77,6 +78,7 @@ export const appRouter = router({
   venueAsks: venueAsksRouter,
   inquiries: inquiriesRouter,
   businessPosts: businessPostsRouter,
+  instagram: instagramRouter,
   businessLooks: businessLooksRouter,
   businessSite: businessSiteRouter,
   businessTeam: businessTeamRouter,
