@@ -84,6 +84,7 @@ const sections: LegalSection[] = [
     paragraphs: [
       'If you manage a page, we process the content you add (events, line-ups, photos, flyers, website content) and the people on your team with their roles. For your events we show you aggregated insights (views, interest, sales) and, where relevant, the attendee data described in section 6. You are responsible for using attendee data only for running your event.',
       'If you paste a link to an Instagram post, we fetch that public post and its picture to prepare a draft event (see section 9).',
+      '<b>Connecting Instagram.</b> A page’s owner can connect the page’s Instagram professional account through Meta’s own login window; WeDance never sees your Facebook or Instagram password. Meta then gives WeDance an access token for that Instagram account only, which we store encrypted. We use it to publish the posts you click “Post to Instagram” on (the picture and its caption) and to read that account’s profile (handle, name, picture), its posts, and the comments and messages it receives, so you can follow up on your events in WeDance. Nothing is ever posted without your click. You can disconnect at any time (Business → your page → Instagram), or remove WeDance in your Facebook or Instagram settings; the token then stops working and we delete it. Legal basis: providing the feature you asked for (Art. 6 (1) (b) GDPR).',
     ],
   },
   {
@@ -112,6 +113,7 @@ const sections: LegalSection[] = [
       '<b>Functional Software Inc. (Sentry)</b> (USA) — error monitoring (section 10).',
       '<b>Google</b> (Google Ireland Ltd. / Google LLC) — the Gemini AI model, used when you ask WeDance to read an Instagram post into an event, design a flyer or write captions. We send it only the post text, images and event details needed for that request; it is not used to train Google’s models under the paid API terms. We also use Google Maps services to look up addresses and cities.',
       '<b>Apify Technologies s.r.o.</b> (Czech Republic) — fetching public Instagram profiles and posts (sections 5 and 7).',
+      '<b>Meta Platforms Ireland Ltd.</b> (Ireland) — the Instagram connection you choose to make for your page (section 7): Meta processes the login and the posts, comments and messages under its own terms, as an independent controller.',
     ],
   },
   {

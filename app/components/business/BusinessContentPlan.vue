@@ -11,7 +11,7 @@ import { sizedImage, IMG } from '#shared/utils/image'
  *
  * `go` asks the page to open a post's flyer (saving the details first).
  */
-import { Sparkles, Wand2, Plus, X, Check, Clock, AlertTriangle, Loader2, CalendarDays, Image as ImageIcon, RefreshCw, Download } from 'lucide-vue-next'
+import { Sparkles, Wand2, Plus, X, Check, Clock, AlertTriangle, Loader2, CalendarDays, Image as ImageIcon, RefreshCw, Download, Instagram, ExternalLink } from 'lucide-vue-next'
 import type { PropType } from 'vue'
 import { POST_KINDS, type PostKind } from '#shared/utils/posts'
 import { LANGUAGES } from '#shared/utils/caption'
@@ -135,6 +135,31 @@ const state = (p: Post): { text: string; tone: Tone } => {
 }
 const TONE: Record<Tone, string> = { done: 'text-muted-foreground', ready: 'text-wd-green-700', warn: 'text-wd-amber-600', wait: 'text-secondary', busy: 'text-secondary', plain: 'text-muted-foreground' }
 const download = (url: string) => url.replace('/upload/', '/upload/fl_attachment/')
+
+// --- Instagram (#501): the account the event posts to, when its page connected one.
+const { track } = useTrack()
+const ig = ref<{ page: string | null; account: string | null } | null>(null)
+onMounted(async () => { try { ig.value = await $trpc.instagram.forEvent.query({ eventId: props.eventId }) } catch { /* the plan works without it */ } })
+const publishing = ref<string | null>(null)
+const canPublish = (p: Post) => !!ig.value?.account && !!p.flyer && !p.flyer.stale && !p.waitingFor && !p.instagram && p.status !== 'dropped' && (p.format === 'story' || !!p.caption)
+async function publish(p: Post) {
+  const what = p.format === 'story' ? 'this story' : 'this post and its caption'
+  if (!confirm(`Post ${what} to @${ig.value!.account} on Instagram now?`)) return
+  publishing.value = p.id
+  error.value = null
+  try {
+    const r = await $trpc.instagram.publishPost.mutate({ postId: p.id })
+    track('instagram_post_published', { event_id: props.eventId, post_kind: p.kind, format: p.format })
+    drafted.value = `Posted to @${r.account}.`
+    await load()
+    emit('changed')
+  } catch (e: any) {
+    error.value = e?.message || 'Instagram didn’t take the post.'
+    await load()
+  } finally {
+    publishing.value = null
+  }
+}
 </script>
 
 <template>
@@ -231,6 +256,9 @@ const download = (url: string) => url.replace('/upload/', '/upload/fl_attachment
               <template v-else-if="p.flyer">Open</template>
               <template v-else><Wand2 /> Make it</template>
             </Button>
+            <Button v-if="canPublish(p)" type="button" size="sm" variant="outline" :loading="publishing === p.id" :disabled="!!publishing" @click="publish(p)"><Instagram /> Post to Instagram</Button>
+            <a v-if="p.instagram?.permalink" :href="p.instagram.permalink" target="_blank" rel="noopener" data-outbound-kind="instagram" class="inline-flex items-center gap-1 text-xs font-bold text-secondary hover:underline"><ExternalLink class="size-3.5" aria-hidden="true" /> On Instagram</a>
+            <span v-if="p.publishError && !p.instagram" class="max-w-[12rem] text-right text-xs text-wd-amber-600">{{ p.publishError }}</span>
             <a v-if="p.flyer?.url" :href="download(p.flyer.url)" class="inline-flex items-center gap-1 text-xs font-bold text-secondary hover:underline"><Download class="size-3.5" aria-hidden="true" /> Download</a>
             <button v-if="p.flyer && p.status !== 'posted' && p.status !== 'dropped'" type="button" class="text-xs text-muted-foreground hover:underline" @click="update(p, { status: 'posted' })">Mark posted</button>
             <button v-else-if="p.status === 'posted'" type="button" class="text-xs text-muted-foreground hover:underline" @click="update(p, { status: 'planned' })">Not posted yet</button>

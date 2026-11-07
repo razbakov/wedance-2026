@@ -82,6 +82,9 @@ export const businessPostsRouter = router({
           // An artist post needs the artist's OK on their link.
           waitingFor: p.kind === 'artist' && who && !okIds.has(who.id) ? (ev.flyerOptions?.names?.[who.username] || who.name) : null,
           inLineup: p.kind !== 'artist' || (ev.artists ?? []).includes(p.subject),
+          // Published by WeDance (#501): the Instagram link, or why the last try failed.
+          instagram: p.igPermalink || p.igMediaId ? { permalink: p.igPermalink as string | null } : null,
+          publishError: p.publishError as string | null,
         })
       }
       out.sort((a: any, b: any) => (a.status === 'dropped' ? 1 : 0) - (b.status === 'dropped' ? 1 : 0) || String(a.dueOn ?? '9').localeCompare(String(b.dueOn ?? '9')))
