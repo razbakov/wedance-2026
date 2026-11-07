@@ -141,16 +141,19 @@ const { track } = useTrack()
 const ig = ref<{ page: string | null; account: string | null } | null>(null)
 onMounted(async () => { try { ig.value = await $trpc.instagram.forEvent.query({ eventId: props.eventId }) } catch { /* the plan works without it */ } })
 const publishing = ref<string | null>(null)
-const canPublish = (p: Post) => !!ig.value?.account && !!p.flyer && !p.flyer.stale && !p.waitingFor && !p.instagram && p.status !== 'dropped' && (p.format === 'story' || !!p.caption)
-async function publish(p: Post) {
-  const what = p.format === 'story' ? 'this story' : 'this post and its caption'
-  if (!confirm(`Post ${what} to @${ig.value!.account} on Instagram now?`)) return
-  publishing.value = p.id
+type Dest = 'feed' | 'story'
+// Ready to go out: a kept, current picture and the artist's OK. The feed also needs the caption.
+const readyToPublish = (p: Post) => !!ig.value?.account && !!p.flyer && !p.flyer.stale && !p.waitingFor && p.status !== 'dropped'
+const canPublish = (p: Post, to: Dest) => readyToPublish(p) && !p.instagram[to] && (to === 'story' || !!p.caption)
+async function publish(p: Post, to: Dest) {
+  const what = to === 'story' ? `Add this picture to @${ig.value!.account}’s story` : `Post this picture and its caption on @${ig.value!.account}’s feed`
+  if (!confirm(`${what} on Instagram now?`)) return
+  publishing.value = `${p.id}:${to}`
   error.value = null
   try {
-    const r = await $trpc.instagram.publishPost.mutate({ postId: p.id })
-    track('instagram_post_published', { event_id: props.eventId, post_kind: p.kind, format: p.format })
-    drafted.value = `Posted to @${r.account}.`
+    const r = await $trpc.instagram.publishPost.mutate({ postId: p.id, to })
+    track('instagram_post_published', { event_id: props.eventId, post_kind: p.kind, format: p.format, to })
+    drafted.value = to === 'story' ? `Added to @${r.account}’s story.` : `Posted on @${r.account}’s feed.`
     await load()
     emit('changed')
   } catch (e: any) {
@@ -256,9 +259,14 @@ async function publish(p: Post) {
               <template v-else-if="p.flyer">Open</template>
               <template v-else><Wand2 /> Make it</template>
             </Button>
-            <Button v-if="canPublish(p)" type="button" size="sm" variant="outline" :loading="publishing === p.id" :disabled="!!publishing" @click="publish(p)"><Instagram /> Post to Instagram</Button>
-            <a v-if="p.instagram?.permalink" :href="p.instagram.permalink" target="_blank" rel="noopener" data-outbound-kind="instagram" class="inline-flex items-center gap-1 text-xs font-bold text-secondary hover:underline"><ExternalLink class="size-3.5" aria-hidden="true" /> On Instagram</a>
-            <span v-if="p.publishError && !p.instagram" class="max-w-[12rem] text-right text-xs text-wd-amber-600">{{ p.publishError }}</span>
+            <template v-if="readyToPublish(p)">
+              <Button v-if="canPublish(p, 'feed')" type="button" size="sm" variant="outline" :loading="publishing === `${p.id}:feed`" :disabled="!!publishing" title="The picture and its caption, on your profile grid" @click="publish(p, 'feed')"><Instagram /> Post to feed</Button>
+              <Button v-if="canPublish(p, 'story')" type="button" size="sm" variant="ghost" :loading="publishing === `${p.id}:story`" :disabled="!!publishing" title="The picture for 24 hours, no caption" @click="publish(p, 'story')"><Instagram /> Add to story</Button>
+              <span v-if="!p.caption && !p.instagram.feed" class="text-right text-xs text-muted-foreground">Write the caption to post it on the feed</span>
+            </template>
+            <a v-if="p.instagram.feed" :href="p.instagram.feed.permalink ?? undefined" target="_blank" rel="noopener" data-outbound-kind="instagram" class="inline-flex items-center gap-1 text-xs font-bold text-secondary hover:underline"><ExternalLink class="size-3.5" aria-hidden="true" /> On your feed</a>
+            <a v-if="p.instagram.story" :href="p.instagram.story.permalink ?? undefined" target="_blank" rel="noopener" data-outbound-kind="instagram" class="inline-flex items-center gap-1 text-xs font-bold text-secondary hover:underline"><ExternalLink class="size-3.5" aria-hidden="true" /> In your story</a>
+            <span v-if="p.publishError" class="max-w-[12rem] text-right text-xs text-wd-amber-600">{{ p.publishError }}</span>
             <a v-if="p.flyer?.url" :href="download(p.flyer.url)" class="inline-flex items-center gap-1 text-xs font-bold text-secondary hover:underline"><Download class="size-3.5" aria-hidden="true" /> Download</a>
             <button v-if="p.flyer && p.status !== 'posted' && p.status !== 'dropped'" type="button" class="text-xs text-muted-foreground hover:underline" @click="update(p, { status: 'posted' })">Mark posted</button>
             <button v-else-if="p.status === 'posted'" type="button" class="text-xs text-muted-foreground hover:underline" @click="update(p, { status: 'planned' })">Not posted yet</button>

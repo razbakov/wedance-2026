@@ -246,8 +246,11 @@ asset Instagram account (required), permissions `instagram_basic`, `instagram_co
 - Owners connect on Business → page → Instagram (`BusinessInstagram.vue`) → `instagram.connectUrl` (signed `state`,
   15 min — sessions are bearer tokens, so the redirect carries none) → `/api/meta/instagram/callback` (code →
   token → account picked by the page's Instagram link → `instagram_connections`, token AES-GCM, `server/utils/meta/`).
-- Content plan "Post to Instagram" → `instagram.publishPost` (kept flyer as Cloudinary `f_jpg`, caption; story =
-  `STORIES`, no caption). Web only, one post per click; posts from the host page, else organiser, else venue.
+- Content plan "Post to feed" / "Add to story" → `instagram.publishPost({ to })`: the organiser picks, whatever shape
+  the post was painted in. `server/utils/meta/image.ts` pads the kept flyer on a blurred copy of itself (feed: 4:5 —
+  a 9:16 flyer would be refused; story: 9:16) as a Cloudinary JPEG. Feed = picture + caption (`ig_media_id`), story =
+  picture only (`ig_story_media_id`, 0064); each goes once. Web only, one click each; posts from the host page, else
+  organiser, else venue.
 - `/api/meta/webhook` (GET verify, POST `X-Hub-Signature-256`) stores comments / messages for connected accounts in
   `instagram_webhook_events`. `/api/meta/data-deletion` answers Meta's `signed_request`.
 - **Env:** `META_APP_SECRET` (required — App settings → Basic), `META_WEBHOOK_VERIFY_TOKEN`; optional `META_TOKEN_KEY`
@@ -347,7 +350,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `organizer_cta_click` · `sponsor_cta_click` · `press_cta_click` · `whats_new_*_click` | marketing pages | `surface`, `kind` |
 | `app_connected` | `oauth/authorize.vue` | `scopes`, `business` |
 | `instagram_connect_started` | `BusinessInstagram` (Business → page → Instagram, before Meta's dialog) | `profile`, `reconnect` |
-| `instagram_post_published` | `BusinessContentPlan` "Post to Instagram" | `event_id`, `post_kind`, `format` |
+| `instagram_post_published` | `BusinessContentPlan` "Post to feed" / "Add to story" | `event_id`, `post_kind`, `format`, `to` (feed / story) |
 | `problem_report_opened` / `problem_report_submitted` / `problem_report_screenshot` | `ReportProblem` | `type` · `captured` (screenshot) |
 
 ### Server events (`trackServer`, all prefixed `server_`)
@@ -387,7 +390,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `server_site_saved` | `businessSite.save`, `businessSite.restore` (not when nothing changed) | `profile`, `profile_type`, `first_save`, `sections`, `locales`, `restored`, `$groups` |
 | `server_instagram_connected` | `/api/meta/instagram/callback` (Meta's redirect, account saved) | `profile`, `profile_type`, `accounts_granted`, `$groups` |
 | `server_instagram_disconnected` | `instagram.disconnect` | `profile`, `profile_type`, `$groups` |
-| `server_instagram_post_published` | `instagram.publishPost` | `event_id`, `post_kind`, `format`, `profile`, `$groups` |
+| `server_instagram_post_published` | `instagram.publishPost` | `event_id`, `post_kind`, `format`, `to` (feed / story), `profile`, `$groups` |
 | `server_member_role_set` | `businessTeam.setRole` (role actually changed) | `profile`, `profile_type`, `from_role`, `role`, `self`, `$groups` |
 | `server_mcp_tool_called` | every MCP tool call (`server/mcp/server.ts` `callTool`), signed in or anonymous | `tool`, `result` (ok / error / preview / denied), `error_code`, `client_app` (chatgpt / claude / cursor / … — `server/mcp/caller.ts`; not `app`, which is the project filter), `country` (Vercel geo, ISO-2), `anonymous`, `latency_ms`, `channel: mcp` |
 | `server_account_deleted` | `auth.deleteAccount` — **anonymous**, no person profile | `days_since_signup` |
