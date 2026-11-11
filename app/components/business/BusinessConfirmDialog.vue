@@ -22,10 +22,8 @@ watch(open, async (v) => {
   try { link.value = await $trpc.artistInvites.link.mutate({ eventId: props.eventId, handle: props.handle }) } catch (e: any) { error.value = e?.message || 'Couldn’t make the link.' }
 }, { immediate: true })
 
-const first = computed(() => props.name.split(/\s+/)[0] || props.name)
-const message = computed(() => link.value
-  ? `Hi ${first.value}! You're in the line-up of ${link.value.eventName} on WeDance 🎉 Could you check your name, photos and info for the flyer? Approve or change anything here: ${link.value.url}`
-  : '')
+// Written on the server from the event: when, where, their classes, the flyer, the link last.
+const message = computed(() => link.value?.message ?? '')
 const copied = ref<'link' | 'message' | null>(null)
 async function copy(what: 'link' | 'message') {
   try {
@@ -47,8 +45,8 @@ async function copy(what: 'link' | 'message') {
       </DialogHeader>
 
       <ol class="grid gap-2 text-sm">
-        <li class="flex gap-2"><span class="font-bold text-secondary">1.</span> They see what you need for {{ link?.eventName || 'your event' }}: name, photos, video, about, links.</li>
-        <li class="flex gap-2"><span class="font-bold text-secondary">2.</span> They approve your changes, fix what’s wrong, or add more photos.</li>
+        <li class="flex gap-2"><span class="font-bold text-secondary">1.</span> They see their classes and slots at {{ link?.eventName || 'your event' }} and say if they’re in and if the programme is right.</li>
+        <li class="flex gap-2"><span class="font-bold text-secondary">2.</span> They see themselves as the flyer shows them, keep the photos you added or turn them down.</li>
         <li class="flex gap-2"><span class="font-bold text-secondary">3.</span>
           <span v-if="link?.managed">Their page has an owner: they answer signed in. Until they do, it waits under “Needs you” on their Business home.</span>
           <span v-else>No one manages their page yet: they can create an account with email and password and make it theirs.</span>
@@ -65,7 +63,7 @@ async function copy(what: 'link' | 'message') {
           </div>
         </Field>
         <Field :id="`confirm-msg-${handle}`" label="A message to send">
-          <Textarea :model-value="message" readonly :rows="4" class="text-sm" />
+          <Textarea :model-value="message" readonly :rows="8" class="text-sm" />
         </Field>
         <div>
           <Button type="button" variant="pill" @click="copy('message')"><Check v-if="copied === 'message'" /><MessageCircle v-else /> {{ copied === 'message' ? 'Copied' : 'Copy message' }}</Button>
