@@ -385,7 +385,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `server_caption_written` | `businessFlyers.writeCaption`, `businessPosts.writeCaption` / `writeCaptions` | `event_id`, `language`, `scope` (event / post / plan), `count`, `failed`, `post_kind`, `$groups` |
 | `server_post_proposed` | `businessPosts.propose` (content plan) | `event_id`, `added`, `total`, `is_festival`, `$groups` |
 | `server_promo_kit_opened` | `referral.promoKit` | `event_id`, `profile_type`, `manager`, `has_link`, `has_flyer`, `painting`, `language`, `$groups` |
-| `server_venue_ask_sent` / `server_venue_ask_booked` / `server_venue_ask_unbooked` | `venueAsks.ask` / `book` / `unbook` | `event_id`, `venue`, `updated`, `guests`, `needs_count`, `venue_managed`, `$groups` |
+| `server_venue_ask_sent` / `server_venue_ask_booked` / `server_venue_ask_unbooked` | `venueAsks.ask` / `book` / `unbook` | `event_id`, `venue`, `updated`, `guests`, `needs_count`, `venue_managed`, `has_offer`, `plan_items` (ask only), `$groups` |
 | `server_checked_in` | `attendance.checkIn` (door, organiser's id) | `event_id`, `is_festival`, `$groups` |
 | `server_site_saved` | `businessSite.save`, `businessSite.restore` (not when nothing changed) | `profile`, `profile_type`, `first_save`, `sections`, `locales`, `restored`, `$groups` |
 | `server_instagram_connected` | `/api/meta/instagram/callback` (Meta's redirect, account saved) | `profile`, `profile_type`, `accounts_granted`, `$groups` |

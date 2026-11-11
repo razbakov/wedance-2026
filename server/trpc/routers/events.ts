@@ -5,7 +5,7 @@ import { router, publicProcedure } from '../trpc'
 import { events, cities } from '../../database/schema'
 import { festivalView } from '../../utils/festivalView'
 import { listFestivals } from '../../utils/festivalListing'
-import { publicEventWhere } from '../../utils/eventLookup'
+import { inviteEventId, previewEventWhere, publicEventWhere } from '../../utils/eventLookup'
 import { resolveCoOrganizers } from '../../utils/coOrganizers'
 
 /**
@@ -118,8 +118,9 @@ export const eventsRouter = router({
   // By id; by a festival's key or a stored slug (/events/meneate-viena-2026, the
   // links festival cards and old plans make); or by the URL /events/<name>-<short
   // id> (the 8 characters at the end are the start of the id).
+  // ?preview=<invite token>: the draft that venue or artist was asked about.
   get: publicProcedure
-    .input(z.object({ id: z.string().min(1).max(200) }))
+    .input(z.object({ id: z.string().min(1).max(200), preview: z.string().max(100).optional() }))
     .query(async ({ ctx, input }) => {
       const extra = {
         description: events.description,
@@ -140,15 +141,22 @@ export const eventsRouter = router({
           else 'WeDance' end`,
         agenda: events.agenda,
         festival: events.festival,
+        published: events.published,
       }
       let ev: any
       for (const where of publicEventWhere(input.id)) {
         ;[ev] = await selectCards(ctx.db, where, 1, extra)
         if (ev) break
       }
+      if (!ev && input.preview) {
+        for (const where of await previewEventWhere(ctx.db, input.id, input.preview)) {
+          ;[ev] = await selectCards(ctx.db, where, 1, extra)
+          if (ev) break
+        }
+      }
       if (!ev) throw new TRPCError({ code: 'NOT_FOUND', message: 'Event not found.' })
       // Named next to the organiser on the event page.
-      return { ...ev, coOrganizers: await resolveCoOrganizers(ctx.db, ev.coOrganizers) }
+      return { ...ev, preview: !ev.published, coOrganizers: await resolveCoOrganizers(ctx.db, ev.coOrganizers) }
     }),
 
   // Upcoming festivals, congresses and weekenders, soonest first (the
@@ -159,9 +167,10 @@ export const eventsRouter = router({
   // workshops, teachers — app/types/festival.ts), built from the event, its
   // festival details and its line-up's profiles.
   festival: publicProcedure
-    .input(z.object({ id: z.string().uuid() }))
+    .input(z.object({ id: z.string().uuid(), preview: z.string().max(100).optional() }))
     .query(async ({ ctx, input }) => {
-      const [ev] = await ctx.db.select().from(events).where(and(eq(events.id, input.id), eq(events.published, true)))
+      const draftOk = !!input.preview && (await inviteEventId(ctx.db, input.preview)) === input.id
+      const [ev] = await ctx.db.select().from(events).where(and(eq(events.id, input.id), draftOk ? undefined : eq(events.published, true)))
       if (!ev?.festival) throw new TRPCError({ code: 'NOT_FOUND', message: 'Festival not found.' })
       return festivalView(ctx.db, ev)
     }),

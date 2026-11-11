@@ -6,7 +6,7 @@ import { sizedImage, IMG } from '#shared/utils/image'
  * festival section language; sections appear only when the event has that
  * content, so an event can grow into a full festival-grade page over time.
  */
-import { Check, ArrowLeft, MapPin, Globe, User, Euro, Pencil, ExternalLink } from 'lucide-vue-next'
+import { Check, ArrowLeft, MapPin, Globe, User, Euro, Pencil, ExternalLink, EyeOff } from 'lucide-vue-next'
 import type { DanceRole, SwipeCard } from '~/types/festival'
 import { findMockEvent, festivalSessionEvent } from '~/lib/mockEvents'
 import { formatEventWhen, eventLocalDate } from '#shared/utils/eventTime'
@@ -64,6 +64,10 @@ function onOnboardingComplete(role: DanceRole, styles: string[], name: string, c
 }
 
 const id = computed(() => String(route.params.id))
+// ?preview=<invite token>: a venue or artist who was asked about a draft sees
+// it before it's published (only that event, and only with their link).
+const previewToken = computed(() => (typeof route.query.preview === 'string' ? route.query.preview : undefined))
+const isPreview = ref(false)
 const ev = ref<any>(null)
 const festivalData = ref<Awaited<ReturnType<typeof $trpc.events.festival.query>> | null>(null)
 
@@ -76,7 +80,7 @@ const festivalData = ref<Awaited<ReturnType<typeof $trpc.events.festival.query>>
 const notFound = useState(`event-404:${id.value}`, () => false)
 if (import.meta.server) {
   try {
-    const { found } = await $fetch<{ found: boolean }>('/api/event-status', { query: { id: id.value } })
+    const { found } = await $fetch<{ found: boolean }>('/api/event-status', { query: { id: id.value, preview: previewToken.value } })
     if (!found && !findMockEvent(id.value)) {
       notFound.value = true
       const reqEvent = useRequestEvent()
@@ -105,9 +109,10 @@ async function load() {
         if (!ev.value) throw new Error('no such session')
       } else {
         // A dated public event (wedance.vip mirror) — adapt to the booking shape.
-        const e = await $trpc.events.get.query({ id: id.value })
+        const e = await $trpc.events.get.query({ id: id.value, preview: previewToken.value })
+        isPreview.value = !!e.preview
         // A festival renders the festival page (programme, passes, line-up, dinners…).
-        if (e.festival) festivalData.value = await $trpc.events.festival.query({ id: e.id })
+        if (e.festival) festivalData.value = await $trpc.events.festival.query({ id: e.id, preview: previewToken.value })
         ev.value = fromSyncedEvent(e)
         // An old /events/<id> link, or a name that changed since → the current
         // address, without a new history entry.
@@ -121,7 +126,8 @@ async function load() {
       else failed.value = true
     }
   } finally { pending.value = false }
-  trackView()
+  // A preview isn't a public view (and the event isn't live yet).
+  if (!isPreview.value) trackView()
 }
 onMounted(load)
 
@@ -250,12 +256,18 @@ function scrollTo(anchor: string) {
 
 useHead(() => ({
   title: ev.value ? `${ev.value.title || 'Event'} — WeDance` : (failed.value ? 'Event not found — WeDance' : 'WeDance — Event'),
-  meta: failed.value ? [{ name: 'robots', content: 'noindex' }] : [],
+  meta: failed.value || isPreview.value ? [{ name: 'robots', content: 'noindex' }] : [],
 }))
 </script>
 
 <template>
-  <FestivalView v-if="festivalData && !pending" :data="festivalData" :type="ev?.eventType" :edit-to="canEdit ? `/business/events/${festivalData.eventId}` : undefined" :rsvp="ev?.pollable && !ev.archived ? { eventId: ev.id, path: route.path, startDate: ev.startDate, endDate: ev.endDate, timezone: ev.timezone, organizerName: ev.organizerName || (ev.organizerHandle ? `@${ev.organizerHandle}` : null) } : null" />
+  <div v-if="isPreview && !pending" role="status" class="sticky top-0 z-50 border-b border-warning/40 bg-warning/[18%] font-sans backdrop-blur">
+    <div class="max-w-3xl mx-auto px-4 py-2.5 flex items-start gap-2.5 text-sm text-wd-amber-800">
+      <EyeOff class="size-4 mt-0.5 shrink-0" aria-hidden="true" />
+      <p><b>Preview, not published yet.</b> The organiser shared this draft with you so you can see the plan. Dancers can't see it, and details may still change.</p>
+    </div>
+  </div>
+  <FestivalView v-if="festivalData && !pending" :data="festivalData" :type="ev?.eventType" :edit-to="canEdit ? `/business/events/${festivalData.eventId}` : undefined" :rsvp="ev?.pollable && !ev.archived && !isPreview ? { eventId: ev.id, path: route.path, startDate: ev.startDate, endDate: ev.endDate, timezone: ev.timezone, organizerName: ev.organizerName || (ev.organizerHandle ? `@${ev.organizerHandle}` : null) } : null" />
   <div v-else class="min-h-screen bg-background text-foreground font-display">
     <SiteHeader />
 
@@ -298,7 +310,7 @@ useHead(() => ({
       <!-- Same hero as festivals -->
       <FestivalHero :festival="asFestival" review-target-type="event" entity-label="event" cta-anchor="#discover" cta-fallback-label="I'm going" :picked="picked" :date-label="ev.when" :venue-address="ev.venueAddress" :map-url="ev.mapUrl" @pick="onPick">
         <!-- The RSVP: the organiser's poll IS the hero's Going question (RAZ-731). -->
-        <template v-if="ev.pollable && !ev.archived" #cta>
+        <template v-if="ev.pollable && !ev.archived && !isPreview" #cta>
           <div id="rsvp" class="mt-4 max-w-xl scroll-mt-16">
             <EventRsvpPoll :event-id="ev.id" :path="route.path" :start-date="ev.startDate" :end-date="ev.endDate" :timezone="ev.timezone" :organizer-name="ev.organizerName || (ev.organizerHandle ? `@${ev.organizerHandle}` : null)" surface="event" @poll="onPoll" />
           </div>
