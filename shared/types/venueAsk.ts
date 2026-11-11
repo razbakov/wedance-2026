@@ -10,7 +10,15 @@ export type VenueRequest = {
   guests?: number | null
   needs?: string[]
   note?: string
+  /** What the organizer offers ("€200 rent", "you keep the bar"); empty = "what would you charge?". */
+  offer?: string
+  /** Minutes the room is needed before the first item and after the last (default 30 each). */
+  setupMin?: number | null
+  cleanupMin?: number | null
 }
+
+/** Offers the organizer can start from, in the Ask popup. */
+export const VENUE_OFFERS = ['€200 rent', 'You keep the bar', 'Door split 70/30 (us/you)'] as const
 
 export type VenueTerms = {
   /** Free text, so venues can say it their way ("€300", "free from €1,500 bar"). */

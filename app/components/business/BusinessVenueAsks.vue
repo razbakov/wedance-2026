@@ -10,7 +10,7 @@
  */
 import type { PropType } from 'vue'
 import { Check, Copy, Link2, MessageCircle, Send, Undo2, CalendarClock, X } from 'lucide-vue-next'
-import { VENUE_NEEDS, VENUE_ANSWER_LABEL, type VenueAnswer } from '#shared/types/venueAsk'
+import { VENUE_NEEDS, VENUE_OFFERS, VENUE_ANSWER_LABEL, type VenueAnswer } from '#shared/types/venueAsk'
 
 // Two roots (the list and the popup): the class goes on the list.
 defineOptions({ inheritAttrs: false })
@@ -39,7 +39,7 @@ watch(() => props.eventId, refresh, { immediate: true })
 // --- the Ask popup
 const dialog = ref(false)
 const venue = ref<{ username: string; name: string } | null>(null)
-const request = reactive({ guests: null as number | null, needs: [] as string[], note: '' })
+const request = reactive({ guests: null as number | null, needs: [] as string[], note: '', offer: '', setupMin: 30 as number | null, cleanupMin: 30 as number | null })
 const link = ref<Awaited<ReturnType<typeof $trpc.venueAsks.ask.mutate>> | null>(null)
 const asking = ref(false)
 function open(v: { username: string; name: string }) {
@@ -50,6 +50,9 @@ function open(v: { username: string; name: string }) {
   request.guests = r?.guests ?? props.guests ?? null
   request.needs = [...(r?.needs ?? ['Sound system', 'Bar'])]
   request.note = r?.note ?? ''
+  request.offer = r?.offer ?? ''
+  request.setupMin = r?.setupMin ?? 30
+  request.cleanupMin = r?.cleanupMin ?? 30
   dialog.value = true
 }
 defineExpose({ open, refresh })
@@ -61,7 +64,7 @@ async function makeLink() {
   asking.value = true
   error.value = null
   try {
-    link.value = await $trpc.venueAsks.ask.mutate({ eventId: props.eventId, venue: venue.value.username, request: { guests: request.guests || null, needs: request.needs, note: request.note } })
+    link.value = await $trpc.venueAsks.ask.mutate({ eventId: props.eventId, venue: venue.value.username, request: { guests: request.guests || null, needs: request.needs, note: request.note, offer: request.offer, setupMin: request.setupMin ?? 30, cleanupMin: request.cleanupMin ?? 30 } })
     await refresh()
   } catch (e: any) {
     error.value = e?.message || 'Couldn’t make the link.'
@@ -69,9 +72,8 @@ async function makeLink() {
     asking.value = false
   }
 }
-const message = computed(() => link.value
-  ? `Hi ${link.value.venueName}! ${link.value.host ? `This is ${link.value.host}. ` : ''}We'd love to hold ${link.value.eventName} at your place${request.guests ? ` (about ${request.guests} dancers)` : ''}. Could you tell us if you can host it, and on what terms? It takes a minute: ${link.value.url}`
-  : '')
+// Written on the server from the event: date and plan first, the offer, the link last.
+const message = computed(() => link.value?.message ?? '')
 const copied = ref<'link' | 'message' | null>(null)
 async function copy(what: 'link' | 'message') {
   try {
@@ -146,7 +148,7 @@ const tone = (s: string) => s === 'confirmed' ? 'text-wd-green-700' : s === 'dec
     <DialogContent class="sm:max-w-lg">
       <DialogHeader>
         <DialogTitle>Ask {{ venue?.name }} to host it</DialogTitle>
-        <DialogDescription>They get a personal link: your event in a few lines, then they say yes, suggest another date, or no, with their terms. You see the answer here.</DialogDescription>
+        <DialogDescription>They get a message with the date, the plan of the night and your offer, so a “yes” in the chat is enough. The link has the details and lets them answer here.</DialogDescription>
       </DialogHeader>
       <template v-if="!link">
         <Field id="ask-guests" label="Dancers you expect" optional>
@@ -158,7 +160,21 @@ const tone = (s: string) => s === 'confirmed' ? 'text-wd-green-700' : s === 'dec
             <Button v-for="n in VENUE_NEEDS" :key="n" type="button" size="sm" :variant="request.needs.includes(n) ? 'soft' : 'outline'" :aria-pressed="request.needs.includes(n)" @click="toggleNeed(n)">{{ n }}</Button>
           </div>
         </div>
-        <Field id="ask-note" label="Anything else?" optional hint="E.g. “we’d like to start with a workshop at 19:00”, “flexible on the date”.">
+        <Field id="ask-offer" label="What you offer" optional hint="A concrete offer gets an answer: they accept or name their price. Empty: we ask what they’d charge.">
+          <Input v-model="request.offer" maxlength="200" placeholder="e.g. €200 rent, or you keep the bar" />
+          <div class="mt-1.5 flex flex-wrap gap-1.5">
+            <Button v-for="o in VENUE_OFFERS" :key="o" type="button" size="sm" variant="outline" @click="request.offer = o">{{ o }}</Button>
+          </div>
+        </Field>
+        <div class="flex flex-wrap gap-3">
+          <Field id="ask-setup" label="Setup before (min)" optional>
+            <Input v-model.number="request.setupMin" type="number" min="0" max="600" step="15" class="w-28" />
+          </Field>
+          <Field id="ask-cleanup" label="Cleanup after (min)" optional>
+            <Input v-model.number="request.cleanupMin" type="number" min="0" max="600" step="15" class="w-28" />
+          </Field>
+        </div>
+        <Field id="ask-note" label="Anything else?" optional hint="E.g. “flexible on the date”, “we bring our own DJ and speakers”.">
           <Textarea v-model="request.note" :rows="2" />
         </Field>
         <AdminState v-if="error" kind="error" :message="error" />
@@ -167,7 +183,7 @@ const tone = (s: string) => s === 'confirmed' ? 'text-wd-green-700' : s === 'dec
       <template v-else>
         <ol class="grid gap-1.5 text-sm">
           <li class="flex gap-2"><span class="font-bold text-secondary">1.</span> Copy the message and send it to them (below: how to reach them).</li>
-          <li class="flex gap-2"><span class="font-bold text-secondary">2.</span> They answer on the link: can host · another date · no, and their terms.</li>
+          <li class="flex gap-2"><span class="font-bold text-secondary">2.</span> They reply in the chat, or on the link: can host · another date · no, and their terms.</li>
           <li v-if="!link.managed" class="flex gap-2"><span class="font-bold text-secondary">3.</span> Nobody runs their page yet: they can make it theirs after answering.</li>
         </ol>
         <Field id="ask-link" label="Their link">
@@ -177,7 +193,7 @@ const tone = (s: string) => s === 'confirmed' ? 'text-wd-green-700' : s === 'dec
           </div>
         </Field>
         <Field id="ask-msg" label="A message to send">
-          <Textarea :model-value="message" readonly :rows="4" class="text-sm" />
+          <Textarea :model-value="message" readonly :rows="10" class="text-sm" />
         </Field>
         <div class="flex flex-wrap gap-2">
           <Button type="button" variant="pill" @click="copy('message')"><Check v-if="copied === 'message'" /><MessageCircle v-else /> {{ copied === 'message' ? 'Copied' : 'Copy message' }}</Button>

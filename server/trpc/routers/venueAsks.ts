@@ -7,11 +7,13 @@ import { requireEventManager } from './businessEvents'
 import type { VenueRequest, VenueTerms } from '../../../shared/types/venueAsk'
 import { contactsFor } from '../../../shared/utils/contacts'
 import { eventGroup, trackServer } from '../../utils/posthog'
+import { venueAskFacts } from '../../utils/venueAskFacts'
+import { venueAskMessage } from '../../../shared/utils/venueAsk'
 
 /**
  * Asking venues through WeDance — the venue twin of the artist link. The
  * organizer asks one or more venues for an event (what they need, how many
- * guests); each venue gets a personal link (/confirm/<token>, the same page as
+ * guests, their offer); each venue gets a personal link (/ask/<token> = /confirm/<token>, the same page as
  * artists) and answers: can host it, another date, or no — with its terms.
  * The organizer compares the answers and books one; the others' links then say
  * it was booked elsewhere. A venue whose page someone runs here also gets the
@@ -25,6 +27,9 @@ const requestInput = z.object({
   guests: z.number().int().min(1).max(100_000).nullable().optional(),
   needs: z.array(z.string().trim().min(1).max(40)).max(20).default([]),
   note: z.string().trim().max(1000).default(''),
+  offer: z.string().trim().max(200).default(''),
+  setupMin: z.number().int().min(0).max(600).nullable().optional(),
+  cleanupMin: z.number().int().min(0).max(600).nullable().optional(),
 })
 
 async function hasTeam(db: any, profileId: string) {
@@ -40,18 +45,21 @@ export const venueAsksRouter = router({
       const managed = await requireEventManager(ctx, input.eventId)
       const [v] = await ctx.db.select({ id: profiles.id, type: profiles.type, name: profiles.name, username: profiles.username, city: profiles.city, socials: profiles.socials, contact: profiles.contact, mapUrl: profiles.mapUrl }).from(profiles).where(eq(profiles.username, input.venue))
       if (!v || v.type !== 'venue') throw new TRPCError({ code: 'NOT_FOUND', message: 'That venue isn’t on WeDance.' })
-      const request: VenueRequest = { guests: input.request.guests ?? null, needs: input.request.needs, note: input.request.note }
+      const request: VenueRequest = {
+        guests: input.request.guests ?? null, needs: input.request.needs, note: input.request.note, offer: input.request.offer,
+        setupMin: input.request.setupMin ?? 30, cleanupMin: input.request.cleanupMin ?? 30,
+      }
       const [existing] = await ctx.db.select({ id: profileInvites.id, token: profileInvites.token, status: profileInvites.status, notifiedAt: profileInvites.notifiedAt }).from(profileInvites)
         .where(and(eq(profileInvites.eventId, input.eventId), eq(profileInvites.profileId, v.id)))
       const t = existing?.token ?? token()
       if (existing) await ctx.db.update(profileInvites).set({ kind: 'venue', request }).where(eq(profileInvites.id, existing.id))
       else await ctx.db.insert(profileInvites).values({ token: t, profileId: v.id, eventId: input.eventId, createdBy: ctx.dancerId, kind: 'venue', request })
       const site = (useRuntimeConfig().siteUrl || 'https://2026.wedance.vip').replace(/\/$/, '')
-      const [e] = await ctx.db.select({ name: events.name, hostProfileId: events.hostProfileId }).from(events).where(eq(events.id, input.eventId))
-      const [h] = e?.hostProfileId ? await ctx.db.select({ name: profiles.name }).from(profiles).where(eq(profiles.id, e.hostProfileId)) : [null]
+      const url = `${site}/ask/${t}`
+      const facts = await venueAskFacts(ctx.db, input.eventId, v, request)
       const venueManaged = await hasTeam(ctx.db, v.id)
-      trackServer(ctx, 'venue_ask_sent', { event_id: input.eventId, venue: v.username, updated: !!existing, guests: input.request.guests ?? null, needs_count: input.request.needs.length, venue_managed: venueManaged, ...eventGroup(managed) })
-      return { url: `${site}/confirm/${t}`, eventName: e?.name ?? '', host: h?.name ?? null, venueName: v.name, managed: venueManaged, answered: !!existing && existing.status !== 'invited', notifiedAt: existing?.notifiedAt ?? null, contacts: contactsFor(v), handle: v.username }
+      trackServer(ctx, 'venue_ask_sent', { event_id: input.eventId, venue: v.username, updated: !!existing, guests: input.request.guests ?? null, needs_count: input.request.needs.length, venue_managed: venueManaged, has_offer: !!request.offer, plan_items: facts?.plan.length ?? 0, ...eventGroup(managed) })
+      return { url, message: facts ? venueAskMessage(facts, url) : url, venueName: v.name, managed: venueManaged, answered: !!existing && existing.status !== 'invited', notifiedAt: existing?.notifiedAt ?? null, contacts: contactsFor(v), handle: v.username }
     }),
 
   // The venues asked for this event and their answers, for the editor.

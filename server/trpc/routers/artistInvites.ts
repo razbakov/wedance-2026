@@ -14,6 +14,8 @@ import { videoEmbedUrl } from '../../../shared/utils/video'
 import { contactsFor } from '../../../shared/utils/contacts'
 import { isEveningItem, isWorkshop } from '../../../shared/utils/programme'
 import { profileGroup, trackServer } from '../../utils/posthog'
+import { venueAskFacts } from '../../utils/venueAskFacts'
+import { venueAskLines } from '../../../shared/utils/venueAsk'
 
 /**
  * Artist confirmation. An organizer's photo, video or name for an artist in
@@ -136,6 +138,8 @@ async function eventContext(db: any, eventId: string, p: any) {
     lineup: others.filter((o: any) => o.username !== p.username).map((o: any) => ({ username: o.username, name: e.flyerOptions?.names?.[o.username] || o.name, photo: o.photo })),
     stats: { workshops: sessions.filter(s => isWorkshop(s.type)).length, parties: sessions.filter(s => isEveningItem(s.type)).length, planning: planning?.n ?? 0 },
     path: `/events/${e.festival?.key ?? e.id}`,
+    /** A draft: the page link needs ?preview=<token> to open. */
+    published: !!e.published,
     programme,
     flyer: kept?.url ? { url: kept.url, pictured: ((kept.pictured ?? []) as string[]).some(n => n.toLowerCase() === myName) } : null,
   }
@@ -323,13 +327,13 @@ export const artistInvitesRouter = router({
       const when = e?.startDate
         ? (e.endDate && eventLocalDate(e.endDate, tz) !== eventLocalDate(e.startDate, tz) ? `${day(e.startDate)} – ${day(e.endDate)}` : `${day(e.startDate)} · ${eventLocalTime(e.startDate, tz)}`)
         : ''
-      const r = (inv.request ?? {}) as { guests?: number | null; needs?: string[]; note?: string }
-      const lines = inv.kind === 'venue'
-        ? [r.guests ? `About ${r.guests} dancers` : '', r.needs?.length ? `Needs: ${r.needs.join(', ')}` : '', r.note ? `“${r.note}”` : ''].filter(Boolean)
+      const facts = inv.kind === 'venue' ? await venueAskFacts(ctx.db, input.eventId, { name: inv.profileName }, (inv.request ?? {}) as import('../../../shared/types/venueAsk').VenueRequest) : null
+      const lines = facts
+        ? venueAskLines(facts)
         : [e?.venueName ? `At ${e.venueName}` : '', e?.city ?? ''].filter(Boolean)
       const site = (useRuntimeConfig().siteUrl || 'https://2026.wedance.vip').replace(/\/$/, '')
       for (const m of team) {
-        await sendInviteEmail({ to: m.email, name: m.name, kind: inv.kind as 'artist' | 'venue', host: h?.name || 'An organizer', profileName: inv.profileName, eventName: e?.name ?? 'their event', when, lines, link: `${site}/confirm/${inv.token}` })
+        await sendInviteEmail({ to: m.email, name: m.name, kind: inv.kind as 'artist' | 'venue', host: h?.name || 'An organizer', profileName: inv.profileName, eventName: e?.name ?? 'their event', when, lines, link: `${site}/${inv.kind === 'venue' ? 'ask' : 'confirm'}/${inv.token}` })
       }
       const at = new Date()
       await ctx.db.update(profileInvites).set({ notifiedAt: at }).where(eq(profileInvites.id, inv.id))
@@ -361,6 +365,8 @@ export const artistInvitesRouter = router({
         kind: (invite?.kind ?? 'artist') as 'artist' | 'venue',
         ask: invite?.kind === 'venue' ? {
           request: (invite.request ?? {}) as import('../../../shared/types/venueAsk').VenueRequest,
+          // The plan at this venue, the hours the room is needed, who's asking.
+          facts: invite.eventId ? await venueAskFacts(ctx.db, invite.eventId, { name: p.name }, (invite.request ?? {}) as import('../../../shared/types/venueAsk').VenueRequest) : null,
           terms: (invite.terms ?? null) as import('../../../shared/types/venueAsk').VenueTerms | null,
           alternative: invite.alternative as string | null,
           outcome: invite.outcome as 'booked' | 'elsewhere' | null,
