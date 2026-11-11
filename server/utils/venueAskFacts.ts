@@ -11,6 +11,13 @@ import { agendaToSessions, legacyAgendaOf } from '../../shared/utils/programme'
 import { accessWindows, eventKind, venuePlan, type VenueAskFacts } from '../../shared/utils/venueAsk'
 import type { VenueRequest } from '../../shared/types/venueAsk'
 
+/** An organizer's track record: events they ran before now (as host page or organizer handle). */
+export async function hostEventCount(db: any, host: { id: string; username: string | null }): Promise<number> {
+  const [{ n } = { n: 0 }] = await db.select({ n: sql<number>`count(*)::int` }).from(events)
+    .where(and(host.username ? or(eq(events.hostProfileId, host.id), eq(events.organizerUsername, host.username)) : eq(events.hostProfileId, host.id), lt(events.startDate, new Date())))
+  return n ?? 0
+}
+
 export async function venueAskFacts(db: any, eventId: string, venue: { name: string }, request: VenueRequest): Promise<VenueAskFacts | null> {
   const [e] = await db.select().from(events).where(eq(events.id, eventId))
   if (!e) return null
@@ -19,10 +26,7 @@ export async function venueAskFacts(db: any, eventId: string, venue: { name: str
     ? await db.select({ id: profiles.id, name: profiles.name, username: profiles.username, city: profiles.city }).from(profiles).where(eq(profiles.id, e.hostProfileId))
     : [null]
   // Their track record: events they ran before this one.
-  const [{ n } = { n: 0 }] = host
-    ? await db.select({ n: sql<number>`count(*)::int` }).from(events)
-      .where(and(or(eq(events.hostProfileId, host.id), eq(events.organizerUsername, host.username)), lt(events.startDate, new Date())))
-    : [{ n: 0 }]
+  const n = host ? await hostEventCount(db, host) : 0
 
   const date = e.startDate ? eventLocalDate(e.startDate, tz) : ''
   const start = e.startDate ? eventLocalTime(e.startDate, tz) : ''

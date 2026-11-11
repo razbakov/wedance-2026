@@ -14,8 +14,9 @@ import { videoEmbedUrl } from '../../../shared/utils/video'
 import { contactsFor } from '../../../shared/utils/contacts'
 import { isEveningItem, isWorkshop } from '../../../shared/utils/programme'
 import { profileGroup, trackServer } from '../../utils/posthog'
-import { venueAskFacts } from '../../utils/venueAskFacts'
+import { hostEventCount, venueAskFacts } from '../../utils/venueAskFacts'
 import { venueAskLines } from '../../../shared/utils/venueAsk'
+import { artistInviteLines, artistInviteMessage, type ArtistInviteFacts } from '../../../shared/utils/artistInvite'
 
 /**
  * Artist confirmation. An organizer's photo, video or name for an artist in
@@ -100,11 +101,12 @@ async function resolve(ctx: any, input: { token?: string; username?: string }) {
  * What the artist sees first: the event in a few lines, who's organizing,
  * who else is in the line-up — then their own programme and the flyer they're on.
  */
-async function eventContext(db: any, eventId: string, p: any) {
+export async function eventContext(db: any, eventId: string, p: any) {
   const [e] = await db.select().from(events).where(eq(events.id, eventId))
   if (!e) return null
   const tz = e.timezone || 'Europe/Berlin'
-  const [host] = e.hostProfileId ? await db.select({ name: profiles.name, username: profiles.username, socials: profiles.socials }).from(profiles).where(eq(profiles.id, e.hostProfileId)) : [null]
+  const [host] = e.hostProfileId ? await db.select({ id: profiles.id, name: profiles.name, username: profiles.username, socials: profiles.socials, city: profiles.city }).from(profiles).where(eq(profiles.id, e.hostProfileId)) : [null]
+  const hostEvents = host ? await hostEventCount(db, host) : 0
   const handles: string[] = e.artists ?? []
   const others = handles.length
     ? await db.select({ username: profiles.username, name: profiles.name, photo: profiles.photo }).from(profiles).where(inArray(profiles.username, handles))
@@ -135,13 +137,37 @@ async function eventContext(db: any, eventId: string, p: any) {
     otherVenues: [...new Set(sessions.map(s => s.venue).filter(Boolean))] as string[],
     styles: (e.styles ?? []) as string[],
     host: host ? { name: host.name, username: host.username, instagram: ((host.socials ?? []) as any[]).find(x => x.platform === 'instagram')?.url ?? null } : (e.organizerName ? { name: e.organizerName, username: null, instagram: null } : null),
+    /** The organizer's track record, shown to whoever they ask. */
+    hostEvents,
+    hostCity: host?.city || e.city || null,
     lineup: others.filter((o: any) => o.username !== p.username).map((o: any) => ({ username: o.username, name: e.flyerOptions?.names?.[o.username] || o.name, photo: o.photo })),
     stats: { workshops: sessions.filter(s => isWorkshop(s.type)).length, parties: sessions.filter(s => isEveningItem(s.type)).length, planning: planning?.n ?? 0 },
     path: `/events/${e.festival?.key ?? e.id}`,
     /** A draft: the page link needs ?preview=<token> to open. */
     published: !!e.published,
     programme,
+    /** Their name as this event spells it (the flyer's names), else the page's. */
+    lineupName: (e.flyerOptions?.names?.[p.username] || p.name || '') as string,
     flyer: kept?.url ? { url: kept.url, pictured: ((kept.pictured ?? []) as string[]).some(n => n.toLowerCase() === myName) } : null,
+  }
+}
+
+/** The artist's message and email, from what their page shows of the event. */
+export function artistFacts(ev: NonNullable<Awaited<ReturnType<typeof eventContext>>>, artistName: string): ArtistInviteFacts {
+  const day = (d: string, o: Intl.DateTimeFormatOptions) => new Date(`${d}T12:00:00Z`).toLocaleDateString('en-GB', { ...o, timeZone: 'UTC' })
+  const multi = !!ev.endDay && ev.endDay !== ev.startDay && +new Date(ev.endDate!) - +new Date(ev.startDate) >= 24 * 3600_000
+  const days = [...new Set(ev.programme.map(s => s.date))]
+  return {
+    artistName,
+    host: ev.host?.name ?? null,
+    hostEvents: ev.hostEvents,
+    hostCity: ev.hostCity,
+    eventName: ev.name || 'our event',
+    when: multi ? `${day(ev.startDay, { weekday: 'long', day: 'numeric', month: 'long' })} – ${day(ev.endDay!, { weekday: 'long', day: 'numeric', month: 'long' })}` : day(ev.startDay, { weekday: 'long', day: 'numeric', month: 'long' }),
+    place: [ev.venue, ev.city].filter(Boolean).join(', '),
+    slots: ev.programme.map(s => ({ date: s.date, time: s.time, title: s.title, type: s.type, style: s.style })),
+    dayLabels: Object.fromEntries(days.map(d => [d, day(d, { weekday: 'short' })])),
+    flyer: ev.flyer ? (ev.flyer.pictured ? 'pictured' : 'named') : null,
   }
 }
 
@@ -298,9 +324,12 @@ export const artistInvitesRouter = router({
       if (!existing) await ctx.db.insert(profileInvites).values({ token: t, profileId: p.id, eventId: input.eventId, createdBy: ctx.dancerId })
       const site = (useRuntimeConfig().siteUrl || 'https://2026.wedance.vip').replace(/\/$/, '')
       // For the popup's instructions and the message to paste.
-      const [e] = await ctx.db.select({ name: events.name, hostProfileId: events.hostProfileId }).from(events).where(eq(events.id, input.eventId))
-      const [h] = e?.hostProfileId ? await ctx.db.select({ name: profiles.name }).from(profiles).where(eq(profiles.id, e.hostProfileId)) : [null]
-      return { url: `${site}/confirm/${t}`, eventName: e?.name ?? '', host: h?.name ?? null, managed: await hasTeam(ctx.db, p.id), answered: !!existing && existing.status !== 'invited', notifiedAt: existing?.notifiedAt ?? null, contacts: contactsFor(p) }
+      const [full] = await ctx.db.select().from(profiles).where(eq(profiles.id, p.id))
+      const ev = await eventContext(ctx.db, input.eventId, full)
+      const url = `${site}/confirm/${t}`
+      // Built here so the message, the page and the email say the same thing.
+      const message = ev ? artistInviteMessage(artistFacts(ev, ev.lineupName || p.name), url) : ''
+      return { url, message, eventName: ev?.name ?? '', host: ev?.host?.name ?? null, managed: await hasTeam(ctx.db, p.id), answered: !!existing && existing.status !== 'invited', notifiedAt: existing?.notifiedAt ?? null, contacts: contactsFor(p) }
     }),
 
   // Email the people who run the page about its link (an artist's line-up
@@ -328,9 +357,13 @@ export const artistInvitesRouter = router({
         ? (e.endDate && eventLocalDate(e.endDate, tz) !== eventLocalDate(e.startDate, tz) ? `${day(e.startDate)} – ${day(e.endDate)}` : `${day(e.startDate)} · ${eventLocalTime(e.startDate, tz)}`)
         : ''
       const facts = inv.kind === 'venue' ? await venueAskFacts(ctx.db, input.eventId, { name: inv.profileName }, (inv.request ?? {}) as import('../../../shared/types/venueAsk').VenueRequest) : null
-      const lines = facts
-        ? venueAskLines(facts)
-        : [e?.venueName ? `At ${e.venueName}` : '', e?.city ?? ''].filter(Boolean)
+      let lines: string[]
+      if (facts) lines = venueAskLines(facts)
+      else {
+        const [full] = await ctx.db.select().from(profiles).where(eq(profiles.id, inv.profileId))
+        const ev = await eventContext(ctx.db, input.eventId, full)
+        lines = ev ? artistInviteLines(artistFacts(ev, ev.lineupName || inv.profileName)) : []
+      }
       const site = (useRuntimeConfig().siteUrl || 'https://2026.wedance.vip').replace(/\/$/, '')
       for (const m of team) {
         await sendInviteEmail({ to: m.email, name: m.name, kind: inv.kind as 'artist' | 'venue', host: h?.name || 'An organizer', profileName: inv.profileName, eventName: e?.name ?? 'their event', when, lines, link: `${site}/${inv.kind === 'venue' ? 'ask' : 'confirm'}/${inv.token}` })
