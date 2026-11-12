@@ -12,6 +12,11 @@ const facts: ArtistInviteFacts = {
 }
 
 describe('artistInviteMessage', () => {
+  it('says what the organizer offers when there is an offer, and nothing about money otherwise', () => {
+    expect(artistInviteMessage({ ...facts, offer: '€80 per class + Free pass' }, 'u')).toContain('💶 We offer: €80 per class + Free pass')
+    expect(artistInviteMessage(facts, 'u')).not.toContain('💶')
+    expect(artistInviteLines({ ...facts, offer: '€80 per class' })).toContain('MontunoClub offer: €80 per class')
+  })
   it('says when, where, their classes and the flyer before the link', () => {
     const m = artistInviteMessage(facts, 'https://x/confirm/t')
     expect(m).toContain("Hi Milaila! This is MontunoClub: we've organised 12 dance events in Munich.")

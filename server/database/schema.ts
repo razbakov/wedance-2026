@@ -1328,7 +1328,8 @@ export const profileInvites = pgTable('profile_invites', {
   // means can host (confirmed) · another date (proposed) · can't (declined).
   kind: text('kind').notNull().default('artist').$type<'artist' | 'venue'>(),
   request: jsonb('request').$type<import('../../shared/types/venueAsk').VenueRequest | null>(),
-  terms: jsonb('terms').$type<import('../../shared/types/venueAsk').VenueTerms | null>(),
+  // A venue's terms, or an artist's (fee, needs) when theirs differ from the offer.
+  terms: jsonb('terms').$type<import('../../shared/types/venueAsk').VenueTerms | import('../../shared/types/artistDeal').ArtistTerms | null>(),
   alternative: text('alternative'),
   outcome: text('outcome').$type<'booked' | 'elsewhere' | null>(),
   // When the page's team was last emailed about this link (0035).

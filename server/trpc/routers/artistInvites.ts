@@ -17,6 +17,7 @@ import { profileGroup, trackServer } from '../../utils/posthog'
 import { hostEventCount, venueAskFacts } from '../../utils/venueAskFacts'
 import { venueAskLines } from '../../../shared/utils/venueAsk'
 import { artistInviteLines, artistInviteMessage, type ArtistInviteFacts } from '../../../shared/utils/artistInvite'
+import { artistTermsText, type ArtistTerms } from '../../../shared/types/artistDeal'
 
 /**
  * Artist confirmation. An organizer's photo, video or name for an artist in
@@ -153,7 +154,7 @@ export async function eventContext(db: any, eventId: string, p: any) {
 }
 
 /** The artist's message and email, from what their page shows of the event. */
-export function artistFacts(ev: NonNullable<Awaited<ReturnType<typeof eventContext>>>, artistName: string): ArtistInviteFacts {
+export function artistFacts(ev: NonNullable<Awaited<ReturnType<typeof eventContext>>>, artistName: string, offer = ''): ArtistInviteFacts {
   const day = (d: string, o: Intl.DateTimeFormatOptions) => new Date(`${d}T12:00:00Z`).toLocaleDateString('en-GB', { ...o, timeZone: 'UTC' })
   const multi = !!ev.endDay && ev.endDay !== ev.startDay && +new Date(ev.endDate!) - +new Date(ev.startDate) >= 24 * 3600_000
   const days = [...new Set(ev.programme.map(s => s.date))]
@@ -168,6 +169,7 @@ export function artistFacts(ev: NonNullable<Awaited<ReturnType<typeof eventConte
     slots: ev.programme.map(s => ({ date: s.date, time: s.time, title: s.title, type: s.type, style: s.style })),
     dayLabels: Object.fromEntries(days.map(d => [d, day(d, { weekday: 'short' })])),
     flyer: ev.flyer ? (ev.flyer.pictured ? 'pictured' : 'named') : null,
+    offer,
   }
 }
 
@@ -222,15 +224,15 @@ export const artistInvitesRouter = router({
       const rows = await ctx.db.select({ username: profiles.username, kind: profileSuggestions.kind, value: profileSuggestions.value })
         .from(profileSuggestions).innerJoin(profiles, eq(profiles.id, profileSuggestions.profileId))
         .where(and(inArray(profiles.username, input.handles), eq(profileSuggestions.status, 'pending')))
-      type Answer = { status: string; programmeOk: boolean | null; programmeNote: string | null; postsOk: boolean; message: string | null; respondedAt: Date | null } | null
+      type Answer = { status: string; programmeOk: boolean | null; programmeNote: string | null; postsOk: boolean; message: string | null; respondedAt: Date | null; terms: string } | null
       const out: Record<string, { photos: string[]; videos: string[]; name: string | null; fields: string[]; answer: Answer }> = {}
       const answers = await ctx.db.select({
         username: profiles.username, status: profileInvites.status, programmeOk: profileInvites.programmeOk, programmeNote: profileInvites.programmeNote,
-        postsOkAt: profileInvites.postsOkAt, message: profileInvites.message, respondedAt: profileInvites.respondedAt,
+        postsOkAt: profileInvites.postsOkAt, message: profileInvites.message, respondedAt: profileInvites.respondedAt, terms: profileInvites.terms,
       }).from(profileInvites).innerJoin(profiles, eq(profiles.id, profileInvites.profileId))
         .where(and(eq(profileInvites.eventId, input.eventId), inArray(profiles.username, input.handles)))
       for (const a of answers) {
-        out[a.username] = { photos: [], videos: [], name: null, fields: [], answer: { status: a.status, programmeOk: a.programmeOk, programmeNote: a.programmeNote, postsOk: !!a.postsOkAt, message: a.message, respondedAt: a.respondedAt } }
+        out[a.username] = { photos: [], videos: [], name: null, fields: [], answer: { status: a.status, programmeOk: a.programmeOk, programmeNote: a.programmeNote, postsOk: !!a.postsOkAt, message: a.message, respondedAt: a.respondedAt, terms: artistTermsText(a.terms as ArtistTerms | null) } }
       }
       for (const r of rows) {
         const o = (out[r.username] ??= { photos: [], videos: [], name: null, fields: [], answer: null })
@@ -313,23 +315,26 @@ export const artistInvitesRouter = router({
 
   // The personal link for an artist in this event's line-up (the same one each time).
   link: protectedProcedure
-    .input(z.object({ eventId: z.string().uuid(), handle: z.string().min(1).max(200) }))
+    // offer: what the organizer offers them ("€80 per class + free pass"); left out = keep what's saved.
+    .input(z.object({ eventId: z.string().uuid(), handle: z.string().min(1).max(200), offer: z.string().trim().max(200).optional() }))
     .mutation(async ({ ctx, input }) => {
       await requireEventManager(ctx, input.eventId)
       const [p] = await ctx.db.select({ id: profiles.id, name: profiles.name, username: profiles.username, city: profiles.city, socials: profiles.socials, contact: profiles.contact, mapUrl: profiles.mapUrl }).from(profiles).where(eq(profiles.username, input.handle))
       if (!p) throw new TRPCError({ code: 'NOT_FOUND', message: 'That artist isn’t on WeDance.' })
-      const [existing] = await ctx.db.select({ token: profileInvites.token, status: profileInvites.status, notifiedAt: profileInvites.notifiedAt }).from(profileInvites)
+      const [existing] = await ctx.db.select({ id: profileInvites.id, token: profileInvites.token, status: profileInvites.status, notifiedAt: profileInvites.notifiedAt, request: profileInvites.request }).from(profileInvites)
         .where(and(eq(profileInvites.eventId, input.eventId), eq(profileInvites.profileId, p.id)))
       const t = existing?.token ?? token()
-      if (!existing) await ctx.db.insert(profileInvites).values({ token: t, profileId: p.id, eventId: input.eventId, createdBy: ctx.dancerId })
+      const offer = input.offer ?? ((existing?.request as { offer?: string } | null)?.offer ?? '')
+      if (!existing) await ctx.db.insert(profileInvites).values({ token: t, profileId: p.id, eventId: input.eventId, createdBy: ctx.dancerId, request: offer ? { offer } : null })
+      else if (input.offer !== undefined) await ctx.db.update(profileInvites).set({ request: { ...(existing.request ?? {}), offer } }).where(eq(profileInvites.id, existing.id))
       const site = (useRuntimeConfig().siteUrl || 'https://2026.wedance.vip').replace(/\/$/, '')
       // For the popup's instructions and the message to paste.
       const [full] = await ctx.db.select().from(profiles).where(eq(profiles.id, p.id))
       const ev = await eventContext(ctx.db, input.eventId, full)
       const url = `${site}/confirm/${t}`
       // Built here so the message, the page and the email say the same thing.
-      const message = ev ? artistInviteMessage(artistFacts(ev, ev.lineupName || p.name), url) : ''
-      return { url, message, eventName: ev?.name ?? '', host: ev?.host?.name ?? null, managed: await hasTeam(ctx.db, p.id), answered: !!existing && existing.status !== 'invited', notifiedAt: existing?.notifiedAt ?? null, contacts: contactsFor(p) }
+      const message = ev ? artistInviteMessage(artistFacts(ev, ev.lineupName || p.name, offer), url) : ''
+      return { url, message, offer, eventName: ev?.name ?? '', host: ev?.host?.name ?? null, managed: await hasTeam(ctx.db, p.id), answered: !!existing && existing.status !== 'invited', notifiedAt: existing?.notifiedAt ?? null, contacts: contactsFor(p) }
     }),
 
   // Email the people who run the page about its link (an artist's line-up
@@ -362,7 +367,7 @@ export const artistInvitesRouter = router({
       else {
         const [full] = await ctx.db.select().from(profiles).where(eq(profiles.id, inv.profileId))
         const ev = await eventContext(ctx.db, input.eventId, full)
-        lines = ev ? artistInviteLines(artistFacts(ev, ev.lineupName || inv.profileName)) : []
+        lines = ev ? artistInviteLines(artistFacts(ev, ev.lineupName || inv.profileName, (inv.request as { offer?: string } | null)?.offer ?? '')) : []
       }
       const site = (useRuntimeConfig().siteUrl || 'https://2026.wedance.vip').replace(/\/$/, '')
       for (const m of team) {
@@ -403,6 +408,11 @@ export const artistInvitesRouter = router({
           terms: (invite.terms ?? null) as import('../../../shared/types/venueAsk').VenueTerms | null,
           alternative: invite.alternative as string | null,
           outcome: invite.outcome as 'booked' | 'elsewhere' | null,
+        } : null,
+        // An artist's deal: what the organizer offers, and their terms if they set any.
+        deal: invite && invite.kind !== 'venue' ? {
+          offer: ((invite.request as { offer?: string } | null)?.offer ?? '') as string,
+          terms: (invite.terms ?? null) as ArtistTerms | null,
         } : null,
         answer: invite ? {
           status: invite.status as 'invited' | 'confirmed' | 'declined' | 'proposed',
@@ -450,6 +460,11 @@ export const artistInvitesRouter = router({
         capacity: z.number().int().min(1).max(100_000).nullable().optional(),
         notes: z.string().trim().max(2000).optional(),
       }).optional(),
+      // An artist's terms, when theirs differ from the offer (or there's none).
+      artistTerms: z.object({
+        fee: z.string().trim().max(200).optional(),
+        needs: z.string().trim().max(1000).optional(),
+      }).optional(),
       address: z.string().trim().max(300).optional(),
       floorType: z.string().trim().max(60).optional(),
     }))
@@ -464,9 +479,11 @@ export const artistInvitesRouter = router({
           ...(input.message !== undefined ? { message: input.message || null } : {}),
           respondedAt: new Date(),
         }).where(eq(profileInvites.id, invite.id))
-      } else if (invite && (input.participation || input.programmeOk !== undefined || input.postsOk !== undefined || input.message !== undefined)) {
+      } else if (invite && (input.participation || input.programmeOk !== undefined || input.postsOk !== undefined || input.message !== undefined || input.artistTerms)) {
+        const terms = input.artistTerms && (input.artistTerms.fee || input.artistTerms.needs) ? input.artistTerms : null
         await ctx.db.update(profileInvites).set({
           ...(input.participation ? { status: input.participation } : {}),
+          ...(input.participation === 'declined' ? { terms: null } : input.artistTerms ? { terms } : {}),
           ...(input.programmeOk !== undefined ? { programmeOk: input.programmeOk, programmeNote: input.programmeOk ? null : (input.programmeNote || null) } : {}),
           ...(input.postsOk !== undefined ? { postsOkAt: input.postsOk ? new Date() : null } : {}),
           ...(input.message !== undefined ? { message: input.message || null } : {}),

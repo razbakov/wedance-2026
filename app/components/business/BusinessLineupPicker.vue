@@ -42,7 +42,7 @@ async function load(handles: string[]) {
 }
 
 // What's waiting for each artist to approve.
-type Answer = { status: string; programmeOk: boolean | null; programmeNote: string | null; postsOk: boolean; message: string | null; respondedAt: string | Date | null } | null
+type Answer = { status: string; programmeOk: boolean | null; programmeNote: string | null; postsOk: boolean; message: string | null; respondedAt: string | Date | null; terms: string } | null
 type Pending = Record<string, { photos: string[]; videos: string[]; name: string | null; fields: string[]; answer: Answer }>
 const pending = ref<Pending>({})
 async function loadPending() {
@@ -98,7 +98,7 @@ function answerOf(h: string): { tone: 'success' | 'warning' | 'danger' | 'neutra
   if (!a) return { tone: 'neutral', text: 'Not asked yet' }
   if (a.status === 'declined') return { tone: 'danger', text: 'Can’t make it', detail: a.message || undefined }
   if (a.status !== 'confirmed') return { tone: 'neutral', text: 'Asked, no answer yet' }
-  const notes = [a.programmeOk === false && `Programme: ${a.programmeNote}`, a.message].filter(Boolean).join(' · ')
+  const notes = [a.terms && `Their terms: ${a.terms}`, a.programmeOk === false && `Programme: ${a.programmeNote}`, a.message].filter(Boolean).join(' · ')
   return { tone: a.programmeOk === false ? 'warning' : 'success', text: a.programmeOk === false ? 'Confirmed · programme needs a change' : 'Confirmed', detail: notes || (a.postsOk ? undefined : 'Hasn’t OK’d posts with their photo yet') }
 }
 

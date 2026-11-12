@@ -834,16 +834,16 @@ export const TOOLS: ToolDef[] = [
   {
     name: 'invite_artist', title: 'Invite an artist to an event', scopes: ['business:publish'], business: true, annotations: OUTWARD, confirm: true,
     description: 'Put an artist in an event’s line-up and invite them to confirm: if someone runs their page they get an email, otherwise you get a link to send them. Preview → confirm.',
-    input: { event_id: eventId, handle, confirm_token: confirmToken },
+    input: { event_id: eventId, handle, offer: z.string().trim().max(200).optional().describe('What the organiser offers the artist, e.g. "€80 per class + free pass". Leave out to keep what was set; the artist can answer with their own fee.'), confirm_token: confirmToken },
     preview: async (t, a) => {
       const e: any = await t.caller.businessEvents.get({ id: a.event_id })
       const p: any = await t.caller.entity.getByHandle({ handle: a.handle })
       if (!p) throw new Error(`No WeDance page @${a.handle}.`)
-      return { event: e.name, date: e.date, artist: p.profile?.name ?? p.name, artistHandle: a.handle, alreadyInLineup: (e.artists ?? []).includes(a.handle), effect: 'Adds them to the line-up and emails their team if their page has one; otherwise returns a link for you to send.' }
+      return { event: e.name, date: e.date, artist: p.profile?.name ?? p.name, artistHandle: a.handle, alreadyInLineup: (e.artists ?? []).includes(a.handle), offer: a.offer ?? null, effect: 'Adds them to the line-up and emails their team if their page has one; otherwise returns a link for you to send.' }
     },
     run: async (t, a) => {
       await t.caller.inquiries.addToEvent({ eventId: a.event_id, handle: a.handle })
-      const link: any = await t.caller.artistInvites.link({ eventId: a.event_id, handle: a.handle })
+      const link: any = await t.caller.artistInvites.link({ eventId: a.event_id, handle: a.handle, offer: a.offer })
       let emailed = 0
       if (link.managed && !link.answered) {
         try { emailed = ((await t.caller.artistInvites.notify({ eventId: a.event_id, handle: a.handle })) as any).sent } catch (e: any) { if (!/last day/.test(e?.message ?? '')) throw e }
