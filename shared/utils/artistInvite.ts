@@ -48,7 +48,11 @@ function slotsText(f: ArtistInviteFacts): string {
 }
 
 const flyerText = (f: ArtistInviteFacts['flyer']) =>
-  f === 'pictured' ? 'The flyer names you and uses your photo' : f === 'named' ? 'The flyer names you' : ''
+  f === 'pictured' ? 'The flyer is ready, with your name and photo' : f === 'named' ? 'The flyer is ready, with your name' : ''
+
+/** What we ask them to confirm: always that they're in and their classes; the flyer when there is one. */
+const askText = (f: ArtistInviteFacts) =>
+  `Could you confirm you're in, and check your ${f.slots.length ? 'classes' : 'slot'}${f.flyer ? ` and how the flyer shows you (you can change your photo there)` : ''}?`
 
 /** The message the organizer sends: the facts first, the link last. */
 export function artistInviteMessage(f: ArtistInviteFacts, url: string): string {
@@ -63,7 +67,7 @@ export function artistInviteMessage(f: ArtistInviteFacts, url: string): string {
     f.slots.length ? `🕒 ${slotsLabel(f.slots)}: ${slotsText(f)}` : '🕒 Your slot isn’t in the programme yet: tell us what suits you',
     flyerText(f.flyer) && `🎨 ${flyerText(f.flyer)}`,
   ]
-  return `${lines.filter(Boolean).join('\n')}\n\nAre you in, and is it all right? It takes a minute: ${url}`
+  return `${lines.filter(Boolean).join('\n')}\n\n${askText(f)} It takes a minute: ${url}`
 }
 
 /** The same facts as short lines, for the email. */
