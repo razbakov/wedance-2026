@@ -18,13 +18,15 @@ describe('artistInviteMessage', () => {
     expect(m).toContain("You're in the line-up of Misterio en Blanco:")
     expect(m).toContain('📅 Saturday 14 November · Salsea Dance Academy, Munich')
     expect(m).toContain('🕒 Your classes: 10:00 Lady Styling · 11:00 Rumba')
-    expect(m).toContain('🎨 The flyer names you and uses your photo')
+    expect(m).toContain('🎨 The flyer is ready, with your name and photo')
+    expect(m).toContain("Could you confirm you're in, and check your classes and how the flyer shows you (you can change your photo there)? It takes a minute: https://x/confirm/t")
     expect(m.trim().endsWith('https://x/confirm/t')).toBe(true)
   })
   it('without slots or flyer, says so and skips the flyer line', () => {
     const m = artistInviteMessage({ ...facts, slots: [], flyer: null, hostEvents: 0 }, 'u')
     expect(m).toContain('Your slot isn’t in the programme yet')
-    expect(m).not.toMatch(/🎨|organised/)
+    expect(m).not.toMatch(/🎨|organised|flyer/)
+    expect(m).toContain("Could you confirm you're in, and check your slot?")
     expect(m).not.toContain('\n\n\n')
   })
   it('calls a DJ set a slot and names the day over several days', () => {
@@ -39,7 +41,7 @@ describe('artistInviteMessage', () => {
 
 describe('email lines', () => {
   it('lists the place, every slot and the flyer', () => {
-    expect(artistInviteLines(facts)).toEqual(['Salsea Dance Academy, Munich', 'Your classes: 10:00 Lady Styling · 11:00 Rumba', 'The flyer names you and uses your photo'])
+    expect(artistInviteLines(facts)).toEqual(['Salsea Dance Academy, Munich', 'Your classes: 10:00 Lady Styling · 11:00 Rumba', 'The flyer is ready, with your name and photo'])
   })
   it('names a workshop without a title by its style', () => {
     expect(slotLine({ date: 'd', time: '19:30', title: '', type: 'workshop', style: 'Salsa' })).toBe('19:30 Salsa workshop')
