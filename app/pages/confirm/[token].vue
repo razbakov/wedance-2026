@@ -14,7 +14,7 @@ import { SESSION_TYPE_LABEL, isWorkshop, sessionTimeRange, sessionType } from '#
  */
 import { VENUE_INCLUDES } from '#shared/types/venueAsk'
 import { windowRange } from '#shared/utils/venueAsk'
-import { Check, X, ImagePlus, Loader2, Star, Plus, Clock, PartyPopper, Instagram, MapPin, CalendarDays, Users, ExternalLink, ThumbsUp, MessageSquare, Euro, Pencil, ChevronDown } from 'lucide-vue-next'
+import { Check, X, ImagePlus, Loader2, Star, Plus, Clock, PartyPopper, Instagram, MapPin, CalendarDays, Users, ExternalLink, ThumbsUp, MessageSquare, Euro, Pencil } from 'lucide-vue-next'
 import { videoEmbedUrl } from '#shared/utils/video'
 
 // /ask/<token> is the link venues get: the same page, a word that doesn't sound like a done deal.
@@ -200,6 +200,7 @@ async function save() {
           name: form.name.trim(),
           addPhotos: addPhotos.value,
           ...(form.mainPhoto ? { mainPhoto: form.mainPhoto } : {}),
+          artistTerms: { fee: deal.fee, needs: deal.needs },
         }),
         message: answer.message,
       })
@@ -273,6 +274,24 @@ const showSignIn = ref(false)
 const artistCheck = computed(() => !isVenue.value && !!data.value?.event && step.value === 'check')
 const answeredBefore = ref<'confirmed' | 'declined' | null>(null)
 watch(data, (d) => { answeredBefore.value = d?.answer && d.answer.status !== 'invited' ? d.answer.status as any : null })
+// A venue the same way: everything open, terms only if theirs differ, one answer at the bottom.
+const venueCheck = computed(() => isVenue.value && step.value === 'check')
+const termsOpen = ref(false)
+const proposing = ref(false)
+watch(data, (d) => { termsOpen.value = !d?.ask?.facts?.offer || !!Object.values(d?.ask?.terms ?? {}).some(v => (Array.isArray(v) ? v.length : v)) })
+function sendVenue(v: 'confirmed' | 'proposed' | 'declined') {
+  venue.answer = v
+  save()
+}
+// The artist's deal: the organizer's offer as is, or their own fee and needs.
+const deal = reactive({ fee: '', needs: '' })
+const dealOpen = ref(false)
+watch(data, (d) => {
+  const t = d?.deal?.terms
+  deal.fee = t?.fee ?? ''
+  deal.needs = t?.needs ?? ''
+  dealOpen.value = !d?.deal?.offer || !!(t?.fee || t?.needs)
+})
 function send(p: 'confirmed' | 'declined') {
   answer.participation = p
   save()
@@ -312,7 +331,7 @@ const fmtDate = (d: string | Date | null, tz?: string | null) => d ? new Date(d)
 <template>
   <div class="min-h-screen bg-background text-foreground">
     <SiteHeader />
-    <main class="mx-auto max-w-2xl px-4 py-10 font-sans">
+    <main class="mx-auto max-w-2xl px-4 py-10 font-sans" :class="(artistCheck || venueCheck) && data?.canAnswer && 'pb-48'">
       <AdminState v-if="!data && !error" kind="loading" />
       <AdminState v-else-if="!data" kind="error" :message="error!" />
 
@@ -396,16 +415,30 @@ const fmtDate = (d: string | Date | null, tz?: string | null) => d ? new Date(d)
             <template v-if="isVenue">{{ venueHeadline }}</template>
             <template v-else>{{ data.event ? `${data.event.name} with ${data.event.lineupName || data.profile.name}?` : 'Your page on WeDance' }}</template>
           </h1>
-          <p v-if="isVenue" class="mt-1 text-sm text-muted-foreground">{{ data.event?.host?.name || 'An organizer' }} asks{{ data.event ? ` for ${data.event.name}` : '' }}. This is a question, not a booking: they get back to you to agree the details.</p>
+          <p v-if="isVenue" class="mt-1 text-sm text-muted-foreground">{{ data.event?.host?.name || 'An organizer' }} asks if you can host it. Check what they need, then answer at the bottom. It’s a question, not a booking: they get back to you to agree the details.</p>
+          <p v-if="isVenue && step === 'check' && data.answer && data.answer.status !== 'invited'" class="mt-3 rounded-xl bg-muted p-3 text-xs">You answered already: {{ { confirmed: 'you can host it', proposed: 'another date', declined: 'not this time' }[data.answer.status as 'confirmed'] }}. Change anything and answer again.</p>
 
-          <!-- The ask in five lines: what a venue decides on -->
-          <section v-if="isVenue && facts" class="mt-5 grid gap-2 rounded-2xl border-2 border-primary/30 bg-card p-4 text-sm shadow-wd-card">
-            <p class="flex items-start gap-2"><CalendarDays class="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" /><span><span class="font-bold">{{ facts.when }}</span></span></p>
-            <p v-if="accessText" class="flex items-start gap-2"><Clock class="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" /><span>Room needed <span class="font-bold">{{ accessText }}</span> <span class="text-muted-foreground">(setup and cleanup included)</span></span></p>
-            <p v-if="facts.guests" class="flex items-start gap-2"><Users class="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" /><span>About <span class="font-bold">{{ facts.guests }} dancers</span><template v-if="facts.price"> · entry {{ facts.price }}</template></span></p>
-            <p v-if="facts.needs.length" class="flex items-start gap-2"><MapPin class="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" /><span>They need: {{ facts.needs.join(' · ') }}</span></p>
-            <p class="flex items-start gap-2"><Euro class="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" /><span v-if="facts.offer">They offer: <span class="font-bold">{{ facts.offer }}</span></span><span v-else>No offer yet: <span class="font-bold">tell them your price</span> below.</span></p>
-            <p v-if="facts.note" class="flex items-start gap-2"><MessageSquare class="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" /><span class="text-muted-foreground">“{{ facts.note }}”</span></p>
+          <!-- The ask, with the event's flyer: what a venue decides on -->
+          <section v-if="isVenue && facts" class="mt-5 grid gap-4 rounded-2xl border bg-card p-4 shadow-wd-card" :class="data.event?.flyer && 'sm:grid-cols-[13rem_1fr]'">
+            <a v-if="data.event?.flyer" :href="data.event.flyer.url" target="_blank" rel="noopener" class="block self-start" aria-label="Open the flyer full size">
+              <img :src="sizedImage(data.event.flyer.url, IMG.large)" alt="The event’s flyer" class="mx-auto max-h-[26rem] w-auto rounded-xl border sm:w-full">
+            </a>
+            <div class="grid min-w-0 content-start gap-2 text-sm">
+              <p class="font-display text-xl font-bold">{{ facts.eventName || data.event?.name }} <span v-if="data.event?.type" class="text-sm font-normal text-muted-foreground">· {{ data.event.type }}</span></p>
+              <p class="flex items-start gap-2"><CalendarDays class="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" /><span class="font-bold">{{ facts.when }}</span></p>
+              <p v-if="accessText" class="flex items-start gap-2"><Clock class="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" /><span>Room needed <span class="font-bold">{{ accessText }}</span> <span class="text-muted-foreground">(setup and cleanup included)</span></span></p>
+              <p v-if="facts.guests" class="flex items-start gap-2"><Users class="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" /><span>About <span class="font-bold">{{ facts.guests }} dancers</span><template v-if="facts.price"> · entry {{ facts.price }}</template></span></p>
+              <p v-if="facts.needs.length" class="flex items-start gap-2"><MapPin class="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" /><span>They need: {{ facts.needs.join(' · ') }}</span></p>
+              <p class="flex items-start gap-2"><Euro class="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" /><span v-if="facts.offer">They offer: <span class="font-bold">{{ facts.offer }}</span></span><span v-else>No offer yet: <span class="font-bold">tell them your price</span> below.</span></p>
+              <p v-if="facts.note" class="flex items-start gap-2"><MessageSquare class="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" /><span class="text-muted-foreground">“{{ facts.note }}”</span></p>
+              <p v-if="data.event?.host" class="flex items-start gap-2"><PartyPopper class="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <span>By <NuxtLink v-if="data.event.host.username" :to="`/@${data.event.host.username}`" target="_blank" class="font-bold hover:underline">{{ data.event.host.name }}</NuxtLink><span v-else class="font-bold">{{ data.event.host.name }}</span><template v-if="data.event.host.instagram"> · <a :href="data.event.host.instagram" target="_blank" rel="noopener" class="hover:underline">Instagram</a></template><template v-if="data.event.hostEvents >= 2"><span class="text-muted-foreground"> · {{ data.event.hostEvents }} events{{ data.event.hostCity ? ` in ${data.event.hostCity}` : '' }}</span></template></span>
+              </p>
+              <span v-if="data.event">
+                <NuxtLink :to="data.event.published ? data.event.path : `${data.event.path}?preview=${encodeURIComponent(param)}`" target="_blank" class="inline-flex items-center gap-1 text-xs font-bold text-secondary hover:underline">{{ data.event.published ? 'See the event page' : 'Preview the event page' }} <ExternalLink class="size-3" aria-hidden="true" /></NuxtLink>
+                <span v-if="!data.event.published" class="block text-xs text-muted-foreground">Not published yet: only you can see this preview.</span>
+              </span>
+            </div>
           </section>
 
           <!-- The plan at this venue -->
@@ -461,33 +494,6 @@ const fmtDate = (d: string | Date | null, tz?: string | null) => d ? new Date(d)
             <p class="text-muted-foreground">{{ data.ask.outcome === 'booked' ? `${data.event?.host?.name || 'The organizer'} picked ${data.profile.name}. Sort out the details with them directly.` : 'Thanks for answering. Your page stays up to date for the next organizer who asks.' }}</p>
           </div>
 
-          <!-- 1 · About the event -->
-          <details v-if="data.event && isVenue" open class="group mt-6 rounded-2xl border bg-card p-4">
-            <summary class="flex cursor-pointer list-none items-center justify-between text-eyebrow font-bold uppercase tracking-[0.3em] text-secondary">About the event <ChevronDown class="size-4 transition group-open:rotate-180" aria-hidden="true" /></summary>
-            <h2 class="mt-1 font-display text-xl font-bold">{{ data.event.name }} <span v-if="data.event.type" class="text-sm font-normal text-muted-foreground">· {{ data.event.type }}</span></h2>
-            <p class="mt-2 flex items-start gap-1.5 text-sm"><CalendarDays class="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" /> {{ fmtDays(data.event) }}</p>
-            <p v-if="data.event.venue && !isVenue" class="mt-1 flex items-start gap-1.5 text-sm"><MapPin class="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-              <span>{{ data.event.venue }}<template v-if="data.event.address">, {{ data.event.address }}</template><template v-if="data.event.otherVenues.length"><br><span class="text-muted-foreground">Also at: {{ data.event.otherVenues.join(' · ') }}</span></template></span>
-            </p>
-            <p v-if="data.event.host" class="mt-1 flex items-start gap-1.5 text-sm"><Users class="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-              <span>Organized by <NuxtLink v-if="data.event.host.username" :to="`/@${data.event.host.username}`" target="_blank" class="font-bold hover:underline">{{ data.event.host.name }}</NuxtLink><span v-else class="font-bold">{{ data.event.host.name }}</span><template v-if="data.event.host.instagram"> · <a :href="data.event.host.instagram" target="_blank" rel="noopener" class="hover:underline">Instagram</a></template><template v-if="data.event.hostEvents >= 2"><br><span class="text-muted-foreground">{{ data.event.hostEvents }} dance events organised{{ data.event.hostCity ? ` in ${data.event.hostCity}` : '' }}</span></template></span>
-            </p>
-            <DanceStyleChips :styles="data.event.styles" class="mt-2" />
-            <p v-if="data.event.description" class="mt-3 line-clamp-4 text-sm text-muted-foreground">{{ data.event.description }}</p>
-            <p v-if="data.event.stats.workshops || data.event.stats.parties || data.event.stats.planning" class="mt-2 text-xs text-muted-foreground">
-              {{ [data.event.stats.workshops && `${data.event.stats.workshops} workshops`, data.event.stats.parties && `${data.event.stats.parties} parties`, data.event.stats.planning && `${data.event.stats.planning} dancers planning to come`].filter(Boolean).join(' · ') }}
-            </p>
-
-            <template v-if="data.event.lineup.length">
-              <p class="mt-3 text-xs font-bold">{{ isVenue ? 'Line-up' : 'Also in the line-up' }}</p>
-              <div class="mt-1.5 flex flex-wrap gap-2">
-                <span v-for="a in data.event.lineup" :key="a.username" class="inline-flex items-center gap-1.5 rounded-full border bg-background py-0.5 pl-0.5 pr-2 text-xs">
-                  <img v-if="a.photo" :src="sizedImage(a.photo, IMG.avatar)" alt="" class="size-5 rounded-full object-cover"><span v-else class="size-5 rounded-full bg-muted" /> {{ a.name }}
-                </span>
-              </div>
-            </template>
-            <NuxtLink :to="data.event.published ? data.event.path : `${data.event.path}?preview=${encodeURIComponent(param)}`" target="_blank" class="mt-3 inline-flex items-center gap-1 text-xs font-bold text-secondary hover:underline">{{ data.event.published ? 'See the event page' : 'Preview the event page' }} <ExternalLink class="size-3" aria-hidden="true" /></NuxtLink><span v-if="!data.event.published" class="mt-1 block text-xs text-muted-foreground">Not published yet: only you can see this preview.</span>
-          </details>
           </template>
 
           <div v-if="!data.canAnswer" class="mt-6 rounded-2xl bg-secondary/10 p-4 text-sm">
@@ -498,37 +504,51 @@ const fmtDate = (d: string | Date | null, tz?: string | null) => d ? new Date(d)
           </div>
 
           <form v-else class="mt-4 grid gap-4" novalidate @submit.prevent="save">
-            <template v-if="isVenue && step === 'check'">
-              <!-- Can you host it? -->
+            <template v-if="venueCheck">
+              <!-- Terms: only when theirs differ from the offer -->
               <section class="rounded-2xl border bg-card p-4">
-                <p class="text-sm font-bold">Can you host it?</p>
-                <div class="mt-2 grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Can you host it?">
-                  <button v-for="o in [{ v: 'confirmed', t: 'Yes, we can', d: facts?.offer ? `On that date, for ${facts.offer}.` : 'On that date and time.' }, { v: 'proposed', t: 'Another date', d: 'Suggest when it works.' }, { v: 'declined', t: 'No, sorry', d: 'Not this time.' }]" :key="o.v" type="button" role="radio" :aria-checked="venue.answer === o.v" class="rounded-xl border-2 p-3 text-left text-sm focus-visible:shadow-wd-focus" :class="venue.answer === o.v ? 'border-primary bg-primary/5' : 'border-input'" @click="venue.answer = o.v as any">
-                    <span class="font-bold">{{ o.t }}</span><span class="block text-xs text-muted-foreground">{{ o.d }}</span>
-                  </button>
-                </div>
-                <Field v-if="venue.answer === 'proposed'" id="v-alt" label="Which dates work instead?" class="mt-3" hint="E.g. “Friday 16 October”, “any Wednesday in November”.">
-                  <Input v-model="venue.alternative" />
-                </Field>
+                <p class="text-sm font-bold">{{ facts?.offer ? 'Their offer' : 'Your price' }}</p>
+                <p class="text-xs text-muted-foreground">{{ facts?.offer ? `${facts.offer}. Fine as it is? Nothing to do here.` : 'What you’d charge for this.' }} Only {{ data.event?.host?.name || 'the organizer' }} sees your terms.</p>
+                <button v-if="!termsOpen" type="button" class="mt-2 inline-flex items-center gap-1 text-xs font-bold text-secondary hover:underline" @click="termsOpen = true"><Euro class="size-3.5" aria-hidden="true" /> Different terms?</button>
+                <template v-else>
+                  <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                    <Field id="v-rent" label="Rent" optional><Input v-model="venue.rent" placeholder="e.g. €300, or free" /></Field>
+                    <Field id="v-min" label="Minimum bar spend" optional><Input v-model="venue.minSpend" placeholder="e.g. €1,500" /></Field>
+                    <Field id="v-door" label="Door split" optional><Input v-model="venue.doorSplit" placeholder="e.g. 70/30 for the organizer" /></Field>
+                    <Field id="v-dep" label="Deposit" optional><Input v-model="venue.deposit" placeholder="e.g. €200, back after" /></Field>
+                    <Field id="v-cap" label="People it holds" optional><Input v-model.number="venue.capacity" type="number" min="1" class="w-32" /></Field>
+                  </div>
+                  <p class="mt-3 text-sm font-bold">Included</p>
+                  <div class="mt-1.5 flex flex-wrap gap-1.5">
+                    <Button v-for="x in VENUE_INCLUDES" :key="x" type="button" size="sm" :variant="venue.includes.includes(x) ? 'soft' : 'outline'" :aria-pressed="venue.includes.includes(x)" @click="toggleInclude(x)">{{ x }}</Button>
+                  </div>
+                  <Field id="v-notes" label="Anything else about the terms" optional class="mt-3"><Textarea v-model="venue.notes" :rows="2" /></Field>
+                </template>
               </section>
 
-              <!-- Your terms -->
-              <section v-if="venue.answer && venue.answer !== 'declined'" class="rounded-2xl border bg-card p-4">
-                <p class="text-sm font-bold">{{ facts?.offer ? 'Different terms?' : 'Your price' }}</p>
-                <p class="text-xs text-muted-foreground">{{ facts?.offer ? `They offer ${facts.offer}. Fine as it is? Leave this empty.` : 'What you’d charge for this.' }} Only {{ data.event?.host?.name || 'the organizer' }} sees it.</p>
-                <div class="mt-3 grid gap-3 sm:grid-cols-2">
-                  <Field id="v-rent" label="Rent" optional><Input v-model="venue.rent" placeholder="e.g. €300, or free" /></Field>
-                  <Field id="v-min" label="Minimum bar spend" optional><Input v-model="venue.minSpend" placeholder="e.g. €1,500" /></Field>
-                  <Field id="v-door" label="Door split" optional><Input v-model="venue.doorSplit" placeholder="e.g. 70/30 for the organizer" /></Field>
-                  <Field id="v-dep" label="Deposit" optional><Input v-model="venue.deposit" placeholder="e.g. €200, back after" /></Field>
-                  <Field id="v-cap" label="People it holds" optional><Input v-model.number="venue.capacity" type="number" min="1" class="w-32" /></Field>
+              <Field id="c-msg" :label="`Anything else for ${data.event?.host?.name || 'the organizer'}?`" optional>
+                <Textarea v-model="answer.message" :rows="2" />
+              </Field>
+              <p v-if="error" class="text-sm text-destructive" role="alert">{{ error }}</p>
+
+              <!-- The one answer (right-aligned: the help bubble sits bottom-left) -->
+              <div class="fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 backdrop-blur"><div class="mx-auto max-w-2xl px-4 py-3">
+                <template v-if="proposing">
+                  <Field id="v-alt" label="Which dates work instead?" hint="E.g. “Friday 16 October”, “any Wednesday in November”.">
+                    <Input v-model="venue.alternative" autofocus />
+                  </Field>
+                  <div class="mt-2 flex flex-wrap items-center justify-end gap-2">
+                    <Button type="button" variant="ghost" :disabled="saving" @click="proposing = false">Back</Button>
+                    <Button type="button" variant="pill" :loading="saving" :disabled="!venue.alternative.trim()" @click="sendVenue('proposed')"><CalendarDays /> Suggest this date</Button>
+                  </div>
+                </template>
+                <div v-else class="flex flex-wrap items-center justify-end gap-2">
+                  <Button type="button" variant="ghost" :loading="saving && venue.answer === 'declined'" :disabled="saving" @click="sendVenue('declined')">No, sorry</Button>
+                  <Button type="button" variant="outline-pill" :disabled="saving" @click="proposing = true">Another date</Button>
+                  <Button type="button" variant="pill" :loading="saving && venue.answer === 'confirmed'" :disabled="saving" @click="sendVenue('confirmed')"><Check /> Yes, we can</Button>
                 </div>
-                <p class="mt-3 text-sm font-bold">Included</p>
-                <div class="mt-1.5 flex flex-wrap gap-1.5">
-                  <Button v-for="x in VENUE_INCLUDES" :key="x" type="button" size="sm" :variant="venue.includes.includes(x) ? 'soft' : 'outline'" :aria-pressed="venue.includes.includes(x)" @click="toggleInclude(x)">{{ x }}</Button>
-                </div>
-                <Field id="v-notes" label="Anything else about the terms" optional class="mt-3"><Textarea v-model="venue.notes" :rows="2" /></Field>
-              </section>
+                <p class="mt-1.5 text-right text-xs text-muted-foreground">No account needed.<template v-if="data.event?.host?.instagram"> Rather talk? <a :href="data.event.host.instagram" target="_blank" rel="noopener" class="font-bold text-secondary hover:underline">Message {{ data.event.host.name }}</a></template></p>
+              </div></div>
             </template>
             <template v-else-if="artistCheck && data.event">
               <!-- Your classes -->
@@ -548,6 +568,18 @@ const fmtDate = (d: string | Date | null, tz?: string | null) => d ? new Date(d)
                   </Field>
                   <button type="button" class="mt-1 text-xs text-muted-foreground hover:underline" @click="answer.programmeOk = null; answer.programmeNote = ''">Never mind, it’s right</button>
                 </template>
+              </section>
+
+              <!-- The deal: their offer as is, or the artist's fee and needs -->
+              <section class="rounded-2xl border bg-card p-4">
+                <p class="text-sm font-bold">{{ data.deal?.offer ? 'Their offer' : 'Your fee' }}</p>
+                <p v-if="data.deal?.offer" class="text-sm">{{ data.deal.offer }}</p>
+                <p class="text-xs text-muted-foreground">{{ data.deal?.offer ? 'Fine as it is? Nothing to do here.' : 'Optional. Coming for a pass or for free? Leave it empty.' }} Only {{ data.event.host?.name || 'the organizer' }} sees this.</p>
+                <button v-if="!dealOpen" type="button" class="mt-2 inline-flex items-center gap-1 text-xs font-bold text-secondary hover:underline" @click="dealOpen = true"><Euro class="size-3.5" aria-hidden="true" /> Different terms?</button>
+                <div v-else class="mt-3 grid gap-3">
+                  <Field id="a-fee" label="Your fee" optional><Input v-model="deal.fee" placeholder="e.g. €120 per class, or €300 for the day" maxlength="200" /></Field>
+                  <Field id="a-needs" label="What else you need" optional hint="Travel, a room, meals, a partner’s pass…"><Textarea v-model="deal.needs" :rows="2" maxlength="1000" /></Field>
+                </div>
               </section>
 
               <!-- Name and photo, as the flyer shows them -->
@@ -601,14 +633,14 @@ const fmtDate = (d: string | Date | null, tz?: string | null) => d ? new Date(d)
               <p v-if="error" class="text-sm text-destructive" role="alert">{{ error }}</p>
 
               <!-- The one answer -->
-              <div class="sticky bottom-0 -mx-4 border-t bg-background/95 px-4 py-3 backdrop-blur">
+              <div class="fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 backdrop-blur"><div class="mx-auto max-w-2xl px-4 py-3">
                 <!-- Right-aligned: the help bubble sits bottom-left. -->
                 <div class="flex flex-wrap items-center justify-end gap-2">
                   <Button type="button" variant="outline-pill" :loading="saving && answer.participation === 'declined'" :disabled="saving" @click="send('declined')">I can’t make it</Button>
                   <Button type="button" variant="pill" :loading="saving && answer.participation === 'confirmed'" :disabled="saving" @click="send('confirmed')"><Check /> Yes, I’m in</Button>
                 </div>
                 <p class="mt-1.5 text-right text-xs text-muted-foreground">No account needed.<template v-if="data.event.host?.instagram"> Rather talk? <a :href="data.event.host.instagram" target="_blank" rel="noopener" class="font-bold text-secondary hover:underline">Message {{ data.event.host.name }}</a></template></p>
-              </div>
+              </div></div>
             </template>
             <template v-if="!staged || step === 'edit'">
             <!-- Name -->
@@ -703,7 +735,7 @@ const fmtDate = (d: string | Date | null, tz?: string | null) => d ? new Date(d)
             </section>
             </template>
 
-            <template v-if="!artistCheck">
+            <template v-if="!artistCheck && !venueCheck">
             <Field v-if="data.event && step !== 'edit'" id="c-msg" label="Anything else for the organizer?" optional>
               <Textarea v-model="answer.message" :rows="2" />
             </Field>

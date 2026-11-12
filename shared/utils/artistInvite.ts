@@ -25,6 +25,8 @@ export type ArtistInviteFacts = {
   dayLabels: Record<string, string>
   /** What the kept flyer shows of them. */
   flyer: 'pictured' | 'named' | null
+  /** What the organizer offers them ("€80 per class + free pass"); empty = not said. */
+  offer?: string
 }
 
 /** "10:00 Lady Styling", "21:00 party" — with the day in front when the event has several. */
@@ -66,6 +68,7 @@ export function artistInviteMessage(f: ArtistInviteFacts, url: string): string {
     `📅 ${[f.when, f.place].filter(Boolean).join(' · ')}`,
     f.slots.length ? `🕒 ${slotsLabel(f.slots)}: ${slotsText(f)}` : '🕒 Your slot isn’t in the programme yet: tell us what suits you',
     flyerText(f.flyer) && `🎨 ${flyerText(f.flyer)}`,
+    f.offer && `💶 We offer: ${f.offer}`,
   ]
   return `${lines.filter(Boolean).join('\n')}\n\n${askText(f)} It takes a minute: ${url}`
 }
@@ -76,5 +79,6 @@ export function artistInviteLines(f: ArtistInviteFacts): string[] {
     f.place,
     f.slots.length ? `${slotsLabel(f.slots)}: ${f.slots.map(s => slotLine(s, f.dayLabels)).join(' · ')}` : 'Your slot isn’t in the programme yet',
     flyerText(f.flyer),
+    f.offer ? `${f.host || 'They'} offer: ${f.offer}` : '',
   ].filter(Boolean)
 }
