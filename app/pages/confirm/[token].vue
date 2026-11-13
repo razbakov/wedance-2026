@@ -63,7 +63,9 @@ async function confirmFromEmail() {
   } catch (e: any) {
     error.value = e?.message || 'This confirmation link doesn’t work any more.'
   }
-  navigateTo({ query: { ...route.query, that: undefined } }, { replace: true })
+  // Keep the path as is: /ask/<token> is an alias, and a named route would swap it
+  // for /confirm/<token> and remount the page (losing the banner).
+  navigateTo({ path: route.path, query: { ...route.query, that: undefined } }, { replace: true })
 }
 
 // After answering signed out: the email is the way in. "Edit your page" points
