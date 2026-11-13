@@ -65,7 +65,7 @@ async function copy(what: 'link' | 'message') {
       <ol class="grid gap-2 text-sm">
         <li class="flex gap-2"><span class="font-bold text-secondary">1.</span> They see their classes and slots at {{ link?.eventName || 'your event' }} and say if they’re in and if the programme is right.</li>
         <li class="flex gap-2"><span class="font-bold text-secondary">2.</span> They see what you offer and can answer with their own fee and needs.</li>
-        <li class="flex gap-2"><span class="font-bold text-secondary">3.</span> They see the flyer, fix the spelling of their name and pick or upload the photo it should use, with no account. Photos you added go on only if they tick them.</li>
+        <li class="flex gap-2"><span class="font-bold text-secondary">3.</span> They see the flyer, fix the spelling of their name and pick or upload the photo it should use for this event, your photos included. Their WeDance page itself changes only once they make it theirs.</li>
         <li class="flex gap-2"><span class="font-bold text-secondary">4.</span>
           <span v-if="link?.managed">Their page has an owner: they answer signed in. Until they do, it waits under “Needs you” on their Business home.</span>
           <span v-else>No one manages their page yet: they can create an account with email and password and make it theirs.</span>

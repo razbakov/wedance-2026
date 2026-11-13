@@ -149,6 +149,8 @@ export async function eventContext(db: any, eventId: string, p: any) {
     programme,
     /** Their name as this event spells it (the flyer's names), else the page's. */
     lineupName: (e.flyerOptions?.names?.[p.username] || p.name || '') as string,
+    /** The photo this event's flyer uses for them: undefined = their main photo, null = name only. */
+    flyerPhoto: (p.username in (e.flyerOptions?.photos ?? {}) ? e.flyerOptions.photos[p.username] : undefined) as string | null | undefined,
     flyer: kept?.url ? { url: kept.url, pictured: ((kept.pictured ?? []) as string[]).some(n => n.toLowerCase() === myName) } : null,
   }
 }
@@ -469,8 +471,17 @@ export const artistInvitesRouter = router({
       floorType: z.string().trim().max(60).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const { p: profile, canAnswer, invite } = await resolve(ctx, input)
+      const { p: profile, canAnswer, invite, member } = await resolve(ctx, input)
       if (!canAnswer) throw new TRPCError({ code: 'FORBIDDEN', message: 'This page has an owner now. Sign in as them to answer.' })
+      // Only the page's team (signed in) changes the page itself. Anyone else with
+      // the link — it may have been forwarded — changes this event only: the name
+      // and photo its flyer uses. Organizer suggestions wait for the team.
+      const verified = member || !!ctx.isAdmin
+      if (!verified) {
+        const pageWide = ['bio', 'instagram', 'website', 'facebook', 'city', 'styles', 'address', 'floorType'].some(k => (input as any)[k] !== undefined)
+          || input.removePhotos.length || input.addVideos.length || input.decisions.some(d => d.approve)
+        if (pageWide) throw new TRPCError({ code: 'FORBIDDEN', message: 'Make the page yours first to change it.' })
+      }
       if (invite?.kind === 'venue' && (input.venueAnswer || input.message !== undefined)) {
         await ctx.db.update(profileInvites).set({
           ...(input.venueAnswer ? { status: input.venueAnswer } : {}),
@@ -489,6 +500,35 @@ export const artistInvitesRouter = router({
           ...(input.message !== undefined ? { message: input.message || null } : {}),
           respondedAt: new Date(),
         }).where(eq(profileInvites.id, invite.id))
+      }
+      if (!verified) {
+        // This event's flyer: their name as it should appear and the photo it uses.
+        if (invite?.eventId && (input.name || input.mainPhoto !== undefined)) {
+          const [e] = await ctx.db.select({ flyerOptions: events.flyerOptions }).from(events).where(eq(events.id, invite.eventId))
+          const fo = { ...(e?.flyerOptions ?? {}) } as { names?: Record<string, string>; photos?: Record<string, string | null> }
+          const h = profile.username as string
+          if (input.name) {
+            const names = { ...(fo.names ?? {}) }
+            if (input.name === profile.name) delete names[h]
+            else names[h] = input.name
+            fo.names = names
+          }
+          if (input.mainPhoto) {
+            // Their page's photos, the organizer's suggestions for them, or one they just uploaded to us.
+            const [sugg] = await ctx.db.select({ id: profileSuggestions.id }).from(profileSuggestions)
+              .where(and(eq(profileSuggestions.profileId, profile.id), eq(profileSuggestions.kind, 'photo'), eq(profileSuggestions.value, input.mainPhoto)))
+            const own = input.mainPhoto === profile.photo || ((profile.photos ?? []) as { url: string }[]).some(x => x.url === input.mainPhoto)
+            if (!own && !sugg && !input.mainPhoto.startsWith('https://res.cloudinary.com/')) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Pick one of the photos, or upload one.' })
+          }
+          if (input.mainPhoto !== undefined) {
+            const photos = { ...(fo.photos ?? {}) }
+            if (input.mainPhoto && input.mainPhoto === profile.photo) delete photos[h]
+            else photos[h] = input.mainPhoto
+            fo.photos = photos
+          }
+          await ctx.db.update(events).set({ flyerOptions: fo as any }).where(eq(events.id, invite.eventId))
+        }
+        return { saved: true, scope: 'event' as const }
       }
       let p = profile
       const reload = async () => { [p] = await ctx.db.select().from(profiles).where(eq(profiles.id, profile.id)) }
@@ -521,7 +561,7 @@ export const artistInvitesRouter = router({
       }
       if (input.mainPhoto) set.photo = input.mainPhoto
       if (Object.keys(set).length) await ctx.db.update(profiles).set(set).where(eq(profiles.id, p.id))
-      return { saved: true }
+      return { saved: true, scope: 'page' as const }
     }),
 
   // After answering: create an account (auth.register) and own the page — only
