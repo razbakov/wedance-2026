@@ -3,7 +3,11 @@ import { eq, and, inArray, desc, isNotNull, sql } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { router, publicProcedure, protectedProcedure } from '../trpc'
 import { profiles, profileMembers, profileSuggestions, profileInvites, events, eventFlyers, planItems, dancers } from '../../database/schema'
-import { sendInviteEmail } from '../../utils/email'
+import { sendInviteEmail, sendInviteAnswerCopyEmail, sendInviteAnsweredEmail } from '../../utils/email'
+import { maskEmail, signAnswerEmail, verifyAnswerEmail } from '../../utils/inviteAnswerSig'
+import { createSession } from './auth'
+import { answerLines, answerSubjects } from '../../../shared/utils/inviteAnswer'
+import { venueTermsText, type VenueTerms } from '../../../shared/types/venueAsk'
 import { eventLocalDate, eventLocalTime } from '../../../shared/utils/eventTime'
 import { requireEventManager } from './businessEvents'
 import { citySlugFor } from './business'
@@ -175,6 +179,60 @@ export function artistFacts(ev: NonNullable<Awaited<ReturnType<typeof eventConte
   }
 }
 
+/** "Saturday 6 December 2026 · 20:00", or the two days of a multi-day event. */
+function whenText(e: any): string {
+  if (!e?.startDate) return ''
+  const tz = e.timezone || 'Europe/Berlin'
+  const day = (d: Date) => new Date(d).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: tz })
+  return e.endDate && eventLocalDate(e.endDate, tz) !== eventLocalDate(e.startDate, tz) ? `${day(e.startDate)} – ${day(e.endDate)}` : `${day(e.startDate)} · ${eventLocalTime(e.startDate, tz)}`
+}
+const siteUrl = () => (useRuntimeConfig().siteUrl || 'https://2026.wedance.vip').replace(/\/$/, '')
+
+/**
+ * After an answer: the answerer's copy (with "That's me" unless their account
+ * already proves it) and a note to the organiser who asked. Only when the answer
+ * itself changed (or the address did), so re-saving a photo sends nothing.
+ * Never throws: a failed email must not lose the answer.
+ */
+async function sendAnswerEmails(ctx: any, inv: any, p: any, opts: { email: string | null; confirmed: boolean; flyerName: string; resend: boolean; notifyOrganiser: boolean }) {
+  try {
+    const [e] = inv.eventId ? await ctx.db.select().from(events).where(eq(events.id, inv.eventId)) : [null]
+    if (!e) return
+    const [h] = e.hostProfileId ? await ctx.db.select({ name: profiles.name }).from(profiles).where(eq(profiles.id, e.hostProfileId)) : [null]
+    const host = h?.name || e.organizerName || 'The organizer'
+    const venue = inv.kind === 'venue'
+    const facts = {
+      kind: inv.kind as 'artist' | 'venue', status: inv.status as 'confirmed' | 'declined' | 'proposed',
+      profileName: p.name as string, eventName: (e.name as string) || 'the event', when: whenText(e),
+      place: venue ? '' : [e.venueName, e.city].filter(Boolean).join(', '),
+      offer: ((inv.request as { offer?: string } | null)?.offer ?? '') as string,
+      terms: venue ? venueTermsText(inv.terms as VenueTerms | null) : artistTermsText(inv.terms as ArtistTerms | null),
+      alternative: (inv.alternative ?? '') as string, programmeNote: (inv.programmeNote ?? '') as string, message: (inv.message ?? '') as string,
+      flyerName: opts.flyerName,
+    }
+    const subjects = answerSubjects(facts)
+    const lines = answerLines(facts)
+    const link = `${siteUrl()}/${venue ? 'ask' : 'confirm'}/${inv.token}`
+    // Each email on its own: one failing doesn't cost the other.
+    if (opts.email && opts.resend) {
+      await Promise.resolve().then(() => sendInviteAnswerCopyEmail({
+        to: opts.email, name: p.name, subject: subjects.you, host, lines, link,
+        confirmUrl: opts.confirmed ? null : `${link}?that=${signAnswerEmail(inv.id, opts.email!)}`,
+      })).catch(err => console.error('[artistInvites] answer copy email failed for invite', inv.id, err))
+    }
+    if (opts.notifyOrganiser && inv.createdBy) {
+      const [o] = await ctx.db.select({ email: dancers.email, name: dancers.name }).from(dancers).where(eq(dancers.id, inv.createdBy))
+      // Not when they answered their own ask (an organiser testing their link).
+      if (o?.email && o.email !== opts.email) {
+        await sendInviteAnsweredEmail({ to: o.email, name: o.name, subject: subjects.them, lines, confirmed: opts.confirmed, link: `${siteUrl()}/business/events/${e.id}` })
+          .catch(err => console.error('[artistInvites] organiser answer email failed for invite', inv.id, err))
+      }
+    }
+  } catch (err) {
+    console.error('[artistInvites] answer emails failed for invite', inv.id, err)
+  }
+}
+
 const videoUrl = z.string().trim().max(300).transform((v, c) => {
   const e = videoEmbedUrl(v)
   if (!e) c.addIssue({ code: 'custom', message: 'Paste a YouTube or Vimeo link.' })
@@ -226,15 +284,15 @@ export const artistInvitesRouter = router({
       const rows = await ctx.db.select({ username: profiles.username, kind: profileSuggestions.kind, value: profileSuggestions.value })
         .from(profileSuggestions).innerJoin(profiles, eq(profiles.id, profileSuggestions.profileId))
         .where(and(inArray(profiles.username, input.handles), eq(profileSuggestions.status, 'pending')))
-      type Answer = { status: string; programmeOk: boolean | null; programmeNote: string | null; postsOk: boolean; message: string | null; respondedAt: Date | null; terms: string } | null
+      type Answer = { status: string; programmeOk: boolean | null; programmeNote: string | null; postsOk: boolean; message: string | null; respondedAt: Date | null; terms: string; emailConfirmed: boolean } | null
       const out: Record<string, { photos: string[]; videos: string[]; name: string | null; fields: string[]; answer: Answer }> = {}
       const answers = await ctx.db.select({
         username: profiles.username, status: profileInvites.status, programmeOk: profileInvites.programmeOk, programmeNote: profileInvites.programmeNote,
-        postsOkAt: profileInvites.postsOkAt, message: profileInvites.message, respondedAt: profileInvites.respondedAt, terms: profileInvites.terms,
+        postsOkAt: profileInvites.postsOkAt, message: profileInvites.message, respondedAt: profileInvites.respondedAt, terms: profileInvites.terms, emailConfirmedAt: profileInvites.emailConfirmedAt,
       }).from(profileInvites).innerJoin(profiles, eq(profiles.id, profileInvites.profileId))
         .where(and(eq(profileInvites.eventId, input.eventId), inArray(profiles.username, input.handles)))
       for (const a of answers) {
-        out[a.username] = { photos: [], videos: [], name: null, fields: [], answer: { status: a.status, programmeOk: a.programmeOk, programmeNote: a.programmeNote, postsOk: !!a.postsOkAt, message: a.message, respondedAt: a.respondedAt, terms: artistTermsText(a.terms as ArtistTerms | null) } }
+        out[a.username] = { photos: [], videos: [], name: null, fields: [], answer: { status: a.status, programmeOk: a.programmeOk, programmeNote: a.programmeNote, postsOk: !!a.postsOkAt, message: a.message, respondedAt: a.respondedAt, terms: artistTermsText(a.terms as ArtistTerms | null), emailConfirmed: !!a.emailConfirmedAt } }
       }
       for (const r of rows) {
         const o = (out[r.username] ??= { photos: [], videos: [], name: null, fields: [], answer: null })
@@ -418,6 +476,9 @@ export const artistInvitesRouter = router({
         } : null,
         answer: invite ? {
           status: invite.status as 'invited' | 'confirmed' | 'declined' | 'proposed',
+          // Where their written copy went, half hidden (the link may have been forwarded).
+          email: invite.answerEmail ? maskEmail(invite.answerEmail) : null,
+          emailConfirmed: !!invite.emailConfirmedAt,
           programmeOk: invite.programmeOk as boolean | null,
           programmeNote: invite.programmeNote as string | null,
           postsOk: !!invite.postsOkAt,
@@ -469,6 +530,8 @@ export const artistInvitesRouter = router({
       }).optional(),
       address: z.string().trim().max(300).optional(),
       floorType: z.string().trim().max(60).optional(),
+      // Where the answer goes in writing (not signed in; signed in = the account's).
+      email: z.string().trim().toLowerCase().email().max(200).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const { p: profile, canAnswer, invite, member } = await resolve(ctx, input)
@@ -500,6 +563,27 @@ export const artistInvitesRouter = router({
           ...(input.message !== undefined ? { message: input.message || null } : {}),
           respondedAt: new Date(),
         }).where(eq(profileInvites.id, invite.id))
+      }
+      const answered = invite && (invite.kind === 'venue' ? input.venueAnswer : input.participation)
+      if (invite && answered) {
+        // Who answered: the account when signed in (proven), else the address they left.
+        const [me] = ctx.dancerId ? await ctx.db.select({ email: dancers.email }).from(dancers).where(eq(dancers.id, ctx.dancerId)) : [null]
+        const email: string | null = me?.email ?? input.email ?? invite.answerEmail ?? null
+        const newEmail = !!email && email !== invite.answerEmail
+        const confirmed = !!me || (!newEmail && !!invite.emailConfirmedAt)
+        await ctx.db.update(profileInvites).set({
+          answerEmail: email,
+          ...(me ? { answeredBy: ctx.dancerId, emailConfirmedAt: new Date() } : newEmail ? { emailConfirmedAt: null } : {}),
+        }).where(eq(profileInvites.id, invite.id))
+        const [fresh] = await ctx.db.select().from(profileInvites).where(eq(profileInvites.id, invite.id))
+        const changed = answered !== invite.status
+        const work = sendAnswerEmails(ctx, fresh, profile, {
+          email, confirmed, flyerName: !verified && input.name ? input.name : '',
+          resend: changed || newEmail, notifyOrganiser: changed,
+        })
+        if (ctx.waitUntil) ctx.waitUntil(work)
+        else await work
+        trackServer(ctx, 'invite_answered', { kind: invite.kind, answer: answered, changed, has_email: !!email, signed_in: !!me, member, has_terms: !!fresh?.terms, event_id: invite.eventId, ...profileGroup(profile.username) })
       }
       if (!verified) {
         // This event's flyer: their name as it should appear and the photo it uses.
@@ -562,6 +646,40 @@ export const artistInvitesRouter = router({
       if (input.mainPhoto) set.photo = input.mainPhoto
       if (Object.keys(set).length) await ctx.db.update(profiles).set(set).where(eq(profiles.id, p.id))
       return { saved: true, scope: 'page' as const }
+    }),
+
+  // "That's me" from the answer email: the address is theirs. Marks the answer
+  // confirmed, signs them in (creating the account the first time) and, while
+  // nobody runs the page, makes it theirs — as answering and claiming would.
+  confirmEmail: publicProcedure
+    .input(z.object({ token: z.string().min(10).max(80), that: z.string().min(10).max(1000) }))
+    .mutation(async ({ ctx, input }) => {
+      const v = verifyAnswerEmail(input.that)
+      const [invite] = await ctx.db.select().from(profileInvites).where(eq(profileInvites.token, input.token))
+      if (!v || !invite || invite.id !== v.inviteId || invite.answerEmail !== v.email) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'This confirmation link doesn’t work any more. Open your answer and save it again to get a new one.' })
+      }
+      const [p] = await ctx.db.select().from(profiles).where(eq(profiles.id, invite.profileId))
+      if (!p) throw new TRPCError({ code: 'NOT_FOUND', message: 'Profile not found.' })
+      let [d] = await ctx.db.select().from(dancers).where(eq(dancers.email, v.email))
+      const isNew = !d
+      if (!d) {
+        ;[d] = await ctx.db.insert(dancers).values({ name: invite.kind === 'venue' ? v.email.split('@')[0] : p.name, email: v.email, emailVerifiedAt: new Date() }).returning()
+      } else if (!d.emailVerifiedAt) {
+        await ctx.db.update(dancers).set({ emailVerifiedAt: new Date() }).where(eq(dancers.id, d.id))
+      }
+      if (isNew) trackServer(ctx, 'signup_completed', { method: 'invite_email', has_city: false, via_link: false }, { distinctId: d.id })
+      const first = !invite.emailConfirmedAt
+      await ctx.db.update(profileInvites).set({ answeredBy: d.id, emailConfirmedAt: invite.emailConfirmedAt ?? new Date() }).where(eq(profileInvites.id, invite.id))
+      let owner = await isMember(ctx.db, p.id, d.id)
+      if (!owner && !(await hasTeam(ctx.db, p.id))) {
+        await grant(ctx.db, p.id, d.id, 'owner', { by: invite.createdBy ?? null })
+        await logAccess(ctx.db, { profileId: p.id, actorId: d.id, subjectId: d.id, action: 'approved', role: 'owner', note: 'Confirmed their answer to an organizer’s invite from their email.' })
+        trackServer(ctx, 'profile_claimed', { profile: p.username, via: 'invite_email', ...profileGroup(p.username) }, { distinctId: d.id })
+        owner = true
+      }
+      if (first) trackServer(ctx, 'invite_email_confirmed', { kind: invite.kind, answer: invite.status, new_account: isNew, owner, event_id: invite.eventId, ...profileGroup(p.username) }, { distinctId: d.id })
+      return { ...(await createSession(ctx.db, d)), isNew, owner, username: p.username }
     }),
 
   // After answering: create an account (auth.register) and own the page — only

@@ -264,6 +264,72 @@ export async function sendInviteEmail(params: {
 }
 
 /**
+ * The answer to an artist invite or a venue ask, in writing, to whoever gave it.
+ * `confirmUrl` (a magic link back to the invite) proves the address is theirs;
+ * without it (signed in already) the button just opens the answer again.
+ */
+export async function sendInviteAnswerCopyEmail(params: {
+  to: string
+  name: string
+  subject: string
+  host: string
+  lines: string[]
+  confirmUrl: string | null
+  link: string
+}) {
+  const config = useRuntimeConfig()
+  if (!config.resendApiKey) {
+    console.log(`\n✉️  ${params.to}: ${params.subject} → ${params.confirmUrl ?? params.link}\n`)
+    return
+  }
+  const lines = params.lines.map(l => `<li>${escapeHtml(l)}</li>`).join('')
+  const button = (href: string, label: string) => `<a href="${href}" style="display: inline-block; background: #000; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">${label}</a>`
+  await getResend().emails.send({
+    from: config.resendFromEmail || 'WeDance <noreply@wedance.vip>',
+    to: params.to,
+    subject: params.subject,
+    html: `<div style="font-family: sans-serif; max-width: 460px; margin: 0 auto; padding: 20px;">
+      <h2 style="color: #333;">${escapeHtml(params.subject)}</h2>
+      <p>Hey ${escapeHtml(params.name)}, here’s your answer to <strong>${escapeHtml(params.host)}</strong>, in writing:</p>
+      ${lines ? `<ul style="color: #555; padding-left: 18px;">${lines}</ul>` : ''}
+      ${params.confirmUrl
+        ? `<p>Tap to confirm it was you. ${escapeHtml(params.host)} then sees your answer as confirmed.</p>${button(params.confirmUrl, 'That’s me, confirm')}
+           <p style="color: #888; font-size: 13px; margin-top: 20px;">The button works for 7 days. Didn’t answer this? Ignore it: nothing is confirmed in your name. To change your answer, <a href="${params.link}">open it again</a>.</p>`
+        : `${button(params.link, 'See or change your answer')}`}
+    </div>`,
+  })
+}
+
+/** Tell the organiser who asked that an artist or venue answered. */
+export async function sendInviteAnsweredEmail(params: {
+  to: string
+  name: string
+  subject: string
+  lines: string[]
+  confirmed: boolean
+  link: string
+}) {
+  const config = useRuntimeConfig()
+  if (!config.resendApiKey) {
+    console.log(`\n✉️  ${params.to}: ${params.subject} → ${params.link}\n`)
+    return
+  }
+  const lines = params.lines.map(l => `<li>${escapeHtml(l)}</li>`).join('')
+  await getResend().emails.send({
+    from: config.resendFromEmail || 'WeDance <noreply@wedance.vip>',
+    to: params.to,
+    subject: params.subject,
+    html: `<div style="font-family: sans-serif; max-width: 460px; margin: 0 auto; padding: 20px;">
+      <h2 style="color: #333;">${escapeHtml(params.subject)}</h2>
+      <p>Hey ${escapeHtml(params.name)}!</p>
+      ${lines ? `<ul style="color: #555; padding-left: 18px;">${lines}</ul>` : ''}
+      <p style="color: #555;">${params.confirmed ? '✅ Answered from an email address they confirmed.' : 'Answered through their link. You’ll see “email confirmed” once they confirm it was them.'}</p>
+      <a href="${params.link}" style="display: inline-block; background: #000; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">Open the event</a>
+    </div>`,
+  })
+}
+
+/**
  * Someone asked to book an artist or venue from their WeDance page. Sent to
  * the page's team (else its private booking email, else WeDance to pass on).
  * Reply-To is the asker, so answering is just replying. Logged in local dev.

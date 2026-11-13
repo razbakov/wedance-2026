@@ -9,7 +9,7 @@
  *   asks.value.open({ username, name })
  */
 import type { PropType } from 'vue'
-import { Check, Copy, Link2, MessageCircle, Send, Undo2, CalendarClock, X } from 'lucide-vue-next'
+import { Check, Copy, Link2, MessageCircle, Send, Undo2, CalendarClock, X, Mail, MailCheck } from 'lucide-vue-next'
 import { VENUE_NEEDS, VENUE_OFFERS, VENUE_ANSWER_LABEL, type VenueAnswer } from '#shared/types/venueAsk'
 
 // Two roots (the list and the popup): the class goes on the list.
@@ -127,6 +127,10 @@ const tone = (s: string) => s === 'confirmed' ? 'text-wd-green-700' : s === 'dec
         <p class="font-bold leading-snug">{{ r.name }}</p>
         <p class="text-xs font-bold" :class="tone(r.status)">
           {{ r.outcome === 'booked' ? 'Booked' : r.outcome === 'elsewhere' ? 'Told it went elsewhere' : VENUE_ANSWER_LABEL[r.status] }}
+        </p>
+        <p v-if="r.status !== 'invited'" class="flex items-center gap-1 text-xs" :class="r.emailConfirmedAt ? 'text-wd-green-700' : 'text-muted-foreground'">
+          <MailCheck v-if="r.emailConfirmedAt" class="size-3" aria-hidden="true" /><Mail v-else class="size-3" aria-hidden="true" />
+          {{ r.emailConfirmedAt ? 'Email confirmed' : 'Not confirmed from their email yet' }}
         </p>
         <p v-if="r.status === 'proposed' && r.alternative" class="mt-1 flex items-start gap-1 text-xs"><CalendarClock class="mt-0.5 size-3.5 shrink-0" aria-hidden="true" /> {{ r.alternative }}</p>
         <ul v-if="terms(r).length" class="mt-1 grid gap-0.5 text-xs">

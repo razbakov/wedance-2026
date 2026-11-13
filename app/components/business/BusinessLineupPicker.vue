@@ -14,7 +14,7 @@ import { sizedImage, IMG } from '#shared/utils/image'
  * no entry = their main photo.
  */
 import type { PropType } from 'vue'
-import { X, Check, Type, Send, Clock, Pencil, ChevronUp } from 'lucide-vue-next'
+import { X, Check, Type, Send, Clock, Pencil, ChevronUp, Mail, MailCheck } from 'lucide-vue-next'
 
 const artists = defineModel<string[]>({ default: () => [] })
 const photos = defineModel<Record<string, string | null>>('photos', { default: () => ({}) })
@@ -42,7 +42,7 @@ async function load(handles: string[]) {
 }
 
 // What's waiting for each artist to approve.
-type Answer = { status: string; programmeOk: boolean | null; programmeNote: string | null; postsOk: boolean; message: string | null; respondedAt: string | Date | null; terms: string } | null
+type Answer = { status: string; programmeOk: boolean | null; programmeNote: string | null; postsOk: boolean; message: string | null; respondedAt: string | Date | null; terms: string; emailConfirmed?: boolean } | null
 type Pending = Record<string, { photos: string[]; videos: string[]; name: string | null; fields: string[]; answer: Answer }>
 const pending = ref<Pending>({})
 async function loadPending() {
@@ -128,6 +128,10 @@ const waiting = (h: string) => {
             <p v-if="eventId" class="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
               <AdminStatus :tone="answerOf(h).tone">{{ answerOf(h).text }}</AdminStatus>
               <span v-if="answerOf(h).detail" class="text-muted-foreground">{{ answerOf(h).detail }}</span>
+              <span v-if="pending[h]?.answer && pending[h]!.answer!.status !== 'invited'" class="inline-flex items-center gap-1" :class="pending[h]!.answer!.emailConfirmed ? 'text-wd-green-700' : 'text-muted-foreground'" :title="pending[h]!.answer!.emailConfirmed ? 'They confirmed it from their email, or answered signed in.' : 'Answered through their link; they haven’t confirmed it from their email yet.'">
+                <MailCheck v-if="pending[h]!.answer!.emailConfirmed" class="size-3" aria-hidden="true" /><Mail v-else class="size-3" aria-hidden="true" />
+                {{ pending[h]!.answer!.emailConfirmed ? 'email confirmed' : 'not confirmed yet' }}
+              </span>
             </p>
             <p v-if="waiting(h)" class="mt-1 inline-flex items-center gap-1 text-xs text-wd-amber-800"><Clock class="size-3" aria-hidden="true" /> Waiting for them: {{ waiting(h) }}</p>
           </div>
