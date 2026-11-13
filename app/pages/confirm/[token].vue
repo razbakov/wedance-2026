@@ -145,7 +145,12 @@ async function load() {
     error.value = e?.message || 'This link doesn’t work.'
   }
 }
-onMounted(async () => { await confirmFromEmail(); await load() })
+onMounted(async () => {
+  await confirmFromEmail()
+  await load()
+  // Back from "That's me" and the page is theirs now: straight to editing it, not the question again.
+  if (confirmedNow.value && data.value?.member) step.value = 'edit'
+})
 watch(isSignedIn, () => load())
 
 const pendingFields = computed(() => (data.value?.pending ?? [])
@@ -426,7 +431,7 @@ const fmtDate = (d: string | Date | null, tz?: string | null) => d ? new Date(d)
 
       <template v-else>
         <p v-if="confirmedNow" class="mb-4 flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 p-3 text-sm" role="status">
-          <Check class="size-4 shrink-0 text-primary" aria-hidden="true" /> Confirmed, thank you. {{ data.event?.host?.name || 'The organizer' }} now sees your answer as confirmed{{ data.member ? ', and the page is yours: you’re signed in.' : '.' }}
+          <Check class="size-4 shrink-0 text-primary" aria-hidden="true" /> Confirmed, thank you. {{ data.event?.host?.name || 'The organizer' }} now sees your answer as confirmed{{ data.member ? '. The page is yours and you’re signed in: make it look right below.' : '.' }}
         </p>
         <!-- Done -->
         <section v-if="step === 'done'" class="rounded-2xl border bg-card p-6 text-center shadow-wd-card">
