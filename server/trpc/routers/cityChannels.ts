@@ -10,7 +10,7 @@ import { inviteKey, inviteUrlError, telegramNameOf } from '../../../shared/utils
 import { profileGroup, trackServer } from '../../utils/posthog'
 
 /**
- * City channels (migration 0066) — a city's own WeDance accounts.
+ * City channels (migration 0067) — a city's own WeDance accounts.
  *
  * - WeDance admins pick the city page (an existing business page, e.g. @wedancemunich)
  *   and add the city's admins to its team. Admin → Cities shows every city at once.

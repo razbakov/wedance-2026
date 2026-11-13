@@ -1,7 +1,7 @@
 import { inviteKey, platformOf } from '../../shared/utils/communityGroups'
 
 /**
- * Is a community group's invite link still alive? (city channels, migration 0066)
+ * Is a community group's invite link still alive? (city channels, migration 0067)
  *
  * Only WhatsApp and Telegram invite pages are fetched, and only on their own hosts
  * (never an address someone typed): the public invite page tells.

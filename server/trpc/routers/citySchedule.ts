@@ -16,7 +16,7 @@ import {
 import { profileGroup, trackServer } from '../../utils/posthog'
 
 /**
- * The weekly city schedule (city channels, migration 0066) — what replaced the weekly
+ * The weekly city schedule (city channels, migration 0067) — what replaced the weekly
  * Telegram DM that was copied into @wedancemunich by hand.
  *
  * A city admin opens the week: every live event of the city that week is listed, the

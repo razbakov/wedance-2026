@@ -32,7 +32,7 @@ class FakeDb {
   select(_c: any) {
     return {
       from: (t: any) => {
-        // Rows from before 0066 are ordinary community groups with an unchecked link.
+        // Rows from before 0067 are ordinary community groups with an unchecked link.
         const where = (f: FilterFn) => Promise.resolve(this.tableFor(t).map(r => (t === communityGroups ? { kind: 'community', linkStatus: 'unknown', ...r } : r)).filter(f))
         const q: any = { where }
         q.leftJoin = () => q

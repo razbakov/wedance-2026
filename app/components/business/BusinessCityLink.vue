@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * On a city page's editor (e.g. @wedancemunich): the way to its city tools — weekly post,
- * channels, local groups (city channels, migration 0066). Renders nothing on other pages.
+ * channels, local groups (city channels, migration 0067). Renders nothing on other pages.
  *
  *   <BusinessCityLink :username="loaded.username" />
  */

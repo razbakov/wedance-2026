@@ -308,11 +308,11 @@ export const communityGroups = pgTable('community_groups', {
   styles: json('styles').$type<string[]>().default([]),
   source: text('source'),
   verified: boolean('verified').default(false),
-  // 'pending' = submitted by a dancer, waiting for the city's admins (0066); 'rejected' = declined.
+  // 'pending' = submitted by a dancer, waiting for the city's admins (0067); 'rejected' = declined.
   status: text('status').notNull().default('visible').$type<'visible' | 'hidden' | 'pending' | 'rejected'>(),
   reportCount: integer('report_count').default(0),
   createdAt: timestamp('created_at').defaultNow(),
-  // City channels (migration 0066). 'official' = run by the city's WeDance page (profileId);
+  // City channels (migration 0067). 'official' = run by the city's WeDance page (profileId);
   // 'community' = an organiser's or the scene's own group.
   kind: text('kind').notNull().default('community').$type<'community' | 'official'>(),
   profileId: uuid('profile_id').references(() => profiles.id, { onDelete: 'set null' }),
@@ -332,7 +332,7 @@ export const communityGroups = pgTable('community_groups', {
   index('community_groups_city_status_idx').on(t.citySlug, t.status),
 ])
 
-// The WeDance page that runs a city's own accounts (migration 0066), e.g. @wedancemunich.
+// The WeDance page that runs a city's own accounts (migration 0067), e.g. @wedancemunich.
 // Its team (profile_members) are the city's admins; its Instagram connection is the
 // city's account; its official channels are community_groups rows with kind='official'.
 export const cityPages = pgTable('city_pages', {
@@ -342,7 +342,7 @@ export const cityPages = pgTable('city_pages', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 
-// The weekly "what's on" post of a city (migration 0066): the events picked for the week,
+// The weekly "what's on" post of a city (migration 0067): the events picked for the week,
 // its text (generated until an admin edits it), the rendered picture, and where it went.
 export const citySchedules = pgTable('city_schedules', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -938,6 +938,36 @@ export const eventRsvps = pgTable('event_rsvps', {
   unique('event_rsvps_event_guest').on(t.eventId, t.guestToken),
   index('event_rsvps_event_idx').on(t.eventId),
   check('event_rsvps_dancer_or_guest', sql`num_nonnulls(${t.dancerId}, ${t.guestToken}) >= 1`),
+])
+
+// ---------------------------------------------------------------------------
+// Share my weekend (#527, migration 0066). A dancer shares this week's parties
+// as /w/<code> + an Instagram story; friends tap "I'm in" per party (signed in,
+// or as a guest with a first name) and the sharer is emailed for each new join.
+// ---------------------------------------------------------------------------
+export const weekendShares = pgTable('weekend_shares', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  code: text('code').notNull().unique(),
+  dancerId: uuid('dancer_id').notNull().references(() => dancers.id, { onDelete: 'cascade' }),
+  /** The parties shared, as event ids — a snapshot, so later plan changes don't rewrite a posted story. */
+  eventIds: jsonb('event_ids').$type<string[]>().notNull().default([]),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => [index('weekend_shares_dancer_idx').on(t.dancerId)])
+
+export const weekendShareJoins = pgTable('weekend_share_joins', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  shareId: uuid('share_id').notNull().references(() => weekendShares.id, { onDelete: 'cascade' }),
+  eventId: uuid('event_id').notNull().references(() => events.id, { onDelete: 'cascade' }),
+  dancerId: uuid('dancer_id').references(() => dancers.id, { onDelete: 'cascade' }),
+  guestToken: text('guest_token'),
+  /** First name shown to the sharer and on the page. */
+  name: text('name').notNull().default(''),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => [
+  unique('weekend_share_joins_dancer').on(t.shareId, t.eventId, t.dancerId),
+  unique('weekend_share_joins_guest').on(t.shareId, t.eventId, t.guestToken),
+  index('weekend_share_joins_share_idx').on(t.shareId),
+  check('weekend_share_joins_dancer_or_guest', sql`num_nonnulls(${t.dancerId}, ${t.guestToken}) >= 1`),
 ])
 
 // ---------------------------------------------------------------------------

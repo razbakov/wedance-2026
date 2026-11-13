@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * /admin/cities — every city's own WeDance accounts at once (city channels, migration 0066):
+ * /admin/cities — every city's own WeDance accounts at once (city channels, migration 0067):
  * which business page runs the city (e.g. @wedancemunich), who its admins are, its Instagram,
  * its official channels, its local groups (listed / waiting / dead links) and the last weekly
  * post. Admins set the page and add city admins here; the city's tools live on the page

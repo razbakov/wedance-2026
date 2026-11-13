@@ -670,7 +670,7 @@ watch(selectedStyle, (style) => {
       </WeeklyCalendar>
     </section>
 
-    <!-- THE CITY'S OWN CHANNELS — where the weekly schedule is posted (city channels, 0066) -->
+    <!-- THE CITY'S OWN CHANNELS — where the weekly schedule is posted (city channels, 0067) -->
     <ClientOnly>
       <CityOfficialChannels :city-slug="slug" :city-name="city.name" />
     </ClientOnly>

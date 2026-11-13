@@ -270,7 +270,7 @@ export const PROFILE_REFS: { table: string; col: string; same?: string; notSelf?
   { table: 'gigs', col: 'poster_profile_id' },
   { table: 'gig_applications', col: 'profile_id' },
   { table: 'giveaway_proposals', col: 'profile_id' },
-  // City channels (0066): a city's official channels, and the city it runs (one city per page).
+  // City channels (0067): a city's official channels, and the city it runs (one city per page).
   { table: 'community_groups', col: 'profile_id' },
   { table: 'city_pages', col: 'profile_id', same: 'true', idCol: 'city_slug' },
 ]

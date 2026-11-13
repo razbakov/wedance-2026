@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * The city's official channels (city channels, migration 0066): its Instagram (the page's
+ * The city's official channels (city channels, migration 0067): its Instagram (the page's
  * #501 connection) and the Telegram / WhatsApp / Facebook channels its admins run. They
  * are shown on the city page ("Get the dance week in your feed"); Telegram ones with an
  * @name or chat id also get the weekly post from the WeDance bot ("Check bot").

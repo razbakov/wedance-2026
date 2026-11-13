@@ -1,5 +1,5 @@
 /**
- * The weekly city schedule (city channels, migration 0066): which week, which events
+ * The weekly city schedule (city channels, migration 0067): which week, which events
  * go in by default, and the text posted to Instagram and Telegram. Pure — the server
  * builds drafts with it and the editor previews with it.
  */

@@ -10,7 +10,7 @@ const props = defineProps<{ citySlug: string; cityName?: string }>()
 const { $trpc } = useNuxtApp()
 const { isSignedIn } = useAuth()
 
-// "Share a group" (communityGroup.submit, 0066): signed out → sign in first.
+// "Share a group" (communityGroup.submit, 0067): signed out → sign in first.
 const sharing = ref(false)
 const signIn = ref(false)
 const share = () => { if (isSignedIn.value) sharing.value = true; else signIn.value = true }

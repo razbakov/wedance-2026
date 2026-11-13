@@ -4,7 +4,7 @@ import { cloudinaryKeys } from './rehostImage'
 import type { ScheduleDay } from '../../shared/utils/citySchedule'
 
 /**
- * The weekly schedule as a picture (city channels, migration 0066): a 1080×1350 (4:5)
+ * The weekly schedule as a picture (city channels, migration 0067): a 1080×1350 (4:5)
  * poster, drawn as SVG and rasterised by Cloudinary (f_jpg), so no fonts or browser
  * are needed on the server. Long weeks shrink the type, then end in "+N more".
  */

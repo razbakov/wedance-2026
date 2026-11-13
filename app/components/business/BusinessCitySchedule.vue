@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * The city's weekly post (city channels, migration 0066) — replaces the weekly schedule
+ * The city's weekly post (city channels, migration 0067) — replaces the weekly schedule
  * that arrived as a Telegram DM and was copied into @wedancemunich by hand.
  *
  * Pick the week's events (nights out are picked; weekly classes are not), adjust the

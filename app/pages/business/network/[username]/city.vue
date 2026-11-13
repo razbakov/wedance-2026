@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * /business/network/<handle>/city — the tools of a city page (city channels, migration 0066),
+ * /business/network/<handle>/city — the tools of a city page (city channels, migration 0067),
  * e.g. @wedancemunich: the weekly post, the city's official channels, and the local groups
  * dancers share. For the page's team (the city's admins) and WeDance admins.
  */

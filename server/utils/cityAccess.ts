@@ -4,7 +4,7 @@ import { cityPages, profiles, profileMembers, cities } from '../database/schema'
 import { assertProfileGranted, type Db, type GrantCtx } from './profileAccess'
 
 /**
- * City channels (migration 0066): who runs a city's own WeDance accounts.
+ * City channels (migration 0067): who runs a city's own WeDance accounts.
  *
  * A city has at most one city page (city_pages → a business profile, e.g. @wedancemunich).
  * The page's team are the city's admins: they write and post the weekly schedule,

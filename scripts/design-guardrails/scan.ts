@@ -88,7 +88,9 @@ export function scanFontFamily(files = listAppFiles()) {
 }
 
 const GFONTS_RE = /https:\/\/fonts\.googleapis\.com\/css2?\?[^'"`\s)]+/g
-export const ALLOWED_GOOGLE_FAMILIES = ['Playfair Display', 'Caveat']
+// Anton is back (2026-11-13) for one surface only: the Share-my-weekend Instagram story, a poster drawn
+// on a canvas (app/lib/weekendStory.ts). Never in the UI. Browsers fetch it only where it is used.
+export const ALLOWED_GOOGLE_FAMILIES = ['Playfair Display', 'Caveat', 'Anton']
 
 export function scanGoogleFonts(files = [...listAppFiles(), 'nuxt.config.ts']) {
   const hits: Hit[] = []

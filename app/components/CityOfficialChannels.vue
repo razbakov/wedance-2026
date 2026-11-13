@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * "Get this every week": the city's own WeDance channels (city channels, migration 0066) —
+ * "Get this every week": the city's own WeDance channels (city channels, migration 0067) —
  * the city page's Instagram and its official Telegram / WhatsApp channels, where the weekly
  * schedule is posted. Shown under the city's weekly calendar; hidden when the city has none.
  * Outbound clicks are tracked by plugins/06.outbound-click (object_type city_channel).

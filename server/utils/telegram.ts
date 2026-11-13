@@ -1,5 +1,5 @@
 /**
- * Minimal Telegram Bot API client for city channels (migration 0066): the WeDance bot
+ * Minimal Telegram Bot API client for city channels (migration 0067): the WeDance bot
  * posts a city's weekly schedule to its official Telegram channels and groups.
  *
  * Setup: create the bot with @BotFather, set TELEGRAM_BOT_TOKEN, then add the bot to the

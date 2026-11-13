@@ -1,7 +1,7 @@
 /**
  * Community group invite links (WhatsApp / Telegram / Facebook groups) — one key per
  * group, so the same group submitted twice (with or without www., a trailing slash,
- * a ?mode= query) is found as a duplicate. Mirrors the backfill in migration 0066.
+ * a ?mode= query) is found as a duplicate. Mirrors the backfill in migration 0067.
  */
 export const GROUP_PLATFORMS = ['whatsapp', 'telegram', 'facebook', 'instagram', 'other'] as const
 export type GroupPlatform = typeof GROUP_PLATFORMS[number]

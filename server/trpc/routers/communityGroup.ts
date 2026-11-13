@@ -16,7 +16,7 @@ const MAX_PENDING_PER_DANCER = 15
  * Community groups directory — the cold-start filler for cities where WeDance
  * has no events yet, and the way into the local scene everywhere.
  *
- * Since 0066 it grows with the community: anyone signed in submits a group
+ * Since 0067 it grows with the community: anyone signed in submits a group
  * (`submit` → status 'pending'), the city's admins (its city page team, or WeDance
  * admins) approve or decline it (`pending` / `review`), and `checkLinks` hides
  * groups whose invite link died. Official channels of the city's own WeDance page

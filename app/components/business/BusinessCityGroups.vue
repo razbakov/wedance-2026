@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * The city's local groups for its admins (city channels, migration 0066): groups dancers
+ * The city's local groups for its admins (city channels, migration 0067): groups dancers
  * shared, waiting for review (approve / decline), and the listed ones — with the result
  * of the last invite-link check. "Check links" visits WhatsApp / Telegram invite pages;
  * a dead link is hidden from the city page until it comes back or is shown again.
