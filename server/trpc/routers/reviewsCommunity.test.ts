@@ -14,8 +14,12 @@ vi.mock('drizzle-orm', async () => {
     const jsKey = resolveKey(col)
     return (row) => (jsKey ? row[jsKey] === val : false)
   }
-  const and = (...preds: FilterFn[]): FilterFn => (row) => preds.every(p => p(row))
-  return { eq, and, gt: () => () => false, desc: (x: any) => x, sql: (..._a: any[]) => ({}) }
+  const ne = (col: any, val: any): FilterFn => {
+    const jsKey = resolveKey(col)
+    return (row) => (jsKey ? row[jsKey] !== val : true)
+  }
+  const and = (...preds: FilterFn[]): FilterFn => (row) => preds.filter(Boolean).every(p => p(row))
+  return { eq, ne, and, gt: () => () => false, desc: (x: any) => x, sql: (..._a: any[]) => ({}) }
 })
 
 import { appRouter } from '../index'
@@ -35,7 +39,15 @@ class FakeDb {
   }
 
   select(_c: any) {
-    return { from: (t: any) => ({ where: (f: FilterFn) => Promise.resolve(this.tableFor(t).filter(f)) }) }
+    return {
+      from: (t: any) => {
+        // community_groups rows from before 0066: ordinary groups with an unchecked link.
+        const rows = () => this.tableFor(t).map(r => (t === communityGroups ? { kind: 'community', linkStatus: 'unknown', ...r } : r))
+        const q: any = { where: (f: FilterFn) => Promise.resolve(rows().filter(f)) }
+        q.leftJoin = () => q
+        return q
+      },
+    }
   }
 
   insert(t: any) {

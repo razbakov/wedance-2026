@@ -210,6 +210,8 @@ const photoHint = computed(() => loaded.value?.type === 'artist'
         </Button>
       </AdminPageHeader>
 
+      <BusinessCityLink :username="loaded.username" class="mt-4" />
+
       <AdminState v-if="error" kind="error" :message="error" />
 
       <form novalidate @submit.prevent="save">

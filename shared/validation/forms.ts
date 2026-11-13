@@ -4,6 +4,7 @@
  * the server would reject, with a readable message instead of a zod dump.
  */
 import * as v from 'valibot'
+import { inviteUrlError } from '../utils/communityGroups'
 import { parseInstagramLink } from '../utils/instagram'
 import { DANCE_LEVELS } from '../utils/styleLevelMix'
 import {
@@ -317,12 +318,42 @@ export const FestivalTicketSchema = v.object({ name: requiredText('name is requi
 export const CommunityGroupSchema = v.object({
   citySlug: requiredText('Add the city slug.'),
   name: requiredText('Add the group name.'),
-  platform: v.picklist(['whatsapp', 'telegram', 'facebook', 'other']),
+  platform: v.picklist(['whatsapp', 'telegram', 'facebook', 'instagram', 'other']),
   inviteUrl: webUrl('Add the invite URL.'),
   styles: commaList(),
   source: optionalText(),
   verified: v.boolean(),
 })
+
+// A dancer shares a local group (communityGroup.submit): the link must be that platform's invite link.
+export const SubmitGroupSchema = v.pipe(
+  v.object({
+    name: v.pipe(requiredText('Add the group’s name.'), v.maxLength(120, 'Keep the name under 120 characters.')),
+    platform: v.picklist(['whatsapp', 'telegram', 'facebook', 'other']),
+    inviteUrl: webUrl('Paste the group’s invite link.'),
+    styles: commaList(),
+    description: optionalText(300, 'Keep it under 300 characters.'),
+  }),
+  v.forward(
+    v.check(i => !inviteUrlError(i.platform, i.inviteUrl), 'That isn’t an invite link of this platform.'),
+    ['inviteUrl'],
+  ),
+)
+
+// An official channel of a city's WeDance page (cityChannels.saveChannel).
+export const CityChannelSchema = v.pipe(
+  v.object({
+    name: v.pipe(requiredText('Add the channel’s name.'), v.maxLength(120, 'Keep the name under 120 characters.')),
+    platform: v.picklist(['telegram', 'whatsapp', 'instagram', 'facebook', 'other']),
+    inviteUrl: webUrl('Paste the channel’s link.'),
+    telegramChatId: optionalText(80),
+    description: optionalText(300, 'Keep it under 300 characters.'),
+  }),
+  v.forward(
+    v.check(i => !inviteUrlError(i.platform, i.inviteUrl), 'That link doesn’t match the platform.'),
+    ['inviteUrl'],
+  ),
+)
 
 export const GiveawaySchema = v.pipe(
   v.object({

@@ -3,11 +3,18 @@
  * Community groups (WhatsApp / Telegram / …) for a city — the cold-start
  * directory shown when WeDance has no events there yet. Client-side fetch.
  */
-import { MessageCircle, ArrowUpRight, BadgeCheck, Flag } from 'lucide-vue-next'
+import { MessageCircle, ArrowUpRight, BadgeCheck, Flag, Plus } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
 
 const props = defineProps<{ citySlug: string; cityName?: string }>()
 const { $trpc } = useNuxtApp()
+const { isSignedIn } = useAuth()
+
+// "Share a group" (communityGroup.submit, 0066): signed out → sign in first.
+const sharing = ref(false)
+const signIn = ref(false)
+const share = () => { if (isSignedIn.value) sharing.value = true; else signIn.value = true }
+watch(isSignedIn, (s) => { if (s && signIn.value) { signIn.value = false; sharing.value = true } })
 
 const groups = ref<any[]>([])
 const loading = ref(true)
@@ -51,9 +58,14 @@ const platformLabel: Record<string, string> = {
   <!-- Hidden only while loading; an empty city gets an empty state, not silence. -->
   <section v-if="!loading" class="border-t border-border bg-background/50">
     <div class="max-w-4xl mx-auto px-4 py-12 font-sans">
-      <div class="flex items-center gap-2">
-        <MessageCircle class="w-5 h-5 text-success" aria-hidden="true" />
-        <h2 class="text-2xl font-display text-foreground">Local groups</h2>
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <MessageCircle class="w-5 h-5 text-success" aria-hidden="true" />
+          <h2 class="text-2xl font-display text-foreground">Local groups</h2>
+        </div>
+        <Button type="button" variant="outline-pill" size="pill-sm" data-testid="share-group" @click="share">
+          <Plus aria-hidden="true" /> Share a group
+        </Button>
       </div>
       <p class="mt-1 text-sm text-muted-foreground">
         Community chats where the{{ cityName ? ` ${cityName}` : '' }} scene organises — WhatsApp, Telegram &amp; more. Join the locals.
@@ -71,7 +83,7 @@ const platformLabel: Record<string, string> = {
                   <BadgeCheck v-if="g.verified" class="w-3.5 h-3.5 shrink-0 text-success" aria-label="Verified" />
                 </div>
                 <div class="text-meta mt-0.5 text-secondary">
-                  {{ platformLabel[g.platform] || 'Group' }}<span v-if="g.styles?.length"> · {{ g.styles.join(', ') }}</span>
+                  {{ platformLabel[g.platform] || 'Group' }}<span v-if="g.styles?.length"> · {{ g.styles.join(', ') }}</span><span v-if="g.addedBy"> · added by {{ g.addedBy }}</span>
                 </div>
               </div>
               <ArrowUpRight class="w-4 h-4 shrink-0 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 text-success" aria-hidden="true" />
@@ -97,10 +109,19 @@ const platformLabel: Record<string, string> = {
         <p class="text-sm text-muted-foreground">
           No local groups listed{{ cityName ? ` for ${cityName}` : '' }} yet. Locals usually know the chats where the scene meets.
         </p>
-        <Button as-child variant="link" class="mt-1 h-auto p-0 text-xs font-bold underline">
-          <NuxtLink :to="`/cities/${citySlug}#ask-locals`">Ask the locals</NuxtLink>
-        </Button>
+        <div class="mt-1 flex flex-wrap justify-center gap-x-4">
+          <Button type="button" variant="link" class="h-auto p-0 text-xs font-bold underline" @click="share">Share one you know</Button>
+          <Button as-child variant="link" class="h-auto p-0 text-xs font-bold underline">
+            <NuxtLink :to="`/cities/${citySlug}#ask-locals`">Ask the locals</NuxtLink>
+          </Button>
+        </div>
       </div>
+
+      <p v-if="groups.length" class="mt-4 text-xs text-muted-foreground">
+        Know a group that’s missing? <Button type="button" variant="link" class="h-auto p-0 text-xs font-bold underline align-baseline" @click="share">Share it</Button> — it helps the next dancer find the scene.
+      </p>
     </div>
+    <SubmitGroupDialog v-model:open="sharing" :city-slug="citySlug" :city-name="cityName" />
+    <SignUpModal v-model:open="signIn" action="share_group" />
   </section>
 </template>

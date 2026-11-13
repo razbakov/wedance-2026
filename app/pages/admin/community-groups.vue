@@ -16,12 +16,14 @@ type Group = {
   id: string
   citySlug: string
   name: string
-  platform: 'whatsapp' | 'telegram' | 'facebook' | 'other'
+  platform: 'whatsapp' | 'telegram' | 'facebook' | 'instagram' | 'other'
   inviteUrl: string
   styles: string[]
   source: string | null
   verified: boolean | null
-  status: 'visible' | 'hidden'
+  status: 'visible' | 'hidden' | 'pending' | 'rejected'
+  kind: 'community' | 'official'
+  linkStatus: 'unknown' | 'ok' | 'dead'
   createdAt: string | Date | null
 }
 
@@ -70,18 +72,19 @@ async function submit() {
   }
 }
 
-const platformTone: Record<Group['platform'], 'success' | 'info' | 'neutral' | 'warning'> = { whatsapp: 'success', telegram: 'info', facebook: 'neutral', other: 'warning' }
+const platformTone: Record<Group['platform'], 'success' | 'info' | 'neutral' | 'warning'> = { whatsapp: 'success', telegram: 'info', facebook: 'neutral', instagram: 'neutral', other: 'warning' }
 const platformOptions = [
   { label: 'WhatsApp', value: 'whatsapp' },
   { label: 'Telegram', value: 'telegram' },
   { label: 'Facebook', value: 'facebook' },
+  { label: 'Instagram', value: 'instagram' },
   { label: 'Other', value: 'other' },
 ]
 </script>
 
 <template>
   <div>
-    <AdminPageHeader title="Community groups" description="WhatsApp / Telegram groups shown on city pages.">
+    <AdminPageHeader title="Community groups" description="WhatsApp / Telegram groups shown on city pages. Review submissions per city in Admin → Cities.">
       <Button variant="ghost" size="sm" class="text-secondary" :disabled="loading" @click="load">
         <RotateCcw /> Refresh
       </Button>
@@ -130,7 +133,9 @@ const platformOptions = [
           <AdminStatus tone="info">{{ grp.citySlug }}</AdminStatus>
           <AdminStatus :tone="platformTone[grp.platform] || 'warning'">{{ grp.platform }}</AdminStatus>
           <CheckCircle2 v-if="grp.verified" class="size-3.5 text-success" aria-label="Verified" />
-          <AdminStatus v-if="grp.status === 'hidden'" tone="danger">hidden</AdminStatus>
+          <AdminStatus v-if="grp.status !== 'visible'" :tone="grp.status === 'pending' ? 'warning' : 'danger'">{{ grp.status }}</AdminStatus>
+          <AdminStatus v-if="grp.kind === 'official'" tone="accent">official</AdminStatus>
+          <AdminStatus v-if="grp.linkStatus === 'dead'" tone="danger">dead link</AdminStatus>
         </div>
         <h3 class="mt-1.5 font-display text-base font-bold leading-tight text-foreground">{{ grp.name }}</h3>
         <p v-if="grp.styles?.length" class="text-xs text-muted-foreground">{{ grp.styles.join(' · ') }}</p>
