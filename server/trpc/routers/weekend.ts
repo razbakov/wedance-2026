@@ -140,6 +140,45 @@ async function liveUpcoming(db: Db, ids: string[]): Promise<string[]> {
   return ids.filter(id => ok.has(id))
 }
 
+/**
+ * Put a party on a signed-in friend's plan, as Going! does, and count them as a
+ * confirmed "yes" on the event's poll (an answer they already gave there stays). Best-effort.
+ */
+async function addToPlan(db: Db, dancerId: string, eventId: string) {
+  try {
+    await db.insert(planItems).values({ dancerId, itemType: 'event', itemId: eventId }).onConflictDoNothing()
+    await db.insert(attendances).values({ eventId, dancerId, status: 'going', source: 'click', visibility: 'hidden' }).onConflictDoNothing()
+    await db.insert(eventRsvps).values({ eventId, dancerId, answer: 'yes', confirmedAt: new Date() }).onConflictDoNothing()
+  } catch (e) {
+    console.warn('[weekend] plan add failed', (e as Error)?.message ?? e)
+  }
+}
+
+/**
+ * The magic link came back: this browser's guest joins on the share become
+ * the dancer's own (their account's first name, on their plan), and the
+ * unconfirmed "yes" each one put on the event's poll becomes a confirmed one.
+ */
+async function foldGuestJoins(db: Db, shareId: string, dancerId: string, name: string, token: string): Promise<{ eventId: string; at: number }[]> {
+  const rows = await db
+    .select({ id: weekendShareJoins.id, eventId: weekendShareJoins.eventId, createdAt: weekendShareJoins.createdAt })
+    .from(weekendShareJoins)
+    .where(and(eq(weekendShareJoins.shareId, shareId), isNull(weekendShareJoins.dancerId), eq(weekendShareJoins.guestToken, token)))
+  const now = new Date()
+  for (const r of rows) {
+    await db.delete(weekendShareJoins).where(eq(weekendShareJoins.id, r.id))
+    await db.insert(weekendShareJoins).values({ shareId, eventId: r.eventId, dancerId, name }).onConflictDoNothing()
+    try {
+      await db.delete(eventRsvps).where(and(
+        eq(eventRsvps.eventId, r.eventId), eq(eventRsvps.guestToken, token), isNull(eventRsvps.dancerId), eq(eventRsvps.answer, 'yes')))
+    } catch (e) {
+      console.warn('[weekend] guest rsvp cleanup failed', (e as Error)?.message ?? e)
+    }
+    await addToPlan(db, dancerId, r.eventId)
+  }
+  return rows.map((r: any) => ({ eventId: r.eventId as string, at: r.createdAt ? new Date(r.createdAt).getTime() : now.getTime() }))
+}
+
 export const weekendRouter = router({
   /**
    * Share this week's parties. With no `eventIds`, takes the dancer's
@@ -191,7 +230,10 @@ export const weekendRouter = router({
    * "I'm in" on one party. Signed in: it goes on the friend's plan. Signed
    * out: a first name + this browser's token, and an unconfirmed "yes" on the
    * event's poll (it counts for the organiser like any signed-out answer).
-   * The sharer gets an email the first time each friend joins a party.
+   * Signed in WITH a guest token (the magic link from the reminder sheet came
+   * back): this browser's guest joins on the share are folded into the account
+   * first. The sharer gets an email the first time each friend joins a party —
+   * a confirmation is not a new join.
    */
   join: publicProcedure
     .input(z.object({ code, eventId: z.string().uuid(), name: z.string().max(80).optional(), guestToken: guestToken.optional() }))
@@ -205,18 +247,24 @@ export const weekendRouter = router({
 
       let name: string
       let inserted: any[]
+      // Parties this browser already joined as a guest, now confirmed by the magic link: no second email.
+      let confirmed = new Set<string>()
       if (dancerId) {
         const [me] = await ctx.db.select({ name: dancers.name }).from(dancers).where(eq(dancers.id, dancerId)).limit(1)
         name = firstName(me?.name) || 'A friend'
+        if (input.guestToken) {
+          const folded = await foldGuestJoins(ctx.db, share.id, dancerId, name, input.guestToken)
+          confirmed = new Set(folded.map(f => f.eventId))
+          if (folded.length) {
+            const hours = Math.round((Date.now() - Math.min(...folded.map(f => f.at))) / 360_000) / 10
+            trackServer(ctx, 'weekend_join_confirmed', { parties: folded.length, hours_to_confirm: hours })
+          }
+        }
         inserted = await ctx.db.insert(weekendShareJoins)
           .values({ shareId: share.id, eventId: input.eventId, dancerId, name })
           .onConflictDoNothing().returning({ id: weekendShareJoins.id })
-        try {
-          await ctx.db.insert(planItems).values({ dancerId, itemType: 'event', itemId: input.eventId }).onConflictDoNothing()
-          await ctx.db.insert(attendances).values({ eventId: input.eventId, dancerId, status: 'going', source: 'click', visibility: 'hidden' }).onConflictDoNothing()
-        } catch (e) {
-          console.warn('[weekend] plan add failed', (e as Error)?.message ?? e)
-        }
+        await addToPlan(ctx.db, dancerId, input.eventId)
+        if (confirmed.has(input.eventId)) inserted = []
       } else {
         name = cleanGuestName(input.name)
         if (!input.guestToken) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Missing guest token' })

@@ -2,7 +2,9 @@
 /**
  * Share my weekend (#527) — /w/<code>. The parties a dancer is going to this
  * week. Friends tap "I'm in" (signed out: a first name, saved against this
- * browser) and the sharer is emailed. The sharer — or anyone opening the
+ * browser) and the sharer is emailed. A guest is then asked for an email
+ * (optional): the magic link comes back to ?confirm=<event>&guest=<token>,
+ * signed in, and their guest joins become their account's (on their plan). The sharer — or anyone opening the
  * link with ?story=1, which is what the ChatGPT plugin hands out — gets the
  * Instagram story: made on a canvas here, shared through the phone's share
  * sheet, with the link copied for the link sticker.
@@ -12,6 +14,8 @@ import { Button } from '~/components/ui/button'
 import { sizedImage, IMG } from '#shared/utils/image'
 import { eventLocalDate, eventLocalTime } from '#shared/utils/eventTime'
 import { joinersLine } from '#shared/utils/weekendShare'
+import { isUuid } from '#shared/utils/eventSlug'
+import { RsvpEmailSchema } from '#shared/validation'
 import { drawWeekendStory } from '~/lib/weekendStory'
 
 definePageMeta({ layout: false })
@@ -19,7 +23,8 @@ definePageMeta({ layout: false })
 const route = useRoute()
 const code = String(route.params.code || '').toLowerCase()
 const { $trpc } = useNuxtApp()
-const { isSignedIn } = useAuth()
+const { isSignedIn, requestMagicLink } = useAuth()
+const router = useRouter()
 const { track, trackOnce } = useTrack()
 
 type Plan = NonNullable<Awaited<ReturnType<typeof $trpc.weekend.get.query>>>
@@ -51,6 +56,7 @@ async function refresh() {
 
 onMounted(async () => {
   await refresh()
+  await confirmFromLink()
   if (plan.value) {
     trackOnce(`weekend:${code}`, 'weekend_plan_viewed', {
       own: plan.value.isOwner, parties: plan.value.events.length, friends: plan.value.friends, story: wantsStory.value,
@@ -76,8 +82,37 @@ function day(e: Plan['events'][number]) {
 const busy = ref<string | null>(null)
 const askingName = ref<string | null>(null)
 const showSignIn = ref(false)
-// Signed in from the sheet: ask again so their joins show as theirs.
-watch(isSignedIn, (v) => { if (v) refresh() })
+const confirmedNote = ref(false)
+
+/** The guest's joins become their account's: one signed-in join with the guest token folds them all. */
+async function foldGuest(eventId: string, token: string | undefined) {
+  plan.value = await $trpc.weekend.join.mutate({ code, eventId, guestToken: token })
+  confirmedNote.value = true
+}
+
+// Back from the magic link (?confirm=<event>&guest=<token>, signed in by /auth/verify).
+// The token comes in the link: the email may open in another browser than the tap.
+async function confirmFromLink() {
+  const eventId = String(route.query.confirm || '')
+  const token = String(route.query.guest || '')
+  if (!isSignedIn.value || !isUuid(eventId) || !plan.value || plan.value.isOwner) return
+  try {
+    await foldGuest(eventId, isUuid(token) ? token : guestToken())
+  } catch (e: any) {
+    error.value = e?.message || 'Could not confirm — tap “I’m in” again.'
+  }
+  router.replace({ query: {} })
+}
+
+// Signed in from the sheet: this browser's guest joins become theirs, then show them as theirs.
+watch(isSignedIn, async (v) => {
+  if (!v) return
+  const mine = plan.value?.events.find(e => e.joinedByMe && !e.ended)
+  if (mine && !plan.value?.isOwner) {
+    try { await foldGuest(mine.id, guestToken()); return } catch { /* fall through */ }
+  }
+  refresh()
+})
 const guestName = ref('')
 const error = ref('')
 onMounted(() => { try { guestName.value = localStorage.getItem(NAME_KEY) || '' } catch {} })
@@ -90,7 +125,10 @@ async function join(eventId: string) {
     plan.value = await $trpc.weekend.join.mutate({
       code, eventId, guestToken: guestToken(), name: isSignedIn.value ? undefined : guestName.value.trim(),
     })
-    if (!isSignedIn.value) { try { localStorage.setItem(NAME_KEY, guestName.value.trim()) } catch {} }
+    if (!isSignedIn.value) {
+      try { localStorage.setItem(NAME_KEY, guestName.value.trim()) } catch {}
+      if (!reminderDone.value) { reminderFor.value = eventId; reminderSent.value = false; resetReminder() }
+    }
     askingName.value = null
     track('weekend_joined', { signed_in: isSignedIn.value, surface: 'weekend-page' })
   } catch (e: any) {
@@ -98,6 +136,44 @@ async function join(eventId: string) {
   } finally {
     busy.value = null
   }
+}
+
+// --- After a guest's "I'm in": an email, optional — a reminder and an account ----
+const reminderFor = ref<string | null>(null)
+const reminderSent = ref(false)
+const sendingReminder = ref(false)
+/** Sent or skipped once on this share: don't ask again on the next party. */
+const reminderDone = ref(false)
+const reminderForm = reactive({ email: '' })
+const {
+  errors: reminderErrors, validate: validateReminder, fieldAttrs: reminderAttrs, reset: resetReminder,
+} = useFormValidation(RsvpEmailSchema, reminderForm)
+
+async function sendReminder() {
+  const result = validateReminder()
+  if (!result.success || !reminderFor.value) return
+  sendingReminder.value = true
+  error.value = ''
+  try {
+    const token = guestToken()
+    await requestMagicLink({
+      name: guestName.value.trim() || undefined,
+      email: result.data.email,
+      redirect: `/w/${code}?confirm=${reminderFor.value}${token ? `&guest=${token}` : ''}`,
+    })
+    reminderSent.value = true
+    reminderDone.value = true
+    track('weekend_reminder_requested', { surface: 'weekend-page' })
+  } catch {
+    error.value = 'Couldn’t send the link. Please try again.'
+  } finally {
+    sendingReminder.value = false
+  }
+}
+
+function skipReminder() {
+  reminderFor.value = null
+  reminderDone.value = true
 }
 
 async function leave(eventId: string) {
@@ -309,10 +385,43 @@ useHead(() => ({
               >
               <Button type="submit" size="sm" :disabled="!guestName.trim() || busy === e.id">Join</Button>
             </form>
+            <div
+              v-if="reminderFor === e.id && e.joinedByMe && !isSignedIn"
+              class="mx-3 mb-3 rounded-xl bg-muted/60 p-3 font-sans"
+              data-testid="weekend-reminder"
+            >
+              <template v-if="reminderSent">
+                <p class="text-sm font-bold">Check your email 📬</p>
+                <p class="text-sm text-muted-foreground">Tap the link to confirm — it brings you back here, with the party on your plan.</p>
+              </template>
+              <form v-else novalidate @submit.prevent="sendReminder">
+                <p class="text-sm font-bold">You’re in! Want a reminder?</p>
+                <p class="text-sm text-muted-foreground">We’ll send a link to confirm — no password. You’ll see who else is coming, and the party lands in your plan.</p>
+                <div class="mt-2 flex gap-2">
+                  <label class="sr-only" for="weekend-email">Email</label>
+                  <input
+                    id="weekend-email"
+                    v-model="reminderForm.email"
+                    type="email"
+                    autocomplete="email"
+                    placeholder="you@example.com"
+                    class="flex-1 min-w-0 rounded-lg border px-3 py-2 text-sm bg-background"
+                    data-testid="weekend-email"
+                    v-bind="reminderAttrs('email', 'weekend-email-error')"
+                  >
+                  <Button type="submit" size="sm" :disabled="sendingReminder">
+                    <Loader2 v-if="sendingReminder" class="size-4 animate-spin" /> Send
+                  </Button>
+                </div>
+                <FieldError id="weekend-email-error" :message="reminderErrors.email" />
+                <button type="button" class="mt-1 text-xs text-muted-foreground underline" data-testid="weekend-reminder-skip" @click="skipReminder">No thanks</button>
+              </form>
+            </div>
           </article>
           <p v-if="askingName" class="text-xs text-muted-foreground font-sans">
             So {{ plan.sharer.name }} knows who’s coming. <button type="button" class="underline" @click="showSignIn = true">Sign in</button> to keep it in your plan.
           </p>
+          <p v-if="confirmedNote" role="status" class="text-sm font-sans" data-testid="weekend-confirmed">✅ Confirmed — it’s in your plan now, and {{ plan.sharer.name }} sees it’s you.</p>
           <p v-if="error" role="alert" class="text-sm text-destructive font-sans">{{ error }}</p>
         </section>
 

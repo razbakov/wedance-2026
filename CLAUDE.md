@@ -264,8 +264,10 @@ A dancer shares this week's parties as `/w/<code>` (`weekend_shares`, migration 
 the same parties within 6 days reuse the link) plus a 1080×1920 Instagram story drawn on a canvas in the browser
 (`app/lib/weekendStory.ts`) and shared through the phone's share sheet, the link copied for the link sticker.
 Friends tap "I'm in" per party (`weekend_share_joins`): signed in → it goes on their plan; signed out → a first
-name + the RSVP guest token, mirrored as an unconfirmed "yes" on the event's poll. The sharer gets
-`sendWeekendJoinEmail` per new join. Entry points: My plan → "Share my weekend", MCP `share_my_weekend`
+name + the RSVP guest token, mirrored as an unconfirmed "yes" on the event's poll. After a guest's tap the page offers an
+optional email: a magic link back to `/w/<code>?confirm=<event>&guest=<token>`, which (signed in) folds that
+browser's guest joins into the account — on their plan, confirmed "yes" on the poll, no second email to the
+sharer. Signed-in joins also add a confirmed "yes" on the poll. The sharer gets `sendWeekendJoinEmail` per new join. Entry points: My plan → "Share my weekend", MCP `share_my_weekend`
 (returns `storyUrl` = the link + `?story=1`, which shows the story maker to whoever opens it).
 Code: `server/trpc/routers/weekend.ts`, `shared/utils/weekendShare.ts`, `app/pages/w/[code].vue`.
 No auto-posting: Instagram's publishing API is Business/Creator-only and the Meta app is in dev mode.
@@ -367,6 +369,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `instagram_post_published` | `BusinessContentPlan` "Post to feed" / "Add to story" | `event_id`, `post_kind`, `format`, `to` (feed / story) |
 | `weekend_plan_viewed` | `w/[code].vue` (Share my weekend page, once per mount) | `own`, `parties`, `friends`, `story` (opened with `?story=1`) |
 | `weekend_joined` | `w/[code].vue` "I'm in" | `signed_in`, `surface` |
+| `weekend_reminder_requested` | `w/[code].vue` email step after a guest's "I'm in" (magic link sent) | `surface` |
 | `weekend_story_shared` | `w/[code].vue` story panel | `method` (native / download / copy), `parties` |
 | `problem_report_opened` / `problem_report_submitted` / `problem_report_screenshot` | `ReportProblem` | `type` · `captured` (screenshot) |
 
@@ -412,6 +415,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `server_instagram_post_published` | `instagram.publishPost` | `event_id`, `post_kind`, `format`, `to` (feed / story), `profile`, `$groups` |
 | `server_weekend_shared` | `weekend.share` (new link only; web "Share my weekend" + MCP `share_my_weekend`) | `events`, `replaced_previous` |
 | `server_weekend_joined` | `weekend.join` (a friend's first "I'm in" on a party) | `signed_in`, `coming`, `friends` |
+| `server_weekend_join_confirmed` | `weekend.join` signed in with a guest token (the magic link came back; guest joins folded into the account) | `parties`, `hours_to_confirm` |
 | `server_member_role_set` | `businessTeam.setRole` (role actually changed) | `profile`, `profile_type`, `from_role`, `role`, `self`, `$groups` |
 | `server_mcp_tool_called` | every MCP tool call (`server/mcp/server.ts` `callTool`), signed in or anonymous | `tool`, `result` (ok / error / preview / denied), `error_code`, `client_app` (chatgpt / claude / cursor / … — `server/mcp/caller.ts`; not `app`, which is the project filter), `country` (Vercel geo, ISO-2), `anonymous`, `latency_ms`, `channel: mcp` |
 | `server_account_deleted` | `auth.deleteAccount` — **anonymous**, no person profile | `days_since_signup` |
