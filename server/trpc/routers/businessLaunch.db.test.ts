@@ -5,7 +5,7 @@ import { inArray } from 'drizzle-orm'
 import * as schema from '../../database/schema'
 import { appRouter } from '../index'
 
-// Local Postgres only (test-setup drops a remote DATABASE_URL), with 0067 applied:
+// Local Postgres only (test-setup drops a remote DATABASE_URL), with 0068 applied:
 //   DATABASE_URL=postgresql://dev:dev@localhost:5441/wedance \
 //   NEON_FETCH_ENDPOINT=http://localhost:4444/sql bunx vitest run server/trpc/routers/businessLaunch.db.test.ts
 const DATABASE_URL = process.env.DATABASE_URL

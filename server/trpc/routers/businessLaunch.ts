@@ -18,7 +18,7 @@ import {
  * stages 1–3 (brand, name, channels) as steps with fields, ready-to-paste
  * text, links, evidence and a done tick. Members of the page only.
  *
- * The evidence rule is enforced here and in the database (0067): a "free"
+ * The evidence rule is enforced here and in the database (0068): a "free"
  * verdict needs a link, a name can only be decided once its evidence says
  * free, and proof steps can't be ticked done without a link.
  */

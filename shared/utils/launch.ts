@@ -4,7 +4,7 @@
  * outside WeDance (Google Maps, Instagram, listing sites, a sign at the door),
  * so each step gives ready-to-paste text, a link to the right screen, a place
  * for evidence and a done tick. The catalogue is code; the organiser's answers
- * live in `launch_steps` / `launch_names` / `launch_evidence` (migration 0067).
+ * live in `launch_steps` / `launch_names` / `launch_evidence` (migration 0068).
  *
  * Rules that came out of the chat this was built from (2026-11-12):
  * - Never show a check result without evidence: a name is "free" only when an
