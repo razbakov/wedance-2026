@@ -5,7 +5,7 @@ import { sizedImage, IMG } from '#shared/utils/image'
  * photo used on cards and flyers), links (with the business's other Instagram accounts),
  * venue details for venues, its handle, and duplicates to merge into this page.
  */
-import { ExternalLink, Star, Trash2, Check, Users, Palette, Inbox, Globe, Contact, X } from 'lucide-vue-next'
+import { ExternalLink, Star, Trash2, Check, Users, Palette, Inbox, Globe, Contact, X, Rocket } from 'lucide-vue-next'
 import { parseInstagramHandle } from '#shared/utils/instagram'
 import type { VenueDetailsValue } from '~/components/business/BusinessVenueDetails.vue'
 import type { Room } from '~/components/business/BusinessVenueRooms.vue'
@@ -192,6 +192,9 @@ const photoHint = computed(() => loaded.value?.type === 'artist'
       >
         <Button v-if="loaded.type !== 'organizer'" variant="outline-pill" size="pill-sm" as-child>
           <NuxtLink :to="`/business/network/${loaded.username}/bookings`"><Inbox /> Bookings</NuxtLink>
+        </Button>
+        <Button variant="outline-pill" size="pill-sm" as-child>
+          <NuxtLink :to="`/business/network/${loaded.username}/launch`"><Rocket /> Launch</NuxtLink>
         </Button>
         <Button variant="outline-pill" size="pill-sm" as-child>
           <NuxtLink :to="`/business/network/${loaded.username}/team`"><Users /> Team</NuxtLink>

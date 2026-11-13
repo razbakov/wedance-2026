@@ -34,6 +34,7 @@ import { inquiriesRouter } from './routers/inquiries'
 import { businessPostsRouter } from './routers/businessPosts'
 import { instagramRouter } from './routers/instagram'
 import { businessLooksRouter } from './routers/businessLooks'
+import { businessLaunchRouter } from './routers/businessLaunch'
 import { businessSiteRouter } from './routers/businessSite'
 import { businessTeamRouter } from './routers/businessTeam'
 import { businessNetworkRouter } from './routers/businessNetwork'
@@ -81,6 +82,7 @@ export const appRouter = router({
   businessPosts: businessPostsRouter,
   instagram: instagramRouter,
   businessLooks: businessLooksRouter,
+  businessLaunch: businessLaunchRouter,
   businessSite: businessSiteRouter,
   businessTeam: businessTeamRouter,
   businessNetwork: businessNetworkRouter,

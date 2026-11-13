@@ -1699,3 +1699,53 @@ export const giveawayProposals = pgTable('giveaway_proposals', {
   index('giveaway_proposals_event_idx').on(t.eventId, t.status),
   index('giveaway_proposals_profile_idx').on(t.profileId),
 ])
+
+// Launch workspace (migration 0067): Business → page → Launch. The step
+// catalogue is code (shared/utils/launch.ts); these hold the organiser's answers.
+export const launchSteps = pgTable('launch_steps', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
+  stepKey: text('step_key').notNull(),
+  status: text('status').notNull().default('todo').$type<'todo' | 'doing' | 'done'>(),
+  // The step's fields (and `link:<i>` overrides of its default links).
+  fields: jsonb('fields').$type<Record<string, string>>().notNull().default({}),
+  // The organiser's edits of the ready-to-paste texts, by copy key. Absent = the draft.
+  copy: jsonb('copy').$type<Record<string, string>>().notNull().default({}),
+  doneAt: timestamp('done_at'),
+  updatedBy: uuid('updated_by').references(() => dancers.id, { onDelete: 'set null' }),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex('launch_steps_profile_step').on(t.profileId, t.stepKey),
+])
+
+export const launchNames = pgTable('launch_names', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  // candidate · chosen (at most one per profile) · dropped
+  decision: text('decision').notNull().default('candidate').$type<'candidate' | 'chosen' | 'dropped'>(),
+  note: text('note').notNull().default(''),
+  createdBy: uuid('created_by').references(() => dancers.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => [
+  index('launch_names_profile_idx').on(t.profileId),
+])
+
+// Evidence: a link and/or note that proves a check — for a name candidate
+// (verdict free/taken/unclear) or for a step (the live listing, the profile…).
+export const launchEvidence = pgTable('launch_evidence', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
+  stepKey: text('step_key').notNull(),
+  nameId: uuid('name_id').references(() => launchNames.id, { onDelete: 'cascade' }),
+  source: text('source').notNull().default(''),
+  url: text('url'),
+  verdict: text('verdict').$type<'free' | 'taken' | 'unclear'>(),
+  note: text('note').notNull().default(''),
+  // manual · instagram-check (automated)
+  via: text('via').notNull().default('manual'),
+  createdBy: uuid('created_by').references(() => dancers.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => [
+  index('launch_evidence_profile_idx').on(t.profileId, t.stepKey),
+])

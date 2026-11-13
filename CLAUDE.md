@@ -368,6 +368,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `app_connected` | `oauth/authorize.vue` | `scopes`, `business` |
 | `ai_app_cta_click` | `AiAppCta` ("Use WeDance in ChatGPT": docs connect-ai, Settings → Connected apps, new event, Business dashboard, for-organizers, my-plan) | `app` (chatgpt), `surface` (docs_connect_ai / settings_connections / business_event_new / business_dashboard_empty / business_dashboard_needs / for_organizers / my_plan) |
 | `instagram_connect_started` | `BusinessInstagram` (Business → page → Instagram, before Meta's dialog) | `profile`, `reconnect` |
+| `launch_step_completed` | `BusinessLaunchStep` (Business → page → Launch, "Mark done") | `profile`, `step`, `stage` |
 | `instagram_post_published` | `BusinessContentPlan` "Post to feed" / "Add to story" | `event_id`, `post_kind`, `format`, `to` (feed / story) |
 | `weekend_plan_viewed` | `w/[code].vue` (Share my weekend page, once per mount) | `own`, `parties`, `friends`, `story` (opened with `?story=1`) |
 | `weekend_joined` | `w/[code].vue` "I'm in" | `signed_in`, `surface` |
@@ -418,6 +419,8 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `server_weekend_shared` | `weekend.share` (new link only; web "Share my weekend" + MCP `share_my_weekend`) | `events`, `replaced_previous` |
 | `server_weekend_joined` | `weekend.join` (a friend's first "I'm in" on a party) | `signed_in`, `coming`, `friends` |
 | `server_weekend_join_confirmed` | `weekend.join` signed in with a guest token (the magic link came back; guest joins folded into the account) | `parties`, `hours_to_confirm` |
+| `server_launch_step_completed` | `businessLaunch.setStatus` (a step first ticked done) | `profile`, `profile_type`, `step`, `stage`, `$groups` |
+| `server_launch_name_decided` | `businessLaunch.decideName` (a name chosen — needs evidence that it's free) | `profile`, `profile_type`, `candidates`, `$groups` |
 | `server_member_role_set` | `businessTeam.setRole` (role actually changed) | `profile`, `profile_type`, `from_role`, `role`, `self`, `$groups` |
 | `server_mcp_tool_called` | every MCP tool call (`server/mcp/server.ts` `callTool`), signed in or anonymous | `tool`, `result` (ok / error / preview / denied), `error_code`, `client_app` (chatgpt / claude / cursor / … — `server/mcp/caller.ts`; not `app`, which is the project filter), `country` (Vercel geo, ISO-2), `anonymous`, `latency_ms`, `channel: mcp` |
 | `server_account_deleted` | `auth.deleteAccount` — **anonymous**, no person profile | `days_since_signup` |
