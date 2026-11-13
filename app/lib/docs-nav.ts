@@ -42,6 +42,12 @@ export const hubNav: DocSection[] = [
     ],
   },
   {
+    title: 'Product',
+    items: [
+      { title: 'UX map', to: '/docs/ux-map', status: 'beta', summary: 'Every user journey, stage by stage: what is live, partial, missing.' },
+    ],
+  },
+  {
     title: 'Sections',
     items: [
       { title: 'Design system', to: '/docs/design', status: 'stable', summary: 'Tokens, components and patterns.' },
