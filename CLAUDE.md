@@ -262,7 +262,8 @@ asset Instagram account (required), permissions `instagram_basic`, `instagram_co
 
 A dancer shares this week's parties as `/w/<code>` (`weekend_shares`, migration 0066 — a snapshot of event ids;
 the same parties within 6 days reuse the link) plus a 1080×1920 Instagram story drawn on a canvas in the browser
-(`app/lib/weekendStory.ts`) and shared through the phone's share sheet, the link copied for the link sticker.
+(`app/lib/weekendStory.ts` — type-led, no photos: flyers are too busy; coloured by dance family; a short line of
+our own per style from `shared/utils/storyLines.ts`, which the sharer can shuffle or rewrite) and shared through the phone's share sheet, the link copied for the link sticker.
 Friends tap "I'm in" per party (`weekend_share_joins`): signed in → it goes on their plan; signed out → a first
 name + the RSVP guest token, mirrored as an unconfirmed "yes" on the event's poll. After a guest's tap the page offers an
 optional email: a magic link back to `/w/<code>?confirm=<event>&guest=<token>`, which (signed in) folds that
@@ -370,7 +371,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `weekend_plan_viewed` | `w/[code].vue` (Share my weekend page, once per mount) | `own`, `parties`, `friends`, `story` (opened with `?story=1`) |
 | `weekend_joined` | `w/[code].vue` "I'm in" | `signed_in`, `surface` |
 | `weekend_reminder_requested` | `w/[code].vue` email step after a guest's "I'm in" (magic link sent) | `surface` |
-| `weekend_story_shared` | `w/[code].vue` story panel | `method` (native / download / copy), `parties` |
+| `weekend_story_shared` | `w/[code].vue` story panel | `method` (native / download / copy), `parties`, `own_line` (the sharer wrote their own line) |
 | `problem_report_opened` / `problem_report_submitted` / `problem_report_screenshot` | `ReportProblem` | `type` · `captured` (screenshot) |
 
 ### Server events (`trackServer`, all prefixed `server_`)

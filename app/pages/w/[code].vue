@@ -9,7 +9,7 @@
  * Instagram story: made on a canvas here, shared through the phone's share
  * sheet, with the link copied for the link sticker.
  */
-import { ArrowRight, Check, Copy, Download, Instagram, Loader2, Share2 } from 'lucide-vue-next'
+import { ArrowRight, Check, Copy, Download, Instagram, Loader2, Share2, Shuffle } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
 import { sizedImage, IMG } from '#shared/utils/image'
 import { eventLocalDate, eventLocalTime } from '#shared/utils/eventTime'
@@ -17,6 +17,7 @@ import { joinersLine } from '#shared/utils/weekendShare'
 import { isUuid } from '#shared/utils/eventSlug'
 import { RsvpEmailSchema } from '#shared/validation'
 import { drawWeekendStory } from '~/lib/weekendStory'
+import { STORY_LINE_MAX, cleanStoryLine, pickStoryLine } from '#shared/utils/storyLines'
 
 definePageMeta({ layout: false })
 
@@ -191,14 +192,28 @@ const storyUrl = ref('')
 const making = ref(false)
 const copied = ref(false)
 const canShareFiles = ref(false)
+const storyParties = computed(() => (upcoming.value.length ? upcoming.value : plan.value?.events) ?? [])
+
+// The line under the headline: one of ours for the first party's style, shuffled or rewritten by the sharer.
+const storyLine = ref('')
+const lineIsOwn = ref(false)
+function shuffleLine() {
+  storyLine.value = pickStoryLine(storyParties.value, storyLine.value)
+  lineIsOwn.value = false
+}
+/** A change while a story is being drawn: draw again once it's done. */
+let redraw = false
 
 async function makeStory() {
-  if (!plan.value || making.value) return
+  if (!plan.value) return
+  if (making.value) { redraw = true; return }
+  if (!storyLine.value && !lineIsOwn.value) storyLine.value = pickStoryLine(storyParties.value)
   making.value = true
   try {
     storyBlob.value = await drawWeekendStory({
       sharerName: plan.value.sharer.name,
-      parties: upcoming.value.length ? upcoming.value : plan.value.events,
+      line: cleanStoryLine(storyLine.value),
+      parties: storyParties.value,
       link: plan.value.url,
     })
     if (storyUrl.value) URL.revokeObjectURL(storyUrl.value)
@@ -209,9 +224,16 @@ async function makeStory() {
     console.warn('[weekend] story failed', e)
   } finally {
     making.value = false
+    if (redraw) { redraw = false; makeStory() }
   }
 }
 watch(showStory, (v) => { if (v && !storyBlob.value) makeStory() })
+let lineTimer: ReturnType<typeof setTimeout> | undefined
+watch(storyLine, () => {
+  if (!storyBlob.value) return
+  clearTimeout(lineTimer)
+  lineTimer = setTimeout(makeStory, 350)
+})
 onBeforeUnmount(() => { if (storyUrl.value) URL.revokeObjectURL(storyUrl.value) })
 
 async function copyLink(silent = false) {
@@ -220,7 +242,7 @@ async function copyLink(silent = false) {
     await navigator.clipboard.writeText(plan.value.url)
     copied.value = true
     setTimeout(() => { copied.value = false }, 2500)
-    if (!silent) track('weekend_story_shared', { method: 'copy', parties: plan.value.events.length })
+    if (!silent) track('weekend_story_shared', { method: 'copy', parties: plan.value.events.length, own_line: lineIsOwn.value })
   } catch { /* no clipboard */ }
 }
 
@@ -231,7 +253,7 @@ async function shareStory() {
   const file = new File([storyBlob.value], 'wedance-weekend.png', { type: 'image/png' })
   try {
     await navigator.share({ files: [file] })
-    track('weekend_story_shared', { method: 'native', parties: plan.value.events.length })
+    track('weekend_story_shared', { method: 'native', parties: plan.value.events.length, own_line: lineIsOwn.value })
   } catch { /* cancelled */ }
 }
 
@@ -242,7 +264,7 @@ function downloadStory() {
   a.download = 'wedance-weekend.png'
   a.click()
   copyLink(true)
-  track('weekend_story_shared', { method: 'download', parties: plan.value.events.length })
+  track('weekend_story_shared', { method: 'download', parties: plan.value.events.length, own_line: lineIsOwn.value })
 }
 
 useHead(() => ({
@@ -312,6 +334,25 @@ useHead(() => ({
                 </Button>
               </div>
             </div>
+          </div>
+          <div class="mt-4 font-sans" data-testid="weekend-line">
+            <label for="weekend-line" class="text-xs font-bold uppercase tracking-wider text-muted-foreground">Your line</label>
+            <div class="mt-1 flex gap-2">
+              <input
+                id="weekend-line"
+                v-model="storyLine"
+                type="text"
+                :maxlength="STORY_LINE_MAX"
+                :placeholder="storyParties[0]?.venueName ? `Who’s coming to ${storyParties[0].venueName}?` : `Who’s coming?`"
+                class="flex-1 min-w-0 rounded-lg border px-3 py-2 text-sm bg-background"
+                data-testid="weekend-line-input"
+                @input="lineIsOwn = true"
+              >
+              <Button type="button" size="sm" variant="outline" title="Another line" data-testid="weekend-line-shuffle" @click="shuffleLine">
+                <Shuffle class="size-4" /> Another
+              </Button>
+            </div>
+            <p class="mt-1 text-xs text-muted-foreground">Write your own — a question gets the most replies.</p>
           </div>
           <p v-if="plan.isOwner" class="mt-3 text-sm font-sans" data-testid="weekend-friends">
             <template v-if="plan.friends">🎉 <b>{{ plan.friends }} friend{{ plan.friends === 1 ? '' : 's' }}</b> joined so far.</template>
