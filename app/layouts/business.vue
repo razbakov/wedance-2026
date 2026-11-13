@@ -4,6 +4,7 @@
  * managing their profiles). Mirrors the admin layout. Gate is signed-in only;
  * every page and procedure checks profile membership itself.
  */
+import { profileRoute, switchTarget } from '~/lib/business-route'
 import { Home, CalendarDays, UserSquare, LogIn, Eye, X, Globe, Contact } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -40,6 +41,20 @@ function stopViewing() {
 watch(showSignIn, (open) => { if (!open) check() })
 // Re-read after creating/claiming a profile (the editor route changes).
 watch(() => route.path, (p, old) => { if (state.value === 'ok' && old?.startsWith('/business/new')) check() })
+
+// The switcher and /business/network/<handle>/… stay in step (app/lib/business-route.ts),
+// only for profiles I manage — an admin viewing someone else's page leaves the switcher alone.
+const managesHandle = (h: string) => managed.value.some(p => p.username === h)
+watch([() => route.path, managed], ([p]) => {
+  const r = profileRoute(p)
+  if (r && managesHandle(r.handle) && businessProfile.value !== r.handle) businessProfile.value = r.handle
+}, { immediate: true })
+watch(businessProfile, (profile) => {
+  const r = profileRoute(route.path)
+  if (!r || !managesHandle(r.handle)) return
+  const to = switchTarget(route.path, profile)
+  if (to) navigateTo(to)
+})
 
 const switcherOptions = computed(() => [
   { label: 'All my profiles', value: '' },
