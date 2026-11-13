@@ -58,7 +58,7 @@ function pickGap(g: BpGap) {
     eyebrow="Product · Blueprint"
     site="WeDance Docs"
     title="Event setup"
-    lead="How an event gets made, from the organiser’s first draft to the night, drawn lane by lane. Every row is someone who has to act; every marker is a place where someone waits, carries a link by hand, or never hears about a change."
+    lead="How an event gets made, from getting the organiser’s page to the night, drawn lane by lane. Every row is someone who has to act; every marker is a place where someone waits, carries a link by hand, or never hears about a change."
   >
     <DesignSection id="legend" title="How to read it">
       <div class="grid gap-4 sm:grid-cols-2">
@@ -89,7 +89,7 @@ function pickGap(g: BpGap) {
     </DesignSection>
 
     <DesignSection id="friction" title="Friction by phase">
-      <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
+      <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4">
         <div v-for="f in friction" :key="f.key" class="space-y-1.5">
           <div class="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{{ f.label }}</div>
           <div
@@ -114,7 +114,7 @@ function pickGap(g: BpGap) {
         <button type="button" class="rounded border border-border px-2 py-0.5" @click="gapFocus = null">Show all</button>
       </div>
       <div class="overflow-x-auto rounded-xl border border-border">
-        <table class="w-full min-w-[1200px] border-collapse text-sm">
+        <table class="w-full min-w-[1350px] border-collapse text-sm">
           <thead>
             <tr class="bg-muted/50">
               <th scope="col" class="w-36 p-2 text-left text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Who</th>
