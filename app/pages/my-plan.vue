@@ -995,6 +995,22 @@ function shortDayDate(iso: string): string {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' })
 }
 
+// Share my weekend (#527): this week's parties → /w/<code> with the story maker.
+const sharingWeekend = ref(false)
+const shareWeekendError = ref('')
+async function shareWeekend() {
+  sharingWeekend.value = true
+  shareWeekendError.value = ''
+  try {
+    const r = await $trpc.weekend.share.mutate()
+    await navigateTo(`/w/${r.code}`)
+  } catch (e: any) {
+    shareWeekendError.value = e?.message || 'Could not make the link — try again.'
+  } finally {
+    sharingWeekend.value = false
+  }
+}
+
 async function loadWeekSocials() {
   if (previewMode.value || !isSignedIn.value) return
   try {
@@ -2555,13 +2571,26 @@ function cardSummary(f: CatalogueEntry) {
               Where you're <em class="italic text-primary">dancing.</em>
             </h2>
           </div>
-          <NuxtLink
-            :to="citySocialsLink"
-            class="text-xs italic hover:underline text-secondary font-display"
-          >
-            Full week →
-          </NuxtLink>
+          <div class="flex items-center gap-3">
+            <button
+              v-if="isSignedIn && !previewMode && upcomingSocials.length"
+              type="button"
+              class="inline-flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full bg-primary text-primary-foreground font-sans disabled:opacity-60"
+              :disabled="sharingWeekend"
+              data-testid="share-weekend"
+              @click="shareWeekend"
+            >
+              <Sparkles class="w-3.5 h-3.5" aria-hidden="true" /> Share my weekend
+            </button>
+            <NuxtLink
+              :to="citySocialsLink"
+              class="text-xs italic hover:underline text-secondary font-display"
+            >
+              Full week →
+            </NuxtLink>
+          </div>
         </div>
+        <p v-if="shareWeekendError" role="alert" class="mb-2 text-xs text-destructive font-sans">{{ shareWeekendError }}</p>
 
         <div v-if="removedSocial" class="mb-2 flex items-center gap-2 text-xs text-muted-foreground font-sans" role="status">
           Removed {{ removedSocial.name }} from your plan.

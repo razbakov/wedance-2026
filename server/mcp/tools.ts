@@ -456,6 +456,15 @@ export const TOOLS: ToolDef[] = [
     run: (t, a) => t.caller.plan.setShareGoing({ itemType: a.kind, itemId: a.id, share: a.share }),
   },
   {
+    name: 'share_my_weekend', title: 'Share my weekend', scopes: ['plan:write'], annotations: IDEMPOTENT,
+    description: 'Turn the parties the dancer is going to this week into a link friends can join (“I’m in” per party) and an Instagram story. Add the parties with add_to_plan first; with no event_ids it shares every party in the dancer’s plan for the next 7 days. Give the user storyUrl: opening it on their phone makes the story image and opens the share sheet (Instagram → Story); url goes on the story’s link sticker. The dancer gets an email when a friend joins. Sharing the same parties again returns the same link.',
+    input: { event_ids: z.array(z.string().uuid()).min(1).max(6).optional().describe('Only these parties (event ids from find_events / my_plan). Leave out for the whole week.') },
+    run: async (t, a) => {
+      const r = await t.caller.weekend.share(a.event_ids ? { eventIds: a.event_ids } : undefined)
+      return { ...r, storyUrl: `${r.url}?story=1` }
+    },
+  },
+  {
     name: 'festival_join', title: 'Join a festival', scopes: ['plan:write'], annotations: IDEMPOTENT,
     description: 'Sign the dancer up for a festival on WeDance (free signup, separate from buying a ticket).',
     input: { festival },

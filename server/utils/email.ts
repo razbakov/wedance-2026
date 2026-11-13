@@ -487,3 +487,34 @@ export async function sendGigDecisionEmail(params: { to: string; name: string; g
     </div>`,
   })
 }
+
+/** Share my weekend (#527): a friend tapped "I'm in" on a party the dancer shared. */
+export async function sendWeekendJoinEmail(params: {
+  to: string
+  name: string
+  joiner: string
+  eventName: string
+  when: string
+  coming: string[]
+  link: string
+}) {
+  const config = useRuntimeConfig()
+  const subject = `${params.joiner} is coming with you to ${params.eventName}`
+  if (!config.resendApiKey) {
+    console.log(`\n✉️  ${params.to}: ${subject} → ${params.link}\n`)
+    return
+  }
+  const others = params.coming.filter(n => n !== params.joiner)
+  await getResend().emails.send({
+    from: config.resendFromEmail || 'WeDance <noreply@wedance.vip>',
+    to: params.to,
+    subject,
+    html: `<div style="font-family: sans-serif; max-width: 460px; margin: 0 auto; padding: 20px;">
+      <h2 style="color: #333;">${escapeHtml(params.joiner)} is in 💃</h2>
+      <p>Hey ${escapeHtml(params.name)}!</p>
+      <p style="color: #555;">${escapeHtml(params.joiner)} tapped “I’m in” on your weekend plan: <strong>${escapeHtml(params.eventName)}</strong>${params.when ? `, ${escapeHtml(params.when)}` : ''}.</p>
+      ${others.length ? `<p style="color: #555;">Also coming: ${escapeHtml(others.join(', '))}.</p>` : ''}
+      <a href="${params.link}" style="display: inline-block; background: #000; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">See your weekend</a>
+    </div>`,
+  })
+}

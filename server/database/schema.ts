@@ -884,6 +884,36 @@ export const eventRsvps = pgTable('event_rsvps', {
 ])
 
 // ---------------------------------------------------------------------------
+// Share my weekend (#527, migration 0066). A dancer shares this week's parties
+// as /w/<code> + an Instagram story; friends tap "I'm in" per party (signed in,
+// or as a guest with a first name) and the sharer is emailed for each new join.
+// ---------------------------------------------------------------------------
+export const weekendShares = pgTable('weekend_shares', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  code: text('code').notNull().unique(),
+  dancerId: uuid('dancer_id').notNull().references(() => dancers.id, { onDelete: 'cascade' }),
+  /** The parties shared, as event ids — a snapshot, so later plan changes don't rewrite a posted story. */
+  eventIds: jsonb('event_ids').$type<string[]>().notNull().default([]),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => [index('weekend_shares_dancer_idx').on(t.dancerId)])
+
+export const weekendShareJoins = pgTable('weekend_share_joins', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  shareId: uuid('share_id').notNull().references(() => weekendShares.id, { onDelete: 'cascade' }),
+  eventId: uuid('event_id').notNull().references(() => events.id, { onDelete: 'cascade' }),
+  dancerId: uuid('dancer_id').references(() => dancers.id, { onDelete: 'cascade' }),
+  guestToken: text('guest_token'),
+  /** First name shown to the sharer and on the page. */
+  name: text('name').notNull().default(''),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => [
+  unique('weekend_share_joins_dancer').on(t.shareId, t.eventId, t.dancerId),
+  unique('weekend_share_joins_guest').on(t.shareId, t.eventId, t.guestToken),
+  index('weekend_share_joins_share_idx').on(t.shareId),
+  check('weekend_share_joins_dancer_or_guest', sql`num_nonnulls(${t.dancerId}, ${t.guestToken}) >= 1`),
+])
+
+// ---------------------------------------------------------------------------
 // Dancer goals (ADR-009, migration 0044). Goals were stored as plan_items with
 // item_type='goal' and the goal itself in metadata. Now they have their own
 // table with typed columns.
