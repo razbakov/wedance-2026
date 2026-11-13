@@ -273,6 +273,11 @@ export const PROFILE_REFS: { table: string; col: string; same?: string; notSelf?
   // City channels (0067): a city's official channels, and the city it runs (one city per page).
   { table: 'community_groups', col: 'profile_id' },
   { table: 'city_pages', col: 'profile_id', same: 'true', idCol: 'city_slug' },
+  // Launch workspace (0068): the kept page's own step wins; one chosen name per page.
+  { table: 'launch_steps', col: 'profile_id', same: 'x.step_key = t.step_key' },
+  { table: 'launch_names', col: 'profile_id', same: `x.decision = 'chosen' and t.decision = 'chosen'` },
+  // Evidence of a name that stayed on the copy stays with it (a chosen name always has evidence).
+  { table: 'launch_evidence', col: 'profile_id', same: 't.name_id is not null and exists (select 1 from launch_names n where n.id = t.name_id and n.profile_id <> x.profile_id)' },
 ]
 /**
  * The PROFILE_REFS that exist in this database. Some tables in the schema were
