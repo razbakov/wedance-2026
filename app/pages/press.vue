@@ -153,8 +153,7 @@ useHead({
           WeDance is run in the open, governed by Sociocracy 3.0 — decisions, roles, and how the organisation works are documented publicly rather than kept behind closed doors.
         </p>
         <a
-          href="https://org.wedance.vip"
-          target="_blank" rel="noopener"
+          href="/docs/organization"
           class="mt-4 inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-wd-green-600 font-sans"
          
         >
