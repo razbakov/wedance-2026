@@ -2996,6 +2996,12 @@ function cardSummary(f: CatalogueEntry) {
       </div>
     </section>
 
+    <section v-if="isSignedIn" class="max-w-4xl mx-auto px-4 pb-10 text-center font-sans">
+      <AiAppCta surface="my_plan" variant="inline" label="Plan your weekend in ChatGPT">
+        Rather ask than scroll?
+      </AiAppCta>
+    </section>
+
     </main>
 
     <SiteFooter />

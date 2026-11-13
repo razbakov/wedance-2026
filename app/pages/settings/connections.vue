@@ -71,6 +71,7 @@ const fmt = (d: Date | string | null) => d ? new Date(d).toLocaleString('en-GB',
         <Plug class="mx-auto w-8 h-8 text-muted-foreground" aria-hidden="true" />
         <p class="mt-2 text-sm font-bold text-foreground">No apps connected</p>
         <p class="mt-1 text-xs text-muted-foreground">Add WeDance to Claude or ChatGPT and it shows up here.</p>
+        <AiAppCta surface="settings_connections" variant="inline" label="Add WeDance to ChatGPT" class="mt-4" />
       </div>
 
       <ul v-else-if="rows" class="mt-8 space-y-4">

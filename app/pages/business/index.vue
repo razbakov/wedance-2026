@@ -36,6 +36,7 @@ onMounted(load)
 watch(businessProfile, load)
 
 const toneOf: Record<string, 'warning' | 'info' | 'danger' | 'neutral'> = { draft: 'warning', missing: 'warning', claim: 'neutral', join: 'info' }
+const missingCount = computed(() => data.value?.needs.filter(n => n.kind === 'missing' || n.kind === 'draft').length ?? 0)
 const kindLabel: Record<string, string> = { draft: 'Draft', missing: 'Missing details', claim: 'Claim', join: 'Join request', booking: 'Booking' }
 
 function dayLabel(iso: string | Date, tz: string | null) {
@@ -85,7 +86,10 @@ function dayLabel(iso: string | Date, tz: string | null) {
           <p v-if="!data.needs.length" class="mt-3 rounded-2xl border bg-card p-4 text-sm text-muted-foreground">
             Nothing waiting. Your events have everything they need.
           </p>
-          <div v-else class="mt-3 grid grid-cols-[minmax(0,1fr)] gap-2">
+          <AiAppCta v-if="missingCount >= 2" surface="business_dashboard_needs" variant="inline" label="Fill them in from ChatGPT" class="mt-3">
+            Several events missing details?
+          </AiAppCta>
+          <div v-if="data.needs.length" class="mt-3 grid grid-cols-[minmax(0,1fr)] gap-2">
             <NuxtLink
               v-for="n in data.needs"
               :key="n.title + n.to"
@@ -111,6 +115,9 @@ function dayLabel(iso: string | Date, tz: string | null) {
             Nothing in the next two weeks.
             <NuxtLink to="/business/events/new" class="font-bold text-wd-red-800 hover:underline">Add an event</NuxtLink>
           </div>
+          <AiAppCta v-if="!data.comingUp.length" surface="business_dashboard_empty" title="Set up your next event from a chat" class="mt-2">
+            Paste your announcement into ChatGPT and ask it to put the event on WeDance: venue, line-up and flyer included.
+          </AiAppCta>
           <div v-else class="mt-3 grid grid-cols-[minmax(0,1fr)] gap-2">
             <NuxtLink
               v-for="e in data.comingUp"

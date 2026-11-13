@@ -117,6 +117,9 @@ async function create(v: BusinessEventValues) {
         <p v-if="importing" class="mt-2 text-xs text-muted-foreground" role="status">This takes up to a minute.</p>
         <AdminState v-if="importError" kind="error" :message="importError" class="mt-3" />
       </form>
+      <AiAppCta surface="business_event_new" title="Or do it in ChatGPT" class="mt-3">
+        Paste your announcement and ask ChatGPT to put it on WeDance. It sets up the venue, the line-up and the flyer, and shows you the event before anything goes public.
+      </AiAppCta>
       <p class="mt-6 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">or fill it in yourself</p>
       <BusinessEventForm class="mt-3" mode="create" :hosts="hosts" :initial="initial" :saving="saving" submit-label="Create event" @submit="create" />
     </template>
