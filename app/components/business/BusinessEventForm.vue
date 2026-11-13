@@ -302,6 +302,20 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
       </p>
     </section>
 
+    <!-- Line-up: before the programme, which picks its artists from it -->
+    <section id="lineup" class="scroll-mt-20 rounded-2xl border bg-card p-4">
+      <h2 class="flex items-center gap-1.5 text-sm font-bold"><Users class="size-4 text-muted-foreground" aria-hidden="true" /> Line-up</h2>
+      <p class="text-xs text-muted-foreground">DJs, teachers, performers. Everyone is named on the flyer. Pick the photo it uses, or “Name only”.</p>
+      <BusinessLineupPicker
+        v-model="form.artists"
+        v-model:photos="form.photos"
+        v-model:names="form.names"
+        :videos="form.festival?.videos"
+        :event-id="eventId"
+        class="mt-3"
+      />
+    </section>
+
     <!-- Programme: day by day, for every type -->
     <section class="rounded-2xl border bg-card p-4">
       <div class="flex items-center justify-between gap-2">
@@ -359,20 +373,6 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
           <Input v-model="c.role" size="sm" maxlength="40" placeholder="Co-organiser" />
         </Field>
       </div>
-    </section>
-
-    <!-- Line-up -->
-    <section id="lineup" class="scroll-mt-20 rounded-2xl border bg-card p-4">
-      <h2 class="flex items-center gap-1.5 text-sm font-bold"><Users class="size-4 text-muted-foreground" aria-hidden="true" /> Line-up</h2>
-      <p class="text-xs text-muted-foreground">DJs, teachers, performers. Everyone is named on the flyer. Pick the photo it uses, or “Name only”.</p>
-      <BusinessLineupPicker
-        v-model="form.artists"
-        v-model:photos="form.photos"
-        v-model:names="form.names"
-        :videos="form.festival?.videos"
-        :event-id="eventId"
-        class="mt-3"
-      />
     </section>
 
     <!-- Branding -->

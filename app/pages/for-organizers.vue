@@ -158,6 +158,9 @@ const networkCta = () => useTrack().track('organizer_cta_click', { surface: 'for
         </div>
       </div>
       <p class="mt-6 text-sm text-muted-foreground font-sans">And dancers find it: your event goes on its own page and on your city’s calendar, where dancers plan their week.</p>
+      <AiAppCta surface="for_organizers" title="Or run it from ChatGPT" class="mt-6 font-sans">
+        WeDance is an app in ChatGPT. Paste your announcement and it sets up the event, venue, line-up and flyer, then asks you before anything goes public.
+      </AiAppCta>
     </section>
 
     <!-- Ticketing on WeDance: early access -->
