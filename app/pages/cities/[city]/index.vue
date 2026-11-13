@@ -670,6 +670,11 @@ watch(selectedStyle, (style) => {
       </WeeklyCalendar>
     </section>
 
+    <!-- THE CITY'S OWN CHANNELS — where the weekly schedule is posted (city channels, 0067) -->
+    <ClientOnly>
+      <CityOfficialChannels :city-slug="slug" :city-name="city.name" />
+    </ClientOnly>
+
     <!-- COMING UP — dated events after this week (wedance.vip mirror) -->
     <section v-if="upcomingGroups.length" class="max-w-4xl mx-auto px-4 pb-12">
       <div class="mb-6">

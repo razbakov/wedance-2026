@@ -45,6 +45,7 @@ const headlines: Record<string, string> = {
   social: 'Join the community',
   booking: 'Make your WeDance account',
   connect: 'Sign in to connect the app',
+  share_group: 'Join to share a local group',
 }
 
 type Mode = 'login' | 'register' | 'recovery'

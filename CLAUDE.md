@@ -201,6 +201,30 @@ bun run dev:db-proxy          # Neon-HTTP-compatible proxy on :4444
 #       NEON_FETCH_ENDPOINT=http://localhost:4444/sql
 ```
 
+## City channels — weekly post, official channels, local groups (0067)
+
+A city's own WeDance accounts (e.g. Instagram @wedancemunich) are run from a **city page**: an ordinary
+business page linked in `city_pages` (Admin → Cities, `/admin/cities`, `cityChannels.setCityPage`). Its team
+(`profile_members`) are the **city admins** (`server/utils/cityAccess.ts` `requireCityAdmin`; WeDance admins pass
+everywhere). Tools: Business → the page → "WeDance <city>" → `/business/network/<handle>/city`.
+
+- **Weekly post** (`citySchedule` router, `city_schedules`): the city's live events of a week (Mon 06:00 → Mon 06:00,
+  city zone); nights out picked by default, weekly courses not (`shared/utils/citySchedule.ts`). Text is generated
+  from the picks until edited by hand. Picture = SVG (`server/utils/scheduleImage.ts`) rasterised by Cloudinary
+  (`wedance-2026/schedules/<city>-<week>`, JPEG). Post once per week per place: Instagram feed / story through the
+  page's #501 connection; Telegram via the WeDance bot (`server/utils/telegram.ts`) to every official Telegram
+  channel with a chat id. Nothing is posted without a click; MCP tokens can't publish.
+- **Official channels** = `community_groups` with `kind='official'` (+ `telegram_chat_id` for the bot). Shown on the
+  city page under the weekly calendar (`CityOfficialChannels`, `cityChannels.official`, which also adds the page's
+  Instagram). "Check bot" = `getChat` + `getChatMember`.
+- **Local groups grow with the community**: `communityGroup.submit` (any signed-in dancer, "Share a group" in
+  `CommunityGroupsSection`) → `status='pending'` → city admins approve/decline (`pending` / `review`); listed with
+  "added by <first name>". Dedupe on `invite_key` (`shared/utils/communityGroups.ts` `inviteKey`, unique index).
+  `checkLinks` fetches only chat.whatsapp.com / t.me invite pages (`server/utils/groupLinkCheck.ts`): a dead link is
+  hidden from the city page (`link_status='dead'`); a batch that comes back >80% dead changes nothing.
+- **Env:** `TELEGRAM_BOT_TOKEN` (create the bot with @BotFather; add it to each channel as an admin allowed to post).
+  Unset = Telegram posting is off, the UI says so. Instagram needs the page's #501 connection.
+
 ## Instagram profile import (Apify, #452)
 
 Pages added from an Instagram handle (`businessEvents.addFromInstagram`, `addVenue` with
@@ -374,6 +398,8 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `weekend_reminder_requested` | `w/[code].vue` email step after a guest's "I'm in" (magic link sent) | `surface` |
 | `weekend_story_shared` | `w/[code].vue` story panel | `method` (native / download / copy), `parties`, `own_line` (the sharer wrote their own line) |
 | `problem_report_opened` / `problem_report_submitted` / `problem_report_screenshot` | `ReportProblem` | `type` · `captured` (screenshot) |
+| `community_group_submitted` | `SubmitGroupDialog` ("Share a group" on a city's Local groups) | `city`, `platform`, `duplicate` |
+| `city_schedule_published` | `BusinessCitySchedule` (city page → Weekly post: Post to feed / story / Telegram) | `city`, `to` (instagram_feed / instagram_story / telegram) |
 
 ### Server events (`trackServer`, all prefixed `server_`)
 
@@ -415,6 +441,10 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `server_instagram_connected` | `/api/meta/instagram/callback` (Meta's redirect, account saved) | `profile`, `profile_type`, `accounts_granted`, `$groups` |
 | `server_instagram_disconnected` | `instagram.disconnect` | `profile`, `profile_type`, `$groups` |
 | `server_instagram_post_published` | `instagram.publishPost` | `event_id`, `post_kind`, `format`, `to` (feed / story), `profile`, `$groups` |
+| `server_community_group_submitted` | `communityGroup.submit` (a dancer shares a local group) | `city`, `platform`, `duplicate` |
+| `server_community_group_reviewed` | `communityGroup.review` (a city admin approves / declines) | `city`, `platform`, `decision` (approved / rejected), `hours_to_review` |
+| `server_city_schedule_published` | `citySchedule.publishInstagram` / `publishTelegram` | `city`, `to` (instagram_feed / instagram_story / telegram), `events`, `channels`, `with_picture`, `$groups` |
+| `server_city_admin_added` | `cityChannels.addAdmin` (Admin → Cities) | `city`, `role`, `$groups` |
 | `server_weekend_shared` | `weekend.share` (new link only; web "Share my weekend" + MCP `share_my_weekend`) | `events`, `replaced_previous` |
 | `server_weekend_joined` | `weekend.join` (a friend's first "I'm in" on a party) | `signed_in`, `coming`, `friends` |
 | `server_weekend_join_confirmed` | `weekend.join` signed in with a guest token (the magic link came back; guest joins folded into the account) | `parties`, `hours_to_confirm` |

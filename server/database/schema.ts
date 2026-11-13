@@ -303,15 +303,72 @@ export const communityGroups = pgTable('community_groups', {
   id: uuid('id').primaryKey().defaultRandom(),
   citySlug: text('city_slug').notNull(),
   name: text('name').notNull(),
-  platform: text('platform').notNull().default('whatsapp').$type<'whatsapp' | 'telegram' | 'facebook' | 'other'>(),
+  platform: text('platform').notNull().default('whatsapp').$type<import('../../shared/utils/communityGroups').GroupPlatform>(),
   inviteUrl: text('invite_url').notNull(),
   styles: json('styles').$type<string[]>().default([]),
   source: text('source'),
   verified: boolean('verified').default(false),
-  status: text('status').notNull().default('visible').$type<'visible' | 'hidden'>(),
+  // 'pending' = submitted by a dancer, waiting for the city's admins (0067); 'rejected' = declined.
+  status: text('status').notNull().default('visible').$type<'visible' | 'hidden' | 'pending' | 'rejected'>(),
   reportCount: integer('report_count').default(0),
   createdAt: timestamp('created_at').defaultNow(),
+  // City channels (migration 0067). 'official' = run by the city's WeDance page (profileId);
+  // 'community' = an organiser's or the scene's own group.
+  kind: text('kind').notNull().default('community').$type<'community' | 'official'>(),
+  profileId: uuid('profile_id').references(() => profiles.id, { onDelete: 'set null' }),
+  // Official Telegram channels/groups: where the WeDance bot posts (@name or -100… id).
+  telegramChatId: text('telegram_chat_id'),
+  description: text('description'),
+  submittedBy: uuid('submitted_by').references(() => dancers.id, { onDelete: 'set null' }),
+  reviewedBy: uuid('reviewed_by').references(() => dancers.id, { onDelete: 'set null' }),
+  reviewedAt: timestamp('reviewed_at'),
+  // Normalised invite link (shared/utils/communityGroups.ts inviteKey) — one row per group.
+  inviteKey: text('invite_key'),
+  // Last invite-link check (server/utils/groupLinkCheck.ts): a dead link is hidden from the city page.
+  linkStatus: text('link_status').notNull().default('unknown').$type<'unknown' | 'ok' | 'dead'>(),
+  linkCheckedAt: timestamp('link_checked_at'),
+}, t => [
+  uniqueIndex('community_groups_invite_key_uidx').on(t.inviteKey).where(sql`${t.inviteKey} IS NOT NULL`),
+  index('community_groups_city_status_idx').on(t.citySlug, t.status),
+])
+
+// The WeDance page that runs a city's own accounts (migration 0067), e.g. @wedancemunich.
+// Its team (profile_members) are the city's admins; its Instagram connection is the
+// city's account; its official channels are community_groups rows with kind='official'.
+export const cityPages = pgTable('city_pages', {
+  citySlug: text('city_slug').primaryKey(),
+  profileId: uuid('profile_id').notNull().unique().references(() => profiles.id, { onDelete: 'cascade' }),
+  createdBy: uuid('created_by').references(() => dancers.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
 })
+
+// The weekly "what's on" post of a city (migration 0067): the events picked for the week,
+// its text (generated until an admin edits it), the rendered picture, and where it went.
+export const citySchedules = pgTable('city_schedules', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  citySlug: text('city_slug').notNull(),
+  // Monday of the week, in the city's zone.
+  weekStart: date('week_start').notNull(),
+  eventIds: jsonb('event_ids').$type<string[]>().notNull().default([]),
+  text: text('text').notNull().default(''),
+  // An admin changed the text by hand: picking events no longer rewrites it.
+  textEdited: boolean('text_edited').notNull().default(false),
+  imageUrl: text('image_url'),
+  // What the picture was drawn from — stale when it differs from the current events.
+  imageKey: text('image_key'),
+  igMediaId: text('ig_media_id'),
+  igPermalink: text('ig_permalink'),
+  igPublishedAt: timestamp('ig_published_at'),
+  igStoryMediaId: text('ig_story_media_id'),
+  igStoryPublishedAt: timestamp('ig_story_published_at'),
+  // One entry per Telegram chat it was posted to.
+  telegram: jsonb('telegram').$type<{ chatId: string; messageId: number; url: string | null; at: string }[]>().notNull().default([]),
+  publishError: text('publish_error'),
+  createdBy: uuid('created_by').references(() => dancers.id, { onDelete: 'set null' }),
+  updatedBy: uuid('updated_by').references(() => dancers.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, t => [unique('city_schedules_city_week').on(t.citySlug, t.weekStart)])
 
 // Per-user report tracking for community groups — prevents a single user
 // from hiding a group by reporting it multiple times.
