@@ -36,7 +36,7 @@ const firebaseScryptParameters = {
 // Mint a 30-day session row for a dancer and return the same shape the whole
 // app already consumes via setSession() / auth.me. Extracted so magic-link,
 // login, and register all mint sessions identically.
-async function createSession(
+export async function createSession(
   db: {
     insert: (table: typeof sessions) => {
       values: (v: Record<string, unknown>) => Promise<unknown>

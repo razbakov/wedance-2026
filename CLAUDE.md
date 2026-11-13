@@ -297,7 +297,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | Event | Fired in | Props |
 |---|---|---|
 | `$pageview` | `plugins/03.posthog.client.ts` (route change) | `path` |
-| `signup_completed` | `useAuth.register`, `useAuth.verifyMagicLink` (server says `isNew`, rule below) | `method` (password / magic_link) |
+| `signup_completed` | `useAuth.register`, `useAuth.verifyMagicLink` (server says `isNew`, rule below), `useAuth.confirmInviteEmail` | `method` (password / magic_link / invite_email) |
 | `login_completed` | `useAuth.login`, `useAuth.verifyMagicLink` | `method` |
 | `onboarding_completed` | `useAuth.completeOnboarding` | `intent` |
 | `profile_updated` | `useAuth.updateProfile` | `fields_changed` (field NAMES only, `app/lib/changed-fields.ts`) |
@@ -342,6 +342,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `profile_claim_started` / `team_join_started` | `business/claim.vue` (form opened) | `profile`, `kind` |
 | `profile_claim_requested` / `team_join_requested` | `business/claim.vue` (sent) | `profile`, `kind`, `evidence_type` |
 | `profile_claimed` | `confirm/[token].vue` (invite link) | `via`, `new_account` |
+| `invite_email_confirmed` | `useAuth.confirmInviteEmail` ("That's me" in the answer email → `/confirm/<token>?that=`) | `owner`, `new_account` |
 | `tickets_claimed` | `charanga/claim.vue` | `count`, `festivals` |
 | `booking_inquiry_sent` · `booking_join_offered` · `booking_request_submitted` · `booking_added_to_event` | `BookingInquiryForm`, `PromoterProfile`, `/@handle`, `book/[handle]` | `profile`, … |
 | `event_inquiry_submitted` | `for-events.vue` | `event_type`, `city` |
@@ -357,7 +358,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 
 | Event | Procedure | Props |
 |---|---|---|
-| `server_signup_completed` | `auth.register`, `auth.verifyMagicLink` (account created by this flow, see note) | `method`, `has_city`, `via_link` |
+| `server_signup_completed` | `auth.register`, `auth.verifyMagicLink` (account created by this flow, see note), `artistInvites.confirmEmail` (method `invite_email`) | `method`, `has_city`, `via_link` |
 | `server_login_completed` | `auth.login`, `auth.verifyMagicLink` | `method` |
 | `server_onboarding_completed` | `auth.completeOnboarding` | `intent` |
 | `server_event_created` | `businessEvents.create`, `businessEvents.createSeries` | `event_id`, `is_festival`, `host_type`, `city`, `published`, `series_id`, `dates` |
@@ -368,7 +369,9 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `server_event_inquiry_submitted` | `feedback.inquiry` | `event_type`, `city` |
 | `server_festival_draft_submitted` | `festival.submitDraft` (server only) | `submission_id`, `festival`, `signed_in` |
 | `server_profile_claim_requested` / `server_team_join_requested` | `businessTeam.requestAccess`, `business.requestClaim` | `profile`, `profile_type`, `kind`, `evidence_type` |
-| `server_profile_claimed` | `business.decideClaim` approve (claimant's id), `artistInvites.claim`, `admin.addPageOwner` | `profile`, `via` (review / invite / admin — an admin made them owner in Admin → Users) |
+| `server_profile_claimed` | `business.decideClaim` approve (claimant's id), `artistInvites.claim`, `artistInvites.confirmEmail`, `admin.addPageOwner` | `profile`, `via` (review / invite / invite_email / admin — an admin made them owner in Admin → Users) |
+| `server_invite_answered` | `artistInvites.respond` with an answer (artist in / can't · venue can host / another date / can't) | `kind` (artist / venue), `answer`, `changed`, `has_email`, `signed_in`, `member`, `has_terms`, `event_id`, `$groups` |
+| `server_invite_email_confirmed` | `artistInvites.confirmEmail` ("That's me" in the answer email, first time per invite) | `kind`, `answer`, `new_account`, `owner`, `event_id`, `$groups` |
 | `server_business_profile_created` | `business.create` | `profile`, `profile_type` |
 | `server_profile_merged` | `business.merge` (web + MCP `merge_profiles`) | `profile` (kept), `merged_profile`, `profile_type`, `same_type`, `moved`, `$groups` |
 | `server_rsvp_answered` | `rsvp.answer` (signed out → unconfirmed; signed in → confirmed at once) | `event_id`, `answer`, `signed_in`, `confirmed`, `$groups` |
