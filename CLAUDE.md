@@ -317,7 +317,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `landing_cta_click` | `index.vue` | `cta` (find_festival / seeker … / see_attendees / private_events / festival_organizers), `section` (hero / journey / proof / business / footer) |
 | `find_your_dance_started` / `find_your_dance_completed` | `find-your-dance.vue` (first video watched or choice · a style or the taster chosen; not a quiz) | `style`, `via` · `style_chosen`, `taster`, `answers_count` (videos watched), `styles_suggested` |
 | `profile_viewed` | `/@handle` (business profiles, `trackOnce`), `/u/<handle>` (dancers — no handle sent) | `profile` (business only), `profile_type`, `city`, `claimed`, `own`, `surface` |
-| `outbound_click` | delegated listener `plugins/06.outbound-click.client.ts` (every external link) | `kind` (ticket / website / instagram / map / whatsapp / telegram / community_group / email / phone / …; `data-outbound-kind` overrides), `platform`, `host` (never path/query), `object_type`, `object_id` (`data-object-*` or the page's `useTrackContext`), `city`, `surface` (route name) |
+| `outbound_click` | delegated listener `plugins/06.outbound-click.client.ts` (every external link) | `kind` (ticket / website / instagram / map / whatsapp / telegram / community_group / email / phone / ai_app / …; `data-outbound-kind` overrides), `platform`, `host` (never path/query), `object_type`, `object_id` (`data-object-*` or the page's `useTrackContext`), `city`, `surface` (route name) |
 | `plan_shared` | `SharePlanModal` (festival workshop plan), `ShareYearPlanModal` (year) | `object` (festival / year), `method` (copy / native), `festival` / `workshops` / `festivals`, `surface` |
 | `shared_plan_viewed` | `FestivalView` (`?invite=` / `?plan=shared`), `my-year?user=` | `object`, `festival`, `signed_in`, `workshops` / `festivals`, `has_referral` |
 | `referral_link_shared` | `SharePlanModal` referral link copy | `method`, `festival`, `surface` |
@@ -362,6 +362,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `ticket_cta_click` | `FestivalHero` (external shop), `FestivalView` (Stripe checkout) | `slug` / `festival`, `provider` (stripe / tickettailor / external), `tickets`, … |
 | `organizer_cta_click` · `sponsor_cta_click` · `press_cta_click` · `whats_new_*_click` | marketing pages | `surface`, `kind` |
 | `app_connected` | `oauth/authorize.vue` | `scopes`, `business` |
+| `ai_app_cta_click` | `AiAppCta` ("Use WeDance in ChatGPT": docs connect-ai, Settings → Connected apps, new event, Business dashboard, for-organizers, my-plan) | `app` (chatgpt), `surface` (docs_connect_ai / settings_connections / business_event_new / business_dashboard_empty / business_dashboard_needs / for_organizers / my_plan) |
 | `instagram_connect_started` | `BusinessInstagram` (Business → page → Instagram, before Meta's dialog) | `profile`, `reconnect` |
 | `instagram_post_published` | `BusinessContentPlan` "Post to feed" / "Add to story" | `event_id`, `post_kind`, `format`, `to` (feed / story) |
 | `weekend_plan_viewed` | `w/[code].vue` (Share my weekend page, once per mount) | `own`, `parties`, `friends`, `story` (opened with `?story=1`) |

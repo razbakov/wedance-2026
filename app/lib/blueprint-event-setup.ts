@@ -1,5 +1,5 @@
 /**
- * Service blueprint: setting up an event, from the organiser's first draft to
+ * Service blueprint: setting up an event, from getting the organiser's page to
  * the night. Lanes are who acts, phases are when; each step says how well it
  * is built and where it makes someone wait, carry something by hand, or misses
  * a change upstream. Hand-maintained from the code (routers named in `code`);
@@ -10,7 +10,7 @@ import type { UxStatus } from './ux-map'
 export const BLUEPRINT_UPDATED = '2026-11-13'
 
 export type BpLane = 'organizer' | 'system' | 'venue' | 'artist' | 'dancers'
-export type BpPhase = 'draft' | 'venue' | 'lineup' | 'flyer' | 'promote' | 'publish' | 'night'
+export type BpPhase = 'page' | 'draft' | 'venue' | 'lineup' | 'flyer' | 'promote' | 'publish' | 'night'
 /** wait: someone is blocked on someone else · manual: a person carries the link or the news · silent: a change or answer doesn't reach the side that needs it */
 export type BpMark = 'wait' | 'manual' | 'silent'
 
@@ -43,6 +43,7 @@ export const bpLanes: { key: BpLane, label: string, hint: string }[] = [
 ]
 
 export const bpPhases: { key: BpPhase, label: string }[] = [
+  { key: 'page', label: 'Get the page' },
   { key: 'draft', label: 'Draft' },
   { key: 'venue', label: 'Venue' },
   { key: 'lineup', label: 'Line-up' },
@@ -59,6 +60,16 @@ export const bpMarkLabel: Record<BpMark, { icon: string, label: string, hint: st
 }
 
 export const bpSteps: BpStep[] = [
+  // Get the page — most organisers already have an unclaimed page from the v3 sync
+  { id: 'reach-out', phase: 'page', lane: 'system', name: 'Invite to the page', status: 'gap', marks: ['manual'], route: '/@[handle]',
+    note: 'WeDance (in practice, an admin) messages the organiser by hand with their /@handle link. Unlike artist and venue invites there’s no personal link that hands the page over, so “claim it” is one more form to fill.' },
+  { id: 'self-serve', phase: 'page', lane: 'organizer', name: 'Come in from /for-organizers', status: 'live', marks: [], route: '/for-organizers', code: 'business.myProfiles · business.findExisting · business.create',
+    note: '“Create your event” → /business/events/new, which with no page offers “Create a profile” (instant) or “Find my profile” (a claim). Create warns when the page already exists and points to “Claim it”; creating anyway makes a duplicate. Most organisers already have a synced page, so most land on the claim.' },
+  { id: 'claim-request', phase: 'page', lane: 'organizer', name: 'Claim the page', status: 'live', marks: ['wait'], route: '/business/claim', code: 'business.requestClaim',
+    note: '“Is this you? Claim this page” on /@handle: sign in, say who you are, add evidence. It only files a request; the organiser can’t create events until it’s approved.' },
+  { id: 'claim-review', phase: 'page', lane: 'system', name: 'Review the claim', status: 'partial', marks: ['wait', 'silent'], route: '/admin/claims', code: 'business.decideClaim → notifyDecision · admin.addPageOwner',
+    note: 'An admin approves, rejects or asks for more in /admin/claims, and the organiser gets an email either way. No one is alerted when a claim comes in, so it waits until an admin looks. When the organiser already has an account, admin.addPageOwner skips the claim.' },
+
   // Draft
   { id: 'start', phase: 'draft', lane: 'organizer', name: 'Start an event', status: 'live', marks: [], route: '/business/events/new', code: 'businessEvents.create · eventImport.fromInstagram · MCP create_event', refs: ['#453'],
     note: 'Three doors: the form, pasting an Instagram post (Gemini reads the caption into a draft), or an assistant over MCP. All three land as a draft.' },
@@ -139,6 +150,10 @@ export const bpSteps: BpStep[] = [
 ]
 
 export const bpGaps: BpGap[] = [
+  { title: 'Getting the page waits on an admin',
+    why: 'Most organisers already have an unclaimed page, but taking it over is a request that sits in /admin/claims, and no admin is told it arrived. Whether we invited them or they came in from /for-organizers and pressed “Create your event”, the organiser hits a wall at step one.',
+    fix: 'A personal claim link for outreach (like the artist invite: confirm by email → owner while nobody runs the page), and an alert to admins on every new claim.',
+    steps: ['reach-out', 'self-serve', 'claim-request', 'claim-review'] },
   { title: 'The organiser is the messenger',
     why: 'WeDance can only email pages that have a team. For the rest (most synced venues and artists) the organiser copies each link into WhatsApp or Instagram, and WeDance can’t tell whether it arrived.',
     fix: 'Show “opened / not opened” per link, and offer an Instagram DM or WhatsApp share with the message filled in.',
