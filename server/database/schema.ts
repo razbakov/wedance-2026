@@ -1339,6 +1339,7 @@ export const profileInvites = pgTable('profile_invites', {
   answerEmail: text('answer_email'),
   answeredBy: uuid('answered_by').references(() => dancers.id, { onDelete: 'set null' }),
   emailConfirmedAt: timestamp('email_confirmed_at'),
+  answerEmailSentAt: timestamp('answer_email_sent_at'),
 }, (t) => [
   uniqueIndex('profile_invites_token_uidx').on(t.token),
   uniqueIndex('profile_invites_event_profile_uidx').on(t.eventId, t.profileId),

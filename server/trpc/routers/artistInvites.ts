@@ -218,7 +218,9 @@ async function sendAnswerEmails(ctx: any, inv: any, p: any, opts: { email: strin
       await Promise.resolve().then(() => sendInviteAnswerCopyEmail({
         to: opts.email, name: p.name, subject: subjects.you, host, lines, link,
         confirmUrl: opts.confirmed ? null : `${link}?that=${signAnswerEmail(inv.id, opts.email!)}`,
-      })).catch(err => console.error('[artistInvites] answer copy email failed for invite', inv.id, err))
+      }))
+        .then(() => ctx.db.update(profileInvites).set({ answerEmailSentAt: new Date() }).where(eq(profileInvites.id, inv.id)))
+        .catch(err => console.error('[artistInvites] answer copy email failed for invite', inv.id, err))
     }
     if (opts.notifyOrganiser && inv.createdBy) {
       const [o] = await ctx.db.select({ email: dancers.email, name: dancers.name }).from(dancers).where(eq(dancers.id, inv.createdBy))
@@ -646,6 +648,37 @@ export const artistInvitesRouter = router({
       if (input.mainPhoto) set.photo = input.mainPhoto
       if (Object.keys(set).length) await ctx.db.update(profiles).set(set).where(eq(profiles.id, p.id))
       return { saved: true, scope: 'page' as const }
+    }),
+
+  // "Send it again" / "Wrong email?" on the done screen: the copy (with its
+  // "That's me" link) once more, to the same or a corrected address. Only the
+  // answerer's copy — the organiser already has the answer.
+  resendAnswerEmail: publicProcedure
+    .input(z.object({
+      token: z.string().min(10).max(80),
+      email: z.string().trim().toLowerCase().email().max(200).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { invite, p, canAnswer } = await resolve(ctx, { token: input.token })
+      if (!canAnswer) throw new TRPCError({ code: 'FORBIDDEN', message: 'This page has an owner now. Sign in as them to answer.' })
+      if (!invite || invite.status === 'invited') throw new TRPCError({ code: 'BAD_REQUEST', message: 'Answer first: the email carries your answer.' })
+      const email: string | null = input.email ?? invite.answerEmail ?? null
+      if (!email) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Add your email.' })
+      const changed = email !== invite.answerEmail
+      if (!changed && invite.emailConfirmedAt) throw new TRPCError({ code: 'BAD_REQUEST', message: 'You already confirmed this email.' })
+      // A typo spotted right away is fixed at once (10 s); the same address waits a minute.
+      if (invite.answerEmailSentAt && Date.now() - new Date(invite.answerEmailSentAt).getTime() < (changed ? 10_000 : 60_000)) {
+        throw new TRPCError({ code: 'TOO_MANY_REQUESTS', message: 'We just sent it. Give it a minute, and check your spam folder.' })
+      }
+      if (changed) {
+        await ctx.db.update(profileInvites).set({ answerEmail: email, emailConfirmedAt: null, answeredBy: null }).where(eq(profileInvites.id, invite.id))
+      }
+      const [fresh] = await ctx.db.select().from(profileInvites).where(eq(profileInvites.id, invite.id))
+      const [e] = invite.eventId ? await ctx.db.select({ flyerOptions: events.flyerOptions }).from(events).where(eq(events.id, invite.eventId)) : [null]
+      const flyerName = ((e?.flyerOptions as { names?: Record<string, string> } | null)?.names?.[p.username]) ?? ''
+      await sendAnswerEmails(ctx, fresh, p, { email, confirmed: false, flyerName, resend: true, notifyOrganiser: false })
+      trackServer(ctx, 'invite_answer_email_resent', { kind: invite.kind, changed_email: changed, event_id: invite.eventId, ...profileGroup(p.username) })
+      return { email }
     }),
 
   // "That's me" from the answer email: the address is theirs. Marks the answer

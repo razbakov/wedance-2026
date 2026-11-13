@@ -372,6 +372,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `server_profile_claimed` | `business.decideClaim` approve (claimant's id), `artistInvites.claim`, `artistInvites.confirmEmail`, `admin.addPageOwner` | `profile`, `via` (review / invite / invite_email / admin — an admin made them owner in Admin → Users) |
 | `server_invite_answered` | `artistInvites.respond` with an answer (artist in / can't · venue can host / another date / can't) | `kind` (artist / venue), `answer`, `changed`, `has_email`, `signed_in`, `member`, `has_terms`, `event_id`, `$groups` |
 | `server_invite_email_confirmed` | `artistInvites.confirmEmail` ("That's me" in the answer email, first time per invite) | `kind`, `answer`, `new_account`, `owner`, `event_id`, `$groups` |
+| `server_invite_answer_email_resent` | `artistInvites.resendAnswerEmail` (done screen "Send it again" / "Wrong email?") | `kind`, `changed_email`, `event_id`, `$groups` |
 | `server_business_profile_created` | `business.create` | `profile`, `profile_type` |
 | `server_profile_merged` | `business.merge` (web + MCP `merge_profiles`) | `profile` (kept), `merged_profile`, `profile_type`, `same_type`, `moved`, `$groups` |
 | `server_rsvp_answered` | `rsvp.answer` (signed out → unconfirmed; signed in → confirmed at once) | `event_id`, `answer`, `signed_in`, `confirmed`, `$groups` |

@@ -6,15 +6,16 @@ import { SESSION_TYPE_LABEL, isWorkshop, sessionTimeRange, sessionType } from '#
  * venue asked to host the event: then it answers can host · another date ·
  * no, with its terms, instead of the line-up questions). First:
  * check and approve what the organizer needs (name, photos, video, bio,
- * Instagram), change it, or add more. Then, when nobody owns the page yet:
- * create an account with email and password and the page is theirs.
+ * Instagram), change it, or add more. Signed out, the answer needs an email:
+ * its "That's me" link signs them in and, when nobody owns the page yet, makes
+ * it theirs. Email and password is the fallback when no email is on file.
  *
  * /confirm/@<handle> is the same page for someone who already manages it
  * (from "Needs you" on the Business home): it needs them signed in.
  */
 import { VENUE_INCLUDES } from '#shared/types/venueAsk'
 import { windowRange } from '#shared/utils/venueAsk'
-import { Check, X, ImagePlus, Loader2, Star, Plus, Clock, PartyPopper, Instagram, MapPin, CalendarDays, Users, ExternalLink, ThumbsUp, MessageSquare, Euro, Pencil } from 'lucide-vue-next'
+import { Check, X, ImagePlus, Loader2, Star, Plus, Clock, PartyPopper, Instagram, MapPin, CalendarDays, Users, ExternalLink, ThumbsUp, MessageSquare, Euro, Pencil, MailCheck } from 'lucide-vue-next'
 import { videoEmbedUrl } from '#shared/utils/video'
 
 // /ask/<token> is the link venues get: the same page, a word that doesn't sound like a done deal.
@@ -63,6 +64,40 @@ async function confirmFromEmail() {
     error.value = e?.message || 'This confirmation link doesn’t work any more.'
   }
   navigateTo({ query: { ...route.query, that: undefined } }, { replace: true })
+}
+
+// After answering signed out: the email is the way in. "Edit your page" points
+// at it, "Send it again" re-sends the copy, "Wrong email?" sends it elsewhere.
+const nudge = ref(false)
+const resending = ref(false)
+const resendNote = ref<string | null>(null)
+const resendError = ref<string | null>(null)
+const fixingEmail = ref(false)
+const fixedEmail = ref('')
+const emailWayIn = computed(() => !!sentTo.value && !isSignedIn.value && !!data.value && !data.value.member)
+function nudgeEmail() {
+  nudge.value = false
+  nextTick(() => {
+    nudge.value = true
+    document.getElementById('answer-email')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  })
+}
+async function resendEmail(to?: string) {
+  if (!('token' in key.value)) return
+  resendError.value = null
+  resendNote.value = null
+  if (to !== undefined && !emailOk(to.trim())) { resendError.value = 'Check your email address.'; return }
+  resending.value = true
+  try {
+    const r = await $trpc.artistInvites.resendAnswerEmail.mutate({ token: key.value.token, ...(to !== undefined ? { email: to.trim() } : {}) })
+    sentTo.value = r.email
+    fixingEmail.value = false
+    resendNote.value = `Sent again to ${r.email}.`
+  } catch (e: any) {
+    resendError.value = e?.message || 'Couldn’t send it. Try again in a minute.'
+  } finally {
+    resending.value = false
+  }
 }
 
 // The answer, built up on the page.
@@ -355,6 +390,9 @@ const flyerPhotoChoices = computed(() => [...new Set([...currentPhotos.value, ..
 const nameSuggestion = computed(() => pendingFields.value.find(s => s.kind === 'name') ?? null)
 // "Change something" on the venue's page: theirs already → the form; else an account first.
 function changePage() {
+  // Signed out with an answer emailed: the email's "That's me" is the way in, not a password.
+  if (emailWayIn.value) return nudgeEmail()
+  if (!data.value?.member && !account.email) account.email = sentTo.value || answerEmail.value.trim()
   step.value = data.value?.member ? 'edit' : 'account'
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
@@ -393,12 +431,26 @@ const fmtDate = (d: string | Date | null, tz?: string | null) => d ? new Date(d)
           <PartyPopper class="mx-auto size-8 text-primary" aria-hidden="true" />
           <h1 class="mt-2 font-display text-2xl font-bold">Thank you, {{ form.name }}</h1>
           <p v-if="staged" class="mt-1 text-sm text-muted-foreground">{{ pageSaved ? 'Your page is up to date. ' : eventSaved ? `Your name and photo are saved for ${data.event?.name || 'this event'}’s flyer. ` : '' }}{{ data.event?.host?.name || 'The organizer' }} sees your answer{{ data.event ? ` for ${data.event.name}` : '' }}{{ isVenue ? ' and will get back to you' : '' }}.</p>
-          <p v-if="sentTo" class="mx-auto mt-3 max-w-sm rounded-xl bg-secondary/10 p-3 text-sm">We emailed your answer to <strong>{{ sentTo }}</strong>. Tap <strong>That’s me</strong> in it so {{ data.event?.host?.name || 'the organizer' }} knows it was you.</p>
-          <p v-else-if="!staged" class="mt-1 text-sm text-muted-foreground">Your page is up to date{{ data.event ? ` and ${data.event.host?.name || 'the organizer'} can use it for ${data.event.name}` : '' }}.</p>
+          <div v-if="emailWayIn" id="answer-email" class="mx-auto mt-4 max-w-md rounded-2xl border-2 p-4 text-left text-sm transition-colors duration-500" :class="nudge ? 'border-primary bg-primary/5' : 'border-transparent bg-secondary/10'">
+            <p class="flex items-center gap-2 font-bold"><MailCheck class="size-4 shrink-0 text-primary" aria-hidden="true" /> Check your inbox</p>
+            <p class="mt-1">We sent your answer to <strong>{{ sentTo }}</strong>. Tap <strong>That’s me</strong> in it: {{ data.event?.host?.name || 'the organizer' }} sees it’s really you, and {{ data.profile.name }}’s page becomes yours to edit. No password needed.</p>
+            <form v-if="fixingEmail" class="mt-3 flex flex-wrap items-center gap-2" novalidate @submit.prevent="resendEmail(fixedEmail)">
+              <Input v-model="fixedEmail" type="email" autocomplete="email" placeholder="your@email.com" class="min-w-0 flex-1" aria-label="Your email" />
+              <Button type="submit" size="pill-sm" variant="pill" :loading="resending">Send</Button>
+              <button type="button" class="text-xs text-muted-foreground hover:underline" @click="fixingEmail = false">Cancel</button>
+            </form>
+            <p v-else class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs font-bold text-secondary">
+              <button type="button" class="hover:underline disabled:opacity-50" :disabled="resending" @click="resendEmail()">Send it again</button>
+              <button type="button" class="hover:underline" @click="fixedEmail = sentTo || ''; fixingEmail = true">Wrong email?</button>
+            </p>
+            <p v-if="resendNote" class="mt-1 text-xs text-wd-green-700" role="status">{{ resendNote }}</p>
+            <p v-if="resendError" class="mt-1 text-xs text-destructive" role="alert">{{ resendError }}</p>
+          </div>
+          <p v-if="!sentTo && !staged" class="mt-1 text-sm text-muted-foreground">Your page is up to date{{ data.event ? ` and ${data.event.host?.name || 'the organizer'} can use it for ${data.event.name}` : '' }}.</p>
           <div class="mt-5 flex flex-wrap justify-center gap-2">
             <Button variant="pill" as-child><NuxtLink :to="`/@${data.profile.username}`">See your page</NuxtLink></Button>
             <Button v-if="isSignedIn" variant="outline-pill" as-child><NuxtLink :to="`/business/network/${data.profile.username}`">Manage it in Business</NuxtLink></Button>
-            <Button v-else-if="staged && !isVenue && !declined" variant="outline-pill" @click="changePage"><Pencil /> Edit your whole page</Button>
+            <Button v-else-if="staged && !isVenue && !declined" variant="outline-pill" @click="changePage"><Pencil /> {{ emailWayIn ? 'Edit your page' : 'Edit your whole page' }}</Button>
           </div>
         </section>
 
@@ -406,6 +458,21 @@ const fmtDate = (d: string | Date | null, tz?: string | null) => d ? new Date(d)
         <section v-else-if="step === 'page'" class="grid gap-4">
           <div class="rounded-2xl border bg-card p-5 shadow-wd-card">
             <p class="flex items-center gap-1.5 text-sm font-bold text-wd-green-700"><Check class="size-4" aria-hidden="true" /> Sent. {{ data.event?.host?.name || 'The organizer' }} sees your answer and will get back to you.</p>
+          <div v-if="emailWayIn" id="answer-email" class="mt-3 max-w-md rounded-2xl border-2 p-4 text-left text-sm transition-colors duration-500" :class="nudge ? 'border-primary bg-primary/5' : 'border-transparent bg-secondary/10'">
+            <p class="flex items-center gap-2 font-bold"><MailCheck class="size-4 shrink-0 text-primary" aria-hidden="true" /> Check your inbox</p>
+            <p class="mt-1">We sent your answer to <strong>{{ sentTo }}</strong>. Tap <strong>That’s me</strong> in it: {{ data.event?.host?.name || 'the organizer' }} sees it’s really you, and {{ data.profile.name }}’s page becomes yours to edit. No password needed.</p>
+            <form v-if="fixingEmail" class="mt-3 flex flex-wrap items-center gap-2" novalidate @submit.prevent="resendEmail(fixedEmail)">
+              <Input v-model="fixedEmail" type="email" autocomplete="email" placeholder="your@email.com" class="min-w-0 flex-1" aria-label="Your email" />
+              <Button type="submit" size="pill-sm" variant="pill" :loading="resending">Send</Button>
+              <button type="button" class="text-xs text-muted-foreground hover:underline" @click="fixingEmail = false">Cancel</button>
+            </form>
+            <p v-else class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs font-bold text-secondary">
+              <button type="button" class="hover:underline disabled:opacity-50" :disabled="resending" @click="resendEmail()">Send it again</button>
+              <button type="button" class="hover:underline" @click="fixedEmail = sentTo || ''; fixingEmail = true">Wrong email?</button>
+            </p>
+            <p v-if="resendNote" class="mt-1 text-xs text-wd-green-700" role="status">{{ resendNote }}</p>
+            <p v-if="resendError" class="mt-1 text-xs text-destructive" role="alert">{{ resendError }}</p>
+          </div>
           </div>
           <div>
             <h1 class="font-display text-2xl font-bold">This is {{ data.profile.name }} on WeDance</h1>
