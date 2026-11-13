@@ -262,7 +262,8 @@ asset Instagram account (required), permissions `instagram_basic`, `instagram_co
 
 A dancer shares this week's parties as `/w/<code>` (`weekend_shares`, migration 0066 — a snapshot of event ids;
 the same parties within 6 days reuse the link) plus a 1080×1920 Instagram story drawn on a canvas in the browser
-(`app/lib/weekendStory.ts` — type-led, no photos: flyers are too busy; coloured by dance family; a short line of
+(`app/lib/weekendStory.ts` — a bold poster, no photos (flyers are too busy): the first party's dance colour as the
+background, Anton (Google Fonts, loaded only when used) for the type, each party a black band; a short line of
 our own per style from `shared/utils/storyLines.ts`, which the sharer can shuffle or rewrite) and shared through the phone's share sheet, the link copied for the link sticker.
 Friends tap "I'm in" per party (`weekend_share_joins`): signed in → it goes on their plan; signed out → a first
 name + the RSVP guest token, mirrored as an unconfirmed "yes" on the event's poll. After a guest's tap the page offers an
