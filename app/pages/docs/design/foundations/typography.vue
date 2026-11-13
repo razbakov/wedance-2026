@@ -43,7 +43,7 @@ const eyebrow = `<div class="text-eyebrow uppercase tracking-[0.3em] font-bold t
     status="stable"
     lead="One serif for character, the system sans for everything you read and tap. Two families, nothing else."
   >
-    <DesignSection id="families" title="Font families" lead="Consolidated on 2026-10-10. Caveat, Permanent Marker, Anton and DM Serif Display are retired.">
+    <DesignSection id="families" title="Font families" lead="Consolidated on 2026-10-10. Caveat, Permanent Marker, Anton and DM Serif Display are retired from the UI. Since 2026-11-13 Anton is used in one place only: the Share-my-weekend Instagram story, a poster drawn on a canvas.">
       <div class="space-y-4">
         <div v-for="f in families" :key="f.name" class="rounded-2xl border border-border bg-card p-6">
           <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
