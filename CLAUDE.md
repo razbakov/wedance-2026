@@ -351,7 +351,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `app_connected` | `oauth/authorize.vue` | `scopes`, `business` |
 | `instagram_connect_started` | `BusinessInstagram` (Business → page → Instagram, before Meta's dialog) | `profile`, `reconnect` |
 | `instagram_post_published` | `BusinessContentPlan` "Post to feed" / "Add to story" | `event_id`, `post_kind`, `format`, `to` (feed / story) |
-| `problem_report_opened` / `problem_report_submitted` / `problem_report_screenshot` | `ReportProblem` | `type` · `captured` (screenshot) |
+| `problem_report_opened` / `problem_report_submitted` / `problem_report_screenshot` | `ReportProblem` | `type`, `via` (sentry / fallback — Linear issue when Sentry failed) · `captured` (screenshot) |
 
 ### Server events (`trackServer`, all prefixed `server_`)
 

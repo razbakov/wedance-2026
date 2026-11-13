@@ -10,7 +10,9 @@
  *
  * Both paths submit to Sentry User Feedback (app/lib/sentry-feedback.ts) with
  * the context bundle from useReportContext() and the current Session Replay
- * linked. The bug screenshot comes from the browser's own screen capture
+ * linked, through our own origin (server/api/relay.post.ts) so blockers don't
+ * drop it. If Sentry still fails, the report goes to /api/report (a Linear
+ * triage issue, no screenshot). The bug screenshot comes from the browser's own screen capture
  * (app/lib/screen-capture.ts, getDisplayMedia): one frame, then the stream is
  * stopped. Declined / unsupported (mobile) → no screenshot; the replay covers it.
  */
@@ -21,7 +23,7 @@ import {
 import { ReportProblemSchema } from '#shared/validation'
 import { REPORT_PROBLEM_EVENT } from '~/lib/report-problem'
 import { captureScreenFrame, isScreenCaptureSupported, type ScreenFrame } from '~/lib/screen-capture'
-import { submitFeedback } from '~/lib/sentry-feedback'
+import { getSentry, submitFeedback } from '~/lib/sentry-feedback'
 
 const { collect } = useReportContext()
 const { isSignedIn, dancerId, dancerName, username } = useAuth()
@@ -39,7 +41,7 @@ const capturing = ref(false)
 const canCapture = ref(false)
 const submitting = ref(false)
 const error = ref('')
-/** Sentry event id of the submitted feedback — set = success state. */
+/** Sentry event id (or Linear id, via the fallback) — set = success state. */
 const doneId = ref<string | null>(null)
 const { errors, validate, reset: resetValidation, fieldAttrs } = useFormValidation(ReportProblemSchema, () => ({
   description: description.value,
@@ -47,6 +49,7 @@ const { errors, validate, reset: resetValidation, fieldAttrs } = useFormValidati
 }))
 
 const FALLBACK_ERROR = 'Could not submit. Please try again, or email hello@wedance.vip.'
+const DEV_ERROR = 'Sentry isn\'t set up on this local build (no SENTRY_DSN). Reports work on previews and production.'
 
 const PIPELINE_STEPS = [
   { icon: MessageSquare, label: 'You describe your idea', color: 'text-primary' },
@@ -157,7 +160,7 @@ async function submit() {
   submitting.value = true
   try {
     const who = await reporter()
-    const id = await submitFeedback({
+    const report = {
       type,
       description: result.data.description,
       name: who.name || dancerName.value,
@@ -165,10 +168,27 @@ async function submit() {
       dancerId: dancerId.value,
       username: username.value,
       context: collect(),
-      screenshot: type === 'bug' ? screenshot.value?.bytes : null,
-    })
+    }
+    let id: string
+    let via: 'sentry' | 'fallback' = 'sentry'
+    try {
+      id = await submitFeedback({ ...report, screenshot: type === 'bug' ? screenshot.value?.bytes : null })
+    } catch (e) {
+      // Local dev has no Sentry DSN: say so instead of filing a real issue.
+      if (import.meta.dev && !getSentry()) {
+        error.value = DEV_ERROR
+        return
+      }
+      console.warn('[ReportProblem] Sentry failed, using the fallback:', e)
+      via = 'fallback'
+      const res = await $fetch<{ id: string }>('/api/report', {
+        method: 'POST',
+        body: { ...report, sentryError: String((e as Error)?.message || e).slice(0, 500) },
+      })
+      id = res.id
+    }
     doneId.value = id
-    track('problem_report_submitted', { type, identifier: id, has_screenshot: type === 'bug' && !!screenshot.value })
+    track('problem_report_submitted', { type, identifier: id, via, has_screenshot: via === 'sentry' && type === 'bug' && !!screenshot.value })
   } catch (e) {
     console.warn('[ReportProblem] submit failed:', e)
     error.value = FALLBACK_ERROR
