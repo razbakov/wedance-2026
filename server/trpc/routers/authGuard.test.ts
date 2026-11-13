@@ -31,7 +31,7 @@ const PUBLIC_MUTATIONS_ALLOW_LIST: Record<string, string> = {
   'cityVideo.submit': 'anonymous video submission (moderated via admin)',
   'cityVideo.battleVote': 'anonymous battle voting on city videos',
   'feedback.inquiry': 'public contact/inquiry form — no account required',
-  'artistInvites.confirmEmail': '"That’s me" link from the answer email, often signed out (may create the account); needs the invite token plus a signed link naming that invite and email (verifyAnswerEmail)',
+  'artistInvites.confirmEmail': '"That\'s me" in the answer email, signed out: only a signed link (verifyAnswerEmail) for this invite and its answer email works; makes them owner only while the page has no team',
   'artistInvites.respond': 'an artist answers an organizer’s invite link without an account; only while nobody manages the page — a managed page needs its team signed in (checked inside)',
   'festival.submitDraft': 'public festival submission (moderated via admin)',
   'giveaway.enter': 'public giveaway entry — low-risk, promotional',
