@@ -45,6 +45,7 @@ export const hubNav: DocSection[] = [
     title: 'Product',
     items: [
       { title: 'UX map', to: '/docs/ux-map', status: 'beta', summary: 'Every user journey, stage by stage: what is live, partial, missing.' },
+      { title: 'Event setup blueprint', to: '/docs/blueprints/event-setup', status: 'beta', summary: 'Organiser, venue, artists and dancers lane by lane: every wait, hand-carried link and missed update.' },
     ],
   },
   {
