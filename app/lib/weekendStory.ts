@@ -40,7 +40,7 @@ const SERIF = '"Playfair Display", Georgia, serif'
 const HAND = '"Caveat", "Segoe Print", cursive'
 const SANS = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'
 
-const INK = '#170d06'
+const INK = WD.brown950
 const CREAM = WD.cream
 const MUTED = 'rgba(251,245,234,0.62)'
 
