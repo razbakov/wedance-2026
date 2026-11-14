@@ -99,7 +99,7 @@ const dateRange = computed(() => {
               class="font-hand text-[15px] font-bold shrink-0 mt-1"
               :style="{ color: accent }"
             >
-              {{ daysUntil(festival.startDate) }}
+              {{ daysUntil(festival.startDate, null, festival.endDate) }}
             </span>
           </div>
 
