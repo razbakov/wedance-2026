@@ -124,7 +124,7 @@ describe('useYearPlan — optimistic festival Going (RAZ-689)', () => {
 describe('useWeekPlan.syncEvent — the event page poll already saved it (RAZ-891)', () => {
   const load = async () => (await import('./useWeekPlan')).useWeekPlan()
 
-  it('moves the My plan badge at once without sending a request', async () => {
+  it('marks the event as planned at once without sending a request', async () => {
     const plan = await load()
     plan.syncEvent('w1', true)
     expect(plan.weekCount.value).toBe(1)

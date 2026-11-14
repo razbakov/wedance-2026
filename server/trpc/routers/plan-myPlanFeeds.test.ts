@@ -199,9 +199,12 @@ describe.skipIf(!DATABASE_URL)('my-plan feeds', () => {
       await me.rsvp.answer({ event: ids.workshop!, answer: 'needFollower' })
       expect(await courseIds()).toEqual([ids.workshop])
       expect((await me.plan.weekSocials()).socials.map(s => s.id)).not.toContain(ids.workshop)
+      // The My plan badge counts it as a course, this week (RAZ-889 counts from the same feed).
+      expect(await me.plan.counts()).toMatchObject({ courses: 1, week: 1, total: 1 })
       // "Next time" takes it off again.
       await me.rsvp.answer({ event: ids.workshop!, answer: 'next' })
       expect(await courseIds()).toEqual([])
+      expect(await me.plan.counts()).toMatchObject({ courses: 0, total: 0 })
     })
 
     it('counts a class saved from the course picker (metadata type class)', async () => {

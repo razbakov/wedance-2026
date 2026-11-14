@@ -60,7 +60,8 @@ export function useWeekPlan() {
 
   /**
    * Mirror a plan change the server already made (the event page's RSVP poll
-   * writes plan_items itself), so the My plan badge moves at once (RAZ-891).
+   * writes plan_items itself), so the event's Going state everywhere matches at once (RAZ-891;
+   * the badge itself refetches plan.counts after rsvp.answer — RAZ-889).
    * Local only: no request, no analytics.
    */
   function syncEvent(id: string, inPlan: boolean) {
