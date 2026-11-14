@@ -84,7 +84,8 @@ function pickGap(g: BpGap) {
       <p class="text-sm text-muted-foreground mt-4 max-w-2xl">
         Gaps are where markers cluster. Click a step for its code, or a gap below to light up its steps.
         Built from the routers and run end to end with a test organiser, venue and artist on {{ BLUEPRINT_UPDATED }}; see the
-        <NuxtLink to="/docs/ux-map" class="underline">UX map</NuxtLink> for the dancer journeys.
+        <NuxtLink to="/docs/ux-map" class="underline">UX map</NuxtLink> for the dancer journeys. This is job
+        <NuxtLink to="/docs/jobs#j6" class="underline">J6, run a great event</NuxtLink>.
       </p>
     </DesignSection>
 

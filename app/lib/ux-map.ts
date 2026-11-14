@@ -11,12 +11,15 @@
  * planned (a judgement call, not a story). Update the item when you ship or
  * change it.
  */
+import { jobById, type JobId } from './jobs'
+
 export type UxStatus = 'live' | 'partial' | 'missing' | 'gap'
 export type UxStageKey = 'discover' | 'evaluate' | 'commit' | 'attend' | 'return' | 'spread'
 export type UxJourneyId = 'C1' | 'C2' | 'C3' | 'C4' | 'C5' | 'C6' | 'C7' | 'C8'
 
 export interface UxStage { key: UxStageKey, label: string, hint: string }
-export interface UxJourney { id: UxJourneyId, who: string, what: string, job: string }
+/** `jobId`: the job (app/lib/jobs.ts) this journey mainly serves; `job` is its statement. */
+export interface UxJourney { id: UxJourneyId, who: string, what: string, jobId: JobId, job: string }
 export interface UxItem {
   journey: UxJourneyId
   stage: UxStageKey
@@ -48,16 +51,16 @@ const S: [UxStageKey, string, string][] = [
  ['spread','Bring others','friends, partners, crew'],]
 export const uxStages: UxStage[] = S.map(([key, label, hint]) => ({ key, label, hint }))
 
-const JR: [UxJourneyId, string, string, string][] = [
- ['C1','Seeker','Find your dance','Start dancing without feeling lost'],
- ['C2','Student','Find your teacher','Get better and keep momentum'],
- ['C3','Regular','Find your floor','Never dance alone'],
- ['C4','Traveler','Plan your festival year','Plan and afford dance travel'],
- ['C5','Artist','Get booked','Get discovered and booked'],
- ['C6','Host & venue','Private event, rent a space','Throw a great night'],
- ['C7','Organizer','Run events & festivals','Run a great event'],
- ['C8','Member','Account, identity, trust','Trust it is real'],]
-export const uxJourneys: UxJourney[] = JR.map(([id, who, what, job]) => ({ id, who, what, job }))
+const JR: [UxJourneyId, string, string, JobId][] = [
+ ['C1','Seeker','Find your dance','J1'],
+ ['C2','Student','Find your teacher','J2'],
+ ['C3','Regular','Find your floor','J3'],
+ ['C4','Traveler','Plan your festival year','J4'],
+ ['C5','Artist','Get booked','J5'],
+ ['C6','Host & venue','Private event, rent a space','J6'],
+ ['C7','Organizer','Run events & festivals','J6'],
+ ['C8','Member','Account, identity, trust','J7'],]
+export const uxJourneys: UxJourney[] = JR.map(([id, who, what, jobId]) => ({ id, who, what, jobId, job: jobById(jobId).statement }))
 
 const IT: [UxJourneyId, UxStageKey, string, string, UxStatus, string, string][] = [
 // C1 Seeker
