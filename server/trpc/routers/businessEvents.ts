@@ -414,6 +414,28 @@ const csvCell = (v: unknown) => {
 export const attendeesCsv = (rows: { name: string; handle: string | null; city: string | null; status: string }[]) =>
   ['name,handle,city,status', ...rows.map(r => [r.name, r.handle ?? '', r.city, r.status].map(csvCell).join(','))].join('\n')
 
+// A copy of an event row, moved by `shift` ms: the same wall-clock time in the
+// event's zone (so a copy across the DST switch doesn't drift by an hour),
+// festival session dates moved along, a fresh slug and festival key (the DB
+// has a unique index on festival->>'key'). `extra` overrides fields.
+function shiftedCopy(ev: any, shift: number, extra: Record<string, unknown> = {}) {
+  const { id: _i, slug: _s, sourceId: _si, createdAt: _c, syncedAt: _y, editedAt: _ea, editedBy: _eb, ...copy } = ev
+  const slug = `${slugify(ev.name ?? 'event')}-${randomSuffix(5)}`
+  const shifted = shiftFestivalSessions(ev.festival, shift)
+  const move = (d: Date | string) => zonedToUtc(eventLocalDate(new Date(new Date(d).getTime() + shift), ev.timezone), eventLocalTime(d, ev.timezone), ev.timezone)
+  return {
+    ...copy,
+    slug,
+    // A caption is written for one date; each copy writes its own.
+    caption: null,
+    startDate: move(ev.startDate),
+    endDate: ev.endDate ? move(ev.endDate) : null,
+    festival: shifted ? { ...shifted, key: slug } : null,
+    updatedAt: new Date(),
+    ...extra,
+  }
+}
+
 export const businessEventsRouter = router({
   // Events of the profiles I manage (optionally one), newest-relevant first.
   list: protectedProcedure
@@ -580,35 +602,45 @@ export const businessEventsRouter = router({
       if (ev.published) assertScope(ctx, 'business:publish')
       const seriesId = ev.seriesId ?? `host-${ev.id}`
       if (!ev.seriesId) await ctx.db.update(events).set({ seriesId }).where(eq(events.id, ev.id))
-      const { id: _i, slug: _s, sourceId: _si, createdAt: _c, syncedAt: _y, editedAt: _ea, editedBy: _eb, ...copy } = ev
-      const rows = Array.from({ length: input.weeks }, (_, i) => {
-        const shift = (i + 1) * 7 * 86400_000
-        const slug = `${slugify(ev.name ?? 'event')}-${randomSuffix(5)}`
-        const shifted = shiftFestivalSessions(ev.festival, shift)
-        return {
-          ...copy,
-          seriesId,
-          slug,
-          // A caption is written for one date; each copy writes its own.
-          caption: null,
-          // Same wall-clock time a week later: re-derive in the event's zone so
-          // a series crossing the DST switch doesn't drift by an hour.
-          startDate: zonedToUtc(eventLocalDate(new Date(new Date(ev.startDate).getTime() + shift), ev.timezone), eventLocalTime(ev.startDate, ev.timezone), ev.timezone),
-          endDate: ev.endDate
-            ? zonedToUtc(eventLocalDate(new Date(new Date(ev.endDate).getTime() + shift), ev.timezone), eventLocalTime(ev.endDate, ev.timezone), ev.timezone)
-            : null,
-          // Shift festival session dates and assign a fresh key (the DB has a
-          // unique index on festival->>'key').
-          festival: shifted ? { ...shifted, key: slug } : null,
-          updatedAt: new Date(),
-        }
-      })
+      const rows = Array.from({ length: input.weeks }, (_, i) => shiftedCopy(ev, (i + 1) * 7 * 86400_000, { seriesId }))
       try {
         const created = await ctx.db.insert(events).values(rows).returning({ id: events.id, startDate: events.startDate })
         return { created }
       } catch (err) {
         console.error('[businessEvents.duplicate] insert failed for event', input.id, err)
         throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Could not repeat the event. Please try again.' })
+      }
+    }),
+
+  // "Like my last event" (RAZ-939): a DRAFT copy of one of my events on a new
+  // date (same local start time), plus `repeatWeeks` weekly dates after it,
+  // all drafts in one series. Unlike duplicate, the copies never go live.
+  copy: protectedProcedure
+    .input(z.object({ id: z.string().uuid(), date: ymd, repeatWeeks: z.number().int().min(0).max(12).default(0) }))
+    .mutation(async ({ ctx, input }) => {
+      const ev = await requireEventManager(ctx, input.id)
+      const host = await eventHostProfile(ctx.db, ev)
+      if (!host) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Only events run by one of your pages can be copied.' })
+      await requireMember(ctx, host.username)
+      const tz = ev.timezone || 'Europe/Berlin'
+      const days = Math.round((new Date(`${input.date}T12:00:00Z`).getTime() - new Date(`${eventLocalDate(ev.startDate, tz)}T12:00:00Z`).getTime()) / 86400_000)
+      const firstId = randomUUID()
+      const seriesId = input.repeatWeeks ? `host-${firstId}` : null
+      const rows = Array.from({ length: input.repeatWeeks + 1 }, (_, i) => shiftedCopy({ ...ev, timezone: tz }, (days + i * 7) * 86400_000, {
+        ...(i === 0 ? { id: firstId } : {}),
+        seriesId,
+        hostProfileId: host.id,
+        source: 'wedance-business',
+        published: false,
+        archived: false,
+      }))
+      const created = await ctx.db.insert(events).values(rows).returning({ id: events.id, startDate: events.startDate })
+      created.sort((a: any, b: any) => +new Date(a.startDate) - +new Date(b.startDate))
+      trackServer(ctx, 'event_created', { event_id: firstId, is_festival: !!ev.isFestival, host_type: host.type, city: ev.city || null, published: false, copied_from: ev.id, ...(seriesId ? { series_id: seriesId, dates: created.length } : {}), ...profileGroup(host.username) })
+      return {
+        id: firstId,
+        seriesId,
+        created: created.map((e: any) => ({ id: e.id, date: eventLocalDate(e.startDate, tz) })),
       }
     }),
 

@@ -141,7 +141,7 @@ const IT: [UxJourneyId, UxStageKey, string, string, UxStatus, string, string][] 
 ['C7','evaluate','Pricing: first event free','/for-organizers','live','"Start with one event free and upgrade later."','P729 P734'],
 ['C7','evaluate','Network €199 / year','/for-organizers','partial','The page sells it by email ("Talk to us"), not checkout; no Pro €49 any more. Cross-event insights and an account manager aren\'t built.','P730 P731 P732 RAZ-899'],
 ['C7','commit','Create / claim my page','/business/new','live','Duplicate warnings, Instagram import.','#458 #452'],
-['C7','commit','Create event (form · Instagram post · AI)','/business/events/new','live','Co-organisers, series, venue asks, artist invites. The form publishes at once by default, before venue or line-up (RAZ-927).','P715 P709 #453 #456 RAZ-927'],
+['C7','commit','Create event (post · like my last · from scratch · AI)','/business/events/new','live','One question (where are you starting from?), at most four fields, always a draft; the editor then leads through venue, line-up, entry, flyer and publish (RAZ-939).','P715 P709 #453 #456 RAZ-927 RAZ-939'],
 ['C7','attend','Flyer generator','/business/events/[id]/flyer','live','',''],
 ['C7','attend','Content plan → Instagram feed / story','/business','live','Dev-mode Meta app: only people with a role on the app can connect.','#501'],
 ['C7','attend','Ticketing','event page','partial','Works but is used by few events.','P705 P706 P713 P735'],

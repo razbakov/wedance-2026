@@ -54,6 +54,8 @@ const props = defineProps({
   eventId: { type: String, default: undefined },
   /** Display names for the read-only cards (the venue picker stores a handle). */
   labels: { type: Object as PropType<{ venue?: string; host?: string }>, default: () => ({}) },
+  /** What the host's other events suggest (RAZ-939): artists they booked, last time's price. */
+  hints: { type: Object as PropType<{ artists: string[]; price: string | null }>, default: () => ({ artists: [], price: null }) },
 })
 const emit = defineEmits<{ submit: [values: BusinessEventValues] }>()
 
@@ -104,6 +106,19 @@ function toggle(k: string) {
   const next = new Set(open.value)
   next.has(k) ? next.delete(k) : next.add(k)
   open.value = next
+}
+// The editor's steps (RAZ-939): one card open at a time, scrolled into view.
+function focus(k: string) {
+  open.value = new Set([k])
+  nextTick(() => document.getElementById(`ev-card-${k}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+}
+// Suggestions from the host's past events.
+const pastArtists = computed(() => props.hints.artists.filter(h => !form.artists.includes(h)))
+function addArtist(h: string) {
+  if (!form.artists.includes(h)) form.artists = [...form.artists, h]
+}
+function useLastPrice() {
+  if (props.hints.price) prices.value = priceLines(props.hints.price)
 }
 
 // Co-organisers: the picker edits the handles, each keeps its role label.
@@ -158,7 +173,7 @@ function publish() {
   form.published = false
   return false
 }
-defineExpose({ dirty, submit, publish })
+defineExpose({ dirty, submit, publish, focus })
 
 // Read-only summaries.
 const fmtDate = (d: string) => d ? new Date(`${d}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) : ''
@@ -226,7 +241,7 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
     </section>
 
     <!-- When, with what else is on those days -->
-    <section class="rounded-2xl border bg-card p-4">
+    <section id="ev-card-when" class="scroll-mt-20 rounded-2xl border bg-card p-4">
       <div class="flex items-center justify-between gap-2">
         <h2 class="flex items-center gap-1.5 text-sm font-bold"><CalendarDays class="size-4 text-muted-foreground" aria-hidden="true" /> When</h2>
         <Button v-if="mode === 'edit'" type="button" variant="ghost" size="sm" :aria-expanded="isOpen('when')" @click="toggle('when')"><template v-if="isOpen('when')"><Check /> Done</template><template v-else><Pencil /> Edit</template></Button>
@@ -256,7 +271,7 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
     </section>
 
     <!-- Where -->
-    <section class="rounded-2xl border bg-card p-4">
+    <section id="ev-card-where" class="scroll-mt-20 rounded-2xl border bg-card p-4">
       <div class="flex items-center justify-between gap-2">
         <h2 class="flex items-center gap-1.5 text-sm font-bold"><MapPin class="size-4 text-muted-foreground" aria-hidden="true" /> Where</h2>
         <Button v-if="mode === 'edit'" type="button" variant="ghost" size="sm" :aria-expanded="isOpen('where')" @click="toggle('where')"><template v-if="isOpen('where')"><Check /> Done</template><template v-else><Pencil /> Edit</template></Button>
@@ -308,6 +323,7 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
 
     <!-- Line-up: before the programme, which picks its artists from it -->
     <section id="lineup" class="scroll-mt-20 rounded-2xl border bg-card p-4">
+      <span id="ev-card-lineup" class="block scroll-mt-20" aria-hidden="true" />
       <h2 class="flex items-center gap-1.5 text-sm font-bold"><Users class="size-4 text-muted-foreground" aria-hidden="true" /> Line-up</h2>
       <p class="text-xs text-muted-foreground">DJs, teachers, performers. Everyone is named on the flyer. Pick the photo it uses, or “Name only”.</p>
       <BusinessLineupPicker
@@ -318,6 +334,12 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
         :event-id="eventId"
         class="mt-3"
       />
+      <div v-if="pastArtists.length" class="mt-3" data-past-artists>
+        <p class="text-xs font-bold text-muted-foreground">From your past events</p>
+        <div class="mt-1 flex flex-wrap gap-1.5">
+          <Button v-for="h in pastArtists" :key="h" type="button" variant="outline-pill" size="pill-sm" @click="addArtist(h)"><Plus /> @{{ h }}</Button>
+        </div>
+      </div>
     </section>
 
     <!-- Programme: day by day, for every type -->
@@ -340,7 +362,7 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
     </section>
 
     <!-- Entry and tickets -->
-    <section class="rounded-2xl border bg-card p-4">
+    <section id="ev-card-entry" class="scroll-mt-20 rounded-2xl border bg-card p-4">
       <div class="flex items-center justify-between gap-2">
         <h2 class="flex items-center gap-1.5 text-sm font-bold"><Ticket class="size-4 text-muted-foreground" aria-hidden="true" /> Entry and tickets</h2>
         <Button v-if="mode === 'edit'" type="button" variant="ghost" size="sm" :aria-expanded="isOpen('entry')" @click="toggle('entry')"><template v-if="isOpen('entry')"><Check /> Done</template><template v-else><Pencil /> Edit</template></Button>
@@ -350,6 +372,10 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
         <div class="mt-4">
           <p class="text-sm font-bold">Promotions <span class="font-normal text-muted-foreground">(optional)</span></p>
           <p class="text-xs text-muted-foreground">Deals and door prices, one per line, e.g. “Free until 21:00”, “From 21:00 · 10€”, “Early bird −20% until 1 Nov”.</p>
+        </div>
+        <div v-if="hints.price && !prices.some(p => p.trim())" class="flex flex-wrap items-center gap-2 rounded-xl bg-muted/60 p-3 text-sm" data-last-price>
+          <span class="min-w-0 flex-1"><span class="font-bold">Last time:</span> {{ priceLines(hints.price).join(' · ') }}</span>
+          <Button type="button" variant="outline-pill" size="pill-sm" @click="useLastPrice">Use the same</Button>
         </div>
         <div v-for="(_, i) in prices" :key="i" class="flex gap-2">
           <Input v-model="prices[i]" class="flex-1" :aria-label="`Promotion, line ${i + 1}`" />
