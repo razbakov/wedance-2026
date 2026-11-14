@@ -266,7 +266,7 @@ Empty fields only; claimed/managed pages are never written (except the dancer's 
 ## Event from an Instagram post (#453)
 
 Paste the link of an organiser's post or reel → a complete DRAFT: MCP `import_from_instagram` and the
-"Paste an Instagram post" field on `/business/events/new`, both → `eventImport.fromInstagram`
+"I have a post" start on `/business/events/new`, both → `eventImport.fromInstagram`
 (`server/trpc/routers/eventImport.ts`). Post via Apify `apify~instagram-scraper`
 (`server/utils/instagram/post.ts`, `APIFY_TOKEN`) → Gemini reads the caption into fields
 (`server/utils/instagram/eventExtract.ts`, `GEMINI_API_KEY`) → line-up / venue through
@@ -315,6 +315,19 @@ sharer. Signed-in joins also add a confirmed "yes" on the poll. The sharer gets 
 (returns `storyUrl` = the link + `?story=1`, which shows the story maker to whoever opens it).
 Code: `server/trpc/routers/weekend.ts`, `shared/utils/weekendShare.ts`, `app/pages/w/[code].vue`.
 No auto-posting: Instagram's publishing API is Business/Creator-only and the Meta app is in dev mode.
+
+## New event: one question, then steps (RAZ-939)
+
+`/business/events/new` asks "Where are you starting from?": **I have a post** (Instagram link →
+`eventImport.fromInstagram`), **Like my last event** (one of my events + a new date, optionally N more weeks →
+`businessEvents.copy`: drafts only, same local start time, one series when repeated) or **From scratch** (Run by,
+type, music, date, start time; city from the host; name suggested by `shared/utils/eventStart.ts`
+`suggestEventName`, e.g. "Salsa Party · Thursday", editable). Each makes a draft ("Publish it now" stays) and
+opens the editor, which shows **Steps** (`BusinessEventSteps`, `app/lib/eventSteps.ts`): what and when → venue →
+line-up → entry → flyer → publish, done/to do from the saved event's gaps/flyer/published, one card open at a
+time (`BusinessEventForm` `focus()`). A new draft opens on its first step to do. Line-up and entry show what the
+host's other events suggest (`pastEventHints`: artists booked before, last time's price). Same order as MCP
+`create_event`.
 
 ## Analytics (PostHog)
 
@@ -392,8 +405,9 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `shared_plan_signup` | `FestivalView`, `my-year` ("add friend" from a shared plan) | `surface`, `slug` |
 | `ask_locals_post` · `video_submit` · `video_vote` · `city_battle_vote` | city components | `city`, … |
 | `review_submitted` · `giveaway_entered` · `election_nominated` | `ReviewsSection` · `GiveawayCard` · `elections/[handle]` | target ids |
-| `event_created` / `event_published` | `business/events/new.vue` (starts a draft; `event_published` only when "Publish it now" is ticked); publish = draft→live in `business/events/[id]` (checklist "Publish" button or the Published box) | `event_id`, `is_festival`, `city`, `style`, `published` |
-| `event_imported` | `business/events/new.vue` "Paste an Instagram post" (#453) | `event_id`, `source` (instagram), `created` (false = this post's draft already existed), `lineup`, `has_cover` |
+| `event_form_opened` | `business/events/new.vue` — the organiser answers "Where are you starting from?" (RAZ-939) | `start` (post / copy / scratch) |
+| `event_created` / `event_published` | `business/events/new.vue` ("From scratch" or "Like my last event"; starts a draft; `event_published` only when "Publish it now" is ticked); publish = draft→live in `business/events/[id]` (checklist "Publish" button or the Published box) | `event_id`, `is_festival`, `city`, `style`, `published`, `source` (scratch / copy), `dates` (copy) |
+| `event_imported` | `business/events/new.vue` "I have a post" (#453) | `event_id`, `source` (instagram), `created` (false = this post's draft already existed), `lineup`, `has_cover` |
 | `business_profile_created` | `business/new.vue` | `profile`, `profile_type`, `from_instagram` |
 | `public_page_set` | `settings/index.vue` "Your public page" (one handle per person, #474) | `cleared`, `profile_type` |
 | `profile_merged` | `BusinessDuplicates` (Business → page → Duplicates) | `profile` (kept), `merged_profile`, `moved` |
@@ -427,7 +441,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `server_signup_completed` | `auth.register`, `auth.verifyMagicLink` (account created by this flow, see note), `artistInvites.confirmEmail` (method `invite_email`) | `method`, `has_city`, `via_link` |
 | `server_login_completed` | `auth.login`, `auth.verifyMagicLink` | `method` |
 | `server_onboarding_completed` | `auth.completeOnboarding` | `intent` |
-| `server_event_created` | `businessEvents.create`, `businessEvents.createSeries` | `event_id`, `is_festival`, `host_type`, `city`, `published`, `series_id`, `dates` |
+| `server_event_created` | `businessEvents.create`, `businessEvents.createSeries`, `businessEvents.copy` ("Like my last event", always drafts) | `event_id`, `is_festival`, `host_type`, `city`, `published`, `series_id`, `dates`, `copied_from` (copy) |
 | `server_event_imported` | `eventImport.fromInstagram` (web + MCP `import_from_instagram`; the draft itself also fires `server_event_created`) | `event_id`, `source` (instagram), `kind` (post / reel), `lineup`, `organizers`, `has_venue_page`, `has_cover`, `has_ticket`, `sessions`, `$groups` |
 | `server_event_published` | `create`/`createSeries` with `published`, `update` draft→live, `publishSeries` | `event_id`, `is_festival`, `series_id`, `dates` |
 | `server_booking_request_submitted` | `booking.request` (was server_booking_requested until 2026-10-20) | `booking_id`, `signed_in` |

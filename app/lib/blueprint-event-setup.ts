@@ -74,8 +74,8 @@ export const bpSteps: BpStep[] = [
     note: 'An admin approves, rejects or asks for more in /admin/claims, and the organiser gets an email either way. No one is alerted when a claim comes in, so it waits until an admin looks. When the organiser already has an account, admin.addPageOwner skips the claim.' },
 
   // Draft
-  { id: 'start', phase: 'draft', lane: 'organizer', name: 'Start an event', status: 'live', marks: [], route: '/business/events/new', code: 'businessEvents.create · eventImport.fromInstagram · MCP create_event', refs: ['#453'],
-    note: 'Three doors: the form, pasting an Instagram post (Gemini reads the caption into a draft), or an assistant over MCP. The Instagram post and MCP make a draft; the form has “Published” ticked, so name + date + time is already live (RAZ-927).' },
+  { id: 'start', phase: 'draft', lane: 'organizer', name: 'Start an event', status: 'live', marks: [], route: '/business/events/new', code: 'businessEvents.create · businessEvents.copy · eventImport.fromInstagram · MCP create_event', refs: ['#453', 'RAZ-939'],
+    note: 'One question: “I have a post” (Gemini reads the Instagram caption into a draft), “Like my last event” (a draft copy on a new date, or a weekly series of drafts) or “From scratch” (Run by, type and music, date and time; the name is suggested). All make a draft (“Publish it now” is there for a simple weekly social) and open the editor on its steps: venue, line-up, entry, flyer, publish. An assistant over MCP follows the same order (RAZ-939).' },
   { id: 'gaps', phase: 'draft', lane: 'system', name: 'Draft + what’s missing', status: 'live', marks: [], code: 'shared/utils/eventChecklist.ts · server/mcp/checklist.ts',
     note: 'One checklist: cover, ticket or “free”, venue, line-up, artist Instagram, artist photo. Shown in the editor, events list and Business inbox; MCP adds the tool that fixes each one. It checks that fields are filled, not that anyone agreed.' },
 

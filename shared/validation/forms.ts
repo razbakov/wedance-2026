@@ -405,3 +405,26 @@ export const InstagramPostImportSchema = v.object({
   ),
   profile: v.pipe(v.string(), v.nonEmpty('Pick who runs this event.')),
 })
+
+// ── Business (businessEvents.create / copy — the new-event start, RAZ-939) ───
+
+/**
+ * "From scratch": Run by, type, music, date and start time. The name is
+ * suggested (shared/utils/eventStart.ts) and may be left as it is.
+ */
+export const EventStartSchema = v.object({
+  hostUsername: v.pipe(v.string(), v.nonEmpty('Pick who runs this event.')),
+  type: v.picklist(['Party', 'Workshop', 'Course', 'Festival', 'Weekender', 'Congress', 'Concert', 'Show'], 'Pick a type.'),
+  styles: v.pipe(v.array(v.string()), v.maxLength(20, 'Pick up to 20 styles.')),
+  date: isoDate('Pick a date.'),
+  startTime: v.pipe(v.string(), v.nonEmpty('Pick a start time.'), v.isoTime('Pick a valid start time.')),
+  name: optionalText(160, 'Keep the name under 160 characters.'),
+  published: v.boolean(),
+})
+
+/** "Like my last event": which event, its new date, and how many weeks after. */
+export const EventCopySchema = v.object({
+  id: v.pipe(v.string(), v.nonEmpty('Pick the event to copy.')),
+  date: isoDate('Pick the new date.'),
+  repeatWeeks: v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(12)),
+})

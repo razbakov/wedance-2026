@@ -4,6 +4,10 @@
  * needs, its flyer (the panel beside the cards), repeat it weekly, archive it.
  * Content plan (?tab=plan): every post it's promoted with, each made with the
  * flyer pipeline. Both stay mounted, so switching keeps unsaved edits.
+ *
+ * Steps (RAZ-939): the details are worked through in order — what and when →
+ * venue → line-up → entry → flyer → publish — one card open at a time. A new
+ * draft (?created=…) opens on its first step still to do.
  */
 import { Check, ExternalLink, Repeat, Archive, ArchiveRestore, Sparkles, FileText, Copy, Send } from 'lucide-vue-next'
 import type { BusinessEventValues } from '~/components/business/BusinessEventForm.vue'
@@ -11,6 +15,7 @@ import { toBusinessEventInput } from '~/lib/businessEvent'
 import { eventLocalDate } from '#shared/utils/eventTime'
 import { eventPath } from '#shared/utils/eventSlug'
 import { rsvpOptions } from '#shared/utils/rsvp'
+import { eventSteps, firstOpenStep, pastEventHints, STEP_CARD, type EventStepKey } from '~/lib/eventSteps'
 
 definePageMeta({ layout: 'business' })
 
@@ -23,7 +28,7 @@ const ev = ref<Ev | null>(null)
 const hosts = ref<{ username: string; name: string }[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
-const notice = ref<string | null>(route.query.created === 'draft' ? 'Draft created. Only you can see it: fill in the checklist, then publish.' : route.query.created ? 'Event created.' : route.query.added ? `@${route.query.added} is in the line-up. Send them their link below so they can confirm.` : null)
+const notice = ref<string | null>(route.query.created === 'draft' ? 'Draft created. Only you can see it: work through the steps, then publish.' : route.query.created ? 'Event created.' : route.query.added ? `@${route.query.added} is in the line-up. Send them their link below so they can confirm.` : null)
 const tab = ref<'details' | 'plan'>(route.query.tab === 'plan' ? 'plan' : 'details')
 watch(tab, t => navigateTo({ query: { ...route.query, tab: t === 'plan' ? 'plan' : undefined } }, { replace: true }))
 
@@ -43,8 +48,37 @@ async function load() {
   }
   // #lineup (from an artist's booking page): the editor renders after the load.
   if (route.hash) nextTick(() => document.querySelector(route.hash)?.scrollIntoView({ block: 'start' }))
+  else if (route.query.created && !guided && ev.value && !ev.value.synced) {
+    guided = true
+    nextTick(() => goStep(firstOpenStep(steps.value)))
+  }
 }
-onMounted(load)
+onMounted(async () => {
+  await load()
+  loadHints()
+})
+
+// Steps: done / to do from the saved event.
+const steps = computed(() => ev.value ? eventSteps(ev.value) : [])
+const step = ref<EventStepKey | null>(null)
+let guided = false
+function goStep(k: EventStepKey) {
+  step.value = k
+  tab.value = 'details'
+  const card = STEP_CARD[k]
+  if (card) formRef.value?.focus(card)
+  else nextTick(() => document.getElementById(`ev-step-${k}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+}
+// What the host's other events suggest: artists they booked, last time's price.
+const hints = ref<{ artists: string[]; price: string | null }>({ artists: [], price: null })
+async function loadHints() {
+  const host = ev.value?.host?.username
+  if (!host || ev.value?.synced) return
+  try {
+    const l = await $trpc.businessEvents.list.query({ profile: host })
+    hints.value = pastEventHints([...l.upcoming, ...l.drafts, ...l.past] as any[], { id: ev.value!.id, artists: ev.value!.artists })
+  } catch { /* no suggestions */ }
+}
 
 // The RSVP poll (RAZ-718): the same buckets dancers see on the event page.
 const poll = ref<Awaited<ReturnType<typeof $trpc.rsvp.summary.query>> | null>(null)
@@ -145,7 +179,7 @@ async function repeat() {
   }
 }
 
-const formRef = ref<{ dirty: boolean; submit: () => boolean; publish: () => boolean } | null>(null)
+const formRef = ref<{ dirty: boolean; submit: () => boolean; publish: () => boolean; focus: (card: string) => void } | null>(null)
 // The Publish step (RAZ-927): saves the form as it is, live.
 function publish() {
   if (!formRef.value?.publish()) error.value = 'Fix the details first, then publish.'
@@ -274,7 +308,9 @@ async function archive(series = false) {
         <span class="text-muted-foreground"> What’s here goes on it word for word. The panel shows exactly which words.</span>
       </p>
 
-      <section class="mt-4 rounded-2xl border bg-card p-4">
+      <BusinessEventSteps v-if="!ev.synced && !ev.archived" v-model="step" :steps="steps" class="mt-4" @go="goStep" />
+
+      <section id="ev-step-publish" class="mt-4 scroll-mt-20 rounded-2xl border bg-card p-4">
         <h2 class="text-eyebrow font-bold uppercase tracking-[0.3em] text-secondary">Checklist</h2>
         <p v-if="!ev.missing.length && ev.published" class="mt-2 text-sm text-wd-green-700 font-bold">Ready: everything a dancer and a flyer need is here.</p>
         <ul v-else class="mt-2 grid gap-1 text-sm">
@@ -303,13 +339,14 @@ async function archive(series = false) {
           :initial="initial"
           :hosts="hosts"
           :labels="{ venue: ev.venueName, host: ev.host?.name }"
+          :hints="hints"
           :saving="saving"
           submit-label="Save changes"
           @submit="save"
         />
         <div v-if="!ev.synced" class="order-first grid content-start gap-4 lg:order-none">
           <BusinessPlanTeaser ref="teaserRef" :event-id="ev.id" @open="tab = 'plan'" />
-          <BusinessFlyerPanel ref="panelRef" :event-id="ev.id" :highlight="!!route.query.flyer" @go="onFlyer" />
+          <div id="ev-step-flyer" class="scroll-mt-20"><BusinessFlyerPanel ref="panelRef" :event-id="ev.id" :highlight="!!route.query.flyer || step === 'flyer'" @go="onFlyer" /></div>
           <BusinessCaption ref="captionRef" :event-id="ev.id" />
         </div>
       </div>
