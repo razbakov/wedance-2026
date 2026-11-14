@@ -221,7 +221,9 @@ everywhere). Tools: Business → the page → "WeDance <city>" → `/business/ne
   `CommunityGroupsSection`) → `status='pending'` → city admins approve/decline (`pending` / `review`); listed with
   "added by <first name>". Dedupe on `invite_key` (`shared/utils/communityGroups.ts` `inviteKey`, unique index).
   `checkLinks` fetches only chat.whatsapp.com / t.me invite pages (`server/utils/groupLinkCheck.ts`): a dead link is
-  hidden from the city page (`link_status='dead'`); a batch that comes back >80% dead changes nothing.
+  hidden from the city page (`link_status='dead'`); a batch that comes back >80% dead changes nothing. WhatsApp is
+  'dead' only when BOTH `og:title` and `invite_link_type_v2` are empty (any mix = 'unknown'); checked on real working
+  invites in RAZ-862.
 - **Env:** `TELEGRAM_BOT_TOKEN` (create the bot with @BotFather; add it to each channel as an admin allowed to post).
   Unset = Telegram posting is off, the UI says so. Instagram needs the page's #501 connection.
 
