@@ -40,6 +40,13 @@ public/               # Static assets
 
 Auto-deploys on push to `main` via Vercel + GitHub integration.
 
+**Merge gate (ADR-013, `docs/architecture/adr/013-merge-gate.md`):** `main` is protected — a PR merges
+only when the required checks `unit`, `integration` and `e2e-smoke / e2e` are green (admins included,
+branch need not be up to date, no reviews). Wait, then merge:
+`gh pr checks <pr> --watch --fail-fast && gh pr merge <pr> --squash --delete-branch`. The full BDD suite
+runs nightly (`.github/workflows/nightly.yml`), not on PRs. Renaming a required job blocks every PR until
+branch protection is updated; never put an `if:` on a required job (skipped counts as passed).
+
 ## Conventions
 
 - All agent work delivered via PRs
