@@ -10,6 +10,8 @@ const props = defineProps<{
   suggestions: YearPlanFestival[]
   stats: YearStats
   isSignedIn: boolean
+  /** The plan is still loading (RAZ-890): show a placeholder, never the empty state. */
+  loading?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -88,6 +90,14 @@ const ticketStatusClass: Record<string, string> = {
       </Button>
     </div>
 
+    <!-- Loading (RAZ-890): the plan is still in flight — no empty state, no sign-in nudge yet. -->
+    <div v-if="loading" class="space-y-4" aria-busy="true" data-testid="year-plan-loading">
+      <p class="sr-only" role="status">Loading your dance year…</p>
+      <div class="h-48 rounded-2xl bg-muted animate-pulse" aria-hidden="true" />
+      <div class="h-24 rounded-xl bg-muted animate-pulse" aria-hidden="true" />
+    </div>
+
+    <template v-else>
     <!-- ═══ WRAPPED HERO — Big numbers ═══ -->
     <div v-if="festivals.length > 0" class="rounded-2xl overflow-hidden" style="background: linear-gradient(135deg, var(--wd-red-600), var(--wd-orange-500), var(--wd-amber-600));">
       <div class="px-5 py-6 sm:px-8 sm:py-8 space-y-6">
@@ -452,5 +462,6 @@ const ticketStatusClass: Record<string, string> = {
       </p>
       <Button variant="cta" size="lg" class="px-6" @click="emit('sign-in')">Sign in</Button>
     </div>
+    </template>
   </div>
 </template>
