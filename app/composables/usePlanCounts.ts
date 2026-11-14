@@ -1,6 +1,6 @@
 /**
- * The "My plan" badge (SiteHeader) and the city page's "N in your week" pill
- * (RAZ-889): counts of what /my-plan actually lists, from `plan.counts` —
+ * The "My plan" badge (SiteHeader), the city page's "N in your week" pill
+ * (RAZ-889) and the festivals page's "N in your year" pill (RAZ-909): counts of what /my-plan actually lists, from `plan.counts` —
  * upcoming festivals, courses and this week's socials. Not the size of
  * useWeekPlan / useYearPlan's id sets, which hold every event or festival ever
  * added (past ones too), so the badge kept growing past what the page showed.
@@ -9,9 +9,9 @@
  * render both show 0) and refetched whenever a plan mutation succeeds
  * (app/lib/planChanged.ts, wired in the tRPC client).
  */
-type Counts = { total: number; week: number }
+type Counts = { total: number; week: number; festivals: number }
 
-const counts = ref<Counts>({ total: 0, week: 0 })
+const counts = ref<Counts>({ total: 0, week: 0, festivals: 0 })
 let inFlight: Promise<void> | null = null
 let again = false
 
@@ -29,7 +29,7 @@ export function usePlanCounts() {
     inFlight = $trpc.plan.counts
       .query()
       .then((c) => {
-        counts.value = { total: c.total, week: c.week }
+        counts.value = { total: c.total, week: c.week, festivals: c.festivals }
       })
       .catch((err) => {
         console.warn('[usePlanCounts] refresh failed:', err)
@@ -46,7 +46,7 @@ export function usePlanCounts() {
 
   function reset() {
     again = false
-    counts.value = { total: 0, week: 0 }
+    counts.value = { total: 0, week: 0, festivals: 0 }
   }
 
   return {
@@ -54,6 +54,8 @@ export function usePlanCounts() {
     planTotal: computed(() => counts.value.total),
     /** Planned things in the next 7 days — the "in your week" pill. */
     planWeek: computed(() => counts.value.week),
+    /** Planned festivals that haven't ended — the festivals page's "in your year" pill. */
+    planFestivals: computed(() => counts.value.festivals),
     refresh,
     reset,
   }

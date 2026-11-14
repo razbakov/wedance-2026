@@ -28,7 +28,7 @@ beforeEach(() => {
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks() })
 
 const load = async () => (await import('./usePlanCounts')).usePlanCounts()
-const c = (total: number, week: number) => ({ festivals: 0, courses: 0, socials: total, week, total })
+const c = (total: number, week: number, festivals = 0) => ({ festivals, courses: 0, socials: total - festivals, week, total })
 
 describe('usePlanCounts', () => {
   it('starts at 0 (matches SSR) and shows the server counts once loaded', async () => {
@@ -39,6 +39,18 @@ describe('usePlanCounts', () => {
     await flush()
     expect(p.planTotal.value).toBe(3)
     expect(p.planWeek.value).toBe(2)
+  })
+
+  it('exposes the upcoming-festival count for the festivals page pill (RAZ-909)', async () => {
+    const p = await load()
+    expect(p.planFestivals.value).toBe(0)
+    p.refresh()
+    queries[0]!.resolve(c(5, 1, 2))
+    await flush()
+    expect(p.planFestivals.value).toBe(2)
+    expect(p.planTotal.value).toBe(5)
+    p.reset()
+    expect(p.planFestivals.value).toBe(0)
   })
 
   it('collapses refreshes made during a fetch into one more fetch, ending on the latest counts', async () => {
