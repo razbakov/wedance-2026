@@ -2,10 +2,14 @@
  * The UX map on /docs/ux-map: every user journey (rows) across the six stages a
  * person goes through (columns), with the real pages and features at each step.
  *
- * Hand-maintained. Statuses were read from the routes in app/pages, the
+ * Hand-maintained. Statuses were first read from the routes in app/pages, the
  * landing-promise stories in docs/issues/P*.md and merged PRs (up to #517,
- * 2026-11-13). "gap" = a stage needs something and nothing exists or is planned
- * (a judgement call, not a story). Update the item when you ship or change it.
+ * 2026-11-13), then checked by using the site on 2026-11-14 (RAZ-898): signed
+ * out on 2026.wedance.vip, signed in as a dancer and an organiser on a local
+ * copy of the database, desktop and phone. Items RAZ-898 could not run are
+ * listed in RAZ-931. "gap" = a stage needs something and nothing exists or is
+ * planned (a judgement call, not a story). Update the item when you ship or
+ * change it.
  */
 export type UxStatus = 'live' | 'partial' | 'missing' | 'gap'
 export type UxStageKey = 'discover' | 'evaluate' | 'commit' | 'attend' | 'return' | 'spread'
@@ -26,7 +30,7 @@ export interface UxItem {
 }
 export interface UxHandoff { route: string, name: string, status: UxStatus, why: string }
 
-export const UX_UPDATED = '2026-11-13'
+export const UX_UPDATED = '2026-11-14'
 
 export const uxStatusLabel: Record<UxStatus, string> = {
   live: 'Live, real data',
@@ -60,10 +64,10 @@ const IT: [UxJourneyId, UxStageKey, string, string, UxStatus, string, string][] 
 ['C1','discover','Landing "Find your dance" CTA','/','live','Hero and journey section point beginners to /find-your-dance.','P101 P401'],
 ['C1','discover','City pages in search','/cities/[city]','live','SEO city directory pages bring local search traffic.','RAZ-169'],
 ['C1','evaluate','Style picks with videos','/find-your-dance','live','Salsa, bachata, kizomba cards with video previews.','P1001 P1003 P1004 P1005'],
-['C1','evaluate','Dance-match quiz','/find-your-dance','missing','Promised as "coming soon" on the page.','P1002 RAZ-18'],
-['C1','commit','Free taster class','/find-your-dance','partial','The CTA exists, but there is no real taster-class inventory behind it. It leads to the city page.','P1006 P401'],
-['C1','commit','Beginner-friendly filter','/cities/[city]','gap','A beginner has no way to see which classes or socials suit their level.',''],
-['C1','attend','"Your first class" guide','','gap','Nothing tells a beginner what to expect, what to wear, or whether to bring a partner.',''],
+['C1','evaluate','Dance-match quiz','','missing','Still a landing promise, but /find-your-dance no longer mentions it: three style cards with videos and a taster link.','P1002 RAZ-18 RAZ-899'],
+['C1','commit','Free taster class','/cities/[city]?taster=1','partial','"Try a free taster class" → pick a city → "Your first class": real upcoming classes and workshops, free ones first. No school has said a class is a free taster; the list also mixes in parties and weekenders.','P1006 P401'],
+['C1','commit','Beginner-friendly filter','/cities/[city]','gap','No level filter on the city page. The nearest thing is the taster list behind ?taster=1, which isn\'t sorted by level.',''],
+['C1','attend','"Your first class" guide','/cities/[city]?taster=1','partial','The taster list says no partner or experience is needed and to ask at the door. Nothing on what to wear or what happens in a class.',''],
 ['C1','return','Goals','/my-plan','partial','The goals block exists, but it is a static compass and nothing nudges you toward it.','P227'],
 ['C1','return','Follow-up after first class','','gap','No email or prompt after a first class. This is the moment a Seeker becomes a Regular or drops out.',''],
 ['C1','spread','Bring a friend to a taster','','gap','',''],
@@ -72,82 +76,82 @@ const IT: [UxJourneyId, UxStageKey, string, string, UxStatus, string, string][] 
 ['C2','discover','City artists tab','/cities/[city]/artists','live','','RAZ-169'],
 ['C2','evaluate','Teacher profile','/@handle','live','Bio, styles, schedule of their classes and events, reviews.','P501'],
 ['C2','evaluate','Reviews','/@handle','live','ReviewsSection on profiles.',''],
-['C2','commit','Follow a teacher','/@handle','partial','Follow works, but nothing comes of it: no feed or notification when they teach.','P220'],
-['C2','commit','Request a private class','/book/[handle]','live','Booking request form; also an MCP tool.',''],
+['C2','commit','Follow a teacher','/@handle','partial','Follow is on artist pages (not on venue pages), but nothing comes of it: no feed or notification when they teach.','P220'],
+['C2','commit','Request a private class','/@handle/book','live','"Book <name>" on the artist\'s page: a form that works signed out; also an MCP tool.',''],
 ['C2','attend','Workshop plan at a festival','festival page','live','Pick workshops from a festival schedule.','P228'],
 ['C2','return','My courses this month','/my-plan','partial','Shows real courses since #387, but my-plan still imports mock festivals.','P230'],
 ['C2','return','Progress / level tracking','','gap','Nothing records what you have learned or what level you are at.',''],
 ['C2','spread','Share my plan','/my-plan','live','',''],
 // C3 Regular
-['C3','discover','City page this week','/cities/[city]','live','About 1,000 upcoming Munich events, synced from wedance.vip.','P216 P217 P601'],
+['C3','discover','City page this week','/cities/[city]','live','Real week and "Coming up" (300+ Munich events, synced from wedance.vip). The going counts fail to load on big cities (RAZ-923).','P216 P217 P601 RAZ-923'],
 ['C3','discover','Venues & organisers tabs','/cities/[city]/venues','live','"Who\'s on the floor" tabs.','RAZ-168'],
 ['C3','evaluate','Event page','/events/[id]','live','Time in the event\'s zone, venue, line-up, organiser.',''],
-['C3','evaluate','Who\'s going (opt-in faces)','/events/[id]','live','GoingSection with a share toggle. The July audit marked it not built; it has shipped since.','P205 P207 P211 RAZ-19'],
+['C3','evaluate','Who\'s going (opt-in faces)','/events/[id]','partial','Shows "N going" and the "Shall we dance?" deck of dancers who joined it. The faces grid with its share toggle (GoingSection) shipped after the July audit, then left the pages in #327.','P205 P207 P211 RAZ-19 RAZ-930'],
 ['C3','evaluate','Ask the locals, community groups','/cities/[city]','live','',''],
-['C3','commit','Going! / organiser\'s RSVP poll','/events/[id]','live','Works signed out and survives sign-up.','RAZ-718 RAZ-731'],
+['C3','commit','Going! / organiser\'s RSVP poll','/events/[id]','live','Partner / need a leader / need a follower; signed-out answers show as unconfirmed and survive sign-up.','RAZ-718 RAZ-731'],
 ['C3','attend','Hangouts tonight','/my-plan','live','Event-linked hangouts.','P232 RAZ-439'],
-['C3','attend','Door check-in','organiser side','live','The organiser checks guests in.',''],
-['C3','return','This week\'s socials','/my-plan','partial','Real since #377, but the page mixes in mock festival data.','P231'],
+['C3','attend','Door check-in','','missing','The server can record a check-in, but no page or AI-app tool lets the organiser do it.','RAZ-928'],
+['C3','return','This week\'s socials','/my-plan','partial','Real since #377 (the socials you said Going! to), but My plan still imports mock festival data.','P231 RAZ-907'],
 ['C3','return','Reminders / new events from people I follow','','gap','No dancer-facing email or push exists. Every email sent today goes to businesses or is about auth.',''],
 ['C3','return','City video vote · City Battle','/cities/[city]','live','',''],
 ['C3','spread','Wave / partner pairing','/events/[id]','live','Waves and leader/follower pairing from the RSVP poll.',''],
 ['C3','spread','Discover dancers deck','/my-plan','live','',''],
 // C4 Traveler
-['C4','discover','Festival list + search','/festivals','partial','DB-backed, but few festivals have rich data. Search by city, style and name.','P214 P213 P301'],
-['C4','discover','Europe-wide map','/','partial','','P209 P303'],
-['C4','evaluate','Festival page','/events/[id]','partial','Line-up, schedule, planning count; still has a mock fallback.','P306'],
-['C4','evaluate','See who\'s going before booking','festival page','partial','GoingSection exists, but there are few real attendees per festival.','P302 P306'],
+['C4','discover','Festival list + search','/festivals','partial','DB-backed with search by city, style and name, but few festivals have rich data, running festivals say "Past" and single classes are listed as festivals.','P214 P213 P301 RAZ-893 RAZ-925'],
+['C4','discover','Europe-wide map','','missing','"Every festival mapped" is promised on the landing and /festivals, but neither has a map.','P209 P303'],
+['C4','evaluate','Festival page','/events/[id]','partial','Line-up, schedule and planning count where we have them; synced festivals show only dates, styles and a link. Still has a mock fallback.','P306'],
+['C4','evaluate','See who\'s going before booking','festival page','partial','"N going" and the swipe deck; no faces grid since #327, and few real attendees per festival (most show 0 going).','P302 P306 RAZ-930'],
 ['C4','commit','Buy a ticket','festival page','partial','Stripe and TicketTailor checkout work, for the few festivals ticketed on WeDance.','P210 P309 RAZ-205'],
 ['C4','commit','Add to year plan','/festivals','live','"Going?" toggle.','P215 P237'],
 ['C4','attend','Ride share · roommates · dinners','/my-plan','partial','Built, but empty without other travellers on the same festival.','P304 P311 P312'],
 ['C4','attend','Arrive with friends','','missing','','P305 RAZ-20'],
 ['C4','attend','Partner matching','/my-plan','missing','Swipe deck exists; real matching does not.','P229 P236 RAZ-124'],
-['C4','return','My year in numbers','/my-year','partial','Stats are partly mock.','P233 P234 P235 P314 P315 P317'],
-['C4','return','Early-bird alerts','/my-year','partial','Shown on the page, but never sent.','P316'],
+['C4','return','My year in numbers','/my-year','live','Festivals, dance days, cities, workshops, style mix and busiest month, counted from your year plan.','P233 P234 P235 P314 P315 P317'],
+['C4','return','Early-bird alerts','/my-year','partial','A deadline shows only where a festival has one (none of the synced ones); nothing is ever sent.','P316 RAZ-899'],
 ['C4','spread','Share plan / year','SharePlanModal','live','Shared plan view → sign-up.','P318'],
 ['C4','spread','Friend\'s link discount','','partial','Tracked promoter links exist; the friend-to-friend discount does not.','P319'],
 // C5 Artist
 ['C5','discover','Page made for them (v3 sync / Instagram)','/@handle','live','Most artists first meet WeDance as an unclaimed page someone else made.',''],
 ['C5','discover','Invited by an organiser','invite link','live','Artist invite: their classes first, the flyer next.','#515 #516 #517'],
-['C5','evaluate','Review the invite','/confirm/[token]','live','One review page, one answer.','#516'],
+['C5','evaluate','Review the invite','/confirm/[token]','live','Slot, fee, name and photo for the flyer, one answer; works signed out. On a phone the answer buttons sit under the tab bar (RAZ-924).','#516 RAZ-924'],
 ['C5','commit','Claim my page','/business/claim','live','Structured evidence, admin review.','RAZ-321'],
 ['C5','commit','Offers, terms, availability','/business','live','','#517'],
-['C5','attend','Gigs board: apply','/gigs','partial','Board works, but has few real gigs.','P102 P103 P901 P902'],
+['C5','attend','Gigs board: apply','/gigs','partial','Board works, but has 7 gigs, several from deleted or test accounts.','P102 P103 P901 P902'],
 ['C5','attend','Booking requests & inquiries inbox','/business','live','',''],
 ['C5','return','My schedule on my page','/@handle','live','Line-up events are listed on the profile.','#484'],
 ['C5','return','Who follows me / demand','','gap','An artist cannot see their audience.','RAZ-12'],
-['C5','spread','Promo kit + tracked link','/business','live','',''],
+['C5','spread','Promo kit + tracked link','MCP promo_kit','partial','Only in the AI app; no web page shows an artist or venue their kit.','RAZ-929'],
 // C6 Host & venue
 ['C6','discover','For events / for venues','/for-events','live','Weddings, birthdays, corporate.','P801 P802 P803 P701'],
 ['C6','discover','Venue directory','/venues','live','','P815 P816 P817'],
 ['C6','evaluate','Services menu','/for-events','live','Venue, MC, DJ, show, catering, photo.','P804 P805 P806 P807 P808 P809'],
 ['C6','commit','Event inquiry','/for-events','live','Goes to the founder through Linear; it is an offline service.','P812 P813 P814'],
 ['C6','commit','Request a date at a venue','/venues','live','Bookable areas, opening-hours checks.',''],
-['C6','commit','Venue owner answers a venue ask','invite link','live','Facts, plan, offer, draft preview.','#514'],
-['C6','attend','We run the door','','partial','Promised as a service; check-in exists, but the client has no tool for it.','P810 P811'],
+['C6','commit','Venue owner answers a venue ask','/ask/[token]','live','Facts, plan, offer, their terms; works signed out. On a phone the answer buttons sit under the tab bar (RAZ-924).','#514 RAZ-924'],
+['C6','attend','We run the door','','missing','Promised on /for-events; there is no check-in screen for anyone yet.','P810 P811 RAZ-928'],
 ['C6','return','Venue bookings & availability','/business/network/[u]/bookings','live','',''],
 ['C6','return','Client sees their past night','','gap','',''],
 ['C6','spread','Referral for hosts','','gap','',''],
 // C7 Organizer
 ['C7','discover','For organizers','/for-organizers','live','','P707 P708 P714'],
 ['C7','discover','AI app (ChatGPT / Claude via MCP)','/docs/mcp','live','A second front door: the AI sets up the whole event.','#393 #446'],
-['C7','evaluate','Pricing: Starter free','/for-organizers','live','','P729 P734'],
-['C7','evaluate','Pro €49 / Network €199','/for-organizers','missing','Checkout exists, but the paid feature set it sells is mostly unbuilt.','P730 P731 P732'],
+['C7','evaluate','Pricing: first event free','/for-organizers','live','"Start with one event free and upgrade later."','P729 P734'],
+['C7','evaluate','Network €199 / year','/for-organizers','partial','The page sells it by email ("Talk to us"), not checkout; no Pro €49 any more. Cross-event insights and an account manager aren\'t built.','P730 P731 P732 RAZ-899'],
 ['C7','commit','Create / claim my page','/business/new','live','Duplicate warnings, Instagram import.','#458 #452'],
-['C7','commit','Create event (form · Instagram post · AI)','/business/events/new','live','Co-organisers, series, venue asks, artist invites.','P715 P709 #453 #456'],
+['C7','commit','Create event (form · Instagram post · AI)','/business/events/new','live','Co-organisers, series, venue asks, artist invites. The form publishes at once by default, before venue or line-up (RAZ-927).','P715 P709 #453 #456 RAZ-927'],
 ['C7','attend','Flyer generator','/business/events/[id]/flyer','live','',''],
 ['C7','attend','Content plan → Instagram feed / story','/business','live','Dev-mode Meta app: only people with a role on the app can connect.','#501'],
 ['C7','attend','Ticketing','event page','partial','Works but is used by few events.','P705 P706 P713 P735'],
 ['C7','attend','Hosted website','/business/network/[u]/website','live','Drafts, preview, version history.','#493 #498'],
-['C7','return','Insights','/organizers/insights','partial','Planning counts only.','P718'],
+['C7','return','Insights','/organizers/insights','partial','Planning counts, and only for a festival the team has onboarded; an organiser of weekly parties sees "No festivals on your account yet".','P718'],
 ['C7','return','Demand, geography, post-event signal','','missing','','P725 P726 P727 P728'],
-['C7','return','Contacts / CRM','/business/contacts','live','',''],
+['C7','return','Contacts (website sign-ups)','/business/contacts','live','People who signed up on the hosted website, with CSV export. Not a CRM of dancers who came.',''],
 ['C7','spread','Team roles','/business/network/[u]/team','live','',''],
 ['C7','spread','Promoter links & roster · giveaways','/business','live','',''],
 // C8 Member
 ['C8','discover','Landing','/','live','','P101 P201 P203 P204 P212'],
 ['C8','evaluate','Open metrics','/open','live','Public numbers build trust.','#402'],
-['C8','evaluate','"Every face real"','/','partial','The promise rests on attendee faces, which are still thin.','P202 P206'],
+['C8','evaluate','"Every face real"','/','partial','The promise rests on attendee faces, which are still thin, and the landing shows a "Sample" who\'s-coming card for a July festival (RAZ-926).','P202 P206 RAZ-926'],
 ['C8','commit','Sign up (password · magic link)','SignUpModal','live','',''],
 ['C8','commit','Onboarding: intent, city, styles','/onboarding','live','',''],
 ['C8','attend','My public page / handle','/u/[username]','live','One handle per person.','#474'],
