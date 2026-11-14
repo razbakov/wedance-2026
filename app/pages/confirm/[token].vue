@@ -585,7 +585,7 @@ const fmtDate = (d: string | Date | null, tz?: string | null) => d ? new Date(d)
               <p v-if="error" class="text-sm text-destructive" role="alert">{{ error }}</p>
 
               <!-- The one answer (right-aligned: the help bubble sits bottom-left) -->
-              <div class="fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 backdrop-blur"><div class="mx-auto max-w-2xl px-4 py-3">
+              <div class="fixed inset-x-0 bottom-[var(--wd-tabbar-h,0px)] z-30 border-t bg-background/95 backdrop-blur"><div class="mx-auto max-w-2xl px-4 py-3">
                 <div v-if="!isSignedIn" class="mb-2 flex flex-wrap items-center justify-end gap-x-2 gap-y-1">
                   <label for="c-email" class="text-xs text-muted-foreground">{{ data.answer?.email ? `Your copy went to ${data.answer.email}${data.answer.emailConfirmed ? ' (confirmed)' : ''}. Email:` : 'Your email, for your copy:' }}</label>
                   <Input id="c-email" v-model="answerEmail" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com" class="h-9 w-full max-w-64 text-sm" :aria-invalid="emailError ? true : undefined" aria-describedby="c-email-error" />
@@ -691,7 +691,7 @@ const fmtDate = (d: string | Date | null, tz?: string | null) => d ? new Date(d)
               <p v-if="error" class="text-sm text-destructive" role="alert">{{ error }}</p>
 
               <!-- The one answer -->
-              <div class="fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 backdrop-blur"><div class="mx-auto max-w-2xl px-4 py-3">
+              <div class="fixed inset-x-0 bottom-[var(--wd-tabbar-h,0px)] z-30 border-t bg-background/95 backdrop-blur"><div class="mx-auto max-w-2xl px-4 py-3">
                 <!-- Right-aligned: the help bubble sits bottom-left. -->
                 <div v-if="!isSignedIn" class="mb-2 flex flex-wrap items-center justify-end gap-x-2 gap-y-1">
                   <label for="c-email" class="text-xs text-muted-foreground">{{ data.answer?.email ? `Your copy went to ${data.answer.email}${data.answer.emailConfirmed ? ' (confirmed)' : ''}. Email:` : 'Your email, for your copy:' }}</label>
