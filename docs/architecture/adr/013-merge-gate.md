@@ -44,13 +44,17 @@ The three run in parallel, so a PR is mergeable about 4 minutes after its last p
 **Full E2E suite: nightly, not on PRs** (`.github/workflows/nightly.yml`,
 03:00 Europe/Berlin, plus manual "Run workflow"). It runs every BDD scenario
 (`@write`, `@c3`, `@c6`, `@tz`, …) against the same CI build and ephemeral
-Postgres. It also runs on any PR that changes the E2E pipeline itself
-(`e2e.yml`, `nightly.yml`, `playwright.config.ts`). Not a merge gate because the
+Postgres. Not a merge gate because the
 write scenarios are slower and build their own fixtures; a nightly failure points
 at one day's merges, which is small enough to bisect. Scenarios tagged `@fail`
 are expected failures (playwright-bdd's `test.fail()`), so they keep the run green
 until the bug they document is fixed. A failed scheduled run emails the person
 who last changed the workflow's cron (GitHub default).
+
+First CI run of the full suite (PR #544): 24 passed, 4 failed — the `@c3 @write`
+Going scenarios in `c3-going.feature`, which had only run locally. They are real
+failures to fix (RAZ-910), not a reason to shrink the suite, so the nightly
+run is red until they are fixed.
 
 ## How agents merge now
 
