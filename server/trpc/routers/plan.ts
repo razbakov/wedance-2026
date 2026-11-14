@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { eq, and, ne, sql, inArray, gte, lt, asc, ilike, isNotNull } from 'drizzle-orm'
+import { eq, and, ne, sql, inArray, gte, lt, asc, ilike, isNotNull, or } from 'drizzle-orm'
 import { router, publicProcedure, protectedProcedure } from '../trpc'
 import { planItems, dancers, festivals, festivalSignups, events, attendances, dancerGoals } from '../../database/schema'
 import { getReferralDiscountPercent, getEarlyBirdInfo } from '../../utils/ticket-prices'
@@ -8,6 +8,8 @@ import { festivalPath } from '../../../shared/utils/eventSlug'
 import { discoverDeck, myCourses, recordSwipe, removeSwipe, weekSocials } from '../../utils/myPlanFeeds'
 import { eventIdForFestival, recordLinkAction } from '../../utils/trackedLinks'
 import { planCounts } from '../../utils/planCounts'
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export const planRouter = router({
   count: publicProcedure
@@ -473,7 +475,11 @@ export const planRouter = router({
           profilePublic: dancers.profilePublic,
         })
         .from(dancers)
-        .where(eq(dancers.username, input.username))
+        // A dancer without a handle shares /my-year?user=<their id> (RAZ-897):
+        // the handle first, else the id. Private profiles stay hidden either way.
+        .where(UUID_RE.test(input.username)
+          ? or(eq(dancers.username, input.username), eq(dancers.id, input.username))
+          : eq(dancers.username, input.username))
 
       if (!sharer || sharer.profilePublic === false) {
         return null
