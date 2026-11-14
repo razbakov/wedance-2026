@@ -4,7 +4,8 @@
  * which business page runs the city (e.g. @wedancemunich), who its admins are, its Instagram,
  * its official channels, its local groups (listed / waiting / dead links) and the last weekly
  * post. Admins set the page and add city admins here; the city's tools live on the page
- * (/business/network/<handle>/city).
+ * (/business/network/<handle>/city). Group counts link to Admin → Community groups, filtered to
+ * the city — that's where "Check links" runs and its result shows (RAZ-862).
  */
 import { RotateCcw, Plus, Instagram, Send, MessageCircle, ArrowRight, Link2, UserPlus, Sparkles } from 'lucide-vue-next'
 import { cityPageHandle } from '#shared/utils/communityGroups'
@@ -79,10 +80,8 @@ const addAdmin = (slug: string) => run(`admin-${slug}`, async () => {
   return r.already ? `${r.name} is already on the team (${r.role}).` : `${r.name} is now a ${r.role} of ${slug}.`
 })
 
-const checkAll = () => run('check', async () => {
-  const r = await $trpc.communityGroup.checkLinks.mutate({ limit: 40 })
-  return r.skipped ? 'The invite pages looked unusual, so nothing changed.' : `Checked ${r.checked} links: ${r.ok} working, ${r.dead} dead, ${r.unknown} unclear.`
-})
+// Admin → Community groups, filtered (the link check and its result live there).
+const groupsLink = (city?: string, state?: string) => ({ path: '/admin/community-groups', query: { ...(city ? { city } : {}), ...(state ? { state } : {}) } })
 
 const icon = (p: string) => (p === 'instagram' ? Instagram : p === 'telegram' ? Send : MessageCircle)
 const roleOptions = [{ label: 'Editor', value: 'editor' }, { label: 'Owner', value: 'owner' }]
@@ -94,7 +93,7 @@ const withoutPage = computed(() => rows.value.filter(r => !r.page))
   <div>
     <AdminPageHeader title="Cities" description="Each city’s own WeDance page, its admins, channels and local groups.">
       <Button variant="ghost" size="sm" class="text-secondary" :disabled="loading" @click="load"><RotateCcw /> Refresh</Button>
-      <Button variant="outline-pill" size="pill-sm" :loading="busy === 'check'" @click="checkAll"><Link2 /> Check group links</Button>
+      <Button as-child variant="outline-pill" size="pill-sm"><NuxtLink :to="groupsLink()"><Link2 /> Groups &amp; link check</NuxtLink></Button>
     </AdminPageHeader>
 
     <AdminState v-if="error" kind="error" :message="error" />
@@ -160,10 +159,10 @@ const withoutPage = computed(() => rows.value.filter(r => !r.page))
             </dd>
             <dt class="text-muted-foreground">Local groups</dt>
             <dd>
-              {{ c.groups.visible }} listed
-              <NuxtLink v-if="c.groups.pending" :to="`/business/network/${c.page!.username}/city?tab=groups`" class="ml-1 font-bold text-wd-red-800 hover:underline">· {{ c.groups.pending }} waiting</NuxtLink>
-              <span v-if="c.groups.dead" class="ml-1 text-muted-foreground">· {{ c.groups.dead }} dead links</span>
-              <span v-if="c.groups.hidden" class="ml-1 text-muted-foreground">· {{ c.groups.hidden }} hidden</span>
+              <NuxtLink :to="groupsLink(c.citySlug)" class="hover:underline">{{ c.groups.visible }} listed</NuxtLink>
+              <NuxtLink v-if="c.groups.pending" :to="groupsLink(c.citySlug, 'pending')" class="ml-1 font-bold text-wd-red-800 hover:underline">· {{ c.groups.pending }} waiting</NuxtLink>
+              <NuxtLink v-if="c.groups.dead" :to="groupsLink(c.citySlug, 'dead')" class="ml-1 text-muted-foreground hover:underline">· {{ c.groups.dead }} dead links</NuxtLink>
+              <NuxtLink v-if="c.groups.hidden" :to="groupsLink(c.citySlug, 'hidden')" class="ml-1 text-muted-foreground hover:underline">· {{ c.groups.hidden }} hidden</NuxtLink>
             </dd>
             <dt class="text-muted-foreground">Last weekly post</dt>
             <dd>
@@ -185,7 +184,7 @@ const withoutPage = computed(() => rows.value.filter(r => !r.page))
       <ul class="mt-3 grid gap-2">
         <li v-for="c in withoutPage" :key="c.citySlug" class="flex flex-wrap items-center gap-3 rounded-xl border bg-card px-4 py-3">
           <span class="font-bold">{{ c.cityName }}</span>
-          <span class="text-sm text-muted-foreground">{{ c.groups.visible }} listed<span v-if="c.groups.pending"> · {{ c.groups.pending }} waiting</span><span v-if="c.groups.dead"> · {{ c.groups.dead }} dead</span></span>
+          <NuxtLink :to="groupsLink(c.citySlug)" class="text-sm text-muted-foreground hover:underline">{{ c.groups.visible }} listed<span v-if="c.groups.pending"> · {{ c.groups.pending }} waiting</span><span v-if="c.groups.dead"> · {{ c.groups.dead }} dead</span></NuxtLink>
           <span class="ml-auto flex flex-wrap items-center gap-2">
             <Button type="button" variant="pill" size="pill-sm" :loading="busy === `create-${c.citySlug}`" :data-testid="`create-page-${c.citySlug}`" @click="createPage(c.citySlug)">
               <Sparkles /> Create @{{ cityPageHandle(c.citySlug) }}

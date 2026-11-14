@@ -231,6 +231,10 @@ everywhere). Tools: Business → the page → "WeDance <city>" → `/business/ne
   hidden from the city page (`link_status='dead'`); a batch that comes back >80% dead changes nothing. WhatsApp is
   'dead' only when BOTH `og:title` and `invite_link_type_v2` are empty (any mix = 'unknown'); checked on real working
   invites in RAZ-862.
+- **Admin → Community groups** (`/admin/community-groups`) is where WeDance admins run "Check links" and see its result:
+  each group's state (listed / dead link / waiting / hidden / declined — `shared/utils/communityGroupAdmin.ts`), when its
+  link was last checked, "Show again" / approve / decline. Filters (search, `CityCombobox`, platform, `DanceStyleFilter`,
+  state) live in the URL; Admin → Cities group counts link there (`?city=<slug>&state=dead`).
 - **Organisers' group list** (RAZ-861): `bun scripts/import-community-groups.ts` (dry-run default, `--write`, `--json`,
   `--csv <file>`) reads the "Groups" tab of the "Outreach CRM" sheet (CSV export) → `community_groups` (`source='import'`,
   visible, unverified). Rules in `server/utils/communityGroupImport.ts`: link from the "Whatsapp" column (platform from

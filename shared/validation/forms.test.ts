@@ -201,12 +201,14 @@ describe('date-window schemas', () => {
     expect(validateForm(GiveawaySchema, { ...giveaway, endsAt: '2026-05-02' }).success).toBe(true)
   })
 
-  it('splits community group styles', () => {
-    const result = validateForm(CommunityGroupSchema, {
-      citySlug: 'munich', name: 'Salsa MUC', platform: 'whatsapp', inviteUrl: 'https://chat.whatsapp.com/x',
-      styles: 'Salsa, Bachata,', source: '', verified: false,
-    })
+  it('takes community group styles from the picker and needs a picked city', () => {
+    const group = {
+      citySlug: 'munich', name: 'Salsa MUC', platform: 'whatsapp' as const, inviteUrl: 'https://chat.whatsapp.com/x',
+      styles: ['Salsa', 'Bachata'], source: '', verified: false,
+    }
+    const result = validateForm(CommunityGroupSchema, group)
     expect(result.success && result.data.styles).toEqual(['Salsa', 'Bachata'])
+    expect(errorOf(validateForm(CommunityGroupSchema, { ...group, citySlug: '' }))).toBe('Pick the city.')
   })
 })
 
