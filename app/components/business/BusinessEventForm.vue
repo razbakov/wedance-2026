@@ -10,6 +10,7 @@ import type { PropType } from 'vue'
 import { MapPin, CalendarDays, Send, Pencil, Check, Plus, X, FileText, ListOrdered, Ticket, Users, Palette, Handshake } from 'lucide-vue-next'
 import { priceLines } from '#shared/utils/flyer'
 import { agendaToSessions, emptyEventDetails, legacyAgendaOf } from '#shared/utils/programme'
+import { blankBusinessEvent } from '~/lib/businessEvent'
 
 export type BusinessEventValues = {
   hostUsername: string
@@ -60,12 +61,8 @@ const emit = defineEmits<{ submit: [values: BusinessEventValues] }>()
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v))
 
 const TYPES = ['Party', 'Workshop', 'Course', 'Festival', 'Weekender', 'Congress', 'Concert', 'Show']
-const blank = (): BusinessEventValues => ({
-  hostUsername: '', name: '', type: 'Party', date: '', startTime: '20:00', endTime: '', endDate: '',
-  city: '', venueUsername: null, venueName: '', venueAddress: '', artists: [], coOrganizers: [], styles: [],
-  description: '', cover: '', ticketUrl: '', price: '', published: true,
-  agenda: [], showAgenda: true, photos: {}, names: {}, festival: null,
-})
+// New events start as drafts (RAZ-927).
+const blank = blankBusinessEvent
 const form = reactive<BusinessEventValues>({ ...blank(), ...clone(props.initial) })
 // Prices are edited one per line.
 const prices = ref<string[]>(priceLines(form.price))
@@ -154,7 +151,14 @@ function submit() {
   })
   return true
 }
-defineExpose({ dirty, submit })
+// The editor's "Publish" step: saves what's in the form and makes it live.
+function publish() {
+  form.published = true
+  if (submit()) return true
+  form.published = false
+  return false
+}
+defineExpose({ dirty, submit, publish })
 
 // Read-only summaries.
 const fmtDate = (d: string) => d ? new Date(`${d}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) : ''
@@ -385,7 +389,13 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
       <BusinessFestivalEditor v-if="isFestival && form.festival" v-model="form.festival" part="branding" :days="festivalDays" class="mt-4" />
     </section>
 
-    <div class="mt-3 flex flex-wrap items-center gap-3">
+    <div v-if="mode === 'create'" class="mt-3 flex flex-wrap items-center gap-3">
+      <label class="inline-flex items-center gap-2 text-sm font-bold">
+        <Checkbox v-model="form.published" data-publish-now /> Publish it now
+      </label>
+      <span class="text-xs text-muted-foreground">{{ form.published ? 'Dancers see it as soon as you create it.' : 'It starts as a draft: only you see it. Add the venue, line-up and flyer, then publish.' }}</span>
+    </div>
+    <div v-else class="mt-3 flex flex-wrap items-center gap-3">
       <label class="inline-flex items-center gap-2 text-sm font-bold">
         <Checkbox v-model="form.published" /> Published
       </label>

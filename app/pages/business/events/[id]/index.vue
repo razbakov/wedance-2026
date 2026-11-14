@@ -5,7 +5,7 @@
  * Content plan (?tab=plan): every post it's promoted with, each made with the
  * flyer pipeline. Both stay mounted, so switching keeps unsaved edits.
  */
-import { Check, ExternalLink, Repeat, Archive, ArchiveRestore, Sparkles, FileText, Copy } from 'lucide-vue-next'
+import { Check, ExternalLink, Repeat, Archive, ArchiveRestore, Sparkles, FileText, Copy, Send } from 'lucide-vue-next'
 import type { BusinessEventValues } from '~/components/business/BusinessEventForm.vue'
 import { toBusinessEventInput } from '~/lib/businessEvent'
 import { eventLocalDate } from '#shared/utils/eventTime'
@@ -23,7 +23,7 @@ const ev = ref<Ev | null>(null)
 const hosts = ref<{ username: string; name: string }[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
-const notice = ref<string | null>(route.query.created ? 'Event created.' : route.query.added ? `@${route.query.added} is in the line-up. Send them their link below so they can confirm.` : null)
+const notice = ref<string | null>(route.query.created === 'draft' ? 'Draft created. Only you can see it: fill in the checklist, then publish.' : route.query.created ? 'Event created.' : route.query.added ? `@${route.query.added} is in the line-up. Send them their link below so they can confirm.` : null)
 const tab = ref<'details' | 'plan'>(route.query.tab === 'plan' ? 'plan' : 'details')
 watch(tab, t => navigateTo({ query: { ...route.query, tab: t === 'plan' ? 'plan' : undefined } }, { replace: true }))
 
@@ -112,7 +112,7 @@ async function save(v: BusinessEventValues) {
     captionRef.value?.reload()
     planRef.value?.reload()
     teaserRef.value?.reload()
-    notice.value = 'Saved.'
+    notice.value = input.published && !wasPublished ? 'Published. Dancers can see it now.' : 'Saved.'
     if (hostChanged && oldHost && input.hostUsername) {
       const oldName = hosts.value.find(h => h.username === oldHost)?.name ?? oldHost
       const newName = hosts.value.find(h => h.username === input.hostUsername)?.name ?? input.hostUsername
@@ -145,7 +145,11 @@ async function repeat() {
   }
 }
 
-const formRef = ref<{ dirty: boolean; submit: () => boolean } | null>(null)
+const formRef = ref<{ dirty: boolean; submit: () => boolean; publish: () => boolean } | null>(null)
+// The Publish step (RAZ-927): saves the form as it is, live.
+function publish() {
+  if (!formRef.value?.publish()) error.value = 'Fix the details first, then publish.'
+}
 const planRef = ref<{ reload: () => Promise<void> } | null>(null)
 const teaserRef = ref<{ reload: () => Promise<void> } | null>(null)
 // Line-up names for "Add a post · artist".
@@ -277,6 +281,10 @@ async function archive(series = false) {
           <li v-if="!ev.published">• Publish it so dancers can see it.</li>
           <li v-for="m in ev.missing" :key="m">• Add {{ m }}.</li>
         </ul>
+        <div v-if="!ev.published && !ev.archived" class="mt-3 flex flex-wrap items-center gap-3" data-publish-step>
+          <Button type="button" variant="pill" size="pill-sm" :loading="saving" @click="publish"><Send /> Publish</Button>
+          <span class="text-xs text-muted-foreground">{{ ev.missing.length ? 'You can publish now and add the rest later.' : 'Saves your changes and puts it on WeDance.' }}</span>
+        </div>
       </section>
 
       <section v-if="poll && !poll.festival" class="mt-4 rounded-2xl border bg-card p-4" data-rsvp-summary>

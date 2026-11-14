@@ -388,7 +388,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `shared_plan_signup` | `FestivalView`, `my-year` ("add friend" from a shared plan) | `surface`, `slug` |
 | `ask_locals_post` · `video_submit` · `video_vote` · `city_battle_vote` | city components | `city`, … |
 | `review_submitted` · `giveaway_entered` · `election_nominated` | `ReviewsSection` · `GiveawayCard` · `elections/[handle]` | target ids |
-| `event_created` / `event_published` | `business/events/new.vue`; publish = draft→live in `business/events/[id]` | `event_id`, `is_festival`, `city`, `style`, `published` |
+| `event_created` / `event_published` | `business/events/new.vue` (starts a draft; `event_published` only when "Publish it now" is ticked); publish = draft→live in `business/events/[id]` (checklist "Publish" button or the Published box) | `event_id`, `is_festival`, `city`, `style`, `published` |
 | `event_imported` | `business/events/new.vue` "Paste an Instagram post" (#453) | `event_id`, `source` (instagram), `created` (false = this post's draft already existed), `lineup`, `has_cover` |
 | `business_profile_created` | `business/new.vue` | `profile`, `profile_type`, `from_instagram` |
 | `public_page_set` | `settings/index.vue` "Your public page" (one handle per person, #474) | `cleared`, `profile_type` |

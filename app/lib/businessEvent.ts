@@ -1,5 +1,19 @@
 import type { BusinessEventValues } from '~/components/business/BusinessEventForm.vue'
 
+/**
+ * An empty /business event form. A new event starts as a DRAFT (RAZ-927), like
+ * the Instagram import and the AI app: publishing is a step of its own, in the
+ * editor (or "Publish it now" ticked on purpose in the create form).
+ */
+export function blankBusinessEvent(): BusinessEventValues {
+  return {
+    hostUsername: '', name: '', type: 'Party', date: '', startTime: '20:00', endTime: '', endDate: '',
+    city: '', venueUsername: null, venueName: '', venueAddress: '', artists: [], coOrganizers: [], styles: [],
+    description: '', cover: '', ticketUrl: '', price: '', published: false,
+    agenda: [], showAgenda: true, photos: {}, names: {}, festival: null,
+  }
+}
+
 /** /business event form values → businessEvents.create / update input (empty strings become null). */
 export function toBusinessEventInput(v: BusinessEventValues) {
   return {
