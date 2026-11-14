@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { cleanGuestName, firstName, joinersLine, newWeekendCode, sameEventSet, WEEKEND_CODE_RE } from './weekendShare'
+import { cleanGuestName, firstName, joinersLine, newWeekendCode, sameEventSet, storyParties, weekendKey, WEEKEND_CODE_RE } from './weekendShare'
 
 describe('weekendShare', () => {
   it('makes 7-char codes from the unambiguous alphabet', () => {
@@ -33,5 +33,19 @@ describe('weekendShare', () => {
     expect(joinersLine(['Marta', 'Jo'])).toBe('Marta and Jo')
     expect(joinersLine(['Marta', 'Jo', 'Ana'])).toBe('Marta, Jo and 1 other')
     expect(joinersLine(['Marta', 'Jo', 'Ana', 'Li'])).toBe('Marta, Jo and 2 others')
+  })
+
+  it('puts the parties still to come on the story, else every one', () => {
+    const a = { id: 'a', ended: true }
+    const b = { id: 'b', ended: false }
+    expect(storyParties([a, b])).toEqual([b])
+    expect(storyParties([a])).toEqual([a])
+    expect(storyParties([])).toEqual([])
+  })
+
+  it('keys a set of parties regardless of order or repeats', () => {
+    expect(weekendKey(['b', 'a', 'b'])).toBe(weekendKey(['a', 'b']))
+    expect(weekendKey(['a'])).not.toBe(weekendKey(['a', 'b']))
+    expect(weekendKey([])).toBe('')
   })
 })

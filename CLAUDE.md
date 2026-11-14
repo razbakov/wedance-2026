@@ -307,7 +307,7 @@ Friends tap "I'm in" per party (`weekend_share_joins`): signed in → it goes on
 name + the RSVP guest token, mirrored as an unconfirmed "yes" on the event's poll. After a guest's tap the page offers an
 optional email: a magic link back to `/w/<code>?confirm=<event>&guest=<token>`, which (signed in) folds that
 browser's guest joins into the account — on their plan, confirmed "yes" on the poll, no second email to the
-sharer. Signed-in joins also add a confirmed "yes" on the poll. The sharer gets `sendWeekendJoinEmail` per new join. Entry points: My plan → "Share my weekend", MCP `share_my_weekend`
+sharer. Signed-in joins also add a confirmed "yes" on the poll. The sharer gets `sendWeekendJoinEmail` per new join. Entry points: My plan → "Where you're dancing" shows the story in place (`app/components/WeekendStory.vue`, shared with `/w/<code>`; the link is made when the list loads and again when its parties change — RAZ-895), MCP `share_my_weekend`
 (returns `storyUrl` = the link + `?story=1`, which shows the story maker to whoever opens it).
 Code: `server/trpc/routers/weekend.ts`, `shared/utils/weekendShare.ts`, `app/pages/w/[code].vue`.
 No auto-posting: Instagram's publishing API is Business/Creator-only and the Meta app is in dev mode.
@@ -410,7 +410,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `weekend_plan_viewed` | `w/[code].vue` (Share my weekend page, once per mount) | `own`, `parties`, `friends`, `story` (opened with `?story=1`) |
 | `weekend_joined` | `w/[code].vue` "I'm in" | `signed_in`, `surface` |
 | `weekend_reminder_requested` | `w/[code].vue` email step after a guest's "I'm in" (magic link sent) | `surface` |
-| `weekend_story_shared` | `w/[code].vue` story panel | `method` (native / download / copy), `parties`, `own_line` (the sharer wrote their own line) |
+| `weekend_story_shared` | `WeekendStory` story panel (`w/[code].vue`, My plan → "Where you're dancing") | `method` (native / download / copy), `parties`, `own_line` (the sharer wrote their own line), `surface` (weekend-page / my_plan) |
 | `problem_report_opened` / `problem_report_submitted` / `problem_report_screenshot` | `ReportProblem` | `type` · `captured` (screenshot) |
 | `community_group_submitted` | `SubmitGroupDialog` ("Share a group" on a city's Local groups) | `city`, `platform`, `duplicate` |
 | `city_schedule_published` | `BusinessCitySchedule` (city page → Weekly post: Post to feed / story / Telegram) | `city`, `to` (instagram_feed / instagram_story / telegram) |
@@ -459,7 +459,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `server_community_group_reviewed` | `communityGroup.review` (a city admin approves / declines) | `city`, `platform`, `decision` (approved / rejected), `hours_to_review` |
 | `server_city_schedule_published` | `citySchedule.publishInstagram` / `publishTelegram` | `city`, `to` (instagram_feed / instagram_story / telegram), `events`, `channels`, `with_picture`, `$groups` |
 | `server_city_admin_added` | `cityChannels.addAdmin` (Admin → Cities) | `city`, `role`, `$groups` |
-| `server_weekend_shared` | `weekend.share` (new link only; web "Share my weekend" + MCP `share_my_weekend`) | `events`, `replaced_previous` |
+| `server_weekend_shared` | `weekend.share` (new link only; My plan makes it on its own to show the story, MCP `share_my_weekend`) | `events`, `replaced_previous`, `surface` (my_plan / mcp / web) — `my_plan` is not a share intent; count intent on `weekend_story_shared` |
 | `server_weekend_joined` | `weekend.join` (a friend's first "I'm in" on a party) | `signed_in`, `coming`, `friends` |
 | `server_weekend_join_confirmed` | `weekend.join` signed in with a guest token (the magic link came back; guest joins folded into the account) | `parties`, `hours_to_confirm` |
 | `server_member_role_set` | `businessTeam.setRole` (role actually changed) | `profile`, `profile_type`, `from_role`, `role`, `self`, `$groups` |
