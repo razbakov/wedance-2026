@@ -23,3 +23,4 @@ As a dancer, I want the three most important things across my plan surfaced for 
 - The strip lists up to three priority items pulled from across my plan.
 - Each item tells me clearly what to do next.
 - Completing or acting on an item updates what the strip shows.
+- The strip never repeats an event I'm already going to — those are listed once, under "Where you're dancing" (RAZ-894). When nothing needs doing, the strip is not shown.
