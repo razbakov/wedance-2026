@@ -37,11 +37,18 @@ npx playwright show-report playwright-report/design
 
 ## CI workflow
 
-`.github/workflows/test.yml` runs three jobs:
+`.github/workflows/test.yml` runs three jobs on every PR and every push to `main`.
+All three are **required checks** — branch protection on `main` refuses a merge
+while any of them is red or still running (ADR-013):
 
 1. **unit** — `bun run test -- --coverage` → uploads `coverage/` as artifact
 2. **integration** — same vitest with a Postgres service container
-3. **e2e-smoke** (post-merge only) — BDD `@smoke` tests + design contract/a11y → uploads `playwright-report/` and `e2e/test-results/` as artifacts
+3. **e2e-smoke / e2e** — BDD `@smoke` tests + design contract/a11y (reusable
+   `.github/workflows/e2e.yml`) → uploads `playwright-report/` and `e2e/test-results/` as artifacts
+
+`.github/workflows/nightly.yml` runs the **full** BDD suite through the same
+`e2e.yml` at 03:00 Europe/Berlin (or by hand: Actions → Nightly E2E → Run workflow). Not a
+merge gate.
 
 ## Notes
 

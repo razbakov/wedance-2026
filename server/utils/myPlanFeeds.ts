@@ -153,10 +153,16 @@ export function stylesForDancer(eventStyles: string[], myStyles: readonly string
  * "Where you're dancing" — ONLY the events the dancer put in their plan
  * (plan_items of type 'event', from any surface: RSVP, discover Yes, the
  * city or event page), happening in the next `days` days, soonest first.
- * Courses (metadata type 'class') have their own section and are left out.
+ * Courses and workshops (CLASS_TYPES, or metadata type 'class') have their own section and are left out.
  * Suggestions never appear here; discovery lives on the city page.
  */
-export async function weekSocials(db: Db, dancerId: string, now = new Date(), days = 7): Promise<{ socials: WeekSocial[]; citySlug: string }> {
+export async function weekSocials(
+  db: Db,
+  dancerId: string,
+  now = new Date(),
+  days = 7,
+  opts: { friends?: boolean } = {},
+): Promise<{ socials: WeekSocial[]; citySlug: string }> {
   const [me] = await db.select({ danceStyles: dancers.danceStyles, city: dancers.city }).from(dancers).where(eq(dancers.id, dancerId))
   // The section's "Full week" link: the dancer's city page, by its real slug
   // ("München" → munich), for any city — not only the ones with a mock page.
@@ -172,7 +178,7 @@ export async function weekSocials(db: Db, dancerId: string, now = new Date(), da
     .filter((id: string) => UUID_RE.test(id))
   if (!plannedIds.length) return { socials: [], citySlug }
 
-  // Courses (v3 type 'Course') have their own section, however they were added.
+  // Courses and workshops (CLASS_TYPES) have their own section, however they were added.
   const planned: Array<{ id: string; seriesId: string | null }> = (await db
     .select({ id: events.id, seriesId: events.seriesId, type: events.type })
     .from(events)
@@ -211,7 +217,8 @@ export async function weekSocials(db: Db, dancerId: string, now = new Date(), da
   const byId = new Map<string, any>(rows.map((r: any) => [r.id, r]))
 
   const myStyles = (me?.danceStyles as string[] | null) ?? []
-  const friendIds = await friendIdsOf(db, dancerId)
+  // The plan badge only needs the rows, not who else is going.
+  const friendIds = opts.friends === false ? [] : await friendIdsOf(db, dancerId)
   const counts = await friendsGoingCounts(db, friendIds, 'event', picks.map(p => p.eventId))
 
   const socials: WeekSocial[] = picks
@@ -240,8 +247,12 @@ export async function weekSocials(db: Db, dancerId: string, now = new Date(), da
 // Month · courses
 // ---------------------------------------------------------------------------
 
-/** v3 event types that are a course (a class series), not a night out. */
-export const CLASS_TYPES = ['Course']
+/**
+ * v3 event types that go under "Month · courses", not the week's nights out:
+ * a course (a class series) and a workshop (RAZ-891 — "I'm going" on a
+ * workshop's event page must land in the courses section).
+ */
+export const CLASS_TYPES = ['Course', 'Workshop']
 export const isClassType = (type: string | null | undefined) => CLASS_TYPES.includes(type ?? '')
 
 export type MyCourse = {
@@ -260,7 +271,8 @@ export type MyCourse = {
 
 /**
  * "Month · courses" — only the classes the dancer put in their plan: plan
- * items of type 'event' that are a course (event type 'Course', or saved
+ * items of type 'event' that are a course or workshop (event type 'Course' /
+ * 'Workshop' — e.g. an "I'm going" answer on the event page — or saved
  * from the course picker with metadata type 'class'), backed by a real
  * event. Shows each course's next upcoming class (same series_id); a course
  * with nothing upcoming has ended and is left out. No payment or attendance

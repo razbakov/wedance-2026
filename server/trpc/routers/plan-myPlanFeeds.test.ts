@@ -78,6 +78,8 @@ describe.skipIf(!DATABASE_URL)('my-plan feeds', () => {
     // A weekly course: last week's class (planned) and the next one; plus a course that has ended.
     await addEvent('courseLast', { type: 'Course', seriesId: `course-${RUN}`, startDate: new Date(now - 3 * DAY), endDate: new Date(now - 3 * DAY + 3600_000) })
     await addEvent('courseNext', { type: 'Course', seriesId: `course-${RUN}`, startDate: new Date(now + 4 * DAY), endDate: new Date(now + 4 * DAY + 3600_000), organizerName: `School ${RUN}`, organizerUsername: `school-${RUN}` })
+    // A weekend workshop that started yesterday and runs until tomorrow (RAZ-891).
+    await addEvent('workshop', { type: 'Workshop', styles: ['Zouk'], startDate: new Date(now - DAY), endDate: new Date(now + DAY) })
     await addEvent('courseEnded', { type: 'Course', startDate: new Date(now - 10 * DAY), endDate: new Date(now - 10 * DAY + 3600_000) })
 
     // A festival the friend has picked, so a dancer card + friend count exist.
@@ -93,6 +95,7 @@ describe.skipIf(!DATABASE_URL)('my-plan feeds', () => {
     const eventIds = Object.entries(ids).filter(([k]) => !dancerIds.includes(ids[k]!)).map(([, v]) => v)
     await db.delete(schema.discoverSwipes).where(inArray(schema.discoverSwipes.dancerId, dancerIds))
     await db.delete(schema.attendances).where(inArray(schema.attendances.dancerId, dancerIds)).catch(() => {})
+    await db.delete(schema.eventRsvps).where(inArray(schema.eventRsvps.eventId, eventIds)).catch(() => {})
     await db.delete(schema.planItems).where(inArray(schema.planItems.dancerId, dancerIds))
     await db.delete(schema.follows).where(inArray(schema.follows.dancerId, dancerIds))
     await db.delete(schema.events).where(inArray(schema.events.id, eventIds))
@@ -191,11 +194,60 @@ describe.skipIf(!DATABASE_URL)('my-plan feeds', () => {
       await me.plan.remove({ itemType: 'event', itemId: ids.socialSoon! })
     })
 
+    it('shows a workshop the dancer said they are going to on its event page, not in the week socials (RAZ-891)', async () => {
+      const me = caller(ids.me!)
+      await me.rsvp.answer({ event: ids.workshop!, answer: 'needFollower' })
+      expect(await courseIds()).toEqual([ids.workshop])
+      expect((await me.plan.weekSocials()).socials.map(s => s.id)).not.toContain(ids.workshop)
+      // The My plan badge counts it as a course, this week (RAZ-889 counts from the same feed).
+      expect(await me.plan.counts()).toMatchObject({ courses: 1, week: 1, total: 1 })
+      // "Next time" takes it off again.
+      await me.rsvp.answer({ event: ids.workshop!, answer: 'next' })
+      expect(await courseIds()).toEqual([])
+      expect(await me.plan.counts()).toMatchObject({ courses: 0, total: 0 })
+    })
+
     it('counts a class saved from the course picker (metadata type class)', async () => {
       const me = caller(ids.me!)
       await me.plan.add({ itemType: 'event', itemId: ids.course!, metadata: { type: 'class' } })
       expect(await courseIds()).toEqual([ids.course])
       await me.plan.remove({ itemType: 'event', itemId: ids.course! })
+    })
+  })
+
+  // RAZ-889: the header badge counted every plan item ever added (12 → 15 while
+  // /my-plan showed a festival and two socials). It must count what the page lists.
+  describe('plan.counts', () => {
+    const PAST_FEST = `${FEST}-past`
+
+    it('counts only what /my-plan lists: upcoming festivals, courses and this week\'s socials', async () => {
+      const me = caller(ids.me!)
+      expect(await me.plan.counts()).toMatchObject({ total: 0, week: 0 })
+
+      await db.insert(schema.festivals).values({ slug: PAST_FEST, name: `Past Fest ${RUN}`, startDate: '2020-05-01', endDate: '2020-05-03' })
+      try {
+        await me.plan.add({ itemType: 'festival', itemId: FEST }) // no dates yet — listed, counted
+        await me.plan.add({ itemType: 'festival', itemId: PAST_FEST }) // over — not counted
+        await me.plan.add({ itemType: 'festival', itemId: `no-such-fest-${RUN}` }) // not a festival — not listed
+        await me.plan.add({ itemType: 'event', itemId: ids.socialSoon! }) // this week
+        await me.plan.add({ itemType: 'event', itemId: ids.past! }) // over
+        await me.plan.add({ itemType: 'event', itemId: ids.nextMonth! }) // not this week
+        await me.plan.add({ itemType: 'event', itemId: ids.courseLast! }) // course, next class in 4 days
+        await me.plan.add({ itemType: 'event', itemId: ids.courseEnded! }) // ended course
+
+        const counts = await me.plan.counts()
+        const [{ courses }, { socials }] = await Promise.all([me.plan.myCourses(), me.plan.weekSocials()])
+        expect(counts).toEqual({ festivals: 1, courses: 1, socials: 1, week: 2, total: 3 })
+        // The same feeds /my-plan renders.
+        expect(counts.courses).toBe(courses.length)
+        expect(counts.socials).toBe(socials.length)
+      }
+      finally {
+        for (const itemId of [FEST, PAST_FEST, `no-such-fest-${RUN}`]) await me.plan.remove({ itemType: 'festival', itemId })
+        for (const k of ['socialSoon', 'past', 'nextMonth', 'courseLast', 'courseEnded']) await me.plan.remove({ itemType: 'event', itemId: ids[k]! })
+        await db.delete(schema.festivals).where(eq(schema.festivals.slug, PAST_FEST))
+      }
+      expect(await me.plan.counts()).toMatchObject({ total: 0, week: 0 })
     })
   })
 

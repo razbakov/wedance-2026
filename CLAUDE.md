@@ -40,6 +40,13 @@ public/               # Static assets
 
 Auto-deploys on push to `main` via Vercel + GitHub integration.
 
+**Merge gate (ADR-013, `docs/architecture/adr/013-merge-gate.md`):** `main` is protected — a PR merges
+only when the required checks `unit`, `integration` and `e2e-smoke / e2e` are green (admins included,
+branch need not be up to date, no reviews). Wait, then merge:
+`gh pr checks <pr> --watch --fail-fast && gh pr merge <pr> --squash --delete-branch`. The full BDD suite
+runs nightly (`.github/workflows/nightly.yml`), not on PRs. Renaming a required job blocks every PR until
+branch protection is updated; never put an `if:` on a required job (skipped counts as passed).
+
 ## Conventions
 
 - All agent work delivered via PRs
@@ -224,6 +231,11 @@ everywhere). Tools: Business → the page → "WeDance <city>" → `/business/ne
   hidden from the city page (`link_status='dead'`); a batch that comes back >80% dead changes nothing. WhatsApp is
   'dead' only when BOTH `og:title` and `invite_link_type_v2` are empty (any mix = 'unknown'); checked on real working
   invites in RAZ-862.
+- **Organisers' group list** (RAZ-861): `bun scripts/import-community-groups.ts` (dry-run default, `--write`, `--json`,
+  `--csv <file>`) reads the "Groups" tab of the "Outreach CRM" sheet (CSV export) → `community_groups` (`source='import'`,
+  visible, unverified). Rules in `server/utils/communityGroupImport.ts`: link from the "Whatsapp" column (platform from
+  the link), known cities only (first of a list; regions are reported, never guessed), rows marked private / invalid /
+  inactive left out, insert-only, skips any `invite_key` already in the table. Rollback: `DELETE … WHERE source='import'`.
 - **Env:** `TELEGRAM_BOT_TOKEN` (create the bot with @BotFather; add it to each channel as an admin allowed to post).
   Unset = Telegram posting is off, the UI says so. Instagram needs the page's #501 connection.
 

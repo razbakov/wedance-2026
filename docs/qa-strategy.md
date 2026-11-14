@@ -200,7 +200,7 @@ Merging is automated: Forge's Linear gate merges a PR when it has no conflicts a
 
 **Merge gate** (automated Linear gate):
 - All required PR-gate checks green on the latest commit.
-- No merge conflicts; branch up to date with `main` (required by branch protection).
+- No merge conflicts. The branch need not be up to date with `main` (`strict: false`, ADR-013) — `main` re-runs every check after each merge.
 - A PR labeled as a `user-report` fix contains a test file change.
 
 **Deploy gate** (after Vercel production deploy):
