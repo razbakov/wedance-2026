@@ -77,7 +77,8 @@ async function create(v: BusinessEventValues) {
     const props = { event_id: id, is_festival: !!input.festival, city: input.city || null, style: input.styles?.[0] ?? null }
     useTrack().track('event_created', { ...props, published: !!input.published })
     if (input.published) useTrack().track('event_published', props)
-    await navigateTo(`/business/events/${id}?created=1`)
+    // Drafts by default (RAZ-927): the editor then shows the Publish step.
+    await navigateTo(`/business/events/${id}?created=${input.published ? 'live' : 'draft'}`)
   } catch (e: any) {
     error.value = e?.message || 'Could not create the event.'
   } finally {
