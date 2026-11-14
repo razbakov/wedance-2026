@@ -75,7 +75,7 @@ turns red when the product is fixed so the marker gets removed.
 |---|---|---|
 | RAZ-711 recurring local floor | `e2e/features/c3-find-your-floor.feature:16` — home stage → /cities/munich → this week + next dates → event in Munich time, browser in New York | ✅ |
 | RAZ-712 community + role directories | `c3-find-your-floor.feature:32` (outline × venues / organisers / artists) | ✅ |
-| RAZ-713 signed-out Going gate | `e2e/features/auth-going-gate.feature:8` (existing, now also checks the DB) + `:17` city-page entry (modal, no row) | ✅ (`@smoke`, runs in CI after merge) |
+| RAZ-713 signed-out Going gate | `e2e/features/auth-going-gate.feature:8` (existing, now also checks the DB) + `:17` city-page entry (modal, no row) | ✅ (`@smoke`, required on every PR) |
 | RAZ-714 Going through navigation, reload, undo | `c3-going.feature:12` — no hydration warnings | ✅ |
 | RAZ-715 share explicitly, hide again | `c3-going.feature:37` — private by default, "Show me" → visible to a second dancer, opt-out → gone | ⚠️ opt-out goes through the API: no UI control exists (**RAZ-721**) |
 | RAZ-716 no paywall, no blank section | `c3-going.feature:73` (outline × with/without attendees × signed in/out) | ✅ |
@@ -101,7 +101,7 @@ RAZ-639 (Stripe after free join) and RAZ-315 (pending booking publication) are n
 covered: booking fixtures use `accepted` requests so no assertion depends on RAZ-315.
 Browser/mobile/a11y: scenarios run on the existing single Playwright project
 (Desktop Chrome); the design a11y matrix (`playwright.design.config.ts`) is unchanged.
-Only `@smoke` scenarios run in CI (after merge); the `@c3` scenarios run locally.
+`@smoke` scenarios run on every PR (a required check); the `@c3` scenarios run in the nightly full suite (ADR-013) and locally.
 
 ## Findings (follow-ups)
 

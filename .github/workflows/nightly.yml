@@ -1,0 +1,30 @@
+# Full BDD E2E suite — every scenario, not just @smoke (ADR-013).
+# Not a merge gate: the @write scenarios set up their own fixtures and take
+# longer, and a nightly failure points at the day's merges. A failed scheduled
+# run emails whoever last changed this file's cron (GitHub default).
+# It also runs on PRs that change the E2E pipeline itself, so a broken
+# workflow shows up before merge instead of the next night.
+name: Nightly E2E
+
+on:
+  schedule:
+    - cron: '0 2 * * *' # 03:00 Europe/Berlin (CET), 04:00 in summer
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/e2e.yml
+      - .github/workflows/nightly.yml
+      - playwright.config.ts
+
+concurrency:
+  group: nightly-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  full:
+    uses: ./.github/workflows/e2e.yml
+    with:
+      grep: ''
+      suite: playwright-full
+    secrets: inherit
