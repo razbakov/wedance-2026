@@ -211,7 +211,7 @@ bun run dev:db-proxy          # Neon-HTTP-compatible proxy on :4444
 ## City channels — weekly post, official channels, local groups (0067)
 
 A city's own WeDance accounts (e.g. Instagram @wedancemunich) are run from a **city page**: an ordinary
-business page linked in `city_pages` (Admin → Cities, `/admin/cities`, `cityChannels.setCityPage`). Its team
+business page linked in `city_pages` (Admin → Cities, `/admin/cities`: "Create @wedance<city>" → `cityChannels.createCityPage` makes an organizer page "WeDance <City>" with the admin as owner and links it; or link an existing page → `cityChannels.setCityPage`). Its team
 (`profile_members`) are the **city admins** (`server/utils/cityAccess.ts` `requireCityAdmin`; WeDance admins pass
 everywhere). Tools: Business → the page → "WeDance <city>" → `/business/network/<handle>/city`.
 

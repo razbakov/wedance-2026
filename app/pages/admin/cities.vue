@@ -6,7 +6,8 @@
  * post. Admins set the page and add city admins here; the city's tools live on the page
  * (/business/network/<handle>/city).
  */
-import { RotateCcw, Plus, Instagram, Send, MessageCircle, ArrowRight, Link2, UserPlus } from 'lucide-vue-next'
+import { RotateCcw, Plus, Instagram, Send, MessageCircle, ArrowRight, Link2, UserPlus, Sparkles } from 'lucide-vue-next'
+import { cityPageHandle } from '#shared/utils/communityGroups'
 
 definePageMeta({ layout: 'admin' })
 useHead({ title: 'Admin: Cities | WeDance' })
@@ -44,11 +45,25 @@ const setPage = (citySlug: string, username: string | null) =>
     return r.page ? `@${r.page.username} now runs ${citySlug}.` : `${citySlug} has no page now.`
   })
 
-// A new city (one without groups yet).
+// No page yet: create "WeDance <City>" (@wedance<city>, an organizer page you own) and link it.
+const createPage = (citySlug: string) =>
+  run(`create-${citySlug}`, async () => {
+    const r = await $trpc.cityChannels.createCityPage.mutate({ citySlug })
+    return `Created @${r.page.username} (${r.page.name}) and made it ${citySlug}’s page. You own it: add the city admins below.`
+  })
+
+// A new city (one without groups yet): create its page, or link a page that already exists.
 const newCity = reactive({ slug: '', page: '' })
-const addCity = () => run('new', async () => {
-  const slug = newCity.slug.trim().toLowerCase()
-  if (!slug || !newCity.page.trim()) throw new Error('Add the city slug and the page’s @handle.')
+const newSlug = computed(() => newCity.slug.trim().toLowerCase())
+const addCity = (mode: 'create' | 'link') => run(mode === 'create' ? 'new-create' : 'new', async () => {
+  const slug = newSlug.value
+  if (!slug) throw new Error('Add the city slug first, e.g. munich.')
+  if (mode === 'create') {
+    const r = await $trpc.cityChannels.createCityPage.mutate({ citySlug: slug })
+    newCity.slug = ''
+    return `Created @${r.page.username} and added ${slug}. You own it: add the city admins below.`
+  }
+  if (!newCity.page.trim()) throw new Error('Type the @handle of the page that already exists.')
   await $trpc.cityChannels.setCityPage.mutate({ citySlug: slug, username: newCity.page.trim() })
   Object.assign(newCity, { slug: '', page: '' })
   return `Added ${slug}.`
@@ -85,13 +100,24 @@ const withoutPage = computed(() => rows.value.filter(r => !r.page))
     <AdminState v-if="error" kind="error" :message="error" />
     <p v-if="notice" class="mt-4 rounded-xl bg-wd-green-600/10 p-3 text-sm text-wd-green-700" role="status">{{ notice }}</p>
 
-    <form class="mt-6 rounded-2xl border bg-card p-4 flex flex-wrap items-end gap-3" novalidate @submit.prevent="addCity">
-      <Field id="new-city-slug" label="City slug" class="w-40"><Input v-model="newCity.slug" placeholder="munich" /></Field>
-      <Field id="new-city-page" label="Its WeDance page" hint="An existing business page; create it in Business first." class="flex-1 min-w-[12rem]">
-        <Input v-model="newCity.page" placeholder="@wedancemunich" />
-      </Field>
-      <Button type="submit" variant="pill" size="pill-sm" :loading="busy === 'new'"><Plus /> Add city</Button>
-    </form>
+    <section class="mt-6 rounded-2xl border bg-card p-4">
+      <p class="text-sm text-muted-foreground">
+        A city page is the city’s own WeDance account, like Instagram @wedancemunich: an organizer page called
+        “WeDance &lt;City&gt;”. Its team are the city’s admins (weekly post, official channels, local groups).
+        No page yet? <strong class="text-foreground">Create</strong> makes it for you, with you as owner.
+      </p>
+      <form class="mt-3 flex flex-wrap items-end gap-3" novalidate @submit.prevent="addCity('create')">
+        <Field id="new-city-slug" label="City slug" class="w-40"><Input v-model="newCity.slug" placeholder="munich" /></Field>
+        <Button type="submit" variant="pill" size="pill-sm" :disabled="!newSlug" :loading="busy === 'new-create'">
+          <Sparkles /> Create {{ newSlug ? `@${cityPageHandle(newSlug)}` : 'its page' }}
+        </Button>
+        <span class="text-sm text-muted-foreground">or link an existing page:</span>
+        <Field id="new-city-page" label="Existing page" hide-label class="w-44">
+          <Input v-model="newCity.page" placeholder="@its_handle" />
+        </Field>
+        <Button type="button" variant="outline-pill" size="pill-sm" :disabled="!newSlug || !newCity.page.trim()" :loading="busy === 'new'" @click="addCity('link')"><Plus /> Link</Button>
+      </form>
+    </section>
 
     <AdminState v-if="loading" kind="loading" />
     <template v-else>
@@ -160,9 +186,13 @@ const withoutPage = computed(() => rows.value.filter(r => !r.page))
         <li v-for="c in withoutPage" :key="c.citySlug" class="flex flex-wrap items-center gap-3 rounded-xl border bg-card px-4 py-3">
           <span class="font-bold">{{ c.cityName }}</span>
           <span class="text-sm text-muted-foreground">{{ c.groups.visible }} listed<span v-if="c.groups.pending"> · {{ c.groups.pending }} waiting</span><span v-if="c.groups.dead"> · {{ c.groups.dead }} dead</span></span>
-          <span class="ml-auto flex items-center gap-2">
-            <Field :id="`page-${c.citySlug}`" label="Page" hide-label class="w-48"><Input v-model="pageInput[c.citySlug]" placeholder="@wedance…" size="sm" /></Field>
-            <Button type="button" variant="outline-pill" size="pill-sm" :disabled="!pageInput[c.citySlug]?.trim()" :loading="busy === `page-${c.citySlug}`" @click="setPage(c.citySlug, pageInput[c.citySlug]!)">Set page</Button>
+          <span class="ml-auto flex flex-wrap items-center gap-2">
+            <Button type="button" variant="pill" size="pill-sm" :loading="busy === `create-${c.citySlug}`" :data-testid="`create-page-${c.citySlug}`" @click="createPage(c.citySlug)">
+              <Sparkles /> Create @{{ cityPageHandle(c.citySlug) }}
+            </Button>
+            <span class="text-xs text-muted-foreground">or link an existing one</span>
+            <Field :id="`page-${c.citySlug}`" label="Existing page" hide-label class="w-40"><Input v-model="pageInput[c.citySlug]" placeholder="@its_handle" size="sm" /></Field>
+            <Button type="button" variant="ghost" size="sm" :disabled="!pageInput[c.citySlug]?.trim()" :loading="busy === `page-${c.citySlug}`" @click="setPage(c.citySlug, pageInput[c.citySlug]!)">Link</Button>
           </span>
         </li>
       </ul>
