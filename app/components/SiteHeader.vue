@@ -15,12 +15,10 @@ const route = useRoute()
 const { appearsSignedIn } = useAccountNav('dance')
 const showSignIn = ref(false)
 
-// My plan badge = festivals in the year plan + events in the week plan.
-// Loaded by plugins/04.plan.client.ts after hydration, so SSR and the
-// client's first render agree (both 0).
-const { yearCount } = useYearPlan()
-const { weekCount } = useWeekPlan()
-const planCount = computed(() => yearCount.value + weekCount.value)
+// My plan badge = the upcoming things /my-plan lists (festivals, courses,
+// this week's socials) — RAZ-889. Loaded by plugins/04.plan.client.ts after
+// hydration, so SSR and the client's first render agree (both 0).
+const { planTotal: planCount } = usePlanCounts()
 
 const discover = [
   { to: '/festivals', label: 'Festivals', icon: Sparkles },
