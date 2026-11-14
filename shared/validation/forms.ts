@@ -315,12 +315,13 @@ export const FestivalTicketSchema = v.object({ name: requiredText('name is requi
 
 // ── Admin (communityGroup.create / giveaway.create) ──────────────────────────
 
+// Admin → Community groups "New": the city comes from <CityCombobox> (its slug), the styles from <DanceStylePicker>.
 export const CommunityGroupSchema = v.object({
-  citySlug: requiredText('Add the city slug.'),
+  citySlug: requiredText('Pick the city.'),
   name: requiredText('Add the group name.'),
   platform: v.picklist(['whatsapp', 'telegram', 'facebook', 'instagram', 'other']),
   inviteUrl: webUrl('Add the invite URL.'),
-  styles: commaList(),
+  styles: v.array(v.string()),
   source: optionalText(),
   verified: v.boolean(),
 })
