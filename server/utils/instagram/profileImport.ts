@@ -174,7 +174,9 @@ export async function importInstagramProfiles(db: any, targets: ImportTarget[], 
     const prev = byId.get(t.profileId)
     byId.set(t.profileId, { ...t, handle: t.handle.replace(/^@/, '').toLowerCase(), allowOwned: !!(t.allowOwned || prev?.allowOwned) })
   }
-  const rows = await loadRows(db, [...byId.keys()])
+  // In the order the handles were added (one Apify run lists them as given), not the DB's row order.
+  const order = [...byId.keys()]
+  const rows = (await loadRows(db, order)).sort((a: ProfileRow, b: ProfileRow) => order.indexOf(a.id) - order.indexOf(b.id))
   const results: ImportResult[] = []
   const todo: { row: ProfileRow; t: ImportTarget }[] = []
   for (const row of rows) {
