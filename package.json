@@ -36,7 +36,7 @@
     "@tailwindcss/vite": "^4.2.1",
     "@trpc/client": "^11.14.1",
     "@trpc/server": "^11.14.1",
-    "@vueuse/core": "^14.2.1",
+    "@vueuse/core": "^15.0.0",
     "class-variance-authority": "^0.7.1",
     "cloudinary": "^2.11.0",
     "clsx": "^2.1.1",
