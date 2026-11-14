@@ -156,7 +156,13 @@ export function stylesForDancer(eventStyles: string[], myStyles: readonly string
  * Courses and workshops (CLASS_TYPES, or metadata type 'class') have their own section and are left out.
  * Suggestions never appear here; discovery lives on the city page.
  */
-export async function weekSocials(db: Db, dancerId: string, now = new Date(), days = 7): Promise<{ socials: WeekSocial[]; citySlug: string }> {
+export async function weekSocials(
+  db: Db,
+  dancerId: string,
+  now = new Date(),
+  days = 7,
+  opts: { friends?: boolean } = {},
+): Promise<{ socials: WeekSocial[]; citySlug: string }> {
   const [me] = await db.select({ danceStyles: dancers.danceStyles, city: dancers.city }).from(dancers).where(eq(dancers.id, dancerId))
   // The section's "Full week" link: the dancer's city page, by its real slug
   // ("München" → munich), for any city — not only the ones with a mock page.
@@ -211,7 +217,8 @@ export async function weekSocials(db: Db, dancerId: string, now = new Date(), da
   const byId = new Map<string, any>(rows.map((r: any) => [r.id, r]))
 
   const myStyles = (me?.danceStyles as string[] | null) ?? []
-  const friendIds = await friendIdsOf(db, dancerId)
+  // The plan badge only needs the rows, not who else is going.
+  const friendIds = opts.friends === false ? [] : await friendIdsOf(db, dancerId)
   const counts = await friendsGoingCounts(db, friendIds, 'event', picks.map(p => p.eventId))
 
   const socials: WeekSocial[] = picks
