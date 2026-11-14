@@ -8,7 +8,7 @@ definePageMeta({ layout: false })
 const route = useRoute()
 const router = useRouter()
 const { $trpc } = useNuxtApp()
-const { isSignedIn, username: myUsername } = useAuth()
+const { isSignedIn, username: myUsername, dancerName } = useAuth()
 const { yearPlanIds } = useYearPlan()
 
 // Progress store — reads the same localStorage key as my-plan.vue so the
@@ -415,7 +415,7 @@ useHead({
       <ShareYearPlanModal
         v-model:open="showShareModal"
         :festivals="myFestivals"
-        sharer-name="You"
+        :sharer-name="dancerName?.split(' ')[0] || ''"
       />
     </template>
 

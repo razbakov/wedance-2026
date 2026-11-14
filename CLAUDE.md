@@ -364,7 +364,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `find_your_dance_started` / `find_your_dance_completed` | `find-your-dance.vue` (first video watched or choice · a style or the taster chosen; not a quiz) | `style`, `via` · `style_chosen`, `taster`, `answers_count` (videos watched), `styles_suggested` |
 | `profile_viewed` | `/@handle` (business profiles, `trackOnce`), `/u/<handle>` (dancers — no handle sent) | `profile` (business only), `profile_type`, `city`, `claimed`, `own`, `surface` |
 | `outbound_click` | delegated listener `plugins/06.outbound-click.client.ts` (every external link) | `kind` (ticket / website / instagram / map / whatsapp / telegram / community_group / email / phone / ai_app / …; `data-outbound-kind` overrides), `platform`, `host` (never path/query), `object_type`, `object_id` (`data-object-*` or the page's `useTrackContext`), `city`, `surface` (route name) |
-| `plan_shared` | `SharePlanModal` (festival workshop plan), `ShareYearPlanModal` (year) | `object` (festival / year), `method` (copy / native), `festival` / `workshops` / `festivals`, `surface` |
+| `plan_shared` | `SharePlanModal` (festival workshop plan), `ShareYearPlanModal` (year: link copy / "Share via…"; the story picture is `year_story_shared`) | `object` (festival / year), `method` (copy / native), `festival` / `workshops` / `festivals`, `surface` |
 | `shared_plan_viewed` | `FestivalView` (`?invite=` / `?plan=shared`), `my-year?user=` | `object`, `festival`, `signed_in`, `workshops` / `festivals`, `has_referral` |
 | `referral_link_shared` | `SharePlanModal` referral link copy | `method`, `festival`, `surface` |
 | `tracked_link_visit` | `plugins/05.tracked-link.client.ts` (`?via=` promoter link) | `code_type`, `referral_code` (promoter link code), `counted`, `landing` |
@@ -415,6 +415,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `weekend_joined` | `w/[code].vue` "I'm in" | `signed_in`, `surface` |
 | `weekend_reminder_requested` | `w/[code].vue` email step after a guest's "I'm in" (magic link sent) | `surface` |
 | `weekend_story_shared` | `WeekendStory` story panel (`w/[code].vue`, My plan → "Where you're dancing") | `method` (native / download / copy), `parties`, `own_line` (the sharer wrote their own line), `surface` (weekend-page / my_plan) |
+| `year_story_shared` | `YearStory` story panel in `ShareYearPlanModal` (/my-year → Share, RAZ-897; the link opens `/my-year?user=`) | `method` (native / download / copy), `festivals`, `own_line` (the sharer wrote their own line), `surface` (year-modal) |
 | `problem_report_opened` / `problem_report_submitted` / `problem_report_screenshot` | `ReportProblem` | `type` · `captured` (screenshot) |
 | `community_group_submitted` | `SubmitGroupDialog` ("Share a group" on a city's Local groups) | `city`, `platform`, `duplicate` |
 | `city_schedule_published` | `BusinessCitySchedule` (city page → Weekly post: Post to feed / story / Telegram) | `city`, `to` (instagram_feed / instagram_story / telegram) |

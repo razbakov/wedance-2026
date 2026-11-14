@@ -6,6 +6,7 @@ import { Button } from '~/components/ui/button'
 import { Badge } from '~/components/ui/badge'
 import { WD } from '~/lib/brand'
 import { initialOf } from '#shared/utils/initials'
+import { yearShareUrl } from '#shared/utils/yearStory'
 
 const props = defineProps<{
   open: boolean
@@ -19,7 +20,7 @@ const emit = defineEmits<{
 
 const copied = ref(false)
 
-const { dancerId, username } = useAuth()
+const { dancerId, username, profilePublic } = useAuth()
 
 const baseUrl = computed(() => {
   if (import.meta.client) {
@@ -28,16 +29,8 @@ const baseUrl = computed(() => {
   return ''
 })
 
-const referralCode = computed(() => username.value || dancerId.value || '')
-
-const shareUrl = computed(() => {
-  const user = username.value || dancerId.value || 'shared'
-  const base = `${baseUrl.value}/my-year?user=${encodeURIComponent(user)}`
-  if (referralCode.value) {
-    return `${base}&ref=${encodeURIComponent(referralCode.value)}`
-  }
-  return base
-})
+// The year page: /my-year?user=<handle or dancer id>&ref=… (RAZ-897: also what the story leads to).
+const shareUrl = computed(() => yearShareUrl(baseUrl.value, username.value, dancerId.value))
 
 const totalWorkshops = computed(() => props.festivals.reduce((sum, f) => sum + f.workshopCount, 0))
 
@@ -96,6 +89,20 @@ async function nativeShare() {
       </DialogHeader>
 
       <div class="space-y-4 py-2 overflow-y-auto flex-1 -mx-6 px-6">
+        <!-- The story picture (RAZ-897) — drawn only while the modal is open. -->
+        <YearStory
+          v-if="open && festivals.length"
+          :festivals="festivals"
+          :sharer-name="sharerName"
+          :url="shareUrl"
+          surface="year-modal"
+        >
+          <p v-if="profilePublic === false" class="mt-3 text-sm font-sans text-orange-700" data-testid="year-story-private">
+            Your profile is private, so friends who open the link won't see your year.
+            <NuxtLink to="/settings" class="underline font-bold">Make it public</NuxtLink>
+          </p>
+        </YearStory>
+
         <!-- Share link -->
         <div class="rounded-lg border p-4 space-y-3">
           <div class="flex items-center gap-3">
