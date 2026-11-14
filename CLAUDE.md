@@ -229,6 +229,11 @@ everywhere). Tools: Business → the page → "WeDance <city>" → `/business/ne
   "added by <first name>". Dedupe on `invite_key` (`shared/utils/communityGroups.ts` `inviteKey`, unique index).
   `checkLinks` fetches only chat.whatsapp.com / t.me invite pages (`server/utils/groupLinkCheck.ts`): a dead link is
   hidden from the city page (`link_status='dead'`); a batch that comes back >80% dead changes nothing.
+- **Organisers' group list** (RAZ-861): `bun scripts/import-community-groups.ts` (dry-run default, `--write`, `--json`,
+  `--csv <file>`) reads the "Groups" tab of the "Outreach CRM" sheet (CSV export) → `community_groups` (`source='import'`,
+  visible, unverified). Rules in `server/utils/communityGroupImport.ts`: link from the "Whatsapp" column (platform from
+  the link), known cities only (first of a list; regions are reported, never guessed), rows marked private / invalid /
+  inactive left out, insert-only, skips any `invite_key` already in the table. Rollback: `DELETE … WHERE source='import'`.
 - **Env:** `TELEGRAM_BOT_TOKEN` (create the bot with @BotFather; add it to each channel as an admin allowed to post).
   Unset = Telegram posting is off, the UI says so. Instagram needs the page's #501 connection.
 

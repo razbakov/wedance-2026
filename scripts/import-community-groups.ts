@@ -1,193 +1,106 @@
 #!/usr/bin/env bun
 /**
- * Import community groups from CSV into the database.
+ * Import the organisers' WhatsApp / Telegram groups into the local group directory (RAZ-861).
  *
- * CSV format (header required):
- * citySlug,name,platform,inviteUrl,styles,source,verified
+ * Source: Google Sheet "Outreach CRM", tab "Groups" (its CSV export; the sheet is link-readable),
+ * or a CSV file with the same columns (`--csv <path>`). Mapping + dedupe rules:
+ * server/utils/communityGroupImport.ts.
  *
- * Example:
- * munich,Salsa Community Munich,whatsapp,https://chat.whatsapp.com/abc123,salsa|bachata,local-organizer,true
- * berlin,Kizomba Wednesday,telegram,https://t.me/joinchat/xyz789,kizomba,friend-referral,false
+ *   bun scripts/import-community-groups.ts                 # dry-run: what would be added, what is left out
+ *   bun scripts/import-community-groups.ts --write         # insert
+ *   bun scripts/import-community-groups.ts --csv groups.csv [--json]
  *
- * Usage (requires file path):
- *   bun scripts/import-community-groups.ts data/community-groups.csv
+ * Insert-only: rows go in as community_groups (kind 'community', status 'visible', source 'import',
+ * unverified). A group whose invite_key is already in the directory (any status, any kind) is
+ * skipped and never changed; nothing is deleted. Re-running adds nothing new.
+ *
+ * Env: DATABASE_URL (target — the Vercel-pulled .env is PRODUCTION; check it before --write).
+ * Rollback: DELETE FROM community_groups WHERE source = 'import';
  */
+import { readFileSync } from 'node:fs'
+import pg from 'pg'
+import { buildCityIndex } from '../server/utils/v3EventSync'
+import { addCitiesToIndex, mapGroupSheet, parseCsv, planGroupImport, groupImportRow, type GroupSkipped } from '../server/utils/communityGroupImport'
 
-import { drizzle } from 'drizzle-orm/neon-http'
-import { eq, and } from 'drizzle-orm'
-import { communityGroups } from '../server/database/schema'
-import { parseCSVLine } from './csv-parser'
+const SHEET_ID = '1oKO8qm2nzI_V6anN6tKte3ymqW-NfcDjGgzoq0Qsd5A'
+const GROUPS_TAB_GID = '437789097'
 
-// Get the database URL from .env
+const argv = process.argv.slice(2)
+const WRITE = argv.includes('--write')
+const JSON_OUT = argv.includes('--json')
+const csvPath = argv.includes('--csv') ? argv[argv.indexOf('--csv') + 1] : null
+
 const dbUrl = process.env.DATABASE_URL
-if (!dbUrl) {
-  console.error('DATABASE_URL environment variable not set')
-  process.exit(1)
+if (!dbUrl) { console.error('DATABASE_URL environment variable not set'); process.exit(1) }
+const host = (u: string) => { try { return new URL(u).host } catch { return '?' } }
+console.error(`community groups import · ${WRITE ? 'WRITE' : 'dry-run'} · target DB ${host(dbUrl)}`)
+
+let csv: string
+if (csvPath) csv = readFileSync(csvPath, 'utf8')
+else {
+  const res = await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GROUPS_TAB_GID}`)
+  if (!res.ok || !(res.headers.get('content-type') ?? '').includes('text/csv')) {
+    console.error(`Could not read the sheet (${res.status}). Export the "Groups" tab as CSV and pass --csv <path>.`)
+    process.exit(1)
+  }
+  csv = await res.text()
 }
 
-const db = drizzle(dbUrl)
-
-// Require file path argument
-const filePath = Bun.argv[2]
-if (!filePath) {
-  console.error('Usage: bun scripts/import-community-groups.ts <csv-file>')
-  process.exit(1)
-}
-
-let csvContent: string
+const db = new pg.Client({ connectionString: dbUrl })
+await db.connect()
 try {
-  csvContent = await Bun.file(filePath).text()
-} catch (error) {
-  console.error(`Failed to read file: ${error instanceof Error ? error.message : String(error)}`)
-  process.exit(1)
-}
+  const { rows: profileCities } = await db.query<{ city: string; citySlug: string }>(
+    `SELECT city, city_slug AS "citySlug" FROM profiles WHERE city IS NOT NULL AND city_slug IS NOT NULL
+     GROUP BY city, city_slug ORDER BY count(*) DESC`)
+  const { rows: cityRows } = await db.query<{ slug: string; name: string; localName: string | null; altNames: string[] }>(
+    `SELECT slug, name, local_name AS "localName", alt_names AS "altNames" FROM cities`)
+  const idx = addCitiesToIndex(buildCityIndex(profileCities), cityRows)
 
-if (!csvContent.trim()) {
-  console.error('CSV file is empty')
-  process.exit(1)
-}
+  const { groups, skipped } = mapGroupSheet(parseCsv(csv), idx)
+  const { rows: existing } = await db.query<{ key: string }>(`SELECT invite_key AS key FROM community_groups WHERE invite_key IS NOT NULL`)
+  const plan = planGroupImport(groups, existing.map(r => r.key))
 
-
-// Parse CSV
-const lines = csvContent.trim().split('\n')
-if (lines.length < 2) {
-  console.error('CSV must have at least a header row')
-  process.exit(1)
-}
-
-const headerLine = lines[0]
-const headers = parseCSVLine(headerLine).map((h) => h.toLowerCase())
-
-// Validate required headers
-const requiredHeaders = ['cityslug', 'name', 'platform', 'inviteurl']
-const missingHeaders = requiredHeaders.filter((h) => !headers.includes(h))
-if (missingHeaders.length > 0) {
-  console.error(`Missing required headers: ${missingHeaders.join(', ')}`)
-  process.exit(1)
-}
-
-const citySlugIdx = headers.indexOf('cityslug')
-const nameIdx = headers.indexOf('name')
-const platformIdx = headers.indexOf('platform')
-const inviteUrlIdx = headers.indexOf('inviteurl')
-const stylesIdx = headers.indexOf('styles')
-const sourceIdx = headers.indexOf('source')
-const verifiedIdx = headers.indexOf('verified')
-
-// Validate platform enum
-const validPlatforms = ['whatsapp', 'telegram', 'facebook', 'other']
-
-// Track imported groups to detect duplicates
-const importedKeys = new Set<string>()
-
-// Import rows
-let imported = 0
-let skipped = 0
-let duplicates = 0
-
-for (let i = 1; i < lines.length; i++) {
-  const line = lines[i].trim()
-  if (!line) continue
-
-  const parts = parseCSVLine(line)
-
-  // Validate row has enough fields
-  if (parts.length < Math.max(citySlugIdx, nameIdx, platformIdx, inviteUrlIdx) + 1) {
-    console.warn(`Row ${i + 1}: not enough fields (expected at least ${Math.max(citySlugIdx, nameIdx, platformIdx, inviteUrlIdx) + 1}, got ${parts.length}), skipping`)
-    skipped++
-    continue
-  }
-
-  const citySlug = parts[citySlugIdx]
-  const name = parts[nameIdx]
-  const platform = parts[platformIdx]
-  const inviteUrl = parts[inviteUrlIdx]
-  const stylesStr = stylesIdx >= 0 ? parts[stylesIdx] : ''
-  const source = sourceIdx >= 0 ? parts[sourceIdx] : undefined
-  const verifiedStr = verifiedIdx >= 0 ? parts[verifiedIdx] : 'false'
-
-  // Validate required fields
-  if (!citySlug || !name || !platform || !inviteUrl) {
-    console.warn(`Row ${i + 1}: missing required fields, skipping`)
-    skipped++
-    continue
-  }
-
-  if (!validPlatforms.includes(platform.toLowerCase())) {
-    console.warn(
-      `Row ${i + 1}: invalid platform "${platform}" (valid: ${validPlatforms.join(', ')}), skipping`,
-    )
-    skipped++
-    continue
-  }
-
-  // Validate URL and ensure it's http(s) — reject javascript: and data: URLs
-  let urlObj: URL
-  try {
-    urlObj = new URL(inviteUrl)
-    if (!['http:', 'https:'].includes(urlObj.protocol)) {
-      throw new Error(`unsafe protocol: ${urlObj.protocol}`)
+  let inserted = 0
+  if (WRITE) {
+    for (const g of plan.insert) {
+      const r = groupImportRow(g)
+      const res = await db.query(
+        `INSERT INTO community_groups (city_slug, name, platform, invite_url, invite_key, styles, source, status, kind, verified)
+         VALUES ($1, $2, $3, $4, $5, $6::json, $7, $8, $9, $10)
+         ON CONFLICT DO NOTHING`,
+        [r.citySlug, r.name, r.platform, r.inviteUrl, r.inviteKey, JSON.stringify(r.styles), r.source, r.status, r.kind, r.verified])
+      inserted += res.rowCount ?? 0
     }
-  } catch (error) {
-    console.warn(`Row ${i + 1}: invalid invite URL "${inviteUrl}" — ${error instanceof Error ? error.message : 'invalid'}, skipping`)
-    skipped++
-    continue
   }
 
-  // Deduplicate: check if we've already imported this in this batch
-  const dedupeKey = `${citySlug}|${name.toLowerCase()}|${platform.toLowerCase()}`
-  if (importedKeys.has(dedupeKey)) {
-    console.warn(`Row ${i + 1}: duplicate (already imported ${name} in ${citySlug}), skipping`)
-    duplicates++
-    skipped++
-    continue
+  const byCity = new Map<string, number>()
+  for (const g of plan.insert) byCity.set(g.citySlug, (byCity.get(g.citySlug) ?? 0) + 1)
+  const reasons = new Map<string, GroupSkipped[]>()
+  for (const s of skipped) reasons.set(s.reason, [...(reasons.get(s.reason) ?? []), s])
+  const summary = {
+    mode: WRITE ? 'write' : 'dry-run',
+    sheetRows: groups.length + skipped.length,
+    matched: groups.length,
+    toInsert: plan.insert.length,
+    inserted,
+    alreadyInDirectory: plan.inDirectory.length,
+    repeatedInSheet: plan.repeated.length,
+    skipped: Object.fromEntries([...reasons].map(([k, v]) => [k, v.length])),
+    cities: Object.fromEntries([...byCity].sort((a, b) => b[1] - a[1])),
+    unknownCities: [...new Set((reasons.get('unknown_city') ?? []).map(s => s.city))],
   }
 
-  // Parse styles (pipe-separated)
-  const styles = stylesStr
-    ? stylesStr.split('|').map((s) => s.trim()).filter(Boolean)
-    : []
-
-  // Parse verified (true/false/yes/no case-insensitive)
-  const verified = ['true', 'yes', '1'].includes(verifiedStr.toLowerCase())
-
-  try {
-    // Check database for existing group (same city + name + platform)
-    const existing = await db
-      .select({ id: communityGroups.id })
-      .from(communityGroups)
-      .where(and(
-        eq(communityGroups.citySlug, citySlug),
-        eq(communityGroups.name, name),
-        eq(communityGroups.platform, platform.toLowerCase() as any),
-      ))
-
-    if (existing.length > 0) {
-      console.warn(`Row ${i + 1}: group already exists in database (${name} in ${citySlug}), skipping`)
-      duplicates++
-      skipped++
-      continue
-    }
-
-    await db.insert(communityGroups).values({
-      citySlug,
-      name,
-      platform: platform.toLowerCase() as 'whatsapp' | 'telegram' | 'facebook' | 'other',
-      inviteUrl,
-      styles,
-      source: source || null,
-      verified,
-      status: 'visible',
-    })
-
-    importedKeys.add(dedupeKey)
-    imported++
-    console.log(`✓ Imported: ${name} (${platform}) in ${citySlug}`)
-  } catch (error) {
-    console.error(`Row ${i + 1}: failed to import — ${error instanceof Error ? error.message : String(error)}`)
-    skipped++
+  if (JSON_OUT) console.log(JSON.stringify({ ...summary, insert: plan.insert, skippedRows: skipped }, null, 2))
+  else {
+    console.log(`\nSheet: ${summary.sheetRows} groups · ${summary.matched} with a known city`)
+    console.log(`${WRITE ? 'Inserted' : 'Would insert'}: ${WRITE ? inserted : plan.insert.length} · already in the directory: ${plan.inDirectory.length} · repeated in the sheet: ${plan.repeated.length}`)
+    console.log(`By city: ${[...byCity].sort((a, b) => b[1] - a[1]).map(([c, n]) => `${c} ${n}`).join(', ')}`)
+    for (const g of plan.insert) console.log(`  + ${g.citySlug.padEnd(22)} ${g.platform.padEnd(8)} ${g.name}${g.styles.length ? ` (${g.styles.join(', ')})` : ''}`)
+    for (const g of plan.inDirectory) console.log(`  = ${g.citySlug.padEnd(22)} in directory  ${g.name}`)
+    for (const g of plan.repeated) console.log(`  = ${g.citySlug.padEnd(22)} repeated      ${g.name} (line ${g.line})`)
+    console.log('\nLeft out:')
+    for (const s of skipped) console.log(`  - line ${String(s.line).padEnd(4)} ${s.reason.padEnd(14)} ${s.name || '(no name)'}${s.city ? ` · ${s.city}` : ''}`)
   }
+} finally {
+  await db.end()
 }
-
-console.log(`\nImport complete: ${imported} imported, ${duplicates} duplicates, ${skipped - duplicates} errors`)
-process.exit(skipped > 0 ? 1 : 0)
