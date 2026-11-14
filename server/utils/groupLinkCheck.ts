@@ -5,8 +5,12 @@ import { inviteKey, platformOf } from '../../shared/utils/communityGroups'
  *
  * Only WhatsApp and Telegram invite pages are fetched, and only on their own hosts
  * (never an address someone typed): the public invite page tells.
- *   - chat.whatsapp.com/<code>: a live invite has the group's name in og:title; a reset
- *     or unknown code has an empty og:title.
+ *   - chat.whatsapp.com/<code>: a live invite has the group's name in og:title and a link
+ *     type in invite_link_type_v2 (REGULAR / SUB / PARENT); a reset or unknown code has
+ *     BOTH empty. Only both empty is 'dead' — one empty and one filled is 'unknown', so a
+ *     working group is never hidden on one ambiguous signal. Checked against real pages
+ *     (RAZ-862, Nov 2026): 5 working invites (plain groups, community sub-groups, a
+ *     community parent) all came back 'ok'; 2 made-up codes came back 'dead'.
  *   - t.me/<name> or t.me/+<code>: a live chat shows its title (tgme_page_title);
  *     a missing one doesn't.
  * Anything else — other platforms, network errors, an unexpected page — is 'unknown',
@@ -15,7 +19,13 @@ import { inviteKey, platformOf } from '../../shared/utils/communityGroups'
 export type LinkStatus = 'ok' | 'dead' | 'unknown'
 export interface LinkResult { status: LinkStatus; title: string | null }
 
-const decode = (s: string) => s.replace(/&#0?39;/g, '\'').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim()
+const fromCode = (n: number) => (Number.isFinite(n) && n > 0 && n <= 0x10FFFF ? String.fromCodePoint(n) : '')
+// WhatsApp writes accents as hex entities ("G&#xe9;n&#xe9;ral"), Telegram as decimal.
+const decode = (s: string) => s
+  .replace(/&#x([0-9a-f]+);/gi, (_, h) => fromCode(Number.parseInt(h, 16)))
+  .replace(/&#(\d+);/g, (_, d) => fromCode(Number(d)))
+  .replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
+  .trim()
 
 export function readInvitePage(platform: 'whatsapp' | 'telegram', html: string): LinkResult {
   if (platform === 'whatsapp') {
@@ -23,7 +33,11 @@ export function readInvitePage(platform: 'whatsapp' | 'telegram', html: string):
     // No og tags at all: not the page we know — don't guess.
     if (!m || !/og:description/.test(html)) return { status: 'unknown', title: null }
     const title = decode(m[1] ?? '')
-    return title ? { status: 'ok', title } : { status: 'dead', title: null }
+    if (title) return { status: 'ok', title }
+    // Empty title: dead only if the link type is present and empty too. A missing tag
+    // means the page changed; a filled one means the group exists — neither is proof.
+    const type = /<meta property="invite_link_type_v2" content="([^"]*)"/.exec(html)
+    return type && !type[1]?.trim() ? { status: 'dead', title: null } : { status: 'unknown', title: null }
   }
   if (!/og:title/.test(html)) return { status: 'unknown', title: null }
   const t = /class="tgme_page_title"[^>]*>\s*(?:<span[^>]*>)?([^<]+)/.exec(html)
