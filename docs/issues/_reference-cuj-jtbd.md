@@ -18,6 +18,9 @@ Each story in `docs/issues/` links three things:
 
 ## Jobs To Be Done (JTBD)
 
+Published at https://2026.wedance.vip/docs/jobs from `app/lib/jobs.ts`; `app/lib/jobs.test.ts` fails when
+the list below and that file differ. Change a job in both places.
+
 - **J1** — Start dancing without feeling lost
 - **J2** — Get better and keep momentum
 - **J3** — Never dance alone — go with people I know

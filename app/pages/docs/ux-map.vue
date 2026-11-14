@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { jobLink } from '~/lib/jobs'
 import { UX_UPDATED, uxHandoffs, uxItems, uxJourneys, uxStages, uxStatusLabel, type UxItem, type UxJourneyId, type UxStatus } from '~/lib/ux-map'
 
 definePageMeta({ layout: 'docs' })
@@ -13,7 +14,9 @@ useSeoMeta({
  */
 const statuses: UxStatus[] = ['live', 'partial', 'missing', 'gap']
 const shown = ref<Set<UxStatus>>(new Set(statuses))
-const focus = ref<UxJourneyId | null>(null)
+// /docs/ux-map?journey=C3 opens with that journey focused (linked from /docs/jobs).
+const route = useRoute()
+const focus = ref<UxJourneyId | null>(uxJourneys.find(j => j.id === route.query.journey)?.id ?? null)
 const selected = ref<UxItem | null>(null)
 
 function toggle(st: UxStatus) {
@@ -166,7 +169,7 @@ const refUrl = (r: string) =>
               <th scope="row" class="border-b border-r border-border bg-background p-3 align-top">
                 <div class="text-[11px] font-bold tracking-wider text-primary">{{ j.id }}</div>
                 <div class="font-display text-base font-bold leading-tight">{{ j.who }}</div>
-                <div class="mt-1 text-xs font-normal text-muted-foreground">{{ j.what }}<br>“{{ j.job }}”</div>
+                <div class="mt-1 text-xs font-normal text-muted-foreground">{{ j.what }}<br><NuxtLink :to="jobLink(j.jobId)" class="font-mono font-bold text-secondary hover:underline">{{ j.jobId }}</NuxtLink> “{{ j.job }}”</div>
               </th>
               <td v-for="s in uxStages" :key="s.key" class="border-b border-r border-border p-2 align-top last:border-r-0">
                 <div class="flex flex-col gap-1.5">
@@ -233,6 +236,7 @@ const refUrl = (r: string) =>
         <code class="font-mono text-[13px]">docs/issues/P*.md</code> with statuses corrected against merged PRs, and the email senders in
         <code class="font-mono text-[13px]">server/utils/email.ts</code>, then checked by using the site on 2026-11-14: signed out on 2026.wedance.vip, and as a dancer, an organiser,
         a venue and an artist on a local copy of the database, on desktop and a phone (RAZ-898; what couldn't be run is in RAZ-931). Data lives in <code class="font-mono text-[13px]">app/lib/ux-map.ts</code>: update an item when you ship or change it.
+        The job each journey serves is on <NuxtLink to="/docs/jobs" class="text-secondary hover:underline">Jobs to be done</NuxtLink>.
         For stories mapped to tables and procedures, see <NuxtLink to="/docs/architecture/stories" class="text-secondary hover:underline">User stories</NuxtLink>.
       </p>
     </DesignSection>
