@@ -1,11 +1,11 @@
 <script setup lang="ts">
 /**
- * Launch workspace, stage 2: name candidates, each with its evidence (source,
- * link, verdict free / taken / unclear, note) and a decision. The verdict is
- * computed from the evidence: "free" only with a link that says so, and any
- * "taken" wins. One click per check: open the search, then log what you saw.
+ * Launch workspace, stage 2: name candidates. Per name: open each search, then
+ * say what you saw (free / taken / not sure). The verdict comes from those
+ * answers: "free" only with a link, and any "taken" wins. A free name can be
+ * chosen; dropped names fold away.
  */
-import { ExternalLink, Plus, Trash2, Check, X, Instagram, Crown } from 'lucide-vue-next'
+import { ExternalLink, Plus, Trash2, Crown, Instagram } from 'lucide-vue-next'
 
 type Data = Awaited<ReturnType<ReturnType<typeof useNuxtApp>['$trpc']['businessLaunch']['get']['query']>>
 const props = defineProps<{ username: string; data: Data }>()
@@ -18,92 +18,110 @@ const busy = ref<string | null>(null)
 async function run(label: string, fn: () => Promise<Data>) {
   busy.value = label
   error.value = null
-  try { emit('loaded', await fn()) } catch (e: any) { error.value = e?.message || 'Didn’t work. Try again.' } finally { busy.value = null }
+  try { emit('loaded', await fn()); return true } catch (e: any) { error.value = e?.message || 'Didn’t work. Try again.'; return false } finally { busy.value = null }
 }
 
 const newName = ref('')
-const add = () => run('add', async () => { const d = await $trpc.businessLaunch.addName.mutate({ username: props.username, name: newName.value }); newName.value = ''; return d })
-const log = (nameId: string, source: string, url: string, verdict: 'free' | 'taken' | 'unclear', note = '') =>
-  run(`log:${nameId}:${source}:${verdict}`, () => $trpc.businessLaunch.addEvidence.mutate({ username: props.username, stepKey: STEP, nameId, source, url, verdict, note }))
+const add = async () => { if (await run('add', () => $trpc.businessLaunch.addName.mutate({ username: props.username, name: newName.value }))) newName.value = '' }
+const log = (nameId: string, source: string, url: string, verdict: 'free' | 'taken' | 'unclear') =>
+  run(`log:${nameId}:${source}`, () => $trpc.businessLaunch.addEvidence.mutate({ username: props.username, stepKey: STEP, nameId, source, url, verdict }))
 const remove = (id: string) => run(`ev:${id}`, () => $trpc.businessLaunch.removeEvidence.mutate({ username: props.username, id }))
 const decide = (id: string, decision: 'candidate' | 'chosen' | 'dropped') => run(`decide:${id}`, () => $trpc.businessLaunch.decideName.mutate({ username: props.username, id, decision }))
 const removeName = (id: string) => run(`rm:${id}`, () => $trpc.businessLaunch.removeName.mutate({ username: props.username, id }))
 const checkIg = (nameId: string, handle: string) => run(`ig:${nameId}`, () => $trpc.businessLaunch.checkInstagram.mutate({ username: props.username, stepKey: STEP, nameId, handle }))
 
-// A custom evidence entry, per candidate.
-type Custom = { source: string; url: string; verdict: 'free' | 'taken' | 'unclear'; note: string }
+// Something found elsewhere, per candidate.
+type Custom = { url: string; verdict: 'free' | 'taken' | 'unclear'; note: string }
 const custom = reactive<Record<string, Custom>>({})
-const draftFor = (id: string): Custom => (custom[id] ??= { source: '', url: '', verdict: 'unclear', note: '' })
-const addCustom = (id: string) => run(`custom:${id}`, async () => {
-  const d = await $trpc.businessLaunch.addEvidence.mutate({ username: props.username, stepKey: STEP, nameId: id, ...draftFor(id) })
-  custom[id] = { source: '', url: '', verdict: 'unclear', note: '' }
-  return d
-})
+const draftFor = (id: string): Custom => (custom[id] ??= { url: '', verdict: 'taken', note: '' })
+const addCustom = async (id: string) => { if (await run(`custom:${id}`, () => $trpc.businessLaunch.addEvidence.mutate({ username: props.username, stepKey: STEP, nameId: id, source: 'Other', ...draftFor(id) }))) custom[id] = { url: '', verdict: 'taken', note: '' } }
 
-const verdictStyle: Record<string, string> = { free: 'bg-success/15 text-wd-green-700', taken: 'bg-destructive/10 text-destructive', unclear: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200', unchecked: 'bg-muted text-muted-foreground' }
-const verdictLabel: Record<string, string> = { free: 'Free — with evidence', taken: 'Taken', unclear: 'Unclear', unchecked: 'Not checked yet' }
-const rank = (d: string) => (d === 'chosen' ? 0 : d === 'candidate' ? 1 : 2)
-const sorted = computed(() => [...props.data.names].sort((a, b) => rank(a.decision) - rank(b.decision)))
+const verdictStyle: Record<string, string> = { free: 'text-wd-green-700', taken: 'text-destructive', unclear: 'text-amber-700 dark:text-amber-300', unchecked: 'text-muted-foreground' }
+const verdictLabel: Record<string, string> = { free: 'Looks free', taken: 'Taken', unclear: 'Not sure yet', unchecked: 'Not checked yet' }
+const answerLabel: Record<string, string> = { free: 'free', taken: 'taken', unclear: 'not sure' }
+const live = computed(() => props.data.names.filter(n => n.decision !== 'dropped').sort((a, b) => (a.decision === 'chosen' ? -1 : b.decision === 'chosen' ? 1 : 0)))
+const dropped = computed(() => props.data.names.filter(n => n.decision === 'dropped'))
+// The latest answer per source, so each check shows once.
+const answerFor = (n: Data['names'][number], source: string) => n.evidence.filter(e => e.source === source).at(-1)
+// "change" clears every answer from that source, so no hidden older answer still counts.
+async function clearAnswers(n: Data['names'][number], source: string) {
+  for (const e of n.evidence.filter(x => x.source === source)) if (!(await remove(e.id))) return
+}
+const otherEvidence = (n: Data['names'][number]) => n.evidence.filter(e => !n.checks.some(c => c.source === e.source))
 </script>
 
 <template>
-  <div class="grid gap-3">
+  <div class="grid grid-cols-1 gap-4">
     <AdminState v-if="error" kind="error" :message="error" />
-    <p v-if="data.chosenName" class="inline-flex items-center gap-1.5 self-start rounded-xl bg-success/10 px-3 py-2 text-sm font-bold text-wd-green-700"><Crown class="size-4" aria-hidden="true" /> Decided: {{ data.chosenName }}</p>
 
-    <article v-for="n in sorted" :key="n.id" class="rounded-xl border p-3" :class="n.decision === 'dropped' ? 'opacity-60' : n.decision === 'chosen' ? 'border-success/50 bg-success/5' : 'bg-card'">
-      <div class="flex flex-wrap items-center gap-2">
-        <p class="font-display text-lg font-bold" :class="n.decision === 'dropped' ? 'line-through' : ''">{{ n.name }}</p>
-        <span class="rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider" :class="verdictStyle[n.verdict]">{{ verdictLabel[n.verdict] }}</span>
-        <span v-if="n.decision !== 'candidate'" class="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{{ n.decision }}</span>
+    <article v-for="n in live" :key="n.id" class="rounded-2xl border p-4" :class="n.decision === 'chosen' ? 'border-success/50 bg-success/5' : ''">
+      <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <p class="font-display text-xl font-bold">{{ n.name }}</p>
+        <span v-if="n.decision === 'chosen'" class="inline-flex items-center gap-1 text-sm font-bold text-wd-green-700"><Crown class="size-4" aria-hidden="true" /> Your name</span>
+        <span v-else class="text-sm font-bold" :class="verdictStyle[n.verdict]">{{ verdictLabel[n.verdict] }}</span>
         <span class="flex-1" />
-        <Button v-if="n.decision !== 'chosen'" type="button" size="sm" variant="soft" :disabled="n.verdict !== 'free'" :title="n.verdict !== 'free' ? 'Needs evidence that it’s free' : undefined" :loading="busy === `decide:${n.id}`" @click="decide(n.id, 'chosen')"><Crown /> Choose</Button>
-        <Button v-if="n.decision !== 'candidate'" type="button" size="sm" variant="ghost" :loading="busy === `decide:${n.id}`" @click="decide(n.id, 'candidate')">Back to candidates</Button>
-        <Button v-if="n.decision === 'candidate'" type="button" size="sm" variant="ghost" :loading="busy === `decide:${n.id}`" @click="decide(n.id, 'dropped')"><X /> Drop</Button>
+        <Button v-if="n.decision !== 'chosen' && n.verdict === 'free'" type="button" size="sm" variant="cta" :loading="busy === `decide:${n.id}`" @click="decide(n.id, 'chosen')"><Crown /> Choose this name</Button>
       </div>
-      <p v-if="n.note" class="mt-1 text-sm text-muted-foreground">{{ n.note }}</p>
 
-      <ul v-if="n.evidence.length" class="mt-2 grid gap-1.5">
-        <li v-for="e in n.evidence" :key="e.id" class="flex items-start gap-2 rounded-lg border bg-card px-3 py-2 text-sm">
-          <span class="mt-0.5 shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase" :class="verdictStyle[e.verdict ?? 'unchecked']">{{ e.verdict ?? 'note' }}</span>
-          <span class="min-w-0 flex-1">
-            <span class="font-bold">{{ e.source }}</span>
-            <span v-if="e.via !== 'manual'" class="ml-1 text-[11px] text-muted-foreground">(automated)</span>
-            <a v-if="e.url" :href="e.url" target="_blank" rel="noopener" class="block break-all text-xs text-secondary underline">{{ e.url }}</a>
-            <span v-if="e.note" class="block text-muted-foreground">{{ e.note }}</span>
-          </span>
-          <button type="button" class="rounded p-1 text-muted-foreground hover:text-destructive" aria-label="Remove this evidence" @click="remove(e.id)"><Trash2 class="size-3.5" /></button>
-        </li>
-      </ul>
-
-      <details v-if="n.decision !== 'dropped'" class="mt-2" :open="!n.evidence.length">
-        <summary class="cursor-pointer text-sm font-bold text-secondary">Check it</summary>
-        <ul class="mt-2 grid gap-1.5">
-          <li v-for="c in n.checks" :key="c.source" class="flex flex-wrap items-center gap-1.5 text-sm">
-            <a :href="c.url" target="_blank" rel="noopener" class="inline-flex w-36 items-center gap-1 font-bold text-secondary underline"><ExternalLink class="size-3.5" aria-hidden="true" /> {{ c.source }}</a>
-            <span class="text-xs text-muted-foreground">I saw:</span>
-            <Button v-for="v in (['free', 'taken', 'unclear'] as const)" :key="v" type="button" size="sm" variant="outline" class="h-7 px-2 text-xs" :loading="busy === `log:${n.id}:${c.source}:${v}`" @click="log(n.id, c.source, c.url, v)">{{ v }}</Button>
-            <Button v-if="c.handle && data.instagramCheck" type="button" size="sm" variant="ghost" class="h-7 px-2 text-xs" :loading="busy === `ig:${n.id}`" @click="checkIg(n.id, c.handle)"><Instagram /> Check @{{ c.handle }} automatically</Button>
+      <!-- The checks: open, look, answer -->
+      <details class="mt-3" :open="n.decision !== 'chosen'">
+        <summary class="cursor-pointer text-sm text-muted-foreground">{{ n.decision === 'chosen' ? 'How it was checked' : 'Search for it, then say what you saw' }}</summary>
+        <ul class="mt-2 grid grid-cols-1 gap-2">
+          <li v-for="c in n.checks" :key="c.source" class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+            <a :href="c.url" target="_blank" rel="noopener" class="inline-flex min-w-28 items-center gap-1 font-bold text-secondary underline">{{ c.source }} <ExternalLink class="size-3.5" aria-hidden="true" /></a>
+            <template v-if="answerFor(n, c.source)">
+              <span class="font-bold" :class="verdictStyle[answerFor(n, c.source)!.verdict ?? 'unchecked']">{{ answerLabel[answerFor(n, c.source)!.verdict ?? 'unclear'] }}</span>
+              <button type="button" class="text-xs text-muted-foreground underline" @click="clearAnswers(n, c.source)">change</button>
+            </template>
+            <template v-else>
+              <Button v-for="v in (['free', 'taken', 'unclear'] as const)" :key="v" type="button" size="sm" variant="outline" class="h-7 px-2.5 text-xs" :disabled="busy === `log:${n.id}:${c.source}`" @click="log(n.id, c.source, c.url, v)">{{ answerLabel[v] }}</Button>
+              <button v-if="c.handle && data.instagramCheck" type="button" class="inline-flex items-center gap-1 text-xs text-muted-foreground underline" :disabled="busy === `ig:${n.id}`" @click="checkIg(n.id, c.handle)"><Instagram class="size-3" aria-hidden="true" /> check for me</button>
+            </template>
+          </li>
+          <li v-for="e in otherEvidence(n)" :key="e.id" class="flex items-start gap-2 text-sm">
+            <span class="font-bold" :class="verdictStyle[e.verdict ?? 'unchecked']">{{ e.verdict ? answerLabel[e.verdict] : 'note' }}</span>
+            <span class="min-w-0 flex-1">
+              <a v-if="e.url" :href="e.url" target="_blank" rel="noopener" class="block truncate text-secondary underline">{{ e.url }}</a>
+              <span v-if="e.note" class="block text-muted-foreground">{{ e.note }}</span>
+            </span>
+            <button type="button" class="rounded p-1 text-muted-foreground hover:text-destructive" aria-label="Remove" @click="remove(e.id)"><Trash2 class="size-3.5" /></button>
           </li>
         </ul>
-        <form novalidate class="mt-2 grid gap-2 sm:grid-cols-[8rem_1fr_7rem_1fr_auto]" @submit.prevent="addCustom(n.id)">
-          <Input v-model="draftFor(n.id).source" placeholder="Source" aria-label="Source" />
-          <Input v-model="draftFor(n.id).url" type="url" placeholder="https://…" aria-label="Link" />
-          <select v-model="draftFor(n.id).verdict" class="h-9 rounded-md border bg-card px-2 text-sm" aria-label="Verdict">
-            <option value="free">free</option><option value="taken">taken</option><option value="unclear">unclear</option>
-          </select>
-          <Input v-model="draftFor(n.id).note" placeholder="What you found" aria-label="Note" />
-          <Button type="submit" variant="outline" size="sm" :disabled="draftFor(n.id).verdict === 'free' ? !draftFor(n.id).url : !draftFor(n.id).url && !draftFor(n.id).note" :loading="busy === `custom:${n.id}`"><Plus /> Log</Button>
-        </form>
-        <p class="mt-1 text-[11px] text-muted-foreground">“free” needs a link — a check without evidence doesn’t count.</p>
-        <button v-if="!n.evidence.length" type="button" class="mt-1 text-[11px] text-muted-foreground underline" @click="removeName(n.id)">Remove this candidate</button>
+
+        <details class="mt-3 text-sm">
+          <summary class="cursor-pointer text-xs text-muted-foreground">Found it somewhere else?</summary>
+          <form novalidate class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_8rem_auto]" @submit.prevent="addCustom(n.id)">
+            <Input v-model="draftFor(n.id).url" type="url" placeholder="Link to what you found" aria-label="Link" />
+            <select v-model="draftFor(n.id).verdict" class="h-9 rounded-md border bg-card px-2 text-sm" aria-label="It shows the name is">
+              <option value="taken">taken</option><option value="free">free</option><option value="unclear">not sure</option>
+            </select>
+            <Button type="submit" variant="outline" size="sm" :disabled="!draftFor(n.id).url.trim()" :loading="busy === `custom:${n.id}`"><Plus /> Add</Button>
+          </form>
+        </details>
+
+        <div class="mt-3 flex gap-3 text-xs">
+          <button v-if="n.decision === 'chosen'" type="button" class="text-muted-foreground underline" @click="decide(n.id, 'candidate')">Undo choice</button>
+          <button v-else type="button" class="text-muted-foreground underline" @click="decide(n.id, 'dropped')">Drop this name</button>
+          <button v-if="!n.evidence.length" type="button" class="text-muted-foreground underline" @click="removeName(n.id)">Delete</button>
+        </div>
       </details>
     </article>
 
+    <p v-if="!live.length" class="text-sm text-muted-foreground">Write down a name you like. Then we check it together.</p>
     <form novalidate class="flex gap-2" @submit.prevent="add">
-      <Input v-model="newName" placeholder="Another name to check" aria-label="New name candidate" class="max-w-sm" />
+      <Input v-model="newName" :placeholder="live.length ? 'Another name to check' : 'A name you like'" aria-label="Name to check" class="max-w-sm" />
       <Button type="submit" variant="outline" size="sm" :disabled="!newName.trim()" :loading="busy === 'add'"><Plus /> Add</Button>
     </form>
-    <p v-if="!data.chosenName && data.names.some(n => n.verdict === 'free')" class="flex items-center gap-1 text-xs text-muted-foreground"><Check class="size-3.5" aria-hidden="true" /> A name with evidence that it’s free can be chosen.</p>
+
+    <details v-if="dropped.length" class="text-sm">
+      <summary class="cursor-pointer text-muted-foreground">Dropped ({{ dropped.length }})</summary>
+      <ul class="mt-2 grid grid-cols-1 gap-1">
+        <li v-for="n in dropped" :key="n.id" class="flex items-center gap-2">
+          <span class="line-through">{{ n.name }}</span>
+          <span class="text-xs" :class="verdictStyle[n.verdict]">{{ verdictLabel[n.verdict] }}</span>
+          <button type="button" class="text-xs text-muted-foreground underline" @click="decide(n.id, 'candidate')">bring back</button>
+        </li>
+      </ul>
+    </details>
   </div>
 </template>

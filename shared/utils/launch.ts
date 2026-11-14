@@ -347,7 +347,7 @@ export function doneBlocker(step: LaunchStep, evidence: { url: string | null }[]
 }
 
 /** Quick-check links for a name candidate: where to look, ready to log as evidence. */
-export function nameChecks(name: string, area = '') {
+export function nameChecks(name: string, area = ''): { source: string; url: string; handle?: string }[] {
   const q = join([`"${name}"`, area])
   const handle = name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9._]/g, '')
   return [

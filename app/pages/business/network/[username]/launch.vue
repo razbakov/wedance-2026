@@ -1,16 +1,18 @@
 <script setup lang="ts">
 /**
  * /business/network/<handle>/launch — the launch workspace: set up a new night
- * or business by doing the real work, stage by stage. Stages 1–3 (brand, name,
- * channels) are live; 4–8 are shown as "next". The steps are the catalogue in
- * shared/utils/launch.ts; their state is in launch_steps / launch_names /
- * launch_evidence (businessLaunch router). Members of the page only.
+ * or business one step at a time. One step is on screen (the first not done,
+ * or ?step=<key>); "Done — next step" moves on. The whole list is one tap away.
+ * Stages 1–3 (brand, name, channels) are live; 4–8 are named as "later".
+ * The steps are the catalogue in shared/utils/launch.ts; their state is in
+ * launch_steps / launch_names / launch_evidence (businessLaunch router).
  */
-import { Rocket, Check, Lock } from 'lucide-vue-next'
+import { Check, PartyPopper } from 'lucide-vue-next'
 import { STAGES, STEPS } from '#shared/utils/launch'
 
 definePageMeta({ layout: 'business' })
 const route = useRoute()
+const router = useRouter()
 const { $trpc } = useNuxtApp()
 const username = computed(() => String(route.params.username))
 
@@ -24,79 +26,112 @@ onMounted(load)
 useHead(() => ({ title: `Launch · ${data.value?.profile.name ?? ''} | Business | WeDance` }))
 
 const liveStages = STAGES.filter(s => s.live)
-const stepsOf = (stage: string) => STEPS.filter(s => s.stage === stage)
-const totals = computed(() => {
-  const live = data.value?.steps.filter(s => STAGES.find(x => x.key === s.stage)?.live) ?? []
-  return { done: live.filter(s => s.status === 'done').length, total: live.length }
+const laterStages = STAGES.filter(s => !s.live)
+const order = STEPS.filter(s => liveStages.some(x => x.key === s.stage))
+const statusOf = (key: string) => data.value?.steps.find(s => s.key === key)?.status ?? 'todo'
+const doneCount = computed(() => order.filter(s => statusOf(s.key) === 'done').length)
+const firstOpen = computed(() => order.find(s => statusOf(s.key) !== 'done')?.key ?? null)
+
+// The step on screen: ?step=…, else the first one not done. null = all done.
+const focus = computed(() => {
+  const q = String(route.query.step ?? '')
+  return order.some(s => s.key === q) ? q : firstOpen.value
 })
-// The first live stage that isn't done: where to look next.
-const current = computed(() => data.value?.progress.find(p => p.state !== 'done' && p.state !== 'next')?.key ?? null)
+const focusIndex = computed(() => order.findIndex(s => s.key === focus.value))
+const focusStep = computed(() => order[focusIndex.value] ?? null)
+const stageTitle = (key: string) => STAGES.find(s => s.key === key)?.title ?? ''
+
+function go(key: string | null) {
+  router.replace({ query: key ? { ...route.query, step: key } : {} })
+  if (import.meta.client) window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+// Next: the next step after this one that isn't done, else the first open one anywhere.
+function next() {
+  const i = focusIndex.value
+  const after = order.slice(i + 1).find(s => statusOf(s.key) !== 'done') ?? order.find(s => statusOf(s.key) !== 'done' && s.key !== focus.value)
+  go(after?.key ?? null)
+}
+// Pin the step in the URL once loaded: otherwise ticking it done would swap the
+// card out from under itself (focus = "first not done") before it can say "next".
+watch(() => !!data.value, (ready) => {
+  if (ready && !route.query.step && firstOpen.value) router.replace({ query: { ...route.query, step: firstOpen.value } })
+}, { immediate: true })
+const back = () => { const prev = order[focusIndex.value - 1]; if (prev) go(prev.key) }
+
+const showAll = ref(false)
 </script>
 
 <template>
-  <div>
+  <div class="mx-auto max-w-2xl">
     <AdminState v-if="!data && !error" kind="loading" />
     <AdminState v-else-if="!data" kind="error" :message="error!" />
     <template v-else>
       <AdminPageHeader
         eyebrow="Launch"
         :title="data.chosenName || data.values.placeName || data.profile.name"
-        description="Set it up by doing it: each step has the text to paste, the link to the right screen, a place for the evidence and a done tick."
+        description="We go one step at a time. Each step tells you why, gives you the text to paste and opens the right page."
         :back="{ to: `/business/network/${data.profile.username}`, label: 'The profile' }"
       />
-      <AdminState v-if="error" kind="error" :message="error" />
 
-      <!-- The path -->
-      <nav aria-label="Launch stages" class="mt-6 rounded-2xl border bg-card p-4">
-        <div class="flex items-center justify-between gap-2">
-          <p class="flex items-center gap-1.5 text-eyebrow font-bold uppercase tracking-[0.3em] text-primary"><Rocket class="size-4" aria-hidden="true" /> The path</p>
-          <p class="text-sm tabular-nums text-muted-foreground">{{ totals.done }} of {{ totals.total }} steps done</p>
+      <!-- Where you are -->
+      <div class="mt-5">
+        <div class="h-2 overflow-hidden rounded-full bg-muted" role="progressbar" :aria-valuenow="doneCount" aria-valuemin="0" :aria-valuemax="order.length" :aria-label="`${doneCount} of ${order.length} steps done`">
+          <div class="h-full rounded-full bg-primary transition-all" :style="{ width: `${(doneCount / order.length) * 100}%` }" />
         </div>
-        <ol class="mt-3 grid gap-2 grid-cols-2 sm:grid-cols-4 2xl:grid-cols-8">
-          <li v-for="s in data.progress" :key="s.key">
-            <a
-              :href="s.live ? `#stage-${s.key}` : undefined"
-              class="flex h-full flex-col rounded-xl border p-2.5 text-sm"
-              :class="s.state === 'done' ? 'border-success/40 bg-success/10' : s.key === current ? 'border-primary bg-primary/5' : s.state === 'next' ? 'border-dashed bg-muted/40 text-muted-foreground' : 'bg-card'"
-              :aria-current="s.key === current ? 'step' : undefined"
-            >
-              <span class="flex items-center gap-1.5 font-bold">
-                <span class="grid size-5 place-items-center rounded-full text-[11px]" :class="s.state === 'done' ? 'bg-wd-green-700 text-white' : s.state === 'next' ? 'bg-muted' : 'bg-primary text-white'">
-                  <Check v-if="s.state === 'done'" class="size-3" aria-hidden="true" /><template v-else>{{ s.n }}</template>
-                </span>
-                {{ s.title }}
-              </span>
-              <span class="mt-1 text-[11px] leading-snug text-muted-foreground">{{ s.line }}</span>
-              <span class="mt-auto pt-1.5 text-[11px] font-bold uppercase tracking-wider" :class="s.state === 'next' ? 'text-muted-foreground' : 'text-secondary'">
-                <template v-if="s.state === 'next'"><Lock class="inline size-3" aria-hidden="true" /> Next</template>
-                <template v-else>{{ s.done }}/{{ s.total }} done</template>
-              </span>
-            </a>
+        <ol class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+          <li v-for="p in data.progress.filter(x => x.live)" :key="p.key" class="inline-flex items-center gap-1" :class="focusStep?.stage === p.key ? 'font-bold text-foreground' : 'text-muted-foreground'">
+            <Check v-if="p.state === 'done'" class="size-3.5 text-wd-green-700" aria-hidden="true" />
+            {{ p.title }}
+            <span v-if="p.state !== 'done' && p.total > 1" class="text-xs tabular-nums">{{ p.done }}/{{ p.total }}</span>
           </li>
         </ol>
-      </nav>
+      </div>
 
-      <!-- Stages 1–3 -->
-      <section v-for="s in liveStages" :id="`stage-${s.key}`" :key="s.key" class="mt-8 scroll-mt-20">
-        <h2 class="text-eyebrow font-bold uppercase tracking-[0.3em] text-secondary">Stage {{ s.n }} · {{ s.title }}</h2>
-        <p class="text-sm text-muted-foreground">{{ s.line }}</p>
-        <div class="mt-3 grid gap-3">
-          <BusinessLaunchStep v-for="step in stepsOf(s.key)" :key="step.key" :username="data.profile.username" :data="data" :step-key="step.key" @loaded="d => data = d">
-            <BusinessLaunchNames v-if="step.kind === 'names'" :username="data.profile.username" :data="data" @loaded="d => data = d" />
-          </BusinessLaunchStep>
+      <!-- The one step -->
+      <div class="mt-6">
+        <BusinessLaunchStep
+          v-if="focusStep"
+          :key="focusStep.key"
+          :username="data.profile.username"
+          :data="data"
+          :step-key="focusStep.key"
+          :position="focusIndex + 1"
+          :total="order.length"
+          :stage-title="stageTitle(focusStep.stage)"
+          :has-back="focusIndex > 0"
+          @loaded="d => data = d"
+          @next="next"
+          @back="back"
+        >
+          <BusinessLaunchNames v-if="focusStep.kind === 'names'" :username="data.profile.username" :data="data" @loaded="d => data = d" />
+        </BusinessLaunchStep>
+
+        <div v-else class="rounded-3xl border bg-card p-7 text-center">
+          <PartyPopper class="mx-auto size-10 text-primary" aria-hidden="true" />
+          <h2 class="mt-3 font-display text-2xl font-bold">Brand, name and channels: done.</h2>
+          <p class="mt-1.5 text-muted-foreground">People can find you now. Next we set goals and plan the first campaigns — that part is coming soon.</p>
         </div>
-      </section>
+      </div>
 
-      <!-- Stages 4–8 -->
-      <section class="mt-8">
-        <h2 class="text-eyebrow font-bold uppercase tracking-[0.3em] text-muted-foreground">Next</h2>
-        <ul class="mt-3 grid gap-2 sm:grid-cols-2">
-          <li v-for="s in STAGES.filter(x => !x.live)" :key="s.key" class="rounded-xl border border-dashed p-3 text-sm">
-            <p class="font-bold">{{ s.n }} · {{ s.title }}</p>
-            <p class="text-muted-foreground">{{ s.line }}</p>
-          </li>
-        </ul>
-      </section>
+      <!-- Everything, one tap away -->
+      <div class="mt-6 text-sm">
+        <button type="button" class="text-muted-foreground underline" :aria-expanded="showAll" @click="showAll = !showAll">{{ showAll ? 'Hide the list' : `See all ${order.length} steps` }}</button>
+        <div v-if="showAll" class="mt-3 grid gap-4">
+          <section v-for="s in liveStages" :key="s.key">
+            <h3 class="text-eyebrow font-bold uppercase tracking-[0.25em] text-muted-foreground">{{ s.title }}</h3>
+            <ul class="mt-1">
+              <li v-for="st in STEPS.filter(x => x.stage === s.key)" :key="st.key">
+                <button type="button" class="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-muted" :class="st.key === focus ? 'bg-muted font-bold' : ''" @click="go(st.key)">
+                  <Check v-if="statusOf(st.key) === 'done'" class="size-4 shrink-0 text-wd-green-700" aria-hidden="true" />
+                  <span v-else class="size-4 shrink-0 rounded-full border-2" :class="statusOf(st.key) === 'doing' ? 'border-primary' : 'border-muted-foreground/40'" aria-hidden="true" />
+                  <span :class="statusOf(st.key) === 'done' ? 'text-muted-foreground' : ''">{{ st.title }}</span>
+                </button>
+              </li>
+            </ul>
+          </section>
+        </div>
+        <p class="mt-4 text-xs text-muted-foreground">Later: {{ laterStages.map(s => s.title).join(' · ') }}</p>
+      </div>
     </template>
   </div>
 </template>

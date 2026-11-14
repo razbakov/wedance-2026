@@ -55,20 +55,20 @@ async function nameFor(ctx: any, id: string) {
 }
 
 async function load(ctx: any, p: { id: string; username: string; name: string; type: string }) {
-  const [rows, names, evidence] = await Promise.all([
+  const [rows, names, evidence]: [(typeof launchSteps.$inferSelect)[], (typeof launchNames.$inferSelect)[], (typeof launchEvidence.$inferSelect)[]] = await Promise.all([
     ctx.db.select().from(launchSteps).where(eq(launchSteps.profileId, p.id)),
     ctx.db.select().from(launchNames).where(eq(launchNames.profileId, p.id)).orderBy(asc(launchNames.createdAt)),
     ctx.db.select().from(launchEvidence).where(eq(launchEvidence.profileId, p.id)).orderBy(asc(launchEvidence.createdAt)),
   ])
-  const byKey = new Map<string, any>(rows.map((r: any) => [r.stepKey, r]))
-  const chosen = names.find((n: any) => n.decision === 'chosen') ?? null
+  const byKey = new Map(rows.map(r => [r.stepKey, r]))
+  const chosen = names.find(n => n.decision === 'chosen') ?? null
   const values = workspaceValues(STEPS.map(s => byKey.get(s.key)?.fields ?? {}), chosen?.name)
   values.pageUrl = `https://2026.wedance.vip/@${p.username}`
-  const ev = (e: any) => ({ id: e.id, source: e.source, url: e.url, verdict: e.verdict, note: e.note, via: e.via, createdAt: e.createdAt })
+  const ev = (e: typeof launchEvidence.$inferSelect) => ({ id: e.id, source: e.source, url: e.url, verdict: e.verdict as 'free' | 'taken' | 'unclear' | null, note: e.note, via: e.via, createdAt: e.createdAt })
   const steps = STEPS.map((s) => {
     const r = byKey.get(s.key)
     const own: Values = r?.fields ?? {}
-    const stepEvidence = evidence.filter((e: any) => e.stepKey === s.key && !e.nameId)
+    const stepEvidence = evidence.filter(e => e.stepKey === s.key && !e.nameId)
     return {
       key: s.key,
       stage: s.stage,
@@ -87,8 +87,8 @@ async function load(ctx: any, p: { id: string; username: string; name: string; t
     values,
     progress: stageProgress(Object.fromEntries(steps.map(s => [s.key, s.status]))),
     steps,
-    names: names.map((n: any) => {
-      const mine = evidence.filter((e: any) => e.nameId === n.id)
+    names: names.map((n) => {
+      const mine = evidence.filter(e => e.nameId === n.id)
       return { id: n.id, name: n.name, decision: n.decision, note: n.note, verdict: nameVerdict(mine), evidence: mine.map(ev), checks: nameChecks(n.name, area) }
     }),
     chosenName: chosen?.name ?? null,
