@@ -33,7 +33,10 @@ useHead({
 
 // Year plan — sidebar retired; picks now surface via the floating
 // nudge pill and the full view lives on /my-plan.
-const { yearPlanIds, toggleFestival, yearCount } = useYearPlan()
+const { yearPlanIds, toggleFestival } = useYearPlan()
+// The "in your year" pill counts the upcoming festivals My plan counts (RAZ-909),
+// not the raw year-plan set, which keeps festivals that already happened.
+const { planFestivals } = usePlanCounts()
 const { weekPlanIds, toggleEvent } = useWeekPlan()
 
 // "Going?" stores what the festival's own page stores: its key in the year
@@ -205,13 +208,13 @@ const styleChips = computed(() => {
         leave-to-class="opacity-0 translate-y-2"
       >
         <NuxtLink
-          v-if="yearCount > 0"
+          v-if="planFestivals > 0"
           to="/my-plan"
           class="fixed bottom-[calc(1.25rem+var(--wd-tabbar-h,0px))] right-5 z-40 inline-flex items-center gap-2 pl-3 pr-4 py-2.5 rounded-full text-white text-sm font-bold bg-primary shadow-wd-float transition-all"
         >
           <span
             class="inline-flex items-center justify-center w-6 h-6 rounded-full text-meta font-black bg-white text-primary"
-          >{{ yearCount }}</span>
+          >{{ planFestivals }}</span>
           <span class="font-display tracking-[0.01em]">in your year</span>
           <span class="font-hand text-base opacity-85">— see dashboard</span>
           <ArrowRight class="w-4 h-4" />

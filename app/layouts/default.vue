@@ -3,10 +3,11 @@ import { CalendarDays, ClipboardList } from 'lucide-vue-next'
 
 const route = useRoute()
 const { cartCount, cartOpen, toggleCart } = useCart()
-const { yearCount, yearDrawerOpen, toggleDrawer: toggleYearDrawer } = useYearPlan()
+const { yearDrawerOpen, toggleDrawer: toggleYearDrawer } = useYearPlan()
 const { weekDrawerOpen, toggleDrawer: toggleWeekDrawer } = useWeekPlan()
-// Same number as the city page's "in your week" pill and /my-plan (RAZ-889).
-const { planWeek } = usePlanCounts()
+// Same numbers as the city page's "in your week" pill, the festivals page's
+// "in your year" pill and /my-plan (RAZ-889, RAZ-909).
+const { planWeek, planFestivals } = usePlanCounts()
 
 const { signOut } = useAuth()
 // Hydration-safe signed-in state + name (shared with SiteHeader).
@@ -52,7 +53,7 @@ const hasSidebar = computed(() => isFestivalDetailPage.value || isFestivalsListP
 const sidebarCount = computed(() => {
   if (isFestivalDetailPage.value) return cartCount.value
   if (isCityDetailPage.value) return planWeek.value
-  return yearCount.value
+  return planFestivals.value
 })
 const sidebarOpen = computed(() => {
   if (isFestivalDetailPage.value) return cartOpen.value
