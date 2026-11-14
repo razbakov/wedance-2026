@@ -23,6 +23,7 @@ import { previewOnlyFestivals } from '~/data/mock-preview-festivals'
 import { eventPath, festivalPath } from '#shared/utils/eventSlug'
 import { citySlug as toCitySlug } from '#shared/utils/citySearch'
 import { initialOf } from '#shared/utils/initials'
+import { planView, authPending } from '~/lib/planView'
 
 definePageMeta({ layout: false })
 
@@ -38,8 +39,10 @@ const {
   danceStyles: dancerStylesReal,
   onboardedAt: onboardedAtReal,
   justRegistered,
+  isLoading: authLoading,
+  authHint,
 } = useAuth()
-const { yearPlanIds, removeFestival, toggleFestival, addFestival } = useYearPlan()
+const { yearPlanIds, loaded: yearPlanLoaded, removeFestival, toggleFestival, addFestival } = useYearPlan()
 
 // ?preview=1 — dev shortcut. Fakes signed-in + seeds picks so we can
 // eyeball the strip + cards without running the real magic-link flow.
@@ -302,14 +305,33 @@ onMounted(() => {
     loadCityEvents()
   }
   // Load persisted goals, enrolled courses, socials, and real festivals from DB
-  if (isSignedIn.value && !previewMode.value) {
-    loadGoalsFromDb()
-    loadCoursesFromDb()
-    loadWeekSocials()
-    loadDiscoverDeck()
-    loadMyPlanFestivals()
-  }
+  if (isSignedIn.value && !previewMode.value) loadOwnPlan()
 })
+
+// Signed in on this page (the Join / Sign in modal): load the plan now — the
+// onMounted load above only runs for a session that was already there.
+watch(isSignedInReal, (signedIn) => {
+  if (previewMode.value) return
+  if (signedIn) loadOwnPlan()
+  else ownPlanLoaded.value = false
+})
+
+// RAZ-890: the plan only arrives after hydration, so until every query that
+// fills it has settled the page shows a loading state — never "You haven't
+// picked anything yet" for a dancer whose plan is simply still in flight.
+const ownPlanLoaded = ref(route.query.preview === '1')
+function loadOwnPlan() {
+  loadGoalsFromDb()
+  loadDiscoverDeck()
+  return Promise.all([loadCoursesFromDb(), loadWeekSocials(), loadMyPlanFestivals()])
+    .finally(() => { ownPlanLoaded.value = true })
+}
+const viewState = computed(() => planView({
+  signedIn: isSignedIn.value,
+  authPending: !previewMode.value && authPending({ server: import.meta.server, hasHint: !!authHint.value, authLoading: authLoading.value }),
+  loaded: previewMode.value || (ownPlanLoaded.value && yearPlanLoaded.value),
+  empty: picked.value.length === 0 && courses.value.length === 0 && socials.value.length === 0,
+}))
 
 // Refetch hangouts and city events when city changes
 watch(() => dancerCity.value, () => {
@@ -1703,7 +1725,7 @@ function cardSummary(f: CatalogueEntry) {
     </section>
 
     <!-- SIGNED OUT — what the dashboard holds + sign in / join -->
-    <section v-if="!isSignedIn" class="max-w-3xl mx-auto px-4 py-10" data-testid="my-plan-signed-out">
+    <section v-if="viewState === 'signed-out'" class="max-w-3xl mx-auto px-4 py-10" data-testid="my-plan-signed-out">
       <div class="rounded-2xl p-6 sm:p-8 bg-white border" style="border-color:color-mix(in srgb, var(--wd-red-600) 33.3%, transparent); box-shadow: 0 1px 0 color-mix(in srgb, var(--wd-red-600) 13.3%, transparent), 0 12px 28px rgba(59, 31, 18, 0.06);">
         <div class="text-center">
           <div class="text-eyebrow uppercase tracking-[0.3em] font-bold mb-3 text-primary">Your dashboard</div>
@@ -1760,8 +1782,18 @@ function cardSummary(f: CatalogueEntry) {
       <SignUpModal v-model:open="showAuth" :action="authAction" />
     </section>
 
+    <!-- LOADING — the session or the plan is still in flight (RAZ-890) -->
+    <section v-else-if="viewState === 'loading'" class="max-w-4xl mx-auto px-4 py-6" aria-busy="true" data-testid="my-plan-loading">
+      <p class="sr-only" role="status">Loading your plan…</p>
+      <div class="grid gap-4" aria-hidden="true">
+        <div class="h-24 rounded-2xl bg-muted animate-pulse" />
+        <div class="h-40 rounded-2xl bg-muted animate-pulse" />
+        <div class="h-40 rounded-2xl bg-muted animate-pulse" />
+      </div>
+    </section>
+
     <!-- SIGNED IN, EMPTY -->
-    <section v-else-if="picked.length === 0 && courses.length === 0 && socials.length === 0" class="max-w-2xl mx-auto px-4 py-10">
+    <section v-else-if="viewState === 'empty'" class="max-w-2xl mx-auto px-4 py-10" data-testid="my-plan-empty">
       <div class="rounded-2xl p-10 text-center border-2 border-dashed border-input bg-white/50">
         <Search class="w-10 h-10 mx-auto mb-4 text-secondary" aria-hidden="true" />
         <p class="text-lg font-display text-foreground">

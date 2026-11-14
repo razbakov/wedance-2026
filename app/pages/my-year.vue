@@ -71,18 +71,25 @@ const suggestionsRaw = ref<Array<{
 }>>([])
 
 function fetchMyPlan() {
-  if (!isSignedIn.value) return
-  $trpc.plan.myPlan.query().then((rows) => {
+  if (!isSignedIn.value) return Promise.resolve()
+  return $trpc.plan.myPlan.query().then((rows) => {
     myFestivalsRaw.value = rows
     fetchGoingBatch(rows.map(r => r.slug))
   }).catch(() => {})
 }
 
 function fetchSuggestions() {
-  $trpc.plan.suggestions.query().then((rows) => {
+  return $trpc.plan.suggestions.query().then((rows) => {
     suggestionsRaw.value = rows
   }).catch(() => {})
 }
+
+// RAZ-890: the year plan and the suggestions load after hydration. Until both
+// have settled the page shows a loading state, not "Start planning your dance
+// year" (which looked as if the plan was lost). Re-fetches after a change keep
+// the current data on screen, so this only gates the first load.
+const ownLoaded = ref(false)
+const sharedLoaded = ref(false)
 
 // All client-only data loading runs in onMounted so the initial (hydration)
 // render matches the server — server renders with empty state, client hydrates
@@ -104,21 +111,27 @@ onMounted(() => {
   if (isSharedView.value && sharerUsername.value) {
     $trpc.plan.sharedPlan.query({ username: sharerUsername.value }).then((result) => {
       sharedData.value = result
+      sharedLoaded.value = true
       // The receiving end of plan_shared (no sharer handle: it's a person).
       if (result) useTrack().trackOnce(sharerUsername.value, 'shared_plan_viewed', { object: 'year', signed_in: isSignedIn.value, festivals: result.festivals.length, has_referral: !!route.query.ref })
       if (result?.festivals.length) {
         fetchGoingBatch(result.festivals.map(f => f.slug))
       }
-    }).catch(() => {})
+    }).catch(() => { sharedLoaded.value = true })
   }
 
-  fetchMyPlan()
-  fetchSuggestions()
+  if (isSharedView.value && !sharerUsername.value) sharedLoaded.value = true
+
+  Promise.all([fetchMyPlan(), fetchSuggestions()]).finally(() => { ownLoaded.value = true })
 
   // Re-fetch when the plan changes (add/remove festival) so stats update.
   watch(yearPlanIds, () => {
     fetchMyPlan()
     fetchSuggestions()
+  })
+  // Signed in on this page (the sign-in modal): load the dancer's own plan.
+  watch(isSignedIn, (signedIn) => {
+    if (signedIn) fetchMyPlan()
   })
 })
 
@@ -370,7 +383,13 @@ useHead({
       @sign-in="onAddFriend"
     />
 
-    <!-- Loading / not found for shared view -->
+    <!-- Loading for shared view -->
+    <div v-else-if="isSharedView && !sharedLoaded" class="max-w-3xl mx-auto px-4 py-16" aria-busy="true">
+      <p class="sr-only" role="status">Loading this year plan…</p>
+      <div class="h-40 rounded-2xl bg-muted animate-pulse" aria-hidden="true" />
+    </div>
+
+    <!-- Not found for shared view -->
     <div v-else-if="isSharedView && !sharedData" class="max-w-3xl mx-auto px-4 py-16 text-center">
       <h1 class="text-muted-foreground">This year plan is not available.</h1>
       <Button class="mt-4" @click="onCreateYearPlan">
@@ -385,6 +404,7 @@ useHead({
         :suggestions="suggestions"
         :stats="stats"
         :is-signed-in="isSignedIn"
+        :loading="!ownLoaded"
         @open-festival="openFestival"
         @add-festival="onAddFestival"
         @share="showShareModal = true"

@@ -119,6 +119,16 @@ describe('useYearPlan — optimistic festival Going (RAZ-689)', () => {
     await loading
     expect([...plan.yearPlanIds.value].sort()).toEqual(['saved-fest', 'tapped-fest'])
   })
+
+  it('is loaded only once the first plan.list settles, even when it fails (RAZ-890)', async () => {
+    const plan = await load()
+    expect(plan.loaded.value).toBe(false)
+    const loading = plan.loadFromDb()
+    expect(plan.loaded.value).toBe(false)
+    last('list').d.reject(new Error('offline'))
+    await loading
+    expect(plan.loaded.value).toBe(true)
+  })
 })
 
 describe('useWeekPlan.syncEvent — the event page poll already saved it (RAZ-891)', () => {
