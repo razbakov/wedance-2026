@@ -208,8 +208,8 @@ const refUrl = (r: string) =>
           <p class="text-muted-foreground">Ride shares, roommates, dinners and who's going only work with several real people on the same festival.</p>
         </li>
         <li>
-          <p class="font-bold">The July landing audit is stale.</p>
-          <p class="text-muted-foreground">“Who's going” shipped after the audit called it not built. Some stories closed in Linear (Pro €49, Style &amp; level mix) still deliver less than they promise.</p>
+          <p class="font-bold">Using the site found what reading the code missed.</p>
+          <p class="text-muted-foreground">Walked on 2026-11-14: door check-in has no screen, the promo kit lives only in the AI app, the “Who's going” faces left the pages in #327, there is no festival map, and a new event from the form goes live before it has a venue or line-up. On a phone, the answer buttons for venues and artists hide under the tab bar.</p>
         </li>
       </ul>
     </DesignSection>
@@ -231,7 +231,8 @@ const refUrl = (r: string) =>
       <p class="text-sm text-muted-foreground max-w-2xl">
         The routes in <code class="font-mono text-[13px]">app/pages</code> (docs, sketches and admin left out), the landing-promise stories in
         <code class="font-mono text-[13px]">docs/issues/P*.md</code> with statuses corrected against merged PRs, and the email senders in
-        <code class="font-mono text-[13px]">server/utils/email.ts</code>. Data lives in <code class="font-mono text-[13px]">app/lib/ux-map.ts</code>: update an item when you ship or change it.
+        <code class="font-mono text-[13px]">server/utils/email.ts</code>, then checked by using the site on 2026-11-14: signed out on 2026.wedance.vip, and as a dancer, an organiser,
+        a venue and an artist on a local copy of the database, on desktop and a phone (RAZ-898; what couldn't be run is in RAZ-931). Data lives in <code class="font-mono text-[13px]">app/lib/ux-map.ts</code>: update an item when you ship or change it.
         For stories mapped to tables and procedures, see <NuxtLink to="/docs/architecture/stories" class="text-secondary hover:underline">User stories</NuxtLink>.
       </p>
     </DesignSection>
