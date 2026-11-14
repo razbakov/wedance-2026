@@ -1271,7 +1271,7 @@ async function closeHangout(id: string) {
 }
 
 // -----------------------------------------------------------------------
-// HEAT STRIP · the top 3 items across every scale, sorted by urgency.
+// HEAT STRIP · up to 3 to-dos across every scale, sorted by urgency.
 // -----------------------------------------------------------------------
 type HeatItem = { key: string; label: string; detail: string; href: string; external?: boolean; color: string; urgency: number }
 const heatItems = computed<HeatItem[]>(() => {
@@ -1303,17 +1303,9 @@ const heatItems = computed<HeatItem[]>(() => {
       urgency: 70,
     })
   })
-  // Socials: the next two nights out already in the plan
-  upcomingSocials.value.slice(0, 2).forEach(s => {
-    items.push({
-      key: `social-${s.id}`,
-      label: `${s.name} · ${s.dayLabel} ${s.time}`,
-      detail: s.friendsGoing > 0 ? `${s.venue} · ${s.friendsGoing} friend${s.friendsGoing === 1 ? '' : 's'} going` : s.venue,
-      href: '#socials',
-      color: WD.cyan600,
-      urgency: 40,
-    })
-  })
+  // Nights out the dancer is going to are NOT repeated here: they already
+  // sit under "Where you're dancing" below (RAZ-894). The strip only carries
+  // what needs doing — tickets, payments, open invites.
   // Tonight: any open invites
   hangouts.value.filter(h => !h.going).slice(0, 1).forEach(h => {
     items.push({
@@ -1795,12 +1787,13 @@ function cardSummary(f: CatalogueEntry) {
 
     <!-- SIGNED IN, WITH PICKS -->
     <section v-else class="max-w-4xl mx-auto px-4 py-6 pb-16">
-      <!-- HEAT STRIP · the top 3 items across every scale, sorted by urgency. -->
+      <!-- HEAT STRIP · up to 3 to-dos (tickets, payments, invites), sorted by urgency.
+           Hidden when there is nothing to do; events you're going to live in "Where you're dancing". -->
       <div v-if="heatItems.length" class="rounded-2xl mb-8 p-5 sm:p-6 relative overflow-hidden" style="background:linear-gradient(135deg, var(--wd-amber-100) 0%, var(--wd-red-100) 100%); border:1px solid color-mix(in srgb, var(--wd-red-600) 20%, transparent);">
         <div class="flex items-baseline justify-between mb-3">
           <div class="text-xs uppercase tracking-[0.3em] font-bold text-primary">This week · do these first</div>
           <span class="text-xs text-secondary font-hand" style="font-size:18px;">
-            — 3 things across your plan
+            — {{ heatItems.length === 1 ? '1 thing' : `${heatItems.length} things` }} across your plan
           </span>
         </div>
         <div class="grid gap-2">
