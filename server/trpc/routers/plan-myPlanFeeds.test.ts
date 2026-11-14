@@ -199,6 +199,42 @@ describe.skipIf(!DATABASE_URL)('my-plan feeds', () => {
     })
   })
 
+  // RAZ-889: the header badge counted every plan item ever added (12 → 15 while
+  // /my-plan showed a festival and two socials). It must count what the page lists.
+  describe('plan.counts', () => {
+    const PAST_FEST = `${FEST}-past`
+
+    it('counts only what /my-plan lists: upcoming festivals, courses and this week\'s socials', async () => {
+      const me = caller(ids.me!)
+      expect(await me.plan.counts()).toMatchObject({ total: 0, week: 0 })
+
+      await db.insert(schema.festivals).values({ slug: PAST_FEST, name: `Past Fest ${RUN}`, startDate: '2020-05-01', endDate: '2020-05-03' })
+      try {
+        await me.plan.add({ itemType: 'festival', itemId: FEST }) // no dates yet — listed, counted
+        await me.plan.add({ itemType: 'festival', itemId: PAST_FEST }) // over — not counted
+        await me.plan.add({ itemType: 'festival', itemId: `no-such-fest-${RUN}` }) // not a festival — not listed
+        await me.plan.add({ itemType: 'event', itemId: ids.socialSoon! }) // this week
+        await me.plan.add({ itemType: 'event', itemId: ids.past! }) // over
+        await me.plan.add({ itemType: 'event', itemId: ids.nextMonth! }) // not this week
+        await me.plan.add({ itemType: 'event', itemId: ids.courseLast! }) // course, next class in 4 days
+        await me.plan.add({ itemType: 'event', itemId: ids.courseEnded! }) // ended course
+
+        const counts = await me.plan.counts()
+        const [{ courses }, { socials }] = await Promise.all([me.plan.myCourses(), me.plan.weekSocials()])
+        expect(counts).toEqual({ festivals: 1, courses: 1, socials: 1, week: 2, total: 3 })
+        // The same feeds /my-plan renders.
+        expect(counts.courses).toBe(courses.length)
+        expect(counts.socials).toBe(socials.length)
+      }
+      finally {
+        for (const itemId of [FEST, PAST_FEST, `no-such-fest-${RUN}`]) await me.plan.remove({ itemType: 'festival', itemId })
+        for (const k of ['socialSoon', 'past', 'nextMonth', 'courseLast', 'courseEnded']) await me.plan.remove({ itemType: 'event', itemId: ids[k]! })
+        await db.delete(schema.festivals).where(eq(schema.festivals.slug, PAST_FEST))
+      }
+      expect(await me.plan.counts()).toMatchObject({ total: 0, week: 0 })
+    })
+  })
+
   describe('plan.discover', () => {
     const deckIds = async () => (await caller(ids.me!).plan.discover()).cards.map(c => `${c.targetKind}:${c.targetId}`)
 

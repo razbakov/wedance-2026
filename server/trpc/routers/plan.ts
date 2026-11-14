@@ -7,6 +7,7 @@ import { eventPath } from '../../../shared/utils/eventSlug'
 import { festivalPath } from '../../../shared/utils/eventSlug'
 import { discoverDeck, myCourses, recordSwipe, removeSwipe, weekSocials } from '../../utils/myPlanFeeds'
 import { eventIdForFestival, recordLinkAction } from '../../utils/trackedLinks'
+import { planCounts } from '../../utils/planCounts'
 
 export const planRouter = router({
   count: publicProcedure
@@ -656,6 +657,15 @@ export const planRouter = router({
    */
   myCourses: protectedProcedure.query(async ({ ctx }) => {
     return myCourses(ctx.db, ctx.dancerId)
+  }),
+
+  /**
+   * The "My plan" badge and the city page's "N in your week" pill (RAZ-889):
+   * counts of what /my-plan actually lists — upcoming festivals, courses and
+   * this week's socials — from the same feeds, never the raw plan_items size.
+   */
+  counts: protectedProcedure.query(async ({ ctx }) => {
+    return planCounts(ctx.db, ctx.dancerId)
   }),
 
   /**
