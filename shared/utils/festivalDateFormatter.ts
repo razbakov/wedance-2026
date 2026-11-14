@@ -2,7 +2,7 @@
  * Shared date formatting utilities for festival listings.
  * Used by both client components and tests to ensure consistency.
  */
-import { eventLocalDate } from './eventTime'
+import { eventLocalDate, eventPhase } from './eventTime'
 
 export function hasEventEnded(endDate: string): boolean {
   const now = new Date()
@@ -12,8 +12,20 @@ export function hasEventEnded(endDate: string): boolean {
   return end < now
 }
 
-export function daysUntil(dateStr: string, timezone?: string | null): string {
-  const now = new Date()
+/**
+ * Eyebrow label for an event / festival. Pass the end too: "Past" only once the
+ * last day has ended (RAZ-893 — a Fri–Sun weekender read "Past" on Saturday);
+ * while it runs it reads "Today" on its first day and "On now" after. Without an
+ * end, it runs to the end of its start day in the event's zone.
+ */
+export function daysUntil(dateStr: string, timezone?: string | null, endDate?: string | null, now: Date = new Date()): string {
+  const phase = eventPhase(dateStr, endDate, timezone || undefined, now)
+  if (phase === 'past') return 'Past'
+  if (phase === 'on') {
+    const zone = timezone || undefined
+    const startDay = dateStr.includes('T') ? eventLocalDate(dateStr, zone) : dateStr.slice(0, 10)
+    return startDay === eventLocalDate(now, zone) ? 'Today' : 'On now'
+  }
   const target = new Date(dateStr)
   let diff = Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
   // Datetimes (events, e.g. "2026-10-04T12:00:00Z"): count calendar days, so an

@@ -74,7 +74,7 @@ const platformIcon: Record<string, any> = {
   website: Globe,
 }
 
-const daysUntil = computed(() => formatDaysUntil(props.festival.startDate, props.festival.timezone))
+const daysUntil = computed(() => formatDaysUntil(props.festival.startDate, props.festival.timezone, props.festival.endDate))
 
 // Accent text on its own tint / white-on-accent buttons, darkened only when the
 // festival colour is too light for 4.5:1.

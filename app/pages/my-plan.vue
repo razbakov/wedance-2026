@@ -14,7 +14,7 @@ import { ArrowRight, MapPin, Calendar, Search, Ticket, Plane, Home, GraduationCa
 import * as salsaOpen from '~/data/mock-festival'
 import * as meneate from '~/data/mock-meneate'
 import type { CityEvent } from '~/types/city'
-import { eventLocalDate, eventLocalTime, eventLocalWeekday } from '#shared/utils/eventTime'
+import { eventLocalDate, eventLocalTime, eventLocalWeekday, eventPhase } from '#shared/utils/eventTime'
 import { detectDanceStyle, relatedDanceStyles } from '#shared/dance-styles'
 import * as cubanFire from '~/data/mock-cuban-fire'
 import * as caribbeanUrbanFire from '~/data/mock-caribbean-urban-fire'
@@ -240,11 +240,14 @@ function formatDateRange(start: string, end: string) {
   return `${s.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${e.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, ${e.getFullYear()}`
 }
 
-function daysUntilLabel(dateStr: string) {
+function daysUntilLabel(dateStr: string, endStr?: string | null) {
+  // "Happened" only once the last day is over, never from the start alone (RAZ-893).
+  const phase = eventPhase(dateStr, endStr)
+  if (phase === 'past') return { text: 'Happened', urgent: false }
+  if (phase === 'on') return { text: 'On now', urgent: true }
   const now = new Date()
   const target = new Date(dateStr)
   const diff = Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-  if (diff < 0) return { text: 'Happened', urgent: false }
   if (diff === 0) return { text: 'Today', urgent: true }
   if (diff === 1) return { text: 'Tomorrow', urgent: true }
   if (diff <= 7) return { text: `In ${diff} days`, urgent: true }
@@ -2155,12 +2158,12 @@ function cardSummary(f: CatalogueEntry) {
                 <span
                   class="text-xs shrink-0 mt-1 whitespace-nowrap"
                   :style="{
-                    color: daysUntilLabel(f.startDate).urgent ? WD.red600 : f.accentColor,
+                    color: daysUntilLabel(f.startDate, f.endDate).urgent ? WD.red600 : f.accentColor,
                     fontFamily: 'var(--wd-font-hand)',
                     fontSize: '16px',
                   }"
                 >
-                  — {{ daysUntilLabel(f.startDate).text }}
+                  — {{ daysUntilLabel(f.startDate, f.endDate).text }}
                 </span>
               </div>
 
