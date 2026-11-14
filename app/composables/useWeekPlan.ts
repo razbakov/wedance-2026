@@ -58,6 +58,19 @@ export function useWeekPlan() {
       })
   }
 
+  /**
+   * Mirror a plan change the server already made (the event page's RSVP poll
+   * writes plan_items itself), so the My plan badge moves at once (RAZ-891).
+   * Local only: no request, no analytics.
+   */
+  function syncEvent(id: string, inPlan: boolean) {
+    if (weekPlanIds.value.has(id) === inPlan) return
+    const next = new Set(weekPlanIds.value)
+    if (inPlan) next.add(id)
+    else next.delete(id)
+    weekPlanIds.value = next
+  }
+
   function toggleEvent(id: string, ctx: PlanContext = {}) {
     if (weekPlanIds.value.has(id)) {
       removeEvent(id)
@@ -85,6 +98,7 @@ export function useWeekPlan() {
     addEvent,
     removeEvent,
     toggleEvent,
+    syncEvent,
     toggleDrawer,
     openDrawer,
     closeDrawer,

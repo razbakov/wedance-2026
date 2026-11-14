@@ -120,3 +120,18 @@ describe('useYearPlan — optimistic festival Going (RAZ-689)', () => {
     expect([...plan.yearPlanIds.value].sort()).toEqual(['saved-fest', 'tapped-fest'])
   })
 })
+
+describe('useWeekPlan.syncEvent — the event page poll already saved it (RAZ-891)', () => {
+  const load = async () => (await import('./useWeekPlan')).useWeekPlan()
+
+  it('moves the My plan badge at once without sending a request', async () => {
+    const plan = await load()
+    plan.syncEvent('w1', true)
+    expect(plan.weekCount.value).toBe(1)
+    plan.syncEvent('w1', true)
+    expect(plan.weekCount.value).toBe(1)
+    plan.syncEvent('w1', false)
+    expect(plan.weekCount.value).toBe(0)
+    expect(calls).toEqual([])
+  })
+})

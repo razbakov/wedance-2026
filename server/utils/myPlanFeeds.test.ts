@@ -4,7 +4,7 @@
  * week — is covered in server/trpc/routers/plan-myPlanFeeds.test.ts.
  */
 import { describe, it, expect } from 'vitest'
-import { resolveWeekOccurrences, slugifyCity, stylesForDancer, stylesMatch } from './myPlanFeeds'
+import { isClassType, resolveWeekOccurrences, slugifyCity, stylesForDancer, stylesMatch } from './myPlanFeeds'
 
 describe('stylesMatch', () => {
   it('matches the same style and its variants', () => {
@@ -58,5 +58,15 @@ describe('stylesForDancer', () => {
   it('puts the dancer\'s styles first', () => {
     expect(stylesForDancer(['Ballroom', 'Salsa'], ['Salsa'])).toEqual(['Salsa', 'Ballroom'])
     expect(stylesForDancer(['Ballroom', 'Salsa'], [])).toEqual(['Ballroom', 'Salsa'])
+  })
+})
+
+describe('isClassType', () => {
+  it('puts courses and workshops in My plan\'s courses section (RAZ-891)', () => {
+    expect(isClassType('Course')).toBe(true)
+    expect(isClassType('Workshop')).toBe(true)
+  })
+  it('leaves nights out and festivals to their own sections', () => {
+    for (const t of ['Party', 'Concert', 'Show', 'Festival', null, undefined]) expect(isClassType(t)).toBe(false)
   })
 })

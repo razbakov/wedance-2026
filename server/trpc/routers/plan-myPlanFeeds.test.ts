@@ -78,6 +78,8 @@ describe.skipIf(!DATABASE_URL)('my-plan feeds', () => {
     // A weekly course: last week's class (planned) and the next one; plus a course that has ended.
     await addEvent('courseLast', { type: 'Course', seriesId: `course-${RUN}`, startDate: new Date(now - 3 * DAY), endDate: new Date(now - 3 * DAY + 3600_000) })
     await addEvent('courseNext', { type: 'Course', seriesId: `course-${RUN}`, startDate: new Date(now + 4 * DAY), endDate: new Date(now + 4 * DAY + 3600_000), organizerName: `School ${RUN}`, organizerUsername: `school-${RUN}` })
+    // A weekend workshop that started yesterday and runs until tomorrow (RAZ-891).
+    await addEvent('workshop', { type: 'Workshop', styles: ['Zouk'], startDate: new Date(now - DAY), endDate: new Date(now + DAY) })
     await addEvent('courseEnded', { type: 'Course', startDate: new Date(now - 10 * DAY), endDate: new Date(now - 10 * DAY + 3600_000) })
 
     // A festival the friend has picked, so a dancer card + friend count exist.
@@ -93,6 +95,7 @@ describe.skipIf(!DATABASE_URL)('my-plan feeds', () => {
     const eventIds = Object.entries(ids).filter(([k]) => !dancerIds.includes(ids[k]!)).map(([, v]) => v)
     await db.delete(schema.discoverSwipes).where(inArray(schema.discoverSwipes.dancerId, dancerIds))
     await db.delete(schema.attendances).where(inArray(schema.attendances.dancerId, dancerIds)).catch(() => {})
+    await db.delete(schema.eventRsvps).where(inArray(schema.eventRsvps.eventId, eventIds)).catch(() => {})
     await db.delete(schema.planItems).where(inArray(schema.planItems.dancerId, dancerIds))
     await db.delete(schema.follows).where(inArray(schema.follows.dancerId, dancerIds))
     await db.delete(schema.events).where(inArray(schema.events.id, eventIds))
@@ -189,6 +192,16 @@ describe.skipIf(!DATABASE_URL)('my-plan feeds', () => {
       expect(await courseIds()).toEqual([])
       await me.plan.remove({ itemType: 'event', itemId: ids.courseEnded! })
       await me.plan.remove({ itemType: 'event', itemId: ids.socialSoon! })
+    })
+
+    it('shows a workshop the dancer said they are going to on its event page, not in the week socials (RAZ-891)', async () => {
+      const me = caller(ids.me!)
+      await me.rsvp.answer({ event: ids.workshop!, answer: 'needFollower' })
+      expect(await courseIds()).toEqual([ids.workshop])
+      expect((await me.plan.weekSocials()).socials.map(s => s.id)).not.toContain(ids.workshop)
+      // "Next time" takes it off again.
+      await me.rsvp.answer({ event: ids.workshop!, answer: 'next' })
+      expect(await courseIds()).toEqual([])
     })
 
     it('counts a class saved from the course picker (metadata type class)', async () => {

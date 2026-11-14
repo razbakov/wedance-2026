@@ -92,7 +92,10 @@ async function pick(picked: RsvpAnswer) {
   busy.value = true; error.value = ''
   const signedIn = isSignedIn.value
   try {
-    setPoll(await $trpc.rsvp.answer.mutate({ event: props.eventId, answer, guestToken: guestToken() }))
+    const p = await $trpc.rsvp.answer.mutate({ event: props.eventId, answer, guestToken: guestToken() })
+    setPoll(p)
+    // Signed in, the answer put the event on (or took it off) the plan server-side.
+    if (signedIn) useWeekPlan().syncEvent(p.eventId, answer !== 'next')
     useTrack().track('rsvp_answered', { answer, signed_in: signedIn, surface: props.surface, event_id: poll.value?.eventId })
     if (!signedIn) openSheet()
   } catch {
