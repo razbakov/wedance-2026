@@ -184,9 +184,14 @@ export const weekendRouter = router({
    * Share this week's parties. With no `eventIds`, takes the dancer's
    * "Where you're dancing" list (plan.weekSocials). Sharing the same parties
    * again within a few days returns the same link, so a posted story keeps working.
+   * My plan calls it on its own to show the story in place (`surface: 'my_plan'`).
    */
   share: protectedProcedure
-    .input(z.object({ eventIds: z.array(z.string().uuid()).min(1).max(WEEKEND_MAX_EVENTS).optional() }).optional())
+    .input(z.object({
+      eventIds: z.array(z.string().uuid()).min(1).max(WEEKEND_MAX_EVENTS).optional(),
+      /** Where the link was made: `my_plan` = the story shown in place on My plan (RAZ-895), made without a tap. */
+      surface: z.enum(['web', 'my_plan', 'mcp']).optional(),
+    }).optional())
     .mutation(async ({ ctx, input }) => {
       const wanted = input?.eventIds?.length
         ? [...new Set(input.eventIds)]
@@ -210,7 +215,7 @@ export const weekendRouter = router({
           .values({ code: c, dancerId: ctx.dancerId, eventIds: ids })
           .onConflictDoNothing().returning({ code: weekendShares.code })
         if (row) {
-          trackServer(ctx, 'weekend_shared', { events: ids.length, replaced_previous: recent.length > 0 })
+          trackServer(ctx, 'weekend_shared', { events: ids.length, replaced_previous: recent.length > 0, surface: input?.surface ?? 'web' })
           return { code: row.code, url: weekendUrl(row.code), events: ids.length, created: true }
         }
       }

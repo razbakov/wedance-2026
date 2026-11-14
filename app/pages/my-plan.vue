@@ -21,6 +21,7 @@ import * as caribbeanUrbanFire from '~/data/mock-caribbean-urban-fire'
 import { WD } from '~/lib/brand'
 import { previewOnlyFestivals } from '~/data/mock-preview-festivals'
 import { eventPath, festivalPath } from '#shared/utils/eventSlug'
+import { weekendKey } from '#shared/utils/weekendShare'
 import { citySlug as toCitySlug } from '#shared/utils/citySearch'
 import { initialOf } from '#shared/utils/initials'
 import { planView, authPending } from '~/lib/planView'
@@ -1020,19 +1021,25 @@ function shortDayDate(iso: string): string {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' })
 }
 
-// Share my weekend (#527): this week's parties → /w/<code> with the story maker.
-const sharingWeekend = ref(false)
+// Share my weekend (#527, RAZ-895): the story for this week's parties, in place under
+// "Where you're dancing". Its link (/w/<code>) is made — or the same one reused, see
+// `weekend.share` — when the list loads, and again when the set of parties changes.
+type WeekendPlan = NonNullable<Awaited<ReturnType<typeof $trpc.weekend.get.query>>>
+const weekendPlan = ref<WeekendPlan | null>(null)
 const shareWeekendError = ref('')
-async function shareWeekend() {
-  sharingWeekend.value = true
-  shareWeekendError.value = ''
+let weekendFor = ''
+let weekendTimer: ReturnType<typeof setTimeout> | undefined
+async function loadWeekendStory(key: string) {
   try {
-    const r = await $trpc.weekend.share.mutate()
-    await navigateTo(`/w/${r.code}`)
+    const r = await $trpc.weekend.share.mutate({ surface: 'my_plan' })
+    const p = await $trpc.weekend.get.query({ code: r.code })
+    if (key !== weekendFor) return // the plan changed meanwhile: the newer load wins
+    weekendPlan.value = p
+    shareWeekendError.value = ''
   } catch (e: any) {
-    shareWeekendError.value = e?.message || 'Could not make the link — try again.'
-  } finally {
-    sharingWeekend.value = false
+    if (key !== weekendFor) return
+    weekendPlan.value = null
+    shareWeekendError.value = e?.message || 'Could not make your story — try again later.'
   }
 }
 
@@ -1074,6 +1081,20 @@ async function loadWeekSocials() {
 const upcomingSocials = computed(() =>
   socials.value.filter(s => !s.dateISO || s.dateISO >= todayISO.value),
 )
+
+watch(
+  () => (isSignedIn.value && !previewMode.value && weekSocialsLoaded.value ? weekendKey(upcomingSocials.value.map(x => x.id)) : ''),
+  (key) => {
+    if (key === weekendFor) return
+    weekendFor = key
+    clearTimeout(weekendTimer)
+    if (!key) { weekendPlan.value = null; shareWeekendError.value = ''; return }
+    // A short wait: removing two parties in a row makes one link, not two.
+    weekendTimer = setTimeout(() => loadWeekendStory(key), 600)
+  },
+  { immediate: true },
+)
+onBeforeUnmount(() => clearTimeout(weekendTimer))
 
 const { removeEvent: removeWeekEvent, addEvent: addWeekEvent } = useWeekPlan()
 
@@ -2600,16 +2621,6 @@ function cardSummary(f: CatalogueEntry) {
             </h2>
           </div>
           <div class="flex items-center gap-3">
-            <button
-              v-if="isSignedIn && !previewMode && upcomingSocials.length"
-              type="button"
-              class="inline-flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full bg-primary text-primary-foreground font-sans disabled:opacity-60"
-              :disabled="sharingWeekend"
-              data-testid="share-weekend"
-              @click="shareWeekend"
-            >
-              <Sparkles class="w-3.5 h-3.5" aria-hidden="true" /> Share my weekend
-            </button>
             <NuxtLink
               :to="citySocialsLink"
               class="text-xs italic hover:underline text-secondary font-display"
@@ -2618,7 +2629,6 @@ function cardSummary(f: CatalogueEntry) {
             </NuxtLink>
           </div>
         </div>
-        <p v-if="shareWeekendError" role="alert" class="mb-2 text-xs text-destructive font-sans">{{ shareWeekendError }}</p>
 
         <div v-if="removedSocial" class="mb-2 flex items-center gap-2 text-xs text-muted-foreground font-sans" role="status">
           Removed {{ removedSocial.name }} from your plan.
@@ -2675,6 +2685,23 @@ function cardSummary(f: CatalogueEntry) {
             </button>
           </div>
         </div>
+
+        <!-- The weekend story, ready to post (RAZ-895). -->
+        <WeekendStory
+          v-if="weekendPlan && upcomingSocials.length"
+          :plan="weekendPlan"
+          surface="my_plan"
+          class="mt-4"
+        >
+          <NuxtLink
+            :to="`/w/${weekendPlan.code}`"
+            class="mt-2 inline-flex items-center gap-1 text-xs font-bold underline text-primary font-sans"
+            data-testid="weekend-page-link"
+          >
+            See who's joining <ArrowRight class="w-3.5 h-3.5" aria-hidden="true" />
+          </NuxtLink>
+        </WeekendStory>
+        <p v-if="shareWeekendError && upcomingSocials.length" role="alert" class="mt-2 text-xs text-destructive font-sans">{{ shareWeekendError }}</p>
       </div>
 
       <!-- TONIGHT · Hangouts. -->
