@@ -103,7 +103,7 @@ function reset() {
 }
 
 // ── E: one button → inline steps, for a class, a course and a festival ───────
-type Pass = { id: string, name: string, detail: string, price: number, couple: number | null }
+type Pass = { id: string, name: string, detail: string, price: number, couple: number | null, covers?: string[] }
 type Session = { id: string, day: string, time: string, name: string, who: string }
 const KINDS: Record<Kind, { name: string, when: string, meta: string, door: boolean, passes: Pass[], sessions: Session[], save: boolean, heading: string }> = {
   class: {
@@ -122,9 +122,9 @@ const KINDS: Record<Kind, { name: string, when: string, meta: string, door: bool
   festival: {
     name: 'Munich Salsa Weekend', when: 'Fri–Sun, Dec 4–6 · Kesselhaus', meta: 'Salsa · Casino · Bachata · 24 workshops, 3 parties', door: false,
     passes: [
-      { id: 'full', name: 'Full pass', detail: 'All workshops + 3 parties', price: 129, couple: null },
-      { id: 'sat', name: 'Saturday pass', detail: 'Saturday workshops + party', price: 69, couple: null },
-      { id: 'party', name: 'Party pass', detail: '3 parties, no workshops', price: 35, couple: null },
+      { id: 'full', name: 'Full pass', detail: 'All workshops + 3 parties', price: 129, couple: null, covers: ['f1', 'f2', 'f3'] },
+      { id: 'sat', name: 'Saturday pass', detail: 'Saturday workshops + party', price: 69, couple: null, covers: ['f1', 'f2'] },
+      { id: 'party', name: 'Party pass', detail: '3 parties, no workshops', price: 35, couple: null, covers: [] },
     ],
     sessions: [
       { id: 'f1', day: 'Sat, Dec 5', time: '12:00', name: 'Casino Partnerwork', who: 'Alösha' },
@@ -142,6 +142,15 @@ const priceLabel = (p: Pass) => (two.value ? (p.couple ? `€${p.couple} for two
 const ePass = ref<string | null>(null)
 const chosenPass = computed(() => passes.value.find(p => p.id === ePass.value) ?? (passes.value.length === 1 ? passes.value[0] : null))
 const total = computed(() => (chosenPass.value ? priceOf(chosenPass.value) : 0))
+// Best pass for your plan (today's FestivalView `recommendation`): the cheapest pass
+// that covers every workshop you saved. Only when something is saved.
+const savedSessions = computed(() => K.value.sessions.filter(s => eSaved.value.has(s.id)))
+const missing = (p: Pass) => savedSessions.value.filter(s => !(p.covers ?? []).includes(s.id))
+const bestPass = computed<Pass | null>(() => {
+  if (!K.value.save || !savedSessions.value.length) return null
+  const fit = passes.value.filter(p => p.covers && !missing(p).length)
+  return fit.length ? fit.reduce((a, b) => (b.price < a.price ? b : a)) : null
+})
 type Step = 'role' | 'pass' | 'pay' | 'you'
 const eSteps = computed(() => ([
   'role',
@@ -163,7 +172,7 @@ const stepIndex = (s: Step) => eSteps.value.indexOf(s)
 const ctaLabel = computed(() => {
   if (!isPaid.value) return 'I’m coming'
   const min = Math.min(...K.value.passes.map(p => p.price))
-  if (kind.value === 'festival') return `Get your pass · from €${min}`
+  if (kind.value === 'festival') return bestPass.value ? `Get your pass · €${bestPass.value.price} for your plan` : `Get your pass · from €${min}`
   return K.value.passes.length > 1 ? `Sign up · from €${min}` : `Sign up · €${min}`
 })
 const summary = computed(() => [
@@ -572,14 +581,21 @@ function finishCheckout() {
                             </button>
                           </div>
                           <div v-else-if="s === 'pass'" class="mt-3 space-y-2">
+                            <p v-if="K.save && !savedSessions.length" class="text-xs text-muted-foreground" data-testid="e-plan-hint">Not sure which? Save the workshops you want below and we’ll point to the pass that covers them.</p>
                             <button
                               v-for="p in passes" :key="p.id" type="button"
                               class="w-full rounded-xl border px-3 py-2.5 text-left flex items-center gap-3 hover:border-primary"
-                              :class="ePass === p.id ? 'border-primary bg-primary/5' : 'border-border'"
+                              :class="ePass === p.id || (!ePass && bestPass?.id === p.id) ? 'border-primary bg-primary/5' : 'border-border'"
                               :data-testid="`e-pass-${p.id}`"
                               @click="ePick(p.id)"
                             >
-                              <span class="min-w-0"><span class="block text-sm font-bold">{{ p.name }}</span><span class="block text-xs text-muted-foreground">{{ p.detail }}</span></span>
+                              <span class="min-w-0">
+                                <span v-if="bestPass?.id === p.id" class="inline-block mb-1 rounded-full bg-primary/10 px-2 py-0.5 text-eyebrow font-black uppercase tracking-wider text-primary" data-testid="e-best">Best for your plan</span>
+                                <span class="block text-sm font-bold">{{ p.name }}</span><span class="block text-xs text-muted-foreground">{{ p.detail }}</span>
+                                <span v-if="savedSessions.length && p.covers" class="block text-xs mt-0.5" :class="missing(p).length ? 'text-muted-foreground' : 'text-wd-green-700 font-bold'">
+                                  {{ missing(p).length ? `Misses ${missing(p).map(x => x.name).join(', ')}` : `✓ Covers your ${savedSessions.length} saved workshop${savedSessions.length === 1 ? '' : 's'}` }}
+                                </span>
+                              </span>
                               <span class="ml-auto text-right shrink-0"><span class="block font-display text-lg font-black">€{{ priceOf(p) }}</span><span v-if="two" class="block text-xs text-muted-foreground">{{ p.couple ? `for two · saves €${p.price * 2 - p.couple}` : `2 × €${p.price}` }}</span></span>
                             </button>
                           </div>
@@ -721,7 +737,7 @@ function finishCheckout() {
               <Button v-if="K.save" :variant="eSaved.has(s.id) ? 'pill' : 'outline-pill'" size="pill-sm" @click="eToggleSave(s.id)"><Star :class="eSaved.has(s.id) ? 'fill-current' : ''" /> {{ eSaved.has(s.id) ? 'Saved' : 'Save' }}</Button>
             </div>
             <p class="mt-2 text-xs font-sans text-muted-foreground">
-              <template v-if="kind === 'festival'">Many workshops: each row keeps Save (what you want to take); the pass up top is what gets you in.</template>
+              <template v-if="kind === 'festival'">Save the workshops you want: the pass step then points to the cheapest pass that covers them (today’s “Best value for your plan”).</template>
               <template v-else-if="kind === 'course'">The dates of the course. One class only? Pick "Just one class" when you sign up.</template>
               <template v-else>One session = the class itself, so no Save here: signing up puts it on My plan.</template>
             </p>
