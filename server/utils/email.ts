@@ -426,7 +426,6 @@ export async function sendSiteWelcomeEmail(params: {
   await getResend().emails.send({
     from,
     to: params.to,
-    ...(params.replyTo ? { replyTo: params.replyTo } : {}),
     subject: params.subject,
     headers: { 'List-Unsubscribe': `<${params.unsubscribeUrl}>` },
     html: `<div style="font-family: sans-serif; max-width: 560px; margin: 0 auto; padding: 20px; color: #333; line-height: 1.6;">
@@ -552,6 +551,76 @@ export async function sendEventCancelledEmail(params: {
       ${params.reason ? `<p style="color: #555; border-left: 3px solid #ddd; padding-left: 12px;">“${escapeHtml(params.reason)}”</p>` : ''}
       ${params.ticket ? `<p style="color: #555;">You have a ticket for it. For a refund, please contact ${params.organizer ? escapeHtml(params.organizer) : 'the organiser'} directly.</p>` : ''}
       <a href="${params.link}" style="display: inline-block; background: #000; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">See the event</a>
+    </div>`,
+  })
+}
+
+/**
+ * An organiser took the "Cancelled" mark off an event (RAZ-969): the people who
+ * got the cancellation email hear it's on again. Ticket holders are told their
+ * ticket still counts unless they already asked for a refund.
+ */
+export async function sendEventBackOnEmail(params: {
+  to: string
+  name: string
+  eventName: string
+  when: string
+  organizer: string | null
+  ticket: boolean
+  link: string
+}) {
+  const config = useRuntimeConfig()
+  const subject = `Good news, it’s on again: ${params.eventName}${params.when ? `, ${params.when}` : ''}`
+  if (!config.resendApiKey) {
+    console.log(`\n✉️  ${params.to}: ${subject} → ${params.link}\n`)
+    return
+  }
+  const by = params.organizer ? escapeHtml(params.organizer) : 'The organiser'
+  await getResend().emails.send({
+    from: config.resendFromEmail || 'WeDance <noreply@wedance.vip>',
+    to: params.to,
+    subject,
+    html: `<div style="font-family: sans-serif; max-width: 460px; margin: 0 auto; padding: 20px;">
+      <h2 style="color: #333;">Good news, it’s on again 🎉</h2>
+      <p>Hey ${escapeHtml(params.name || 'there')},</p>
+      <p style="color: #555;">${by} cancelled <strong>${escapeHtml(params.eventName)}</strong>${params.when ? `, ${escapeHtml(params.when)}` : ''}, and now it’s back on. Check the details before you go.</p>
+      ${params.ticket ? `<p style="color: #555;">You have a ticket for it. If you already asked for a refund, please check with ${params.organizer ? escapeHtml(params.organizer) : 'the organiser'} directly.</p>` : ''}
+      <a href="${params.link}" style="display: inline-block; background: #000; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">See the event</a>
+    </div>`,
+  })
+}
+
+/**
+ * A city's WeDance admins ask an organiser what they plan for an occasion (RAZ-970):
+ * "New Year's Eve is coming — planning something?". The answer is an event on WeDance,
+ * which then lands in the city's weekly post and the occasion post by itself.
+ */
+export async function sendOccasionAskEmail(params: {
+  to: string
+  name: string
+  pageName: string
+  cityName: string
+  occasion: string
+  when: string
+  message: string
+  link: string
+}) {
+  const config = useRuntimeConfig()
+  const subject = `${params.occasion} in ${params.cityName} — are you planning something?`
+  if (!config.resendApiKey) {
+    console.log(`\n✉️  ${params.to}: ${subject} → ${params.link}\n`)
+    return
+  }
+  await getResend().emails.send({
+    from: config.resendFromEmail || 'WeDance <noreply@wedance.vip>',
+    to: params.to,
+    subject,
+    html: `<div style="font-family: sans-serif; max-width: 460px; margin: 0 auto; padding: 20px;">
+      <h2 style="color: #333;">${escapeHtml(params.occasion)} · ${escapeHtml(params.when)}</h2>
+      <p>Hey ${escapeHtml(params.name || 'there')},</p>
+      <p style="color: #555; white-space: pre-line;">${escapeHtml(params.message)}</p>
+      <p style="color: #888; font-size: 13px;">You get this because ${escapeHtml(params.pageName)} runs events in ${escapeHtml(params.cityName)} on WeDance.</p>
+      <a href="${params.link}" style="display: inline-block; background: #000; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">Add your event</a>
     </div>`,
   })
 }

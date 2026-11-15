@@ -221,6 +221,14 @@ everywhere). Tools: Business → the page → "WeDance <city>" → `/business/ne
   (`wedance-2026/schedules/<city>-<week>`, JPEG). Post once per week per place: Instagram feed / story through the
   page's #501 connection; Telegram via the WeDance bot (`server/utils/telegram.ts`) to every official Telegram
   channel with a chat id. Nothing is posted without a click; MCP tokens can't publish.
+- **Plan** (RAZ-970, `cityOccasions` router, `city_occasion_posts` 0070): the next 12 months of occasions worth a post,
+  computed in `shared/utils/cityOccasions.ts` — Bavarian silent days (BayFTG Art. 3: 02:00–24:00, Good Friday / Holy
+  Saturday from 00:00, Christmas Eve from 14:00; only for Bavarian cities, by `cities.region` or slug), Fasching (DE/AT),
+  Halloween, New Year's Eve, open-air season, Oktoberfest (Munich). Each has a post: silent days → the Tanzverbot
+  explainer (facts in code, EN/ES/RU/DE); parties → the city's parties on WeDance in those days. The admin picks
+  languages (first one on the picture), edits, draws the picture (same poster as the weekly post), posts to Instagram /
+  Telegram once each. "Ask organisers" emails owners/editors of pages with events in the city (last 180 days), each
+  page once per occasion; emails stay server-side. MCP tokens can't post or send.
 - **Official channels** = `community_groups` with `kind='official'` (+ `telegram_chat_id` for the bot). Shown on the
   city page under the weekly calendar (`CityOfficialChannels`, `cityChannels.official`, which also adds the page's
   Instagram). "Check bot" = `getChat` + `getChatMember`.
@@ -338,9 +346,19 @@ out with the reason on `/events/[id]`, the city page and `/@handle`, and in the 
 (`/api/profiles/<u>/site` and `/events`: `cancelled`, `cancelReason` — contract `SiteEvent` in
 `shared/types/profileSite.ts`, mirrored by wedance-site-kit `WeDanceEvent`). Everyone who signed up is emailed once
 (`server/utils/eventCancel.ts` `signupsOf`: plan items, confirmed poll answers other than "next", attendances incl.
-ticket stubs, festival sign-ups / TicketTailor buyers; one email per address, never the canceller). Ticket holders
-are told to contact the organiser — refunds stay manual. `uncancel` ("It's on again") clears it and emails nobody.
+ticket stubs, festival sign-ups / TicketTailor buyers, and guests' unconfirmed answers other than "next" when they left an
+email — `auth.requestMagicLink` with `guest` keeps it on that browser's `event_rsvps.guest_email` (0069), from the poll and
+the weekend page; one email per address, never the canceller). Ticket holders
+are told to contact the organiser — refunds stay manual.
 Only published, not-yet-over events can be cancelled.
+
+**It's on again (RAZ-969):** the editor's "It's on again" (`BusinessUncancelEvent`) first asks
+`businessEvents.uncancelPreview` how many people got the cancellation email, then offers "On again + email N people"
+or "Just remove the mark" → `businessEvents.uncancel({ notify })`. MCP `cancel_event` with `undo` previews the same
+count (`email_people`, default true). Recipients = `backOnRecipients`: `signupsOf` now, minus the canceller and the
+person undoing it; nobody once the event is over. Email: `sendEventBackOnEmail` ("Good news, it's on again"; ticket
+holders are asked to check with the organiser if they already asked for a refund). Nobody is emailed without the
+organiser's choice.
 
 ## Analytics (PostHog)
 
@@ -421,6 +439,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `event_form_opened` | `business/events/new.vue` — the organiser answers "Where are you starting from?" (RAZ-939) | `start` (post / copy / scratch) |
 | `event_created` / `event_published` | `business/events/new.vue` ("From scratch" or "Like my last event"; starts a draft; `event_published` only when "Publish it now" is ticked); publish = draft→live in `business/events/[id]` (checklist "Publish" button or the Published box) | `event_id`, `is_festival`, `city`, `style`, `published`, `source` (scratch / copy), `dates` (copy) |
 | `event_cancelled` | `BusinessCancelEvents` (event editor → Cancel, or Business → Events → tick events / "Select today's", RAZ-948) | `event_id` (one event, else null), `events`, `notified`, `has_reason`, `bulk` |
+| `event_uncancelled` | `BusinessUncancelEvent` (event editor → "It's on again", RAZ-969) | `event_id`, `notify` (email the people told it was off), `notified` |
 | `event_imported` | `business/events/new.vue` "I have a post" (#453) | `event_id`, `source` (instagram), `created` (false = this post's draft already existed), `lineup`, `has_cover` |
 | `business_profile_created` | `business/new.vue` | `profile`, `profile_type`, `from_instagram` |
 | `public_page_set` | `settings/index.vue` "Your public page" (one handle per person, #474) | `cleared`, `profile_type` |
@@ -449,6 +468,8 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `problem_report_opened` / `problem_report_submitted` / `problem_report_screenshot` | `ReportProblem` | `type` · `captured` (screenshot) |
 | `community_group_submitted` | `SubmitGroupDialog` ("Share a group" on a city's Local groups) | `city`, `platform`, `duplicate` |
 | `city_schedule_published` | `BusinessCitySchedule` (city page → Weekly post: Post to feed / story / Telegram) | `city`, `to` (instagram_feed / instagram_story / telegram) |
+| `city_occasion_published` | `BusinessCityOccasion` (city page → Plan → an occasion: Post to feed / story / Telegram, RAZ-970) | `city`, `occasion` (e.g. buss-und-bettag), `to` |
+| `city_occasion_asked` | `BusinessCityOccasion` → Ask organisers (email sent) | `city`, `occasion`, `pages` |
 
 ### Server events (`trackServer`, all prefixed `server_`)
 
@@ -458,6 +479,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `server_login_completed` | `auth.login`, `auth.verifyMagicLink` | `method` |
 | `server_onboarding_completed` | `auth.completeOnboarding` | `intent` |
 | `server_event_created` | `businessEvents.create`, `businessEvents.createSeries`, `businessEvents.copy` ("Like my last event", always drafts) | `event_id`, `is_festival`, `host_type`, `city`, `published`, `series_id`, `dates`, `copied_from` (copy) |
+| `server_event_uncancelled` | `businessEvents.uncancel` ("It's on again", web + MCP `cancel_event` `undo`; only when it was cancelled) | `event_id`, `notify` (organiser chose to email), `notified` (people emailed), `hours_cancelled`, `is_festival`, `host_type`, `$groups` |
 | `server_event_cancelled` | `businessEvents.cancel` (web + MCP `cancel_event`; once per event — re-cancelling only edits the reason) | `event_id`, `notified` (people emailed), `has_reason`, `bulk`, `is_festival`, `host_type`, `$groups` |
 | `server_event_imported` | `eventImport.fromInstagram` (web + MCP `import_from_instagram`; the draft itself also fires `server_event_created`) | `event_id`, `source` (instagram), `kind` (post / reel), `lineup`, `organizers`, `has_venue_page`, `has_cover`, `has_ticket`, `sessions`, `$groups` |
 | `server_event_published` | `create`/`createSeries` with `published`, `update` draft→live, `publishSeries` | `event_id`, `is_festival`, `series_id`, `dates` |
@@ -495,6 +517,8 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `server_community_group_submitted` | `communityGroup.submit` (a dancer shares a local group) | `city`, `platform`, `duplicate` |
 | `server_community_group_reviewed` | `communityGroup.review` (a city admin approves / declines) | `city`, `platform`, `decision` (approved / rejected), `hours_to_review` |
 | `server_city_schedule_published` | `citySchedule.publishInstagram` / `publishTelegram` | `city`, `to` (instagram_feed / instagram_story / telegram), `events`, `channels`, `with_picture`, `$groups` |
+| `server_city_occasion_published` | `cityOccasions.publishInstagram` / `publishTelegram` (RAZ-970) | `city`, `occasion`, `kind` (silent / party / season), `to`, `langs`, `channels`, `$groups` |
+| `server_city_occasion_asked` | `cityOccasions.ask` (organisers with events in the city emailed) | `city`, `occasion`, `kind`, `pages`, `emails`, `$groups` |
 | `server_city_admin_added` | `cityChannels.addAdmin` (Admin → Cities) | `city`, `role`, `$groups` |
 | `server_weekend_shared` | `weekend.share` (new link only; My plan makes it on its own to show the story, MCP `share_my_weekend`) | `events`, `replaced_previous`, `surface` (my_plan / mcp / web) — `my_plan` is not a share intent; count intent on `weekend_story_shared` |
 | `server_weekend_joined` | `weekend.join` (a friend's first "I'm in" on a party) | `signed_in`, `coming`, `friends` |

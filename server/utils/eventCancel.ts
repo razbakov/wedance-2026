@@ -4,19 +4,21 @@
  * cancel_reason / cancelled_by), and everyone who signed up is emailed once:
  *
  *   - the event on their plan (plan_items; a festival also by its key),
- *   - a "yes" on the event poll (event_rsvps, confirmed, not "next"),
+ *   - a "yes" on the event poll (event_rsvps, confirmed, not "next"; a guest's
+ *     unconfirmed answer too when they left an email — guest_email, 0069),
  *   - going / a ticket (attendances, incl. unclaimed ticket stubs by email),
  *   - festival sign-ups and ticket buyers (festival_signups, TicketTailor email).
  *
- * Weekend-share joins of signed-in friends are already plan items; guests left
- * no email. Refunds are out of scope: ticket holders are told to contact the
- * organiser. Undo clears the columns and emails nobody.
+ * Weekend-share joins of signed-in friends are already plan items; a guest's
+ * join is a guest poll "yes", emailed once they left an email. Refunds are out of scope: ticket holders are told to contact the
+ * organiser. "It's on again" (RAZ-969) clears the columns and, when the
+ * organiser says so, emails the same people "Good news, it's on again".
  */
-import { and, eq, inArray, isNotNull, ne, or } from 'drizzle-orm'
+import { and, eq, inArray, isNotNull, isNull, ne, or } from 'drizzle-orm'
 import { attendances, dancers, eventRsvps, events, festivalSignups, festivals, planItems } from '../database/schema'
 import { formatEventWhen } from '../../shared/utils/eventTime'
 import { eventPath } from '../../shared/utils/eventSlug'
-import { sendEventCancelledEmail } from './email'
+import { sendEventBackOnEmail, sendEventCancelledEmail } from './email'
 
 export const CANCEL_REASON_MAX = 280
 
@@ -26,12 +28,12 @@ export type CancelRecipient = { email: string; name: string; ticket: boolean }
 export type SignupRows = {
   /** Dancer ids with the event on their plan, a confirmed poll "yes" or an attendance. */
   dancers: { id: string; ticket: boolean }[]
-  /** People known by email only (unclaimed ticket stubs, TicketTailor buyers). */
+  /** People known by email only (unclaimed ticket stubs, TicketTailor buyers, poll guests). */
   emails: { email: string; ticket: boolean }[]
   /** id → name + email of the dancers above. */
   people: { id: string; name: string | null; email: string | null }[]
-  /** Never emailed: whoever cancelled it. */
-  exclude?: string | null
+  /** Never emailed: whoever cancelled it (and, for "it's on again", whoever undid it). */
+  exclude?: string | string[] | null
 }
 
 /**
@@ -51,21 +53,26 @@ export function cancelRecipients(rows: SignupRows): CancelRecipient[] {
   const people = new Map(rows.people.map(p => [p.id, p]))
   const ticketOf = new Map<string, boolean>()
   for (const d of rows.dancers) ticketOf.set(d.id, (ticketOf.get(d.id) ?? false) || d.ticket)
+  const excluded = new Set(excludeIds(rows.exclude))
   for (const [id, ticket] of ticketOf) {
-    if (rows.exclude && id === rows.exclude) continue
+    if (excluded.has(id)) continue
     const p = people.get(id)
     if (p) add(p.email, (p.name ?? '').split(/\s+/)[0] ?? '', ticket)
   }
-  const excludedEmail = rows.exclude ? people.get(rows.exclude)?.email?.toLowerCase() : null
+  const excludedEmails = new Set([...excluded].map(id => people.get(id)?.email?.trim().toLowerCase()).filter(Boolean))
   for (const e of rows.emails) {
-    if (excludedEmail && e.email.trim().toLowerCase() === excludedEmail) continue
+    if (excludedEmails.has(e.email.trim().toLowerCase())) continue
     add(e.email, '', e.ticket)
   }
   return [...by.values()]
 }
 
-/** Everyone to tell that this event is cancelled. */
-export async function signupsOf(db: any, ev: any, exclude?: string | null): Promise<CancelRecipient[]> {
+function excludeIds(exclude: SignupRows['exclude']): string[] {
+  return (Array.isArray(exclude) ? exclude : [exclude]).filter((x): x is string => !!x)
+}
+
+/** Everyone to tell that this event is cancelled (or on again). */
+export async function signupsOf(db: any, ev: any, exclude?: string | string[] | null): Promise<CancelRecipient[]> {
   const key: string | null = (ev.festival as any)?.key ?? (ev.isFestival ? ev.slug : null)
   const list: SignupRows['dancers'] = []
   const emails: SignupRows['emails'] = []
@@ -81,6 +88,10 @@ export async function signupsOf(db: any, ev: any, exclude?: string | null): Prom
   const polls = await db.select({ dancerId: eventRsvps.dancerId }).from(eventRsvps)
     .where(and(eq(eventRsvps.eventId, ev.id), isNotNull(eventRsvps.dancerId), isNotNull(eventRsvps.confirmedAt), ne(eventRsvps.answer, 'next')))
   for (const r of polls) list.push({ id: r.dancerId, ticket: false })
+  // Guests who left an email at the confirm-link step but never clicked it (0069).
+  const guests = await db.select({ email: eventRsvps.guestEmail }).from(eventRsvps)
+    .where(and(eq(eventRsvps.eventId, ev.id), isNull(eventRsvps.dancerId), isNotNull(eventRsvps.guestEmail), ne(eventRsvps.answer, 'next')))
+  for (const g of guests) if (g.email) emails.push({ email: g.email, ticket: false })
 
   const att = await db.select({ dancerId: attendances.dancerId, buyerEmail: attendances.buyerEmail, status: attendances.status })
     .from(attendances).where(and(eq(attendances.eventId, ev.id), inArray(attendances.status, ['going', 'ticket_holder'])))
@@ -103,7 +114,7 @@ export async function signupsOf(db: any, ev: any, exclude?: string | null): Prom
     }
   }
 
-  const ids = [...new Set(list.map(d => d.id).concat(exclude ? [exclude] : []))]
+  const ids = [...new Set(list.map(d => d.id).concat(excludeIds(exclude)))]
   const people = ids.length
     ? await db.select({ id: dancers.id, name: dancers.name, email: dancers.email }).from(dancers).where(inArray(dancers.id, ids))
     : []
@@ -150,7 +161,51 @@ export async function cancelEvent(
   return { id: ev.id, name: ev.name ?? '', cancelled: true, notified: people.length, alreadyCancelled: false }
 }
 
-/** Back on: clears the cancellation. Nobody is emailed. */
-export async function uncancelEvent(db: any, id: string) {
-  await db.update(events).set({ cancelledAt: null, cancelReason: null, cancelledBy: null, updatedAt: new Date() }).where(eq(events.id, id))
+/** The event has ended (or, without an end, started): too late to tell anyone it's on. */
+export function isOver(ev: { endDate?: Date | string | null; startDate?: Date | string | null }, now = Date.now()): boolean {
+  const end = ev.endDate ?? ev.startDate
+  return !!end && new Date(end).getTime() < now
+}
+
+/**
+ * Who gets "Good news, it's on again" (RAZ-969): the people the cancellation
+ * email went to — everyone still signed up, minus whoever cancelled it and
+ * whoever undoes it. Nobody once the event is over or when it isn't cancelled.
+ */
+export async function backOnRecipients(db: any, ev: any, dancerId: string): Promise<CancelRecipient[]> {
+  if (!ev.cancelledAt || isOver(ev)) return []
+  return signupsOf(db, ev, [ev.cancelledBy, dancerId])
+}
+
+export type UncancelResult = { uncancelled: boolean; notified: number }
+
+/**
+ * Back on: clears the cancellation. With `notify`, emails the people who got
+ * the cancellation email that it's on again (after the response when it can).
+ */
+export async function uncancelEvent(
+  ctx: { db: any; dancerId: string; waitUntil?: (p: Promise<unknown>) => void },
+  ev: any,
+  opts: { siteUrl: string; organizer: string | null; notify: boolean },
+): Promise<UncancelResult> {
+  if (!ev.cancelledAt) return { uncancelled: false, notified: 0 }
+  const people = opts.notify ? await backOnRecipients(ctx.db, ev, ctx.dancerId) : []
+  await ctx.db.update(events).set({ cancelledAt: null, cancelReason: null, cancelledBy: null, updatedAt: new Date() }).where(eq(events.id, ev.id))
+  if (!people.length) return { uncancelled: true, notified: 0 }
+
+  const tz = ev.timezone || 'Europe/Berlin'
+  const when = ev.startDate ? formatEventWhen(ev.startDate, ev.endDate, tz) : ''
+  const link = `${opts.siteUrl}${eventPath(ev)}`
+  const send = async () => {
+    for (const p of people) {
+      try {
+        await sendEventBackOnEmail({ to: p.email, name: p.name, eventName: ev.name || 'Event', when, organizer: opts.organizer, ticket: p.ticket, link })
+      } catch (e) {
+        console.error('[uncancel] email failed', ev.id, e)
+      }
+    }
+  }
+  if (ctx.waitUntil) ctx.waitUntil(send())
+  else await send()
+  return { uncancelled: true, notified: people.length }
 }

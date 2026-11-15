@@ -13,6 +13,7 @@ import { reviewRouter } from './routers/review'
 import { communityGroupRouter } from './routers/communityGroup'
 import { cityChannelsRouter } from './routers/cityChannels'
 import { cityScheduleRouter } from './routers/citySchedule'
+import { cityOccasionsRouter } from './routers/cityOccasions'
 import { askLocalsRouter } from './routers/askLocals'
 import { entityRouter } from './routers/entity'
 import { bookingRouter } from './routers/booking'
@@ -62,6 +63,7 @@ export const appRouter = router({
   communityGroup: communityGroupRouter,
   cityChannels: cityChannelsRouter,
   citySchedule: cityScheduleRouter,
+  cityOccasions: cityOccasionsRouter,
   askLocals: askLocalsRouter,
   entity: entityRouter,
   booking: bookingRouter,
