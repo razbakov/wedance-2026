@@ -1122,7 +1122,7 @@ useHead({
     <SiteHeader />
 
     <div v-if="editTo" class="border-b bg-secondary/[8%] border-border">
-      <div class="max-w-3xl mx-auto px-4 py-2 flex items-center gap-3 text-sm font-sans">
+      <div class="max-w-3xl mx-auto px-4 py-2 flex flex-wrap items-center gap-3 text-sm font-sans">
         <span class="text-muted-foreground">You manage this {{ kind }}.</span>
         <EventUncancel v-if="cancelled" :event-id="data.eventId" class="ml-auto" />
         <Button variant="outline-pill" size="pill-sm" :class="cancelled ? '' : 'ml-auto'" as-child>
