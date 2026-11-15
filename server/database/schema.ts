@@ -370,6 +370,35 @@ export const citySchedules = pgTable('city_schedules', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, t => [unique('city_schedules_city_week').on(t.citySlug, t.weekStart)])
 
+// A city's post for an occasion (RAZ-970, migration 0070): a silent day (Tanzverbot), Fasching,
+// Halloween, New Year's Eve… — `occasion_key` is `<id>:<year>` from shared/utils/cityOccasions.ts.
+// Its text is generated in the chosen languages until an admin edits it; posted like the weekly
+// post; `asked_*` records the question sent to the city's organisers.
+export const cityOccasionPosts = pgTable('city_occasion_posts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  citySlug: text('city_slug').notNull(),
+  occasionKey: text('occasion_key').notNull(),
+  langs: jsonb('langs').$type<string[]>().notNull().default(['en']),
+  text: text('text').notNull().default(''),
+  textEdited: boolean('text_edited').notNull().default(false),
+  imageUrl: text('image_url'),
+  imageKey: text('image_key'),
+  igMediaId: text('ig_media_id'),
+  igPermalink: text('ig_permalink'),
+  igPublishedAt: timestamp('ig_published_at'),
+  igStoryMediaId: text('ig_story_media_id'),
+  igStoryPublishedAt: timestamp('ig_story_published_at'),
+  telegram: jsonb('telegram').$type<{ chatId: string; messageId: number; url: string | null; at: string }[]>().notNull().default([]),
+  publishError: text('publish_error'),
+  askedAt: timestamp('asked_at'),
+  askedProfiles: jsonb('asked_profiles').$type<string[]>().notNull().default([]),
+  askMessage: text('ask_message'),
+  createdBy: uuid('created_by').references(() => dancers.id, { onDelete: 'set null' }),
+  updatedBy: uuid('updated_by').references(() => dancers.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, t => [unique('city_occasion_posts_city_key').on(t.citySlug, t.occasionKey)])
+
 // Per-user report tracking for community groups — prevents a single user
 // from hiding a group by reporting it multiple times.
 export const communityGroupReports = pgTable('community_group_reports', {
