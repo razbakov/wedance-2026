@@ -201,6 +201,9 @@ const sessionsText = computed(() => {
   const n = form.festival?.sessions?.length ?? 0
   return n ? `${n} session${n === 1 ? '' : 's'} over ${festivalDays.value.length || 1} day${festivalDays.value.length === 1 ? '' : 's'}` : 'Workshops and parties, day by day.'
 })
+const publishHint = computed(() => props.mode === 'create'
+  ? (form.published ? 'Dancers see it as soon as you create it.' : 'It starts as a draft: only you see it. Add the venue, line-up and flyer, then publish.')
+  : (form.published ? 'Dancers can see it.' : 'Only you can see it until you publish.'))
 const hostText = computed(() => props.hosts.find(h => h.username === form.hostUsername)?.name || props.labels.host || '')
 </script>
 
@@ -415,21 +418,25 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
       <BusinessFestivalEditor v-if="isFestival && form.festival" v-model="form.festival" part="branding" :days="festivalDays" class="mt-4" />
     </section>
 
-    <div v-if="mode === 'create'" class="mt-3 flex flex-wrap items-center gap-3">
+    <!--
+      Publish + save: one bar that sticks to the bottom of the screen (above the
+      phone tab bar) while the form is on screen, so it's never lost on a long
+      event (RAZ-987). Left padding on small screens clears the "Talk to us" button.
+    -->
+    <div
+      :id="mode === 'edit' ? 'ev-step-publish' : undefined"
+      class="sticky bottom-[calc(0.5rem+var(--wd-tabbar-h,0px))] z-20 mt-3 scroll-mt-20 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border bg-card/95 py-3 pl-16 pr-3 shadow-wd-float backdrop-blur sm:pl-40 md:pl-4"
+      role="region"
+      aria-label="Publish and save"
+      data-testid="event-save-bar"
+    >
       <label class="inline-flex items-center gap-2 text-sm font-bold">
-        <Checkbox v-model="form.published" data-publish-now /> Publish it now
+        <Checkbox v-model="form.published" :data-publish-now="mode === 'create' ? '' : undefined" />
+        {{ mode === 'create' ? 'Publish it now' : 'Published' }}
       </label>
-      <span class="text-xs text-muted-foreground">{{ form.published ? 'Dancers see it as soon as you create it.' : 'It starts as a draft: only you see it. Add the venue, line-up and flyer, then publish.' }}</span>
-    </div>
-    <div v-else id="ev-step-publish" class="mt-3 scroll-mt-20 flex flex-wrap items-center gap-3">
-      <label class="inline-flex items-center gap-2 text-sm font-bold">
-        <Checkbox v-model="form.published" /> Published
-      </label>
-      <span class="text-xs text-muted-foreground">{{ form.published ? 'Dancers can see it.' : 'Only you can see it until you publish.' }}</span>
-    </div>
-    <div class="flex flex-wrap items-center gap-3">
-      <Button type="submit" variant="pill" :loading="saving">{{ submitLabel }}</Button>
-      <span v-if="dirty && !saving" class="text-sm text-muted-foreground">Unsaved changes</span>
+      <span class="hidden min-w-0 flex-1 text-xs text-muted-foreground lg:inline">{{ publishHint }}</span>
+      <span v-if="dirty && !saving" class="ml-auto text-sm font-bold text-wd-amber-800" role="status">Unsaved changes</span>
+      <Button type="submit" variant="pill" :loading="saving" :class="dirty && !saving ? '' : 'ml-auto'">{{ submitLabel }}</Button>
       <slot name="after-submit" :dirty="dirty" />
     </div>
   </form>
