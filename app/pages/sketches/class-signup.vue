@@ -217,7 +217,6 @@ const FEST_PEOPLE: Person[] = Array.from({ length: 60 }, (_, i) => ({
   friend: i < 3,
 }))
 const FEST_COUNTS: Record<Role, number> = { partner: 312, needLeader: 140, needFollower: 95 }
-const whoRef = ref<HTMLElement | null>(null)
 const isBig = computed(() => variant.value === 'E' && kind.value === 'festival')
 const mineIn = computed(() => eState.value !== 'idle' && !!role.value)
 const whoCounts = computed(() => {
@@ -522,10 +521,7 @@ function finishCheckout() {
                 <div class="mt-4 max-w-xl font-sans">
                   <template v-if="!eOpen">
                     <div v-if="eState === 'idle'" class="flex flex-wrap items-center gap-3">
-                      <Button variant="cta" class="px-6" data-testid="e-cta" @click="eStart"><Ticket /> {{ ctaLabel }}</Button>
-                      <!-- Just the count: the breakdown lives once, in Who's coming below -->
-                      <a href="#who" class="text-sm font-bold text-secondary hover:underline" data-testid="e-going-link" @click.prevent="whoRef?.scrollIntoView({ behavior: 'smooth', block: 'start' })">{{ whoTotal.toLocaleString('en') }} going ↓</a>
-                    </div>
+                      <Button variant="cta" class="px-6" data-testid="e-cta" @click="eStart"><Ticket /> {{ ctaLabel }}</Button>                    </div>
                     <div v-else-if="eState === 'in'" class="rounded-2xl border border-wd-green-600/30 bg-wd-green-600/10 px-4 py-3 space-y-2" data-testid="e-in">
                       <p class="flex flex-wrap items-center gap-x-3 gap-y-1">
                         <span class="inline-flex items-center gap-1.5 font-bold text-wd-green-700"><Check class="size-4" /> You’re in · {{ summary }}</span>
@@ -635,7 +631,7 @@ function finishCheckout() {
           </div>
 
           <!-- D: who's coming lives under the hero, not in the card -->
-          <section v-if="variant === 'D' || variant === 'E'" id="who" ref="whoRef" class="mt-8 font-sans scroll-mt-4">
+          <section v-if="variant === 'D' || variant === 'E'" class="mt-8 font-sans">
             <h2 class="font-display text-2xl font-black">Who’s coming <span class="font-hand text-secondary text-lg">— {{ whoTotal.toLocaleString('en') }}</span></h2>
             <!-- As rsvp.poll does: faces only for a signed-in viewer (confirmed answers, public profiles, first name).
                  A visitor sees counts. In E, finishing the steps signs you in (magic link / back from Stripe). -->
