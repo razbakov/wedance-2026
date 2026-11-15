@@ -72,10 +72,17 @@ describe.skipIf(!DATABASE_URL)('businessSite.contactsOverview (DB)', () => {
 
   it('counts sources and who can be emailed, and shows each account’s activity on this page only', async () => {
     const r = await web(ids.owner).businessSite.contactsOverview({ username: page.username })
-    expect(r.segments.total).toBe(4)
-    expect(Object.fromEntries(r.segments.sources.map(s => [s.key, s.count]))).toEqual({ website: 1, hubspot_import: 1, wedance_v3: 1, hubspot_form: 1 })
+    // 4 contacts + the stranger, who follows the page without being a contact (RAZ-963).
+    expect(r.segments.total).toBe(5)
+    expect(r.segments.contacts).toBe(4)
+    expect(r.segments.others).toBe(1)
+    expect(Object.fromEntries(r.segments.sources.map(s => [s.key, s.count]))).toEqual({ website: 1, hubspot_import: 1, wedance_v3: 1, hubspot_form: 1, wedance: 1 })
     expect(r.segments.canEmail).toBe(1)
-    expect(r.segments.blocked).toEqual({ unsubscribed: 1, not_opted_in: 2 })
+    expect(r.segments.blocked).toEqual({ unsubscribed: 1, not_opted_in: 2, not_a_contact: 1 })
+    const stranger = r.contacts.find(c => c.dancerId === ids.stranger)!
+    expect(stranger).toMatchObject({ isContact: false, email: '', phone: null, emailBlock: 'not_a_contact' })
+    expect(stranger.account?.name).toBe('Stranger')
+    expect(stranger.activity.follows).toBe(true)
     expect(r.followers).toEqual({ total: 2, notContacts: 1 })
 
     const rita = r.contacts.find(c => c.email.startsWith(`${tag}-regular`))!
@@ -86,7 +93,7 @@ describe.skipIf(!DATABASE_URL)('businessSite.contactsOverview (DB)', () => {
     expect(rita.activity.upcoming.map(e => e.name)).toEqual(['Next night'])
     expect(r.segments.activity.regular).toBe(1)
     expect(r.segments.activity.going).toBe(1)
-    expect(r.segments.activity.follows).toBe(1)
+    expect(r.segments.activity.follows).toBe(2)
 
     const fan = r.contacts.find(c => c.email.startsWith(`${tag}-fan`))!
     expect(fan.emailBlock).toBe('not_opted_in')

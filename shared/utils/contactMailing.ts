@@ -91,9 +91,10 @@ export function inviteTemplate(event: { name: string, when: string }, profileNam
   }
 }
 
-export interface MailableContact { id: string, email: string, name: string | null, status: string, source: ContactSource }
+/** `isContact: false` = an audience member who isn't a contact (RAZ-963): never mailed. */
+export interface MailableContact { id: string, email: string, name: string | null, status: string, source: ContactSource, isContact?: boolean }
 
-/** Who of `contacts` actually gets it: only those the page may email, each address once. */
+/** Who of `contacts` actually gets it: only contacts the page may email, each address once. */
 export function mailingRecipients<T extends MailableContact>(contacts: readonly T[]): T[] {
   const seen = new Set<string>()
   const out: T[] = []

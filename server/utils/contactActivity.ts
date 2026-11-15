@@ -3,8 +3,11 @@ import { summariseActivity, EMPTY_ACTIVITY, EVENT_FILTER_PAST_DAYS, type Activit
 import { UNCONFIRMED_TTL_HOURS } from '../../shared/utils/rsvp'
 
 /**
- * What a page's contacts do on WeDance (RAZ-949), for contacts linked to an
- * account (`profile_contacts.dancer_id`). Only facts about the page itself:
+ * What dancers do on WeDance around a page (RAZ-949): every account that follows
+ * it or signed up for one of its events — its contacts' accounts
+ * (`profile_contacts.dancer_id`) and, since RAZ-963, the rest of its audience
+ * too. Guests and ticket buyers without an account have no dancer id and are
+ * left out. Only facts about the page itself:
  * whether they follow it, and their Going / RSVP / check-in on the page's
  * events — the events it hosts, organises, is the venue of or co-organises.
  * Nothing about other pages' events. Two queries for the whole list.
@@ -17,17 +20,15 @@ export async function loadContactActivity(db: any, page: { id: string, username:
       select id, name, to_char(start_date, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as start_date from events
       where host_profile_id = ${page.id} or organizer_username = ${page.username} or venue_username = ${page.username}
          or co_organizers @> ${co}::jsonb
-    ), ppl as (
-      select distinct dancer_id from profile_contacts where profile_id = ${page.id} and dancer_id is not null
     )
     select a.dancer_id, ev.id as event_id, ev.name, ev.start_date, 'attendance' as kind, a.status as detail, to_char(a.checked_in_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as checked_in_at
-      from attendances a join ev on ev.id = a.event_id where a.dancer_id in (select dancer_id from ppl)
+      from attendances a join ev on ev.id = a.event_id where a.dancer_id is not null
     union all
     select r.dancer_id, ev.id, ev.name, ev.start_date, 'rsvp', r.answer, null
-      from event_rsvps r join ev on ev.id = r.event_id where r.dancer_id in (select dancer_id from ppl)
+      from event_rsvps r join ev on ev.id = r.event_id where r.dancer_id is not null
     union all
     select p.dancer_id, ev.id, ev.name, ev.start_date, 'plan', null, null
-      from plan_items p join ev on ev.id::text = p.item_id where p.item_type = 'event' and p.dancer_id in (select dancer_id from ppl)
+      from plan_items p join ev on ev.id::text = p.item_id where p.item_type = 'event'
   `)
   const followsRes: any = await db.execute(sql`
     select dancer_id, to_char(created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as created_at from follows where profile_id = ${page.id}

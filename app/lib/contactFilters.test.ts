@@ -28,6 +28,28 @@ describe('filterContacts', () => {
   })
 })
 
+describe('the audience (RAZ-963)', () => {
+  const other = c({ name: 'Dan', email: '', sourceKey: 'wedance', emailBlock: 'not_a_contact', isContact: false, hasAccount: true, createdAt: null, activity: { ...EMPTY_ACTIVITY, follows: true } })
+  const everyone = [...list, other]
+  it('"Who" narrows to contacts or the rest; the other filters work on both', () => {
+    expect(names(filterContacts(everyone, emptyFilter(), NOW))).toEqual(['Ana', 'Ben', 'Cleo', 'Dan'])
+    expect(names(filterContacts(everyone, { ...emptyFilter(), who: 'contacts' }, NOW))).toEqual(['Ana', 'Ben', 'Cleo'])
+    expect(names(filterContacts(everyone, { ...emptyFilter(), who: 'others' }, NOW))).toEqual(['Dan'])
+    expect(names(filterContacts(everyone, { ...emptyFilter(), activity: ['follows'] }, NOW))).toEqual(['Cleo', 'Dan'])
+    expect(names(filterContacts(everyone, { ...emptyFilter(), sources: ['wedance'] }, NOW))).toEqual(['Dan'])
+    expect(names(filterContacts(everyone, { ...emptyFilter(), email: 'can' }, NOW))).toEqual(['Ana'])
+    expect(isFiltered({ ...emptyFilter(), who: 'others' })).toBe(true)
+  })
+  it('the CSV leaves non-contacts out', () => {
+    const csv = contactsCsv(everyone.map(x => ({ ...x, locale: null, sourceLabel: 'x' })))
+    expect(csv.split('\n')).toHaveLength(4)
+    expect(csv).not.toContain('Dan')
+  })
+  it('no join date for a non-contact who doesn\'t follow', () => {
+    expect(contactSince(null, {})).toBe('')
+  })
+})
+
 describe('helpers', () => {
   it('toggle adds and removes', () => {
     expect(toggle(['a'], 'b')).toEqual(['a', 'b'])

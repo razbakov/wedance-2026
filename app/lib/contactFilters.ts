@@ -4,6 +4,8 @@
  * (name, email, phone, note, account name and the source details — form, UTM,
  * promo code). One event narrows it to the contacts coming to it, optionally by
  * how they're coming (ticket, poll answer). Plus the CSV of whatever the filter shows.
+ * Since RAZ-963 the list is the page's whole audience: contacts plus the followers and
+ * event-goers who aren't contacts (`isContact: false`); `who` narrows it to either.
  */
 import { ACTIVITY_FILTER_LABEL, COMING_AS_LABEL, EMAIL_BLOCK_LABEL, SOURCE_LABEL, matchesActivity, type ActivityFilter, type ComingAs, type ContactSourceKey, type EmailBlock, type SegmentContact } from '#shared/utils/contactSegments'
 
@@ -23,6 +25,8 @@ export interface ContactFilter {
   email: 'any' | 'can' | 'cant'
   /** All of these must match. */
   activity: ActivityFilter[]
+  /** Contacts only, the audience who aren't contacts only, or both. */
+  who: 'any' | 'contacts' | 'others'
   /** One of the page's events: only contacts coming to it. */
   event: string | null
   /** With `event`: only those coming this way. */
@@ -30,15 +34,17 @@ export interface ContactFilter {
   q: string
 }
 
-export const emptyFilter = (): ContactFilter => ({ sources: [], email: 'any', activity: [], event: null, as: null, q: '' })
+export const emptyFilter = (): ContactFilter => ({ sources: [], email: 'any', activity: [], who: 'any', event: null, as: null, q: '' })
 
 export function isFiltered(f: ContactFilter): boolean {
-  return f.sources.length > 0 || f.email !== 'any' || f.activity.length > 0 || !!f.event || f.q.trim() !== ''
+  return f.sources.length > 0 || f.email !== 'any' || f.activity.length > 0 || f.who !== 'any' || !!f.event || f.q.trim() !== ''
 }
 
 export function filterContacts<T extends FilterableContact>(list: T[], f: ContactFilter, now = new Date()): T[] {
   const needle = f.q.trim().toLowerCase()
   return list.filter((c) => {
+    if (f.who === 'contacts' && c.isContact === false) return false
+    if (f.who === 'others' && c.isContact !== false) return false
     if (f.sources.length && !f.sources.includes(c.sourceKey)) return false
     if (f.email === 'can' && c.emailBlock) return false
     if (f.email === 'cant' && !c.emailBlock) return false
@@ -61,6 +67,7 @@ export function describeFilter(f: ContactFilter, eventLabel?: string | null): st
   return [
     f.event ? `Coming to ${eventLabel || 'an event'}` : '',
     f.event && f.as ? COMING_AS_LABEL[f.as] : '',
+    f.who === 'contacts' ? 'Contacts' : f.who === 'others' ? 'Not contacts' : '',
     f.email === 'can' ? 'Can email' : f.email === 'cant' ? 'Can’t email' : '',
     ...f.sources.map(s => SOURCE_LABEL[s]),
     ...f.activity.map(a => ACTIVITY_FILTER_LABEL[a]),
@@ -91,7 +98,8 @@ export function toggle<T>(list: T[], v: T): T[] {
  * — wedance.vip logged subscribe dates only from 24 Mar 2024, so older subscribers carry
  * `source.subscribed_before` and read "before Mar 2024" (created_at then only keeps the order).
  */
-export function contactSince(createdAt: string | Date, source: Record<string, string> | null | undefined): string {
+export function contactSince(createdAt: string | Date | null, source: Record<string, string> | null | undefined): string {
+  if (!createdAt) return ''
   const before = source?.subscribed_before
   if (before) return `before ${new Date(before).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}`
   return new Date(createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -112,13 +120,16 @@ export interface CsvContact extends FilterableContact {
 
 export const CSV_COLUMNS = ['name', 'email', 'phone', 'locale', 'status', 'can_email', 'created', 'came_from', 'source_detail', 'wedance_account', 'events_attended', 'going_next', 'follows', 'note'] as const
 
-/** The contacts as CSV (one header row, every value quoted). */
+/**
+ * The contacts as CSV (one header row, every value quoted). Only contacts: the audience
+ * who aren't contacts gave the page nothing to export (RAZ-963).
+ */
 export function contactsCsv(list: CsvContact[]): string {
   const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
-  const rows = list.map(c => [
+  const rows = list.filter(c => c.isContact !== false).map(c => [
     c.name || c.account?.name, c.email, c.phone, c.locale, c.status,
     c.emailBlock ? `no: ${EMAIL_BLOCK_LABEL[c.emailBlock as EmailBlock] ?? c.emailBlock}` : 'yes',
-    c.source?.subscribed_before ? `before ${c.source.subscribed_before.slice(0, 10)}` : new Date(c.createdAt).toISOString(), c.sourceLabel, sourceDetail(c.source as Record<string, string>),
+    c.source?.subscribed_before ? `before ${c.source.subscribed_before.slice(0, 10)}` : (c.createdAt ? new Date(c.createdAt).toISOString() : ''), c.sourceLabel, sourceDetail(c.source as Record<string, string>),
     c.hasAccount ? 'yes' : 'no', c.activity.wentTo, c.activity.upcoming[0]?.startDate.slice(0, 10) ?? '', c.activity.follows ? 'yes' : 'no',
     c.note,
   ].map(esc).join(','))
