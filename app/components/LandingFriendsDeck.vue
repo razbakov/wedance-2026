@@ -4,7 +4,8 @@
  * swipe cards as the real deck, played with example dancers, all on the page —
  * nothing is saved. Yes on two dancers heading to the same festival shows the
  * "suggest it for your year" nudge the real deck shows. When the cards run out
- * the deck asks the visitor to join (emits `join`).
+ * the deck shows the `end` slot (on My plan: the dance card), else asks the
+ * visitor to join (emits `join`).
  */
 import { Plane, MapPin, X, Heart, Undo2, Sparkles } from 'lucide-vue-next'
 import { sizedImage, IMG } from '#shared/utils/image'
@@ -96,15 +97,18 @@ function undo() {
     </div>
 
     <!-- End of the example deck -->
-    <div v-if="!current" class="rounded-3xl p-8 text-center border-2 border-dashed border-input bg-white/60">
-      <Sparkles class="w-9 h-9 mx-auto mb-3 text-secondary" aria-hidden="true" />
-      <p class="text-lg font-display text-foreground">That's how it works.</p>
-      <p class="mt-2 text-sm text-muted-foreground">
-        <template v-if="yeses.length">You said yes to {{ yeses.map(p => p.name).join(', ') }}. </template>
-        Join and meet real dancers going where you go.
-      </p>
-      <Button variant="cta" class="mt-5" @click="emit('join')">Meet dancers near me</Button>
-    </div>
+    <!-- The slot (My plan: the dance card) takes over when the examples run out. -->
+    <slot v-if="!current" name="end" :yeses="yeses">
+      <div class="rounded-3xl p-8 text-center border-2 border-dashed border-input bg-white/60">
+        <Sparkles class="w-9 h-9 mx-auto mb-3 text-secondary" aria-hidden="true" />
+        <p class="text-lg font-display text-foreground">That's how it works.</p>
+        <p class="mt-2 text-sm text-muted-foreground">
+          <template v-if="yeses.length">You said yes to {{ yeses.map(p => p.name).join(', ') }}. </template>
+          Join and meet real dancers going where you go.
+        </p>
+        <Button variant="cta" class="mt-5" @click="emit('join')">Meet dancers near me</Button>
+      </div>
+    </slot>
 
     <div v-else class="relative min-h-[430px]">
       <div v-if="after" class="absolute inset-0 rounded-3xl bg-white border border-border" style="transform: scale(0.88) translateY(20px); opacity:0.35;" />
@@ -171,8 +175,8 @@ function undo() {
         <Heart class="w-6 h-6" aria-hidden="true" />
       </button>
     </div>
-    <p class="mt-3 text-xs text-center italic text-muted-foreground">
-      Example dancers — drag or use the buttons<template v-if="current"> · {{ people.length - index }} left</template>
+    <p v-if="current" class="mt-3 text-xs text-center italic text-muted-foreground">
+      Example dancers — drag or use the buttons · {{ people.length - index }} left
     </p>
   </div>
 </template>

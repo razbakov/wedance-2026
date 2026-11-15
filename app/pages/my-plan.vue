@@ -14,6 +14,7 @@ import { ArrowRight, MapPin, Calendar, Search, Ticket, Plane, Home, GraduationCa
 import * as salsaOpen from '~/data/mock-festival'
 import * as meneate from '~/data/mock-meneate'
 import type { CityEvent } from '~/types/city'
+import type { SwipeCard, DanceRole } from '~/types/festival'
 import { eventLocalDate, eventLocalTime, eventLocalWeekday, eventPhase } from '#shared/utils/eventTime'
 import { detectDanceStyle, relatedDanceStyles } from '#shared/dance-styles'
 import * as cubanFire from '~/data/mock-cuban-fire'
@@ -1419,6 +1420,19 @@ const LANDING_STORIES = [
   ] },
 ] as const
 
+// Signed-out landing: after the examples, the visitor makes their own dance
+// card (role, styles + level, then name / city / photo) — DiscoverDancers'
+// onboarding cards, as on event pages — and signs up with it prefilled.
+const LANDING_DANCE_CARD: SwipeCard[] = [
+  { id: 'onboarding-dancecard', cardType: 'onboarding-dancecard', availableStyles: ['Salsa', 'Bachata', 'Kizomba', 'Zouk', 'Tango'] },
+  { id: 'onboarding-profile', cardType: 'onboarding-profile' },
+]
+const NO_PLAN = new Set<string>()
+const signUpPrefill = ref<{ name?: string; danceStyles?: string[]; role?: 'lead' | 'follow' | 'both'; city?: string }>({})
+function onLandingCardDone(role: DanceRole, styles: string[], name: string, city: string) {
+  signUpPrefill.value = { name: name || undefined, danceStyles: styles, role: role as 'lead' | 'follow' | 'both', city: city || undefined }
+}
+
 // Signed-out landing: example dancers for the swipe deck (from the preview
 // deck). Emilia and Sasha both go to Timba Fest London, so two yeses show the
 // festival nudge.
@@ -1805,7 +1819,28 @@ function cardSummary(f: CatalogueEntry) {
             People heading to your festivals, and locals who dance your styles. Say yes to the ones you'd like to dance with — say yes to two going to the same festival and we'll suggest it for your year.
           </p>
         </div>
-        <LandingFriendsDeck class="mt-8" :people="LANDING_FRIENDS" @join="openAuth('dashboard')" />
+        <LandingFriendsDeck class="mt-8" :people="LANDING_FRIENDS" @join="openAuth('dashboard')">
+          <!-- Then the visitor's own card: the same dance card → profile steps as the
+               festival / event "Shall we dance?" deck, ending in a prefilled sign-up. -->
+          <template #end="{ yeses }">
+            <div data-testid="landing-dance-card">
+              <p class="mb-3 text-center text-sm font-sans text-muted-foreground">
+                <template v-if="yeses.length">You said yes to {{ yeses.map((p: { name: string }) => p.name).join(', ') }}. </template>
+                <span class="font-bold text-foreground">Now you</span> — make your dance card so they can find you.
+              </p>
+              <DiscoverDancers
+                festival-slug=""
+                item-type="event"
+                :extra-cards="LANDING_DANCE_CARD"
+                :workshops="[]"
+                :plan-ids="NO_PLAN"
+                :is-signed-in="false"
+                @sign-in="openAuth('dashboard')"
+                @onboarding-complete="onLandingCardDone"
+              />
+            </div>
+          </template>
+        </LandingFriendsDeck>
       </div>
 
       <!-- 3 · My plan: what you get here, shown, not listed. -->
@@ -1895,7 +1930,7 @@ function cardSummary(f: CatalogueEntry) {
           </div>
         </div>
       </div>
-      <SignUpModal v-model:open="showAuth" :action="authAction" />
+      <SignUpModal v-model:open="showAuth" :action="authAction" :prefill="signUpPrefill" />
     </section>
 
     <!-- LOADING — the session or the plan is still in flight (RAZ-890) -->
