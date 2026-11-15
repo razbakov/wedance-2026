@@ -787,6 +787,9 @@ const sections = computed(() =>
     if (s === 'schedule') return workshops.length > 0
     if (s === 'lineup') return teachers.length > 0
     if (s === 'tickets') return sellsPasses.value
+    // A dated event (it has the poll) has no swipe deck: meeting people lives
+    // in My plan → Meet new friends, inviting them in My plan → Share (RAZ-974).
+    if (s === 'discover') return !props.rsvp
     return true
   }),
 )
@@ -1219,7 +1222,7 @@ useHead({
           <AboutTab :festival="festival" />
         </section>
 
-        <section id="discover" class="scroll-mt-16">
+        <section v-if="!rsvp" id="discover" class="scroll-mt-16">
           <h2 class="text-2xl font-black leading-tight mb-1 text-foreground">Shall we <em class="italic text-primary">dance?</em></h2>
           <p class="text-sm mb-4 text-muted-foreground font-sans">Swipe to discover dancers, group dinners, and activities happening around the {{ kind }}.</p>
           <DiscoverDancers

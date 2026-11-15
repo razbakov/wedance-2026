@@ -7,7 +7,6 @@ import { sizedImage, IMG } from '#shared/utils/image'
  * content, so an event can grow into a full festival-grade page over time.
  */
 import { Check, ArrowLeft, MapPin, Globe, User, Euro, Pencil, ExternalLink, EyeOff } from 'lucide-vue-next'
-import type { DanceRole, SwipeCard } from '~/types/festival'
 import { findMockEvent, festivalSessionEvent } from '~/lib/mockEvents'
 import { formatEventWhen, eventLocalDate } from '#shared/utils/eventTime'
 import { Button } from '~/components/ui/button'
@@ -47,20 +46,6 @@ function onPick() {
   const wasGoing = picked.value
   toggleEvent(ev.value.id, { event_type: ev.value.eventType || null, city: ev.value.citySlug || null, surface: 'event' })
   liveGoingCount.value = Math.max(0, liveGoingCount.value + (wasGoing ? -1 : 1))
-}
-
-// "Shall we dance?" — same swipe deck as festivals, fed by this event's
-// going list. Signed-out visitors start with the dance card + profile cards.
-const swipeCards = computed<SwipeCard[]>(() => isSignedIn.value
-  ? []
-  : [
-      { id: 'onboarding-dancecard', cardType: 'onboarding-dancecard', availableStyles: ev.value?.styles ?? [] },
-      { id: 'onboarding-profile', cardType: 'onboarding-profile' },
-    ])
-const noPlan = new Set<string>()
-
-function onOnboardingComplete(role: DanceRole, styles: string[], name: string, city: string) {
-  signUpPrefill.value = { name: name || undefined, danceStyles: styles, role: role as 'lead' | 'follow' | 'both', city: city || undefined }
 }
 
 const id = computed(() => String(route.params.id))
@@ -247,7 +232,6 @@ const asFestival = computed(() => ({
 const sections = computed(() => {
   const s: { id: string; label: string }[] = []
   if (ev.value?.message || ev.value?.cover || ev.value?.link || ev.value?.price || ev.value?.agenda?.length) s.push({ id: 'about', label: 'About' })
-  s.push({ id: 'discover', label: 'Shall we dance?' })
   if (ev.value?.artists?.length) s.push({ id: 'lineup', label: 'Lineup' })
   s.push({ id: 'venue', label: 'Venue' })
   s.push({ id: 'reviews', label: 'Reviews' })
@@ -312,7 +296,7 @@ useHead(() => ({
       </div>
 
       <!-- Same hero as festivals -->
-      <FestivalHero :festival="asFestival" review-target-type="event" entity-label="event" cta-anchor="#discover" cta-fallback-label="I'm going" :picked="picked" :cancelled="ev.cancelled ? { reason: ev.cancelReason } : null" :date-label="ev.when" :venue-address="ev.venueAddress" :map-url="ev.mapUrl" @pick="onPick">
+      <FestivalHero :festival="asFestival" review-target-type="event" entity-label="event" cta-anchor="#rsvp" cta-fallback-label="I'm going" :picked="picked" :cancelled="ev.cancelled ? { reason: ev.cancelReason } : null" :date-label="ev.when" :venue-address="ev.venueAddress" :map-url="ev.mapUrl" @pick="onPick">
         <!-- The RSVP: the organiser's poll IS the hero's Going question (RAZ-731). -->
         <template v-if="ev.pollable && !ev.archived && !isPreview && !ev.cancelled" #cta>
           <div id="rsvp" class="mt-4 max-w-xl scroll-mt-16">
@@ -364,23 +348,6 @@ useHead(() => ({
             </ul>
           </div>
           <p v-if="ev.message" class="text-sm leading-relaxed whitespace-pre-line break-words text-muted-foreground">{{ ev.message }}</p>
-        </section>
-
-        <!-- Shall we dance? — the same swipe deck as festivals -->
-        <section id="discover" class="scroll-mt-16">
-          <h2 class="text-2xl font-black leading-tight mb-1 font-display text-foreground">Shall we <em class="italic" :style="{ color: accent }">dance?</em></h2>
-          <p class="text-sm mb-4 text-muted-foreground">Swipe to discover the dancers you'd like to dance with.</p>
-          <DiscoverDancers
-            :festival-slug="ev.id"
-            item-type="event"
-            :entity-label="(ev.eventType || 'event').toLowerCase()"
-            :extra-cards="swipeCards"
-            :workshops="[]"
-            :plan-ids="noPlan"
-            :is-signed-in="isSignedIn"
-            @sign-in="onSignIn"
-            @onboarding-complete="onOnboardingComplete"
-          />
         </section>
 
         <!-- Lineup -->
