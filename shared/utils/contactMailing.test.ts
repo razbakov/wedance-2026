@@ -17,6 +17,9 @@ describe('mailingRecipients', () => {
     ]
     expect(mailingRecipients(list).map(c => c.id)).toEqual(['1', '5', '6'])
   })
+  it('never mails someone who is only in the audience (RAZ-963)', () => {
+    expect(mailingRecipients([{ ...contact('7', 'f@x.de'), isContact: false }, { ...contact('8', ''), source: web }])).toEqual([])
+  })
 })
 
 describe('personalising', () => {

@@ -13,9 +13,15 @@
  * A dancer who ticks "Let <page> keep in touch" under an event's poll opts in
  * themselves: a new contact gets source `rsvp`, an existing one keeps its source
  * and gains `source.opted_in` (both mailable).
+ *
+ * The audience (RAZ-963): the same list also holds people connected to the page
+ * who are NOT contacts — they follow it, or went / are going to its events. They
+ * have a WeDance account but gave the page no email: source `wedance`, email
+ * block `not_a_contact`, never mailable, and no email or phone is ever sent for
+ * them (only name, photo, handle, city — what "Who's coming" already shows).
  */
 
-export const CONTACT_SOURCES = ['website', 'rsvp', 'hubspot_form', 'hubspot_import', 'hubspot_manual', 'wedance_v3', 'other'] as const
+export const CONTACT_SOURCES = ['website', 'rsvp', 'hubspot_form', 'hubspot_import', 'hubspot_manual', 'wedance_v3', 'other', 'wedance'] as const
 export type ContactSourceKey = typeof CONTACT_SOURCES[number]
 
 export const SOURCE_LABEL: Record<ContactSourceKey, string> = {
@@ -26,6 +32,7 @@ export const SOURCE_LABEL: Record<ContactSourceKey, string> = {
   hubspot_manual: 'HubSpot by hand',
   wedance_v3: 'wedance.vip subscribers',
   other: 'Other',
+  wedance: 'On WeDance, not a contact',
 }
 
 /** Sources where the person signed up for this page's emails themselves. Provisional — see the header. */
@@ -48,10 +55,11 @@ export function contactSourceKey(source: ContactSource): ContactSourceKey {
   return 'other'
 }
 
-export type EmailBlock = 'unsubscribed' | 'not_opted_in'
+export type EmailBlock = 'unsubscribed' | 'not_opted_in' | 'not_a_contact'
 
 /** Why the page may not email this contact, or null when it may. */
-export function emailBlock(c: { status: string, source: ContactSource }): EmailBlock | null {
+export function emailBlock(c: { status: string, source: ContactSource, isContact?: boolean }): EmailBlock | null {
+  if (c.isContact === false) return 'not_a_contact'
   if (c.status !== 'subscribed') return 'unsubscribed'
   if (c.source?.opted_in) return null
   if (!SELF_OPT_IN_SOURCES.includes(contactSourceKey(c.source))) return 'not_opted_in'
@@ -61,6 +69,7 @@ export function emailBlock(c: { status: string, source: ContactSource }): EmailB
 export const EMAIL_BLOCK_LABEL: Record<EmailBlock, string> = {
   unsubscribed: 'Unsubscribed',
   not_opted_in: 'Never asked for your emails',
+  not_a_contact: 'Not a contact · no email',
 }
 
 // ---------------------------------------------------------------------------
@@ -181,12 +190,13 @@ export const LAPSED_DAYS = 90
 /** "New": became a contact within this many days. */
 export const NEW_DAYS = 30
 
-export const ACTIVITY_FILTERS = ['account', 'follows', 'going', 'regular', 'lapsed', 'new'] as const
+export const ACTIVITY_FILTERS = ['account', 'follows', 'came', 'going', 'regular', 'lapsed', 'new'] as const
 export type ActivityFilter = typeof ACTIVITY_FILTERS[number]
 
 export const ACTIVITY_FILTER_LABEL: Record<ActivityFilter, string> = {
   account: 'Has a WeDance account',
   follows: 'Follows you',
+  came: 'Went or going to your events',
   going: 'Going to your next events',
   regular: `Regulars (${REGULAR_MIN_EVENTS}+ events)`,
   lapsed: `Haven’t come in ${LAPSED_DAYS / 30} months`,
@@ -196,7 +206,10 @@ export const ACTIVITY_FILTER_LABEL: Record<ActivityFilter, string> = {
 export interface SegmentContact {
   status: string
   source: ContactSource
-  createdAt: string | Date
+  /** When they became a contact; for a non-contact, when they followed the page (null = unknown). */
+  createdAt: string | Date | null
+  /** false = in the audience only (follows / came to the page's events), not a contact. */
+  isContact?: boolean
   hasAccount: boolean
   activity: ContactActivity
 }
@@ -208,15 +221,31 @@ export function matchesActivity(c: SegmentContact, f: ActivityFilter, now = new 
   switch (f) {
     case 'account': return c.hasAccount
     case 'follows': return a.follows
+    case 'came': return cameToEvents(a)
     case 'going': return a.upcoming.length > 0
     case 'regular': return a.wentTo >= REGULAR_MIN_EVENTS
     case 'lapsed': return a.wentTo > 0 && !a.upcoming.length && !!a.lastEventAt && now.getTime() - new Date(a.lastEventAt).getTime() > LAPSED_DAYS * DAY
-    case 'new': return now.getTime() - new Date(c.createdAt).getTime() <= NEW_DAYS * DAY
+    case 'new': return !!c.createdAt && now.getTime() - new Date(c.createdAt).getTime() <= NEW_DAYS * DAY
   }
 }
 
+/** Went to, or is going to, at least one of the page's events. */
+export const cameToEvents = (a: ContactActivity) => a.wentTo > 0 || a.upcoming.length > 0 || Object.keys(a.events).length > 0
+
+/** Is this dancer part of the page's audience: a follower or someone who went / is going to its events? */
+export const inAudience = (a: ContactActivity) => a.follows || cameToEvents(a)
+
+/** The dancers of the audience who aren't contacts yet (`contactDancers` = contacts' accounts). */
+export function audienceOnly(byDancer: ReadonlyMap<string, ContactActivity>, contactDancers: ReadonlySet<string>): string[] {
+  return [...byDancer.entries()].filter(([id, a]) => !contactDancers.has(id) && inAudience(a)).map(([id]) => id)
+}
+
 export interface ContactSegments {
+  /** Everyone in the list: contacts + the audience who aren't contacts. */
   total: number
+  /** Of those, contacts (gave the page an email) and the rest. */
+  contacts: number
+  others: number
   sources: { key: ContactSourceKey, label: string, count: number, selfOptIn: boolean }[]
   canEmail: number
   cantEmail: number
@@ -227,11 +256,13 @@ export interface ContactSegments {
 
 export function contactSegments(contacts: SegmentContact[], now = new Date()): ContactSegments {
   const bySource = new Map<ContactSourceKey, number>()
-  const blocked: Record<EmailBlock, number> = { unsubscribed: 0, not_opted_in: 0 }
+  const blocked: Record<EmailBlock, number> = { unsubscribed: 0, not_opted_in: 0, not_a_contact: 0 }
   const activity = Object.fromEntries(ACTIVITY_FILTERS.map(f => [f, 0])) as Record<ActivityFilter, number>
   let canEmail = 0
+  let others = 0
   for (const c of contacts) {
-    const key = contactSourceKey(c.source)
+    if (c.isContact === false) others++
+    const key = c.isContact === false ? 'wedance' : contactSourceKey(c.source)
     bySource.set(key, (bySource.get(key) ?? 0) + 1)
     const b = emailBlock(c)
     if (b) blocked[b]++
@@ -240,6 +271,8 @@ export function contactSegments(contacts: SegmentContact[], now = new Date()): C
   }
   return {
     total: contacts.length,
+    contacts: contacts.length - others,
+    others,
     sources: CONTACT_SOURCES.filter(k => bySource.has(k))
       .map(key => ({ key, label: SOURCE_LABEL[key], count: bySource.get(key)!, selfOptIn: SELF_OPT_IN_SOURCES.includes(key) }))
       .sort((a, b) => b.count - a.count),

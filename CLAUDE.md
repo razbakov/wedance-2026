@@ -354,6 +354,12 @@ opt-in: under the poll, once confirmed and coming, "Let <page> keep in touch" (+
 `rsvp.shareContact` → `server/utils/rsvpContact.ts` (host page, else organiser — never the venue): a new contact
 with source `rsvp`, or an existing one gains `source.opted_in` (mailable either way); "Stop sharing" = unsubscribed.
 
+**One audience (RAZ-963):** Contacts also lists everyone else connected to the page — followers and accounts that went /
+are going to its events (`audienceOnly` in `shared/utils/contactSegments.ts`) — once each, as `isContact: false` rows
+(source `wedance`, email block `not_a_contact`). Like `rsvp.people`, they show name / photo / handle / city whatever their
+attendee visibility, never email or phone; never mailed, not in the CSV, no note / unsubscribe / delete. "Who" in the rail
+= contacts / not contacts. Guests and buyers without an account aren't listed.
+
 ## Email to contacts (RAZ-975)
 
 Contacts → **Email N** (`BusinessContactMailing`) writes to the contacts the list's filter shows: N = those the page
