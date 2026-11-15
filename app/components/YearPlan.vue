@@ -79,9 +79,9 @@ const ticketStatusClass: Record<string, string> = {
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-2xl sm:text-3xl leading-tight font-display text-foreground">My 2026 Dance Year</h1>
+        <h2 class="text-2xl sm:text-3xl leading-tight font-display text-foreground">Your festival plan</h2>
         <p class="text-sm mt-1 text-secondary">
-          Your year in dance, unwrapped
+          The festivals you’re going to. Share it so friends come along.
         </p>
       </div>
       <Button variant="outline-pill" size="pill-sm" @click="emit('share')">

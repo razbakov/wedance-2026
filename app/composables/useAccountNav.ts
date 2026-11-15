@@ -1,4 +1,4 @@
-import { CalendarDays, User, Settings, Briefcase, Music, ShieldCheck } from 'lucide-vue-next'
+import { User, Settings, Briefcase, Music, ShieldCheck } from 'lucide-vue-next'
 import { initialOf } from '#shared/utils/initials'
 
 export type NavMode = 'dance' | 'business' | 'admin'
@@ -27,7 +27,6 @@ export function useAccountNav(mode: NavMode) {
 
   const accountLinks = computed(() => [
     { to: profileTo.value, label: 'My profile', icon: User },
-    { to: '/my-year', label: 'My year', icon: CalendarDays },
     { to: '/settings', label: 'Settings', icon: Settings },
   ])
 

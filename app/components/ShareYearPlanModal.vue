@@ -6,7 +6,7 @@ import { Button } from '~/components/ui/button'
 import { Badge } from '~/components/ui/badge'
 import { WD } from '~/lib/brand'
 import { initialOf } from '#shared/utils/initials'
-import { yearShareUrl } from '#shared/utils/yearStory'
+import { yearOfPlan, yearShareUrl } from '#shared/utils/yearStory'
 
 const props = defineProps<{
   open: boolean
@@ -33,6 +33,8 @@ const baseUrl = computed(() => {
 const shareUrl = computed(() => yearShareUrl(baseUrl.value, username.value, dancerId.value))
 
 const totalWorkshops = computed(() => props.festivals.reduce((sum, f) => sum + f.workshopCount, 0))
+// The year the plan is about (the one most festivals are in), never a hard-coded one.
+const planYear = computed(() => yearOfPlan(props.festivals, new Date().getFullYear()))
 
 function formatDateRange(start: string, end: string): string {
   const s = new Date(start)
@@ -65,8 +67,8 @@ async function nativeShare() {
   if (navigator.share) {
     try {
       await navigator.share({
-        title: `My 2026 Dance Year`,
-        text: `Check out my ${props.festivals.length} festival plan for 2026! ${totalWorkshops.value} workshops across the year.`,
+        title: `My ${planYear.value} dance year`,
+        text: `Check out my ${props.festivals.length} festival plan for ${planYear.value}! ${totalWorkshops.value} workshops across the year.`,
         url: shareUrl.value,
       })
     } catch {
@@ -84,7 +86,7 @@ async function nativeShare() {
       <DialogHeader>
         <DialogTitle>Share Your Year Plan</DialogTitle>
         <DialogDescription>
-          Share your {{ festivals.length }} festival plan for 2026.
+          Share your {{ festivals.length }} festival plan for {{ planYear }}.
         </DialogDescription>
       </DialogHeader>
 

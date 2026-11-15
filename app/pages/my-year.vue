@@ -2,6 +2,7 @@
 import type { YearPlanFestival, DanceRole } from '~/types/festival'
 import { Button } from '~/components/ui/button'
 import { festivalPath } from '#shared/utils/eventSlug'
+import type { YearReview } from '#shared/utils/yearReview'
 
 definePageMeta({ layout: false })
 
@@ -61,6 +62,22 @@ async function fetchGoingBatch(slugs: string[]) {
   try {
     goingBySlug.value = await $trpc.plan.goingBatch.query({ itemType: 'festival', itemIds: slugs })
   } catch { /* non-critical */ }
+}
+
+// ── Your year in dance (RAZ-966): the look back, first on the own view ──
+const review = ref<YearReview | null>(null)
+const reviewLoading = ref(false)
+function fetchReview() {
+  if (!isSignedIn.value) return Promise.resolve()
+  reviewLoading.value = true
+  return $trpc.plan.yearReview.query()
+    .then((r) => { review.value = r })
+    .catch(() => {})
+    .finally(() => { reviewLoading.value = false })
+}
+
+function scrollToPlan() {
+  document.getElementById('plan-next')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
 // ── Suggestions data ──
@@ -123,6 +140,7 @@ onMounted(() => {
   if (isSharedView.value && !sharerUsername.value) sharedLoaded.value = true
 
   Promise.all([fetchMyPlan(), fetchSuggestions()]).finally(() => { ownLoaded.value = true })
+  if (!isSharedView.value) fetchReview()
 
   // Re-fetch when the plan changes (add/remove festival) so stats update.
   watch(yearPlanIds, () => {
@@ -131,7 +149,10 @@ onMounted(() => {
   })
   // Signed in on this page (the sign-in modal): load the dancer's own plan.
   watch(isSignedIn, (signedIn) => {
-    if (signedIn) fetchMyPlan()
+    if (signedIn) {
+      fetchMyPlan()
+      if (!isSharedView.value) fetchReview()
+    }
   })
 })
 
@@ -359,9 +380,9 @@ function onAddFriend() {
 }
 
 useHead({
-  title: isSharedView.value
-    ? `${sharer.value.name || 'A dancer'}'s 2026 Dance Year | WeDance`
-    : 'My 2026 Dance Year | WeDance',
+  title: () => isSharedView.value
+    ? `${sharer.value.name || 'A dancer'}'s dance year | WeDance`
+    : `Your ${review.value?.year ?? ''} in dance | WeDance`.replace('  ', ' '),
 })
 </script>
 
@@ -399,6 +420,15 @@ useHead({
 
     <!-- Own year plan -->
     <template v-else>
+      <YearReview
+        :review="review"
+        :loading="reviewLoading"
+        :signed-in="isSignedIn"
+        @sign-in="promptSignIn('signin')"
+        @plan-next="scrollToPlan"
+      />
+
+      <div id="plan-next" class="scroll-mt-20">
       <YearPlan
         :festivals="myFestivals"
         :suggestions="suggestions"
@@ -411,6 +441,7 @@ useHead({
         @sign-in="promptSignIn('signin')"
         @browse-festivals="onBrowseFestivals"
       />
+      </div>
 
       <ShareYearPlanModal
         v-model:open="showShareModal"

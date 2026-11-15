@@ -2,7 +2,7 @@
  * My dance year (RAZ-897): the 1080×1920 Instagram story of a dancer's
  * festival year, drawn in the browser like the weekend story (#527, same
  * canvas pieces from `storyCanvas.ts`): the year's main dance colour as the
- * background, "MY 2026 / DANCE YEAR" in Anton, the sharer's line on a tilted
+ * background, "MY <year> / DANCE YEAR" in Anton, the sharer's line on a tilted
  * cream label, the four big numbers on a black band, then each festival —
  * its month big in its own dance colour — and "Join me? Tap the link", with
  * room under it for the link sticker that opens their year page.
@@ -36,7 +36,7 @@ export async function drawYearStory(input: YearStoryInput): Promise<Blob> {
   const who = input.sharerName.trim() ? `${input.sharerName.trim().toUpperCase()}’S YEAR` : 'MY DANCE YEAR'
   let y = masthead(ctx, who)
 
-  // --- Headline: "MY 2026" / "DANCE YEAR" ----------------------------------------
+  // --- Headline: "MY <year>" / "DANCE YEAR" ----------------------------------------
   const head1 = `MY ${input.year}`
   const head2 = 'DANCE YEAR'
   const s1 = fitSize(ctx, head1, POSTER, W - 2 * PAD, 150)

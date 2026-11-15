@@ -377,6 +377,20 @@ person undoing it; nobody once the event is over. Email: `sendEventBackOnEmail` 
 holders are asked to check with the organiser if they already asked for a refund). Nobody is emailed without the
 organiser's choice.
 
+## Your year in dance (RAZ-966)
+
+`/my-year` opens on a look back at the dancer's year, told as a story (Wrapped style) to post at New Year, ending on
+"Plan <next year>" (scrolls to the festival plan below it, `YearPlan`). Found in My plan only (`YearReviewEntry`): a
+banner at the top in December and January (`isYearTurn`), a quiet link under "This year" (and on an empty plan) the rest
+of the year; not in the footer or account menu. Year = `lookBackYear` (last year in January, else this one).
+A "night" = a past, not-cancelled event of that year the dancer was going to — Going! (plan_items), a confirmed poll
+answer other than "next", an attendance, a weekend they shared or joined — plus real festivals in their year plan;
+intent, not proof, so the copy says "nights you were going to". Mock ids never resolve (only real `events` / `festivals`
+rows are joined). A thin year just drops screens (no filling in with the city's year).
+Code: `server/utils/yearReview.ts` (`plan.yearReview`), `shared/utils/yearReview.ts` (`buildYearReview`, screens),
+`app/lib/yearReviewStory.ts` (one 1080×1920 picture per screen, `storyCanvas.ts`), `app/components/YearReview.vue`.
+The festival-plan story for `?user=` links (RAZ-897) is unchanged.
+
 ## Analytics (PostHog)
 
 **Setup.** Client: `app/plugins/03.posthog.client.ts` (posthog-js, EU host, manual `$pageview`
@@ -484,6 +498,10 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `weekend_reminder_requested` | `w/[code].vue` email step after a guest's "I'm in" (magic link sent) | `surface` |
 | `weekend_story_shared` | `WeekendStory` story panel (`w/[code].vue`, My plan → "Where you're dancing") | `method` (native / download / copy), `parties`, `own_line` (the sharer wrote their own line), `surface` (weekend-page / my_plan) |
 | `year_story_shared` | `YearStory` story panel in `ShareYearPlanModal` (/my-year → Share, RAZ-897; the link opens `/my-year?user=`) | `method` (native / download / copy), `festivals`, `own_line` (the sharer wrote their own line), `surface` (year-modal) |
+| `year_review_viewed` | `YearReview` on /my-year (your year in dance, RAZ-966; once per year per session) | `year`, `nights`, `screens`, `festivals` |
+| `year_review_shared` | `YearReview` "Share this one" / "Share all" / "Save picture" / "Save all" | `method` (native / download), `screens` (pictures shared), `screen` (kind on screen), `year` |
+| `year_review_plan_clicked` | `YearReview` last step "Plan <next year>" / "Find festivals" | `to` (plan / festivals), `year`, `nights` |
+| `year_review_entry_clicked` | `YearReviewEntry` in My plan (banner in Dec/Jan, else the link under "This year" / the empty plan) | `variant` (banner / link), `year`, `year_turn` |
 | `problem_report_opened` / `problem_report_submitted` / `problem_report_screenshot` / `problem_report_failed` | `ReportProblem` | `type` · `has_screenshot`, `screenshot_dropped` (submitted: sent only after leaving the shot out) · `captured`, `retake` (screenshot) · `reason` (failed: blocked / timeout / forbidden / no_client / other — `feedbackFailure` in `app/lib/sentry-feedback.ts`). Sentry's traffic goes through our own `/api/m` tunnel (`server/utils/sentryTunnel.ts`) so blockers of `*.sentry.io` don't drop reports |
 | `community_group_submitted` | `SubmitGroupDialog` ("Share a group" on a city's Local groups) | `city`, `platform`, `duplicate` |
 | `city_schedule_published` | `BusinessCitySchedule` (city page → Weekly post: Post to feed / story / Telegram) | `city`, `to` (instagram_feed / instagram_story / telegram) |
