@@ -1406,6 +1406,19 @@ const previewDeck: DeckCard[] = [
   { id: 'e3', kind: 'event-social',      name: 'Havana Nights',      dayLabel: 'Fri', time: '22:30', venue: '537 Bar',          city: 'Munich', style: 'Cuban', friendsGoing: 8, color: WD.red600, reason: 'Cuban night in Munich with 8 friends — right up your alley.' },
 ]
 
+// Signed-out landing: the two story pictures WeDance draws today (weekend, year).
+const POSTER_FONT = '"Anton", Impact, "Arial Narrow", sans-serif'
+const LANDING_STORIES = [
+  { head1: 'Come dance', head2: 'with me', line: 'This weekend 💃', color: '#f97316', bands: [
+    { when: 'Fri · 21:00', what: 'Salsa night' },
+    { when: 'Sat · 22:00', what: 'Bachata social' },
+  ] },
+  { head1: 'My 2027', head2: 'dance year', line: 'Who’s coming?', color: '#a855f7', bands: [
+    { when: 'Mar', what: 'Salsa festival, Vienna' },
+    { when: 'Sep', what: 'Timba weekend, Berlin' },
+  ] },
+] as const
+
 // Signed-out landing: three example dancers from the preview deck.
 const LANDING_FRIENDS = previewDeck
   .filter((c): c is Extract<DeckCard, { photo: string }> => c.kind.startsWith('dancer-'))
@@ -1784,12 +1797,12 @@ function cardSummary(f: CatalogueEntry) {
             People heading to your festivals, and locals who dance your styles. Say yes to the ones you'd like to dance with — say yes to two going to the same festival and we'll suggest it for your year.
           </p>
         </div>
-        <div class="mt-6 grid gap-4 sm:grid-cols-3">
+        <div class="mt-6 -mx-4 px-4 flex gap-4 overflow-x-auto snap-x snap-mandatory pb-2 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-3 sm:overflow-visible">
           <button
             v-for="p in LANDING_FRIENDS"
             :key="p.id"
             type="button"
-            class="text-left rounded-2xl bg-white border overflow-hidden hover:shadow-md transition-shadow"
+            class="w-60 shrink-0 snap-start sm:w-auto text-left rounded-2xl bg-white border overflow-hidden hover:shadow-md transition-shadow"
             style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);"
             @click="openAuth('dashboard')"
           >
@@ -1853,6 +1866,47 @@ function cardSummary(f: CatalogueEntry) {
               </div>
               <span v-if="row.tag" class="text-xs font-bold whitespace-nowrap" :style="{ color: row.color }">{{ row.tag }}</span>
             </div>
+          </div>
+        </div>
+      </div>
+      <!-- 4 · Tell your story: the plan turns into Instagram stories. -->
+      <div class="mt-16 grid gap-8 md:grid-cols-[1.1fr_1fr] items-center" data-testid="my-plan-landing-stories">
+        <!-- Two story pictures, drawn like the real ones (WeekendStory / YearStory). -->
+        <div class="flex justify-center gap-4 order-2 md:order-1" aria-label="Example stories">
+          <div
+            v-for="(st, i) in LANDING_STORIES"
+            :key="st.head1"
+            class="w-36 sm:w-44 aspect-[9/16] rounded-2xl p-3 flex flex-col overflow-hidden shadow-xl"
+            :class="i === 1 ? 'mt-8 rotate-2' : '-rotate-2'"
+            :style="{ background: st.color }"
+          >
+            <div class="leading-[0.9] uppercase" :style="{ fontFamily: POSTER_FONT }">
+              <div class="text-[26px] sm:text-[32px] text-wd-brown-900">{{ st.head1 }}</div>
+              <div class="text-[30px] sm:text-[36px]" style="color:var(--wd-cream, #fdf6ec)">{{ st.head2 }}</div>
+            </div>
+            <div class="mt-2 self-start -rotate-2 rounded px-1.5 py-0.5 text-[10px] font-bold font-sans bg-[#fdf6ec] text-wd-brown-900">{{ st.line }}</div>
+            <div class="mt-auto space-y-1.5">
+              <div v-for="b in st.bands" :key="b.what" class="rounded-md bg-wd-brown-900 px-2 py-1.5 font-sans" style="color:white;">
+                <div class="text-[9px] font-black uppercase tracking-wider" :style="{ color: st.color }">{{ b.when }}</div>
+                <div class="text-[11px] font-bold leading-tight truncate">{{ b.what }}</div>
+              </div>
+            </div>
+            <div class="mt-2 text-[8px] font-bold uppercase tracking-widest text-wd-brown-900/70 font-sans">wedance.vip</div>
+          </div>
+        </div>
+
+        <div class="text-center md:text-left order-1 md:order-2">
+          <div class="text-eyebrow uppercase tracking-[0.3em] font-bold text-primary">Tell your story</div>
+          <h2 class="mt-2 text-3xl sm:text-4xl leading-tight font-display text-foreground">
+            Your plan, <em class="italic text-primary">ready for Instagram.</em>
+          </h2>
+          <p class="mt-3 text-sm sm:text-base text-muted-foreground font-sans max-w-md mx-auto md:mx-0">
+            We turn your week of parties and your year of festivals into a story picture, with your own line on it. Post it in one tap, add the link sticker, and friends tap "I'm in" to join you.
+          </p>
+          <div class="mt-6 flex justify-center md:justify-start font-sans">
+            <Button variant="cta" size="lg" class="px-6" @click="openAuth('dashboard')">
+              Make my plan <ArrowRight aria-hidden="true" />
+            </Button>
           </div>
         </div>
       </div>
