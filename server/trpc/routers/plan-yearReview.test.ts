@@ -57,6 +57,9 @@ describe.skipIf(!DATABASE_URL)('plan.yearReview', () => {
     await addEvent('course', '2025-09-02T18:00:00Z', { type: 'Course' })
     await addEvent('lastYear', '2024-12-20T19:00:00Z')
 
+    // A planned festival counts only with its festival event (RAZ-983, as on My plan).
+    await addEvent('festEvent2025', '2025-05-01T10:00:00Z', { slug: festSlugs[0], isFestival: true, type: 'Festival' })
+    await addEvent('festEvent2026', '2026-05-01T10:00:00Z', { slug: festSlugs[1], isFestival: true, type: 'Festival' })
     await db.insert(schema.festivals).values([
       { slug: festSlugs[0], name: `Review Fest ${RUN}`, startDate: '2025-05-01', endDate: '2025-05-03', city: `Fest City ${RUN}`, country: 'Spain', styles: ['Salsa'] },
       { slug: festSlugs[1], name: `Next Fest ${RUN}`, startDate: '2026-05-01', endDate: '2026-05-03' },

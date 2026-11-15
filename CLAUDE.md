@@ -392,8 +392,9 @@ organiser's choice.
 
 ## Your year in dance (RAZ-966)
 
-`/my-year` opens on a look back at the dancer's year, told as a story (Wrapped style) to post at New Year, ending on
-"Plan <next year>" (scrolls to the festival plan below it, `YearPlan`). Found in My plan only (`YearReviewEntry`): a
+`/my-year` is only the look back at the dancer's year, told as a story (Wrapped style) to post at New Year, ending on
+"Plan <next year>" (→ My plan's "This year"). The festival year is planned and shared in My plan: the year story
+(`YearStory`, RAZ-897) sits in place under "This year", for the festivals still ahead. Found in My plan only (`YearReviewEntry`): a
 banner at the top in December and January (`isYearTurn`), a quiet link under "This year" (and on an empty plan) the rest
 of the year; not in the footer or account menu. Year = `lookBackYear` (last year in January, else this one).
 A "night" = a past, not-cancelled event of that year the dancer was going to — Going! (plan_items), a confirmed poll
@@ -402,7 +403,7 @@ intent, not proof, so the copy says "nights you were going to". Mock ids never r
 rows are joined). A thin year just drops screens (no filling in with the city's year).
 Code: `server/utils/yearReview.ts` (`plan.yearReview`), `shared/utils/yearReview.ts` (`buildYearReview`, screens),
 `app/lib/yearReviewStory.ts` (one 1080×1920 picture per screen, `storyCanvas.ts`), `app/components/YearReview.vue`.
-The festival-plan story for `?user=` links (RAZ-897) is unchanged.
+`/my-year?user=<handle or id>` (a friend's festival year, `SharedYearPlan`) stays: the year story's link leads there.
 
 ## Analytics (PostHog)
 
@@ -452,7 +453,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `find_your_dance_started` / `find_your_dance_completed` | `find-your-dance.vue` (first video watched or choice · a style or the taster chosen; not a quiz) | `style`, `via` · `style_chosen`, `taster`, `answers_count` (videos watched), `styles_suggested` |
 | `profile_viewed` | `/@handle` (business profiles, `trackOnce`), `/u/<handle>` (dancers — no handle sent) | `profile` (business only), `profile_type`, `city`, `claimed`, `own`, `surface` |
 | `outbound_click` | delegated listener `plugins/06.outbound-click.client.ts` (every external link) | `kind` (ticket / website / instagram / map / whatsapp / telegram / community_group / email / phone / ai_app / …; `data-outbound-kind` overrides), `platform`, `host` (never path/query), `object_type`, `object_id` (`data-object-*` or the page's `useTrackContext`), `city`, `surface` (route name) |
-| `plan_shared` | `SharePlanModal` (festival workshop plan), `ShareYearPlanModal` (year: link copy / "Share via…"; the story picture is `year_story_shared`) | `object` (festival / year), `method` (copy / native), `festival` / `workshops` / `festivals`, `surface` |
+| `plan_shared` | `SharePlanModal` (festival workshop plan; the festival year is shared as a story, `year_story_shared`) | `object` (festival / year), `method` (copy / native), `festival` / `workshops` / `festivals`, `surface` |
 | `shared_plan_viewed` | `FestivalView` (`?invite=` / `?plan=shared`), `my-year?user=` | `object`, `festival`, `signed_in`, `workshops` / `festivals`, `has_referral` |
 | `referral_link_shared` | `SharePlanModal` referral link copy | `method`, `festival`, `surface` |
 | `tracked_link_visit` | `plugins/05.tracked-link.client.ts` (`?via=` promoter link) | `code_type`, `referral_code` (promoter link code), `counted`, `landing` |
@@ -511,10 +512,10 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `weekend_joined` | `w/[code].vue` "I'm in" | `signed_in`, `surface` |
 | `weekend_reminder_requested` | `w/[code].vue` email step after a guest's "I'm in" (magic link sent) | `surface` |
 | `weekend_story_shared` | `WeekendStory` story panel (`w/[code].vue`, My plan → "Where you're dancing") | `method` (native / download / copy), `parties`, `own_line` (the sharer wrote their own line), `surface` (weekend-page / my_plan) |
-| `year_story_shared` | `YearStory` story panel in `ShareYearPlanModal` (/my-year → Share, RAZ-897; the link opens `/my-year?user=`) | `method` (native / download / copy), `festivals`, `own_line` (the sharer wrote their own line), `surface` (year-modal) |
+| `year_story_shared` | `YearStory` story panel in My plan under "This year" (RAZ-897; moved from /my-year in RAZ-966; the link opens `/my-year?user=`) | `method` (native / download / copy), `festivals`, `own_line` (the sharer wrote their own line), `surface` (my_plan; year-modal before RAZ-966) |
 | `year_review_viewed` | `YearReview` on /my-year (your year in dance, RAZ-966; once per year per session) | `year`, `nights`, `screens`, `festivals` |
 | `year_review_shared` | `YearReview` "Share this one" / "Share all" / "Save picture" / "Save all" | `method` (native / download), `screens` (pictures shared), `screen` (kind on screen), `year` |
-| `year_review_plan_clicked` | `YearReview` last step "Plan <next year>" / "Find festivals" | `to` (plan / festivals), `year`, `nights` |
+| `year_review_plan_clicked` | `YearReview` last step "Plan <next year>" (→ My plan's "This year") / "Find festivals" | `to` (plan / festivals), `year`, `nights` |
 | `year_review_entry_clicked` | `YearReviewEntry` in My plan (banner in Dec/Jan, else the link under "This year" / the empty plan) | `variant` (banner / link), `year`, `year_turn` |
 | `problem_report_opened` / `problem_report_submitted` / `problem_report_screenshot` / `problem_report_failed` | `ReportProblem` | `type` · `has_screenshot`, `screenshot_dropped` (submitted: sent only after leaving the shot out) · `captured`, `retake` (screenshot) · `reason` (failed: blocked / timeout / forbidden / no_client / other — `feedbackFailure` in `app/lib/sentry-feedback.ts`). Sentry's traffic goes through our own `/api/m` tunnel (`server/utils/sentryTunnel.ts`) so blockers of `*.sentry.io` don't drop reports |
 | `community_group_submitted` | `SubmitGroupDialog` ("Share a group" on a city's Local groups) | `city`, `platform`, `duplicate` |
