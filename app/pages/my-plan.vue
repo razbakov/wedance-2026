@@ -1419,10 +1419,18 @@ const LANDING_STORIES = [
   ] },
 ] as const
 
-// Signed-out landing: three example dancers from the preview deck.
+// Signed-out landing: example dancers for the swipe deck (from the preview
+// deck). Emilia and Sasha both go to Timba Fest London, so two yeses show the
+// festival nudge.
 const LANDING_FRIENDS = previewDeck
   .filter((c): c is Extract<DeckCard, { photo: string }> => c.kind.startsWith('dancer-'))
-  .slice(0, 3)
+  .slice(0, 5)
+  .map(c => ({
+    id: c.id, name: c.name, city: c.city, photo: c.photo, danceStyles: c.danceStyles, reason: c.reason,
+    festivalName: 'festivalName' in c ? c.festivalName : undefined,
+    festivalColor: 'festivalColor' in c ? c.festivalColor : undefined,
+    regularAt: 'regularAt' in c ? c.regularAt : undefined,
+  }))
 
 // Live deck state
 // "Meet new friends" is a people deck: dancers going to your festivals, to
@@ -1797,30 +1805,7 @@ function cardSummary(f: CatalogueEntry) {
             People heading to your festivals, and locals who dance your styles. Say yes to the ones you'd like to dance with — say yes to two going to the same festival and we'll suggest it for your year.
           </p>
         </div>
-        <div class="mt-6 -mx-4 px-4 flex gap-4 overflow-x-auto snap-x snap-mandatory pb-2 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-3 sm:overflow-visible">
-          <button
-            v-for="p in LANDING_FRIENDS"
-            :key="p.id"
-            type="button"
-            class="w-60 shrink-0 snap-start sm:w-auto text-left rounded-2xl bg-white border overflow-hidden hover:shadow-md transition-shadow"
-            style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);"
-            @click="openAuth('dashboard')"
-          >
-            <img :src="p.photo" :alt="p.name" class="w-full aspect-[4/3] object-cover" loading="lazy">
-            <div class="p-4 font-sans">
-              <div class="flex items-baseline justify-between gap-2">
-                <span class="font-display text-lg font-bold text-foreground">{{ p.name }}</span>
-                <span class="text-xs italic text-secondary font-display">{{ p.city }}</span>
-              </div>
-              <div class="mt-1 text-xs font-bold text-primary">{{ p.danceStyles.join(' · ') }}</div>
-              <p class="mt-2 text-sm text-muted-foreground leading-snug">{{ p.reason }}</p>
-              <span class="mt-3 inline-flex items-center gap-1 text-xs font-bold text-foreground">
-                <Heart class="w-3.5 h-3.5 text-primary" aria-hidden="true" /> Say yes
-              </span>
-            </div>
-          </button>
-        </div>
-        <p class="mt-3 text-xs text-center md:text-left italic text-muted-foreground font-sans">Example dancers. Sign up to meet real ones in your city.</p>
+        <LandingFriendsDeck class="mt-8" :people="LANDING_FRIENDS" @join="openAuth('dashboard')" />
       </div>
 
       <!-- 3 · My plan: what you get here, shown, not listed. -->
