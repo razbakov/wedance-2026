@@ -20,6 +20,7 @@ import {
 } from 'lucide-vue-next'
 import { ReportProblemSchema } from '#shared/validation'
 import { REPORT_PROBLEM_EVENT } from '~/lib/report-problem'
+import { KEEP_POPUPS_OPEN } from '~/lib/popup-layers'
 import { captureScreenFrame, isScreenCaptureSupported, type ScreenFrame } from '~/lib/screen-capture'
 import { failureMessage, feedbackFailure, submitFeedback } from '~/lib/sentry-feedback'
 
@@ -193,10 +194,17 @@ async function submit() {
 </script>
 
 <template>
-  <!-- Floating trigger (bottom-left to stay clear of the plan/cart sidebar) -->
+  <!--
+    Floating trigger (bottom-left to stay clear of the plan/cart sidebar).
+    From sm up it sits above every popup, takes clicks while a modal has turned
+    pointer events off, and doesn't close the popup (RAZ-992) — so a bug inside a
+    popup can be reported with the popup in the screenshot. On phones it stays
+    under popups: bottom sheets would be covered, and phones can't screenshot.
+  -->
   <Button
     v-show="!capturing"
-    class="fixed left-4 bottom-[calc(1rem+var(--wd-tabbar-h,0px))] z-40 h-auto gap-2 rounded-full pl-3 pr-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white bg-foreground hover:bg-foreground/90 shadow-wd-float"
+    v-bind="{ [KEEP_POPUPS_OPEN]: '' }"
+    class="fixed left-4 bottom-[calc(1rem+var(--wd-tabbar-h,0px))] z-40 sm:z-[120] pointer-events-auto h-auto gap-2 rounded-full pl-3 pr-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white bg-foreground hover:bg-foreground/90 shadow-wd-float"
     aria-label="Talk to us"
     @click="openHub"
   >
@@ -207,7 +215,8 @@ async function submit() {
   <!-- Hidden (not closed) while capturing, so the form keeps its state. -->
   <Dialog :open="open && !capturing" @update:open="(v: boolean) => { if (!capturing) open = v }">
     <DialogContent
-      class="sm:max-w-md border-0 p-0 overflow-hidden [&>button]:top-6 [&>button]:right-5 bg-background text-foreground"
+      overlay-class="z-[120]"
+      class="z-[120] sm:max-w-md border-0 p-0 overflow-hidden [&>button]:top-6 [&>button]:right-5 bg-background text-foreground"
     >
       <div class="h-1.5" :class="hubChoice === 'idea' ? 'bg-secondary' : 'bg-primary'" />
 

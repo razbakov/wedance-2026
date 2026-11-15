@@ -8,6 +8,7 @@ import {
   DialogPortal,
 } from "reka-ui"
 import { cn } from "@/lib/utils"
+import { keepPopupsOpen } from "@/lib/popup-layers"
 
 // Attrs (style, reka-ui DialogContent props, listeners) are forwarded to the
 // inner DialogContent — the root here is a portal, so they would otherwise be dropped.
@@ -29,6 +30,7 @@ const props = defineProps<{ class?: HTMLAttributes["class"] }>()
           )
         "
         v-bind="$attrs"
+        @interact-outside="keepPopupsOpen"
         @pointer-down-outside="(event) => {
           const originalEvent = event.detail.originalEvent;
           const target = originalEvent.target as HTMLElement;
