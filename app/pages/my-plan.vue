@@ -10,7 +10,7 @@ import { sizedImage, IMG } from '#shared/utils/image'
  * and the discover deck (plan.discover + discover_swipes) are DB-backed;
  * ?preview=1 swaps in the preview* demo arrays and never writes.
  */
-import { ArrowRight, MapPin, Calendar, Search, Ticket, Plane, Home, GraduationCap, Heart, Coffee, CalendarPlus, Check, ExternalLink, ChevronDown, Target, Flame, Sparkles, MoonStar, UtensilsCrossed, GlassWater, Car, X, Star, Clock, Users as UsersIcon, Undo2, Plus } from 'lucide-vue-next'
+import { ArrowRight, MapPin, Calendar, Search, Ticket, Plane, Home, GraduationCap, Heart, Coffee, CalendarPlus, Check, ExternalLink, ChevronDown, Target, Flame, Sparkles, MoonStar, UtensilsCrossed, GlassWater, Car, X, Clock, Users as UsersIcon, Undo2, Plus } from 'lucide-vue-next'
 import * as salsaOpen from '~/data/mock-festival'
 import * as meneate from '~/data/mock-meneate'
 import type { CityEvent } from '~/types/city'
@@ -71,10 +71,17 @@ function openAuth(action: 'dashboard' | 'signin') {
 }
 
 // What the dashboard holds — shown to signed-out visitors as the promise.
-const DASHBOARD_PILLARS = [
-  { key: 'picks', icon: Star, title: 'My picks', body: 'The festivals, courses and socials you picked — your whole year at a glance.' },
-  { key: 'partners', icon: UsersIcon, title: 'My partners', body: 'Who you\'re dancing with at each festival, and who still needs a partner.' },
-  { key: 'tickets', icon: Ticket, title: 'My tickets', body: 'Passes you\'ve bought and the early-bird deadlines you can\'t miss.' },
+const LANDING_EXAMPLE = [
+  { title: 'Tonight', summary: '2 friends out', rows: [
+    { when: '20:00', name: 'Dinner before the salsa party', meta: '6 dancers going', color: WD.amber500, tag: 'Join' },
+  ] },
+  { title: 'This week', summary: '3 nights out', rows: [
+    { when: 'Fri', name: 'Salsa night', meta: '4 friends going', color: WD.red600, tag: '✓ Going' },
+    { when: 'Sat', name: 'Bachata social', meta: 'Live DJ', color: WD.purple500, tag: '✓ Going' },
+  ] },
+  { title: 'This year', summary: '3 festivals', rows: [
+    { when: 'Mar', name: 'A salsa festival abroad', meta: 'Early-bird ends in 6 days', color: WD.red600, tag: 'Buy' },
+  ] },
 ] as const
 
 // Personalization from the signed-in profile (via `me`). Preview fakes Munich +
@@ -327,9 +334,31 @@ const ownPlanLoaded = ref(route.query.preview === '1')
 function loadOwnPlan() {
   loadGoalsFromDb()
   loadDiscoverDeck()
+  loadChatgptConnection()
   return Promise.all([loadCoursesFromDb(), loadWeekSocials(), loadMyPlanFestivals()])
     .finally(() => { ownPlanLoaded.value = true })
 }
+// "WeDance in ChatGPT" sits at the top of the plan until the dancer has
+// connected the ChatGPT app (an OAuth grant from an OpenAI client), then it
+// shrinks to one line at the bottom. "Hide for now" is per browser.
+const chatgptConnected = ref<boolean | null>(null)
+const CHATGPT_HIDE_KEY = 'wd:my-plan:chatgpt-hidden'
+const chatgptHidden = ref(false)
+async function loadChatgptConnection() {
+  try { chatgptHidden.value = localStorage.getItem(CHATGPT_HIDE_KEY) === '1' } catch { /* storage blocked */ }
+  try {
+    const rows = await $trpc.oauth.connections.query()
+    chatgptConnected.value = rows.some(r => /openai|chatgpt/i.test(`${r.app.name} ${r.app.uri ?? ''} ${r.app.domain ?? ''}`))
+  } catch {
+    chatgptConnected.value = false
+  }
+}
+function hideChatgptPitch() {
+  chatgptHidden.value = true
+  try { localStorage.setItem(CHATGPT_HIDE_KEY, '1') } catch { /* storage blocked */ }
+}
+const showChatgptPitch = computed(() => !chatgptHidden.value && (previewMode.value || chatgptConnected.value === false))
+
 const viewState = computed(() => planView({
   signedIn: isSignedIn.value,
   authPending: !previewMode.value && authPending({ server: import.meta.server, hasHint: !!authHint.value, authLoading: authLoading.value }),
@@ -1378,7 +1407,11 @@ const previewDeck: DeckCard[] = [
 ]
 
 // Live deck state
-const deck = ref<DeckCard[]>(isPreviewInitial ? [...previewDeck] : [])
+// "Meet new friends" is a people deck: dancers going to your festivals, to
+// ones you haven't picked, and locals. Festival / social cards are left out —
+// This week and This year already hold those.
+const isPersonCard = (c: DeckCard) => c.kind.startsWith('dancer-')
+const deck = ref<DeckCard[]>(isPreviewInitial ? previewDeck.filter(isPersonCard) : [])
 // History stack for Undo
 const swipeHistory = ref<Array<{ card: DeckCard; direction: 'yes' | 'skip' | 'later'; nudgeAdded?: string; addedFestival?: boolean; addedEvent?: boolean }>>([])
 // Yes-swipes on dancers heading to a festival → accumulator. Real mode loads
@@ -1457,7 +1490,7 @@ async function loadDiscoverDeck() {
         })
       }
     }
-    deck.value = mapped
+    deck.value = mapped.filter(isPersonCard)
   } catch (err) {
     console.error('[discover] loadDiscoverDeck failed:', err)
   }
@@ -1671,7 +1704,7 @@ function cardSummary(f: CatalogueEntry) {
     <main>
 
     <!-- HERO -->
-    <section class="max-w-4xl mx-auto px-4 pt-12 pb-6 text-center">
+    <section v-if="viewState !== 'signed-out'" class="max-w-4xl mx-auto px-4 pt-12 pb-6 text-center">
       <div class="text-sm tracking-widest uppercase mb-3 text-secondary">
         <template v-if="isSignedIn">Hey, {{ dancerName || 'dancer' }}</template>
         <template v-else>Your plan</template>
@@ -1731,59 +1764,55 @@ function cardSummary(f: CatalogueEntry) {
     </section>
 
     <!-- SIGNED OUT — what the dashboard holds + sign in / join -->
-    <section v-if="viewState === 'signed-out'" class="max-w-3xl mx-auto px-4 py-10" data-testid="my-plan-signed-out">
-      <div class="rounded-2xl p-6 sm:p-8 bg-white border" style="border-color:color-mix(in srgb, var(--wd-red-600) 33.3%, transparent); box-shadow: 0 1px 0 color-mix(in srgb, var(--wd-red-600) 13.3%, transparent), 0 12px 28px rgba(59, 31, 18, 0.06);">
-        <div class="text-center">
-          <div class="text-eyebrow uppercase tracking-[0.3em] font-bold mb-3 text-primary">Your dashboard</div>
-          <h2 class="text-2xl sm:text-3xl leading-tight font-display text-foreground">
-            Your picks, your partners, your tickets — <em class="italic text-primary">one dashboard.</em>
+    <section v-if="viewState === 'signed-out'" class="max-w-4xl mx-auto px-4 pt-10 pb-10" data-testid="my-plan-signed-out">
+      <!-- 1 · WeDance in ChatGPT: the fastest way in. -->
+      <ChatgptPlanPitch variant="hero" surface="my_plan_landing" />
+
+      <!-- 2 · My plan: what you get here, shown, not listed. -->
+      <div class="mt-14 grid gap-8 md:grid-cols-[1fr_1.1fr] items-center">
+        <div class="text-center md:text-left">
+          <div class="text-eyebrow uppercase tracking-[0.3em] font-bold text-primary">My plan on WeDance</div>
+          <h2 class="mt-2 text-3xl sm:text-4xl leading-tight font-display text-foreground">
+            Tonight, this week, <em class="italic text-primary">this year.</em>
           </h2>
+          <p class="mt-3 text-sm sm:text-base text-muted-foreground font-sans max-w-md mx-auto md:mx-0">
+            Every party, course and festival you pick — on one page, nearest first. See which friends are going, never miss an early-bird, and post your week as a story.
+          </p>
+          <div class="mt-6 flex flex-col sm:flex-row items-center gap-3 justify-center md:justify-start font-sans">
+            <Button variant="cta" size="lg" class="px-6" @click="openAuth('dashboard')">
+              Make my plan <ArrowRight aria-hidden="true" />
+            </Button>
+            <Button variant="outline-pill" size="lg" class="px-6" @click="openAuth('signin')">
+              Sign in
+            </Button>
+          </div>
+          <p class="mt-4 text-sm text-muted-foreground font-sans">
+            Just looking? <NuxtLink to="/festivals" class="italic underline text-secondary">Browse festivals</NuxtLink>
+            · <NuxtLink to="/my-plan?preview=1" class="italic underline text-secondary">See an example plan</NuxtLink>
+          </p>
         </div>
 
-        <!-- What it holds -->
-        <ul class="mt-6 grid gap-3 sm:grid-cols-3">
-          <li
-            v-for="p in DASHBOARD_PILLARS"
-            :key="p.key"
-            class="rounded-xl p-4 border bg-background"
-            style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);"
-            :data-testid="`my-plan-pillar-${p.key}`"
-          >
-            <component :is="p.icon" class="w-5 h-5 mb-2 text-primary" aria-hidden="true" />
-            <div class="font-bold text-foreground">{{ p.title }}</div>
-            <p class="mt-1 text-sm leading-snug text-muted-foreground font-sans">{{ p.body }}</p>
-          </li>
-        </ul>
-
-        <!-- The promise: one next step at a time -->
-        <div
-          class="mt-4 rounded-xl px-4 py-3 flex items-start gap-3"
-          style="background:linear-gradient(135deg, var(--wd-amber-100) 0%, var(--wd-red-100) 100%); border:1px solid color-mix(in srgb, var(--wd-red-600) 20%, transparent);"
-          data-testid="my-plan-next-step-promise"
-        >
-          <Target class="w-5 h-5 mt-0.5 shrink-0 text-primary" aria-hidden="true" />
-          <div>
-            <div class="font-bold text-foreground">One clear next step at a time.</div>
-            <p class="mt-0.5 text-sm text-muted-foreground font-sans">
-              No juggling tabs and chats — we surface the one thing to do next, like
-              <span class="italic">“Grab your pass before the early-bird ends”</span> or
-              <span class="italic">“Find a partner for Saturday's workshops”</span>.
-            </p>
+        <!-- A small, static example of the plan. -->
+        <div class="rounded-2xl bg-white border p-5 space-y-5 font-sans" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); box-shadow: 0 10px 28px rgba(59,31,18,0.06);" aria-label="Example plan" data-testid="my-plan-example">
+          <div v-for="block in LANDING_EXAMPLE" :key="block.title">
+            <div class="flex items-baseline justify-between">
+              <div class="font-display text-xl text-foreground">{{ block.title }}</div>
+              <div class="text-xs text-muted-foreground">{{ block.summary }}</div>
+            </div>
+            <div
+              v-for="row in block.rows"
+              :key="row.name"
+              class="mt-2 flex items-center gap-3 rounded-xl px-3 py-2 border border-border"
+            >
+              <span class="w-12 shrink-0 text-center text-eyebrow font-black uppercase tracking-widest px-1 py-0.5 rounded leading-tight" :style="{ background: row.color + '18', color: row.color }">{{ row.when }}</span>
+              <div class="min-w-0 flex-1">
+                <div class="text-sm font-bold truncate text-foreground">{{ row.name }}</div>
+                <div class="text-xs truncate text-muted-foreground">{{ row.meta }}</div>
+              </div>
+              <span v-if="row.tag" class="text-xs font-bold whitespace-nowrap" :style="{ color: row.color }">{{ row.tag }}</span>
+            </div>
           </div>
         </div>
-
-        <!-- Sign in / join -->
-        <div class="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3 font-sans">
-          <Button variant="cta" size="lg" class="px-6" @click="openAuth('dashboard')">
-            Join &amp; build my dashboard <ArrowRight aria-hidden="true" />
-          </Button>
-          <Button variant="outline-pill" size="lg" class="px-6" @click="openAuth('signin')">
-            Sign in
-          </Button>
-        </div>
-        <p class="mt-4 text-center text-sm text-muted-foreground font-sans">
-          Just looking? <NuxtLink to="/festivals" class="italic underline text-secondary">Browse festivals</NuxtLink>
-        </p>
       </div>
       <SignUpModal v-model:open="showAuth" :action="authAction" />
     </section>
@@ -1825,6 +1854,17 @@ function cardSummary(f: CatalogueEntry) {
 
     <!-- SIGNED IN, WITH PICKS -->
     <section v-else class="max-w-4xl mx-auto px-4 py-6 pb-16">
+      <!-- WEDANCE IN CHATGPT · until the dancer has connected it. -->
+      <ChatgptPlanPitch
+        v-if="showChatgptPitch"
+        surface="my_plan_top"
+        :city="dancerCity"
+        :style="dancerStyles[0]"
+        dismissible
+        class="mb-10"
+        @dismiss="hideChatgptPitch"
+      />
+
       <!-- TONIGHT · Hangouts. -->
       <div id="tonight" class="mt-2">
         <div class="flex items-baseline justify-between mb-4">
@@ -2075,6 +2115,216 @@ function cardSummary(f: CatalogueEntry) {
           </NuxtLink>
         </WeekendStory>
         <p v-if="shareWeekendError && upcomingSocials.length" role="alert" class="mt-2 text-xs text-destructive font-sans">{{ shareWeekendError }}</p>
+      </div>
+
+      <!-- MEET NEW FRIENDS · the people deck, right after your week. -->
+      <div id="discover" class="mt-14">
+        <div class="flex items-baseline justify-between mb-4">
+          <div>
+            <h2 class="text-3xl leading-tight font-display text-foreground">Meet new friends</h2>
+            <p class="mt-1 text-sm text-muted-foreground font-sans">Dancers going where you go, and locals who dance like you</p>
+          </div>
+          <Button
+            variant="link"
+            class="h-auto p-0 gap-1 text-xs font-normal italic text-secondary font-display disabled:opacity-40 [&_svg]:size-3"
+            :disabled="!canUndo"
+            @click="undoSwipe"
+          >
+            <Undo2 aria-hidden="true" /> Undo
+          </Button>
+        </div>
+        <p class="text-sm mb-6 max-w-xl text-muted-foreground font-sans">
+          Yes = you'd like to dance with them. Say yes to two people heading to the same festival and we'll suggest it for your year. Skip = we won't show them again.
+        </p>
+
+        <!-- Deck -->
+        <div class="relative mx-auto max-w-md">
+          <div v-if="!deckCurrent" class="rounded-2xl p-10 text-center border-2 border-dashed border-input bg-white/50">
+            <Sparkles class="w-10 h-10 mx-auto mb-3 text-secondary" />
+            <p class="text-lg font-display text-foreground">
+              That's it for this pass.
+            </p>
+            <p class="mt-2 text-sm text-muted-foreground font-sans">
+              You've seen everyone and everything we have for you right now. New dancers and events show up here as they join WeDance.
+            </p>
+          </div>
+
+          <!-- min-height, not a fixed height: the card grows with its text (it used to clip). -->
+          <div v-else class="relative min-h-[400px]">
+            <!-- Peek: card 3 behind -->
+            <div v-if="deckAfter" class="absolute inset-0 rounded-3xl bg-white border" style="transform: scale(0.88) translateY(20px); opacity:0.35; border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); box-shadow: 0 6px 22px rgba(0,0,0,0.08);" />
+            <!-- Peek: card 2 behind -->
+            <div v-if="deckNext" class="absolute inset-0 rounded-3xl bg-white border" style="transform: scale(0.94) translateY(10px); opacity:0.65; border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); box-shadow: 0 6px 22px rgba(0,0,0,0.08);" />
+            <!-- Current card — gestures live here -->
+            <div
+              :key="deckCurrent.id"
+              class="relative rounded-3xl bg-white border overflow-hidden touch-none select-none cursor-grab active:cursor-grabbing"
+              :style="{
+                borderColor: 'color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent)',
+                boxShadow: '0 12px 32px rgba(0,0,0,0.14)',
+                transform: currentCardTransform(),
+                transition: dragActive || cardExitDir ? 'transform 260ms ease-out' : 'transform 220ms ease-out',
+              }"
+              @pointerdown="onCardPointerDown"
+              @pointermove="onCardPointerMove"
+              @pointerup="onCardPointerUp"
+              @pointercancel="onCardPointerUp"
+            >
+              <!-- YES / SKIP labels tinted by drag -->
+              <div
+                class="absolute top-6 left-6 z-10 px-3 py-1 rounded-full border-2 text-sm font-black uppercase tracking-widest pointer-events-none transition-opacity text-primary border-wd-red-600"
+                style="transform: rotate(-10deg);"
+                :style="{ opacity: Math.min(1, Math.max(0, -dragDx / 100)) }"
+              >Skip</div>
+              <div
+                class="absolute top-6 right-6 z-10 px-3 py-1 rounded-full border-2 text-sm font-black uppercase tracking-widest pointer-events-none transition-opacity text-wd-green-600 border-wd-green-600"
+                style="transform: rotate(10deg);"
+                :style="{ opacity: Math.min(1, Math.max(0, dragDx / 100)) }"
+              >Yes</div>
+
+              <!-- DANCER CARDS (any of the 3 dancer kinds) -->
+              <template v-if="deckCurrent.kind === 'dancer-your-fest' || deckCurrent.kind === 'dancer-new-fest' || deckCurrent.kind === 'dancer-local'">
+                <img :src="sizedImage(deckCurrent.photo, IMG.card)" :alt="deckCurrent.name" class="w-full h-64 object-cover" draggable="false">
+                <div class="p-5">
+                  <div class="flex items-baseline justify-between gap-3">
+                    <div class="text-xl font-black font-display text-foreground">
+                      {{ deckCurrent.name }}
+                    </div>
+                    <div class="text-xs italic text-secondary font-display">
+                      {{ deckCurrent.city }}
+                    </div>
+                  </div>
+                  <!-- Context chip -->
+                  <div v-if="deckCurrent.kind === 'dancer-your-fest'"
+                       class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold"
+                       :style="{ background: deckCurrent.festivalColor + '18', color: deckCurrent.festivalColor }">
+                    <Plane class="w-3 h-3" style="stroke-width:1.5;" />
+                    Also going to {{ deckCurrent.festivalName }}
+                  </div>
+                  <div v-else-if="deckCurrent.kind === 'dancer-new-fest'"
+                       class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold"
+                       :style="{ background: deckCurrent.festivalColor + '18', color: deckCurrent.festivalColor }">
+                    <Plane class="w-3 h-3" style="stroke-width:1.5;" />
+                    Going to {{ deckCurrent.festivalName }} — you're not
+                  </div>
+                  <div v-else-if="deckCurrent.kind === 'dancer-local' && (deckCurrent.regularAt || deckCurrent.city)"
+                       class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold text-wd-green-600"
+                       style="background:color-mix(in srgb, var(--wd-green-600) 9.4%, transparent);">
+                    <MapPin class="w-3 h-3" style="stroke-width:1.5;" />
+                    <template v-if="deckCurrent.regularAt">Regular at {{ deckCurrent.regularAt }}</template>
+                    <template v-else>Dances in {{ deckCurrent.city }}</template>
+                  </div>
+                  <div class="mt-3 flex flex-wrap gap-1">
+                    <span v-for="st in deckCurrent.danceStyles" :key="st"
+                          class="text-eyebrow font-bold uppercase tracking-widest px-2 py-0.5 rounded-full text-muted-foreground"
+                          style="background:color-mix(in srgb, var(--wd-brown-900) 3.9%, transparent);">
+                      {{ st }}
+                    </span>
+                  </div>
+                  <p v-if="deckCurrent.reason" class="mt-3 text-xs italic leading-snug text-muted-foreground font-display">
+                    {{ deckCurrent.reason }}
+                  </p>
+                </div>
+              </template>
+
+              <!-- EVENT: FESTIVAL -->
+              <template v-else-if="deckCurrent.kind === 'event-festival'">
+                <div class="h-64 p-6 flex flex-col justify-end" :style="{ background: 'linear-gradient(135deg, ' + (deckCurrent as any).color + ', var(--wd-orange-500))' }">
+                  <div class="text-eyebrow uppercase tracking-widest font-bold text-white/90">Festival · not in your year</div>
+                  <div class="mt-1 text-3xl font-black leading-none text-white font-display">
+                    {{ deckCurrent.name }}
+                  </div>
+                </div>
+                <div class="p-5">
+                  <div class="flex items-center gap-4 text-xs text-muted-foreground font-sans">
+                    <span class="inline-flex items-center gap-1">
+                      <Calendar class="w-3 h-3 text-secondary" />
+                      {{ new Date(`${(deckCurrent as any).dateISO}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }) }}
+                    </span>
+                    <span class="inline-flex items-center gap-1">
+                      <MapPin class="w-3 h-3 text-secondary" />
+                      {{ (deckCurrent as any).venue }}, {{ (deckCurrent as any).city }}
+                    </span>
+                  </div>
+                  <div v-if="(deckCurrent as any).friendsGoing > 0" class="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold text-wd-amber-500"
+                       style="background:color-mix(in srgb, var(--wd-amber-500) 9.4%, transparent);">
+                    <UsersIcon class="w-3 h-3" style="stroke-width:1.5;" />
+                    {{ (deckCurrent as any).friendsGoing }} friend{{ (deckCurrent as any).friendsGoing === 1 ? '' : 's' }} going
+                  </div>
+                  <p v-if="deckCurrent.reason" class="mt-3 text-xs italic leading-snug text-muted-foreground font-display">
+                    {{ deckCurrent.reason }}
+                  </p>
+                </div>
+              </template>
+
+              <!-- EVENT: LOCAL SOCIAL -->
+              <template v-else>
+                <div class="h-64 p-6 flex flex-col justify-end" :style="{ background: 'linear-gradient(135deg, ' + (deckCurrent as any).color + ', var(--wd-violet-600))' }">
+                  <div class="text-eyebrow uppercase tracking-widest font-bold text-white/90">Local · {{ (deckCurrent as any).style }}</div>
+                  <div class="mt-1 text-3xl font-black leading-none text-white font-display">
+                    {{ deckCurrent.name }}
+                  </div>
+                </div>
+                <div class="p-5">
+                  <div class="flex items-center gap-4 text-xs text-muted-foreground font-sans">
+                    <span class="inline-flex items-center gap-1">
+                      <Calendar class="w-3 h-3 text-secondary" />
+                      {{ [(deckCurrent as any).dayLabel, shortDayDate((deckCurrent as any).dateISO ?? '')].filter(Boolean).join(' ') }} · {{ (deckCurrent as any).time }}
+                    </span>
+                    <span class="inline-flex items-center gap-1">
+                      <MapPin class="w-3 h-3 text-secondary" />
+                      {{ (deckCurrent as any).venue }}, {{ (deckCurrent as any).city }}
+                    </span>
+                  </div>
+                  <div v-if="(deckCurrent as any).friendsGoing > 0" class="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold text-wd-amber-500"
+                       style="background:color-mix(in srgb, var(--wd-amber-500) 9.4%, transparent);">
+                    <UsersIcon class="w-3 h-3" style="stroke-width:1.5;" />
+                    {{ (deckCurrent as any).friendsGoing }} friend{{ (deckCurrent as any).friendsGoing === 1 ? '' : 's' }} going
+                  </div>
+                  <p v-if="deckCurrent.reason" class="mt-3 text-xs italic leading-snug text-muted-foreground font-display">
+                    {{ deckCurrent.reason }}
+                  </p>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- Action buttons -->
+          <div v-if="deckCurrent" class="mt-8 flex items-center justify-center gap-6">
+            <button
+              type="button"
+              class="w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95 text-primary"
+              style="background:white; border:2px solid color-mix(in srgb, var(--wd-red-600) 33.3%, transparent);"
+              aria-label="Skip"
+              @click="commitSwipe('skip')"
+            >
+              <X class="w-6 h-6" />
+            </button>
+            <button
+              type="button"
+              class="w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95 text-wd-amber-500"
+              style="background:white; border:2px solid color-mix(in srgb, var(--wd-amber-500) 33.3%, transparent);"
+              aria-label="Later — show again at the end"
+              title="Later — show again at the end"
+              @click="commitSwipe('later')"
+            >
+              <Clock class="w-5 h-5" />
+            </button>
+            <button
+              type="button"
+              class="w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95 text-wd-green-600"
+              style="background:white; border:2px solid color-mix(in srgb, var(--wd-green-600) 33.3%, transparent);"
+              aria-label="Yes"
+              @click="commitSwipe('yes')"
+            >
+              <Heart class="w-6 h-6" />
+            </button>
+          </div>
+
+          <p v-if="deckCurrent" class="mt-4 text-xs text-center italic text-secondary font-display">
+            Drag or use the buttons · {{ deck.length }} left
+          </p>
+        </div>
       </div>
 
       <!-- MONTH · Courses. -->
@@ -2805,218 +3055,9 @@ function cardSummary(f: CatalogueEntry) {
         </div>
       </div>
 
-      <!-- DISCOVER · widen-your-year deck. -->
-      <div id="discover" class="mt-14">
-        <div class="flex items-baseline justify-between mb-4">
-          <div>
-            <h2 class="text-3xl leading-tight font-display text-foreground">Discover</h2>
-            <p class="mt-1 text-sm text-muted-foreground font-sans">Festivals, nights and dancers you haven't added yet</p>
-          </div>
-          <Button
-            variant="link"
-            class="h-auto p-0 gap-1 text-xs font-normal italic text-secondary font-display disabled:opacity-40 [&_svg]:size-3"
-            :disabled="!canUndo"
-            @click="undoSwipe"
-          >
-            <Undo2 aria-hidden="true" /> Undo
-          </Button>
-        </div>
-        <p class="text-sm mb-6 max-w-xl text-muted-foreground font-sans">
-          People and places that could pull you somewhere new. Yes on an event adds it to your plan; Yes on two dancers heading to the same festival suggests it for your year. Skip = we won't show it again.
-        </p>
-
-        <!-- Deck -->
-        <div class="relative mx-auto max-w-md">
-          <div v-if="!deckCurrent" class="rounded-2xl p-10 text-center border-2 border-dashed border-input bg-white/50">
-            <Sparkles class="w-10 h-10 mx-auto mb-3 text-secondary" />
-            <p class="text-lg font-display text-foreground">
-              That's it for this pass.
-            </p>
-            <p class="mt-2 text-sm text-muted-foreground font-sans">
-              You've seen everyone and everything we have for you right now. New dancers and events show up here as they join WeDance.
-            </p>
-          </div>
-
-          <!-- min-height, not a fixed height: the card grows with its text (it used to clip). -->
-          <div v-else class="relative min-h-[400px]">
-            <!-- Peek: card 3 behind -->
-            <div v-if="deckAfter" class="absolute inset-0 rounded-3xl bg-white border" style="transform: scale(0.88) translateY(20px); opacity:0.35; border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); box-shadow: 0 6px 22px rgba(0,0,0,0.08);" />
-            <!-- Peek: card 2 behind -->
-            <div v-if="deckNext" class="absolute inset-0 rounded-3xl bg-white border" style="transform: scale(0.94) translateY(10px); opacity:0.65; border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); box-shadow: 0 6px 22px rgba(0,0,0,0.08);" />
-            <!-- Current card — gestures live here -->
-            <div
-              :key="deckCurrent.id"
-              class="relative rounded-3xl bg-white border overflow-hidden touch-none select-none cursor-grab active:cursor-grabbing"
-              :style="{
-                borderColor: 'color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent)',
-                boxShadow: '0 12px 32px rgba(0,0,0,0.14)',
-                transform: currentCardTransform(),
-                transition: dragActive || cardExitDir ? 'transform 260ms ease-out' : 'transform 220ms ease-out',
-              }"
-              @pointerdown="onCardPointerDown"
-              @pointermove="onCardPointerMove"
-              @pointerup="onCardPointerUp"
-              @pointercancel="onCardPointerUp"
-            >
-              <!-- YES / SKIP labels tinted by drag -->
-              <div
-                class="absolute top-6 left-6 z-10 px-3 py-1 rounded-full border-2 text-sm font-black uppercase tracking-widest pointer-events-none transition-opacity text-primary border-wd-red-600"
-                style="transform: rotate(-10deg);"
-                :style="{ opacity: Math.min(1, Math.max(0, -dragDx / 100)) }"
-              >Skip</div>
-              <div
-                class="absolute top-6 right-6 z-10 px-3 py-1 rounded-full border-2 text-sm font-black uppercase tracking-widest pointer-events-none transition-opacity text-wd-green-600 border-wd-green-600"
-                style="transform: rotate(10deg);"
-                :style="{ opacity: Math.min(1, Math.max(0, dragDx / 100)) }"
-              >Yes</div>
-
-              <!-- DANCER CARDS (any of the 3 dancer kinds) -->
-              <template v-if="deckCurrent.kind === 'dancer-your-fest' || deckCurrent.kind === 'dancer-new-fest' || deckCurrent.kind === 'dancer-local'">
-                <img :src="sizedImage(deckCurrent.photo, IMG.card)" :alt="deckCurrent.name" class="w-full h-64 object-cover" draggable="false">
-                <div class="p-5">
-                  <div class="flex items-baseline justify-between gap-3">
-                    <div class="text-xl font-black font-display text-foreground">
-                      {{ deckCurrent.name }}
-                    </div>
-                    <div class="text-xs italic text-secondary font-display">
-                      {{ deckCurrent.city }}
-                    </div>
-                  </div>
-                  <!-- Context chip -->
-                  <div v-if="deckCurrent.kind === 'dancer-your-fest'"
-                       class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold"
-                       :style="{ background: deckCurrent.festivalColor + '18', color: deckCurrent.festivalColor }">
-                    <Plane class="w-3 h-3" style="stroke-width:1.5;" />
-                    Also going to {{ deckCurrent.festivalName }}
-                  </div>
-                  <div v-else-if="deckCurrent.kind === 'dancer-new-fest'"
-                       class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold"
-                       :style="{ background: deckCurrent.festivalColor + '18', color: deckCurrent.festivalColor }">
-                    <Plane class="w-3 h-3" style="stroke-width:1.5;" />
-                    Going to {{ deckCurrent.festivalName }} — you're not
-                  </div>
-                  <div v-else-if="deckCurrent.kind === 'dancer-local' && (deckCurrent.regularAt || deckCurrent.city)"
-                       class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold text-wd-green-600"
-                       style="background:color-mix(in srgb, var(--wd-green-600) 9.4%, transparent);">
-                    <MapPin class="w-3 h-3" style="stroke-width:1.5;" />
-                    <template v-if="deckCurrent.regularAt">Regular at {{ deckCurrent.regularAt }}</template>
-                    <template v-else>Dances in {{ deckCurrent.city }}</template>
-                  </div>
-                  <div class="mt-3 flex flex-wrap gap-1">
-                    <span v-for="st in deckCurrent.danceStyles" :key="st"
-                          class="text-eyebrow font-bold uppercase tracking-widest px-2 py-0.5 rounded-full text-muted-foreground"
-                          style="background:color-mix(in srgb, var(--wd-brown-900) 3.9%, transparent);">
-                      {{ st }}
-                    </span>
-                  </div>
-                  <p v-if="deckCurrent.reason" class="mt-3 text-xs italic leading-snug text-muted-foreground font-display">
-                    {{ deckCurrent.reason }}
-                  </p>
-                </div>
-              </template>
-
-              <!-- EVENT: FESTIVAL -->
-              <template v-else-if="deckCurrent.kind === 'event-festival'">
-                <div class="h-64 p-6 flex flex-col justify-end" :style="{ background: 'linear-gradient(135deg, ' + (deckCurrent as any).color + ', var(--wd-orange-500))' }">
-                  <div class="text-eyebrow uppercase tracking-widest font-bold text-white/90">Festival · not in your year</div>
-                  <div class="mt-1 text-3xl font-black leading-none text-white font-display">
-                    {{ deckCurrent.name }}
-                  </div>
-                </div>
-                <div class="p-5">
-                  <div class="flex items-center gap-4 text-xs text-muted-foreground font-sans">
-                    <span class="inline-flex items-center gap-1">
-                      <Calendar class="w-3 h-3 text-secondary" />
-                      {{ new Date(`${(deckCurrent as any).dateISO}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }) }}
-                    </span>
-                    <span class="inline-flex items-center gap-1">
-                      <MapPin class="w-3 h-3 text-secondary" />
-                      {{ (deckCurrent as any).venue }}, {{ (deckCurrent as any).city }}
-                    </span>
-                  </div>
-                  <div v-if="(deckCurrent as any).friendsGoing > 0" class="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold text-wd-amber-500"
-                       style="background:color-mix(in srgb, var(--wd-amber-500) 9.4%, transparent);">
-                    <UsersIcon class="w-3 h-3" style="stroke-width:1.5;" />
-                    {{ (deckCurrent as any).friendsGoing }} friend{{ (deckCurrent as any).friendsGoing === 1 ? '' : 's' }} going
-                  </div>
-                  <p v-if="deckCurrent.reason" class="mt-3 text-xs italic leading-snug text-muted-foreground font-display">
-                    {{ deckCurrent.reason }}
-                  </p>
-                </div>
-              </template>
-
-              <!-- EVENT: LOCAL SOCIAL -->
-              <template v-else>
-                <div class="h-64 p-6 flex flex-col justify-end" :style="{ background: 'linear-gradient(135deg, ' + (deckCurrent as any).color + ', var(--wd-violet-600))' }">
-                  <div class="text-eyebrow uppercase tracking-widest font-bold text-white/90">Local · {{ (deckCurrent as any).style }}</div>
-                  <div class="mt-1 text-3xl font-black leading-none text-white font-display">
-                    {{ deckCurrent.name }}
-                  </div>
-                </div>
-                <div class="p-5">
-                  <div class="flex items-center gap-4 text-xs text-muted-foreground font-sans">
-                    <span class="inline-flex items-center gap-1">
-                      <Calendar class="w-3 h-3 text-secondary" />
-                      {{ [(deckCurrent as any).dayLabel, shortDayDate((deckCurrent as any).dateISO ?? '')].filter(Boolean).join(' ') }} · {{ (deckCurrent as any).time }}
-                    </span>
-                    <span class="inline-flex items-center gap-1">
-                      <MapPin class="w-3 h-3 text-secondary" />
-                      {{ (deckCurrent as any).venue }}, {{ (deckCurrent as any).city }}
-                    </span>
-                  </div>
-                  <div v-if="(deckCurrent as any).friendsGoing > 0" class="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold text-wd-amber-500"
-                       style="background:color-mix(in srgb, var(--wd-amber-500) 9.4%, transparent);">
-                    <UsersIcon class="w-3 h-3" style="stroke-width:1.5;" />
-                    {{ (deckCurrent as any).friendsGoing }} friend{{ (deckCurrent as any).friendsGoing === 1 ? '' : 's' }} going
-                  </div>
-                  <p v-if="deckCurrent.reason" class="mt-3 text-xs italic leading-snug text-muted-foreground font-display">
-                    {{ deckCurrent.reason }}
-                  </p>
-                </div>
-              </template>
-            </div>
-          </div>
-
-          <!-- Action buttons -->
-          <div v-if="deckCurrent" class="mt-8 flex items-center justify-center gap-6">
-            <button
-              type="button"
-              class="w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95 text-primary"
-              style="background:white; border:2px solid color-mix(in srgb, var(--wd-red-600) 33.3%, transparent);"
-              aria-label="Skip"
-              @click="commitSwipe('skip')"
-            >
-              <X class="w-6 h-6" />
-            </button>
-            <button
-              type="button"
-              class="w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95 text-wd-amber-500"
-              style="background:white; border:2px solid color-mix(in srgb, var(--wd-amber-500) 33.3%, transparent);"
-              aria-label="Later — show again at the end"
-              title="Later — show again at the end"
-              @click="commitSwipe('later')"
-            >
-              <Clock class="w-5 h-5" />
-            </button>
-            <button
-              type="button"
-              class="w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95 text-wd-green-600"
-              style="background:white; border:2px solid color-mix(in srgb, var(--wd-green-600) 33.3%, transparent);"
-              aria-label="Yes"
-              @click="commitSwipe('yes')"
-            >
-              <Heart class="w-6 h-6" />
-            </button>
-          </div>
-
-          <p v-if="deckCurrent" class="mt-4 text-xs text-center italic text-secondary font-display">
-            Drag or use the buttons · {{ deck.length }} left
-          </p>
-        </div>
-      </div>
     </section>
 
-    <section v-if="isSignedIn" class="max-w-4xl mx-auto px-4 pb-10 text-center font-sans">
+    <section v-if="isSignedIn && !(viewState === 'plan' && showChatgptPitch)" class="max-w-4xl mx-auto px-4 pb-10 text-center font-sans">
       <AiAppCta surface="my_plan" variant="inline" label="Plan your weekend in ChatGPT">
         Rather ask than scroll?
       </AiAppCta>
