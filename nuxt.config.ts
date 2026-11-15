@@ -56,6 +56,7 @@ export default defineNuxtConfig({
     // hard refresh. Disabling SSR avoids the mismatch entirely.
     '/my-year': { ssr: false },
     '/my-plan': { ssr: false },
+    '/meet': { ssr: false },
     '/settings': { ssr: false },
     '/settings/**': { ssr: false },
     // Connected apps (MCP): the consent screen runs on the client session and

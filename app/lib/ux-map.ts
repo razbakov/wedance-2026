@@ -98,7 +98,7 @@ const IT: [UxJourneyId, UxStageKey, string, string, UxStatus, string, string][] 
 ['C3','return','Reminders / new events from people I follow','','gap','No dancer-facing email or push exists. Every email sent today goes to businesses or is about auth.',''],
 ['C3','return','City video vote · City Battle','/cities/[city]','live','',''],
 ['C3','spread','Wave / partner pairing','/events/[id]','live','Waves and leader/follower pairing from the RSVP poll.',''],
-['C3','spread','Discover dancers deck','/my-plan','live','',''],
+['C3','spread','Meet new friends deck','/meet','live','Its own page since RAZ-989; My plan links to it.','RAZ-989'],
 // C4 Traveler
 ['C4','discover','Festival list + search','/festivals','partial','DB-backed with search by city, style and name, but few festivals have rich data, running festivals say "Past" and single classes are listed as festivals.','P214 P213 P301 RAZ-893 RAZ-925'],
 ['C4','discover','Europe-wide map','','missing','"Every festival mapped" is promised on the landing and /festivals, but neither has a map.','P209 P303'],
