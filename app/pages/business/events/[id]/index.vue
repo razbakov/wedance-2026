@@ -47,7 +47,9 @@ async function load() {
     loading.value = false
   }
   // #lineup (from an artist's booking page): the editor renders after the load.
-  if (route.hash) nextTick(() => document.querySelector(route.hash)?.scrollIntoView({ block: 'start' }))
+  // The Line-up card opens, so the artist just added can be confirmed (RAZ-988).
+  if (route.hash === '#lineup') nextTick(() => formRef.value?.focus('lineup'))
+  else if (route.hash) nextTick(() => document.querySelector(route.hash)?.scrollIntoView({ block: 'start' }))
   else if (route.query.created && !guided && ev.value && !ev.value.synced) {
     guided = true
     nextTick(() => goStep(firstOpenStep(steps.value)))
