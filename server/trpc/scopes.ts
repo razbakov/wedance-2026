@@ -104,6 +104,7 @@ export const PROCEDURE_SCOPES: Record<string, Scope | null> = {
   'businessEvents.series': 'business:read',
   'businessEvents.attendees': 'business:read',
   'businessEvents.cancelPreview': 'business:read',
+  'businessEvents.uncancelPreview': 'business:read',
   'gigs.applications': 'business:read',
   // Tracked links: the link is made on first use (no visible change, idempotent).
   'referral.myLink': 'business:read',

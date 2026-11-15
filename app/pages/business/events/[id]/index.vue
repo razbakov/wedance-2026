@@ -10,7 +10,7 @@
  * venue → line-up → entry → flyer → publish — one card open at a time. A new
  * draft (?created=…) opens on its first step still to do.
  */
-import { Check, ExternalLink, Repeat, Archive, ArchiveRestore, Sparkles, FileText, Copy, Ban, Undo2 } from 'lucide-vue-next'
+import { Check, ExternalLink, Repeat, Archive, ArchiveRestore, Sparkles, FileText, Copy, Ban } from 'lucide-vue-next'
 import type { BusinessEventValues } from '~/components/business/BusinessEventForm.vue'
 import { toBusinessEventInput } from '~/lib/businessEvent'
 import { eventLocalDate } from '#shared/utils/eventTime'
@@ -240,14 +240,12 @@ async function onCancelled(r: { notified: number }) {
   await load()
   notice.value = r.notified ? `Cancelled. We’re emailing the ${r.notified} ${r.notified === 1 ? 'person' : 'people'} who signed up.` : 'Cancelled. Nobody had signed up yet.'
 }
-const uncancelling = ref(false)
-async function uncancel() {
-  uncancelling.value = true
-  try {
-    await $trpc.businessEvents.uncancel.mutate({ id: id.value })
-    await load()
-    notice.value = 'It’s on again: the “Cancelled” mark is gone. Nobody was emailed, so tell people yourself if they should know.'
-  } catch (e: any) { error.value = e?.message || 'Could not undo it.' } finally { uncancelling.value = false }
+// "It's on again" (RAZ-969): BusinessUncancelEvent offers to email the people told it was off.
+async function onUncancelled(r: { notified: number }) {
+  await load()
+  notice.value = r.notified
+    ? `It’s on again. We’re emailing the ${r.notified} ${r.notified === 1 ? 'person' : 'people'} who got the cancellation: “Good news, it’s on again”.`
+    : 'It’s on again: the “Cancelled” mark is gone. Nobody was emailed.'
 }
 const confirmArchive = ref(false)
 const archiving = ref(false)
@@ -305,7 +303,7 @@ async function archive(series = false) {
       <div v-if="ev.cancelledAt" class="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm" role="status" data-testid="event-cancelled-status">
         <Ban class="size-4 shrink-0 text-destructive" aria-hidden="true" />
         <p class="min-w-0 flex-1"><span class="font-bold text-destructive">Cancelled.</span> Still listed on WeDance and your website, crossed out<template v-if="ev.cancelReason">: “{{ ev.cancelReason }}”</template>.</p>
-        <Button type="button" variant="outline-pill" size="pill-sm" :loading="uncancelling" @click="uncancel"><Undo2 /> It’s on again</Button>
+        <BusinessUncancelEvent :id="ev.id" @uncancelled="onUncancelled" />
       </div>
       <p v-if="ev.synced" class="mt-4 rounded-2xl bg-secondary/10 p-4 text-sm" role="status">
         <span class="font-bold">This event comes from wedance.vip.</span>

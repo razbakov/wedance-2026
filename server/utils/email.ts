@@ -555,3 +555,38 @@ export async function sendEventCancelledEmail(params: {
     </div>`,
   })
 }
+
+/**
+ * An organiser took the "Cancelled" mark off an event (RAZ-969): the people who
+ * got the cancellation email hear it's on again. Ticket holders are told their
+ * ticket still counts unless they already asked for a refund.
+ */
+export async function sendEventBackOnEmail(params: {
+  to: string
+  name: string
+  eventName: string
+  when: string
+  organizer: string | null
+  ticket: boolean
+  link: string
+}) {
+  const config = useRuntimeConfig()
+  const subject = `Good news, it’s on again: ${params.eventName}${params.when ? `, ${params.when}` : ''}`
+  if (!config.resendApiKey) {
+    console.log(`\n✉️  ${params.to}: ${subject} → ${params.link}\n`)
+    return
+  }
+  const by = params.organizer ? escapeHtml(params.organizer) : 'The organiser'
+  await getResend().emails.send({
+    from: config.resendFromEmail || 'WeDance <noreply@wedance.vip>',
+    to: params.to,
+    subject,
+    html: `<div style="font-family: sans-serif; max-width: 460px; margin: 0 auto; padding: 20px;">
+      <h2 style="color: #333;">Good news, it’s on again 🎉</h2>
+      <p>Hey ${escapeHtml(params.name || 'there')},</p>
+      <p style="color: #555;">${by} cancelled <strong>${escapeHtml(params.eventName)}</strong>${params.when ? `, ${escapeHtml(params.when)}` : ''}, and now it’s back on. Check the details before you go.</p>
+      ${params.ticket ? `<p style="color: #555;">You have a ticket for it. If you already asked for a refund, please check with ${params.organizer ? escapeHtml(params.organizer) : 'the organiser'} directly.</p>` : ''}
+      <a href="${params.link}" style="display: inline-block; background: #000; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">See the event</a>
+    </div>`,
+  })
+}
