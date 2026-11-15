@@ -453,6 +453,9 @@ export async function discoverDeck(db: Db, dancerId: string, now = new Date()): 
   const dancerCards: DiscoverCard[] = []
 
   // 1. Dancers heading to festivals — the same ones as mine, or ones I haven't picked.
+  //    Only those who share that they're going (RAZ-981): the same opt-in as
+  //    "Who's going" on the festival page, where the Yes turns into a wave.
+  //    Others can still come in as locals below, without the festival.
   try {
     const otherPlans = await db
       .select({ dancerId: planItems.dancerId, itemId: planItems.itemId })
@@ -460,6 +463,7 @@ export async function discoverDeck(db: Db, dancerId: string, now = new Date()): 
       .innerJoin(dancers, eq(planItems.dancerId, dancers.id))
       .where(and(
         eq(planItems.itemType, 'festival'),
+        eq(planItems.shareGoing, true),
         ne(planItems.dancerId, dancerId),
         eq(dancers.profilePublic, true),
         ...hasPhoto(),

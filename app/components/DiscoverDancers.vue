@@ -99,13 +99,17 @@ const linkCopied = ref(false)
 const deckEmpty = computed(() => !poolLoading.value
   && poolDancers.value.length === 0 && !(props.extraCards?.length))
 
+const visibleLoaded = ref(false)
 async function loadVisible() {
-  if (!props.isSignedIn || !props.festivalSlug || !isGoing.value) { visible.value = false; return }
+  if (!props.isSignedIn || !props.festivalSlug || !isGoing.value) { visible.value = false; visibleLoaded.value = true; return }
   try {
     visible.value = (await $trpc.plan.getShareGoing.query({ itemType: props.itemType, itemId: props.festivalSlug })).share
   } catch { /* stays off */ }
+  visibleLoaded.value = true
 }
-watch([deckEmpty, isGoing], ([empty]) => { if (empty) loadVisible() }, { immediate: true })
+// RAZ-981: also when the deck has people — "Show me" is how a dancer gets into
+// this deck and into other dancers' "Meet new friends" on My plan.
+watch([isGoing, () => props.isSignedIn], () => loadVisible(), { immediate: true })
 
 /** Mark going (if not yet) and switch on "show me", so others find you here. */
 async function joinDeck() {
@@ -1081,6 +1085,19 @@ function endorsementCount(dancer: DiscoverDancer, styleName: string): number {
         </Button>
       </div>
       <p v-if="joinError" role="alert" class="text-xs text-destructive">{{ joinError }}</p>
+    </div>
+
+    <!-- RAZ-981: the deck has people, but they can't see you yet. -->
+    <div
+      v-if="isSignedIn && visibleLoaded && !poolLoading && !deckEmpty && !(isGoing && visible)"
+      data-testid="discover-show-me"
+      class="flex flex-wrap items-center justify-center gap-2 text-sm text-muted-foreground font-sans"
+    >
+      <span>They can't see you in this deck yet.</span>
+      <Button type="button" variant="pill" size="pill-sm" :disabled="joining" @click="joinDeck">
+        <Check aria-hidden="true" /> {{ isGoing ? 'Show me in the deck' : "I'm going, show me" }}
+      </Button>
+      <p v-if="joinError" role="alert" class="w-full text-center text-xs text-destructive">{{ joinError }}</p>
     </div>
   </div>
 </template>
