@@ -25,6 +25,7 @@ import { eventPath, festivalPath } from '#shared/utils/eventSlug'
 import { weekendKey } from '#shared/utils/weekendShare'
 import { citySlug as toCitySlug } from '#shared/utils/citySearch'
 import { initialOf } from '#shared/utils/initials'
+import { festivalYearLine } from '#shared/utils/festivalYearLine'
 import { planView, authPending } from '~/lib/planView'
 import { isYearTurn } from '#shared/utils/yearReview'
 import { yearShareUrl, type YearStoryFestival } from '#shared/utils/yearStory'
@@ -281,52 +282,7 @@ function daysUntilLabel(dateStr: string, endStr?: string | null) {
   return { text: `In ${Math.ceil(diff / 30)} months`, urgent: false }
 }
 
-// Short label for the year-at-a-glance strip. Prefer the "brand short"
-// (initials of significant words), fall back to first 3 chars.
-function shortLabel(name: string) {
-  // NFKC: styled titles ("𝐆𝐋𝐎𝐁𝐀𝐋 …") read as plain letters, not half-characters.
-  const plain = name.normalize('NFKC')
-  const words = plain
-    .replace(/[¡¿!?().,]/g, '')
-    .split(/\s+/)
-    .filter(w => w.length > 2 && !/^(the|and|of|de|la|el|los|las|for|with|to|in|on|at|by)$/i.test(w))
-  // Array.from: cut by characters, not UTF-16 units (an unfolded astral letter is two).
-  if (words.length >= 2) return Array.from(words.map(w => initialOf(w, '')).join('')).slice(0, 3).join('').toUpperCase()
-  return (plain.replace(/[^A-Za-z0-9]/g, '').slice(0, 3) || '?').toUpperCase()
-}
-
-const MONTH_LABELS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
-
-// Year-at-a-glance grid. Each of the 12 months owns any picked
-// festivals that START in that month (a fest spanning May → June
-// lives under May).
-const monthsGrid = computed(() =>
-  MONTH_LABELS.map((label, i) => {
-    const entries = picked.value
-      .filter(f => new Date(f.startDate).getMonth() === i)
-      .map(f => {
-        const s = new Date(f.startDate)
-        const e = new Date(f.endDate)
-        const sameMonth = s.getMonth() === e.getMonth()
-        return {
-          slug: f.slug,
-          name: f.name,
-          short: shortLabel(f.name),
-          accentColor: f.accentColor,
-          dayRange: sameMonth
-            ? `${s.getDate()}–${e.getDate()}`
-            : `${s.getDate()} → ${e.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
-        }
-      })
-    return { label, entries }
-  })
-)
-
-// Client-only: which month index (0–11) is today. Server-render as
-// -1 so the "you're here" chip doesn't hydrate-mismatch.
-const todayMonth = ref(-1)
 onMounted(() => {
-  todayMonth.value = new Date().getMonth()
   // Fetch real hangouts data and city events for signed-in users with a city
   if (isSignedIn.value && !previewMode.value && dancerCity.value) {
     fetchHangouts()
@@ -713,7 +669,7 @@ function tracks(f: CatalogueEntry): Track[] {
 }
 
 // -----------------------------------------------------------------------
-// Cross-festival summary. Real math, no invented totals.
+// Cross-festival summary (the line under "This year"). Real math, no invented totals.
 // -----------------------------------------------------------------------
 const summary = computed(() => {
   const list = picked.value
@@ -1398,10 +1354,7 @@ const monthSummary = computed(() => {
   const unpaid = courses.value.filter(c => c.paidThroughMonth === false).length
   return [plural(n, 'course'), unpaid ? `${unpaid} to pay this month` : ''].filter(Boolean).join(' · ')
 })
-const yearSummary = computed(() => {
-  const { count, urgentDeadlines } = summary.value
-  return [plural(count, 'festival'), urgentDeadlines ? `${plural(urgentDeadlines, 'early-bird')} ending this week` : ''].filter(Boolean).join(' · ')
-})
+const yearSummary = computed(() => festivalYearLine(summary.value))
 const goalsSummary = computed(() => goalsList.value.length
   ? plural(goalsList.value.length, 'goal')
   : 'One year, one arc, one reason to keep showing up')
@@ -2033,94 +1986,6 @@ function cardSummary(f: CatalogueEntry) {
         <h2 class="text-3xl leading-tight font-display text-foreground">This year</h2>
         <p class="mt-1 text-sm text-muted-foreground font-sans">{{ yearSummary }}</p>
         <YearReviewEntry v-if="!showYearReviewBanner" variant="link" class="mt-2" />
-      </div>
-
-      <!-- Cross-festival summary — the money + urgency crosscut. -->
-      <div
-        class="rounded-2xl bg-white border p-5 sm:p-6 mb-8"
-        style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); box-shadow: 0 1px 0 color-mix(in srgb, var(--wd-brown-900) 3.9%, transparent), 0 6px 18px rgba(59,31,18,0.04);"
-      >
-        <div class="flex flex-wrap items-baseline gap-x-8 gap-y-3">
-          <div>
-            <div class="text-4xl font-black leading-none font-display text-foreground">
-              {{ summary.count }}
-            </div>
-            <div class="text-eyebrow uppercase tracking-[0.3em] font-bold mt-1 text-secondary">
-              Festivals this year
-            </div>
-          </div>
-          <div v-if="summary.committed > 0">
-            <div class="text-4xl font-black leading-none font-display text-wd-green-600">
-              €{{ summary.committed }}
-            </div>
-            <div class="text-eyebrow uppercase tracking-[0.3em] font-bold mt-1 text-wd-green-600">
-              Committed
-            </div>
-          </div>
-          <div v-if="summary.pending > 0">
-            <div class="text-4xl font-black leading-none font-display text-muted-foreground">
-              €{{ summary.pending }}
-            </div>
-            <div class="text-eyebrow uppercase tracking-[0.3em] font-bold mt-1 text-muted-foreground">
-              Still owed
-            </div>
-          </div>
-          <div
-            v-if="summary.urgentDeadlines > 0"
-            class="ml-auto inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-bold text-primary font-sans"
-            style="background:color-mix(in srgb, var(--wd-red-600) 9.4%, transparent);"
-          >
-            <span class="w-2 h-2 rounded-full animate-pulse bg-wd-red-600" />
-            {{ summary.urgentDeadlines }} early-bird deadline{{ summary.urgentDeadlines === 1 ? '' : 's' }} this week
-          </div>
-        </div>
-      </div>
-
-      <!-- Year-at-a-glance strip: 12 months, picks fall on their month.
-           Elegant substitute for the retired YearCanvas sidebar — no
-           side rail, no drawer, just one horizontal scan of the year. -->
-      <div class="mb-10">
-        <div class="flex items-baseline justify-between mb-3">
-          <div class="text-xs uppercase tracking-[0.3em] text-secondary">Your year at a glance</div>
-          <span class="text-xs text-secondary font-hand" style="font-size:18px;">
-            — click a chip to jump
-          </span>
-        </div>
-        <div class="rounded-2xl bg-white p-4 sm:p-5 border overflow-x-auto" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); box-shadow: 0 1px 0 color-mix(in srgb, var(--wd-brown-900) 3.9%, transparent), 0 6px 18px rgba(59,31,18,0.04);">
-          <div class="grid grid-cols-12 gap-1 sm:gap-2 min-w-[560px]">
-            <div
-              v-for="(m, i) in monthsGrid"
-              :key="m.label"
-              class="flex flex-col items-center"
-            >
-              <div
-                class="text-eyebrow uppercase tracking-widest font-bold mb-2"
-                :style="{ color: m.entries.length ? WD.brown900 : WD.amber600, opacity: m.entries.length ? 1 : 0.5 }"
-              >{{ m.label }}</div>
-              <!-- Vertical rule for the month -->
-              <div class="w-px h-8 sm:h-10" :style="{ background: m.entries.length ? (WD.brown900 + '33') : (WD.brown900 + '18') }" />
-              <div class="mt-2 flex flex-col gap-1 items-center w-full">
-                <a
-                  v-for="e in m.entries"
-                  :key="e.slug"
-                  :href="`#f-${e.slug}`"
-                  class="w-full max-w-[64px] px-1.5 py-1 rounded-md text-white text-tag font-bold uppercase tracking-wider truncate text-center hover:scale-[1.03] transition-transform"
-                  :style="{ background: e.accentColor }"
-                  :title="`${e.name} · ${e.dayRange}`"
-                >{{ e.short }}</a>
-                <div
-                  v-if="!m.entries.length && i !== todayMonth"
-                  class="w-1.5 h-1.5 rounded-full opacity-25 bg-wd-brown-900"
-                />
-                <div
-                  v-if="i === todayMonth && !m.entries.length"
-                  class="text-[8px] font-bold uppercase tracking-widest mt-1 text-primary font-hand"
-                  style="font-size:13px; text-transform:none; letter-spacing:normal;"
-                >you're here</div>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
 
       <!-- Nudges from Discover swipes — "3 friends heading to X, add it?" -->
