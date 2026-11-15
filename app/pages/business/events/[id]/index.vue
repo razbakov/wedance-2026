@@ -317,7 +317,7 @@ async function archive(series = false) {
 
       <BusinessEventSteps v-if="!ev.synced && !ev.archived" v-model="step" :steps="steps" class="mt-4" @go="goStep" />
 
-      <BusinessWhosComing :event-id="ev.id" :contacts-page="ev.host?.username" class="mt-4" />
+      <BusinessWhosComing id="whos-coming" :event-id="ev.id" :contacts-page="ev.host?.username" class="mt-4 scroll-mt-20" />
 
       <div class="mt-4 grid gap-5" :class="ev.synced ? '' : 'lg:grid-cols-[minmax(0,1fr)_19rem]'">
         <BusinessEventForm

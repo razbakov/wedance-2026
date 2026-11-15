@@ -1,8 +1,8 @@
 import { z } from 'zod'
-import { eq, and, or, gte, lt, inArray, isNull, desc, asc, sql } from 'drizzle-orm'
+import { eq, and, or, gte, lt, inArray, isNull, isNotNull, ne, desc, asc, sql } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { router, protectedProcedure, publicProcedure } from '../trpc'
-import { events, profiles, profileMembers, profileClaims, cities, profileSuggestions, bookingInquiries, planItems, attendances, festivals, festivalSignups, dancers, eventFlyers } from '../../database/schema'
+import { events, profiles, profileMembers, profileClaims, cities, profileSuggestions, bookingInquiries, planItems, attendances, festivals, festivalSignups, dancers, eventFlyers, eventRsvps, follows } from '../../database/schema'
 import { slugify, randomSuffix } from '../../utils/slug'
 import { resolveTimezone, seriesKey } from '../../utils/v3EventSync'
 import { zonedToUtc, eventLocalDate, eventLocalTime, eventLocalWeekday } from '../../../shared/utils/eventTime'
@@ -26,6 +26,7 @@ import { profileGroup, trackServer } from '../../utils/posthog'
 import { scheduleInstagramImport } from '../../utils/instagram/profileImport'
 import { cancelEvent, uncancelEvent, signupsOf, backOnRecipients, CANCEL_REASON_MAX } from '../../utils/eventCancel'
 import { siteUrl } from '../../utils/profileFeed'
+import { wantsFlyerReminder, PULSE_MIN, type PulseNumber } from '../../../shared/utils/businessHome'
 
 /**
  * Business mode — events a profile runs, and the /business home inbox.
@@ -1157,6 +1158,8 @@ export const businessEventsRouter = router({
         const st = flyers.get(e.id)!
         const key = e.seriesId ?? e.id
         if (seenSeries.has(key)) continue
+        // No reminder for an event within 24 h or a weekly class (RAZ-973).
+        if (!wantsFlyerReminder(e, now)) continue
         if (!st.kept) { seenSeries.add(key); needs.push({ kind: 'flyer', tone: 'info', title: `${e.name} has no flyer yet`, detail: `${fmtDay(e)} · check the details, then make it in about a minute.`, to: `/business/events/${e.id}?flyer=1` }) }
         else if (st.changes.length) { seenSeries.add(key); needs.push({ kind: 'flyer', tone: 'warning', title: `${e.name}: the flyer is out of date`, detail: `${fmtDay(e)} · you changed the details after it was made.`, to: `/business/events/${e.id}` }) }
       }
@@ -1165,15 +1168,111 @@ export const businessEventsRouter = router({
       const othersGigs = await eventsImIn(ctx.db, mine, and(gte(events.endDate, now), lt(events.startDate, in60)))
 
       const comingUp = [
-        ...hosted.map((e: any) => ({ id: e.id, name: e.name, startDate: e.startDate, timezone: e.timezone, published: e.published, role: 'host' as const, to: `/business/events/${e.id}`, missing: checks.get(e.id) ?? [] })),
-        ...othersGigs.map((g: any) => ({ id: g.id, name: g.name, startDate: g.startDate, timezone: g.timezone, published: true, role: g.role, to: g.to, missing: [] as string[] })),
+        ...hosted.map((e: any) => ({ id: e.id, name: e.name, startDate: e.startDate, timezone: e.timezone, published: e.published, role: 'host' as const, to: `/business/events/${e.id}`, publicPath: e.published ? eventPath(e) : null, missing: checks.get(e.id) ?? [] })),
+        ...othersGigs.map((g: any) => ({ id: g.id, name: g.name, startDate: g.startDate, timezone: g.timezone, published: true, role: g.role, to: g.to, publicPath: eventPath(g) as string | null, missing: [] as string[] })),
       ]
         .filter(e => new Date(e.startDate) < in14)
         .sort((a, b) => +new Date(a.startDate) - +new Date(b.startDate))
 
-      return { profiles: all, needs, comingUp, lineupCount: othersGigs.length }
+      // ── Home (RAZ-973): tonight with faces, the last 7 days, new followers, an idea ──
+      const signups = await signupFaces(ctx.db, comingUp.filter(e => e.published).map(e => e.id))
+      const isToday = (e: { startDate: any; timezone: string | null }) => {
+        const tz = e.timezone || 'Europe/Berlin'
+        return eventLocalDate(e.startDate, tz) === eventLocalDate(now, tz)
+      }
+      const cancelled = new Set([...hosted, ...othersGigs].filter((e: any) => e.cancelledAt).map((e: any) => e.id))
+      const today = comingUp
+        .filter(e => e.published && !cancelled.has(e.id) && isToday(e))
+        .map(e => ({ ...e, going: signups.get(e.id)?.count ?? 0, faces: signups.get(e.id)?.faces ?? [] }))
+      const best = comingUp
+        .filter(e => e.published && !cancelled.has(e.id))
+        .map(e => ({ e, n: signups.get(e.id)?.count ?? 0 }))
+        .sort((a, b) => b.n - a.n)[0]
+      const highlight = best && best.n >= PULSE_MIN
+        ? { eventId: best.e.id, name: best.e.name, going: best.n, today: isToday(best.e), to: best.e.to }
+        : null
+
+      const pulse = await pulseFor(ctx.db, mine.map((p: any) => p.id), now)
+      const followers = mine.length
+        ? await ctx.db.select({ name: dancers.name, photo: dancers.photo, at: follows.createdAt })
+          .from(follows).innerJoin(dancers, eq(dancers.id, follows.dancerId))
+          .where(and(inArray(follows.profileId, mine.map((p: any) => p.id)), gte(follows.createdAt, new Date(now.getTime() - 7 * 86400_000))))
+          .orderBy(desc(follows.createdAt)).limit(50)
+        : []
+      const newFollowers = followers.length
+        ? { count: followers.length, names: followers.slice(0, 2).map((f: any) => f.name), faces: followers.slice(0, 3).map((f: any) => ({ name: f.name, photo: f.photo })), profile: mine.length === 1 ? mine[0].name : null }
+        : null
+
+      // An empty week: nothing of mine published in the next 7 days, but I've run events before.
+      const in7 = new Date(now.getTime() + 7 * 86400_000)
+      let idea: { lastName: string; to: string } | null = null
+      if (mine.length && !hosted.some((e: any) => e.published && new Date(e.startDate) < in7)) {
+        const [last] = await ctx.db.select({ id: events.id, name: events.name }).from(events)
+          .where(and(inArray(events.hostProfileId, mine.map((p: any) => p.id)), lt(events.startDate, now)))
+          .orderBy(desc(events.startDate)).limit(1)
+        if (last?.name) idea = { lastName: last.name, to: '/business/events/new' }
+      }
+
+      return { profiles: all, needs, comingUp, lineupCount: othersGigs.length, today, highlight, pulse, newFollowers, idea }
     }),
 })
+
+// Who signed up for each event (Going!, a "coming" poll answer, a ticket), with up to five faces —
+// the organiser's view, like rsvp.people (names only, no contact details).
+async function signupFaces(db: any, ids: string[]) {
+  const out = new Map<string, { count: number; faces: { name: string | null; photo: string | null }[] }>()
+  if (!ids.length) return out
+  const [plans, polls, att] = await Promise.all([
+    db.select({ eventId: planItems.itemId, dancerId: planItems.dancerId }).from(planItems)
+      .where(and(eq(planItems.itemType, 'event'), inArray(planItems.itemId, ids))),
+    db.select({ eventId: eventRsvps.eventId, dancerId: eventRsvps.dancerId }).from(eventRsvps)
+      .where(and(inArray(eventRsvps.eventId, ids), isNotNull(eventRsvps.dancerId), ne(eventRsvps.answer, 'next'))),
+    db.select({ eventId: attendances.eventId, dancerId: attendances.dancerId }).from(attendances)
+      .where(and(inArray(attendances.eventId, ids), isNotNull(attendances.dancerId), inArray(attendances.status, ['going', 'ticket_holder']))),
+  ])
+  const byEvent = new Map<string, string[]>()
+  for (const r of [...plans, ...polls, ...att]) {
+    const list = byEvent.get(r.eventId) ?? []
+    if (!list.includes(r.dancerId)) list.push(r.dancerId)
+    byEvent.set(r.eventId, list)
+  }
+  const faceIds = [...new Set([...byEvent.values()].flatMap(l => l.slice(0, 5)))]
+  const people = faceIds.length
+    ? new Map<string, any>((await db.select({ id: dancers.id, name: dancers.name, photo: dancers.photo }).from(dancers).where(inArray(dancers.id, faceIds))).map((d: any) => [d.id, d]))
+    : new Map<string, any>()
+  for (const [id, list] of byEvent) {
+    out.set(id, { count: list.length, faces: list.slice(0, 5).map(d => people.get(d)).filter(Boolean).map((d: any) => ({ name: d.name, photo: d.photo })) })
+  }
+  return out
+}
+
+// The last 7 days vs. the 7 before, for the pages I manage: Going! on their events, new
+// followers, poll answers ("coming" ones). Database only; clicks live in PostHog.
+async function pulseFor(db: any, profileIds: string[], now: Date): Promise<PulseNumber[]> {
+  if (!profileIds.length) return []
+  const d7 = new Date(now.getTime() - 7 * 86400_000)
+  const d14 = new Date(now.getTime() - 14 * 86400_000)
+  const ids = sql.join(profileIds.map(id => sql`${id}::uuid`), sql`, `)
+  const hostedIds = sql`(select id from events where host_profile_id in (${ids}))`
+  const split = (col: any) => ({
+    cur: sql<number>`count(*) filter (where ${col} >= ${d7})::int`,
+    prev: sql<number>`count(*) filter (where ${col} < ${d7})::int`,
+  })
+  const [[plans], [fol], [ans]] = await Promise.all([
+    db.select(split(planItems.createdAt)).from(planItems)
+      .where(and(eq(planItems.itemType, 'event'), sql`${planItems.itemId} in (select id::text from events where host_profile_id in (${ids}))`, gte(planItems.createdAt, d14))),
+    db.select(split(follows.createdAt)).from(follows)
+      .where(and(inArray(follows.profileId, profileIds), gte(follows.createdAt, d14))),
+    db.select(split(eventRsvps.createdAt)).from(eventRsvps)
+      .where(and(sql`${eventRsvps.eventId} in ${hostedIds}`, ne(eventRsvps.answer, 'next'), gte(eventRsvps.createdAt, d14))),
+  ])
+  const n = (r: any) => ({ value: r?.cur ?? 0, delta: (r?.cur ?? 0) - (r?.prev ?? 0) })
+  return [
+    { id: 'plans', label: 'Put your events in their plan', ...n(plans) },
+    { id: 'followers', label: 'New followers', ...n(fol) },
+    { id: 'answers', label: 'Said they’re coming in your poll', ...n(ans) },
+  ]
+}
 
 // Published events run by someone else that my pages take part in: at my
 // venue, organised by my organizer page (events synced from wedance.vip carry

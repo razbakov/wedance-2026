@@ -47,7 +47,8 @@ export const SKETCHES: Sketch[] = [
     requestedBy: 'Alösha',
     builtBy: 'Agent (Claude)',
     created: '2026-11-15',
-    status: 'deciding',
+    status: 'shipped',
+    decision: 'D — today with faces, last 7 days, from dancers, tasks in one line',
     ticket: linear('RAZ-973', 'make-business-home-about-tonight-results-and-people-not-a-copy-of'),
   },
   {
