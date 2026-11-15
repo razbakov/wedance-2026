@@ -195,6 +195,9 @@ function eSubmit() {
   eFinish()
 }
 const ACCOUNT_NAME = 'Alex Razbakov'
+// Who's coming shows faces only to a signed-in viewer (rsvp.poll). Signing up signed out
+// makes you signed in once the link is opened or Stripe sends you back.
+const seesFaces = computed(() => signedIn.value || eState.value === 'in')
 const contactLine = computed(() => `${signedIn.value ? ACCOUNT_NAME : eName.value.trim()}${ePartner.value.trim() ? ` (+ ${ePartner.value.trim()})` : ''} · ${signedIn.value ? ACCOUNT_EMAIL : eEmail.value} · ${ePhone.value}`)
 function eToggleSave(id: string) { const s = new Set(eSaved.value); s.has(id) ? s.delete(id) : s.add(id); eSaved.value = s }
 watch([variant, device, paid, kind, auth], reset)
@@ -586,12 +589,26 @@ function finishCheckout() {
           <!-- D: who's coming lives under the hero, not in the card -->
           <section v-if="variant === 'D' || variant === 'E'" class="mt-8 font-sans">
             <h2 class="font-display text-2xl font-black">Who’s coming <span class="font-hand text-secondary text-lg">— {{ going }}</span></h2>
-            <ul class="mt-3 flex flex-wrap gap-4">
+            <!-- As rsvp.poll does: faces only for a signed-in viewer (confirmed answers, public profiles, first name).
+                 A visitor sees counts. In E, finishing the steps signs you in (magic link / back from Stripe). -->
+            <div v-if="variant === 'E' && !seesFaces" class="mt-3" data-testid="who-anon">
+              <div class="flex items-center gap-3">
+                <span class="flex -space-x-2" aria-hidden="true">
+                  <span v-for="n in going" :key="n" class="size-9 rounded-full bg-muted ring-2 ring-background grid place-items-center"><Users class="size-4 text-muted-foreground" /></span>
+                </span>
+                <span class="text-sm text-muted-foreground">{{ counts.needFollower }} {{ counts.needFollower === 1 ? 'leader looks' : 'leaders look' }} for a follower<template v-if="counts.needLeader"> · {{ counts.needLeader }} {{ counts.needLeader === 1 ? 'follower looks' : 'followers look' }} for a leader</template><template v-if="counts.partner"> · {{ counts.partner }} {{ counts.partner === 1 ? 'couple' : 'couples' }}</template></span>
+              </div>
+              <p class="mt-2 text-sm">
+                <template v-if="eState === 'sent'"><span class="text-muted-foreground">Open the link in your email to see who they are.</span></template>
+                <template v-else><span class="text-muted-foreground">Sign up to see who they are</span><template v-if="auth === 'returning'"> · <button type="button" class="font-bold text-primary">Sign in</button></template></template>
+              </p>
+            </div>
+            <ul v-else class="mt-3 flex flex-wrap gap-4" data-testid="who-faces">
               <li v-for="o in OTHERS" :key="o.name" class="flex flex-wrap items-center gap-2 text-sm font-bold">
                 <img :src="o.photo" class="size-9 rounded-full" alt=""> {{ o.name }} <span class="text-xs font-normal text-muted-foreground">leader, needs a follower</span>
                 <Button v-if="role === 'needLeader'" variant="outline-pill" size="pill-sm"><Hand /> Wave</Button>
               </li>
-              <li v-if="role" class="flex items-center gap-2 text-sm font-bold"><span class="size-9 rounded-full bg-secondary text-white grid place-items-center">Y</span> You</li>
+              <li v-if="variant === 'E' ? eState !== 'idle' : role" class="flex items-center gap-2 text-sm font-bold"><span class="size-9 rounded-full bg-secondary text-white grid place-items-center">Y</span> You</li>
             </ul>
             <p v-if="variant === 'D' && signedUp" class="mt-3 text-sm"><span class="text-muted-foreground">Let {{ EVENT.org }} tell you about the next class?</span> <span class="font-bold text-primary inline-flex items-center gap-1"><Mail class="size-3.5" /> Share my email</span></p>
           </section>
