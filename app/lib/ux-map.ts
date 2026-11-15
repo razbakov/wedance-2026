@@ -148,7 +148,7 @@ const IT: [UxJourneyId, UxStageKey, string, string, UxStatus, string, string][] 
 ['C7','attend','Hosted website','/business/network/[u]/website','live','Drafts, preview, version history.','#493 #498'],
 ['C7','return','Insights','/organizers/insights','partial','Planning counts, and only for a festival the team has onboarded; an organiser of weekly parties sees "No festivals on your account yet".','P718'],
 ['C7','return','Demand, geography, post-event signal','','missing','','P725 P726 P727 P728'],
-['C7','return','Contacts (website sign-ups)','/business/contacts','live','People who signed up on the hosted website, with CSV export. Not a CRM of dancers who came.',''],
+['C7','return','Contacts','/business/contacts','live','Website sign-ups and imported lists, filtered by source, by who can be emailed and by what each person does on WeDance (came to your events, going next, follows you). Note, unsubscribe, delete, CSV. No sending yet (RAZ-960).',''],
 ['C7','spread','Team roles','/business/network/[u]/team','live','',''],
 ['C7','spread','Promoter links & roster · giveaways','/business','live','',''],
 // C8 Member
