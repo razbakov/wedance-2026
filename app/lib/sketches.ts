@@ -40,6 +40,18 @@ const pr = (n: number): SketchLink => ({ label: `PR #${n}`, url: `https://github
 
 export const SKETCHES: Sketch[] = [
   {
+    slug: 'my-plan',
+    title: 'My plan on a time scale',
+    what: 'Five orders and namings of My plan: today’s far → near with "Where you’re …" headlines, near → far with time as the headline, the same plus a sticky Tonight · Week · Month · Year · Goal bar, one merged agenda, and the recommended bar + goal ring + "next up". Each scale gets its own "Post story".',
+    why: 'Four headlines mean the same thing ("Where you’re headed / going / dancing", "Where you show up"), "This week" appears twice, and tonight and this week, what people open the page for, sit at the bottom. RAZ-895 also wants each section to post its own story.',
+    requestedBy: 'Alösha',
+    builtBy: 'Agent (Claude)',
+    created: '2026-11-15',
+    status: 'shipped',
+    decision: 'B — near → far, the time scale as the headline, to-dos on their rows',
+    ticket: linear('RAZ-895', 'let-each-my-plan-section-post-its-own-story-starting-with-the-weekend'),
+  },
+  {
     slug: 'rider',
     title: 'Artist rider and the agreed sheet',
     what: 'Four directions for what an organiser gets once an artist says yes (one agreed sheet per artist per event) and where the artist keeps their rider: a deal line in the line-up, a one-page agreement, a run sheet with to-dos, or the recommended sheet + short to-do with the rider saved from the first yes.',

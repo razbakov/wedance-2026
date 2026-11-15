@@ -4,7 +4,7 @@
  * canvas (`~/lib/weekendStory`), "Share to story" through the phone's share
  * sheet (the link copied first, for the link sticker), "Save picture", "Copy
  * link", and the sharer's own line. Used on /w/<code> and, in place, under
- * "Where you're dancing" on My plan (RAZ-895).
+ * "This week" on My plan (RAZ-895).
  */
 import { Check, Copy, Download, Instagram, Loader2, Shuffle } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'

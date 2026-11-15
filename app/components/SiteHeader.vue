@@ -73,7 +73,10 @@ const onPlan = computed(() => under('/my-plan') || under('/my-year'))
           <AccountMenu mode="dance" />
         </template>
         <template v-else>
-          <NuxtLink to="/for-organizers" class="hidden sm:inline text-sm text-muted-foreground hover:text-foreground">For organizers</NuxtLink>
+          <!-- Visible on phones too (shorter label): the business pages' way in. -->
+          <NuxtLink to="/for-organizers" class="text-sm text-muted-foreground hover:text-foreground">
+            <span class="sm:hidden">Organizers</span><span class="hidden sm:inline">For organizers</span>
+          </NuxtLink>
           <Button
             type="button"
             variant="pill"

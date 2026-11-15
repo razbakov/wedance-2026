@@ -221,8 +221,9 @@ Given('the discovery request fails', async ({ page }) => {
 
 // ── Navigation ──────────────────────────────────────────────────────
 
-When('I open the home page', async ({ page }) => {
-  await page.goto('/')
+// The five-stage journey was the homepage until 2026-11-15; it is /about now.
+When('I open the About page', async ({ page }) => {
+  await page.goto('/about')
   await page.waitForLoadState('networkidle')
 })
 
