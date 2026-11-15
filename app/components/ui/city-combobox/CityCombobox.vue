@@ -309,17 +309,21 @@ const status = computed(() => {
           :aria-busy="resolving === cityKey(c) ? 'true' : undefined"
           :data-source="c.source"
           :data-active="i === active ? '' : undefined"
-          class="flex cursor-pointer items-center gap-2.5 px-3.5 py-2.5 text-sm font-sans text-foreground data-[active]:bg-accent data-[active]:text-accent-foreground hover:bg-muted"
+          class="flex cursor-pointer items-center gap-2.5 px-3.5 py-2 text-sm font-sans text-foreground data-[active]:bg-accent data-[active]:text-accent-foreground hover:bg-muted"
           @mousedown.prevent
           @click="pick(c)"
           @mousemove="active = i"
         >
           <component :is="c.source === 'google' ? Plus : MapPin" class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-          <span class="min-w-0 flex-1 truncate">
-            <template v-for="(p, j) in [parts(c.name)]" :key="j">{{ p[0] }}<mark class="bg-transparent font-bold text-inherit">{{ p[1] }}</mark>{{ p[2] }}</template>
+          <!-- City on its own line, country / region under it: in a narrow field
+               the city name gets the whole width instead of being cut. -->
+          <span class="min-w-0 flex-1">
+            <span class="block truncate">
+              <template v-for="(p, j) in [parts(c.name)]" :key="j">{{ p[0] }}<mark class="bg-transparent font-bold text-inherit">{{ p[1] }}</mark>{{ p[2] }}</template>
+            </span>
+            <span v-if="detail(c) && resolving !== cityKey(c)" class="block truncate text-xs text-muted-foreground">{{ detail(c) }}</span>
           </span>
           <span v-if="resolving === cityKey(c)" class="shrink-0 text-xs text-muted-foreground">Adding…</span>
-          <span v-else-if="detail(c)" class="shrink-0 max-w-[45%] truncate text-xs text-muted-foreground">{{ detail(c) }}</span>
         </li>
       </ul>
       <p v-if="open && (loading || pending) && !results.length" class="px-3.5 py-3 text-sm text-muted-foreground font-sans">

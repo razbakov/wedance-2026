@@ -25,7 +25,7 @@ export type V3Plan =
 /** First path segments 2026 serves itself (pages, server routes, public files). Never treated as a v3 handle. */
 export const KNOWN_SEGMENTS = new Set([
   // app/pages
-  'admin', 'artists', 'auth', 'battle', 'book', 'booking-terms', 'business', 'charanga', 'cities', 'confirm', 'docs',
+  'about', 'admin', 'artists', 'auth', 'battle', 'book', 'booking-terms', 'business', 'charanga', 'cities', 'confirm', 'docs',
   'elections', 'events', 'festivals', 'find-your-dance', 'for-events', 'for-organizers', 'for-sponsors', 'for-venues',
   'gigs', 'imprint', 'my-plan', 'my-year', 'oauth', 'onboarding', 'open', 'organizers', 'press', 'privacy-policy',
   'settings', 'sketches', 'terms', 'u', 'venues', 'w', 'whats-new',
@@ -66,7 +66,6 @@ const FIXED: Record<string, { to: string; code: 301 | 302 }> = {
   '/ua': { to: '/', code: 301 },
   '/instagram': { to: '/', code: 301 },
   // 2026 has no page for these yet: park them, so a real page can take over later.
-  '/about': { to: '/', code: 302 },
   '/coc': { to: '/', code: 302 },
   '/foundation': { to: '/', code: 302 },
   '/get-involved': { to: '/', code: 302 },

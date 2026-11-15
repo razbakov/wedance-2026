@@ -370,7 +370,7 @@ export const citySchedules = pgTable('city_schedules', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, t => [unique('city_schedules_city_week').on(t.citySlug, t.weekStart)])
 
-// A city's post for an occasion (RAZ-970, migration 0069): a silent day (Tanzverbot), Fasching,
+// A city's post for an occasion (RAZ-970, migration 0070): a silent day (Tanzverbot), Fasching,
 // Halloween, New Year's Eve… — `occasion_key` is `<id>:<year>` from shared/utils/cityOccasions.ts.
 // Its text is generated in the chosen languages until an admin edits it; posted like the weekly
 // post; `asked_*` records the question sent to the city's organisers.
@@ -958,6 +958,8 @@ export const eventRsvps = pgTable('event_rsvps', {
   eventId: uuid('event_id').notNull().references(() => events.id, { onDelete: 'cascade' }),
   dancerId: uuid('dancer_id').references(() => dancers.id, { onDelete: 'cascade' }),
   guestToken: text('guest_token'),
+  /** A guest's email from the confirm-link step (0069): they're told if the event is cancelled. */
+  guestEmail: text('guest_email'),
   answer: text('answer').notNull().$type<'partner' | 'needLeader' | 'needFollower' | 'yes' | 'next'>(),
   confirmedAt: timestamp('confirmed_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),

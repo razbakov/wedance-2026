@@ -10,12 +10,11 @@
  * venue → line-up → entry → flyer → publish — one card open at a time. A new
  * draft (?created=…) opens on its first step still to do.
  */
-import { Check, ExternalLink, Repeat, Archive, ArchiveRestore, Sparkles, FileText, Copy, Ban, Undo2 } from 'lucide-vue-next'
+import { Check, ExternalLink, Repeat, Archive, ArchiveRestore, Sparkles, FileText, Copy, Ban } from 'lucide-vue-next'
 import type { BusinessEventValues } from '~/components/business/BusinessEventForm.vue'
 import { toBusinessEventInput } from '~/lib/businessEvent'
 import { eventLocalDate } from '#shared/utils/eventTime'
 import { eventPath } from '#shared/utils/eventSlug'
-import { rsvpOptions } from '#shared/utils/rsvp'
 import { eventSteps, firstOpenStep, pastEventHints, STEP_CARD, type EventStepKey } from '~/lib/eventSteps'
 
 definePageMeta({ layout: 'business' })
@@ -81,14 +80,6 @@ async function loadHints() {
   } catch { /* no suggestions */ }
 }
 
-// The RSVP poll (RAZ-718): the same buckets dancers see on the event page.
-const poll = ref<Awaited<ReturnType<typeof $trpc.rsvp.summary.query>> | null>(null)
-onMounted(async () => {
-  try { poll.value = await $trpc.rsvp.summary.query({ eventId: id.value }) } catch { /* no poll card */ }
-})
-const pollBuckets = computed(() => poll.value
-  ? rsvpOptions(poll.value.partner).map(o => ({ ...o, count: poll.value!.counts[o.id] }))
-  : [])
 useHead(() => ({ title: `${ev.value?.name || 'Event'} | Business | WeDance` }))
 
 const initial = computed<Partial<BusinessEventValues>>(() => ev.value
@@ -249,14 +240,12 @@ async function onCancelled(r: { notified: number }) {
   await load()
   notice.value = r.notified ? `Cancelled. We’re emailing the ${r.notified} ${r.notified === 1 ? 'person' : 'people'} who signed up.` : 'Cancelled. Nobody had signed up yet.'
 }
-const uncancelling = ref(false)
-async function uncancel() {
-  uncancelling.value = true
-  try {
-    await $trpc.businessEvents.uncancel.mutate({ id: id.value })
-    await load()
-    notice.value = 'It’s on again: the “Cancelled” mark is gone. Nobody was emailed, so tell people yourself if they should know.'
-  } catch (e: any) { error.value = e?.message || 'Could not undo it.' } finally { uncancelling.value = false }
+// "It's on again" (RAZ-969): BusinessUncancelEvent offers to email the people told it was off.
+async function onUncancelled(r: { notified: number }) {
+  await load()
+  notice.value = r.notified
+    ? `It’s on again. We’re emailing the ${r.notified} ${r.notified === 1 ? 'person' : 'people'} who got the cancellation: “Good news, it’s on again”.`
+    : 'It’s on again: the “Cancelled” mark is gone. Nobody was emailed.'
 }
 const confirmArchive = ref(false)
 const archiving = ref(false)
@@ -314,7 +303,7 @@ async function archive(series = false) {
       <div v-if="ev.cancelledAt" class="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm" role="status" data-testid="event-cancelled-status">
         <Ban class="size-4 shrink-0 text-destructive" aria-hidden="true" />
         <p class="min-w-0 flex-1"><span class="font-bold text-destructive">Cancelled.</span> Still listed on WeDance and your website, crossed out<template v-if="ev.cancelReason">: “{{ ev.cancelReason }}”</template>.</p>
-        <Button type="button" variant="outline-pill" size="pill-sm" :loading="uncancelling" @click="uncancel"><Undo2 /> It’s on again</Button>
+        <BusinessUncancelEvent :id="ev.id" @uncancelled="onUncancelled" />
       </div>
       <p v-if="ev.synced" class="mt-4 rounded-2xl bg-secondary/10 p-4 text-sm" role="status">
         <span class="font-bold">This event comes from wedance.vip.</span>
@@ -328,14 +317,7 @@ async function archive(series = false) {
 
       <BusinessEventSteps v-if="!ev.synced && !ev.archived" v-model="step" :steps="steps" class="mt-4" @go="goStep" />
 
-      <section v-if="poll && !poll.festival" class="mt-4 rounded-2xl border bg-card p-4" data-rsvp-summary>
-        <h2 class="text-eyebrow font-bold uppercase tracking-[0.3em] text-secondary">Who’s coming</h2>
-        <p class="mt-2 text-sm font-bold">{{ poll.line }}</p>
-        <ul class="mt-2 flex flex-wrap gap-2 text-sm">
-          <li v-for="b in pollBuckets" :key="b.id" class="rounded-full bg-muted px-3 py-1"><span class="font-bold tabular-nums">{{ b.count }}</span> {{ b.label }}</li>
-        </ul>
-        <p v-if="poll.unconfirmed" class="mt-2 text-xs text-muted-foreground">Unconfirmed: answered without an account yet. They count for 48 hours unless confirmed by email.</p>
-      </section>
+      <BusinessWhosComing :event-id="ev.id" class="mt-4" />
 
       <div class="mt-4 grid gap-5" :class="ev.synced ? '' : 'lg:grid-cols-[minmax(0,1fr)_19rem]'">
         <BusinessEventForm

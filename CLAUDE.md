@@ -221,7 +221,7 @@ everywhere). Tools: Business → the page → "WeDance <city>" → `/business/ne
   (`wedance-2026/schedules/<city>-<week>`, JPEG). Post once per week per place: Instagram feed / story through the
   page's #501 connection; Telegram via the WeDance bot (`server/utils/telegram.ts`) to every official Telegram
   channel with a chat id. Nothing is posted without a click; MCP tokens can't publish.
-- **Plan** (RAZ-970, `cityOccasions` router, `city_occasion_posts` 0069): the next 12 months of occasions worth a post,
+- **Plan** (RAZ-970, `cityOccasions` router, `city_occasion_posts` 0070): the next 12 months of occasions worth a post,
   computed in `shared/utils/cityOccasions.ts` — Bavarian silent days (BayFTG Art. 3: 02:00–24:00, Good Friday / Holy
   Saturday from 00:00, Christmas Eve from 14:00; only for Bavarian cities, by `cities.region` or slug), Fasching (DE/AT),
   Halloween, New Year's Eve, open-air season, Oktoberfest (Munich). Each has a post: silent days → the Tanzverbot
@@ -346,9 +346,19 @@ out with the reason on `/events/[id]`, the city page and `/@handle`, and in the 
 (`/api/profiles/<u>/site` and `/events`: `cancelled`, `cancelReason` — contract `SiteEvent` in
 `shared/types/profileSite.ts`, mirrored by wedance-site-kit `WeDanceEvent`). Everyone who signed up is emailed once
 (`server/utils/eventCancel.ts` `signupsOf`: plan items, confirmed poll answers other than "next", attendances incl.
-ticket stubs, festival sign-ups / TicketTailor buyers; one email per address, never the canceller). Ticket holders
-are told to contact the organiser — refunds stay manual. `uncancel` ("It's on again") clears it and emails nobody.
+ticket stubs, festival sign-ups / TicketTailor buyers, and guests' unconfirmed answers other than "next" when they left an
+email — `auth.requestMagicLink` with `guest` keeps it on that browser's `event_rsvps.guest_email` (0069), from the poll and
+the weekend page; one email per address, never the canceller). Ticket holders
+are told to contact the organiser — refunds stay manual.
 Only published, not-yet-over events can be cancelled.
+
+**It's on again (RAZ-969):** the editor's "It's on again" (`BusinessUncancelEvent`) first asks
+`businessEvents.uncancelPreview` how many people got the cancellation email, then offers "On again + email N people"
+or "Just remove the mark" → `businessEvents.uncancel({ notify })`. MCP `cancel_event` with `undo` previews the same
+count (`email_people`, default true). Recipients = `backOnRecipients`: `signupsOf` now, minus the canceller and the
+person undoing it; nobody once the event is over. Email: `sendEventBackOnEmail` ("Good news, it's on again"; ticket
+holders are asked to check with the organiser if they already asked for a refund). Nobody is emailed without the
+organiser's choice.
 
 ## Analytics (PostHog)
 
@@ -394,7 +404,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `onboarding_completed` | `useAuth.completeOnboarding` | `intent` |
 | `profile_updated` | `useAuth.updateProfile` | `fields_changed` (field NAMES only, `app/lib/changed-fields.ts`) |
 | `onboarding_step_completed` | `onboarding.vue` (intent picked · details saved · skipped) | `step` (intent / details / skip), `intent`, `repeat` (already onboarded), `has_details` · `has_city`, `styles_count`, `has_role` |
-| `landing_cta_click` | `index.vue` | `cta` (find_festival / seeker … / see_attendees / private_events / festival_organizers), `section` (hero / journey / proof / business / footer) |
+| `landing_cta_click` | `about.vue` (the homepage until 2026-11-15) | `cta` (find_festival / seeker … / see_attendees / private_events / festival_organizers), `section` (hero / journey / proof / business / footer) |
 | `find_your_dance_started` / `find_your_dance_completed` | `find-your-dance.vue` (first video watched or choice · a style or the taster chosen; not a quiz) | `style`, `via` · `style_chosen`, `taster`, `answers_count` (videos watched), `styles_suggested` |
 | `profile_viewed` | `/@handle` (business profiles, `trackOnce`), `/u/<handle>` (dancers — no handle sent) | `profile` (business only), `profile_type`, `city`, `claimed`, `own`, `surface` |
 | `outbound_click` | delegated listener `plugins/06.outbound-click.client.ts` (every external link) | `kind` (ticket / website / instagram / map / whatsapp / telegram / community_group / email / phone / ai_app / …; `data-outbound-kind` overrides), `platform`, `host` (never path/query), `object_type`, `object_id` (`data-object-*` or the page's `useTrackContext`), `city`, `surface` (route name) |
@@ -429,6 +439,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `event_form_opened` | `business/events/new.vue` — the organiser answers "Where are you starting from?" (RAZ-939) | `start` (post / copy / scratch) |
 | `event_created` / `event_published` | `business/events/new.vue` ("From scratch" or "Like my last event"; starts a draft; `event_published` only when "Publish it now" is ticked); publish = draft→live in `business/events/[id]` (checklist "Publish" button or the Published box) | `event_id`, `is_festival`, `city`, `style`, `published`, `source` (scratch / copy), `dates` (copy) |
 | `event_cancelled` | `BusinessCancelEvents` (event editor → Cancel, or Business → Events → tick events / "Select today's", RAZ-948) | `event_id` (one event, else null), `events`, `notified`, `has_reason`, `bulk` |
+| `event_uncancelled` | `BusinessUncancelEvent` (event editor → "It's on again", RAZ-969) | `event_id`, `notify` (email the people told it was off), `notified` |
 | `event_imported` | `business/events/new.vue` "I have a post" (#453) | `event_id`, `source` (instagram), `created` (false = this post's draft already existed), `lineup`, `has_cover` |
 | `business_profile_created` | `business/new.vue` | `profile`, `profile_type`, `from_instagram` |
 | `public_page_set` | `settings/index.vue` "Your public page" (one handle per person, #474) | `cleared`, `profile_type` |
@@ -446,7 +457,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `ticket_cta_click` | `FestivalHero` (external shop), `FestivalView` (Stripe checkout) | `slug` / `festival`, `provider` (stripe / tickettailor / external), `tickets`, … |
 | `organizer_cta_click` · `sponsor_cta_click` · `press_cta_click` · `whats_new_*_click` | marketing pages | `surface`, `kind` |
 | `app_connected` | `oauth/authorize.vue` | `scopes`, `business` |
-| `ai_app_cta_click` | `AiAppCta` ("Use WeDance in ChatGPT": docs connect-ai, Settings → Connected apps, new event, Business dashboard, for-organizers, my-plan) | `app` (chatgpt), `surface` (docs_connect_ai / settings_connections / business_event_new / business_dashboard_empty / business_dashboard_needs / for_organizers / my_plan) |
+| `ai_app_cta_click` | `AiAppCta` ("Use WeDance in ChatGPT": docs connect-ai, Settings → Connected apps, new event, Business dashboard, for-organizers, my-plan bottom line) · `ChatgptPlanPitch` (top of My plan until ChatGPT is connected; the landing `MyPlanLanding` on `/` and signed-out `/my-plan`) | `app` (chatgpt), `surface` (docs_connect_ai / settings_connections / business_event_new / business_dashboard_empty / business_dashboard_needs / for_organizers / my_plan / my_plan_top / my_plan_landing / home) |
 | `instagram_connect_started` | `BusinessInstagram` (Business → page → Instagram, before Meta's dialog) | `profile`, `reconnect` |
 | `instagram_post_published` | `BusinessContentPlan` "Post to feed" / "Add to story" | `event_id`, `post_kind`, `format`, `to` (feed / story) |
 | `weekend_plan_viewed` | `w/[code].vue` (Share my weekend page, once per mount) | `own`, `parties`, `friends`, `story` (opened with `?story=1`) |
@@ -468,6 +479,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `server_login_completed` | `auth.login`, `auth.verifyMagicLink` | `method` |
 | `server_onboarding_completed` | `auth.completeOnboarding` | `intent` |
 | `server_event_created` | `businessEvents.create`, `businessEvents.createSeries`, `businessEvents.copy` ("Like my last event", always drafts) | `event_id`, `is_festival`, `host_type`, `city`, `published`, `series_id`, `dates`, `copied_from` (copy) |
+| `server_event_uncancelled` | `businessEvents.uncancel` ("It's on again", web + MCP `cancel_event` `undo`; only when it was cancelled) | `event_id`, `notify` (organiser chose to email), `notified` (people emailed), `hours_cancelled`, `is_festival`, `host_type`, `$groups` |
 | `server_event_cancelled` | `businessEvents.cancel` (web + MCP `cancel_event`; once per event — re-cancelling only edits the reason) | `event_id`, `notified` (people emailed), `has_reason`, `bulk`, `is_festival`, `host_type`, `$groups` |
 | `server_event_imported` | `eventImport.fromInstagram` (web + MCP `import_from_instagram`; the draft itself also fires `server_event_created`) | `event_id`, `source` (instagram), `kind` (post / reel), `lineup`, `organizers`, `has_venue_page`, `has_cover`, `has_ticket`, `sessions`, `$groups` |
 | `server_event_published` | `create`/`createSeries` with `published`, `update` draft→live, `publishSeries` | `event_id`, `is_festival`, `series_id`, `dates` |

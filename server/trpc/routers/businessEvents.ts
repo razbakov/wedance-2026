@@ -24,7 +24,7 @@ import { cleanCoOrganizers, CO_ORGANIZERS_MAX, CO_ORGANIZER_ROLE_MAX, type CoOrg
 import { randomUUID } from 'node:crypto'
 import { profileGroup, trackServer } from '../../utils/posthog'
 import { scheduleInstagramImport } from '../../utils/instagram/profileImport'
-import { cancelEvent, uncancelEvent, signupsOf, CANCEL_REASON_MAX } from '../../utils/eventCancel'
+import { cancelEvent, uncancelEvent, signupsOf, backOnRecipients, CANCEL_REASON_MAX } from '../../utils/eventCancel'
 import { siteUrl } from '../../utils/profileFeed'
 
 /**
@@ -832,14 +832,38 @@ export const businessEventsRouter = router({
       return { events: results, notified: results.reduce((n, r) => n + r.notified, 0) }
     }),
 
-  // Back on: the "Cancelled" mark goes; nobody is emailed.
+  // Back on (RAZ-969): the "Cancelled" mark goes. uncancelPreview counts who
+  // got the cancellation email and would hear "Good news, it's on again";
+  // uncancel emails them only with notify (the organiser's choice).
+  uncancelPreview: protectedProcedure
+    .input(z.object({ ids: z.array(z.string().uuid()).min(1).max(MAX_CANCEL) }))
+    .query(async ({ ctx, input }) => {
+      const out = []
+      for (const id of input.ids) {
+        const ev = await requireEventManager(ctx, id)
+        const people = await backOnRecipients(ctx.db, ev, ctx.dancerId)
+        const tz = ev.timezone || 'Europe/Berlin'
+        out.push({
+          id: ev.id, name: ev.name ?? '', date: ev.startDate ? eventLocalDate(ev.startDate, tz) : null, startTime: ev.startDate ? eventLocalTime(ev.startDate, tz) : null,
+          cancelled: !!ev.cancelledAt, toNotify: people.length, ticketHolders: people.filter(p => p.ticket).length,
+        })
+      }
+      return { events: out, toNotify: out.reduce((n, e) => n + e.toNotify, 0) }
+    }),
+
   uncancel: protectedProcedure
-    .input(z.object({ id: z.string().uuid() }))
+    .input(z.object({ id: z.string().uuid(), notify: z.boolean().default(false) }))
     .mutation(async ({ ctx, input }) => {
       const ev = await requireEventManager(ctx, input.id)
-      if (!ev.cancelledAt) return { uncancelled: false }
-      await uncancelEvent(ctx.db, ev.id)
-      return { uncancelled: true }
+      if (!ev.cancelledAt) return { uncancelled: false, notified: 0 }
+      const host = await eventHostProfile(ctx.db, ev)
+      const r = await uncancelEvent(ctx, ev, { siteUrl: siteUrl(), organizer: host?.name || ev.organizerName || null, notify: input.notify })
+      trackServer(ctx, 'event_uncancelled', {
+        event_id: ev.id, notified: r.notified, notify: input.notify,
+        hours_cancelled: Math.round((Date.now() - new Date(ev.cancelledAt).getTime()) / 3600_000),
+        is_festival: !!ev.festival || !!ev.isFestival, host_type: host?.type ?? null, ...profileGroup(host?.username),
+      })
+      return r
     }),
 
   // The line-up's names and photos, for picking each artist's flyer photo.

@@ -21,6 +21,7 @@ import {
   RSVP_ANSWERS, UNCONFIRMED_TTL_HOURS, isPartnerEvent, pairingAnswer, rsvpSummaryLine, summarizeRsvps,
   type RsvpAnswer,
 } from '../../../shared/utils/rsvp'
+import { mergeSignups } from '../../../shared/utils/rsvpPeople'
 
 const eventParam = z.string().min(1).max(160)
 const guestToken = z.string().uuid()
@@ -143,8 +144,11 @@ export const rsvpRouter = router({
 
       if (!dancerId) {
         if (!input.guestToken) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Missing guest token' })
+        // An email this browser already left on another answer comes along (RAZ-948).
+        const [known] = await ctx.db.select({ email: eventRsvps.guestEmail }).from(eventRsvps)
+          .where(and(eq(eventRsvps.guestToken, input.guestToken), isNull(eventRsvps.dancerId), isNotNull(eventRsvps.guestEmail))).limit(1)
         await ctx.db.insert(eventRsvps)
-          .values({ eventId: ev.id, guestToken: input.guestToken, answer: input.answer })
+          .values({ eventId: ev.id, guestToken: input.guestToken, answer: input.answer, guestEmail: known?.email ?? null })
           .onConflictDoUpdate({ target: [eventRsvps.eventId, eventRsvps.guestToken], set: { answer: input.answer, updatedAt: now } })
         trackServer(ctx, 'rsvp_answered', { event_id: ev.id, answer: input.answer, signed_in: false, confirmed: false, ...eventGroup(ev) })
         return pollFor(ctx.db, ev, { dancerId: null, guestToken: input.guestToken })
@@ -183,5 +187,34 @@ export const rsvpRouter = router({
       const partner = isPartnerEvent(ev.styles)
       // Festivals keep their ticket flow; the poll is for dated events.
       return { ...s, partner, festival: !!ev.isFestival, line: rsvpSummaryLine(s, partner) }
+    }),
+
+  /**
+   * The organiser's list behind the counts: who answered the poll, put it on
+   * their plan or holds a ticket, with name and photo (never email). Event managers only.
+   */
+  people: protectedProcedure
+    .input(z.object({ eventId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const ev = await requireEventManager(ctx, input.eventId)
+      const [polls, att, plans] = await Promise.all([
+        ctx.db.select({ dancerId: eventRsvps.dancerId, answer: eventRsvps.answer, confirmedAt: eventRsvps.confirmedAt })
+          .from(eventRsvps).where(countedWhere(ev.id)),
+        ctx.db.select({ dancerId: attendances.dancerId, status: attendances.status, checkedInAt: attendances.checkedInAt })
+          .from(attendances).where(and(eq(attendances.eventId, ev.id), inArray(attendances.status, ['going', 'ticket_holder']))),
+        ctx.db.select({ dancerId: planItems.dancerId }).from(planItems)
+          .where(and(eq(planItems.itemType, 'event'), eq(planItems.itemId, ev.id))),
+      ])
+      const ids = [...new Set<string>([...polls, ...att, ...plans].map((r: any) => r.dancerId).filter(Boolean))]
+      const people = ids.length
+        ? await ctx.db.select({ id: dancers.id, name: dancers.name, photo: dancers.photo, username: dancers.username })
+            .from(dancers).where(inArray(dancers.id, ids))
+        : []
+      return mergeSignups({
+        polls: polls.map((r: any) => ({ dancerId: r.dancerId, answer: r.answer, confirmed: !!r.confirmedAt })),
+        attendances: att.map((a: any) => ({ dancerId: a.dancerId, status: a.status, checkedIn: !!a.checkedInAt })),
+        plans,
+        people,
+      })
     }),
 })

@@ -7,7 +7,7 @@ import { appRouter } from '..'
 import { occasionsFor } from '../../../shared/utils/cityOccasions'
 import { eventLocalDate, zonedToUtc } from '../../../shared/utils/eventTime'
 
-// City occasions (RAZ-970, 0069) against a real Postgres (local / CI only):
+// City occasions (RAZ-970, 0070) against a real Postgres (local / CI only):
 //   DATABASE_URL=postgresql://dev:dev@localhost:5441/wedance NEON_FETCH_ENDPOINT=http://localhost:4444/sql bunx vitest run server/trpc/routers/cityOccasions.db.test.ts
 const DATABASE_URL = process.env.DATABASE_URL
 const db: any = DATABASE_URL ? drizzle(neon(DATABASE_URL), { schema }) : null
