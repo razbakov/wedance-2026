@@ -329,6 +329,19 @@ time (`BusinessEventForm` `focus()`). A new draft opens on its first step to do.
 host's other events suggest (`pastEventHints`: artists booked before, last time's price). Same order as MCP
 `create_event`.
 
+## Cancelling an event (RAZ-948)
+
+Business → event → **Cancel** (or Business → Events: tick events / "Select today's" → cancel them at once), MCP
+`cancel_event` (preview with how many people will be emailed → `confirm_token`; `undo`). `businessEvents.cancel`
+sets `events.cancelled_at` / `cancel_reason` / `cancelled_by` (0068); the event stays published and listed, crossed
+out with the reason on `/events/[id]`, the city page and `/@handle`, and in the profile feed
+(`/api/profiles/<u>/site` and `/events`: `cancelled`, `cancelReason` — contract `SiteEvent` in
+`shared/types/profileSite.ts`, mirrored by wedance-site-kit `WeDanceEvent`). Everyone who signed up is emailed once
+(`server/utils/eventCancel.ts` `signupsOf`: plan items, confirmed poll answers other than "next", attendances incl.
+ticket stubs, festival sign-ups / TicketTailor buyers; one email per address, never the canceller). Ticket holders
+are told to contact the organiser — refunds stay manual. `uncancel` ("It's on again") clears it and emails nobody.
+Only published, not-yet-over events can be cancelled.
+
 ## Analytics (PostHog)
 
 **Setup.** Client: `app/plugins/03.posthog.client.ts` (posthog-js, EU host, manual `$pageview`
@@ -407,6 +420,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `review_submitted` · `giveaway_entered` · `election_nominated` | `ReviewsSection` · `GiveawayCard` · `elections/[handle]` | target ids |
 | `event_form_opened` | `business/events/new.vue` — the organiser answers "Where are you starting from?" (RAZ-939) | `start` (post / copy / scratch) |
 | `event_created` / `event_published` | `business/events/new.vue` ("From scratch" or "Like my last event"; starts a draft; `event_published` only when "Publish it now" is ticked); publish = draft→live in `business/events/[id]` (checklist "Publish" button or the Published box) | `event_id`, `is_festival`, `city`, `style`, `published`, `source` (scratch / copy), `dates` (copy) |
+| `event_cancelled` | `BusinessCancelEvents` (event editor → Cancel, or Business → Events → tick events / "Select today's", RAZ-948) | `event_id` (one event, else null), `events`, `notified`, `has_reason`, `bulk` |
 | `event_imported` | `business/events/new.vue` "I have a post" (#453) | `event_id`, `source` (instagram), `created` (false = this post's draft already existed), `lineup`, `has_cover` |
 | `business_profile_created` | `business/new.vue` | `profile`, `profile_type`, `from_instagram` |
 | `public_page_set` | `settings/index.vue` "Your public page" (one handle per person, #474) | `cleared`, `profile_type` |
@@ -444,6 +458,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `server_login_completed` | `auth.login`, `auth.verifyMagicLink` | `method` |
 | `server_onboarding_completed` | `auth.completeOnboarding` | `intent` |
 | `server_event_created` | `businessEvents.create`, `businessEvents.createSeries`, `businessEvents.copy` ("Like my last event", always drafts) | `event_id`, `is_festival`, `host_type`, `city`, `published`, `series_id`, `dates`, `copied_from` (copy) |
+| `server_event_cancelled` | `businessEvents.cancel` (web + MCP `cancel_event`; once per event — re-cancelling only edits the reason) | `event_id`, `notified` (people emailed), `has_reason`, `bulk`, `is_festival`, `host_type`, `$groups` |
 | `server_event_imported` | `eventImport.fromInstagram` (web + MCP `import_from_instagram`; the draft itself also fires `server_event_created`) | `event_id`, `source` (instagram), `kind` (post / reel), `lineup`, `organizers`, `has_venue_page`, `has_cover`, `has_ticket`, `sessions`, `$groups` |
 | `server_event_published` | `create`/`createSeries` with `published`, `update` draft→live, `publishSeries` | `event_id`, `is_festival`, `series_id`, `dates` |
 | `server_booking_request_submitted` | `booking.request` (was server_booking_requested until 2026-10-20) | `booking_id`, `signed_in` |

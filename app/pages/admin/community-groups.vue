@@ -111,6 +111,11 @@ const platformFilterOptions = [
   { label: 'Other', value: 'other' },
 ]
 const counts = computed(() => stateCounts(items.value, filters))
+// The state tabs: "all" stands for no state filter.
+const stateTab = computed({
+  get: () => filters.state || 'all',
+  set: (v: string) => { filters.state = v === 'all' ? '' : v as GroupState },
+})
 const sections = computed(() => groupByCity(items.value, filters, nameOf))
 const shownCount = computed(() => sections.value.reduce((n, s) => n + s.groups.length, 0))
 const anyFilter = computed(() => Object.values(filters).some(Boolean))
@@ -255,16 +260,18 @@ const stateLabel: Record<GroupState, string> = { listed: 'listed', dead: 'dead l
           </Field>
         </div>
         <DanceStyleFilter v-if="allStyles.length" v-model="filters.style" :styles="allStyles" :lead="6" class="mt-3" />
-        <div class="mt-3 flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter by state">
-          <ToggleChip :pressed="!filters.state" @click="filters.state = ''">All ({{ counts.all }})</ToggleChip>
-          <ToggleChip
-            v-for="s in GROUP_STATES" :key="s"
-            :pressed="filters.state === s"
-            :data-testid="`state-${s}`"
-            @click="filters.state = filters.state === s ? '' : s"
-          >
-            {{ GROUP_STATE_LABEL[s] }} ({{ counts[s] }})
-          </ToggleChip>
+        <div class="mt-3 flex flex-wrap items-center gap-2">
+          <!-- State: one segmented control (Tabs without panels), counts in a quieter weight. -->
+          <Tabs v-model="stateTab" class="min-w-0 max-w-full">
+            <TabsList aria-label="Filter by state" class="h-auto max-w-full justify-start overflow-x-auto rounded-full p-1 [scrollbar-width:none]">
+              <TabsTrigger value="all" class="gap-1.5 rounded-full px-3" data-testid="state-all">
+                All <span class="tabular-nums text-muted-foreground">{{ counts.all }}</span>
+              </TabsTrigger>
+              <TabsTrigger v-for="s in GROUP_STATES" :key="s" :value="s" class="gap-1.5 rounded-full px-3" :data-testid="`state-${s}`">
+                {{ GROUP_STATE_LABEL[s] }} <span class="tabular-nums text-muted-foreground">{{ counts[s] }}</span>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
           <Button v-if="anyFilter" variant="ghost" size="sm" class="ml-auto h-8 text-xs" @click="clearFilters"><X /> Clear filters</Button>
         </div>
         <p class="mt-3 text-xs text-muted-foreground" data-testid="link-check-summary">
@@ -282,7 +289,7 @@ const stateLabel: Record<GroupState, string> = { listed: 'listed', dead: 'dead l
           <span class="text-sm font-normal text-muted-foreground">{{ sec.groups.length }}</span>
         </h2>
         <ul class="mt-2 grid gap-2">
-          <li v-for="grp in sec.groups" :key="grp.id" class="rounded-2xl border bg-card p-4" :data-state="groupState(grp)">
+          <li v-for="grp in sec.groups" :key="grp.id" class="group rounded-2xl border bg-card p-4" :data-state="groupState(grp)">
             <div class="flex flex-wrap items-center gap-2">
               <AdminStatus :tone="platformTone[grp.platform] || 'warning'">{{ platformLabel[grp.platform] ?? grp.platform }}</AdminStatus>
               <AdminStatus :tone="stateTone[groupState(grp)]">{{ stateLabel[groupState(grp)] }}</AdminStatus>
@@ -295,7 +302,8 @@ const stateLabel: Record<GroupState, string> = { listed: 'listed', dead: 'dead l
                   <Button type="button" variant="outline-pill" size="pill-sm" :disabled="busy === grp.id" @click="review(grp, false)"><X /> Decline</Button>
                 </template>
                 <Button v-else-if="grp.status === 'hidden' || grp.status === 'rejected' || grp.linkStatus === 'dead'" type="button" variant="ghost" size="sm" class="h-7 text-xs" :disabled="busy === grp.id" @click="setVisible(grp, true)"><Eye /> Show again</Button>
-                <Button v-else type="button" variant="ghost" size="sm" class="h-7 text-xs" :disabled="busy === grp.id" @click="setVisible(grp, false)"><EyeOff /> Hide</Button>
+                <!-- "Hide" is the rare move on a listed group: shown on hover / focus (always on touch screens). -->
+                <Button v-else type="button" variant="ghost" size="sm" class="h-7 text-xs transition-opacity [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 focus-visible:opacity-100" :disabled="busy === grp.id" @click="setVisible(grp, false)"><EyeOff /> Hide</Button>
               </span>
             </div>
             <h3 class="mt-1.5 flex items-center gap-1.5 font-display text-base font-bold leading-tight text-foreground">

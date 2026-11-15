@@ -93,6 +93,8 @@ function card(t: ToolCtx, e: any) {
     id: e.id, name: e.name, type: e.type, styles: e.styles ?? [], when: when(e), start: e.startDate, end: e.endDate,
     city: e.city, venue: e.venueName ?? null, venueHandle: e.venueUsername ?? null, organizer: e.organizerName ?? null,
     organizerHandle: e.organizerUsername ?? null, price: e.price || null, isFestival: !!e.isFestival, url: url(t, eventPath(e)),
+    // Cancelled by its organiser (RAZ-948): still listed, but it isn't happening.
+    ...(e.cancelledAt ? { cancelled: true, cancelReason: e.cancelReason ? { untrusted_text: e.cancelReason } : null } : {}),
   }
 }
 const localDay = (e: any) => eventLocalDate(e.startDate, e.timezone || 'Europe/Berlin')
@@ -728,6 +730,29 @@ export const TOOLS: ToolDef[] = [
     description: 'Take an event off WeDance (it can be restored as a draft from the web app). For a synced weekly event, whole_series also archives the dates to come.',
     input: { event_id: eventId, whole_series: z.boolean().optional() },
     run: (t, a) => t.caller.businessEvents.archive({ id: a.event_id, series: a.whole_series }),
+  },
+  {
+    name: 'cancel_event', title: 'Cancel an event and tell everyone who signed up', scopes: ['business:publish'], business: true, annotations: OUTWARD, confirm: true,
+    description: 'Cancel one or more published events that haven’t happened yet (e.g. every party of a page tonight). Each stays listed on WeDance and the page’s own website, marked “Cancelled” with the reason, and everyone who signed up (on their plan, “yes” on the poll, ticket holders) gets an email. Refunds are not made here: ticket holders are told to contact the organiser. undo=true takes the “Cancelled” mark off again (nobody is emailed). Runs as preview → confirm: the preview says how many people will be emailed.',
+    input: {
+      event_ids: z.array(eventId).min(1).max(50).describe('The events to cancel (ids from my_events).'),
+      reason: z.string().max(280).optional().describe('Short reason shown on the event and in the email, in the organiser’s words, e.g. "Tanzverbot today".'),
+      undo: z.boolean().optional().describe('true = the event is on again: remove the “Cancelled” mark.'),
+      confirm_token: confirmToken,
+    },
+    preview: async (t, a) => {
+      if (a.undo) return { action: 'undo cancellation', events: a.event_ids, emails: 0 }
+      const p: any = await t.caller.businessEvents.cancelPreview({ ids: a.event_ids })
+      return { action: 'cancel', reason: a.reason ? { untrusted_text: a.reason } : null, events: p.events.map((e: any) => ({ id: e.id, name: { untrusted_text: e.name }, date: e.date, start_time: e.startTime, already_cancelled: e.alreadyCancelled, will_email: e.toNotify, ticket_holders: e.ticketHolders })), will_email: p.toNotify }
+    },
+    run: async (t, a) => {
+      if (a.undo) {
+        for (const id of a.event_ids) await t.caller.businessEvents.uncancel({ id })
+        return { uncancelled: a.event_ids.length }
+      }
+      const r: any = await t.caller.businessEvents.cancel({ ids: a.event_ids, reason: a.reason ?? null, surface: 'mcp' })
+      return { cancelled: r.events.map((e: any) => ({ id: e.id, already_cancelled: e.alreadyCancelled, emailed: e.notified, url: url(t, `/events/${e.id}`) })), emailed: r.notified }
+    },
   },
   {
     name: 'add_profile_from_instagram', title: 'Add an artist or venue from Instagram', scopes: ['business:write'], business: true, annotations: WRITE,

@@ -1069,6 +1069,11 @@ export const events = pgTable('events', {
   // Festivals are events (migration 0032): logo, links, passes, programme…
   // (shared/types/festivalDetails.ts). Null for an ordinary event.
   festival: jsonb('festival').$type<import('../../shared/types/festivalDetails').FestivalDetails | null>(),
+  // Cancelled by its organiser (migration 0068, RAZ-948): stays published and
+  // listed, marked "Cancelled" with the reason. Null = on. Undo clears them.
+  cancelledAt: timestamp('cancelled_at'),
+  cancelReason: text('cancel_reason'),
+  cancelledBy: uuid('cancelled_by').references(() => dancers.id, { onDelete: 'set null' }),
 }, (t) => [
   index('events_host_profile_idx').on(t.hostProfileId),
   uniqueIndex('events_slug_uidx').on(t.slug).where(sql`${t.slug} IS NOT NULL`),

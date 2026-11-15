@@ -6,7 +6,7 @@ import { sizedImage, IMG } from '#shared/utils/image'
  * festival section language; sections appear only when the event has that
  * content, so an event can grow into a full festival-grade page over time.
  */
-import { Check, ArrowLeft, MapPin, Globe, User, Euro, Pencil, ExternalLink, EyeOff } from 'lucide-vue-next'
+import { Check, ArrowLeft, MapPin, Globe, User, Euro, Pencil, ExternalLink, EyeOff, Ban } from 'lucide-vue-next'
 import type { DanceRole, SwipeCard } from '~/types/festival'
 import { findMockEvent, festivalSessionEvent } from '~/lib/mockEvents'
 import { formatEventWhen, eventLocalDate } from '#shared/utils/eventTime'
@@ -195,6 +195,9 @@ function fromSyncedEvent(e: any) {
     // Named next to the organiser (#456): [{ username, name, role }].
     coOrganizers: (e.coOrganizers || []) as { username: string; name: string; role: string }[],
     archived: !!e.archived,
+    // Cancelled by its organiser (RAZ-948): still shown, with the reason; no RSVP.
+    cancelled: !!e.cancelledAt,
+    cancelReason: e.cancelReason || '',
     synced: e.source === 'wedance-v3',
     // A dated event (not a festival) gets the RSVP poll.
     pollable: !e.isFestival,
@@ -267,7 +270,13 @@ useHead(() => ({
       <p><b>Preview, not published yet.</b> The organiser shared this draft with you so you can see the plan. Dancers can't see it, and details may still change.</p>
     </div>
   </div>
-  <FestivalView v-if="festivalData && !pending" :data="festivalData" :type="ev?.eventType" :edit-to="canEdit ? `/business/events/${festivalData.eventId}` : undefined" :rsvp="ev?.pollable && !ev.archived && !isPreview ? { eventId: ev.id, path: route.path, startDate: ev.startDate, endDate: ev.endDate, timezone: ev.timezone, organizerName: ev.organizerName || (ev.organizerHandle ? `@${ev.organizerHandle}` : null) } : null" />
+  <div v-if="festivalData && !pending && ev?.cancelled" role="status" class="border-b border-destructive/30 bg-destructive/10 font-sans" data-testid="event-cancelled-banner">
+    <div class="max-w-3xl mx-auto px-4 py-3 flex items-start gap-2.5 text-sm text-destructive">
+      <Ban class="size-4 mt-0.5 shrink-0" aria-hidden="true" />
+      <p><b>Cancelled by the organiser.</b><span v-if="ev.cancelReason" class="text-foreground"> {{ ev.cancelReason }}</span></p>
+    </div>
+  </div>
+  <FestivalView v-if="festivalData && !pending" :data="festivalData" :type="ev?.eventType" :edit-to="canEdit ? `/business/events/${festivalData.eventId}` : undefined" :rsvp="ev?.pollable && !ev.archived && !ev.cancelled && !isPreview ? { eventId: ev.id, path: route.path, startDate: ev.startDate, endDate: ev.endDate, timezone: ev.timezone, organizerName: ev.organizerName || (ev.organizerHandle ? `@${ev.organizerHandle}` : null) } : null" />
   <div v-else class="min-h-screen bg-background text-foreground font-display">
     <SiteHeader />
 
@@ -307,13 +316,23 @@ useHead(() => ({
         </p>
       </div>
 
+      <div v-if="ev.cancelled" role="status" class="border-b border-destructive/30 bg-destructive/10 font-sans" data-testid="event-cancelled-banner">
+        <div class="max-w-3xl mx-auto px-4 py-3 flex items-start gap-2.5 text-sm text-destructive">
+          <Ban class="size-4 mt-0.5 shrink-0" aria-hidden="true" />
+          <p><b>Cancelled by the organiser.</b><span v-if="ev.cancelReason" class="text-foreground"> {{ ev.cancelReason }}</span></p>
+        </div>
+      </div>
+
       <!-- Same hero as festivals -->
       <FestivalHero :festival="asFestival" review-target-type="event" entity-label="event" cta-anchor="#discover" cta-fallback-label="I'm going" :picked="picked" :date-label="ev.when" :venue-address="ev.venueAddress" :map-url="ev.mapUrl" @pick="onPick">
         <!-- The RSVP: the organiser's poll IS the hero's Going question (RAZ-731). -->
-        <template v-if="ev.pollable && !ev.archived && !isPreview" #cta>
+        <template v-if="ev.pollable && !ev.archived && !isPreview && !ev.cancelled" #cta>
           <div id="rsvp" class="mt-4 max-w-xl scroll-mt-16">
             <EventRsvpPoll :event-id="ev.id" :path="route.path" :start-date="ev.startDate" :end-date="ev.endDate" :timezone="ev.timezone" :organizer-name="ev.organizerName || (ev.organizerHandle ? `@${ev.organizerHandle}` : null)" surface="event" @poll="onPoll" />
           </div>
+        </template>
+        <template v-else-if="ev.cancelled" #cta>
+          <p class="mt-4 inline-flex items-center gap-1.5 rounded-full bg-destructive/10 px-4 py-2 text-sm font-bold text-destructive font-sans"><Ban class="size-4" aria-hidden="true" /> Cancelled: not happening</p>
         </template>
       </FestivalHero>
 

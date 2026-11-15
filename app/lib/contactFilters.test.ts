@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { filterContacts, emptyFilter, isFiltered, toggle, byEngagement, type FilterableContact } from './contactFilters'
+import { filterContacts, emptyFilter, isFiltered, toggle, contactsCsv, sourceDetail, CSV_COLUMNS, type FilterableContact } from './contactFilters'
 import { EMPTY_ACTIVITY } from '#shared/utils/contactSegments'
 
 const NOW = new Date('2026-11-15T12:00:00Z')
@@ -33,7 +33,34 @@ describe('helpers', () => {
     expect(toggle(['a'], 'b')).toEqual(['a', 'b'])
     expect(toggle(['a', 'b'], 'a')).toEqual(['b'])
   })
-  it('byEngagement: going soon first, then most events', () => {
-    expect(names([...list].sort(byEngagement))).toEqual(['Cleo', 'Ben', 'Ana'])
+})
+
+describe('search over source details', () => {
+  it('finds a contact by its form, UTM or promo code', () => {
+    const l = [c({ name: 'Dora', source: { form: 'newsletter', promo_code: 'SUMMER' } }), c({ name: 'Eli' })]
+    expect(names(filterContacts(l, { ...emptyFilter(), q: 'summer' }, NOW))).toEqual(['Dora'])
+    expect(names(filterContacts(l, { ...emptyFilter(), q: 'newsl' }, NOW))).toEqual(['Dora'])
+  })
+})
+
+describe('contactsCsv', () => {
+  it('one header and one quoted row per contact, with can-email and WeDance activity', () => {
+    const csv = contactsCsv([
+      { ...c({ name: 'Ann "A"', email: 'a@test.local', source: { utm_source: 'ig', utm_medium: 'story' } }), locale: 'de', sourceLabel: 'Your website' },
+      { ...c({ email: 'b@test.local', emailBlock: 'not_opted_in', hasAccount: true, account: { name: 'Bo' }, activity: { ...EMPTY_ACTIVITY, wentTo: 4, follows: true, upcoming: [{ id: 'e', name: 'E', startDate: '2026-11-20T19:00:00.000Z' }] } }), locale: null, sourceLabel: 'HubSpot imported list' },
+    ])
+    const [head, a, b] = csv.split('\n')
+    expect(head).toBe(CSV_COLUMNS.join(','))
+    expect(a).toContain('"Ann ""A"""')
+    expect(a).toContain('"yes"')
+    expect(a).toContain('"ig / story"')
+    expect(b).toContain('"Bo"')
+    expect(b).toContain('"no: Never asked for your emails"')
+    expect(b).toContain('"4","2026-11-20","yes"')
+  })
+  it('sourceDetail: UTM, else form, else referrer', () => {
+    expect(sourceDetail({ form: 'f', referrer: 'r' })).toBe('f')
+    expect(sourceDetail({ referrer: 'r' })).toBe('r')
+    expect(sourceDetail(null)).toBe('')
   })
 })

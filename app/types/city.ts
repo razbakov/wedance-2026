@@ -25,6 +25,9 @@ export interface CityEvent {
   recurring: boolean
   date?: string
   venueHandle?: string
+  /** Cancelled by its organiser (RAZ-948): shown crossed out, with the reason. */
+  cancelled?: boolean
+  cancelReason?: string | null
 }
 
 export interface City {

@@ -332,7 +332,8 @@ export const SubmitGroupSchema = v.pipe(
     name: v.pipe(requiredText('Add the group’s name.'), v.maxLength(120, 'Keep the name under 120 characters.')),
     platform: v.picklist(['whatsapp', 'telegram', 'facebook', 'other']),
     inviteUrl: webUrl('Paste the group’s invite link.'),
-    styles: commaList(),
+    // From <DanceStylePicker>; the router takes at most 10.
+    styles: v.pipe(v.array(v.string()), v.maxLength(10, 'Pick up to 10 styles.')),
     description: optionalText(300, 'Keep it under 300 characters.'),
   }),
   v.forward(
@@ -358,7 +359,7 @@ export const CityChannelSchema = v.pipe(
 
 export const GiveawaySchema = v.pipe(
   v.object({
-    citySlug: requiredText('Add the city slug.'),
+    citySlug: requiredText('Pick the city.'),
     sponsorName: requiredText('Add the sponsor name.'),
     title: requiredText('Add a title.'),
     description: requiredText('Add a short description.'),
@@ -427,4 +428,11 @@ export const EventCopySchema = v.object({
   id: v.pipe(v.string(), v.nonEmpty('Pick the event to copy.')),
   date: isoDate('Pick the new date.'),
   repeatWeeks: v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(12)),
+})
+
+// ── Business (businessEvents.cancel — RAZ-948) ───────────────────────────────
+
+/** Cancel one or several events: an optional short reason, shown on the event and in the email. */
+export const EventCancelSchema = v.object({
+  reason: optionalText(280, 'Keep the reason under 280 characters.'),
 })
