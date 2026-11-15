@@ -417,7 +417,8 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `profile_claimed` | `confirm/[token].vue` (invite link) | `via`, `new_account` |
 | `invite_email_confirmed` | `useAuth.confirmInviteEmail` ("That's me" in the answer email → `/confirm/<token>?that=`) | `owner`, `new_account` |
 | `tickets_claimed` | `charanga/claim.vue` | `count`, `festivals` |
-| `booking_inquiry_sent` · `booking_join_offered` · `booking_request_submitted` · `booking_added_to_event` | `BookingInquiryForm`, `PromoterProfile`, `/@handle`, `book/[handle]` | `profile`, … |
+| `booking_inquiry_sent` · `booking_join_offered` · `booking_request_submitted` | `BookingInquiryForm`, `PromoterProfile`, `/@handle`, `book/[handle]` | `profile`, … |
+| `booking_added_to_event` | `book/[handle]` "Add <artist> to an event's line-up" picker under the request form (RAZ-964: same styles, one row per series, ≤5) | `profile`, `series` (the row was a series' next date), `rows` (events the picker showed) |
 | `event_inquiry_submitted` | `for-events.vue` | `event_type`, `city` |
 | `gig_posted` · `gig_cta_click` | `gigs/index.vue` | `kind`, `category` · `action`, `gig_id` |
 | `ticket_cta_click` | `FestivalHero` (external shop), `FestivalView` (Stripe checkout) | `slug` / `festival`, `provider` (stripe / tickettailor / external), `tickets`, … |
