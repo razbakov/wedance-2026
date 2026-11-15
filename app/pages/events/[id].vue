@@ -35,8 +35,8 @@ function onSignIn(action?: string) {
 
 // The RSVP is the organiser's poll (RAZ-718), shown in the hero in place of
 // the Going button (RAZ-731).
-const rsvpPoll = ref<{ coming: number; mine: { answer: string } | null } | null>(null)
-function onPoll(p: { coming: number; mine: { answer: string } | null }) { rsvpPoll.value = p }
+const rsvpPoll = ref<any | null>(null)
+function onPoll(p: any) { rsvpPoll.value = p }
 
 function onPick() {
   if (!isSignedIn.value) {
@@ -296,14 +296,19 @@ useHead(() => ({
       </div>
 
       <!-- Same hero as festivals -->
-      <FestivalHero :festival="asFestival" review-target-type="event" entity-label="event" cta-anchor="#rsvp" cta-fallback-label="I'm going" :picked="picked" :cancelled="ev.cancelled ? { reason: ev.cancelReason } : null" :date-label="ev.when" :venue-address="ev.venueAddress" :map-url="ev.mapUrl" @pick="onPick">
+      <FestivalHero :festival="asFestival" review-target-type="event" entity-label="event" cta-anchor="#rsvp" cta-fallback-label="I'm going" :hide-going="ev.pollable && !ev.archived && !isPreview && !ev.cancelled" :picked="picked" :cancelled="ev.cancelled ? { reason: ev.cancelReason } : null" :date-label="ev.when" :venue-address="ev.venueAddress" :map-url="ev.mapUrl" @pick="onPick">
         <!-- The RSVP: the organiser's poll IS the hero's Going question (RAZ-731). -->
         <template v-if="ev.pollable && !ev.archived && !isPreview && !ev.cancelled" #cta>
           <div id="rsvp" class="mt-4 max-w-xl scroll-mt-16">
-            <EventRsvpPoll :event-id="ev.id" :path="route.path" :start-date="ev.startDate" :end-date="ev.endDate" :timezone="ev.timezone" :organizer-name="ev.organizerName || (ev.organizerHandle ? `@${ev.organizerHandle}` : null)" surface="event" @poll="onPoll" />
+            <EventSignup :event-type="ev.eventType" :event-id="ev.id" :path="route.path" :start-date="ev.startDate" :end-date="ev.endDate" :timezone="ev.timezone" :organizer-name="ev.organizerName || (ev.organizerHandle ? `@${ev.organizerHandle}` : null)" surface="event" @poll="onPoll" />
           </div>
         </template>
       </FestivalHero>
+
+      <!-- Who's coming, under the sign-up (RAZ-995) -->
+      <div v-if="rsvpPoll && ev.pollable && !ev.archived && !isPreview && !ev.cancelled" class="max-w-3xl mx-auto px-4 pt-6">
+        <EventWhosComing :poll="rsvpPoll" />
+      </div>
 
       <div v-if="ev.archived" class="max-w-3xl mx-auto px-4 pt-4 font-sans">
         <p class="rounded-xl px-4 py-3 text-sm bg-warning/[12.2%] text-wd-amber-800">This event is no longer listed by its organiser — it may have been cancelled or moved.</p>

@@ -53,6 +53,7 @@ export async function festivalView(db: any, ev: any): Promise<{ festival: Festiv
     attendeeCount: 0, // the page loads the live count
     ticketUrl: ev.ticketUrl ?? undefined,
     tickets: f.passes ?? [],
+    payAtDoor: !!f.payAtDoor,
     organizers: await organizersOf(db, ev),
   }
   const teachers: Teacher[] = handles.map((h) => {

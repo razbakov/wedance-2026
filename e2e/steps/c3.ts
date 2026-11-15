@@ -409,33 +409,33 @@ Then('no Going is saved in the database for that event', async () => {
 
 const poll = (page: Page) => page.locator('#rsvp')
 
-When('{string} answers {string} in the event\'s poll', async ({ page, c3 }, who: string, answer: string) => {
+// RAZ-995: the hero's one button opens the steps; a party night without passes is role → contact.
+When('{string} signs up {string} for the event', async ({ page, c3 }, who: string, answer: string) => {
   await signInAs(page, c3, who)
   await page.goto(`/events/${c3.ids.event}`)
-  const saved = page.waitForResponse(r => r.url().includes('rsvp.answer'))
+  await poll(page).locator('[data-signup-start]').click()
   await poll(page).getByRole('button', { name: new RegExp(answer) }).click()
+  const saved = page.waitForResponse(r => r.url().includes('rsvp.signUp'))
+  await poll(page).locator('[data-signup-submit]').click()
   expect((await saved).ok()).toBe(true)
-  await expect(poll(page).locator('[data-rsvp-status]')).toContainText('You’re going')
+  await expect(poll(page).locator('[data-signup-in]')).toContainText('You’re in')
 })
 
-Then('{string} is led to share the week from My plan', async ({ page }, _who: string) => {
-  await expect(poll(page).locator('[data-rsvp-share]').getByRole('link')).toHaveAttribute('href', '/my-plan#socials')
-})
-
-Then('{string} sees {string} under {string} in the event\'s poll', async ({ page, c3 }, viewer: string, who: string, answer: string) => {
+Then('{string} sees {string} under {string} in Who\'s coming', async ({ page, c3 }, viewer: string, who: string, answer: string) => {
   await signInAs(page, c3, viewer)
   await page.goto(`/events/${c3.ids.event}`)
-  await poll(page).getByRole('button', { name: /See who’s coming/ }).click()
-  const group = poll(page).locator('#rsvp-who-list > div').filter({ hasText: answer })
-  await expect(group.getByRole('link', { name: who })).toHaveAttribute('href', `/u/c3-${who.toLowerCase()}-${c3.run}`)
+  const faces = page.locator('[data-whos-coming-faces]')
+  await expect(faces.getByRole('link', { name: new RegExp(who) })).toHaveAttribute('href', `/u/c3-${who.toLowerCase()}-${c3.run}`)
+  await expect(faces).toContainText(answer.replace('With my partner', 'With your partner'))
 })
 
 Then('a signed-out visitor sees the counts but nobody\'s name in the event\'s poll', async ({ page }) => {
   await page.context().clearCookies()
   await page.evaluate(() => localStorage.clear())
   await page.reload()
-  await expect(poll(page).getByRole('button', { name: /With my partner/ })).toContainText('1')
-  await expect(poll(page).locator('[data-rsvp-who], [data-rsvp-faces]')).toHaveCount(0)
+  await expect(page.locator('[data-whos-coming]')).toContainText('1 couple')
+  await expect(page.locator('[data-whos-coming-faces]')).toHaveCount(0)
+  await expect(page.locator('[data-whos-coming-anon]')).toBeVisible()
 })
 
 Then('the event page has no {string} section', async ({ page }, title: string) => {

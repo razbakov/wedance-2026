@@ -28,6 +28,8 @@ const props = withDefaults(defineProps<{
   mapUrl?: string
   // Every pass is €0 — say so in the hero instead of a €0 checkout (RAZ-731).
   freeEntry?: boolean
+  /** Who's coming sits right under the hero (RAZ-995): don't say the count twice. */
+  hideGoing?: boolean
   // Cancelled by its organiser (RAZ-948): said here, in the hero, where the eye goes —
   // a "Cancelled" pill instead of the countdown, the date struck through, the reason
   // under it, no tickets / "I'm going"; someone who had it on their plan can take it off.
@@ -180,7 +182,7 @@ const rays = Array.from({ length: 24 }, (_, i) => {
           <!-- Meta: attendees + socials -->
           <div class="mt-3 flex flex-wrap items-center gap-3 text-xs">
             <span
-              v-if="!cancelled || festival.attendeeCount"
+              v-if="!hideGoing && (!cancelled || festival.attendeeCount)"
               class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-bold font-sans"
               :style="{ background: festival.accentColor + '18', color: chipText }"
             >

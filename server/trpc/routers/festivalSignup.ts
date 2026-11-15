@@ -197,6 +197,8 @@ export const festivalSignupRouter = router({
       festivalSlug: z.string(),
       ticketNames: z.array(z.string().min(1).max(200)).min(1).max(10),
       referralCode: z.string().min(1).max(100).optional(),
+      // Coming with a partner (RAZ-995): the couple price, else twice the price.
+      people: z.union([z.literal(1), z.literal(2)]).default(1),
     }))
     .mutation(async ({ ctx, input }) => {
       // Resolve each ticket price server-side: the passes the organiser saved
@@ -204,8 +206,8 @@ export const festivalSignupRouter = router({
       const passes = await livePasses(ctx.db, input.festivalSlug)
       const resolved = input.ticketNames.map((name) => {
         const ticket = passes?.length
-          ? passPriceCents(passes, name)
-          : getTicketPriceCents(input.festivalSlug, name)
+          ? passPriceCents(passes, name, input.people)
+          : (() => { const t = getTicketPriceCents(input.festivalSlug, name); return t ? { ...t, priceCents: t.priceCents * input.people } : t })()
         if (!ticket) {
           throw new TRPCError({ code: 'NOT_FOUND', message: `Ticket not found: ${name}` })
         }
@@ -342,7 +344,7 @@ export const festivalSignupRouter = router({
         price_data: {
           currency: 'eur',
           product_data: {
-            name: `${festival.name} — ${t.name}`,
+            name: `${festival.name} — ${t.name}${input.people === 2 ? ' · for two' : ''}`,
           },
           unit_amount: t.priceCents,
         },
@@ -378,6 +380,7 @@ export const festivalSignupRouter = router({
           festivalSlug: input.festivalSlug,
           ticketName: input.ticketNames.join(', '),
           ticketCount: String(input.ticketNames.length),
+          people: String(input.people),
           dancerId: ctx.dancerId,
           amountCents: String(chargedCents),
           ...(referrerId ? { referrerId, referralDiscount: String(refereeDiscountCents) } : {}),

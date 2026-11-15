@@ -285,18 +285,23 @@ When(
 
 // ── "Going?" gate ───────────────────────────────────────────────────
 
-// The hero's Going question on a dated event is the organiser's poll (RAZ-731).
-When('I answer the Going question in the event hero', async ({ page }) => {
-  const answer = page.locator('#rsvp [data-rsvp]').first()
-  await expect(answer).toBeVisible({ timeout: 10_000 })
-  await answer.click()
+// The hero's one button opens the sign-up steps in place (RAZ-995): how you come, then your contact.
+When('I sign up in the event hero as {string} with {string}', async ({ page }, name: string, email: string) => {
+  const start = page.locator('#rsvp [data-signup-start]')
+  await expect(start).toBeVisible({ timeout: 10_000 })
+  await start.click()
+  await page.locator('#rsvp [data-rsvp]').first().click()
+  const contact = page.locator('#rsvp [data-signup-contact]')
+  await expect(contact).toBeVisible()
+  await contact.getByRole('textbox', { name: 'First and last name' }).fill(name)
+  await contact.getByRole('textbox', { name: 'Email' }).fill(email)
+  const saved = page.waitForResponse(r => r.url().includes('rsvp.signUp'))
+  await contact.locator('[data-signup-submit]').click()
+  expect((await saved).ok()).toBe(true)
 })
 
-Then('the email confirmation sheet is visible', async ({ page }) => {
-  const dialog = page.locator('[role="dialog"]')
-  await expect(dialog).toBeVisible({ timeout: 5_000 })
-  await expect(dialog.getByRole('heading', { name: 'You’re on the list' })).toBeVisible()
-  await expect(dialog.getByRole('textbox', { name: 'Email' })).toBeVisible()
+Then('I am asked to open the link we sent', async ({ page }) => {
+  await expect(page.locator('#rsvp [data-signup-sent]')).toContainText('Almost there', { timeout: 10_000 })
 })
 
 // ── Assertions ──────────────────────────────────────────────────────
