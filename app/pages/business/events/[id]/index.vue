@@ -15,7 +15,6 @@ import type { BusinessEventValues } from '~/components/business/BusinessEventFor
 import { toBusinessEventInput } from '~/lib/businessEvent'
 import { eventLocalDate } from '#shared/utils/eventTime'
 import { eventPath } from '#shared/utils/eventSlug'
-import { rsvpOptions } from '#shared/utils/rsvp'
 import { eventSteps, firstOpenStep, pastEventHints, STEP_CARD, type EventStepKey } from '~/lib/eventSteps'
 
 definePageMeta({ layout: 'business' })
@@ -81,14 +80,6 @@ async function loadHints() {
   } catch { /* no suggestions */ }
 }
 
-// The RSVP poll (RAZ-718): the same buckets dancers see on the event page.
-const poll = ref<Awaited<ReturnType<typeof $trpc.rsvp.summary.query>> | null>(null)
-onMounted(async () => {
-  try { poll.value = await $trpc.rsvp.summary.query({ eventId: id.value }) } catch { /* no poll card */ }
-})
-const pollBuckets = computed(() => poll.value
-  ? rsvpOptions(poll.value.partner).map(o => ({ ...o, count: poll.value!.counts[o.id] }))
-  : [])
 useHead(() => ({ title: `${ev.value?.name || 'Event'} | Business | WeDance` }))
 
 const initial = computed<Partial<BusinessEventValues>>(() => ev.value
@@ -328,14 +319,7 @@ async function archive(series = false) {
 
       <BusinessEventSteps v-if="!ev.synced && !ev.archived" v-model="step" :steps="steps" class="mt-4" @go="goStep" />
 
-      <section v-if="poll && !poll.festival" class="mt-4 rounded-2xl border bg-card p-4" data-rsvp-summary>
-        <h2 class="text-eyebrow font-bold uppercase tracking-[0.3em] text-secondary">Who’s coming</h2>
-        <p class="mt-2 text-sm font-bold">{{ poll.line }}</p>
-        <ul class="mt-2 flex flex-wrap gap-2 text-sm">
-          <li v-for="b in pollBuckets" :key="b.id" class="rounded-full bg-muted px-3 py-1"><span class="font-bold tabular-nums">{{ b.count }}</span> {{ b.label }}</li>
-        </ul>
-        <p v-if="poll.unconfirmed" class="mt-2 text-xs text-muted-foreground">Unconfirmed: answered without an account yet. They count for 48 hours unless confirmed by email.</p>
-      </section>
+      <BusinessWhosComing :event-id="ev.id" class="mt-4" />
 
       <div class="mt-4 grid gap-5" :class="ev.synced ? '' : 'lg:grid-cols-[minmax(0,1fr)_19rem]'">
         <BusinessEventForm
