@@ -21,7 +21,7 @@ import {
 import { ReportProblemSchema } from '#shared/validation'
 import { REPORT_PROBLEM_EVENT } from '~/lib/report-problem'
 import { captureScreenFrame, isScreenCaptureSupported, type ScreenFrame } from '~/lib/screen-capture'
-import { submitFeedback } from '~/lib/sentry-feedback'
+import { failureMessage, feedbackFailure, submitFeedback } from '~/lib/sentry-feedback'
 
 const { collect } = useReportContext()
 const { isSignedIn, dancerId, dancerName, username } = useAuth()
@@ -41,12 +41,12 @@ const submitting = ref(false)
 const error = ref('')
 /** Sentry event id of the submitted feedback — set = success state. */
 const doneId = ref<string | null>(null)
+/** The report went out, but only without its screenshot. */
+const screenshotDropped = ref(false)
 const { errors, validate, reset: resetValidation, fieldAttrs } = useFormValidation(ReportProblemSchema, () => ({
   description: description.value,
   email: email.value,
 }))
-
-const FALLBACK_ERROR = 'Could not submit. Please try again, or email hello@wedance.vip.'
 
 const PIPELINE_STEPS = [
   { icon: MessageSquare, label: 'You describe your idea', color: 'text-primary' },
@@ -128,6 +128,7 @@ function reset() {
   error.value = ''
   submitting.value = false
   doneId.value = null
+  screenshotDropped.value = false
   hubChoice.value = null
   resetValidation()
 }
@@ -162,7 +163,7 @@ async function submit() {
   submitting.value = true
   try {
     const who = await reporter()
-    const id = await submitFeedback({
+    const sent = await submitFeedback({
       type,
       description: result.data.description,
       name: who.name || dancerName.value,
@@ -172,18 +173,19 @@ async function submit() {
       context: collect(),
       screenshot: type === 'bug' ? screenshot.value?.bytes : null,
     })
-    doneId.value = id
-    track('problem_report_submitted', { type, identifier: id, has_screenshot: type === 'bug' && !!screenshot.value })
+    doneId.value = sent.id
+    screenshotDropped.value = sent.screenshotDropped
+    track('problem_report_submitted', {
+      type,
+      identifier: sent.id,
+      has_screenshot: type === 'bug' && !!screenshot.value && !sent.screenshotDropped,
+      screenshot_dropped: sent.screenshotDropped,
+    })
   } catch (e) {
     console.warn('[ReportProblem] submit failed:', e)
-    // Why it failed, so the next "Could not submit" isn't a guess (RAZ-976).
-    track('problem_report_failed', {
-      type,
-      reason: String((e as Error)?.message ?? e).slice(0, 120),
-      has_screenshot: type === 'bug' && !!screenshot.value,
-      screenshot_kb: type === 'bug' && screenshot.value ? Math.round(screenshot.value.bytes.length / 1024) : 0,
-    })
-    error.value = FALLBACK_ERROR
+    const reason = feedbackFailure(e)
+    error.value = failureMessage(reason)
+    track('problem_report_failed', { type, reason, has_screenshot: type === 'bug' && !!screenshot.value })
   } finally {
     submitting.value = false
   }
@@ -223,6 +225,9 @@ async function submit() {
               </template>
               <template v-else>
                 Our team has it, together with the technical details. We really appreciate you flagging it.
+                <template v-if="screenshotDropped">
+                  The screenshot couldn't be sent along, but the session replay shows us what happened.
+                </template>
               </template>
             </DialogDescription>
           </DialogHeader>
@@ -310,12 +315,20 @@ async function submit() {
             <div
               class="flex items-center gap-3 rounded-2xl px-3 py-2.5 text-xs bg-card border border-border text-muted-foreground"
             >
-              <img
+              <a
                 v-if="screenshotUrl"
-                :src="screenshotUrl"
-                alt="Screenshot that will be attached"
-                class="h-12 w-20 shrink-0 rounded-md border border-border object-cover object-top"
+                :href="screenshotUrl"
+                target="_blank"
+                rel="noopener"
+                class="shrink-0"
+                aria-label="Open the screenshot full size"
               >
+                <img
+                  :src="screenshotUrl"
+                  alt="Screenshot that will be attached"
+                  class="h-12 w-20 rounded-md border border-border object-cover object-top"
+                >
+              </a>
               <ImageIcon v-else class="size-4 shrink-0 text-secondary" aria-hidden="true" />
               <span v-if="screenshot" class="flex-1">Screenshot attached.</span>
               <span v-else class="flex-1">No screenshot — the session replay will show us what happened.</span>

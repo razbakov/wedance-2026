@@ -268,12 +268,19 @@ export type SkipReason = 'not-event' | 'unlisted' | 'bad-date' | 'past' | 'no-ve
 
 const FESTIVAL_TYPES = new Set(['Festival', 'Congress', 'Weekender'])
 
-/** v3 seeding-bot boilerplate about claiming a listing on wedance.vip — meaningless on 2026. */
-function cleanDescription(d: unknown): string {
+/**
+ * v3 seeding-bot boilerplate about claiming a listing on wedance.vip — meaningless on 2026 —
+ * and the ical importer's "Source: <calendar feed>" line (RAZ-980: a link that downloads a file).
+ */
+export function cleanDescription(d: unknown): string {
   if (typeof d !== 'string') return ''
   return d
     .split('\n')
     .filter(l => !/^\s*🔔\s*Is this your event\?/.test(l))
+    .filter(l => {
+      const m = l.match(/^\s*Source:\s*(\S+)\s*$/i)
+      return !(m && isCalendarFeed(m[1]!))
+    })
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim()

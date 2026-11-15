@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { toMs, mapStyles, parseVenue, cityFromAddress, buildCityIndex, resolveCity, resolveTimezone, mapV3Event, isCalendarFeed, eventWebsite, learnPlaceLocalities, decodeValue, seriesKey, dedupeKey, selectRows, type MappedEvent } from './v3EventSync'
+import { toMs, mapStyles, parseVenue, cityFromAddress, buildCityIndex, resolveCity, resolveTimezone, mapV3Event, isCalendarFeed, eventWebsite, cleanDescription, learnPlaceLocalities, decodeValue, seriesKey, dedupeKey, selectRows, type MappedEvent } from './v3EventSync'
 
 const MUNICH = 'ChIJ2V-Mo_l1nkcRfZixfUq4DAE'
 const NOW = Date.parse('2026-10-04T00:00:00Z')
@@ -296,5 +296,11 @@ describe('a calendar feed is not the event website (RAZ-980)', () => {
     const fb = mapV3Event({ ...base, link: feed, facebook: 'https://facebook.com/events/123' }, ctx)
     expect(fb.ok && fb.row.link).toBe('https://facebook.com/events/123')
     expect(eventWebsite(null, ' https://club.example/night ', feed)).toBe('https://club.example/night')
+  })
+
+  it('drops the importer\'s "Source: <feed>" line from the description, keeps real sources', () => {
+    const intro = 'ℹ️ Imported by WeDance from public sources so Munich dancers don’t miss it.'
+    expect(cleanDescription(`${intro}\n\nSource: ${feed}`)).toBe(intro)
+    expect(cleanDescription(`${intro}\n\nSource: https://www.kult.studio/`)).toBe(`${intro}\n\nSource: https://www.kult.studio/`)
   })
 })
