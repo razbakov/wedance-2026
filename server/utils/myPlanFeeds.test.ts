@@ -4,7 +4,7 @@
  * week — is covered in server/trpc/routers/plan-myPlanFeeds.test.ts.
  */
 import { describe, it, expect } from 'vitest'
-import { isClassType, resolveWeekOccurrences, slugifyCity, stylesForDancer, stylesMatch } from './myPlanFeeds'
+import { isClaimableFestival, isClassType, resolveWeekOccurrences, slugifyCity, stylesForDancer, stylesMatch } from './myPlanFeeds'
 
 describe('stylesMatch', () => {
   it('matches the same style and its variants', () => {
@@ -68,5 +68,39 @@ describe('isClassType', () => {
   })
   it('leaves nights out and festivals to their own sections', () => {
     for (const t of ['Party', 'Concert', 'Show', 'Festival', null, undefined]) expect(isClassType(t)).toBe(false)
+  })
+})
+
+// RAZ-982: "Going to Casino Partnerwork — you're not" on a dancer card — a
+// one-hour workshop (is_festival false) that had a festival plan item and a
+// legacy festivals row. Only a real, upcoming festival may be claimed.
+describe('isClaimableFestival', () => {
+  const now = new Date('2026-11-15T12:00:00Z')
+  const fest = {
+    isFestival: true, published: true, archived: false, cancelledAt: null,
+    startDate: new Date('2026-11-27T18:00:00Z'), endDate: new Date('2026-11-29T22:00:00Z'),
+  }
+
+  it('claims a published, upcoming festival', () => {
+    expect(isClaimableFestival(fest, now)).toBe(true)
+  })
+  it('claims a festival that is on right now, until its last day is over', () => {
+    expect(isClaimableFestival({ ...fest, startDate: new Date('2026-11-14T18:00:00Z'), endDate: new Date('2026-11-16T22:00:00Z') }, now)).toBe(true)
+    expect(isClaimableFestival({ ...fest, endDate: null, startDate: new Date('2026-11-15T20:00:00Z') }, now)).toBe(true)
+  })
+  it('never claims a workshop, class or party — even with a programme', () => {
+    expect(isClaimableFestival({ ...fest, isFestival: false, startDate: new Date('2026-11-15T18:00:00Z'), endDate: new Date('2026-11-15T19:00:00Z') }, now)).toBe(false)
+    expect(isClaimableFestival({ ...fest, isFestival: null }, now)).toBe(false)
+  })
+  it('never claims a festival that is over', () => {
+    expect(isClaimableFestival({ ...fest, startDate: new Date('2026-10-16T18:00:00Z'), endDate: new Date('2026-10-18T13:00:00Z') }, now)).toBe(false)
+  })
+  it('never claims a draft, archived or cancelled festival', () => {
+    expect(isClaimableFestival({ ...fest, published: false }, now)).toBe(false)
+    expect(isClaimableFestival({ ...fest, archived: true }, now)).toBe(false)
+    expect(isClaimableFestival({ ...fest, cancelledAt: new Date('2026-11-01T00:00:00Z') }, now)).toBe(false)
+  })
+  it('never claims a festival without dates', () => {
+    expect(isClaimableFestival({ ...fest, startDate: null, endDate: null }, now)).toBe(false)
   })
 })

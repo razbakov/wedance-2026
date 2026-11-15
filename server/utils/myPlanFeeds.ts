@@ -361,6 +361,65 @@ function shuffle<T>(a: T[]): T[] {
   return a
 }
 
+/**
+ * RAZ-982: a dancer card may say "Going to <festival>" only when the plan item
+ * points at a real, upcoming festival. Plan items of type 'festival' are also
+ * written for one-off events with a programme (a workshop page uses the
+ * festival view, and gets a legacy `festivals` row on its first sign-up), so
+ * the legacy table alone is not proof. The festival is the `events` row
+ * (migration 0032): marked `is_festival`, published, not archived, not
+ * cancelled, and not over yet.
+ */
+export type FestivalEventRow = {
+  isFestival: boolean | null
+  published: boolean | null
+  archived: boolean | null
+  cancelledAt: Date | string | null
+  startDate: Date | string | null
+  endDate: Date | string | null
+}
+
+export function isClaimableFestival(ev: FestivalEventRow, now = new Date()): boolean {
+  if (!ev.isFestival || !ev.published || ev.archived || ev.cancelledAt) return false
+  const last = ev.endDate ?? ev.startDate
+  if (!last) return false
+  return new Date(last).getTime() >= now.getTime()
+}
+
+export type ClaimedFestival = { slug: string; name: string; color: string | null }
+
+/**
+ * The festivals among `slugs` (plan item ids: a festival key or an event slug)
+ * that a card may claim someone is going to, keyed by that slug. Name comes
+ * from the festival's event; the colour from its legacy row when it has one.
+ */
+export async function claimableFestivals(db: Db, slugs: string[], now = new Date()): Promise<Map<string, ClaimedFestival>> {
+  const out = new Map<string, ClaimedFestival>()
+  const wanted = [...new Set(slugs.filter(Boolean))]
+  if (!wanted.length) return out
+  const [rows, legacy] = await Promise.all([
+    db
+      .select({
+        slug: events.slug, key: sql<string | null>`${events.festival}->>'key'`, name: events.name,
+        isFestival: events.isFestival, published: events.published, archived: events.archived,
+        cancelledAt: events.cancelledAt, startDate: events.startDate, endDate: events.endDate,
+      })
+      .from(events)
+      .where(or(inArray(events.slug, wanted), inArray(sql`${events.festival}->>'key'`, wanted))),
+    db.select({ slug: festivals.slug, accentColor: festivals.accentColor }).from(festivals).where(inArray(festivals.slug, wanted)),
+  ])
+  const colors = new Map<string, string | null>(legacy.map((f: any) => [f.slug, f.accentColor ?? null]))
+  const wantedSet = new Set(wanted)
+  for (const r of rows as any[]) {
+    if (!isClaimableFestival(r, now) || !r.name) continue
+    for (const slug of [r.key, r.slug]) {
+      if (!slug || !wantedSet.has(slug) || out.has(slug)) continue
+      out.set(slug, { slug, name: r.name, color: colors.get(slug) ?? null })
+    }
+  }
+  return out
+}
+
 export async function discoverDeck(db: Db, dancerId: string, now = new Date()): Promise<{ cards: DiscoverCard[]; nudges: DiscoverNudge[] }> {
   const [me] = await db
     .select({ id: dancers.id, city: dancers.city, danceStyles: dancers.danceStyles })
@@ -411,17 +470,18 @@ export async function discoverDeck(db: Db, dancerId: string, now = new Date()): 
     const slugs = [...new Set<string>(otherPlans.map((p: any) => p.itemId))].filter(s => !swiped.festival.has(s) || myFestivalSlugs.has(s))
     const ids = [...new Set<string>(otherPlans.map((p: any) => p.dancerId))]
     if (slugs.length && ids.length) {
-      const [festRows, people] = await Promise.all([
-        db.select({ slug: festivals.slug, name: festivals.name, accentColor: festivals.accentColor }).from(festivals).where(inArray(festivals.slug, slugs)),
+      const [festMap, people] = await Promise.all([
+        claimableFestivals(db, slugs, now),
         db.select({ id: dancers.id, name: dancers.name, photo: dancers.photo, city: dancers.city, danceStyles: dancers.danceStyles }).from(dancers).where(inArray(dancers.id, ids)),
       ])
-      const festMap = new Map<string, any>(festRows.map((f: any) => [f.slug, f]))
       const peopleMap = new Map<string, any>(people.map((d: any) => [d.id, d]))
       for (const p of otherPlans) {
         if (usedDancers.has(p.dancerId)) continue
         const d = peopleMap.get(p.dancerId)
         const fest = festMap.get(p.itemId)
-        if (!d || !fest || !d.photo) continue
+        // Not a real upcoming festival (a workshop, an old one…) → no claim;
+        // the dancer can still come in as a local below.
+        if (!d || !fest || !d.photo || d.id === dancerId) continue
         usedDancers.add(d.id)
         const mine = myFestivalSlugs.has(p.itemId)
         dancerCards.push({
@@ -434,7 +494,7 @@ export async function discoverDeck(db: Db, dancerId: string, now = new Date()): 
           dancerStyles: (d.danceStyles as string[] | null) ?? [],
           festivalSlug: p.itemId,
           festivalName: fest.name,
-          festivalColor: fest.accentColor ?? (mine ? '#7c3aed' : '#0ea5e9'),
+          festivalColor: fest.color ?? (mine ? '#7c3aed' : '#0ea5e9'),
         })
       }
     }
@@ -561,12 +621,12 @@ export async function discoverDeck(db: Db, dancerId: string, now = new Date()): 
       const ids = [...new Set([...byFest.values()].flat())].filter(id => UUID_RE.test(id))
       const [names, fests] = await Promise.all([
         ids.length ? db.select({ id: dancers.id, name: dancers.name }).from(dancers).where(and(inArray(dancers.id, ids), eq(dancers.profilePublic, true))) : [],
-        db.select({ slug: festivals.slug, name: festivals.name, accentColor: festivals.accentColor }).from(festivals).where(inArray(festivals.slug, [...byFest.keys()])),
+        claimableFestivals(db, [...byFest.keys()], now),
       ])
       const nameMap = new Map<string, string>(names.map((n: any) => [n.id, n.name]))
-      for (const f of fests) {
+      for (const f of fests.values()) {
         const dancerNames = (byFest.get(f.slug) ?? []).map(id => nameMap.get(id)).filter(Boolean) as string[]
-        if (dancerNames.length) nudges.push({ festivalSlug: f.slug, festivalName: f.name, festivalColor: f.accentColor ?? '#0ea5e9', dancerNames })
+        if (dancerNames.length) nudges.push({ festivalSlug: f.slug, festivalName: f.name, festivalColor: f.color ?? '#0ea5e9', dancerNames })
       }
     }
   } catch { /* non-critical */ }
