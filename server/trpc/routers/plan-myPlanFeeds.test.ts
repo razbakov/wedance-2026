@@ -20,6 +20,7 @@ const RUN = Math.random().toString(36).slice(2, 8)
 const CITY = `Testville ${RUN}`
 const CITY_SLUG = `testville-${RUN}`
 const FEST = `test-fest-${RUN}`
+const WORKSHOP = `test-workshop-${RUN}`
 const DAY = 86400_000
 
 const ids: Record<string, string> = {}
@@ -83,15 +84,30 @@ describe.skipIf(!DATABASE_URL)('my-plan feeds', () => {
     await addEvent('courseEnded', { type: 'Course', startDate: new Date(now - 10 * DAY), endDate: new Date(now - 10 * DAY + 3600_000) })
 
     // A festival the friend has picked, so a dancer card + friend count exist.
+    // The festival is its event (0032); the legacy row only adds a colour.
     await db.insert(schema.festivals).values({ slug: FEST, name: `Test Fest ${RUN}` })
+    await addEvent('festEvent', {
+      name: `Test Fest ${RUN}`, slug: FEST, type: 'Festival', isFestival: true, festival: { key: FEST } as any,
+      citySlug: `elsewhere-${RUN}`, city: 'Elsewhere',
+      startDate: new Date(now + 30 * DAY), endDate: new Date(now + 32 * DAY),
+    })
+    // RAZ-982: a one-hour workshop with a programme — it gets a 'festival' plan
+    // item and a legacy festivals row, but it is not a festival.
+    await addDancer('workshopper', { photo: 'https://example.com/w.jpg' })
+    await db.insert(schema.festivals).values({ slug: WORKSHOP, name: `Workshop ${RUN}` })
+    await addEvent('workshopEvent', {
+      slug: WORKSHOP, type: 'Workshop', isFestival: false, festival: { key: WORKSHOP } as any,
+      startDate: new Date(now + 2 * DAY), endDate: new Date(now + 2 * DAY + 3600_000),
+    })
     await db.insert(schema.planItems).values([
+      { dancerId: ids.workshopper, itemType: 'festival', itemId: WORKSHOP },
       { dancerId: ids.withPhoto, itemType: 'festival', itemId: FEST },
       { dancerId: ids.friend, itemType: 'event', itemId: ids.socialSoon },
     ])
   })
 
   afterAll(async () => {
-    const dancerIds = Object.entries(ids).filter(([k]) => ['me', 'withPhoto', 'noPhoto', 'emptyPhoto', 'friend'].includes(k)).map(([, v]) => v)
+    const dancerIds = Object.entries(ids).filter(([k]) => ['me', 'withPhoto', 'noPhoto', 'emptyPhoto', 'friend', 'workshopper'].includes(k)).map(([, v]) => v)
     const eventIds = Object.entries(ids).filter(([k]) => !dancerIds.includes(ids[k]!)).map(([, v]) => v)
     await db.delete(schema.discoverSwipes).where(inArray(schema.discoverSwipes.dancerId, dancerIds))
     await db.delete(schema.attendances).where(inArray(schema.attendances.dancerId, dancerIds)).catch(() => {})
@@ -99,7 +115,7 @@ describe.skipIf(!DATABASE_URL)('my-plan feeds', () => {
     await db.delete(schema.planItems).where(inArray(schema.planItems.dancerId, dancerIds))
     await db.delete(schema.follows).where(inArray(schema.follows.dancerId, dancerIds))
     await db.delete(schema.events).where(inArray(schema.events.id, eventIds))
-    await db.delete(schema.festivals).where(eq(schema.festivals.slug, FEST))
+    await db.delete(schema.festivals).where(inArray(schema.festivals.slug, [FEST, WORKSHOP]))
     await db.delete(schema.dancers).where(like(schema.dancers.email, `%-${RUN}@test.wedance.local`))
   })
 
@@ -270,6 +286,14 @@ describe.skipIf(!DATABASE_URL)('my-plan feeds', () => {
       expect(mine).toHaveLength(1)
       expect(mine[0]!.kind).toBe('dancer-new-fest')
       expect(mine[0]!.targetKind === 'dancer' && mine[0]!.festivalSlug).toBe(FEST)
+      expect(mine[0]!.targetKind === 'dancer' && mine[0]!.festivalName).toBe(`Test Fest ${RUN}`)
+    })
+
+    it('never says someone is going to a festival when their "festival" is a workshop (RAZ-982)', async () => {
+      const { cards } = await caller(ids.me!).plan.discover()
+      const card = cards.find(c => c.targetKind === 'dancer' && c.targetId === ids.workshopper)
+      expect(card?.kind).toBe('dancer-local')
+      expect(card && 'festivalName' in card ? card.festivalName : undefined).toBeUndefined()
     })
 
     it('a Skip is stored and the card does not come back; undo brings it back', async () => {

@@ -1408,6 +1408,8 @@ const previewDeck: DeckCard[] = [
 // ones you haven't picked, and locals. Festival / social cards are left out —
 // This week and This year already hold those.
 const isPersonCard = (c: DeckCard) => c.kind.startsWith('dancer-')
+// The festival chip links to the festival (RAZ-982); preview cards are mock data with no page.
+const NuxtLink = resolveComponent('NuxtLink')
 const deck = ref<DeckCard[]>(isPreviewInitial ? previewDeck.filter(isPersonCard) : [])
 // History stack for Undo
 const swipeHistory = ref<Array<{ card: DeckCard; direction: 'yes' | 'skip' | 'later'; nudgeAdded?: string; addedFestival?: boolean; addedEvent?: boolean }>>([])
@@ -1891,18 +1893,24 @@ function cardSummary(f: CatalogueEntry) {
                     </div>
                   </div>
                   <!-- Context chip -->
-                  <div v-if="deckCurrent.kind === 'dancer-your-fest'"
-                       class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold"
-                       :style="{ background: deckCurrent.festivalColor + '18', color: deckCurrent.festivalColor }">
+                  <component :is="previewMode ? 'div' : NuxtLink"
+                       v-if="deckCurrent.kind === 'dancer-your-fest'"
+                       :to="previewMode ? undefined : festivalPath(deckCurrent.festivalSlug)"
+                       class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold hover:underline"
+                       :style="{ background: deckCurrent.festivalColor + '18', color: deckCurrent.festivalColor }"
+                       @pointerdown.stop>
                     <Plane class="w-3 h-3" style="stroke-width:1.5;" />
                     Also going to {{ deckCurrent.festivalName }}
-                  </div>
-                  <div v-else-if="deckCurrent.kind === 'dancer-new-fest'"
-                       class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold"
-                       :style="{ background: deckCurrent.festivalColor + '18', color: deckCurrent.festivalColor }">
+                  </component>
+                  <component :is="previewMode ? 'div' : NuxtLink"
+                       v-else-if="deckCurrent.kind === 'dancer-new-fest'"
+                       :to="previewMode ? undefined : festivalPath(deckCurrent.festivalSlug)"
+                       class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold hover:underline"
+                       :style="{ background: deckCurrent.festivalColor + '18', color: deckCurrent.festivalColor }"
+                       @pointerdown.stop>
                     <Plane class="w-3 h-3" style="stroke-width:1.5;" />
                     Going to {{ deckCurrent.festivalName }} — you're not
-                  </div>
+                  </component>
                   <div v-else-if="deckCurrent.kind === 'dancer-local' && (deckCurrent.regularAt || deckCurrent.city)"
                        class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold text-wd-green-600"
                        style="background:color-mix(in srgb, var(--wd-green-600) 9.4%, transparent);">
