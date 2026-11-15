@@ -97,7 +97,7 @@ const saved = ref(false)
 const checkout = ref(false)
 function reset() {
   role.value = null; pay.value = 'none'; sheet.value = null; showWho.value = false; fold.value = null; saved.value = false; checkout.value = false
-  eOpen.value = false; eStep.value = 'role'; ePass.value = null; eEmail.value = ''; eEmailError.value = ''; eKeep.value = false; eState.value = 'idle'; eSaved.value = new Set()
+  eOpen.value = false; eStep.value = 'role'; ePass.value = null; eEmail.value = ''; eEmailError.value = ''; eKeep.value = false; ePhone.value = ''; eState.value = 'idle'; eSaved.value = new Set()
 }
 
 // ── E: one button → inline steps, for a class, a course and a festival ───────
@@ -153,6 +153,7 @@ const eStep = ref<Step>('role')
 const eEmail = ref('')
 const eEmailError = ref('')
 const eKeep = ref(false)
+const ePhone = ref('')
 const eState = ref<'idle' | 'in' | 'sent'>('idle')
 const eSaved = ref<Set<string>>(new Set())
 const stepIndex = (s: Step) => eSteps.value.indexOf(s)
@@ -471,7 +472,13 @@ function finishCheckout() {
                         <button type="button" class="ml-auto text-sm font-bold text-primary" @click="eStart">Change</button>
                       </p>
                       <p v-if="!signedIn" class="text-sm text-muted-foreground">Your ticket and a link to your new account are in {{ eEmail }}.</p>
-                      <label v-else class="flex items-start gap-2 text-sm"><input v-model="eKeep" type="checkbox" class="mt-0.5 accent-primary"> <span>Let {{ EVENT.org }} tell me about their next {{ kind === 'festival' ? 'events' : 'classes' }} <span class="text-muted-foreground">(they get your name and email)</span></span></label>
+                      <template v-else>
+                        <label class="flex items-start gap-2 text-sm"><input v-model="eKeep" type="checkbox" class="mt-0.5 accent-primary" data-testid="e-keep"> <span>Let {{ EVENT.org }} tell me about their next {{ kind === 'festival' ? 'events' : 'classes' }} <span class="text-muted-foreground">(they get your name and email)</span></span></label>
+                        <div v-if="eKeep" class="pl-6 flex flex-wrap gap-2">
+                          <Input v-model="ePhone" type="tel" placeholder="Phone / WhatsApp (optional)" autocomplete="tel" aria-label="Phone or WhatsApp (optional)" class="flex-1 min-w-40 bg-background" data-testid="e-phone" />
+                          <Button variant="outline-pill" size="pill-sm" class="h-9">Add</Button>
+                        </div>
+                      </template>
                     </div>
                     <div v-else class="rounded-2xl border border-wd-amber-500/40 bg-wd-amber-100 px-4 py-3 space-y-1" data-testid="e-sent">
                       <p class="font-bold text-foreground inline-flex items-center gap-1.5"><Mail class="size-4" /> {{ auth === 'returning' ? 'Welcome back! ' : '' }}Almost there: open the link we sent to {{ eEmail }}</p>
@@ -544,7 +551,11 @@ function finishCheckout() {
                                 <template v-if="auth === 'returning'">Signed up before? Use the same email, it signs you in.</template>
                               </p>
                             </div>
-                            <label class="flex items-start gap-2 text-sm"><input v-model="eKeep" type="checkbox" class="mt-0.5 accent-primary"> <span>Let {{ EVENT.org }} tell me about their next {{ kind === 'festival' ? 'events' : 'classes' }}</span></label>
+                            <label class="flex items-start gap-2 text-sm"><input v-model="eKeep" type="checkbox" class="mt-0.5 accent-primary" data-testid="e-keep"> <span>Let {{ EVENT.org }} tell me about their next {{ kind === 'festival' ? 'events' : 'classes' }}</span></label>
+                            <div v-if="eKeep" class="pl-6">
+                              <Input v-model="ePhone" type="tel" placeholder="Phone / WhatsApp (optional)" autocomplete="tel" aria-label="Phone or WhatsApp (optional)" data-testid="e-phone" />
+                              <p class="mt-1 text-xs text-muted-foreground">Only {{ EVENT.org }} sees it, e.g. to add you to the class group.</p>
+                            </div>
                             <Button type="submit" :variant="pay === 'now' ? 'cta' : 'pill'" class="w-full" data-testid="e-submit">
                               {{ pay === 'now' ? `Continue to payment · €${total}` : 'Save my spot' }} <ArrowRight />
                             </Button>
