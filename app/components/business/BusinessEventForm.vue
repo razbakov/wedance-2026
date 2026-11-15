@@ -10,7 +10,7 @@ import type { PropType } from 'vue'
 import { MapPin, CalendarDays, Send, Pencil, Check, Plus, X, FileText, ListOrdered, Ticket, Users, Palette, Handshake } from 'lucide-vue-next'
 import { priceLines } from '#shared/utils/flyer'
 import { agendaToSessions, emptyEventDetails, legacyAgendaOf } from '#shared/utils/programme'
-import { blankBusinessEvent } from '~/lib/businessEvent'
+import { blankBusinessEvent, lineupSummary } from '~/lib/businessEvent'
 
 export type BusinessEventValues = {
   hostUsername: string
@@ -100,7 +100,7 @@ watch(() => props.initial, (v) => {
   snapshot.value = JSON.stringify(form)
 }, { deep: true })
 
-const open = ref(new Set<string>(props.mode === 'create' ? ['when', 'where', 'event', 'agenda', 'entry'] : []))
+const open = ref(new Set<string>(props.mode === 'create' ? ['when', 'where', 'lineup', 'event', 'agenda', 'entry'] : []))
 const isOpen = (k: string) => open.value.has(k)
 function toggle(k: string) {
   const next = new Set(open.value)
@@ -327,22 +327,28 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
     <!-- Line-up: before the programme, which picks its artists from it -->
     <section id="lineup" class="scroll-mt-20 rounded-2xl border bg-card p-4">
       <span id="ev-card-lineup" class="block scroll-mt-20" aria-hidden="true" />
-      <h2 class="flex items-center gap-1.5 text-sm font-bold"><Users class="size-4 text-muted-foreground" aria-hidden="true" /> Line-up</h2>
-      <p class="text-xs text-muted-foreground">DJs, teachers, performers. Everyone is named on the flyer. Pick the photo it uses, or “Name only”.</p>
-      <BusinessLineupPicker
-        v-model="form.artists"
-        v-model:photos="form.photos"
-        v-model:names="form.names"
-        :videos="form.festival?.videos"
-        :event-id="eventId"
-        class="mt-3"
-      />
-      <div v-if="pastArtists.length" class="mt-3" data-past-artists>
-        <p class="text-xs font-bold text-muted-foreground">From your past events</p>
-        <div class="mt-1 flex flex-wrap gap-1.5">
-          <Button v-for="h in pastArtists" :key="h" type="button" variant="outline-pill" size="pill-sm" @click="addArtist(h)"><Plus /> @{{ h }}</Button>
-        </div>
+      <div class="flex items-center justify-between gap-2">
+        <h2 class="flex items-center gap-1.5 text-sm font-bold"><Users class="size-4 text-muted-foreground" aria-hidden="true" /> Line-up</h2>
+        <Button v-if="mode === 'edit'" type="button" variant="ghost" size="sm" :aria-expanded="isOpen('lineup')" @click="toggle('lineup')"><template v-if="isOpen('lineup')"><Check /> Done</template><template v-else><Pencil /> Edit</template></Button>
       </div>
+      <p v-if="!isOpen('lineup')" class="mt-1 text-sm" data-lineup-summary>{{ lineupSummary(form.artists, form.names) }}</p>
+      <template v-else>
+        <p class="text-xs text-muted-foreground">DJs, teachers, performers. Everyone is named on the flyer. Pick the photo it uses, or “Name only”.</p>
+        <BusinessLineupPicker
+          v-model="form.artists"
+          v-model:photos="form.photos"
+          v-model:names="form.names"
+          :videos="form.festival?.videos"
+          :event-id="eventId"
+          class="mt-3"
+        />
+        <div v-if="pastArtists.length" class="mt-3" data-past-artists>
+          <p class="text-xs font-bold text-muted-foreground">From your past events</p>
+          <div class="mt-1 flex flex-wrap gap-1.5">
+            <Button v-for="h in pastArtists" :key="h" type="button" variant="outline-pill" size="pill-sm" @click="addArtist(h)"><Plus /> @{{ h }}</Button>
+          </div>
+        </div>
+      </template>
     </section>
 
     <!-- Programme: day by day, for every type -->
