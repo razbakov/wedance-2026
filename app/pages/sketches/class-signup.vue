@@ -72,7 +72,7 @@ const paid = ref<'paid' | 'free'>('paid')
 type Kind = 'class' | 'course' | 'festival'
 // Signed out, the page can't tell a new visitor from someone with an account, so there is one
 // signed-out state; the difference only shows in the email (new account vs. sign-in link).
-type Auth = 'signedOut' | 'signedIn'
+type Auth = 'signedOut' | 'signedIn' | 'signedInNoPhone'
 const kind = ref<Kind>('class')
 const auth = ref<Auth>('signedOut')
 const isMobile = computed(() => device.value === 'mobile')
@@ -99,7 +99,7 @@ const saved = ref(false)
 const checkout = ref(false)
 function reset() {
   role.value = null; pay.value = 'none'; sheet.value = null; showWho.value = false; fold.value = null; saved.value = false; checkout.value = false
-  eOpen.value = false; eStep.value = 'role'; ePass.value = null; eEmail.value = ''; eEmailError.value = ''; eKeep.value = false; ePhone.value = ''; ePhoneError.value = ''; eName.value = ''; eNameError.value = ''; ePartner.value = ''; eState.value = 'idle'; eSaved.value = new Set()
+  eOpen.value = false; eStep.value = 'role'; ePass.value = null; eEmail.value = ''; eEmailError.value = ''; eKeep.value = false; ePhone.value = ''; ePhoneError.value = ''; eEditing.value = false; eName.value = ''; eNameError.value = ''; ePartner.value = ''; eState.value = 'idle'; eSaved.value = new Set()
 }
 
 // ── E: one button → inline steps, for a class, a course and a festival ───────
@@ -134,7 +134,10 @@ const KINDS: Record<Kind, { name: string, when: string, meta: string, door: bool
   },
 }
 const K = computed(() => KINDS[kind.value])
-const signedIn = computed(() => auth.value === 'signedIn')
+const signedIn = computed(() => auth.value !== 'signedOut')
+// The signed-in mock: an account with a phone, or one without (asked once, then saved).
+const ACCOUNT_PHONE = computed(() => (auth.value === 'signedIn' ? '+49 171 2345678' : ''))
+const eEditing = ref(false)
 const passes = computed(() => (isPaid.value ? K.value.passes : []))
 const two = computed(() => role.value === 'partner')
 const priceOf = (p: Pass) => (two.value ? (p.couple ?? p.price * 2) : p.price)
@@ -201,7 +204,7 @@ const ePartner = ref('')
 function eSubmit() {
   eNameError.value = !signedIn.value && eName.value.trim().split(/\s+/).filter(Boolean).length < 2 ? `Enter your first and last name, as ${EVENT.org} will see it.` : ''
   eEmailError.value = !signedIn.value && !/^\S+@\S+\.\S+$/.test(eEmail.value) ? 'Enter your email, so we can confirm your spot.' : ''
-  ePhoneError.value = ePhone.value.replace(/\D/g, '').length < 7 ? `Enter your phone: ${EVENT.org} uses it for changes to this ${kind.value === 'festival' ? 'event' : 'class'} and its WhatsApp group.` : ''
+  ePhoneError.value = (signedIn.value && ACCOUNT_PHONE.value && !eEditing.value) ? '' : ePhone.value.replace(/\D/g, '').length < 7 ? `Enter your phone: ${EVENT.org} uses it for changes to this ${kind.value === 'festival' ? 'event' : 'class'} and its WhatsApp group.` : ''
   if (eNameError.value || eEmailError.value || ePhoneError.value) return
   eFinish()
 }
@@ -253,9 +256,13 @@ const whoList = computed(() => FEST_PEOPLE.filter(p =>
 const roleWord = (r: Role) => (r === 'partner' ? 'couple' : r === 'needLeader' ? 'follower, needs a leader' : 'leader, needs a follower')
 function openWhoAll(f: 'all' | 'friends' | Role = 'all') { whoFilter.value = f; whoQuery.value = ''; whoShown.value = 20; whoAllOpen.value = true }
 watch([variant, kind, auth], () => { whoAllOpen.value = false })
-const contactLine = computed(() => `${signedIn.value ? ACCOUNT_NAME : eName.value.trim()}${ePartner.value.trim() ? ` (+ ${ePartner.value.trim()})` : ''} · ${signedIn.value ? ACCOUNT_EMAIL : eEmail.value} · ${ePhone.value}`)
+const contactLine = computed(() => `${signedIn.value ? ACCOUNT_NAME : eName.value.trim()}${ePartner.value.trim() ? ` (+ ${ePartner.value.trim()})` : ''} · ${signedIn.value ? ACCOUNT_EMAIL : eEmail.value} · ${ePhone.value || ACCOUNT_PHONE.value}`)
 function eToggleSave(id: string) { const s = new Set(eSaved.value); s.has(id) ? s.delete(id) : s.add(id); eSaved.value = s }
-watch([variant, device, paid, kind, auth], reset)
+// "Sign in" inside the steps signs you in and keeps your answers (sketch: no reset).
+let keepSteps = false
+function signInHere() { keepSteps = true; auth.value = 'signedIn' }
+watch([variant, device, paid, kind], reset)
+watch(auth, () => { if (keepSteps) { keepSteps = false; return } reset() })
 
 const isPaid = computed(() => paid.value === 'paid')
 const counts = computed(() => {
@@ -321,12 +328,12 @@ function finishCheckout() {
         </div>
         <div v-if="variant === 'E'" class="flex rounded-full border border-border p-0.5 bg-background text-xs">
           <button
-            v-for="a in (['signedOut', 'signedIn'] as const)" :key="a" type="button"
+            v-for="a in (['signedOut', 'signedIn', 'signedInNoPhone'] as const)" :key="a" type="button"
             class="px-3 h-7 rounded-full font-semibold"
             :class="auth === a ? 'bg-foreground text-background' : 'text-muted-foreground'"
             :data-testid="`auth-${a}`"
             @click="auth = a"
-          >{{ a === 'signedOut' ? 'Signed out' : 'Signed in' }}</button>
+          >{{ a === 'signedOut' ? 'Signed out' : a === 'signedIn' ? 'Signed in' : 'Signed in, no phone yet' }}</button>
         </div>
         <button type="button" class="text-xs font-semibold text-muted-foreground underline" @click="reset">Start over</button>
       </div>
@@ -565,7 +572,7 @@ function finishCheckout() {
                       <template v-else>
                         <p class="flex items-center gap-2 font-bold">
                           <span class="size-6 rounded-full grid place-items-center text-xs shrink-0" :class="i === stepIndex(eStep) ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'">{{ i + 1 }}</span>
-                          {{ s === 'pay' && i === stepIndex(eStep) ? `Pay €${total}` : STEP_TITLE[s] }}
+                          {{ s === 'pay' && i === stepIndex(eStep) ? `Pay €${total}` : s === 'you' && signedIn ? 'Check and confirm' : STEP_TITLE[s] }}
                         </p>
                         <template v-if="i === stepIndex(eStep)">
                           <div v-if="s === 'role'" class="mt-3 grid gap-2" :class="isMobile ? 'grid-cols-1' : 'grid-cols-3'">
@@ -607,24 +614,47 @@ function finishCheckout() {
                             </div>
                             <p v-if="!K.door" class="mt-2 text-xs text-muted-foreground">{{ EVENT.org }} sells these passes online only.</p>
                           </div>
+                          <!-- Signed in: a review, not a form. Only what's missing is asked. -->
+                          <form v-else-if="s === 'you' && signedIn" class="mt-3 space-y-3" novalidate data-testid="e-review" @submit.prevent="eSubmit">
+                            <div class="rounded-xl border border-border p-3 flex items-start gap-3">
+                              <img src="https://i.pravatar.cc/80?u=alex-account" alt="" class="size-10 rounded-full shrink-0">
+                              <div class="min-w-0 flex-1 text-sm">
+                                <p class="font-bold">{{ ACCOUNT_NAME }}<template v-if="two && ePartner"> + {{ ePartner }}</template></p>
+                                <p class="text-muted-foreground truncate">{{ ACCOUNT_EMAIL }}</p>
+                                <p v-if="ACCOUNT_PHONE && !eEditing" class="text-muted-foreground">{{ ACCOUNT_PHONE }}</p>
+                              </div>
+                              <button v-if="ACCOUNT_PHONE && !eEditing" type="button" class="text-sm font-bold text-primary" data-testid="e-edit" @click="eEditing = true; ePhone = ACCOUNT_PHONE">Edit</button>
+                            </div>
+                            <div v-if="!ACCOUNT_PHONE || eEditing">
+                              <Input v-model="ePhone" type="tel" :placeholder="eEditing ? 'Phone / WhatsApp' : 'Add your phone / WhatsApp'" autocomplete="tel" aria-label="Phone or WhatsApp" data-testid="e-phone" />
+                              <p v-if="ePhoneError" class="mt-1 text-xs font-bold text-primary">{{ ePhoneError }}</p>
+                              <p v-else class="mt-1 text-xs text-muted-foreground">{{ EVENT.org }} uses it for changes to this {{ kind === 'festival' ? 'event' : 'class' }} and its WhatsApp group. Saved to your account.</p>
+                            </div>
+                            <Input v-if="two" v-model="ePartner" type="text" placeholder="Your partner’s name (optional)" aria-label="Your partner’s name (optional)" data-testid="e-partner-name" />
+                            <label class="flex items-start gap-2 text-sm"><input v-model="eKeep" type="checkbox" class="mt-0.5 accent-primary" data-testid="e-keep"> <span>Also tell me about {{ EVENT.org }}’s next {{ kind === 'festival' ? 'events' : 'classes' }}</span></label>
+                            <Button type="submit" :variant="pay === 'now' ? 'cta' : 'pill'" class="w-full" data-testid="e-submit">
+                              {{ pay === 'now' ? `Pay €${total}` : 'Save my spot' }} <ArrowRight />
+                            </Button>
+                            <p class="text-xs text-muted-foreground text-center">{{ EVENT.org }} sees your name, email and phone for this {{ kind === 'festival' ? 'event' : 'class' }}.</p>
+                          </form>
                           <form v-else-if="s === 'you'" class="mt-3 space-y-3" novalidate @submit.prevent="eSubmit">
-                            <div v-if="!signedIn">
+                            <p class="text-sm rounded-lg bg-muted/60 px-3 py-2" data-testid="e-signin-top">
+                              Been here before? <button type="button" class="font-bold text-primary" data-testid="e-signin" @click="signInHere">Sign in</button> and we’ll fill this in.
+                            </p>
+                            <div>
                               <Input v-model="eName" type="text" placeholder="First and last name" autocomplete="name" aria-label="First and last name" data-testid="e-name" />
                               <p v-if="eNameError" class="mt-1 text-xs font-bold text-primary">{{ eNameError }}</p>
                             </div>
-                            <div v-if="!signedIn">
+                            <div>
                               <Input v-model="eEmail" type="email" placeholder="Email" autocomplete="email" aria-label="Email" data-testid="e-email" />
                               <p v-if="eEmailError" class="mt-1 text-xs font-bold text-primary">{{ eEmailError }}</p>
                               <p class="mt-1 text-xs text-muted-foreground">
                                 No password: we email you a link{{ pay === 'now' ? ' after you pay, with your ticket' : ' that confirms your spot' }}.
-                                Signed up before? Use the same email, it signs you in.
                               </p>
                             </div>
-                            <p v-else class="text-sm text-muted-foreground"><span class="font-bold text-foreground">{{ ACCOUNT_NAME }}</span> · {{ ACCOUNT_EMAIL }} (your account)</p>
                             <div>
                               <Input v-model="ePhone" type="tel" placeholder="Phone / WhatsApp" autocomplete="tel" aria-label="Phone or WhatsApp" data-testid="e-phone" />
                               <p v-if="ePhoneError" class="mt-1 text-xs font-bold text-primary">{{ ePhoneError }}</p>
-                              <p v-if="signedIn" class="mt-1 text-xs text-muted-foreground">Saved to your account, so next time this step is skipped.</p>
                             </div>
                             <div v-if="two">
                               <Input v-model="ePartner" type="text" placeholder="Your partner’s name (optional)" aria-label="Your partner’s name (optional)" data-testid="e-partner-name" />
