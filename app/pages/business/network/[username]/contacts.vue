@@ -10,11 +10,12 @@
  * An event filter (`?event=<id>&as=<how>`, linked from the event's "Who's coming")
  * narrows the list to the contacts coming to one event and says how many others
  * signed up without being a contact.
- * Data: businessSite.contactsOverview. Nothing here sends email (RAZ-960).
+ * "Email N" writes to the contacts shown that may be emailed (RAZ-975, BusinessContactMailing).
+ * Data: businessSite.contactsOverview.
  */
 import { Download, Search, Trash2, Globe, StickyNote, Check, X, SlidersHorizontal, MailCheck, MailX, Users, CalendarCheck, Repeat, Moon, Sparkles, Heart, CalendarDays } from 'lucide-vue-next'
 import { ACTIVITY_FILTERS, COMING_AS_LABEL, COMING_AS_ORDER, contactSegments, emailBlock, type ActivityFilter, type ComingAs, type ContactSourceKey } from '#shared/utils/contactSegments'
-import { comingCounts, contactsCsv, emptyFilter, filterContacts, isFiltered, sourceDetail, toggle, type ContactFilter } from '~/lib/contactFilters'
+import { comingCounts, contactsCsv, describeFilter, emptyFilter, filterContacts, isFiltered, sourceDetail, toggle, type ContactFilter } from '~/lib/contactFilters'
 
 definePageMeta({ layout: 'business' })
 const route = useRoute()
@@ -58,6 +59,8 @@ const chosenEvent = computed(() => pageEvents.value.find(e => e.id === f.event) 
 const eventCounts = computed(() => (f.event ? comingCounts(all.value, f.event) : { total: 0, by: {} }))
 const eventLabel = (e: { name: string, startDate: string, timezone: string | null }) =>
   `${new Date(e.startDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: e.timezone || 'Europe/Berlin' })} · ${e.name}`
+const segment = computed(() => describeFilter(f, chosenEvent.value ? eventLabel(chosenEvent.value) : null))
+const filterData = computed(() => ({ ...f, sources: [...f.sources], activity: [...f.activity] }))
 const setAs = (a: ComingAs) => { f.as = f.as === a ? null : a }
 const shown = computed(() => filterContacts(all.value, f))
 const LIMIT = 60
@@ -113,9 +116,10 @@ function csv() {
       <AdminPageHeader
         eyebrow="Contacts"
         :title="data.profile.name"
-        description="Everyone who gave you their email: sign-ups on your website, dancers who shared it when answering your event’s poll, and the lists you imported. Only people who signed up themselves can be emailed."
+        description="Everyone who gave you their email: sign-ups on your website, dancers who shared it when answering your event’s poll, and the lists you imported. Only people who signed up themselves can be emailed: filter the list, then “Email” writes to them."
         :back="{ to: `/business/network/${username}`, label: 'The profile' }"
       >
+        <BusinessContactMailing :username="username" :contacts="shown" :segment="segment" :filter="filterData" :event-id="f.event" />
         <Button variant="outline-pill" size="pill-sm" as-child>
           <NuxtLink :to="`/business/network/${username}/website`"><Globe /> Website</NuxtLink>
         </Button>

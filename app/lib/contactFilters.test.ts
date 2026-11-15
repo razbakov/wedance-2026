@@ -96,3 +96,12 @@ describe('the event filter', () => {
     expect(comingCounts(coming, 'nope')).toEqual({ total: 0, by: {} })
   })
 })
+
+describe('describeFilter (RAZ-975)', () => {
+  it('is empty for everyone and says the filter in words otherwise', async () => {
+    const { describeFilter, emptyFilter } = await import('./contactFilters')
+    expect(describeFilter(emptyFilter())).toBe('')
+    expect(describeFilter({ ...emptyFilter(), event: 'e1', as: 'needFollower', sources: ['website'], activity: ['regular'], q: ' anna ' }, 'Sun 15 Nov · Casino'))
+      .toBe('Coming to Sun 15 Nov · Casino · Needs a follower · Your website · Regulars (3+ events) · search “anna”')
+  })
+})

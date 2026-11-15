@@ -248,6 +248,8 @@ export const PROFILE_REFS: { table: string; col: string; same?: string; notSelf?
   { table: 'tracked_links', col: 'profile_id', same: 'x.event_id = t.event_id' },
   { table: 'profile_suggestions', col: 'profile_id', same: `x.kind = t.kind and x.value = t.value and x.status = 'pending' and t.status = 'pending'` },
   { table: 'profile_contacts', col: 'profile_id', same: 'lower(x.email) = lower(t.email)' },
+  // A page's sent emails (RAZ-975): the log moves with the page; nothing clashes.
+  { table: 'contact_mailings', col: 'profile_id' },
   { table: 'profile_sites', col: 'profile_id', same: 'true', idCol: 'profile_id' },
   // Its history follows the site: moves only when the kept profile has no site versions (so no site) either.
   { table: 'profile_site_versions', col: 'profile_id', same: 'true' },

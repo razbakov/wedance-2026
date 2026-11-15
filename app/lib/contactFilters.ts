@@ -5,7 +5,7 @@
  * promo code). One event narrows it to the contacts coming to it, optionally by
  * how they're coming (ticket, poll answer). Plus the CSV of whatever the filter shows.
  */
-import { EMAIL_BLOCK_LABEL, matchesActivity, type ActivityFilter, type ComingAs, type ContactSourceKey, type EmailBlock, type SegmentContact } from '#shared/utils/contactSegments'
+import { ACTIVITY_FILTER_LABEL, COMING_AS_LABEL, EMAIL_BLOCK_LABEL, SOURCE_LABEL, matchesActivity, type ActivityFilter, type ComingAs, type ContactSourceKey, type EmailBlock, type SegmentContact } from '#shared/utils/contactSegments'
 
 export interface FilterableContact extends SegmentContact {
   name: string | null
@@ -50,6 +50,22 @@ export function filterContacts<T extends FilterableContact>(list: T[], f: Contac
     if (needle && ![c.name, c.email, c.phone, c.note, c.account?.name, ...Object.values(c.source ?? {})].some(v => typeof v === 'string' && v.toLowerCase().includes(needle))) return false
     return true
   })
+}
+
+/**
+ * The filter in words, for the email composer and the send log (RAZ-975):
+ * "Coming to Sun 15 Nov · Casino · Needs a follower · Your website · search “anna”".
+ * Empty when nothing is filtered (everyone).
+ */
+export function describeFilter(f: ContactFilter, eventLabel?: string | null): string {
+  return [
+    f.event ? `Coming to ${eventLabel || 'an event'}` : '',
+    f.event && f.as ? COMING_AS_LABEL[f.as] : '',
+    f.email === 'can' ? 'Can email' : f.email === 'cant' ? 'Can’t email' : '',
+    ...f.sources.map(s => SOURCE_LABEL[s]),
+    ...f.activity.map(a => ACTIVITY_FILTER_LABEL[a]),
+    f.q.trim() ? `search “${f.q.trim()}”` : '',
+  ].filter(Boolean).join(' · ')
 }
 
 /** How many of `list` come to `eventId`, in total and by how they're coming. */

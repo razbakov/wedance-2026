@@ -624,3 +624,44 @@ export async function sendOccasionAskEmail(params: {
     </div>`,
   })
 }
+
+/**
+ * A page's email to its contacts (RAZ-975): the same text to many people, each with their
+ * own name and unsubscribe link, sent with Resend's batch API (100 per call). From the page's
+ * name, replies go to the person who sent it. Returns how many went out; a failed batch is
+ * counted, never retried here (the send log keeps the numbers).
+ */
+export async function sendContactMailing(params: {
+  profileName: string
+  replyTo?: string | null
+  subject: string
+  messages: { to: string; subject?: string; html: string; text: string; unsubscribeUrl?: string | null }[]
+}): Promise<{ sent: number; failed: number }> {
+  const config = useRuntimeConfig()
+  if (!config.resendApiKey) {
+    for (const m of params.messages) console.log(`\n✉️  ${m.to}: ${m.subject ?? params.subject}\n${m.text}\n`)
+    return { sent: params.messages.length, failed: 0 }
+  }
+  const from = (config.resendFromEmail || 'WeDance <noreply@wedance.vip>').replace(/^[^<]*</, `${params.profileName.replace(/[<>"]/g, '')} <`)
+  let sent = 0
+  let failed = 0
+  for (let i = 0; i < params.messages.length; i += 100) {
+    const chunk = params.messages.slice(i, i + 100)
+    try {
+      const { error } = await getResend().batch.send(chunk.map(m => ({
+        from,
+        to: m.to,
+        subject: m.subject ?? params.subject,
+        html: m.html,
+        text: m.text,
+        ...(params.replyTo ? { replyTo: params.replyTo } : {}),
+        ...(m.unsubscribeUrl ? { headers: { 'List-Unsubscribe': `<${m.unsubscribeUrl}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' } } : {}),
+      })))
+      if (error) { console.error('[contact-mailing] batch failed', error); failed += chunk.length } else sent += chunk.length
+    } catch (e) {
+      console.error('[contact-mailing] batch failed', e)
+      failed += chunk.length
+    }
+  }
+  return { sent, failed }
+}
