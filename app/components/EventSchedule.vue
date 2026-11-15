@@ -5,7 +5,7 @@
  * the city "What's on" feed so both look the same. Styled after WeeklyCalendar.
  *
  * Each event: { id, title, eventType?, styles?, artists?, eventDate, startTime?,
- * endTime?, status?, location?, href? }.  `location` = area (venue) or venue
+ * endTime?, status?, location?, href?, cancelled?, cancelReason? }.  `location` = area (venue) or venue
  * name (city); `href` links the card (e.g. to the venue's /@handle).
  */
 import { MapPin, Plus, Check } from 'lucide-vue-next'
@@ -81,18 +81,20 @@ const groups = computed(() => {
             <DanceStyleChips :styles="e.styles || []" />
             <span v-if="e.status && e.status !== 'accepted'" class="text-tag uppercase tracking-wider font-bold rounded-full px-1.5 py-0.5 bg-warning/[9.4%] text-wd-amber-700">Proposed</span>
           </div>
-          <h4 class="text-sm sm:text-base font-bold leading-tight mt-1 text-foreground">
+          <h4 class="text-sm sm:text-base font-bold leading-tight mt-1 text-foreground" :class="e.cancelled && 'line-through decoration-2 text-muted-foreground'">
             <NuxtLink v-if="e.href" :to="e.href" class="outline-none after:absolute after:inset-0 after:rounded-xl">{{ e.title || 'Social' }}</NuxtLink>
             <template v-else>{{ e.title || 'Social' }}</template>
           </h4>
+          <EventCancelledTag v-if="e.cancelled" :reason="e.cancelReason" with-reason class="mt-1" />
           <div class="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-xs text-muted-foreground">
             <span v-if="e.location" class="inline-flex items-center gap-1"><MapPin class="w-3 h-3 text-secondary" aria-hidden="true" /> {{ e.location }}</span>
             <span v-if="e.artists?.length" class="text-secondary">with {{ e.artists.join(', ') }}</span>
           </div>
         </div>
 
-        <!-- Pick (add to my week plan) -->
+        <!-- Pick (add to my week plan); a cancelled event can only be taken off it -->
         <Button
+          v-if="!e.cancelled || weekPlanIds?.has(e.id)"
           type="button"
           variant="ghost"
           class="relative z-10 h-auto text-xs font-bold px-3 py-1.5 rounded-full transition-all shrink-0 gap-1 [&_svg]:size-3"

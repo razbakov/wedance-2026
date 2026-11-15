@@ -35,6 +35,31 @@ export const SECTION_INFO: Record<SectionKind, { label: string; hint: string; fi
   cta: { label: 'Call to action', hint: 'One message with a button (WhatsApp group, tickets, Instagram…).', fields: ['eyebrow', 'title', 'titleAccent', 'body', 'buttons'] },
 }
 
+/**
+ * One event in a site's feed (`events` of GET /api/profiles/<username>/site and
+ * /events). Mirrored by wedance-site-kit `WeDanceEvent`; keep both in step.
+ */
+export type SiteEvent = {
+  id: string
+  name: string
+  type: string | null
+  startDate: string
+  endDate: string | null
+  timezone: string | null
+  venueName: string | null
+  venueAddress: string | null
+  price: string
+  cover: string | null
+  styles: string[]
+  artists: { handle: string; name: string }[]
+  /** The event on WeDance: where people sign up ("Going") or buy a ticket. */
+  url: string
+  /** Cancelled by its organiser (RAZ-948): still listed, show it crossed out. */
+  cancelled: boolean
+  /** The organiser's short reason, when they gave one (only when cancelled). */
+  cancelReason: string | null
+}
+
 export type SiteButton = { label: L10n; url: string }
 export type SiteItem = { id: string; tag?: L10n; title?: L10n; body?: L10n; image?: string; url?: string }
 export type SiteCallout = { title?: L10n; body?: L10n; button?: SiteButton }

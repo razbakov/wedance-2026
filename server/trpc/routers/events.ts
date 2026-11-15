@@ -35,6 +35,9 @@ const cardColumns = {
   organizerUsername: events.organizerUsername,
   city: events.city,
   citySlug: events.citySlug,
+  // Cancelled by its organiser (RAZ-948): still listed, shown crossed out with the reason.
+  cancelledAt: events.cancelledAt,
+  cancelReason: events.cancelReason,
 }
 
 /** Card rows for a filter, soonest first. */

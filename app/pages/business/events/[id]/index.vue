@@ -1,7 +1,8 @@
 <script setup lang="ts">
 /**
  * /business/events/<id> — two tabs. Details: edit the event, see what it still
- * needs, its flyer (the panel beside the cards), repeat it weekly, archive it.
+ * needs, its flyer (the panel beside the cards), repeat it weekly, cancel it
+ * (stays listed as "Cancelled", everyone who signed up is emailed), archive it.
  * Content plan (?tab=plan): every post it's promoted with, each made with the
  * flyer pipeline. Both stay mounted, so switching keeps unsaved edits.
  *
@@ -9,7 +10,7 @@
  * venue → line-up → entry → flyer → publish — one card open at a time. A new
  * draft (?created=…) opens on its first step still to do.
  */
-import { Check, ExternalLink, Repeat, Archive, ArchiveRestore, Sparkles, FileText, Copy } from 'lucide-vue-next'
+import { Check, ExternalLink, Repeat, Archive, ArchiveRestore, Sparkles, FileText, Copy, Ban, Undo2 } from 'lucide-vue-next'
 import type { BusinessEventValues } from '~/components/business/BusinessEventForm.vue'
 import { toBusinessEventInput } from '~/lib/businessEvent'
 import { eventLocalDate } from '#shared/utils/eventTime'
@@ -241,6 +242,22 @@ async function restore() {
     notice.value = 'Restored as a draft. Publish it when it’s ready.'
   } catch (e: any) { error.value = e?.message || 'Could not restore it.' } finally { restoring.value = false }
 }
+// Cancel (RAZ-948): stays listed as "Cancelled"; undo takes the mark off.
+const canCancel = computed(() => !!ev.value && ev.value.published && !ev.value.archived && !ev.value.cancelledAt
+  && new Date(`${ev.value.endDate || ev.value.date}T${ev.value.endTime || '23:59'}`).getTime() > Date.now() - 86400_000)
+async function onCancelled(r: { notified: number }) {
+  await load()
+  notice.value = r.notified ? `Cancelled. We’re emailing the ${r.notified} ${r.notified === 1 ? 'person' : 'people'} who signed up.` : 'Cancelled. Nobody had signed up yet.'
+}
+const uncancelling = ref(false)
+async function uncancel() {
+  uncancelling.value = true
+  try {
+    await $trpc.businessEvents.uncancel.mutate({ id: id.value })
+    await load()
+    notice.value = 'It’s on again: the “Cancelled” mark is gone. Nobody was emailed, so tell people yourself if they should know.'
+  } catch (e: any) { error.value = e?.message || 'Could not undo it.' } finally { uncancelling.value = false }
+}
 const confirmArchive = ref(false)
 const archiving = ref(false)
 async function archive(series = false) {
@@ -294,6 +311,11 @@ async function archive(series = false) {
         <p class="min-w-0 flex-1"><span class="font-bold">Archived.</span> It’s off WeDance and not listed anywhere. Restore it to bring it back as a draft.</p>
         <Button type="button" variant="outline-pill" size="pill-sm" :loading="restoring" @click="restore"><ArchiveRestore /> Restore</Button>
       </div>
+      <div v-if="ev.cancelledAt" class="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm" role="status" data-testid="event-cancelled-status">
+        <Ban class="size-4 shrink-0 text-destructive" aria-hidden="true" />
+        <p class="min-w-0 flex-1"><span class="font-bold text-destructive">Cancelled.</span> Still listed on WeDance and your website, crossed out<template v-if="ev.cancelReason">: “{{ ev.cancelReason }}”</template>.</p>
+        <Button type="button" variant="outline-pill" size="pill-sm" :loading="uncancelling" @click="uncancel"><Undo2 /> It’s on again</Button>
+      </div>
       <p v-if="ev.synced" class="mt-4 rounded-2xl bg-secondary/10 p-4 text-sm" role="status">
         <span class="font-bold">This event comes from wedance.vip.</span>
         <span class="text-muted-foreground"> Check the details and save: it shows as “Checked” to dancers, the daily sync stops overwriting it{{ ev.host ? `, and it moves to ${ev.host.name}’s events` : '' }}. Then you can make its flyer.</span>
@@ -345,6 +367,11 @@ async function archive(series = false) {
             <Button type="button" variant="outline-pill" size="pill-sm" :loading="repeating" :disabled="formRef?.dirty" @click="repeat"><Repeat /> Repeat</Button>
           </div>
         </div>
+        <div v-if="canCancel" class="rounded-2xl border bg-card p-4">
+          <h2 class="text-eyebrow font-bold uppercase tracking-[0.3em] text-secondary">Cancel</h2>
+          <p class="mt-1 text-sm text-muted-foreground">Not happening? It stays listed as “Cancelled” with your reason, and everyone who signed up gets an email.</p>
+          <BusinessCancelEvents :ids="[ev.id]" id-prefix="ev-cancel" class="mt-3" @cancelled="onCancelled" />
+        </div>
         <div class="rounded-2xl border bg-card p-4">
           <h2 class="text-eyebrow font-bold uppercase tracking-[0.3em] text-secondary">Archive</h2>
           <template v-if="ev.archived">
@@ -352,7 +379,7 @@ async function archive(series = false) {
             <Button type="button" variant="outline-pill" size="pill-sm" class="mt-3" :loading="restoring" @click="restore"><ArchiveRestore /> Restore</Button>
           </template>
           <template v-else>
-          <p class="mt-1 text-sm text-muted-foreground">Cancelled or a mistake? Archiving takes it off WeDance.</p>
+          <p class="mt-1 text-sm text-muted-foreground">A mistake or a duplicate? Archiving takes it off WeDance without telling anyone.</p>
           <Button v-if="!confirmArchive" type="button" variant="destructive" size="sm" class="mt-3" @click="confirmArchive = true"><Archive /> Archive event</Button>
           <div v-else class="mt-3 flex flex-wrap items-center gap-2">
             <span class="text-sm font-bold">Archive “{{ ev.name }}”?</span>

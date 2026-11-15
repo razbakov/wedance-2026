@@ -203,10 +203,11 @@ function eventHref(e: CityEvent): string | undefined {
               </span>
               <DanceStyleChips v-if="e.style" :styles="[e.style]" />
             </div>
-            <h4 class="text-sm sm:text-base font-bold leading-tight mt-1 break-words group-hover:underline text-foreground">
+            <h4 class="text-sm sm:text-base font-bold leading-tight mt-1 break-words group-hover:underline text-foreground" :class="e.cancelled && 'line-through decoration-2 text-muted-foreground'">
               <NuxtLink v-if="eventHref(e)" :to="eventHref(e)" class="outline-none after:absolute after:inset-0 after:rounded-xl">{{ e.name }}</NuxtLink>
               <template v-else>{{ e.name }}</template>
             </h4>
+            <EventCancelledTag v-if="e.cancelled" :reason="e.cancelReason" with-reason class="mt-1" />
             <div class="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-xs text-muted-foreground font-sans">
               <span class="inline-flex items-center gap-1">
                 <MapPin class="w-3 h-3 text-secondary" aria-hidden="true" />
@@ -251,8 +252,9 @@ function eventHref(e: CityEvent): string | undefined {
             </div>
           </div>
 
-          <!-- Pick button -->
+          <!-- Pick button (a cancelled event can only be taken off the plan) -->
           <Button
+            v-if="!e.cancelled || weekPlanIds?.has(e.id)"
             type="button"
             variant="ghost"
             class="relative z-10 h-auto text-xs font-bold px-3 py-1.5 rounded-full transition-all shrink-0 gap-1 [&_svg]:size-3"

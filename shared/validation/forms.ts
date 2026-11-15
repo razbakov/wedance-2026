@@ -429,3 +429,10 @@ export const EventCopySchema = v.object({
   date: isoDate('Pick the new date.'),
   repeatWeeks: v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(12)),
 })
+
+// ── Business (businessEvents.cancel — RAZ-948) ───────────────────────────────
+
+/** Cancel one or several events: an optional short reason, shown on the event and in the email. */
+export const EventCancelSchema = v.object({
+  reason: optionalText(280, 'Keep the reason under 280 characters.'),
+})

@@ -136,6 +136,7 @@ const toCityEvent = (e: any) => ({
   artists: e.artists || [],
   accentColor: WD.red600, attendeeCount: eventGoingCounts.value[e.id] ?? 0, recurring: false,
   date: eventLocalDate(e.startDate, e.timezone),
+  cancelled: !!e.cancelledAt, cancelReason: e.cancelReason ?? null,
 })
 // Festivals get their own section below — the week list is classes & socials.
 const syncedThisWeek = computed(() => feed.value.syncedThisWeek.map(toCityEvent))
@@ -159,7 +160,7 @@ const bookedLater = computed(() => {
 })
 // Merge synced and booked future events, sorted by date then time.
 const upcomingGroups = computed(() => groupUpcoming<{ id: string; date: string; time: string; [k: string]: any }>([
-  ...syncedLater.value.map(e => ({ ...e, date: eventLocalDate(e.startDate, e.timezone), time: eventLocalTime(e.startDate, e.timezone) })),
+  ...syncedLater.value.map(e => ({ ...e, date: eventLocalDate(e.startDate, e.timezone), time: eventLocalTime(e.startDate, e.timezone), cancelled: !!e.cancelledAt })),
   ...bookedLater.value,
 ], upcomingLimit.value))
 
@@ -698,7 +699,8 @@ watch(selectedStyle, (style) => {
             >
               <div class="w-12 shrink-0 text-center text-base font-black tabular-nums" :style="{ color: accent, fontFamily: 'var(--wd-font-display)' }">{{ e.time }}</div>
               <div class="flex-1 min-w-0 font-sans">
-                <p class="text-sm font-bold truncate group-hover:underline text-foreground font-display">{{ e.name }}</p>
+                <p class="text-sm font-bold truncate group-hover:underline text-foreground font-display" :class="e.cancelled && 'line-through decoration-2 text-muted-foreground'">{{ e.name }}</p>
+                <EventCancelledTag v-if="e.cancelled" :reason="e.cancelReason" with-reason />
                 <p class="text-xs truncate text-muted-foreground">
                   <span class="font-bold uppercase tracking-wider text-eyebrow text-secondary">{{ e.type }}</span>
                   <span v-if="e.styles?.length"> · {{ e.styles.slice(0, 3).join(', ') }}</span>
