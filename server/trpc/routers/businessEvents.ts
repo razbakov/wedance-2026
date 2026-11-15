@@ -24,6 +24,8 @@ import { cleanCoOrganizers, CO_ORGANIZERS_MAX, CO_ORGANIZER_ROLE_MAX, type CoOrg
 import { randomUUID } from 'node:crypto'
 import { profileGroup, trackServer } from '../../utils/posthog'
 import { scheduleInstagramImport } from '../../utils/instagram/profileImport'
+import { cancelEvent, uncancelEvent, signupsOf, CANCEL_REASON_MAX } from '../../utils/eventCancel'
+import { siteUrl } from '../../utils/profileFeed'
 
 /**
  * Business mode — events a profile runs, and the /business home inbox.
@@ -307,6 +309,7 @@ const listColumns = {
   organizerName: events.organizerName, organizerUsername: events.organizerUsername, slug: events.slug,
   // What a flyer is made from (flyerStatusFor).
   venueAddress: events.venueAddress, styles: events.styles, agenda: events.agenda, flyerOptions: events.flyerOptions,
+  cancelledAt: events.cancelledAt, cancelReason: events.cancelReason,
 }
 
 // A recurring series (recurring_series): the template event plus the rule.
@@ -436,6 +439,17 @@ function shiftedCopy(ev: any, shift: number, extra: Record<string, unknown> = {}
   }
 }
 
+const MAX_CANCEL = 50
+
+/** An event I manage that can be cancelled: live (published, not archived) and not over yet. */
+async function cancellable(ctx: any, id: string) {
+  const ev = await requireEventManager(ctx, id)
+  if (ev.archived || !ev.published) throw new TRPCError({ code: 'BAD_REQUEST', message: `“${ev.name ?? 'This event'}” isn’t published, so nobody can have signed up: archive it instead.` })
+  const end = ev.endDate ?? ev.startDate
+  if (end && new Date(end).getTime() < Date.now()) throw new TRPCError({ code: 'BAD_REQUEST', message: `“${ev.name ?? 'This event'}” is already over.` })
+  return ev
+}
+
 export const businessEventsRouter = router({
   // Events of the profiles I manage (optionally one), newest-relevant first.
   list: protectedProcedure
@@ -507,6 +521,9 @@ export const businessEventsRouter = router({
         // A synced weekly date: archiving can take the whole series off.
         recurring: !ev.hostProfileId && !!seriesKey(ev.sourceId, ev.seriesId),
         archived: !!ev.archived,
+        // Cancelled by its organiser (RAZ-948): still listed, marked with the reason.
+        cancelledAt: (ev.cancelledAt ?? null) as Date | null,
+        cancelReason: (ev.cancelReason ?? null) as string | null,
         editedAt: ev.editedAt as Date | null,
         name: ev.name ?? '',
         type: (EVENT_TYPES as readonly string[]).includes(ev.type) ? ev.type : 'Party',
@@ -770,6 +787,59 @@ export const businessEventsRouter = router({
         await ctx.db.update(events).set({ ...stamp, sourceRef: { ...(s.sourceRef ?? {}), dismissed: 'series' } }).where(eq(events.id, s.id))
       }
       return { archived: dates.length }
+    }),
+
+  // Cancel (RAZ-948): the event stays published and listed, marked "Cancelled"
+  // with the reason, and everyone who signed up (plan, poll "yes", tickets) is
+  // emailed once. Several at once for a host page (the Tanzverbot case).
+  // cancelPreview counts who would be told, without changing anything.
+  cancelPreview: protectedProcedure
+    .input(z.object({ ids: z.array(z.string().uuid()).min(1).max(MAX_CANCEL) }))
+    .query(async ({ ctx, input }) => {
+      const out = []
+      for (const id of input.ids) {
+        const ev = await cancellable(ctx, id)
+        const people = await signupsOf(ctx.db, ev, ctx.dancerId)
+        const tz = ev.timezone || 'Europe/Berlin'
+        out.push({
+          id: ev.id, name: ev.name ?? '', date: eventLocalDate(ev.startDate, tz), startTime: eventLocalTime(ev.startDate, tz),
+          alreadyCancelled: !!ev.cancelledAt, toNotify: ev.cancelledAt ? 0 : people.length, ticketHolders: ev.cancelledAt ? 0 : people.filter(p => p.ticket).length,
+        })
+      }
+      return { events: out, toNotify: out.reduce((n, e) => n + e.toNotify, 0) }
+    }),
+
+  cancel: protectedProcedure
+    .input(z.object({
+      ids: z.array(z.string().uuid()).min(1).max(MAX_CANCEL),
+      reason: z.string().trim().max(CANCEL_REASON_MAX).nullable().optional(),
+      surface: z.enum(['web', 'mcp']).default('web'),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const results = []
+      for (const id of input.ids) {
+        const ev = await cancellable(ctx, id)
+        const host = await eventHostProfile(ctx.db, ev)
+        const r = await cancelEvent(ctx, ev, input.reason ?? null, { siteUrl: siteUrl(), organizer: host?.name || ev.organizerName || null })
+        if (!r.alreadyCancelled) {
+          trackServer(ctx, 'event_cancelled', {
+            event_id: ev.id, notified: r.notified, has_reason: !!input.reason?.trim(), bulk: input.ids.length > 1,
+            is_festival: !!ev.festival || !!ev.isFestival, host_type: host?.type ?? null, ...profileGroup(host?.username),
+          })
+        }
+        results.push(r)
+      }
+      return { events: results, notified: results.reduce((n, r) => n + r.notified, 0) }
+    }),
+
+  // Back on: the "Cancelled" mark goes; nobody is emailed.
+  uncancel: protectedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const ev = await requireEventManager(ctx, input.id)
+      if (!ev.cancelledAt) return { uncancelled: false }
+      await uncancelEvent(ctx.db, ev.id)
+      return { uncancelled: true }
     }),
 
   // The line-up's names and photos, for picking each artist's flyer photo.

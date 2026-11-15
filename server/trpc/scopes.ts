@@ -103,6 +103,7 @@ export const PROCEDURE_SCOPES: Record<string, Scope | null> = {
   'businessEvents.seriesPreview': 'business:read',
   'businessEvents.series': 'business:read',
   'businessEvents.attendees': 'business:read',
+  'businessEvents.cancelPreview': 'business:read',
   'gigs.applications': 'business:read',
   // Tracked links: the link is made on first use (no visible change, idempotent).
   'referral.myLink': 'business:read',
@@ -156,6 +157,9 @@ export const PROCEDURE_SCOPES: Record<string, Scope | null> = {
   'businessTeam.setRole': 'business:publish',
   'gigs.create': 'business:publish',
   'businessEvents.publishSeries': 'business:publish',
+  // Cancelling emails everyone who signed up; undoing it changes a public page.
+  'businessEvents.cancel': 'business:publish',
+  'businessEvents.uncancel': 'business:publish',
   'gigs.decideApplication': 'business:publish',
   'giveaway.decideProposal': 'business:publish',
 

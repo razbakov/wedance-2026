@@ -518,3 +518,40 @@ export async function sendWeekendJoinEmail(params: {
     </div>`,
   })
 }
+
+/**
+ * An organiser cancelled an event this person signed up for (RAZ-948): on their
+ * plan, a "yes" on the event poll, or a ticket. Ticket buyers are told to
+ * contact the organiser about a refund (refunds stay manual for now).
+ */
+export async function sendEventCancelledEmail(params: {
+  to: string
+  name: string
+  eventName: string
+  when: string
+  reason: string | null
+  organizer: string | null
+  ticket: boolean
+  link: string
+}) {
+  const config = useRuntimeConfig()
+  const subject = `Cancelled: ${params.eventName}${params.when ? `, ${params.when}` : ''}`
+  if (!config.resendApiKey) {
+    console.log(`\n✉️  ${params.to}: ${subject} → ${params.link}\n`)
+    return
+  }
+  const by = params.organizer ? escapeHtml(params.organizer) : 'The organiser'
+  await getResend().emails.send({
+    from: config.resendFromEmail || 'WeDance <noreply@wedance.vip>',
+    to: params.to,
+    subject,
+    html: `<div style="font-family: sans-serif; max-width: 460px; margin: 0 auto; padding: 20px;">
+      <h2 style="color: #333;">${escapeHtml(params.eventName)} is cancelled</h2>
+      <p>Hey ${escapeHtml(params.name || 'there')},</p>
+      <p style="color: #555;">${by} cancelled <strong>${escapeHtml(params.eventName)}</strong>${params.when ? `, ${escapeHtml(params.when)}` : ''}. You had it on your plan, so we’re letting you know.</p>
+      ${params.reason ? `<p style="color: #555; border-left: 3px solid #ddd; padding-left: 12px;">“${escapeHtml(params.reason)}”</p>` : ''}
+      ${params.ticket ? `<p style="color: #555;">You have a ticket for it. For a refund, please contact ${params.organizer ? escapeHtml(params.organizer) : 'the organiser'} directly.</p>` : ''}
+      <a href="${params.link}" style="display: inline-block; background: #000; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">See the event</a>
+    </div>`,
+  })
+}

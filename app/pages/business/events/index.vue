@@ -5,6 +5,8 @@
  * Archived (Restore brings one back as a draft). Each row says what it still needs.
  * Upcoming and Past also list events run by others that my pages take part in
  * (at my venue, my organizer page, my artist in the line-up), with my role.
+ * Upcoming: tick events (or "Select today's") and cancel them at once (RAZ-948):
+ * they stay listed as "Cancelled" and everyone who signed up is emailed.
  */
 import { Plus, ExternalLink, ArchiveRestore } from 'lucide-vue-next'
 import { eventLocalDate, eventLocalTime, eventLocalWeekday } from '#shared/utils/eventTime'
@@ -47,6 +49,22 @@ onMounted(load)
 watch(businessProfile, load)
 
 const rows = computed(() => data.value?.[tab.value] ?? [])
+
+// Cancel several at once (the Tanzverbot case: three parties tonight).
+const selected = ref<string[]>([])
+watch([tab, businessProfile], () => { selected.value = [] })
+const canCancel = (e: any) => tab.value === 'upcoming' && e.canEdit && e.published && !e.cancelledAt
+const isToday = (e: any) => eventLocalDate(e.startDate, tz(e)) === eventLocalDate(new Date(), tz(e))
+const todays = computed(() => rows.value.filter((e: any) => canCancel(e) && isToday(e)).map((e: any) => e.id as string))
+function toggle(id: string, on: boolean) {
+  selected.value = on ? [...new Set([...selected.value, id])] : selected.value.filter(x => x !== id)
+}
+const cancelNotice = ref<string | null>(null)
+async function onCancelled(r: { notified: number; count: number }) {
+  selected.value = []
+  await load()
+  cancelNotice.value = `${r.count} ${r.count === 1 ? 'event' : 'events'} cancelled.${r.notified ? ` We’re emailing the ${r.notified} ${r.notified === 1 ? 'person' : 'people'} who signed up.` : ''}`
+}
 const tz = (e: { timezone: string | null }) => e.timezone || 'Europe/Berlin'
 function when(e: any) {
   const d = eventLocalDate(e.startDate, tz(e))
@@ -77,6 +95,17 @@ function when(e: any) {
       </Button>
     </div>
 
+    <div v-if="tab === 'upcoming' && (todays.length || selected.length)" class="mt-4 flex flex-wrap items-start gap-3 rounded-2xl border bg-card p-4" data-testid="cancel-bar">
+      <p class="min-w-0 flex-1 text-sm text-muted-foreground">
+        <template v-if="selected.length">{{ selected.length }} selected.</template>
+        <template v-else>Something came up? Tick the events to cancel, or pick today’s.</template>
+      </p>
+      <Button v-if="todays.length && selected.length !== todays.length" type="button" variant="outline-pill" size="pill-sm" @click="selected = [...todays]">Select today’s ({{ todays.length }})</Button>
+      <Button v-if="selected.length" type="button" variant="ghost" size="sm" @click="selected = []">Clear</Button>
+      <BusinessCancelEvents v-if="selected.length" :key="selected.join(',')" :ids="selected" id-prefix="list-cancel" :label="`Cancel ${selected.length} selected`" class="basis-full" @cancelled="onCancelled" />
+    </div>
+    <p v-if="cancelNotice" role="status" class="mt-4 rounded-xl bg-success/10 px-3 py-2 text-sm font-bold text-wd-green-700">{{ cancelNotice }}</p>
+
     <AdminState v-if="error" kind="error" :message="error" />
     <AdminState v-if="loading" kind="loading" />
     <AdminState
@@ -88,16 +117,18 @@ function when(e: any) {
 
     <div v-else class="mt-4 grid grid-cols-[minmax(0,1fr)] gap-2">
       <div v-for="e in rows" :key="e.id" class="flex items-center gap-4 rounded-2xl border bg-card p-4">
+        <Checkbox v-if="canCancel(e)" :model-value="selected.includes(e.id)" :aria-label="`Select ${e.name} to cancel`" @update:model-value="(on: boolean) => toggle(e.id, on)" />
         <div class="w-24 shrink-0">
           <p class="text-xs font-bold uppercase tracking-wider text-secondary">{{ when(e) }}</p>
           <p class="text-sm font-bold">{{ eventLocalTime(e.startDate, tz(e)) }}</p>
         </div>
         <NuxtLink :to="e.to" class="flex-1 min-w-0 group">
-          <p class="truncate text-sm font-bold group-hover:underline">{{ e.name }}</p>
+          <p class="truncate text-sm font-bold group-hover:underline" :class="e.cancelledAt && 'line-through text-muted-foreground'">{{ e.name }}</p>
           <p class="truncate text-xs text-muted-foreground">
             {{ e.host?.name || e.by }}<template v-if="e.venueName && e.venueName !== e.by"> · {{ e.venueName }}</template><template v-if="e.city"> · {{ e.city }}</template>
           </p>
           <div class="mt-1 flex flex-wrap gap-1.5">
+            <AdminStatus v-if="e.cancelledAt" tone="danger" :title="e.cancelReason || undefined">Cancelled</AdminStatus>
             <AdminStatus v-if="e.role === 'lineup'" tone="info">You’re in the line-up</AdminStatus>
             <AdminStatus v-else-if="e.role === 'coorganizer'" tone="info">You co-organise it</AdminStatus>
             <AdminStatus v-else-if="e.role === 'venue'" tone="info">At your venue</AdminStatus>
