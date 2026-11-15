@@ -109,7 +109,7 @@ const IT: [UxJourneyId, UxStageKey, string, string, UxStatus, string, string][] 
 ['C4','attend','Ride share · roommates · dinners','/my-plan','partial','Built, but empty without other travellers on the same festival.','P304 P311 P312'],
 ['C4','attend','Arrive with friends','','missing','','P305 RAZ-20'],
 ['C4','attend','Partner matching','/my-plan','missing','Swipe deck exists; real matching does not.','P229 P236 RAZ-124'],
-['C4','return','My year in numbers','/my-year','live','Festivals, dance days, cities, workshops, style mix and busiest month, counted from your year plan.','P233 P234 P235 P314 P315 P317'],
+['C4','return','Your year in dance','/my-year','live','A story of your past year (nights you were going to, style, busiest month, home floor, festivals, cities, friends) to post at New Year, ending on planning next year. Found in My plan; up front in December and January.','P233 P234 P235 P314 P315 P317 RAZ-966'],
 ['C4','return','Early-bird alerts','/my-year','partial','A deadline shows only where a festival has one (none of the synced ones); nothing is ever sent.','P316 RAZ-899'],
 ['C4','spread','Share plan / year','SharePlanModal','live','Shared plan view → sign-up.','P318'],
 ['C4','spread','Friend\'s link discount','','partial','Tracked promoter links exist; the friend-to-friend discount does not.','P319'],

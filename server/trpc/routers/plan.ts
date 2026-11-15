@@ -8,6 +8,8 @@ import { festivalPath } from '../../../shared/utils/eventSlug'
 import { discoverDeck, myCourses, recordSwipe, removeSwipe, weekSocials } from '../../utils/myPlanFeeds'
 import { eventIdForFestival, recordLinkAction } from '../../utils/trackedLinks'
 import { planCounts } from '../../utils/planCounts'
+import { yearReviewFor } from '../../utils/yearReview'
+import { lookBackYear } from '../../../shared/utils/yearReview'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -670,6 +672,20 @@ export const planRouter = router({
    * counts of what /my-plan actually lists — upcoming festivals, courses and
    * this week's socials — from the same feeds, never the raw plan_items size.
    */
+  /**
+   * Your year in dance (RAZ-966): the story of the dancer's past year — the
+   * nights they were going to, their style, busiest month, home floor,
+   * festivals, cities, friends — ending on "plan next year". Screens with
+   * nothing to say are left out. Defaults to the year My plan looks back at.
+   */
+  yearReview: protectedProcedure
+    .input(z.object({ year: z.number().int().min(2015).max(2100).optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const now = new Date()
+      const year = Math.min(input?.year ?? lookBackYear(now), now.getUTCFullYear())
+      return yearReviewFor(ctx.db, ctx.dancerId, year, now)
+    }),
+
   counts: protectedProcedure.query(async ({ ctx }) => {
     return planCounts(ctx.db, ctx.dancerId)
   }),

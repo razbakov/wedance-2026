@@ -25,6 +25,7 @@ import { weekendKey } from '#shared/utils/weekendShare'
 import { citySlug as toCitySlug } from '#shared/utils/citySearch'
 import { initialOf } from '#shared/utils/initials'
 import { planView, authPending } from '~/lib/planView'
+import { isYearTurn } from '#shared/utils/yearReview'
 
 definePageMeta({ layout: false })
 
@@ -347,6 +348,10 @@ function hideChatgptPitch() {
   try { localStorage.setItem(CHATGPT_HIDE_KEY, '1') } catch { /* storage blocked */ }
 }
 const showChatgptPitch = computed(() => !chatgptHidden.value && (previewMode.value || chatgptConnected.value === false))
+
+// Your year in dance (RAZ-966): a banner at the top around the turn of the
+// year (December, January) for signed-in dancers; a quiet link the rest of it.
+const showYearReviewBanner = computed(() => isSignedIn.value && !previewMode.value && isYearTurn() && viewState.value !== 'loading')
 
 const viewState = computed(() => planView({
   signedIn: isSignedIn.value,
@@ -1716,6 +1721,11 @@ function cardSummary(f: CatalogueEntry) {
       </p>
     </section>
 
+    <!-- YOUR YEAR IN DANCE (RAZ-966) · up front around the turn of the year. -->
+    <section v-if="showYearReviewBanner" class="max-w-4xl mx-auto px-4 pb-6">
+      <YearReviewEntry variant="banner" />
+    </section>
+
     <!-- ONBOARDING GUARD — signed in but not onboarded. Gentle, not a trap. -->
     <section v-if="needsOnboarding" class="max-w-4xl mx-auto px-4">
       <div
@@ -1789,6 +1799,7 @@ function cardSummary(f: CatalogueEntry) {
             </NuxtLink>
           </Button>
         </div>
+        <YearReviewEntry v-if="!showYearReviewBanner" variant="link" class="mt-6" />
       </div>
     </section>
 
@@ -2425,6 +2436,7 @@ function cardSummary(f: CatalogueEntry) {
       <div id="festivals" class="mt-14 mb-4">
         <h2 class="text-3xl leading-tight font-display text-foreground">This year</h2>
         <p class="mt-1 text-sm text-muted-foreground font-sans">{{ yearSummary }}</p>
+        <YearReviewEntry v-if="!showYearReviewBanner" variant="link" class="mt-2" />
       </div>
 
       <!-- Cross-festival summary — the money + urgency crosscut. -->
