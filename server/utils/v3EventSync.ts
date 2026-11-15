@@ -286,7 +286,21 @@ export function cleanDescription(d: unknown): string {
     .trim()
 }
 
-const url = (v: unknown) => (typeof v === 'string' && /^https?:\/\//i.test(v.trim()) ? v.trim() : null)
+/**
+ * An http(s) link. Importers sometimes left a note after it ("https://kult.studio/veranstaltungen
+ * (Google Calendar ICS)", RAZ-980) — that made a broken href, so only the URL itself is kept.
+ */
+export const url = (v: unknown): string | null => {
+  if (typeof v !== 'string') return null
+  const first = v.trim().split(/\s+/)[0] ?? ''
+  if (!/^https?:\/\//i.test(first)) return null
+  try {
+    new URL(first)
+    return first
+  } catch {
+    return null
+  }
+}
 
 /**
  * A calendar feed (Google Calendar `/calendar/ical/…`, any `.ics` file) — what v3's ical

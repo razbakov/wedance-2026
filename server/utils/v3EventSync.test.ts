@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { toMs, mapStyles, parseVenue, cityFromAddress, buildCityIndex, resolveCity, resolveTimezone, mapV3Event, isCalendarFeed, eventWebsite, cleanDescription, learnPlaceLocalities, decodeValue, seriesKey, dedupeKey, selectRows, type MappedEvent } from './v3EventSync'
+import { toMs, mapStyles, parseVenue, cityFromAddress, buildCityIndex, resolveCity, resolveTimezone, mapV3Event, isCalendarFeed, eventWebsite, cleanDescription, url, learnPlaceLocalities, decodeValue, seriesKey, dedupeKey, selectRows, type MappedEvent } from './v3EventSync'
 
 const MUNICH = 'ChIJ2V-Mo_l1nkcRfZixfUq4DAE'
 const NOW = Date.parse('2026-10-04T00:00:00Z')
@@ -296,6 +296,14 @@ describe('a calendar feed is not the event website (RAZ-980)', () => {
     const fb = mapV3Event({ ...base, link: feed, facebook: 'https://facebook.com/events/123' }, ctx)
     expect(fb.ok && fb.row.link).toBe('https://facebook.com/events/123')
     expect(eventWebsite(null, ' https://club.example/night ', feed)).toBe('https://club.example/night')
+  })
+
+  it('keeps only the URL when the importer left a note after it', () => {
+    expect(url('https://kult.studio/veranstaltungen (Google Calendar ICS)')).toBe('https://kult.studio/veranstaltungen')
+    expect(url(' https://salsatanzenmunich.com (organizer public Google Calendar ICS)')).toBe('https://salsatanzenmunich.com')
+    expect(url('see https://x.example')).toBeNull()
+    const ev = mapV3Event({ ...base, link: 'https://kult.studio/veranstaltungen (Google Calendar ICS)' }, ctx)
+    expect(ev.ok && ev.row.link).toBe('https://kult.studio/veranstaltungen')
   })
 
   it('drops the importer\'s "Source: <feed>" line from the description, keeps real sources', () => {
