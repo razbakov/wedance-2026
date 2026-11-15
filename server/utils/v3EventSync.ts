@@ -281,6 +281,29 @@ function cleanDescription(d: unknown): string {
 
 const url = (v: unknown) => (typeof v === 'string' && /^https?:\/\//i.test(v.trim()) ? v.trim() : null)
 
+/**
+ * A calendar feed (Google Calendar `/calendar/ical/…`, any `.ics` file) — what v3's ical
+ * importer stored as the event's source. Opening it downloads a file, so it is never an
+ * "Event website" (RAZ-980: every KULT Studio party linked to the studio's .ics feed).
+ */
+export function isCalendarFeed(link: string): boolean {
+  try {
+    const u = new URL(link)
+    return /\.ics$/i.test(u.pathname) || /\/calendar\/ical\//i.test(u.pathname) || /\/calendar\/feeds\//i.test(u.pathname)
+  } catch {
+    return false
+  }
+}
+
+/** The event's website: the first http(s) link that is not a calendar feed. */
+export function eventWebsite(...candidates: unknown[]): string | null {
+  for (const c of candidates) {
+    const u = url(c)
+    if (u && !isCalendarFeed(u)) return u
+  }
+  return null
+}
+
 export function mapV3Event(
   doc: V3Doc,
   ctx: { now: number; cityIndex: CityIndex; placeLocality: Map<string, string>; knownProfiles: Map<string, string>; links?: Map<string, EventLinks> },
@@ -338,7 +361,7 @@ export function mapV3Event(
       venueLng: venue?.lng ?? null,
       // Only link organisers that exist as a 2026 profile (else /@handle 404s).
       ...linkedPeople(doc.id, orgUser, org, ctx),
-      link: url(doc.link) ?? url(doc.sourceUrl) ?? url(doc.facebook) ?? url(doc.source),
+      link: eventWebsite(doc.link, doc.sourceUrl, doc.facebook, doc.source),
       seriesId: typeof doc.seriesId === 'string' && doc.seriesId ? doc.seriesId : null,
       styles,
     },
