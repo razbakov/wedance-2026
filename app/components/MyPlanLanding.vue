@@ -25,7 +25,7 @@ function openAuth(action: 'dashboard' | 'signin') {
 // dance card. Emilia and Sasha both go to Timba Fest London, so two yeses show
 // the festival nudge; Klaus is a local regular.
 const LANDING_FRIENDS: LandingPerson[] = [
-  { id: 'd2', name: 'Emilia', city: 'Munich', photo: 'https://i.pravatar.cc/240?u=emilia', danceStyles: ['Kizomba', 'Urban Kiz'], festivalName: 'Timba Fest London', festivalColor: WD.sky500, reason: 'She dances Kizomba in Munich — and heads to a festival you haven\'t explored.' },
+  { id: 'd2', name: 'Emilia', city: 'Munich', photo: 'https://i.pravatar.cc/240?u=emilia', danceStyles: ['Timba', 'Salsa'], festivalName: 'Timba Fest London', festivalColor: WD.sky500, reason: 'She dances Timba in Munich — and heads to a Timba festival you haven\'t picked.' },
   { id: 'd3', name: 'Klaus', city: 'Munich', photo: 'https://i.pravatar.cc/240?u=klaus', danceStyles: ['Salsa', 'Bachata'], regularAt: 'La Rumba Fridays', reason: 'You both do Salsa in Munich — he\'s at La Rumba every Friday.' },
   { id: 'd4', name: 'Sasha', city: 'Vienna', photo: 'https://i.pravatar.cc/240?u=sasha', danceStyles: ['Timba', 'Rumba'], festivalName: 'Timba Fest London', festivalColor: WD.sky500, reason: 'Timba dancer from Vienna heading to a festival not in your year yet.' },
 ]
