@@ -221,6 +221,14 @@ everywhere). Tools: Business → the page → "WeDance <city>" → `/business/ne
   (`wedance-2026/schedules/<city>-<week>`, JPEG). Post once per week per place: Instagram feed / story through the
   page's #501 connection; Telegram via the WeDance bot (`server/utils/telegram.ts`) to every official Telegram
   channel with a chat id. Nothing is posted without a click; MCP tokens can't publish.
+- **Plan** (RAZ-970, `cityOccasions` router, `city_occasion_posts` 0069): the next 12 months of occasions worth a post,
+  computed in `shared/utils/cityOccasions.ts` — Bavarian silent days (BayFTG Art. 3: 02:00–24:00, Good Friday / Holy
+  Saturday from 00:00, Christmas Eve from 14:00; only for Bavarian cities, by `cities.region` or slug), Fasching (DE/AT),
+  Halloween, New Year's Eve, open-air season, Oktoberfest (Munich). Each has a post: silent days → the Tanzverbot
+  explainer (facts in code, EN/ES/RU/DE); parties → the city's parties on WeDance in those days. The admin picks
+  languages (first one on the picture), edits, draws the picture (same poster as the weekly post), posts to Instagram /
+  Telegram once each. "Ask organisers" emails owners/editors of pages with events in the city (last 180 days), each
+  page once per occasion; emails stay server-side. MCP tokens can't post or send.
 - **Official channels** = `community_groups` with `kind='official'` (+ `telegram_chat_id` for the bot). Shown on the
   city page under the weekly calendar (`CityOfficialChannels`, `cityChannels.official`, which also adds the page's
   Instagram). "Check bot" = `getChat` + `getChatMember`.
@@ -449,6 +457,8 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `problem_report_opened` / `problem_report_submitted` / `problem_report_screenshot` | `ReportProblem` | `type` · `captured` (screenshot) |
 | `community_group_submitted` | `SubmitGroupDialog` ("Share a group" on a city's Local groups) | `city`, `platform`, `duplicate` |
 | `city_schedule_published` | `BusinessCitySchedule` (city page → Weekly post: Post to feed / story / Telegram) | `city`, `to` (instagram_feed / instagram_story / telegram) |
+| `city_occasion_published` | `BusinessCityOccasion` (city page → Plan → an occasion: Post to feed / story / Telegram, RAZ-970) | `city`, `occasion` (e.g. buss-und-bettag), `to` |
+| `city_occasion_asked` | `BusinessCityOccasion` → Ask organisers (email sent) | `city`, `occasion`, `pages` |
 
 ### Server events (`trackServer`, all prefixed `server_`)
 
@@ -495,6 +505,8 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `server_community_group_submitted` | `communityGroup.submit` (a dancer shares a local group) | `city`, `platform`, `duplicate` |
 | `server_community_group_reviewed` | `communityGroup.review` (a city admin approves / declines) | `city`, `platform`, `decision` (approved / rejected), `hours_to_review` |
 | `server_city_schedule_published` | `citySchedule.publishInstagram` / `publishTelegram` | `city`, `to` (instagram_feed / instagram_story / telegram), `events`, `channels`, `with_picture`, `$groups` |
+| `server_city_occasion_published` | `cityOccasions.publishInstagram` / `publishTelegram` (RAZ-970) | `city`, `occasion`, `kind` (silent / party / season), `to`, `langs`, `channels`, `$groups` |
+| `server_city_occasion_asked` | `cityOccasions.ask` (organisers with events in the city emailed) | `city`, `occasion`, `kind`, `pages`, `emails`, `$groups` |
 | `server_city_admin_added` | `cityChannels.addAdmin` (Admin → Cities) | `city`, `role`, `$groups` |
 | `server_weekend_shared` | `weekend.share` (new link only; My plan makes it on its own to show the story, MCP `share_my_weekend`) | `events`, `replaced_previous`, `surface` (my_plan / mcp / web) — `my_plan` is not a share intent; count intent on `weekend_story_shared` |
 | `server_weekend_joined` | `weekend.join` (a friend's first "I'm in" on a party) | `signed_in`, `coming`, `friends` |

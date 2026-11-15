@@ -47,7 +47,24 @@ export function fitSchedule(days: ScheduleDay[], area: number): { days: Schedule
   return { days: kept, more: total - shown, line }
 }
 
-export function scheduleSvg(input: { cityName: string; weekLabel: string; days: ScheduleDay[]; footer: string }): string {
+/** Split text into lines of at most `max` characters, on spaces. */
+function wrapWords(text: string, max: number): string[] {
+  const out: string[] = []
+  let line = ''
+  for (const word of plain(text).split(' ')) {
+    if (line && (line + ' ' + word).length > max) { out.push(line); line = word }
+    else line = line ? `${line} ${word}` : word
+  }
+  if (line) out.push(line)
+  return out
+}
+
+/**
+ * The poster. The weekly post passes the week's days; an occasion post (RAZ-970) passes its own
+ * eyebrow and either the occasion's parties (`days`) or a few short points (`lines`, silent days),
+ * and `dark` for a silent day.
+ */
+export function scheduleSvg(input: { cityName: string; weekLabel: string; days: ScheduleDay[]; footer: string; eyebrow?: string; lines?: string[]; dark?: boolean; empty?: string }): string {
   const area = H - HEADER - FOOTER - 40
   const { days, more, line } = fitSchedule(input.days, area)
   const font = Math.round(line * 0.62)
@@ -70,7 +87,14 @@ export function scheduleSvg(input: { cityName: string; weekLabel: string; days: 
     y += line
     out.push(`<text x="${PAD}" y="${y}" class="more" font-size="${font}">+${more} more on WeDance</text>`)
   }
-  if (!days.length) out.push(`<text x="${PAD}" y="${HEADER + 120}" class="what" font-size="40">Nothing picked for this week yet.</text>`)
+  if (input.lines?.length) {
+    let ly = HEADER + 40
+    for (const point of input.lines) {
+      ly += 30
+      wrapWords(point, 40).forEach((l, i) => { ly += 58; out.push(`<text x="${PAD}" y="${ly}" class="what" font-size="44">${i === 0 ? '• ' : '  '}${esc(l)}</text>`) })
+    }
+  }
+  else if (!days.length) out.push(`<text x="${PAD}" y="${HEADER + 120}" class="what" font-size="40">${esc(input.empty ?? 'Nothing picked for this week yet.')}</text>`)
 
   const city = clip(plain(input.cityName), 22)
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
@@ -86,8 +110,8 @@ text { font-family: Helvetica, Arial, sans-serif; }
 .foot { fill: #374151; font-weight: 700; }
 </style>
 <rect width="${W}" height="${H}" fill="#fbf6ef"/>
-<rect width="${W}" height="${HEADER}" fill="#dc2626"/>
-<text x="${PAD}" y="84" class="eyebrow" font-size="28">THIS WEEK IN</text>
+<rect width="${W}" height="${HEADER}" fill="${input.dark ? '#0f172a' : '#dc2626'}"/>
+<text x="${PAD}" y="84" class="eyebrow" font-size="28">${esc(plain(input.eyebrow ?? 'THIS WEEK IN').toUpperCase())}</text>
 <text x="${PAD}" y="168" class="title" font-size="${city.length > 14 ? 76 : 96}">${esc(city)}</text>
 <text x="${PAD}" y="220" class="week" font-size="40">${esc(plain(input.weekLabel))}</text>
 ${out.join('\n')}
