@@ -1865,8 +1865,218 @@ function cardSummary(f: CatalogueEntry) {
         @dismiss="hideChatgptPitch"
       />
 
+      <!-- MEET NEW FRIENDS · the people deck, first thing in the plan. -->
+      <div id="discover" class="mt-2">
+        <div class="flex items-baseline justify-between mb-4">
+          <div>
+            <h2 class="text-3xl leading-tight font-display text-foreground">Meet new friends</h2>
+            <p class="mt-1 text-sm text-muted-foreground font-sans">Dancers going where you go, and locals who dance like you</p>
+          </div>
+          <Button
+            variant="link"
+            class="h-auto p-0 gap-1 text-xs font-normal italic text-secondary font-display disabled:opacity-40 [&_svg]:size-3"
+            :disabled="!canUndo"
+            @click="undoSwipe"
+          >
+            <Undo2 aria-hidden="true" /> Undo
+          </Button>
+        </div>
+        <p class="text-sm mb-6 max-w-xl text-muted-foreground font-sans">
+          Yes = you'd like to dance with them. Say yes to two people heading to the same festival and we'll suggest it for your year. Skip = we won't show them again.
+        </p>
+
+        <!-- Deck -->
+        <div class="relative mx-auto max-w-md">
+          <div v-if="!deckCurrent" class="rounded-2xl p-10 text-center border-2 border-dashed border-input bg-white/50">
+            <Sparkles class="w-10 h-10 mx-auto mb-3 text-secondary" />
+            <p class="text-lg font-display text-foreground">
+              That's it for this pass.
+            </p>
+            <p class="mt-2 text-sm text-muted-foreground font-sans">
+              You've seen everyone and everything we have for you right now. New dancers and events show up here as they join WeDance.
+            </p>
+          </div>
+
+          <!-- min-height, not a fixed height: the card grows with its text (it used to clip). -->
+          <div v-else class="relative min-h-[400px]">
+            <!-- Peek: card 3 behind -->
+            <div v-if="deckAfter" class="absolute inset-0 rounded-3xl bg-white border" style="transform: scale(0.88) translateY(20px); opacity:0.35; border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); box-shadow: 0 6px 22px rgba(0,0,0,0.08);" />
+            <!-- Peek: card 2 behind -->
+            <div v-if="deckNext" class="absolute inset-0 rounded-3xl bg-white border" style="transform: scale(0.94) translateY(10px); opacity:0.65; border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); box-shadow: 0 6px 22px rgba(0,0,0,0.08);" />
+            <!-- Current card — gestures live here -->
+            <div
+              :key="deckCurrent.id"
+              class="relative rounded-3xl bg-white border overflow-hidden touch-none select-none cursor-grab active:cursor-grabbing"
+              :style="{
+                borderColor: 'color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent)',
+                boxShadow: '0 12px 32px rgba(0,0,0,0.14)',
+                transform: currentCardTransform(),
+                transition: dragActive || cardExitDir ? 'transform 260ms ease-out' : 'transform 220ms ease-out',
+              }"
+              @pointerdown="onCardPointerDown"
+              @pointermove="onCardPointerMove"
+              @pointerup="onCardPointerUp"
+              @pointercancel="onCardPointerUp"
+            >
+              <!-- YES / SKIP labels tinted by drag -->
+              <div
+                class="absolute top-6 left-6 z-10 px-3 py-1 rounded-full border-2 text-sm font-black uppercase tracking-widest pointer-events-none transition-opacity text-primary border-wd-red-600"
+                style="transform: rotate(-10deg);"
+                :style="{ opacity: Math.min(1, Math.max(0, -dragDx / 100)) }"
+              >Skip</div>
+              <div
+                class="absolute top-6 right-6 z-10 px-3 py-1 rounded-full border-2 text-sm font-black uppercase tracking-widest pointer-events-none transition-opacity text-wd-green-600 border-wd-green-600"
+                style="transform: rotate(10deg);"
+                :style="{ opacity: Math.min(1, Math.max(0, dragDx / 100)) }"
+              >Yes</div>
+
+              <!-- DANCER CARDS (any of the 3 dancer kinds) -->
+              <template v-if="deckCurrent.kind === 'dancer-your-fest' || deckCurrent.kind === 'dancer-new-fest' || deckCurrent.kind === 'dancer-local'">
+                <img :src="sizedImage(deckCurrent.photo, IMG.card)" :alt="deckCurrent.name" class="w-full h-64 object-cover" draggable="false">
+                <div class="p-5">
+                  <div class="flex items-baseline justify-between gap-3">
+                    <div class="text-xl font-black font-display text-foreground">
+                      {{ deckCurrent.name }}
+                    </div>
+                    <div class="text-xs italic text-secondary font-display">
+                      {{ deckCurrent.city }}
+                    </div>
+                  </div>
+                  <!-- Context chip -->
+                  <div v-if="deckCurrent.kind === 'dancer-your-fest'"
+                       class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold"
+                       :style="{ background: deckCurrent.festivalColor + '18', color: deckCurrent.festivalColor }">
+                    <Plane class="w-3 h-3" style="stroke-width:1.5;" />
+                    Also going to {{ deckCurrent.festivalName }}
+                  </div>
+                  <div v-else-if="deckCurrent.kind === 'dancer-new-fest'"
+                       class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold"
+                       :style="{ background: deckCurrent.festivalColor + '18', color: deckCurrent.festivalColor }">
+                    <Plane class="w-3 h-3" style="stroke-width:1.5;" />
+                    Going to {{ deckCurrent.festivalName }} — you're not
+                  </div>
+                  <div v-else-if="deckCurrent.kind === 'dancer-local' && (deckCurrent.regularAt || deckCurrent.city)"
+                       class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold text-wd-green-600"
+                       style="background:color-mix(in srgb, var(--wd-green-600) 9.4%, transparent);">
+                    <MapPin class="w-3 h-3" style="stroke-width:1.5;" />
+                    <template v-if="deckCurrent.regularAt">Regular at {{ deckCurrent.regularAt }}</template>
+                    <template v-else>Dances in {{ deckCurrent.city }}</template>
+                  </div>
+                  <div class="mt-3 flex flex-wrap gap-1">
+                    <span v-for="st in deckCurrent.danceStyles" :key="st"
+                          class="text-eyebrow font-bold uppercase tracking-widest px-2 py-0.5 rounded-full text-muted-foreground"
+                          style="background:color-mix(in srgb, var(--wd-brown-900) 3.9%, transparent);">
+                      {{ st }}
+                    </span>
+                  </div>
+                  <p v-if="deckCurrent.reason" class="mt-3 text-xs italic leading-snug text-muted-foreground font-display">
+                    {{ deckCurrent.reason }}
+                  </p>
+                </div>
+              </template>
+
+              <!-- EVENT: FESTIVAL -->
+              <template v-else-if="deckCurrent.kind === 'event-festival'">
+                <div class="h-64 p-6 flex flex-col justify-end" :style="{ background: 'linear-gradient(135deg, ' + (deckCurrent as any).color + ', var(--wd-orange-500))' }">
+                  <div class="text-eyebrow uppercase tracking-widest font-bold text-white/90">Festival · not in your year</div>
+                  <div class="mt-1 text-3xl font-black leading-none text-white font-display">
+                    {{ deckCurrent.name }}
+                  </div>
+                </div>
+                <div class="p-5">
+                  <div class="flex items-center gap-4 text-xs text-muted-foreground font-sans">
+                    <span class="inline-flex items-center gap-1">
+                      <Calendar class="w-3 h-3 text-secondary" />
+                      {{ new Date(`${(deckCurrent as any).dateISO}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }) }}
+                    </span>
+                    <span class="inline-flex items-center gap-1">
+                      <MapPin class="w-3 h-3 text-secondary" />
+                      {{ (deckCurrent as any).venue }}, {{ (deckCurrent as any).city }}
+                    </span>
+                  </div>
+                  <div v-if="(deckCurrent as any).friendsGoing > 0" class="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold text-wd-amber-500"
+                       style="background:color-mix(in srgb, var(--wd-amber-500) 9.4%, transparent);">
+                    <UsersIcon class="w-3 h-3" style="stroke-width:1.5;" />
+                    {{ (deckCurrent as any).friendsGoing }} friend{{ (deckCurrent as any).friendsGoing === 1 ? '' : 's' }} going
+                  </div>
+                  <p v-if="deckCurrent.reason" class="mt-3 text-xs italic leading-snug text-muted-foreground font-display">
+                    {{ deckCurrent.reason }}
+                  </p>
+                </div>
+              </template>
+
+              <!-- EVENT: LOCAL SOCIAL -->
+              <template v-else>
+                <div class="h-64 p-6 flex flex-col justify-end" :style="{ background: 'linear-gradient(135deg, ' + (deckCurrent as any).color + ', var(--wd-violet-600))' }">
+                  <div class="text-eyebrow uppercase tracking-widest font-bold text-white/90">Local · {{ (deckCurrent as any).style }}</div>
+                  <div class="mt-1 text-3xl font-black leading-none text-white font-display">
+                    {{ deckCurrent.name }}
+                  </div>
+                </div>
+                <div class="p-5">
+                  <div class="flex items-center gap-4 text-xs text-muted-foreground font-sans">
+                    <span class="inline-flex items-center gap-1">
+                      <Calendar class="w-3 h-3 text-secondary" />
+                      {{ [(deckCurrent as any).dayLabel, shortDayDate((deckCurrent as any).dateISO ?? '')].filter(Boolean).join(' ') }} · {{ (deckCurrent as any).time }}
+                    </span>
+                    <span class="inline-flex items-center gap-1">
+                      <MapPin class="w-3 h-3 text-secondary" />
+                      {{ (deckCurrent as any).venue }}, {{ (deckCurrent as any).city }}
+                    </span>
+                  </div>
+                  <div v-if="(deckCurrent as any).friendsGoing > 0" class="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold text-wd-amber-500"
+                       style="background:color-mix(in srgb, var(--wd-amber-500) 9.4%, transparent);">
+                    <UsersIcon class="w-3 h-3" style="stroke-width:1.5;" />
+                    {{ (deckCurrent as any).friendsGoing }} friend{{ (deckCurrent as any).friendsGoing === 1 ? '' : 's' }} going
+                  </div>
+                  <p v-if="deckCurrent.reason" class="mt-3 text-xs italic leading-snug text-muted-foreground font-display">
+                    {{ deckCurrent.reason }}
+                  </p>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- Action buttons -->
+          <div v-if="deckCurrent" class="mt-8 flex items-center justify-center gap-6">
+            <button
+              type="button"
+              class="w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95 text-primary"
+              style="background:white; border:2px solid color-mix(in srgb, var(--wd-red-600) 33.3%, transparent);"
+              aria-label="Skip"
+              @click="commitSwipe('skip')"
+            >
+              <X class="w-6 h-6" />
+            </button>
+            <button
+              type="button"
+              class="w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95 text-wd-amber-500"
+              style="background:white; border:2px solid color-mix(in srgb, var(--wd-amber-500) 33.3%, transparent);"
+              aria-label="Later — show again at the end"
+              title="Later — show again at the end"
+              @click="commitSwipe('later')"
+            >
+              <Clock class="w-5 h-5" />
+            </button>
+            <button
+              type="button"
+              class="w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95 text-wd-green-600"
+              style="background:white; border:2px solid color-mix(in srgb, var(--wd-green-600) 33.3%, transparent);"
+              aria-label="Yes"
+              @click="commitSwipe('yes')"
+            >
+              <Heart class="w-6 h-6" />
+            </button>
+          </div>
+
+          <p v-if="deckCurrent" class="mt-4 text-xs text-center italic text-secondary font-display">
+            Drag or use the buttons · {{ deck.length }} left
+          </p>
+        </div>
+      </div>
+
       <!-- TONIGHT · Hangouts. -->
-      <div id="tonight" class="mt-2">
+      <div id="tonight" class="mt-14">
         <div class="flex items-baseline justify-between mb-4">
           <div>
             <h2 class="text-3xl leading-tight font-display text-foreground">Tonight</h2>
@@ -2115,216 +2325,6 @@ function cardSummary(f: CatalogueEntry) {
           </NuxtLink>
         </WeekendStory>
         <p v-if="shareWeekendError && upcomingSocials.length" role="alert" class="mt-2 text-xs text-destructive font-sans">{{ shareWeekendError }}</p>
-      </div>
-
-      <!-- MEET NEW FRIENDS · the people deck, right after your week. -->
-      <div id="discover" class="mt-14">
-        <div class="flex items-baseline justify-between mb-4">
-          <div>
-            <h2 class="text-3xl leading-tight font-display text-foreground">Meet new friends</h2>
-            <p class="mt-1 text-sm text-muted-foreground font-sans">Dancers going where you go, and locals who dance like you</p>
-          </div>
-          <Button
-            variant="link"
-            class="h-auto p-0 gap-1 text-xs font-normal italic text-secondary font-display disabled:opacity-40 [&_svg]:size-3"
-            :disabled="!canUndo"
-            @click="undoSwipe"
-          >
-            <Undo2 aria-hidden="true" /> Undo
-          </Button>
-        </div>
-        <p class="text-sm mb-6 max-w-xl text-muted-foreground font-sans">
-          Yes = you'd like to dance with them. Say yes to two people heading to the same festival and we'll suggest it for your year. Skip = we won't show them again.
-        </p>
-
-        <!-- Deck -->
-        <div class="relative mx-auto max-w-md">
-          <div v-if="!deckCurrent" class="rounded-2xl p-10 text-center border-2 border-dashed border-input bg-white/50">
-            <Sparkles class="w-10 h-10 mx-auto mb-3 text-secondary" />
-            <p class="text-lg font-display text-foreground">
-              That's it for this pass.
-            </p>
-            <p class="mt-2 text-sm text-muted-foreground font-sans">
-              You've seen everyone and everything we have for you right now. New dancers and events show up here as they join WeDance.
-            </p>
-          </div>
-
-          <!-- min-height, not a fixed height: the card grows with its text (it used to clip). -->
-          <div v-else class="relative min-h-[400px]">
-            <!-- Peek: card 3 behind -->
-            <div v-if="deckAfter" class="absolute inset-0 rounded-3xl bg-white border" style="transform: scale(0.88) translateY(20px); opacity:0.35; border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); box-shadow: 0 6px 22px rgba(0,0,0,0.08);" />
-            <!-- Peek: card 2 behind -->
-            <div v-if="deckNext" class="absolute inset-0 rounded-3xl bg-white border" style="transform: scale(0.94) translateY(10px); opacity:0.65; border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); box-shadow: 0 6px 22px rgba(0,0,0,0.08);" />
-            <!-- Current card — gestures live here -->
-            <div
-              :key="deckCurrent.id"
-              class="relative rounded-3xl bg-white border overflow-hidden touch-none select-none cursor-grab active:cursor-grabbing"
-              :style="{
-                borderColor: 'color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent)',
-                boxShadow: '0 12px 32px rgba(0,0,0,0.14)',
-                transform: currentCardTransform(),
-                transition: dragActive || cardExitDir ? 'transform 260ms ease-out' : 'transform 220ms ease-out',
-              }"
-              @pointerdown="onCardPointerDown"
-              @pointermove="onCardPointerMove"
-              @pointerup="onCardPointerUp"
-              @pointercancel="onCardPointerUp"
-            >
-              <!-- YES / SKIP labels tinted by drag -->
-              <div
-                class="absolute top-6 left-6 z-10 px-3 py-1 rounded-full border-2 text-sm font-black uppercase tracking-widest pointer-events-none transition-opacity text-primary border-wd-red-600"
-                style="transform: rotate(-10deg);"
-                :style="{ opacity: Math.min(1, Math.max(0, -dragDx / 100)) }"
-              >Skip</div>
-              <div
-                class="absolute top-6 right-6 z-10 px-3 py-1 rounded-full border-2 text-sm font-black uppercase tracking-widest pointer-events-none transition-opacity text-wd-green-600 border-wd-green-600"
-                style="transform: rotate(10deg);"
-                :style="{ opacity: Math.min(1, Math.max(0, dragDx / 100)) }"
-              >Yes</div>
-
-              <!-- DANCER CARDS (any of the 3 dancer kinds) -->
-              <template v-if="deckCurrent.kind === 'dancer-your-fest' || deckCurrent.kind === 'dancer-new-fest' || deckCurrent.kind === 'dancer-local'">
-                <img :src="sizedImage(deckCurrent.photo, IMG.card)" :alt="deckCurrent.name" class="w-full h-64 object-cover" draggable="false">
-                <div class="p-5">
-                  <div class="flex items-baseline justify-between gap-3">
-                    <div class="text-xl font-black font-display text-foreground">
-                      {{ deckCurrent.name }}
-                    </div>
-                    <div class="text-xs italic text-secondary font-display">
-                      {{ deckCurrent.city }}
-                    </div>
-                  </div>
-                  <!-- Context chip -->
-                  <div v-if="deckCurrent.kind === 'dancer-your-fest'"
-                       class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold"
-                       :style="{ background: deckCurrent.festivalColor + '18', color: deckCurrent.festivalColor }">
-                    <Plane class="w-3 h-3" style="stroke-width:1.5;" />
-                    Also going to {{ deckCurrent.festivalName }}
-                  </div>
-                  <div v-else-if="deckCurrent.kind === 'dancer-new-fest'"
-                       class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold"
-                       :style="{ background: deckCurrent.festivalColor + '18', color: deckCurrent.festivalColor }">
-                    <Plane class="w-3 h-3" style="stroke-width:1.5;" />
-                    Going to {{ deckCurrent.festivalName }} — you're not
-                  </div>
-                  <div v-else-if="deckCurrent.kind === 'dancer-local' && (deckCurrent.regularAt || deckCurrent.city)"
-                       class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold text-wd-green-600"
-                       style="background:color-mix(in srgb, var(--wd-green-600) 9.4%, transparent);">
-                    <MapPin class="w-3 h-3" style="stroke-width:1.5;" />
-                    <template v-if="deckCurrent.regularAt">Regular at {{ deckCurrent.regularAt }}</template>
-                    <template v-else>Dances in {{ deckCurrent.city }}</template>
-                  </div>
-                  <div class="mt-3 flex flex-wrap gap-1">
-                    <span v-for="st in deckCurrent.danceStyles" :key="st"
-                          class="text-eyebrow font-bold uppercase tracking-widest px-2 py-0.5 rounded-full text-muted-foreground"
-                          style="background:color-mix(in srgb, var(--wd-brown-900) 3.9%, transparent);">
-                      {{ st }}
-                    </span>
-                  </div>
-                  <p v-if="deckCurrent.reason" class="mt-3 text-xs italic leading-snug text-muted-foreground font-display">
-                    {{ deckCurrent.reason }}
-                  </p>
-                </div>
-              </template>
-
-              <!-- EVENT: FESTIVAL -->
-              <template v-else-if="deckCurrent.kind === 'event-festival'">
-                <div class="h-64 p-6 flex flex-col justify-end" :style="{ background: 'linear-gradient(135deg, ' + (deckCurrent as any).color + ', var(--wd-orange-500))' }">
-                  <div class="text-eyebrow uppercase tracking-widest font-bold text-white/90">Festival · not in your year</div>
-                  <div class="mt-1 text-3xl font-black leading-none text-white font-display">
-                    {{ deckCurrent.name }}
-                  </div>
-                </div>
-                <div class="p-5">
-                  <div class="flex items-center gap-4 text-xs text-muted-foreground font-sans">
-                    <span class="inline-flex items-center gap-1">
-                      <Calendar class="w-3 h-3 text-secondary" />
-                      {{ new Date(`${(deckCurrent as any).dateISO}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }) }}
-                    </span>
-                    <span class="inline-flex items-center gap-1">
-                      <MapPin class="w-3 h-3 text-secondary" />
-                      {{ (deckCurrent as any).venue }}, {{ (deckCurrent as any).city }}
-                    </span>
-                  </div>
-                  <div v-if="(deckCurrent as any).friendsGoing > 0" class="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold text-wd-amber-500"
-                       style="background:color-mix(in srgb, var(--wd-amber-500) 9.4%, transparent);">
-                    <UsersIcon class="w-3 h-3" style="stroke-width:1.5;" />
-                    {{ (deckCurrent as any).friendsGoing }} friend{{ (deckCurrent as any).friendsGoing === 1 ? '' : 's' }} going
-                  </div>
-                  <p v-if="deckCurrent.reason" class="mt-3 text-xs italic leading-snug text-muted-foreground font-display">
-                    {{ deckCurrent.reason }}
-                  </p>
-                </div>
-              </template>
-
-              <!-- EVENT: LOCAL SOCIAL -->
-              <template v-else>
-                <div class="h-64 p-6 flex flex-col justify-end" :style="{ background: 'linear-gradient(135deg, ' + (deckCurrent as any).color + ', var(--wd-violet-600))' }">
-                  <div class="text-eyebrow uppercase tracking-widest font-bold text-white/90">Local · {{ (deckCurrent as any).style }}</div>
-                  <div class="mt-1 text-3xl font-black leading-none text-white font-display">
-                    {{ deckCurrent.name }}
-                  </div>
-                </div>
-                <div class="p-5">
-                  <div class="flex items-center gap-4 text-xs text-muted-foreground font-sans">
-                    <span class="inline-flex items-center gap-1">
-                      <Calendar class="w-3 h-3 text-secondary" />
-                      {{ [(deckCurrent as any).dayLabel, shortDayDate((deckCurrent as any).dateISO ?? '')].filter(Boolean).join(' ') }} · {{ (deckCurrent as any).time }}
-                    </span>
-                    <span class="inline-flex items-center gap-1">
-                      <MapPin class="w-3 h-3 text-secondary" />
-                      {{ (deckCurrent as any).venue }}, {{ (deckCurrent as any).city }}
-                    </span>
-                  </div>
-                  <div v-if="(deckCurrent as any).friendsGoing > 0" class="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold text-wd-amber-500"
-                       style="background:color-mix(in srgb, var(--wd-amber-500) 9.4%, transparent);">
-                    <UsersIcon class="w-3 h-3" style="stroke-width:1.5;" />
-                    {{ (deckCurrent as any).friendsGoing }} friend{{ (deckCurrent as any).friendsGoing === 1 ? '' : 's' }} going
-                  </div>
-                  <p v-if="deckCurrent.reason" class="mt-3 text-xs italic leading-snug text-muted-foreground font-display">
-                    {{ deckCurrent.reason }}
-                  </p>
-                </div>
-              </template>
-            </div>
-          </div>
-
-          <!-- Action buttons -->
-          <div v-if="deckCurrent" class="mt-8 flex items-center justify-center gap-6">
-            <button
-              type="button"
-              class="w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95 text-primary"
-              style="background:white; border:2px solid color-mix(in srgb, var(--wd-red-600) 33.3%, transparent);"
-              aria-label="Skip"
-              @click="commitSwipe('skip')"
-            >
-              <X class="w-6 h-6" />
-            </button>
-            <button
-              type="button"
-              class="w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95 text-wd-amber-500"
-              style="background:white; border:2px solid color-mix(in srgb, var(--wd-amber-500) 33.3%, transparent);"
-              aria-label="Later — show again at the end"
-              title="Later — show again at the end"
-              @click="commitSwipe('later')"
-            >
-              <Clock class="w-5 h-5" />
-            </button>
-            <button
-              type="button"
-              class="w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95 text-wd-green-600"
-              style="background:white; border:2px solid color-mix(in srgb, var(--wd-green-600) 33.3%, transparent);"
-              aria-label="Yes"
-              @click="commitSwipe('yes')"
-            >
-              <Heart class="w-6 h-6" />
-            </button>
-          </div>
-
-          <p v-if="deckCurrent" class="mt-4 text-xs text-center italic text-secondary font-display">
-            Drag or use the buttons · {{ deck.length }} left
-          </p>
-        </div>
       </div>
 
       <!-- MONTH · Courses. -->
