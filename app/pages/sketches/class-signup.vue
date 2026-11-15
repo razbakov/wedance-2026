@@ -19,7 +19,7 @@ import { Button } from '~/components/ui/button'
 definePageMeta({ layout: false })
 useHead({ title: 'WeDance — Class sign-up sketch', meta: [{ name: 'robots', content: 'noindex' }] })
 
-type Variant = 'now' | 'A' | 'B' | 'C' | 'D'
+type Variant = 'now' | 'A' | 'B' | 'C' | 'D' | 'E'
 const VARIANTS: { id: Variant, name: string, idea: string, good: string, cost: string }[] = [
   {
     id: 'now',
@@ -58,9 +58,21 @@ const VARIANTS: { id: Variant, name: string, idea: string, good: string, cost: s
   },
 ]
 
-const variant = ref<Variant>('D')
+VARIANTS.push({
+  id: 'E',
+  name: 'Recommended: A’s one button opens D’s steps',
+  idea: 'One button ("Sign up · €10", "Get your pass · from €35"). It opens the steps right there, no popup: ① how you’re coming (alone as leader or follower, or with your partner) ② which pass, only when there’s more than one (whole course or one class; full, day or party pass) ③ pay now or at the door ④ your email, only when signed out. A finished step folds to one line with "Change". Afterwards the page shows one line, "You’re in · …".',
+  good: 'One button and one card for a class, a course and a festival, signed in or out. With your partner = two people: the pass’s couple price, else 2 ×. "Keep in touch" is a checkbox where you give your email, or under "You’re in" when signed in, like A.',
+  cost: 'New data: a couple price per pass and an organiser switch for "pay at the door". Paying while signed out means a Stripe checkout without an account (the account comes from the checkout email); today buying needs signing in first.',
+})
+
+const variant = ref<Variant>('E')
 const device = ref<'desktop' | 'mobile'>('desktop')
 const paid = ref<'paid' | 'free'>('paid')
+type Kind = 'class' | 'course' | 'festival'
+type Auth = 'new' | 'returning' | 'signedIn'
+const kind = ref<Kind>('class')
+const auth = ref<Auth>('new')
 const isMobile = computed(() => device.value === 'mobile')
 const current = computed(() => VARIANTS.find(v => v.id === variant.value)!)
 
@@ -83,8 +95,99 @@ const showWho = ref(false)
 const fold = ref<null | 'who' | 'pair' | 'touch'>(null)
 const saved = ref(false)
 const checkout = ref(false)
-function reset() { role.value = null; pay.value = 'none'; sheet.value = null; showWho.value = false; fold.value = null; saved.value = false; checkout.value = false }
-watch([variant, device, paid], reset)
+function reset() {
+  role.value = null; pay.value = 'none'; sheet.value = null; showWho.value = false; fold.value = null; saved.value = false; checkout.value = false
+  eOpen.value = false; eStep.value = 'role'; ePass.value = null; eEmail.value = ''; eEmailError.value = ''; eKeep.value = false; eState.value = 'idle'; eSaved.value = new Set()
+}
+
+// ── E: one button → inline steps, for a class, a course and a festival ───────
+type Pass = { id: string, name: string, detail: string, price: number, couple: number | null }
+type Session = { id: string, day: string, time: string, name: string, who: string }
+const KINDS: Record<Kind, { name: string, when: string, meta: string, door: boolean, passes: Pass[], sessions: Session[], save: boolean, heading: string }> = {
+  class: {
+    name: 'Casino Partnerwork', when: 'Sun, Nov 22 · 20:00–21:00 · Buena Vista Bar', meta: 'Casino · Intermediate · with Alösha', door: true,
+    passes: [{ id: 'drop', name: 'This class', detail: 'Sun, Nov 22', price: 10, couple: 18 }],
+    sessions: [{ id: 's1', day: 'Sun, Nov 22', time: '20:00', name: 'Casino Partnerwork', who: 'Alösha' }], save: false, heading: 'Sunday, Nov 22',
+  },
+  course: {
+    name: 'Casino Level 2', when: '4 Sundays · Nov 22 – Dec 13 · 20:00–21:00 · Buena Vista Bar', meta: 'Casino · Intermediate · with Alösha', door: true,
+    passes: [
+      { id: 'course', name: 'Whole course', detail: '4 classes · Nov 22 – Dec 13', price: 60, couple: 110 },
+      { id: 'drop', name: 'Just one class', detail: 'Drop-in · Sun, Nov 22', price: 18, couple: 32 },
+    ],
+    sessions: ['Nov 22', 'Nov 29', 'Dec 6', 'Dec 13'].map((d, i) => ({ id: `c${i}`, day: `Sun, ${d}`, time: '20:00', name: `Week ${i + 1}`, who: 'Alösha' })), save: false, heading: 'The course · 4 Sundays',
+  },
+  festival: {
+    name: 'Munich Salsa Weekend', when: 'Fri–Sun, Dec 4–6 · Kesselhaus', meta: 'Salsa · Casino · Bachata · 24 workshops, 3 parties', door: false,
+    passes: [
+      { id: 'full', name: 'Full pass', detail: 'All workshops + 3 parties', price: 129, couple: null },
+      { id: 'sat', name: 'Saturday pass', detail: 'Saturday workshops + party', price: 69, couple: null },
+      { id: 'party', name: 'Party pass', detail: '3 parties, no workshops', price: 35, couple: null },
+    ],
+    sessions: [
+      { id: 'f1', day: 'Sat, Dec 5', time: '12:00', name: 'Casino Partnerwork', who: 'Alösha' },
+      { id: 'f2', day: 'Sat, Dec 5', time: '14:00', name: 'Bachata Musicality', who: 'Ana & Leo' },
+      { id: 'f3', day: 'Sun, Dec 6', time: '12:00', name: 'Rueda de Casino', who: 'MontunoClub' },
+    ], save: true, heading: 'Workshops',
+  },
+}
+const K = computed(() => KINDS[kind.value])
+const signedIn = computed(() => auth.value === 'signedIn')
+const passes = computed(() => (isPaid.value ? K.value.passes : []))
+const two = computed(() => role.value === 'partner')
+const priceOf = (p: Pass) => (two.value ? (p.couple ?? p.price * 2) : p.price)
+const priceLabel = (p: Pass) => (two.value ? (p.couple ? `€${p.couple} for two` : `2 × €${p.price} = €${p.price * 2}`) : `€${p.price}`)
+const ePass = ref<string | null>(null)
+const chosenPass = computed(() => passes.value.find(p => p.id === ePass.value) ?? (passes.value.length === 1 ? passes.value[0] : null))
+const total = computed(() => (chosenPass.value ? priceOf(chosenPass.value) : 0))
+type Step = 'role' | 'pass' | 'pay' | 'you'
+const eSteps = computed(() => ([
+  'role',
+  passes.value.length > 1 ? 'pass' : null,
+  passes.value.length ? 'pay' : null,
+  signedIn.value ? null : 'you',
+] as (Step | null)[]).filter((s): s is Step => !!s))
+const STEP_TITLE: Record<Step, string> = { role: 'How are you coming?', pass: 'Pick your pass', pay: 'Pay', you: 'Your email' }
+const eOpen = ref(false)
+const eStep = ref<Step>('role')
+const eEmail = ref('')
+const eEmailError = ref('')
+const eKeep = ref(false)
+const eState = ref<'idle' | 'in' | 'sent'>('idle')
+const eSaved = ref<Set<string>>(new Set())
+const stepIndex = (s: Step) => eSteps.value.indexOf(s)
+const ctaLabel = computed(() => {
+  if (!isPaid.value) return 'I’m coming'
+  const min = Math.min(...K.value.passes.map(p => p.price))
+  if (kind.value === 'festival') return `Get your pass · from €${min}`
+  return K.value.passes.length > 1 ? `Sign up · from €${min}` : `Sign up · €${min}`
+})
+const summary = computed(() => [
+  roleOf(role.value)?.short,
+  chosenPass.value && passes.value.length > 1 ? chosenPass.value.name : null,
+  chosenPass.value ? (pay.value === 'now' ? `paid €${total.value}` : `€${total.value} at the door`) : null,
+].filter(Boolean).join(' · '))
+function eStart() { eOpen.value = true; eStep.value = 'role' }
+function eNext() {
+  const i = stepIndex(eStep.value)
+  if (i < eSteps.value.length - 1) { eStep.value = eSteps.value[i + 1]!; return }
+  eFinish()
+}
+function eFinish() {
+  if (pay.value === 'now') { checkout.value = true; return }
+  eOpen.value = false
+  eState.value = signedIn.value ? 'in' : 'sent'
+}
+function eRole(r: Role) { role.value = r; eNext() }
+function ePick(id: string) { ePass.value = id; eNext() }
+function ePay(p: 'now' | 'door') { pay.value = p; eNext() }
+function eSubmit() {
+  if (!/^\S+@\S+\.\S+$/.test(eEmail.value)) { eEmailError.value = 'Enter your email, so we can confirm your spot.'; return }
+  eEmailError.value = ''
+  eFinish()
+}
+function eToggleSave(id: string) { const s = new Set(eSaved.value); s.has(id) ? s.delete(id) : s.add(id); eSaved.value = s }
+watch([variant, device, paid, kind, auth], reset)
 
 const isPaid = computed(() => paid.value === 'paid')
 const counts = computed(() => {
@@ -102,7 +205,10 @@ function startSheet() { sheet.value = 'role' }
 function sheetRole(r: Role) { role.value = r; sheet.value = isPaid.value ? 'pay' : 'done' }
 function sheetPay(p: 'now' | 'door') { pay.value = p; sheet.value = 'done' }
 function payNow() { checkout.value = true }
-function finishCheckout() { pay.value = 'now'; checkout.value = false; sheet.value = sheet.value ? 'done' : null }
+function finishCheckout() {
+  pay.value = 'now'; checkout.value = false; sheet.value = sheet.value ? 'done' : null
+  if (variant.value === 'E') { eOpen.value = false; eState.value = 'in' }
+}
 </script>
 
 <template>
@@ -134,7 +240,25 @@ function finishCheckout() { pay.value = 'now'; checkout.value = false; sheet.val
             class="px-3 h-7 rounded-full font-semibold"
             :class="paid === p ? 'bg-foreground text-background' : 'text-muted-foreground'"
             @click="paid = p"
-          >{{ p === 'paid' ? '€10 class' : 'Free class' }}</button>
+          >{{ p === 'paid' ? 'Paid' : 'Free' }}</button>
+        </div>
+        <div v-if="variant === 'E'" class="flex rounded-full border border-border p-0.5 bg-background text-xs">
+          <button
+            v-for="k in (['class', 'course', 'festival'] as const)" :key="k" type="button"
+            class="px-3 h-7 rounded-full font-semibold capitalize"
+            :class="kind === k ? 'bg-foreground text-background' : 'text-muted-foreground'"
+            :data-testid="`kind-${k}`"
+            @click="kind = k"
+          >{{ k }}</button>
+        </div>
+        <div v-if="variant === 'E'" class="flex rounded-full border border-border p-0.5 bg-background text-xs">
+          <button
+            v-for="a in (['new', 'returning', 'signedIn'] as const)" :key="a" type="button"
+            class="px-3 h-7 rounded-full font-semibold"
+            :class="auth === a ? 'bg-foreground text-background' : 'text-muted-foreground'"
+            :data-testid="`auth-${a}`"
+            @click="auth = a"
+          >{{ a === 'new' ? 'New visitor' : a === 'returning' ? 'Has account, signed out' : 'Signed in' }}</button>
         </div>
         <button type="button" class="text-xs font-semibold text-muted-foreground underline" @click="reset">Start over</button>
       </div>
@@ -158,9 +282,16 @@ function finishCheckout() { pay.value = 'now'; checkout.value = false; sheet.val
             <div class="size-16 shrink-0 rounded-full bg-wd-red-900 grid place-items-center text-white font-black text-xl">MC</div>
             <div class="min-w-0 flex-1">
               <p class="font-hand text-secondary">— In 7 days</p>
-              <h1 class="font-black leading-none" :class="isMobile ? 'text-4xl' : 'text-5xl'">{{ EVENT.name }}</h1>
-              <p class="mt-2 italic text-muted-foreground">{{ EVENT.day }} · {{ EVENT.time }} · {{ EVENT.venue }}</p>
-              <p class="mt-1 text-sm font-sans text-muted-foreground">{{ EVENT.style }} · {{ EVENT.level }} · with {{ EVENT.teacher }}<template v-if="isPaid"> · €{{ EVENT.price }}</template></p>
+              <template v-if="variant === 'E'">
+                <h1 class="font-black leading-none" :class="isMobile ? 'text-4xl' : 'text-5xl'">{{ K.name }}</h1>
+                <p class="mt-2 italic text-muted-foreground">{{ K.when }}</p>
+                <p class="mt-1 text-sm font-sans text-muted-foreground">{{ K.meta }}</p>
+              </template>
+              <template v-else>
+                <h1 class="font-black leading-none" :class="isMobile ? 'text-4xl' : 'text-5xl'">{{ EVENT.name }}</h1>
+                <p class="mt-2 italic text-muted-foreground">{{ EVENT.day }} · {{ EVENT.time }} · {{ EVENT.venue }}</p>
+                <p class="mt-1 text-sm font-sans text-muted-foreground">{{ EVENT.style }} · {{ EVENT.level }} · with {{ EVENT.teacher }}<template v-if="isPaid"> · €{{ EVENT.price }}</template></p>
+              </template>
 
               <!-- ══ NOW: today's poll card ══ -->
               <template v-if="variant === 'now'">
@@ -325,11 +456,110 @@ function finishCheckout() { pay.value = 'now'; checkout.value = false; sheet.val
                   <p v-if="signedUp" class="px-4 py-3 text-sm font-bold text-wd-green-700 bg-wd-green-600/10 rounded-b-2xl">You’re signed up. {{ EVENT.org }} sees you on the list.</p>
                 </div>
               </template>
+
+              <!-- ══ E: A's one button → D's inline steps ══ -->
+              <template v-else-if="variant === 'E'">
+                <div class="mt-4 max-w-xl font-sans">
+                  <template v-if="!eOpen">
+                    <div v-if="eState === 'idle'" class="flex flex-wrap items-center gap-3">
+                      <Button variant="cta" class="px-6" data-testid="e-cta" @click="eStart"><Ticket /> {{ ctaLabel }}</Button>
+                      <span class="text-sm text-muted-foreground">{{ going }} going · {{ counts.needFollower }} leader looking for a follower</span>
+                    </div>
+                    <div v-else-if="eState === 'in'" class="rounded-2xl border border-wd-green-600/30 bg-wd-green-600/10 px-4 py-3 space-y-2" data-testid="e-in">
+                      <p class="flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <span class="inline-flex items-center gap-1.5 font-bold text-wd-green-700"><Check class="size-4" /> You’re in · {{ summary }}</span>
+                        <button type="button" class="ml-auto text-sm font-bold text-primary" @click="eStart">Change</button>
+                      </p>
+                      <p v-if="!signedIn" class="text-sm text-muted-foreground">Your ticket and a link to your new account are in {{ eEmail }}.</p>
+                      <label v-else class="flex items-start gap-2 text-sm"><input v-model="eKeep" type="checkbox" class="mt-0.5 accent-primary"> <span>Let {{ EVENT.org }} tell me about their next {{ kind === 'festival' ? 'events' : 'classes' }} <span class="text-muted-foreground">(they get your name and email)</span></span></label>
+                    </div>
+                    <div v-else class="rounded-2xl border border-wd-amber-500/40 bg-wd-amber-100 px-4 py-3 space-y-1" data-testid="e-sent">
+                      <p class="font-bold text-foreground inline-flex items-center gap-1.5"><Mail class="size-4" /> {{ auth === 'returning' ? 'Welcome back! ' : '' }}Almost there: open the link we sent to {{ eEmail }}</p>
+                      <p class="text-sm text-muted-foreground">It confirms your spot ({{ summary }}){{ auth === 'new' ? ' and makes your account, no password' : ' and signs you in' }}. Until then {{ EVENT.org }} sees you as unconfirmed for 48 h.</p>
+                      <p class="text-sm flex gap-4"><button type="button" class="font-bold text-primary">Resend</button> <button type="button" class="font-bold text-primary" @click="eStart">Change</button> <button type="button" class="text-xs text-muted-foreground underline ml-auto" data-testid="e-open-link" @click="eState = 'in'">(sketch: I opened the link)</button></p>
+                    </div>
+                  </template>
+
+                  <div v-else class="rounded-2xl border border-border bg-card shadow-wd-card divide-y divide-border" data-testid="e-card">
+                    <div class="px-4 py-3 flex items-center">
+                      <p class="font-display text-lg font-black">{{ isPaid ? (kind === 'festival' ? 'Get your pass' : 'Sign up') : 'I’m coming' }}</p>
+                      <button type="button" class="ml-auto" aria-label="Close" @click="eOpen = false"><X class="size-5" /></button>
+                    </div>
+                    <div v-for="(s, i) in eSteps" :key="s" class="p-4" :class="i > stepIndex(eStep) ? 'opacity-50' : ''">
+                      <!-- a finished step: one line -->
+                      <p v-if="i < stepIndex(eStep)" class="flex items-center gap-2 text-sm">
+                        <span class="size-6 rounded-full bg-wd-green-600 text-white grid place-items-center shrink-0"><Check class="size-3.5" /></span>
+                        <span class="font-bold">
+                          <template v-if="s === 'role'">{{ two ? 'With your partner · 2 people' : `Alone, as ${roleOf(role)?.short}` }}</template>
+                          <template v-else-if="s === 'pass'">{{ chosenPass?.name }} · {{ chosenPass && priceLabel(chosenPass) }}</template>
+                          <template v-else-if="s === 'pay'">{{ pay === 'now' ? `Pay now · €${total}` : `Pay €${total} at the door` }}</template>
+                        </span>
+                        <button type="button" class="ml-auto text-sm font-bold text-primary" @click="eStep = s">Change</button>
+                      </p>
+                      <!-- the current or a later step -->
+                      <template v-else>
+                        <p class="flex items-center gap-2 font-bold">
+                          <span class="size-6 rounded-full grid place-items-center text-xs shrink-0" :class="i === stepIndex(eStep) ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'">{{ i + 1 }}</span>
+                          {{ s === 'pay' && i === stepIndex(eStep) ? `Pay €${total}` : STEP_TITLE[s] }}
+                        </p>
+                        <template v-if="i === stepIndex(eStep)">
+                          <div v-if="s === 'role'" class="mt-3 grid gap-2" :class="isMobile ? 'grid-cols-1' : 'grid-cols-3'">
+                            <button
+                              v-for="o in ROLES" :key="o.id" type="button"
+                              class="rounded-xl border px-3 py-2.5 text-left hover:border-primary"
+                              :class="role === o.id ? 'border-primary bg-primary/5' : 'border-border'"
+                              :data-testid="`e-${o.id}`"
+                              @click="eRole(o.id)"
+                            >
+                              <span class="block text-sm font-bold">{{ o.id === 'partner' ? 'With my partner' : o.id === 'needLeader' ? 'Alone, I follow' : 'Alone, I lead' }}</span>
+                              <span class="block text-xs text-muted-foreground">{{ o.id === 'partner' ? '2 people' : o.id === 'needLeader' ? 'find me a leader' : 'find me a follower' }}<template v-if="counts[o.id]"> · {{ counts[o.id] }} so far</template></span>
+                            </button>
+                          </div>
+                          <div v-else-if="s === 'pass'" class="mt-3 space-y-2">
+                            <button
+                              v-for="p in passes" :key="p.id" type="button"
+                              class="w-full rounded-xl border px-3 py-2.5 text-left flex items-center gap-3 hover:border-primary"
+                              :class="ePass === p.id ? 'border-primary bg-primary/5' : 'border-border'"
+                              :data-testid="`e-pass-${p.id}`"
+                              @click="ePick(p.id)"
+                            >
+                              <span class="min-w-0"><span class="block text-sm font-bold">{{ p.name }}</span><span class="block text-xs text-muted-foreground">{{ p.detail }}</span></span>
+                              <span class="ml-auto text-right shrink-0"><span class="block font-display text-lg font-black">€{{ priceOf(p) }}</span><span v-if="two" class="block text-xs text-muted-foreground">{{ p.couple ? `for two · saves €${p.price * 2 - p.couple}` : `2 × €${p.price}` }}</span></span>
+                            </button>
+                          </div>
+                          <div v-else-if="s === 'pay'" class="mt-3">
+                            <p v-if="passes.length === 1 && chosenPass" class="text-sm text-muted-foreground mb-3">{{ chosenPass.name }} · {{ chosenPass.detail }} · {{ priceLabel(chosenPass) }}</p>
+                            <div class="flex flex-wrap gap-2">
+                              <Button variant="cta" size="pill-sm" data-testid="e-pay-now" @click="ePay('now')">Pay now <ArrowRight /></Button>
+                              <Button v-if="K.door" variant="outline-pill" size="pill-sm" data-testid="e-pay-door" @click="ePay('door')">At the door</Button>
+                            </div>
+                            <p v-if="!K.door" class="mt-2 text-xs text-muted-foreground">{{ EVENT.org }} sells these passes online only.</p>
+                          </div>
+                          <form v-else-if="s === 'you'" class="mt-3 space-y-3" novalidate @submit.prevent="eSubmit">
+                            <div>
+                              <Input v-model="eEmail" type="email" placeholder="you@example.com" autocomplete="email" aria-label="Email" data-testid="e-email" />
+                              <p v-if="eEmailError" class="mt-1 text-xs font-bold text-primary">{{ eEmailError }}</p>
+                              <p class="mt-1 text-xs text-muted-foreground">
+                                No password: we email you a link{{ pay === 'now' ? ' after you pay, with your ticket' : ' that confirms your spot' }}.
+                                <template v-if="auth === 'returning'">Signed up before? Use the same email, it signs you in.</template>
+                              </p>
+                            </div>
+                            <label class="flex items-start gap-2 text-sm"><input v-model="eKeep" type="checkbox" class="mt-0.5 accent-primary"> <span>Let {{ EVENT.org }} tell me about their next {{ kind === 'festival' ? 'events' : 'classes' }}</span></label>
+                            <Button type="submit" :variant="pay === 'now' ? 'cta' : 'pill'" class="w-full" data-testid="e-submit">
+                              {{ pay === 'now' ? `Continue to payment · €${total}` : 'Save my spot' }} <ArrowRight />
+                            </Button>
+                          </form>
+                        </template>
+                      </template>
+                    </div>
+                  </div>
+                </div>
+              </template>
             </div>
           </div>
 
           <!-- D: who's coming lives under the hero, not in the card -->
-          <section v-if="variant === 'D'" class="mt-8 font-sans">
+          <section v-if="variant === 'D' || variant === 'E'" class="mt-8 font-sans">
             <h2 class="font-display text-2xl font-black">Who’s coming <span class="font-hand text-secondary text-lg">— {{ going }}</span></h2>
             <ul class="mt-3 flex flex-wrap gap-4">
               <li v-for="o in OTHERS" :key="o.name" class="flex flex-wrap items-center gap-2 text-sm font-bold">
@@ -338,11 +568,29 @@ function finishCheckout() { pay.value = 'now'; checkout.value = false; sheet.val
               </li>
               <li v-if="role" class="flex items-center gap-2 text-sm font-bold"><span class="size-9 rounded-full bg-secondary text-white grid place-items-center">Y</span> You</li>
             </ul>
-            <p v-if="signedUp" class="mt-3 text-sm"><span class="text-muted-foreground">Let {{ EVENT.org }} tell you about the next class?</span> <span class="font-bold text-primary inline-flex items-center gap-1"><Mail class="size-3.5" /> Share my email</span></p>
+            <p v-if="variant === 'D' && signedUp" class="mt-3 text-sm"><span class="text-muted-foreground">Let {{ EVENT.org }} tell you about the next class?</span> <span class="font-bold text-primary inline-flex items-center gap-1"><Mail class="size-3.5" /> Share my email</span></p>
           </section>
 
           <!-- ── Schedule (shared; Save only today) ─────────────────────── -->
-          <section class="mt-10">
+          <!-- E: the programme of a class / course / festival -->
+          <section v-if="variant === 'E'" class="mt-10">
+            <h2 class="text-2xl font-black border-b border-border pb-2">{{ K.heading }}</h2>
+            <div v-for="s in K.sessions" :key="s.id" class="mt-3 rounded-2xl border border-border bg-card p-4 flex items-center gap-4 font-sans">
+              <div class="text-center shrink-0 w-16"><p class="text-xs text-muted-foreground">{{ s.day }}</p><p class="font-display text-xl font-black text-secondary">{{ s.time }}</p></div>
+              <div class="min-w-0 flex-1">
+                <p class="font-display text-lg font-black">{{ s.name }}</p>
+                <p class="text-sm italic text-secondary">{{ s.who }}</p>
+              </div>
+              <Button v-if="K.save" :variant="eSaved.has(s.id) ? 'pill' : 'outline-pill'" size="pill-sm" @click="eToggleSave(s.id)"><Star :class="eSaved.has(s.id) ? 'fill-current' : ''" /> {{ eSaved.has(s.id) ? 'Saved' : 'Save' }}</Button>
+            </div>
+            <p class="mt-2 text-xs font-sans text-muted-foreground">
+              <template v-if="kind === 'festival'">Many workshops: each row keeps Save (what you want to take); the pass up top is what gets you in.</template>
+              <template v-else-if="kind === 'course'">The dates of the course. One class only? Pick "Just one class" when you sign up.</template>
+              <template v-else>One session = the class itself, so no Save here: signing up puts it on My plan.</template>
+            </p>
+          </section>
+
+          <section v-if="variant !== 'E'" class="mt-10">
             <h2 class="text-2xl font-black border-b border-border pb-2">{{ EVENT.day.replace('Sun', 'Sunday') }}</h2>
             <div class="mt-3 rounded-2xl border border-border bg-card p-4 flex items-start gap-4 font-sans" :class="isMobile ? 'flex-wrap' : ''">
               <div class="text-center shrink-0"><p class="font-display text-xl font-black text-secondary">20:00</p><p class="text-xs text-muted-foreground">–21:00</p></div>
@@ -407,8 +655,9 @@ function finishCheckout() { pay.value = 'now'; checkout.value = false; sheet.val
         <!-- Mock checkout (B / C / D / Now) -->
         <div v-if="checkout" class="absolute inset-0 z-30 bg-foreground/40 flex items-center justify-center font-sans p-4" @click.self="checkout = false">
           <div class="bg-background w-full max-w-sm rounded-2xl p-5 shadow-xl">
-            <p class="font-display text-xl font-black">Checkout · €{{ EVENT.price }}</p>
+            <p class="font-display text-xl font-black">Checkout · €{{ variant === 'E' ? total : EVENT.price }}</p>
             <p class="text-xs text-muted-foreground">Stripe, as today.</p>
+            <p v-if="variant === 'E'" class="mt-2 text-sm">{{ K.name }} · {{ chosenPass?.name }}{{ two ? ' · 2 people' : '' }}<template v-if="!signedIn"><br><span class="text-muted-foreground">Receipt to {{ eEmail }}; the account is made from this email.</span></template></p>
             <div v-if="variant === 'C'" class="mt-4">
               <p class="text-sm font-bold mb-2">How are you coming?</p>
               <div class="space-y-1.5">
