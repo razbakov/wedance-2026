@@ -411,6 +411,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `business_profile_created` | `business/new.vue` | `profile`, `profile_type`, `from_instagram` |
 | `public_page_set` | `settings/index.vue` "Your public page" (one handle per person, #474) | `cleared`, `profile_type` |
 | `profile_merged` | `BusinessDuplicates` (Business → page → Duplicates) | `profile` (kept), `merged_profile`, `moved` |
+| `page_deleted` | `BusinessDeletePage` (Business → page → Delete page, RAZ-944) | `profile` |
 | `profile_claim_started` / `team_join_started` | `business/claim.vue` (form opened) | `profile`, `kind` |
 | `profile_claim_requested` / `team_join_requested` | `business/claim.vue` (sent) | `profile`, `kind`, `evidence_type` |
 | `profile_claimed` | `confirm/[token].vue` (invite link) | `via`, `new_account` |
@@ -454,6 +455,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `server_invite_email_confirmed` | `artistInvites.confirmEmail` ("That's me" in the answer email, first time per invite) | `kind`, `answer`, `new_account`, `owner`, `event_id`, `$groups` |
 | `server_business_profile_created` | `business.create` | `profile`, `profile_type` |
 | `server_profile_merged` | `business.merge` (web + MCP `merge_profiles`) | `profile` (kept), `merged_profile`, `profile_type`, `same_type`, `moved`, `$groups` |
+| `server_page_deleted` | `business.deletePage` (owners; only a page nothing uses — `server/utils/deleteProfile.ts`) | `profile`, `profile_type`, `followers`, `team`, `days_old`, `$groups` |
 | `server_rsvp_answered` | `rsvp.answer` (signed out → unconfirmed; signed in → confirmed at once) | `event_id`, `answer`, `signed_in`, `confirmed`, `$groups` |
 | `server_rsvp_confirmed` | `rsvp.answer` signed in, folding in this browser's / magic link's unconfirmed answer | `event_id`, `answer`, `hours_to_confirm`, `$groups` |
 | `server_festival_joined` | `festivalSignup.join` | `festival` |
