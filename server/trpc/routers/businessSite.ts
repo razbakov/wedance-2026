@@ -10,6 +10,8 @@ import { TRPCError } from '@trpc/server'
 import { sitePreviewToken } from '../../utils/sitePreview'
 import { SITE_PREVIEW_TTL_S, hostedSiteUrl } from '../../../shared/utils/hostedSite'
 import { isPublished } from '../../../shared/types/profileSite'
+import { loadContactActivity, activityFor } from '../../utils/contactActivity'
+import { contactSegments, contactSourceKey, emailBlock, SOURCE_LABEL } from '../../../shared/utils/contactSegments'
 
 /**
  * A profile's website and contacts, managed on WeDance (RAZ-412):
@@ -107,6 +109,48 @@ export const businessSiteRouter = router({
   contacts: protectedProcedure.input(z.object({ username: z.string().min(1) })).query(async ({ ctx, input }) => {
     const p = await requireMember(ctx, input.username)
     return ctx.db.select().from(profileContacts).where(eq(profileContacts.profileId, p.id)).orderBy(desc(profileContacts.createdAt)).limit(2000)
+  }),
+
+  /**
+   * The Contacts page (RAZ-949): every contact with its source segment, whether
+   * the page may email it, its account and its WeDance activity around the
+   * page's events, plus the segment counts — computed here so they stay right
+   * past the 2000-row list.
+   */
+  contactsOverview: protectedProcedure.input(z.object({ username: z.string().min(1) })).query(async ({ ctx, input }) => {
+    const p = await requireMember(ctx, input.username)
+    const [rows, act] = await Promise.all([
+      ctx.db.select({
+        id: profileContacts.id, email: profileContacts.email, name: profileContacts.name, phone: profileContacts.phone,
+        locale: profileContacts.locale, source: profileContacts.source, note: profileContacts.note, status: profileContacts.status,
+        createdAt: profileContacts.createdAt, dancerId: profileContacts.dancerId,
+        accountName: dancers.name, accountPhoto: dancers.photo, accountUsername: dancers.username, accountCity: dancers.city,
+      }).from(profileContacts).leftJoin(dancers, eq(dancers.id, profileContacts.dancerId))
+        .where(eq(profileContacts.profileId, p.id)).orderBy(desc(profileContacts.createdAt)),
+      loadContactActivity(ctx.db, { id: p.id, username: p.username }),
+    ])
+    const contacts = rows.map((r: any) => {
+      const sourceKey = contactSourceKey(r.source)
+      return {
+        id: r.id, email: r.email, name: r.name, phone: r.phone, locale: r.locale, source: r.source as Record<string, string>,
+        note: r.note, status: r.status as 'subscribed' | 'unsubscribed', createdAt: r.createdAt as Date,
+        sourceKey, sourceLabel: SOURCE_LABEL[sourceKey],
+        emailBlock: emailBlock(r),
+        hasAccount: !!r.dancerId,
+        account: r.dancerId ? { name: r.accountName as string | null, photo: r.accountPhoto as string | null, username: r.accountUsername as string | null, city: r.accountCity as string | null } : null,
+        activity: activityFor(act.byDancer, r.dancerId),
+      }
+    })
+    const contactDancers = new Set(rows.map((r: any) => r.dancerId).filter(Boolean))
+    const followersNotContacts = [...act.byDancer.entries()].filter(([id, a]) => a.follows && !contactDancers.has(id)).length
+    return {
+      profile: { username: p.username, name: p.name, type: p.type },
+      segments: contactSegments(contacts),
+      followers: { total: act.followers, notContacts: followersNotContacts },
+      // The list stays capped; the counts above cover everyone.
+      contacts: contacts.slice(0, 2000),
+      truncated: contacts.length > 2000,
+    }
   }),
 
   updateContact: protectedProcedure

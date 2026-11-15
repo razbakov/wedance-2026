@@ -40,6 +40,19 @@ const pr = (n: number): SketchLink => ({ label: `PR #${n}`, url: `https://github
 
 export const SKETCHES: Sketch[] = [
   {
+    slug: 'contacts',
+    title: 'Contacts: segments and what people do on WeDance',
+    what: 'Five layouts of a page’s Contacts on its real data: segment sidebar, chips over the list, overview first, people cards, and the recommended overview strip + list. Each shows every source with its count, can / can’t email, and each contact’s activity (came to N events, going next, follows you).',
+    why: 'After importing HubSpot and wedance.vip lists, @montunoclub has ~400 contacts from five sources on a flat list that says "people who signed up on your website" and can’t tell who may be emailed or who actually comes.',
+    requestedBy: 'Alösha',
+    builtBy: 'Agent (Claude)',
+    created: '2026-11-15',
+    status: 'deciding',
+    ticket: linear('RAZ-959', 'pick-a-contacts-layout-and-decide-who-may-be-emailed'),
+    story: [linear('RAZ-949', 'redesign-a-pages-contacts-so-organisers-can-see-and-reach-their-people')],
+    pages: [{ label: '@montunoclub', url: '/business/network/montunoclub/contacts-variants' }],
+  },
+  {
     slug: 'promoter',
     title: 'Promoter page that beats Linktree',
     what: 'Three directions for a promoter/agency profile, using Hummo Productions as the real case: tour-first, roster-first, or tabs (Concerts · Artists · Book) with a promoter view showing sync, clicks per city, auto IG stories and booking requests.',
