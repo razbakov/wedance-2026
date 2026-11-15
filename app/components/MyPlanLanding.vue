@@ -31,13 +31,12 @@ const LANDING_FRIENDS: LandingPerson[] = [
 ]
 
 // Signed-out landing: the two story pictures WeDance draws today (weekend, year).
-const POSTER_FONT = '"Anton", Impact, "Arial Narrow", sans-serif'
 const LANDING_STORIES = [
-  { head1: 'Come dance', head2: 'with me', line: 'This weekend 💃', color: '#f97316', bands: [
+  { head1: 'Come dance', head2: 'with me', line: 'This weekend 💃', color: WD.orange500, bands: [
     { when: 'Fri · 21:00', what: 'Salsa night' },
     { when: 'Sat · 22:00', what: 'Bachata social' },
   ] },
-  { head1: 'My 2027', head2: 'dance year', line: 'Who’s coming?', color: '#a855f7', bands: [
+  { head1: 'My 2027', head2: 'dance year', line: 'Who’s coming?', color: WD.purple500, bands: [
     { when: 'Mar', what: 'Salsa festival, Vienna' },
     { when: 'Sep', what: 'Timba weekend, Berlin' },
   ] },
@@ -168,11 +167,12 @@ const LANDING_EXAMPLE = [
           :class="i === 1 ? 'mt-8 rotate-2' : '-rotate-2'"
           :style="{ background: st.color }"
         >
-          <div class="leading-[0.9] uppercase" :style="{ fontFamily: POSTER_FONT }">
+          <!-- Display face, not the canvas poster font: Anton stays out of the UI (design guardrail). -->
+          <div class="leading-[0.95] uppercase font-display font-black">
             <div class="text-[26px] sm:text-[32px] text-wd-brown-900">{{ st.head1 }}</div>
-            <div class="text-[30px] sm:text-[36px]" style="color:var(--wd-cream, #fdf6ec)">{{ st.head2 }}</div>
+            <div class="text-[30px] sm:text-[36px]" style="color:var(--wd-cream)">{{ st.head2 }}</div>
           </div>
-          <div class="mt-2 self-start -rotate-2 rounded px-1.5 py-0.5 text-[10px] font-bold font-sans bg-[#fdf6ec] text-wd-brown-900">{{ st.line }}</div>
+          <div class="mt-2 self-start -rotate-2 rounded px-1.5 py-0.5 text-[10px] font-bold font-sans text-wd-brown-900" style="background:var(--wd-cream)">{{ st.line }}</div>
           <div class="mt-auto space-y-1.5">
             <div v-for="b in st.bands" :key="b.what" class="rounded-md bg-wd-brown-900 px-2 py-1.5 font-sans" style="color:white;">
               <div class="text-[9px] font-black uppercase tracking-wider" :style="{ color: st.color }">{{ b.when }}</div>

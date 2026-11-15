@@ -6,8 +6,8 @@
       "app/components/AvailabilityCalendar.vue": 2,
       "app/components/CityFight.vue": 1,
       "app/components/StyleLevelMix.vue": 5,
-      "app/pages/docs/design/foundations/colors.vue": 2,
-      "app/pages/index.vue": 2
+      "app/pages/about.vue": 2,
+      "app/pages/docs/design/foundations/colors.vue": 2
     }
   },
   "fontFamily": {

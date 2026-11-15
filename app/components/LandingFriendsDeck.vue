@@ -9,6 +9,7 @@
  */
 import { Plane, MapPin, X, Heart, Undo2, Sparkles } from 'lucide-vue-next'
 import { sizedImage, IMG } from '#shared/utils/image'
+import { WD } from '~/lib/brand'
 
 export type LandingPerson = {
   id: string
@@ -89,7 +90,7 @@ function undo() {
     <div
       v-if="nudge"
       class="mb-4 rounded-2xl px-4 py-3 text-sm border"
-      :style="{ background: (nudge.color ?? '#dc2626') + '12', borderColor: (nudge.color ?? '#dc2626') + '44' }"
+      :style="{ background: (nudge.color ?? WD.red600) + '12', borderColor: (nudge.color ?? WD.red600) + '44' }"
       role="status"
     >
       <span class="font-bold text-foreground">{{ nudge.names.join(' & ') }} both go to {{ nudge.fest }}.</span>
@@ -140,7 +141,7 @@ function undo() {
           <div
             v-if="current.festivalName"
             class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold"
-            :style="{ background: (current.festivalColor ?? '#dc2626') + '18', color: current.festivalColor }"
+            :style="{ background: (current.festivalColor ?? WD.red600) + '18', color: current.festivalColor }"
           >
             <Plane class="w-3 h-3" style="stroke-width:1.5;" /> Going to {{ current.festivalName }}
           </div>
