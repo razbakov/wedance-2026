@@ -4,15 +4,16 @@
  * cancel_reason / cancelled_by), and everyone who signed up is emailed once:
  *
  *   - the event on their plan (plan_items; a festival also by its key),
- *   - a "yes" on the event poll (event_rsvps, confirmed, not "next"),
+ *   - a "yes" on the event poll (event_rsvps, confirmed, not "next"; a guest's
+ *     unconfirmed answer too when they left an email — guest_email, 0069),
  *   - going / a ticket (attendances, incl. unclaimed ticket stubs by email),
  *   - festival sign-ups and ticket buyers (festival_signups, TicketTailor email).
  *
- * Weekend-share joins of signed-in friends are already plan items; guests left
- * no email. Refunds are out of scope: ticket holders are told to contact the
+ * Weekend-share joins of signed-in friends are already plan items; a guest's
+ * join is a guest poll "yes", emailed once they left an email. Refunds are out of scope: ticket holders are told to contact the
  * organiser. Undo clears the columns and emails nobody.
  */
-import { and, eq, inArray, isNotNull, ne, or } from 'drizzle-orm'
+import { and, eq, inArray, isNotNull, isNull, ne, or } from 'drizzle-orm'
 import { attendances, dancers, eventRsvps, events, festivalSignups, festivals, planItems } from '../database/schema'
 import { formatEventWhen } from '../../shared/utils/eventTime'
 import { eventPath } from '../../shared/utils/eventSlug'
@@ -26,7 +27,7 @@ export type CancelRecipient = { email: string; name: string; ticket: boolean }
 export type SignupRows = {
   /** Dancer ids with the event on their plan, a confirmed poll "yes" or an attendance. */
   dancers: { id: string; ticket: boolean }[]
-  /** People known by email only (unclaimed ticket stubs, TicketTailor buyers). */
+  /** People known by email only (unclaimed ticket stubs, TicketTailor buyers, poll guests). */
   emails: { email: string; ticket: boolean }[]
   /** id → name + email of the dancers above. */
   people: { id: string; name: string | null; email: string | null }[]
@@ -81,6 +82,10 @@ export async function signupsOf(db: any, ev: any, exclude?: string | null): Prom
   const polls = await db.select({ dancerId: eventRsvps.dancerId }).from(eventRsvps)
     .where(and(eq(eventRsvps.eventId, ev.id), isNotNull(eventRsvps.dancerId), isNotNull(eventRsvps.confirmedAt), ne(eventRsvps.answer, 'next')))
   for (const r of polls) list.push({ id: r.dancerId, ticket: false })
+  // Guests who left an email at the confirm-link step but never clicked it (0069).
+  const guests = await db.select({ email: eventRsvps.guestEmail }).from(eventRsvps)
+    .where(and(eq(eventRsvps.eventId, ev.id), isNull(eventRsvps.dancerId), isNotNull(eventRsvps.guestEmail), ne(eventRsvps.answer, 'next')))
+  for (const g of guests) if (g.email) emails.push({ email: g.email, ticket: false })
 
   const att = await db.select({ dancerId: attendances.dancerId, buyerEmail: attendances.buyerEmail, status: attendances.status })
     .from(attendances).where(and(eq(attendances.eventId, ev.id), inArray(attendances.status, ['going', 'ticket_holder'])))

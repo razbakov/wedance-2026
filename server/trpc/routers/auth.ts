@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { eq, and, gt, or, sql } from 'drizzle-orm'
+import { eq, and, gt, isNull, or, sql } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { FirebaseScrypt } from 'firebase-scrypt'
 import { router, publicProcedure, protectedProcedure } from '../trpc'
@@ -10,7 +10,7 @@ import {
   recommendationRequests, festivalSubmissions, festivalSignups, cityVideos,
   guidelineVersions, moderatorElections, gigs, hangouts, hangoutRsvps,
   communityGroupReports, planItems, festivalRideShares,
-  festivalRoommateLookups, referrals, profiles, bookingInquiries,
+  festivalRoommateLookups, referrals, profiles, bookingInquiries, eventRsvps,
 } from '../../database/schema'
 import { sendMagicLinkEmail, sendPasswordResetEmail } from '../../utils/email'
 import { generateUsername } from '../../utils/slug'
@@ -137,6 +137,17 @@ export const authRouter = router({
           console.error('[auth.requestMagicLink] DB upsert failed for', input.email, dbErr)
           // Bail — without a stored token the email link would be dead anyway.
           return { sent: true }
+        }
+
+        // A guest's poll answers (this browser) keep the email, so a cancellation
+        // reaches them even if they never click the link (RAZ-948).
+        if (input.guest && input.purpose !== 'recovery') {
+          try {
+            await ctx.db.update(eventRsvps).set({ guestEmail: input.email })
+              .where(and(eq(eventRsvps.guestToken, input.guest), isNull(eventRsvps.dancerId)))
+          } catch (e) {
+            console.error('[auth.requestMagicLink] guest email not kept', e)
+          }
         }
 
         // Get the dancer name for the email greeting
