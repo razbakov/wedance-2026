@@ -40,6 +40,17 @@ const pr = (n: number): SketchLink => ({ label: `PR #${n}`, url: `https://github
 
 export const SKETCHES: Sketch[] = [
   {
+    slug: 'business-home',
+    title: 'Business home',
+    what: 'Four directions for /business: tonight first (today’s events with who’s coming, Door, Share), pulse first (three numbers for the last 7 days + what pulls people), people first (plans, followers, bookings, join requests), and the recommended mix. Tasks shrink to one line; no flyer nags for weekly classes or events < 24 h away. Busy / Quiet week toggle.',
+    why: 'Home repeated Events: six chore cards, then the same events again under "Next 14 days", and nothing about how the business is doing or who noticed it.',
+    requestedBy: 'Alösha',
+    builtBy: 'Agent (Claude)',
+    created: '2026-11-15',
+    status: 'deciding',
+    ticket: linear('RAZ-973', 'make-business-home-about-tonight-results-and-people-not-a-copy-of'),
+  },
+  {
     slug: 'my-plan',
     title: 'My plan on a time scale',
     what: 'Five orders and namings of My plan: today’s far → near with "Where you’re …" headlines, near → far with time as the headline, the same plus a sticky Tonight · Week · Month · Year · Goal bar, one merged agenda, and the recommended bar + goal ring + "next up". Each scale gets its own "Post story".',
