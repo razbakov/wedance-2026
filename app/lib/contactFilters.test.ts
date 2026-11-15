@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { filterContacts, emptyFilter, isFiltered, toggle, contactsCsv, sourceDetail, CSV_COLUMNS, type FilterableContact } from './contactFilters'
+import { filterContacts, emptyFilter, isFiltered, toggle, contactsCsv, sourceDetail, contactSince, CSV_COLUMNS, type FilterableContact } from './contactFilters'
 import { EMPTY_ACTIVITY } from '#shared/utils/contactSegments'
 
 const NOW = new Date('2026-11-15T12:00:00Z')
@@ -62,5 +62,19 @@ describe('contactsCsv', () => {
     expect(sourceDetail({ form: 'f', referrer: 'r' })).toBe('f')
     expect(sourceDetail({ referrer: 'r' })).toBe('r')
     expect(sourceDetail(null)).toBe('')
+    expect(sourceDetail({ from: 'wedance-v3', form: 'WeDance v3 · subscribers' })).toBe('')
+  })
+})
+
+describe('contactSince', () => {
+  it('the day they joined, or only a bound when the import has no date', () => {
+    expect(contactSince('2024-07-08T13:36:43Z', { from: 'wedance-v3', subscribed_at: '2024-07-08T13:36:43Z' })).toBe('8 Jul 2024')
+    expect(contactSince('2024-03-24T15:23:00Z', { from: 'wedance-v3', subscribed_before: '2024-03-24T15:23:43Z' })).toBe('before Mar 2024')
+    expect(contactSince('2026-11-15T11:00:00Z', null)).toBe('15 Nov 2026')
+  })
+
+  it('CSV writes the bound, not a made-up day', () => {
+    const csv = contactsCsv([{ ...c({ name: 'Old', source: { from: 'wedance-v3', subscribed_before: '2024-03-24T15:23:43Z' } }), locale: null, sourceLabel: 'wedance.vip subscribers' }])
+    expect(csv).toContain('"before 2024-03-24"')
   })
 })

@@ -48,9 +48,22 @@ export function toggle<T>(list: T[], v: T): T[] {
   return list.includes(v) ? list.filter(x => x !== v) : [...list, v]
 }
 
+/**
+ * When the contact joined, for the row: "15 Nov 2026". Some imports only know a bound
+ * — wedance.vip logged subscribe dates only from 24 Mar 2024, so older subscribers carry
+ * `source.subscribed_before` and read "before Mar 2024" (created_at then only keeps the order).
+ */
+export function contactSince(createdAt: string | Date, source: Record<string, string> | null | undefined): string {
+  const before = source?.subscribed_before
+  if (before) return `before ${new Date(before).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}`
+  return new Date(createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
 /** Where a website sign-up came from, in a few words: UTM, else the form, else the referrer. */
 export function sourceDetail(source: Record<string, string> | null | undefined): string {
   const s = source ?? {}
+  // wedance.vip subscribers: the source label already says it all.
+  if (s.from === 'wedance-v3') return ''
   return [s.utm_source, s.utm_medium, s.utm_campaign].filter(Boolean).join(' / ') || s.form || s.referrer || ''
 }
 
@@ -67,7 +80,7 @@ export function contactsCsv(list: CsvContact[]): string {
   const rows = list.map(c => [
     c.name || c.account?.name, c.email, c.phone, c.locale, c.status,
     c.emailBlock ? `no: ${EMAIL_BLOCK_LABEL[c.emailBlock as EmailBlock] ?? c.emailBlock}` : 'yes',
-    new Date(c.createdAt).toISOString(), c.sourceLabel, sourceDetail(c.source as Record<string, string>),
+    c.source?.subscribed_before ? `before ${c.source.subscribed_before.slice(0, 10)}` : new Date(c.createdAt).toISOString(), c.sourceLabel, sourceDetail(c.source as Record<string, string>),
     c.hasAccount ? 'yes' : 'no', c.activity.wentTo, c.activity.upcoming[0]?.startDate.slice(0, 10) ?? '', c.activity.follows ? 'yes' : 'no',
     c.note,
   ].map(esc).join(','))

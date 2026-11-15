@@ -6,6 +6,7 @@
  */
 import { Mail, Phone, StickyNote } from 'lucide-vue-next'
 import { initialsOf } from '#shared/utils/initials'
+import { contactSince } from '~/lib/contactFilters'
 import { activityLine, EMAIL_BLOCK_LABEL, type ContactActivity, type EmailBlock } from '#shared/utils/contactSegments'
 
 const props = withDefaults(defineProps<{
@@ -18,6 +19,7 @@ const props = withDefaults(defineProps<{
     emailBlock: EmailBlock | null
     status: string
     createdAt: string | Date
+    source?: Record<string, string> | null
     account: { name: string | null, photo: string | null } | null
     activity: ContactActivity
   }
@@ -33,7 +35,6 @@ const c = computed(() => props.contact)
 const display = computed(() => c.value.name || c.value.account?.name || c.value.email)
 const line = computed(() => activityLine(c.value.activity))
 const wa = (p: string) => `https://wa.me/${p.replace(/[^\d+]/g, '').replace(/^00/, '+').replace(/^\+/, '')}`
-const when = (d: string | Date) => new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 </script>
 
 <template>
@@ -55,7 +56,7 @@ const when = (d: string | Date) => new Date(d).toLocaleDateString('en-GB', { day
       <p v-if="c.account" class="mt-1 text-sm" :class="line ? 'font-semibold text-wd-red-800' : 'text-muted-foreground'">
         {{ line ? line[0]!.toUpperCase() + line.slice(1) : 'On WeDance — nothing with you yet' }}
       </p>
-      <p v-if="!compact" class="mt-1 text-xs text-muted-foreground">{{ c.sourceLabel }} · {{ when(c.createdAt) }}<template v-if="detail"> · {{ detail }}</template><template v-if="!c.account"> · no WeDance account</template></p>
+      <p v-if="!compact" class="mt-1 text-xs text-muted-foreground">{{ c.sourceLabel }} · {{ contactSince(c.createdAt, c.source) }}<template v-if="detail"> · {{ detail }}</template><template v-if="!c.account"> · no WeDance account</template></p>
       <p v-if="c.note && !hideNote" class="mt-1 whitespace-pre-line text-sm"><StickyNote class="mr-1 inline size-3.5 text-muted-foreground" aria-hidden="true" />{{ c.note }}</p>
     </div>
   </div>
