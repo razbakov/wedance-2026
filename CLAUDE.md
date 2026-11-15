@@ -243,6 +243,12 @@ everywhere). Tools: Business → the page → "WeDance <city>" → `/business/ne
   each group's state (listed / dead link / waiting / hidden / declined — `shared/utils/communityGroupAdmin.ts`), when its
   link was last checked, "Show again" / approve / decline. Filters (search, `CityCombobox`, platform, `DanceStyleFilter`,
   state) live in the URL; Admin → Cities group counts link there (`?city=<slug>&state=dead`).
+- **Group admins** (RAZ-967, 0071): `community_groups.admin_name` / `admin_contact` — who runs a group and one contact
+  (phone / wa.me / @handle / email; `adminContactHref` in `shared/utils/communityGroupAdmin.ts` makes it a link). Personal
+  data: selected only by `communityGroup.listAll` (WeDance admins) and `forCity` / `pending` (city admins), edited via
+  `setAdmin` (`AdminGroupContact`, `ph-no-capture`); never in `listByCity`, `cityChannels.official`, MCP or PostHog.
+  The import fills them: new rows carry the sheet's Admin / Admin Number; `--fill-admins` (dry-run default, `--write`)
+  fills EMPTY admin fields of groups already listed, never overwrites, prints no numbers.
 - **Organisers' group list** (RAZ-861): `bun scripts/import-community-groups.ts` (dry-run default, `--write`, `--json`,
   `--csv <file>`) reads the "Groups" tab of the "Outreach CRM" sheet (CSV export) → `community_groups` (`source='import'`,
   visible, unverified). Rules in `server/utils/communityGroupImport.ts`: link from the "Whatsapp" column (platform from

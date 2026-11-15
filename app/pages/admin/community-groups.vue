@@ -6,7 +6,8 @@
  * each card says when its link was last checked, and "Show again" undoes a wrong call.
  * Filters (search, city, platform, style, state) stay in the URL, so Admin → Cities links
  * straight to a city's dead links. `admin` layout provides the sidebar + is_admin gate.
- * Data via communityGroup.listAll / create / checkLinks / review / setVisible.
+ * Each card also keeps who runs the group and how to reach them (RAZ-967, <AdminGroupContact>).
+ * Data via communityGroup.listAll / create / checkLinks / review / setVisible / setAdmin.
  */
 import { Plus, ExternalLink, RotateCcw, CheckCircle2, Link2, Search, Eye, EyeOff, Check, X } from 'lucide-vue-next'
 import type { CityOption } from '#shared/utils/citySearch'
@@ -39,6 +40,8 @@ type Group = {
   linkCheckedAt: string | Date | null
   reportCount: number | null
   createdAt: string | Date | null
+  adminName: string | null
+  adminContact: string | null
 }
 
 const items = ref<Group[]>([])
@@ -249,7 +252,7 @@ const stateLabel: Record<GroupState, string> = { listed: 'listed', dead: 'dead l
           <Field id="groups-q" label="Search" hide-label>
             <div class="relative">
               <Search class="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-              <Input v-model="filters.q" type="search" placeholder="Group name, link, source" class="pl-10" />
+              <Input v-model="filters.q" type="search" placeholder="Group name, link, source, admin" class="pl-10" />
             </div>
           </Field>
           <Field id="groups-city" label="City" hide-label>
@@ -316,6 +319,7 @@ const stateLabel: Record<GroupState, string> = { listed: 'listed', dead: 'dead l
               <span :class="grp.linkStatus === 'dead' ? 'text-destructive' : 'text-muted-foreground'">{{ linkLine(grp) }}</span>
               <span v-if="grp.source" class="text-muted-foreground">from {{ grp.source }}</span>
             </p>
+            <AdminGroupContact :group="grp" @saved="v => Object.assign(grp, v)" />
           </li>
         </ul>
       </section>

@@ -8,8 +8,14 @@
  * inactive is left out; the city must be a city WeDance knows (first one when a row lists
  * several), otherwise the row is reported, never guessed; the same group (invite_key) is
  * imported once and never when the directory has it already, whatever its status.
+ *
+ * The group's admin (RAZ-967) comes from the "Admin" / "Admin Number" columns. A new group is
+ * inserted with it; a group already in the directory only gets the admin fields it has EMPTY
+ * (`planAdminFill`, the script's `--fill-admins`) — a name or contact typed in WeDance is never
+ * overwritten by the sheet.
  */
 import { inviteKey, platformOf, type GroupPlatform } from '../../shared/utils/communityGroups'
+import { ADMIN_CONTACT_MAX, ADMIN_NAME_MAX, cleanAdminField } from '../../shared/utils/communityGroupAdmin'
 import { normName, STYLE_MAP, type CityIndex } from './v3EventSync'
 
 export const GROUP_IMPORT_SOURCE = 'import'
@@ -23,6 +29,9 @@ export type ImportGroup = {
   inviteUrl: string
   inviteKey: string
   styles: string[]
+  /** The sheet's "Admin" / "Admin Number" (null when empty). Personal data — admin views only. */
+  adminName: string | null
+  adminContact: string | null
 }
 
 export type GroupSkipReason = 'no_link' | 'not_an_invite' | 'no_name' | 'private' | 'marked_dead' | 'no_city' | 'unknown_city'
@@ -102,7 +111,10 @@ export function mapGroupSheet(rows: string[][], idx: CityIndex): { groups: Impor
   const [header, ...body] = rows
   if (!header) return { groups: [], skipped: [] }
   const h = header.map(x => x.trim().toLowerCase())
-  const at = { city: col(h, 'city'), styles: col(h, 'dance styles'), name: col(h, 'name'), link: col(h, 'whatsapp'), note: col(h, 'note') }
+  const at = {
+    city: col(h, 'city'), styles: col(h, 'dance styles'), name: col(h, 'name'), link: col(h, 'whatsapp'), note: col(h, 'note'),
+    admin: col(h, 'admin'), adminNumber: col(h, 'admin number'),
+  }
   const types = h.flatMap((x, i) => (x === 'type' ? [i] : []))
   if ([at.city, at.name, at.link].some(i => i < 0)) throw new Error('The sheet needs City, Name and Whatsapp columns')
 
@@ -126,7 +138,11 @@ export function mapGroupSheet(rows: string[][], idx: CityIndex): { groups: Impor
     if (!city) return skip('no_city')
     const hit = matchGroupCity(city, idx)
     if (!hit) return skip('unknown_city')
-    groups.push({ line, citySlug: hit.slug, cityName: hit.name, name, platform, inviteUrl: url, inviteKey: key, styles: mapGroupStyles(get(at.styles)) })
+    groups.push({
+      line, citySlug: hit.slug, cityName: hit.name, name, platform, inviteUrl: url, inviteKey: key, styles: mapGroupStyles(get(at.styles)),
+      adminName: cleanAdminField(get(at.admin), ADMIN_NAME_MAX),
+      adminContact: cleanAdminField(get(at.adminNumber), ADMIN_CONTACT_MAX),
+    })
   })
   return { groups, skipped }
 }
@@ -151,5 +167,33 @@ export function groupImportRow(g: ImportGroup) {
   return {
     citySlug: g.citySlug, name: g.name, platform: g.platform, inviteUrl: g.inviteUrl, inviteKey: g.inviteKey,
     styles: g.styles, source: GROUP_IMPORT_SOURCE, status: 'visible' as const, kind: 'community' as const, verified: false,
+    adminName: g.adminName, adminContact: g.adminContact,
   }
+}
+
+export type DirectoryAdmin = { id: string; inviteKey: string; adminName: string | null; adminContact: string | null }
+export type AdminFill = { id: string; inviteKey: string; name: string; citySlug: string; adminName?: string; adminContact?: string }
+
+const blank = (v: string | null | undefined) => !v || !v.trim()
+
+/**
+ * Admin fields for groups the directory has already (`--fill-admins`): per group (first sheet row
+ * per invite_key that has an admin), only the fields that are empty in WeDance and filled in the
+ * sheet. Never overwrites; a group with nothing to add is left out. Re-running plans nothing.
+ */
+export function planAdminFill(groups: ImportGroup[], directory: Iterable<DirectoryAdmin>): AdminFill[] {
+  const byKey = new Map<string, DirectoryAdmin>()
+  for (const d of directory) byKey.set(d.inviteKey, d)
+  const out: AdminFill[] = []
+  const done = new Set<string>()
+  for (const g of groups) {
+    const d = byKey.get(g.inviteKey)
+    if (!d || done.has(g.inviteKey) || (!g.adminName && !g.adminContact)) continue
+    done.add(g.inviteKey)
+    const fill: AdminFill = { id: d.id, inviteKey: g.inviteKey, name: g.name, citySlug: g.citySlug }
+    if (blank(d.adminName) && g.adminName) fill.adminName = g.adminName
+    if (blank(d.adminContact) && g.adminContact) fill.adminContact = g.adminContact
+    if (fill.adminName || fill.adminContact) out.push(fill)
+  }
+  return out
 }

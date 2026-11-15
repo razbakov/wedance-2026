@@ -326,6 +326,12 @@ export const CommunityGroupSchema = v.object({
   verified: v.boolean(),
 })
 
+// The group's admin and how to reach them (communityGroup.setAdmin, RAZ-967). Both optional: blank clears.
+export const GroupAdminSchema = v.object({
+  adminName: optionalText(120, 'Keep the name under 120 characters.'),
+  adminContact: optionalText(200, 'Keep the contact under 200 characters.'),
+})
+
 // A dancer shares a local group (communityGroup.submit): the link must be that platform's invite link.
 export const SubmitGroupSchema = v.pipe(
   v.object({

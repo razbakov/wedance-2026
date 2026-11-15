@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { addCitiesToIndex, mapGroupStyles, mapGroupSheet, matchGroupCity, parseCsv, planGroupImport, groupImportRow } from './communityGroupImport'
+import { addCitiesToIndex, mapGroupStyles, mapGroupSheet, matchGroupCity, parseCsv, planAdminFill, planGroupImport, groupImportRow } from './communityGroupImport'
 import { buildCityIndex } from './v3EventSync'
 
 const idx = addCitiesToIndex(
@@ -108,6 +108,58 @@ describe('planGroupImport', () => {
     expect(groupImportRow(groups[0]!)).toEqual({
       citySlug: 'munich', name: 'Munich Bachata', platform: 'whatsapp', inviteUrl: 'https://chat.whatsapp.com/AAA111',
       inviteKey: 'chat.whatsapp.com/AAA111', styles: [], source: 'import', status: 'visible', kind: 'community', verified: false,
+      adminName: null, adminContact: null,
     })
+  })
+})
+
+describe('group admins from the sheet (RAZ-967)', () => {
+  // Columns: …,Type(9),Admin(10),Admin Number(11),Source(12),…
+  const { groups } = mapGroupSheet(sheet(
+    '1,Germany,Munich,,Munich Bachata,,https://chat.whatsapp.com/AAA111,,,,Maria  Lopez ,+49 151 2345678,Aina,Whatsapp,,,,',
+    '2,Germany,Munich,,Salsa Munich,,https://chat.whatsapp.com/BBB222,,,,Tom,,,,,,,',
+    '3,Germany,Munich,,Kizomba Munich,,https://chat.whatsapp.com/CCC333,,,,,4917612345,,,,,,',
+    '4,Germany,Munich,,No admin,,https://chat.whatsapp.com/DDD444,,,,,,,,,,,',
+    '5,Germany,Munich,,Munich Bachata again,,https://chat.whatsapp.com/AAA111,,,,Other Person,+49 1,,,,,,',
+  ), idx)
+
+  it('reads the Admin and Admin Number columns (null when empty)', () => {
+    expect(groups.map(g => [g.name, g.adminName, g.adminContact])).toEqual([
+      ['Munich Bachata', 'Maria Lopez', '+49 151 2345678'],
+      ['Salsa Munich', 'Tom', null],
+      ['Kizomba Munich', null, '4917612345'],
+      ['No admin', null, null],
+      ['Munich Bachata again', 'Other Person', '+49 1'],
+    ])
+    // A new group is inserted with its admin.
+    expect(groupImportRow(groups[0]!)).toMatchObject({ adminName: 'Maria Lopez', adminContact: '+49 151 2345678' })
+  })
+
+  it('a sheet without admin columns still imports, with no admins', () => {
+    const { groups: plain } = mapGroupSheet(parseCsv('City,Name,Whatsapp\nMunich,Plain,https://chat.whatsapp.com/EEE555'), idx)
+    expect(plain).toEqual([expect.objectContaining({ name: 'Plain', adminName: null, adminContact: null })])
+  })
+
+  it('fills only the admin fields that are empty in WeDance, never overwrites', () => {
+    const fills = planAdminFill(groups, [
+      { id: 'a', inviteKey: 'chat.whatsapp.com/AAA111', adminName: null, adminContact: null },
+      // Typed in WeDance already: the name stays, the empty contact can't be filled (the sheet has none).
+      { id: 'b', inviteKey: 'chat.whatsapp.com/BBB222', adminName: 'Thomas (asked)', adminContact: '' },
+      { id: 'c', inviteKey: 'chat.whatsapp.com/CCC333', adminName: 'Kim', adminContact: '  ' },
+      { id: 'd', inviteKey: 'chat.whatsapp.com/DDD444', adminName: null, adminContact: null },
+    ])
+    expect(fills).toEqual([
+      // The first sheet row per group wins over a repeat ("Other Person").
+      { id: 'a', inviteKey: 'chat.whatsapp.com/AAA111', name: 'Munich Bachata', citySlug: 'munich', adminName: 'Maria Lopez', adminContact: '+49 151 2345678' },
+      { id: 'c', inviteKey: 'chat.whatsapp.com/CCC333', name: 'Kizomba Munich', citySlug: 'munich', adminContact: '4917612345' },
+    ])
+  })
+
+  it('plans nothing for groups the directory doesn\'t have, and nothing on a second run', () => {
+    expect(planAdminFill(groups, [])).toEqual([])
+    expect(planAdminFill(groups, [
+      { id: 'a', inviteKey: 'chat.whatsapp.com/AAA111', adminName: 'Maria Lopez', adminContact: '+49 151 2345678' },
+      { id: 'c', inviteKey: 'chat.whatsapp.com/CCC333', adminName: 'Kim', adminContact: '4917612345' },
+    ])).toEqual([])
   })
 })

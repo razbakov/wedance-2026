@@ -26,6 +26,7 @@ export interface AdminGroup {
   status: 'visible' | 'hidden' | 'pending' | 'rejected'
   linkStatus: 'unknown' | 'ok' | 'dead'
   linkCheckedAt?: string | Date | null
+  adminName?: string | null
 }
 
 export interface GroupFilters {
@@ -55,7 +56,7 @@ export function matchesGroup(g: AdminGroup, f: GroupFilters): boolean {
   if (f.state && groupState(g) !== f.state) return false
   if (f.style && !(g.styles ?? []).some(s => sameDanceStyle(s, f.style!))) return false
   const q = f.q ? fold(f.q) : ''
-  if (q && ![g.name, g.citySlug, g.inviteUrl, g.source ?? '', ...(g.styles ?? [])].some(v => fold(v).includes(q))) return false
+  if (q && ![g.name, g.citySlug, g.inviteUrl, g.source ?? '', g.adminName ?? '', ...(g.styles ?? [])].some(v => fold(v).includes(q))) return false
   return true
 }
 
@@ -122,4 +123,46 @@ export function checkedAgo(at: string | Date, now = Date.now()): string {
   if (h < 24) return `${h} h ago`
   const d = Math.round(h / 24)
   return `${d} day${d === 1 ? '' : 's'} ago`
+}
+
+// ── The group's admin (RAZ-967) ─────────────────────────────────────────────
+// Who runs a group and how to reach them: one name + one contact (a phone number, a WhatsApp /
+// Telegram link, an @handle or an email). Personal data — shown to WeDance admins and the city's
+// admins only, never on the city page, in MCP results or in PostHog events.
+
+export const ADMIN_NAME_MAX = 120
+export const ADMIN_CONTACT_MAX = 200
+
+/** Trims and collapses spaces; blank → null. */
+export function cleanAdminField(raw: string | null | undefined, max: number): string | null {
+  const s = (raw ?? '').replace(/\s+/g, ' ').trim().slice(0, max)
+  return s || null
+}
+
+/**
+ * Where a click on the admin's contact goes, or null when it is just text:
+ * a link stays a link; "+49 151 …" / "0049 151 …" → WhatsApp chat (wa.me needs the country
+ * code), a local number ("0151 …") → tel:; an email → mailto:; "@name" → t.me for a Telegram
+ * group, instagram.com for an Instagram one (a WhatsApp group's @name is ambiguous → text).
+ */
+export function adminContactHref(contact: string | null | undefined, platform?: string | null): string | null {
+  const c = (contact ?? '').trim()
+  if (!c) return null
+  if (/^https?:\/\/[^\s]+$/i.test(c)) return c
+  if (/^(wa\.me|t\.me|api\.whatsapp\.com|(www\.)?instagram\.com)\/[^\s]+$/i.test(c)) return `https://${c}`
+  if (/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(c)) return `mailto:${c}`
+  const handle = c.match(/^@([a-z0-9_.]{3,64})$/i)?.[1]
+  if (handle) {
+    if (platform === 'telegram') return `https://t.me/${handle}`
+    if (platform === 'instagram') return `https://instagram.com/${handle}`
+    return null
+  }
+  if (/^\+?[\d\s()./-]{6,}$/.test(c)) {
+    const digits = c.replace(/\D/g, '')
+    if (digits.length < 6) return null
+    if (c.startsWith('+')) return `https://wa.me/${digits}`
+    if (digits.startsWith('00')) return `https://wa.me/${digits.slice(2)}`
+    return `tel:${digits}`
+  }
+  return null
 }
