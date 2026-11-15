@@ -929,6 +929,8 @@ export const eventRsvps = pgTable('event_rsvps', {
   eventId: uuid('event_id').notNull().references(() => events.id, { onDelete: 'cascade' }),
   dancerId: uuid('dancer_id').references(() => dancers.id, { onDelete: 'cascade' }),
   guestToken: text('guest_token'),
+  /** A guest's email from the confirm-link step (0069): they're told if the event is cancelled. */
+  guestEmail: text('guest_email'),
   answer: text('answer').notNull().$type<'partner' | 'needLeader' | 'needFollower' | 'yes' | 'next'>(),
   confirmedAt: timestamp('confirmed_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),

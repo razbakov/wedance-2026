@@ -338,7 +338,9 @@ out with the reason on `/events/[id]`, the city page and `/@handle`, and in the 
 (`/api/profiles/<u>/site` and `/events`: `cancelled`, `cancelReason` — contract `SiteEvent` in
 `shared/types/profileSite.ts`, mirrored by wedance-site-kit `WeDanceEvent`). Everyone who signed up is emailed once
 (`server/utils/eventCancel.ts` `signupsOf`: plan items, confirmed poll answers other than "next", attendances incl.
-ticket stubs, festival sign-ups / TicketTailor buyers; one email per address, never the canceller). Ticket holders
+ticket stubs, festival sign-ups / TicketTailor buyers, and guests' unconfirmed answers other than "next" when they left an
+email — `auth.requestMagicLink` with `guest` keeps it on that browser's `event_rsvps.guest_email` (0069), from the poll and
+the weekend page; one email per address, never the canceller). Ticket holders
 are told to contact the organiser — refunds stay manual. `uncancel` ("It's on again") clears it and emails nobody.
 Only published, not-yet-over events can be cancelled.
 

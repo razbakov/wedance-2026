@@ -158,6 +158,8 @@ async function sendReminder() {
       name: guestName.value.trim() || undefined,
       email: result.data.email,
       redirect: `/w/${code}?confirm=${reminderFor.value}${token ? `&guest=${token}` : ''}`,
+      // Kept on this browser's guest "yes" answers, so a cancellation reaches them (RAZ-948).
+      guest: token,
     })
     reminderSent.value = true
     reminderDone.value = true

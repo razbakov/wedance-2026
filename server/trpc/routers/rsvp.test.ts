@@ -12,6 +12,7 @@ import { drizzle } from 'drizzle-orm/neon-http'
 import { and, eq, inArray } from 'drizzle-orm'
 import * as schema from '../../database/schema'
 import { appRouter } from '../index'
+import { signupsOf } from '../../utils/eventCancel'
 
 const DATABASE_URL = process.env.DATABASE_URL
 const db: any = DATABASE_URL ? drizzle(neon(DATABASE_URL), { schema }) : null
@@ -121,6 +122,29 @@ describe.skipIf(!DATABASE_URL)('rsvp router', () => {
     const after = await caller(null).rsvp.poll({ event: ids.event })
     expect(after.counts.needFollower).toBe(before.counts.needFollower - 1)
     expect(after.unconfirmed).toBe(0)
+  })
+
+  it('a guest who left an email for the confirm link is told when the event is cancelled (RAZ-948)', async () => {
+    const guest = crypto.randomUUID()
+    const nextGuest = crypto.randomUUID()
+    const email = `guest-${RUN}@test.wedance.local`
+    await caller(null).rsvp.answer({ event: ids.solo, answer: 'yes', guestToken: guest })
+    await caller(null).auth.requestMagicLink({ email, redirect: '/events/x', do: 'yes', guest })
+    // "Next time" with an email: not coming, not told.
+    await caller(null).rsvp.answer({ event: ids.solo, answer: 'next', guestToken: nextGuest })
+    await caller(null).auth.requestMagicLink({ email: `next-${RUN}@test.wedance.local`, guest: nextGuest })
+    // A later answer from the same browser keeps the email.
+    await caller(null).rsvp.answer({ event: ids.event, answer: 'yes', guestToken: guest })
+    try {
+      const [ev] = await db.select().from(schema.events).where(eq(schema.events.id, ids.solo))
+      expect((await signupsOf(db, ev)).map(p => p.email)).toEqual([email])
+      const [later] = await db.select({ e: schema.eventRsvps.guestEmail }).from(schema.eventRsvps)
+        .where(and(eq(schema.eventRsvps.eventId, ids.event), eq(schema.eventRsvps.guestToken, guest)))
+      expect(later.e).toBe(email)
+    } finally {
+      await db.delete(schema.eventRsvps).where(inArray(schema.eventRsvps.guestToken, [guest, nextGuest]))
+      await db.delete(schema.dancers).where(inArray(schema.dancers.email, [email, `next-${RUN}@test.wedance.local`]))
+    }
   })
 
   it('keeps the organiser view to the event’s managers', async () => {

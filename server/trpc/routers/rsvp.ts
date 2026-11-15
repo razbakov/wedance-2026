@@ -143,8 +143,11 @@ export const rsvpRouter = router({
 
       if (!dancerId) {
         if (!input.guestToken) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Missing guest token' })
+        // An email this browser already left on another answer comes along (RAZ-948).
+        const [known] = await ctx.db.select({ email: eventRsvps.guestEmail }).from(eventRsvps)
+          .where(and(eq(eventRsvps.guestToken, input.guestToken), isNull(eventRsvps.dancerId), isNotNull(eventRsvps.guestEmail))).limit(1)
         await ctx.db.insert(eventRsvps)
-          .values({ eventId: ev.id, guestToken: input.guestToken, answer: input.answer })
+          .values({ eventId: ev.id, guestToken: input.guestToken, answer: input.answer, guestEmail: known?.email ?? null })
           .onConflictDoUpdate({ target: [eventRsvps.eventId, eventRsvps.guestToken], set: { answer: input.answer, updatedAt: now } })
         trackServer(ctx, 'rsvp_answered', { event_id: ev.id, answer: input.answer, signed_in: false, confirmed: false, ...eventGroup(ev) })
         return pollFor(ctx.db, ev, { dancerId: null, guestToken: input.guestToken })
