@@ -802,7 +802,7 @@
       "journey": "C4",
       "actor": "traveler",
       "story": "As a traveler, I want a year-at-a-glance strip of chips on My Plan, so that I can jump straight to any part of my year.",
-      "status": "built",
+      "status": "missing",
       "tables": [
         "planItems"
       ],
@@ -812,8 +812,8 @@
       "routes": [
         "/my-plan"
       ],
-      "evidence": "app/pages/my-plan.vue:2053",
-      "notes": "Linear state: Done."
+      "evidence": "",
+      "notes": "Linear state: Done. Removed from My plan in RAZ-990 (the strip repeated the This year line)."
     },
     {
       "id": "RAZ-97",
