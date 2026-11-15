@@ -9,7 +9,7 @@
  * venue → line-up → entry → flyer → publish — one card open at a time. A new
  * draft (?created=…) opens on its first step still to do.
  */
-import { Check, ExternalLink, Repeat, Archive, ArchiveRestore, Sparkles, FileText, Copy, Send } from 'lucide-vue-next'
+import { Check, ExternalLink, Repeat, Archive, ArchiveRestore, Sparkles, FileText, Copy } from 'lucide-vue-next'
 import type { BusinessEventValues } from '~/components/business/BusinessEventForm.vue'
 import { toBusinessEventInput } from '~/lib/businessEvent'
 import { eventLocalDate } from '#shared/utils/eventTime'
@@ -180,10 +180,6 @@ async function repeat() {
 }
 
 const formRef = ref<{ dirty: boolean; submit: () => boolean; publish: () => boolean; focus: (card: string) => void } | null>(null)
-// The Publish step (RAZ-927): saves the form as it is, live.
-function publish() {
-  if (!formRef.value?.publish()) error.value = 'Fix the details first, then publish.'
-}
 const planRef = ref<{ reload: () => Promise<void> } | null>(null)
 const teaserRef = ref<{ reload: () => Promise<void> } | null>(null)
 // Line-up names for "Add a post · artist".
@@ -309,19 +305,6 @@ async function archive(series = false) {
       </p>
 
       <BusinessEventSteps v-if="!ev.synced && !ev.archived" v-model="step" :steps="steps" class="mt-4" @go="goStep" />
-
-      <section id="ev-step-publish" class="mt-4 scroll-mt-20 rounded-2xl border bg-card p-4">
-        <h2 class="text-eyebrow font-bold uppercase tracking-[0.3em] text-secondary">Checklist</h2>
-        <p v-if="!ev.missing.length && ev.published" class="mt-2 text-sm text-wd-green-700 font-bold">Ready: everything a dancer and a flyer need is here.</p>
-        <ul v-else class="mt-2 grid gap-1 text-sm">
-          <li v-if="!ev.published">• Publish it so dancers can see it.</li>
-          <li v-for="m in ev.missing" :key="m">• Add {{ m }}.</li>
-        </ul>
-        <div v-if="!ev.published && !ev.archived" class="mt-3 flex flex-wrap items-center gap-3" data-publish-step>
-          <Button type="button" variant="pill" size="pill-sm" :loading="saving" @click="publish"><Send /> Publish</Button>
-          <span class="text-xs text-muted-foreground">{{ ev.missing.length ? 'You can publish now and add the rest later.' : 'Saves your changes and puts it on WeDance.' }}</span>
-        </div>
-      </section>
 
       <section v-if="poll && !poll.festival" class="mt-4 rounded-2xl border bg-card p-4" data-rsvp-summary>
         <h2 class="text-eyebrow font-bold uppercase tracking-[0.3em] text-secondary">Who’s coming</h2>
