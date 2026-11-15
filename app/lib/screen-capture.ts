@@ -20,9 +20,25 @@ export interface ScreenFrame {
   blob: Blob
 }
 
-/** Longest edge of the stored screenshot; a 4K/retina frame is scaled down. */
-const MAX_EDGE = 1920
-const JPEG_QUALITY = 0.8
+/**
+ * How the frame is stored: tried in order until the JPEG fits MAX_SCREENSHOT_BYTES.
+ * A retina / 4K frame is scaled down to the longest edge, so a report stays a
+ * few hundred KB however big the screen is (RAZ-976).
+ */
+export const JPEG_STEPS: ReadonlyArray<{ maxEdge: number, quality: number }> = [
+  { maxEdge: 1600, quality: 0.75 },
+  { maxEdge: 1280, quality: 0.6 },
+  { maxEdge: 960, quality: 0.5 },
+]
+/** Upper bound for the attached screenshot. */
+export const MAX_SCREENSHOT_BYTES = 800 * 1024
+
+/** Pixel size of a w×h frame scaled so its longest edge is at most maxEdge (never upscaled). */
+export function scaledSize(w: number, h: number, maxEdge: number): { width: number, height: number } | null {
+  if (!w || !h) return null
+  const scale = Math.min(1, maxEdge / Math.max(w, h))
+  return { width: Math.max(1, Math.round(w * scale)), height: Math.max(1, Math.round(h * scale)) }
+}
 
 export function isScreenCaptureSupported(): boolean {
   return typeof navigator !== 'undefined' && typeof navigator.mediaDevices?.getDisplayMedia === 'function'
@@ -85,10 +101,10 @@ export async function captureScreenFrame(settle?: () => Promise<void>): Promise<
     const surface = (track.getSettings() as { displaySurface?: string }).displaySurface
     await Promise.all([settle?.(), wait(settleDelayMs(surface))])
     await waitForFreshFrames(video, performance.now())
-    const canvas = drawVideo(video)
+    const frame = snapshot(video)
     stopAll(stream)
     stream = null
-    return canvas ? await encodeJpeg(canvas) : null
+    return frame ? await encodeFrame(frame) : null
   } catch (e) {
     // NotAllowedError = the user declined; anything else is a browser quirk.
     if ((e as DOMException)?.name !== 'NotAllowedError') console.warn('[screen-capture] failed:', e)
@@ -106,16 +122,6 @@ function wait(ms: number): Promise<void> {
 
 function stopAll(stream: MediaStream) {
   for (const t of stream.getTracks()) t.stop()
-}
-
-/** Size a canvas so the longest edge is at most MAX_EDGE. */
-function sizedCanvas(w: number, h: number): HTMLCanvasElement | null {
-  if (!w || !h) return null
-  const scale = Math.min(1, MAX_EDGE / Math.max(w, h))
-  const canvas = document.createElement('canvas')
-  canvas.width = Math.round(w * scale)
-  canvas.height = Math.round(h * scale)
-  return canvas
 }
 
 /** Play the stream in a detached, muted <video> until it has a first frame. */
@@ -165,14 +171,30 @@ function waitForFreshFrames(video: HTMLVideoElement, settledAt: number): Promise
   })
 }
 
-function drawVideo(video: HTMLVideoElement): HTMLCanvasElement | null {
-  const canvas = sizedCanvas(video.videoWidth, video.videoHeight)
-  canvas?.getContext('2d')?.drawImage(video, 0, 0, canvas.width, canvas.height)
+/** Copy the current video frame at full size, so the stream can stop before encoding. */
+function snapshot(video: HTMLVideoElement): HTMLCanvasElement | null {
+  const size = scaledSize(video.videoWidth, video.videoHeight, Number.POSITIVE_INFINITY)
+  if (!size) return null
+  const canvas = document.createElement('canvas')
+  canvas.width = size.width
+  canvas.height = size.height
+  canvas.getContext('2d')?.drawImage(video, 0, 0, size.width, size.height)
   return canvas
 }
 
-async function encodeJpeg(canvas: HTMLCanvasElement): Promise<ScreenFrame | null> {
-  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', JPEG_QUALITY))
-  if (!blob) return null
-  return { blob, bytes: new Uint8Array(await blob.arrayBuffer()) }
+/** Scale + JPEG-encode, stepping down until the file fits MAX_SCREENSHOT_BYTES. */
+async function encodeFrame(source: HTMLCanvasElement): Promise<ScreenFrame | null> {
+  let last: Blob | null = null
+  for (const step of JPEG_STEPS) {
+    const size = scaledSize(source.width, source.height, step.maxEdge)
+    if (!size) return null
+    const canvas = document.createElement('canvas')
+    canvas.width = size.width
+    canvas.height = size.height
+    canvas.getContext('2d')?.drawImage(source, 0, 0, size.width, size.height)
+    last = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', step.quality))
+    if (last && last.size <= MAX_SCREENSHOT_BYTES) break
+  }
+  if (!last) return null
+  return { blob: last, bytes: new Uint8Array(await last.arrayBuffer()) }
 }

@@ -77,17 +77,66 @@ export function buildFeedback(s: FeedbackSubmission) {
   return { params, hint }
 }
 
+/** Why a submission failed, from the error `sendFeedback` rejected with. */
+export type FeedbackFailure = 'no_client' | 'blocked' | 'forbidden' | 'timeout' | 'other'
+
 /**
- * Send to Sentry and wait for ingest to accept it. Returns the event id.
- * Throws when Sentry isn't initialised (no DSN, e.g. local dev) or delivery failed.
+ * Sentry's `sendFeedback` rejects with plain message strings; map them to a
+ * reason. "blocked" is its generic answer: no 2xx from ingest — the request
+ * never got through (ad / tracker blocker, offline) or ingest refused it
+ * (too large, rate limited).
  */
-export async function submitFeedback(s: FeedbackSubmission): Promise<string> {
-  const Sentry = getSentry()
-  if (!Sentry) throw new Error('Sentry is not initialised')
+export function feedbackFailure(e: unknown): FeedbackFailure {
+  const msg = String((e as Error)?.message ?? e ?? '')
+  if (/not initiali[sz]ed|no client/i.test(msg)) return 'no_client'
+  if (/allowed domains/i.test(msg)) return 'forbidden'
+  if (/unable to determine/i.test(msg)) return 'timeout'
+  if (/network issues|ad-?blocker/i.test(msg)) return 'blocked'
+  return 'other'
+}
+
+/** What the form says when a report could not be sent. */
+export function failureMessage(reason: FeedbackFailure): string {
+  if (reason === 'blocked') {
+    return 'Could not reach our report service — an ad or tracker blocker, or the network, stopped it. Pause the blocker for this site and try again, or email hello@wedance.vip.'
+  }
+  if (reason === 'timeout') {
+    return 'No answer from our report service. It may have arrived — if not, please try again or email hello@wedance.vip.'
+  }
+  return 'Could not submit. Please try again, or email hello@wedance.vip.'
+}
+
+export interface FeedbackResult {
+  /** Sentry event id. */
+  id: string
+  /** The report went through only after leaving the screenshot out. */
+  screenshotDropped: boolean
+}
+
+async function send(Sentry: SentryModule, s: FeedbackSubmission): Promise<string> {
   const { params, hint } = buildFeedback(s)
   const eventId = await Sentry.sendFeedback(params, hint)
   // The feedback itself is confirmed; give the linked replay segment a moment
   // to go out too. Never blocks success on it.
   await Sentry.flush(2000).catch(() => false)
   return eventId
+}
+
+/**
+ * Send to Sentry and wait for ingest to accept it. When a report with a
+ * screenshot is refused, it is sent once more without it, so the text still
+ * arrives (RAZ-976). Not after a timeout — the first one may have landed.
+ * Throws when Sentry isn't initialised (no DSN, e.g. local dev) or delivery failed.
+ */
+export async function submitFeedback(s: FeedbackSubmission): Promise<FeedbackResult> {
+  const Sentry = getSentry()
+  if (!Sentry) throw new Error('Sentry is not initialised')
+  try {
+    return { id: await send(Sentry, s), screenshotDropped: false }
+  } catch (e) {
+    const reason = feedbackFailure(e)
+    if (!s.screenshot?.length || reason === 'timeout' || reason === 'no_client') throw e
+    console.warn('[feedback] sending with the screenshot failed, retrying without it:', e)
+    return { id: await send(Sentry, { ...s, screenshot: null }), screenshotDropped: true }
+  }
 }
