@@ -733,22 +733,28 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'cancel_event', title: 'Cancel an event and tell everyone who signed up', scopes: ['business:publish'], business: true, annotations: OUTWARD, confirm: true,
-    description: 'Cancel one or more published events that haven’t happened yet (e.g. every party of a page tonight). Each stays listed on WeDance and the page’s own website, marked “Cancelled” with the reason, and everyone who signed up (on their plan, “yes” on the poll, ticket holders) gets an email. Refunds are not made here: ticket holders are told to contact the organiser. undo=true takes the “Cancelled” mark off again (nobody is emailed). Runs as preview → confirm: the preview says how many people will be emailed.',
+    description: 'Cancel one or more published events that haven’t happened yet (e.g. every party of a page tonight). Each stays listed on WeDance and the page’s own website, marked “Cancelled” with the reason, and everyone who signed up (on their plan, “yes” on the poll, ticket holders) gets an email. Refunds are not made here: ticket holders are told to contact the organiser. undo=true takes the “Cancelled” mark off again and emails the people who got the cancellation “Good news, it’s on again” (email_people=false: nobody is emailed). Runs as preview → confirm: the preview says how many people will be emailed.',
     input: {
       event_ids: z.array(eventId).min(1).max(50).describe('The events to cancel (ids from my_events).'),
       reason: z.string().max(280).optional().describe('Short reason shown on the event and in the email, in the organiser’s words, e.g. "Tanzverbot today".'),
       undo: z.boolean().optional().describe('true = the event is on again: remove the “Cancelled” mark.'),
+      email_people: z.boolean().optional().describe('With undo: email the people who got the cancellation that it’s on again (default true). false = only remove the mark.'),
       confirm_token: confirmToken,
     },
     preview: async (t, a) => {
-      if (a.undo) return { action: 'undo cancellation', events: a.event_ids, emails: 0 }
+      if (a.undo) {
+        const p: any = await t.caller.businessEvents.uncancelPreview({ ids: a.event_ids })
+        const tell = a.email_people !== false
+        return { action: 'undo cancellation', email: tell ? 'Good news, it’s on again' : null, events: p.events.map((e: any) => ({ id: e.id, name: { untrusted_text: e.name }, date: e.date, start_time: e.startTime, cancelled: e.cancelled, will_email: tell ? e.toNotify : 0, ticket_holders: tell ? e.ticketHolders : 0 })), will_email: tell ? p.toNotify : 0 }
+      }
       const p: any = await t.caller.businessEvents.cancelPreview({ ids: a.event_ids })
       return { action: 'cancel', reason: a.reason ? { untrusted_text: a.reason } : null, events: p.events.map((e: any) => ({ id: e.id, name: { untrusted_text: e.name }, date: e.date, start_time: e.startTime, already_cancelled: e.alreadyCancelled, will_email: e.toNotify, ticket_holders: e.ticketHolders })), will_email: p.toNotify }
     },
     run: async (t, a) => {
       if (a.undo) {
-        for (const id of a.event_ids) await t.caller.businessEvents.uncancel({ id })
-        return { uncancelled: a.event_ids.length }
+        const out = []
+        for (const id of a.event_ids) out.push({ id, ...(await t.caller.businessEvents.uncancel({ id, notify: a.email_people !== false })) })
+        return { uncancelled: out.filter(e => e.uncancelled).map(e => ({ id: e.id, emailed: e.notified, url: url(t, `/events/${e.id}`) })), emailed: out.reduce((n, e) => n + e.notified, 0) }
       }
       const r: any = await t.caller.businessEvents.cancel({ ids: a.event_ids, reason: a.reason ?? null, surface: 'mcp' })
       return { cancelled: r.events.map((e: any) => ({ id: e.id, already_cancelled: e.alreadyCancelled, emailed: e.notified, url: url(t, `/events/${e.id}`) })), emailed: r.notified }

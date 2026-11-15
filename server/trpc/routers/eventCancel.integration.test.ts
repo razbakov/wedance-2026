@@ -1,8 +1,9 @@
 /**
  * RAZ-948 — an organiser cancels events, against a real Postgres. They stay
  * listed (public reads + the profile feed say cancelled, with the reason),
- * everyone who signed up is emailed once, and undo clears it. Local database
- * only (server/test-setup.ts).
+ * everyone who signed up is emailed once, and undo clears it — and, when the
+ * organiser chooses (RAZ-969), tells the same people it's on again. Local
+ * database only (server/test-setup.ts).
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 import { neon } from '@neondatabase/serverless'
@@ -13,9 +14,11 @@ import { appRouter } from '../index'
 import { profileFeedEvents } from '../../utils/profileFeed'
 
 const sent: any[] = []
+const backOn: any[] = []
 vi.mock('../../utils/email', async (orig) => ({
   ...(await orig<any>()),
   sendEventCancelledEmail: async (p: any) => { sent.push(p) },
+  sendEventBackOnEmail: async (p: any) => { backOn.push(p) },
 }))
 vi.stubGlobal('useRuntimeConfig', () => ({ siteUrl: 'http://localhost:3000' }))
 
@@ -108,14 +111,34 @@ describe.skipIf(!DATABASE_URL)('businessEvents.cancel — integration', () => {
     expect((await caller(ids.stranger).events.get({ id: ids.one })).cancelReason).toBe('Tanzverbot (Totensonntag)')
   })
 
-  it('undo: it’s on again, emails nobody', async () => {
+  it('undo without notify: it’s on again, emails nobody', async () => {
     sent.length = 0
-    expect(await caller(ids.owner).businessEvents.uncancel({ id: ids.two })).toEqual({ uncancelled: true })
+    expect(await caller(ids.owner).businessEvents.uncancel({ id: ids.two })).toEqual({ uncancelled: true, notified: 0 })
+    expect(backOn).toEqual([])
     const ev = await caller(ids.stranger).events.get({ id: ids.two })
     expect(ev.cancelledAt).toBeNull()
     expect(ev.cancelReason).toBeNull()
     expect(sent).toEqual([])
     const feed = await profileFeedEvents(db, { id: ids.page, username: `cxl-club-${RUN}`, name: `Club ${RUN}` })
     expect(feed.find(e => e.id === ids.two)).toMatchObject({ cancelled: false, cancelReason: null })
+  })
+
+  it('previews who would hear it’s on again: the people told it was off', async () => {
+    const p = await caller(ids.owner).businessEvents.uncancelPreview({ ids: [ids.one, ids.two] })
+    expect(p.events.find(e => e.id === ids.one)).toMatchObject({ cancelled: true, toNotify: 3, ticketHolders: 1 })
+    expect(p.events.find(e => e.id === ids.two)).toMatchObject({ cancelled: false, toNotify: 0 })
+    expect(p.toNotify).toBe(3)
+    await expect(caller(ids.stranger).businessEvents.uncancelPreview({ ids: [ids.one] })).rejects.toMatchObject({ code: 'FORBIDDEN' })
+  })
+
+  it('undo with notify: emails “Good news, it’s on again” to the same people, once', async () => {
+    backOn.length = 0
+    expect(await caller(ids.owner).businessEvents.uncancel({ id: ids.one, notify: true })).toEqual({ uncancelled: true, notified: 3 })
+    expect(backOn.map(s => s.to).sort()).toEqual([mail('planner'), mail('poller'), mail('stub')].sort())
+    expect(backOn.find(s => s.to === mail('stub'))).toMatchObject({ ticket: true, organizer: `Club ${RUN}` })
+    expect((await caller(ids.stranger).events.get({ id: ids.one })).cancelledAt).toBeNull()
+    // Already on: nothing to undo, nobody emailed again.
+    expect(await caller(ids.owner).businessEvents.uncancel({ id: ids.one, notify: true })).toEqual({ uncancelled: false, notified: 0 })
+    expect(backOn).toHaveLength(3)
   })
 })

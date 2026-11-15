@@ -341,8 +341,16 @@ out with the reason on `/events/[id]`, the city page and `/@handle`, and in the 
 ticket stubs, festival sign-ups / TicketTailor buyers, and guests' unconfirmed answers other than "next" when they left an
 email — `auth.requestMagicLink` with `guest` keeps it on that browser's `event_rsvps.guest_email` (0069), from the poll and
 the weekend page; one email per address, never the canceller). Ticket holders
-are told to contact the organiser — refunds stay manual. `uncancel` ("It's on again") clears it and emails nobody.
+are told to contact the organiser — refunds stay manual.
 Only published, not-yet-over events can be cancelled.
+
+**It's on again (RAZ-969):** the editor's "It's on again" (`BusinessUncancelEvent`) first asks
+`businessEvents.uncancelPreview` how many people got the cancellation email, then offers "On again + email N people"
+or "Just remove the mark" → `businessEvents.uncancel({ notify })`. MCP `cancel_event` with `undo` previews the same
+count (`email_people`, default true). Recipients = `backOnRecipients`: `signupsOf` now, minus the canceller and the
+person undoing it; nobody once the event is over. Email: `sendEventBackOnEmail` ("Good news, it's on again"; ticket
+holders are asked to check with the organiser if they already asked for a refund). Nobody is emailed without the
+organiser's choice.
 
 ## Analytics (PostHog)
 
@@ -423,6 +431,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `event_form_opened` | `business/events/new.vue` — the organiser answers "Where are you starting from?" (RAZ-939) | `start` (post / copy / scratch) |
 | `event_created` / `event_published` | `business/events/new.vue` ("From scratch" or "Like my last event"; starts a draft; `event_published` only when "Publish it now" is ticked); publish = draft→live in `business/events/[id]` (checklist "Publish" button or the Published box) | `event_id`, `is_festival`, `city`, `style`, `published`, `source` (scratch / copy), `dates` (copy) |
 | `event_cancelled` | `BusinessCancelEvents` (event editor → Cancel, or Business → Events → tick events / "Select today's", RAZ-948) | `event_id` (one event, else null), `events`, `notified`, `has_reason`, `bulk` |
+| `event_uncancelled` | `BusinessUncancelEvent` (event editor → "It's on again", RAZ-969) | `event_id`, `notify` (email the people told it was off), `notified` |
 | `event_imported` | `business/events/new.vue` "I have a post" (#453) | `event_id`, `source` (instagram), `created` (false = this post's draft already existed), `lineup`, `has_cover` |
 | `business_profile_created` | `business/new.vue` | `profile`, `profile_type`, `from_instagram` |
 | `public_page_set` | `settings/index.vue` "Your public page" (one handle per person, #474) | `cleared`, `profile_type` |
@@ -460,6 +469,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `server_login_completed` | `auth.login`, `auth.verifyMagicLink` | `method` |
 | `server_onboarding_completed` | `auth.completeOnboarding` | `intent` |
 | `server_event_created` | `businessEvents.create`, `businessEvents.createSeries`, `businessEvents.copy` ("Like my last event", always drafts) | `event_id`, `is_festival`, `host_type`, `city`, `published`, `series_id`, `dates`, `copied_from` (copy) |
+| `server_event_uncancelled` | `businessEvents.uncancel` ("It's on again", web + MCP `cancel_event` `undo`; only when it was cancelled) | `event_id`, `notify` (organiser chose to email), `notified` (people emailed), `hours_cancelled`, `is_festival`, `host_type`, `$groups` |
 | `server_event_cancelled` | `businessEvents.cancel` (web + MCP `cancel_event`; once per event — re-cancelling only edits the reason) | `event_id`, `notified` (people emailed), `has_reason`, `bulk`, `is_festival`, `host_type`, `$groups` |
 | `server_event_imported` | `eventImport.fromInstagram` (web + MCP `import_from_instagram`; the draft itself also fires `server_event_created`) | `event_id`, `source` (instagram), `kind` (post / reel), `lineup`, `organizers`, `has_venue_page`, `has_cover`, `has_ticket`, `sessions`, `$groups` |
 | `server_event_published` | `create`/`createSeries` with `published`, `update` draft→live, `publishSeries` | `event_id`, `is_festival`, `series_id`, `dates` |
