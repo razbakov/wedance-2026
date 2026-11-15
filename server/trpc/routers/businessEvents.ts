@@ -21,6 +21,7 @@ import { cleanSession, inferDurations } from '../../../shared/utils/programme'
 import { seriesDates, weekdayOf, MAX_SERIES } from '../../../shared/utils/recurrence'
 import { eventGaps } from '../../../shared/utils/eventChecklist'
 import { cleanCoOrganizers, CO_ORGANIZERS_MAX, CO_ORGANIZER_ROLE_MAX, type CoOrganizer } from '../../../shared/utils/coOrganizers'
+import { EVENT_ARTISTS_MAX, PASS_DESCRIPTION_MAX, PRACTICAL_INFO_LINE_MAX, PRACTICAL_INFO_MAX } from '../../../shared/utils/eventLimits'
 import { randomUUID } from 'node:crypto'
 import { profileGroup, trackServer } from '../../utils/posthog'
 import { scheduleInstagramImport } from '../../utils/instagram/profileImport'
@@ -60,12 +61,12 @@ const festivalInput = z.object({
   logo: z.string().url().or(z.literal('')).optional(),
   accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).or(z.literal('')).optional(),
   socialLinks: z.array(z.object({ platform: text(20), url: z.string().url() })).max(10).default([]),
-  practicalInfo: z.array(text(300)).max(30).default([]),
+  practicalInfo: z.array(text(PRACTICAL_INFO_LINE_MAX)).max(PRACTICAL_INFO_MAX).default([]),
   passes: z.array(z.object({
     name: text(80).min(1, 'Name every pass.'),
     price: z.number().min(0).max(100000),
     days: z.array(text(12)).max(14).default([]),
-    description: text(300).optional(),
+    description: text(PASS_DESCRIPTION_MAX).optional(),
     soldOut: z.boolean().optional(),
     workshopCount: z.number().int().min(0).max(100).optional(),
     includesParty: z.boolean().optional(),
@@ -89,7 +90,7 @@ const festivalInput = z.object({
   })).max(300).default([]),
   videos: z.record(z.string(), z.string().url()).default({}),
 })
-const eventInput = z.object({
+export const eventInput = z.object({
   name: z.string().trim().min(1, 'Add a name.').max(160),
   type: z.enum(EVENT_TYPES),
   date: ymd,
@@ -101,7 +102,7 @@ const eventInput = z.object({
   venueUsername: z.string().max(200).nullable().optional(),
   venueName: z.string().trim().max(200).nullable().optional(),
   venueAddress: z.string().trim().max(300).nullable().optional(),
-  artists: z.array(z.string().min(1).max(200)).max(40).default([]),
+  artists: z.array(z.string().min(1).max(200)).max(EVENT_ARTISTS_MAX).default([]),
   // Other pages that run it with the organiser (#456): credit, no edit rights.
   coOrganizers: z.array(z.object({
     username: z.string().trim().min(1).max(200),
@@ -869,7 +870,7 @@ export const businessEventsRouter = router({
 
   // The line-up's names and photos, for picking each artist's flyer photo.
   lineupPhotos: protectedProcedure
-    .input(z.object({ handles: z.array(z.string().min(1).max(200)).max(40) }))
+    .input(z.object({ handles: z.array(z.string().min(1).max(200)).max(EVENT_ARTISTS_MAX) }))
     .query(async ({ ctx, input }) => {
       if (!input.handles.length) return []
       const rows = await ctx.db.select({ username: profiles.username, name: profiles.name, photo: profiles.photo, photos: profiles.photos, styles: profiles.styles })

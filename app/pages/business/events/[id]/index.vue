@@ -13,6 +13,7 @@
 import { Check, ExternalLink, Repeat, Archive, ArchiveRestore, Sparkles, FileText, Copy, Ban } from 'lucide-vue-next'
 import type { BusinessEventValues } from '~/components/business/BusinessEventForm.vue'
 import { toBusinessEventInput } from '~/lib/businessEvent'
+import { readableSaveError, type SaveError } from '~/lib/eventSaveError'
 import { eventLocalDate } from '#shared/utils/eventTime'
 import { eventPath } from '#shared/utils/eventSlug'
 import { eventSteps, firstOpenStep, pastEventHints, STEP_CARD, type EventStepKey } from '~/lib/eventSteps'
@@ -100,6 +101,8 @@ const initial = computed<Partial<BusinessEventValues>>(() => ev.value
   : {})
 
 const saving = ref(false)
+// A refused save, in words, shown in the form's save bar where the Save button is (RAZ-991).
+const saveError = ref<SaveError | null>(null)
 // After switching organizer, offer to copy flyer styles from the old profile.
 const copyLooksOffer = ref<{ from: string; to: string; fromName: string; toName: string } | null>(null)
 const copyingLooks = ref(false)
@@ -122,6 +125,7 @@ async function copyLooks() {
 async function save(v: BusinessEventValues) {
   saving.value = true
   error.value = null
+  saveError.value = null
   notice.value = null
   copyLooksOffer.value = null
   try {
@@ -150,7 +154,7 @@ async function save(v: BusinessEventValues) {
     if (pendingPost.value) { const t = pendingPost.value; pendingPost.value = null; await toPost(t) }
   } catch (e: any) {
     pending.value = null
-    error.value = e?.message || 'Could not save.'
+    saveError.value = readableSaveError(e, 'Could not save.')
   } finally {
     saving.value = false
   }
@@ -330,6 +334,7 @@ async function archive(series = false) {
           :labels="{ venue: ev.venueName, host: ev.host?.name }"
           :hints="hints"
           :saving="saving"
+          :save-error="saveError"
           submit-label="Save changes"
           @submit="save"
         />
