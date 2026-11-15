@@ -17,7 +17,7 @@ export const HANDLE_MAX = 40
 export const RESERVED_HANDLES = ['admin', 'administrator', 'api', 'app', 'artist', 'artists', 'auth', 'booking-terms', 'business', 'charanga', 'cities', 'city', 'confirm', 'dancer', 'dancers', 'docs', 'elections', 'event', 'events', 'festival', 'festivals', 'find-your-dance', 'for-events', 'for-organizers', 'for-sponsors', 'for-venues', 'gigs', 'help', 'imprint', 'login', 'logout', 'me', 'moderator', 'my-plan', 'my-year', 'null', 'onboarding', 'organizer', 'organizers', 'press', 'privacy-policy', 'profile', 'profiles', 'root', 'settings', 'signin', 'signup', 'sketches', 'staff', 'support', 'system', 'team', 'terms', 'u', 'undefined', 'user', 'venue', 'venues', 'wedance', 'www']
 
 // Extensions a CDN, static host or dev server may treat as a file.
-const FILE_EXT = /\.(html?|xml|json|txt|md|csv|js|mjs|cjs|ts|map|css|wasm|ico|png|jpe?g|gif|webp|avif|svg|bmp|tiff?|heic|mp3|mp4|m4a|wav|ogg|webm|mov|pdf|zip|gz|webmanifest|woff2?|ttf|otf|eot|php|asp|aspx|env|ya?ml)$/
+export const FILE_EXT = /\.(html?|xml|json|txt|md|csv|js|mjs|cjs|ts|map|css|wasm|ico|png|jpe?g|gif|webp|avif|svg|bmp|tiff?|heic|mp3|mp4|m4a|wav|ogg|webm|mov|pdf|zip|gz|webmanifest|woff2?|ttf|otf|eot|php|asp|aspx|env|ya?ml)$/
 
 const CHARS = /^[a-z0-9._-]+$/
 
