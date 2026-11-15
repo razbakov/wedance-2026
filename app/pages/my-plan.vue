@@ -1406,6 +1406,11 @@ const previewDeck: DeckCard[] = [
   { id: 'e3', kind: 'event-social',      name: 'Havana Nights',      dayLabel: 'Fri', time: '22:30', venue: '537 Bar',          city: 'Munich', style: 'Cuban', friendsGoing: 8, color: WD.red600, reason: 'Cuban night in Munich with 8 friends — right up your alley.' },
 ]
 
+// Signed-out landing: three example dancers from the preview deck.
+const LANDING_FRIENDS = previewDeck
+  .filter((c): c is Extract<DeckCard, { photo: string }> => c.kind.startsWith('dancer-'))
+  .slice(0, 3)
+
 // Live deck state
 // "Meet new friends" is a people deck: dancers going to your festivals, to
 // ones you haven't picked, and locals. Festival / social cards are left out —
@@ -1768,7 +1773,44 @@ function cardSummary(f: CatalogueEntry) {
       <!-- 1 · WeDance in ChatGPT: the fastest way in. -->
       <ChatgptPlanPitch variant="hero" surface="my_plan_landing" />
 
-      <!-- 2 · My plan: what you get here, shown, not listed. -->
+      <!-- 2 · Meet new friends: the people deck, shown with example dancers. -->
+      <div class="mt-14" data-testid="my-plan-landing-friends">
+        <div class="text-center md:text-left">
+          <div class="text-eyebrow uppercase tracking-[0.3em] font-bold text-primary">Meet new friends</div>
+          <h2 class="mt-2 text-3xl sm:text-4xl leading-tight font-display text-foreground">
+            Dancers going <em class="italic text-primary">where you go.</em>
+          </h2>
+          <p class="mt-3 text-sm sm:text-base text-muted-foreground font-sans max-w-xl mx-auto md:mx-0">
+            People heading to your festivals, and locals who dance your styles. Say yes to the ones you'd like to dance with — say yes to two going to the same festival and we'll suggest it for your year.
+          </p>
+        </div>
+        <div class="mt-6 grid gap-4 sm:grid-cols-3">
+          <button
+            v-for="p in LANDING_FRIENDS"
+            :key="p.id"
+            type="button"
+            class="text-left rounded-2xl bg-white border overflow-hidden hover:shadow-md transition-shadow"
+            style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);"
+            @click="openAuth('dashboard')"
+          >
+            <img :src="p.photo" :alt="p.name" class="w-full aspect-[4/3] object-cover" loading="lazy">
+            <div class="p-4 font-sans">
+              <div class="flex items-baseline justify-between gap-2">
+                <span class="font-display text-lg font-bold text-foreground">{{ p.name }}</span>
+                <span class="text-xs italic text-secondary font-display">{{ p.city }}</span>
+              </div>
+              <div class="mt-1 text-xs font-bold text-primary">{{ p.danceStyles.join(' · ') }}</div>
+              <p class="mt-2 text-sm text-muted-foreground leading-snug">{{ p.reason }}</p>
+              <span class="mt-3 inline-flex items-center gap-1 text-xs font-bold text-foreground">
+                <Heart class="w-3.5 h-3.5 text-primary" aria-hidden="true" /> Say yes
+              </span>
+            </div>
+          </button>
+        </div>
+        <p class="mt-3 text-xs text-center md:text-left italic text-muted-foreground font-sans">Example dancers. Sign up to meet real ones in your city.</p>
+      </div>
+
+      <!-- 3 · My plan: what you get here, shown, not listed. -->
       <div class="mt-14 grid gap-8 md:grid-cols-[1fr_1.1fr] items-center">
         <div class="text-center md:text-left">
           <div class="text-eyebrow uppercase tracking-[0.3em] font-bold text-primary">My plan on WeDance</div>
