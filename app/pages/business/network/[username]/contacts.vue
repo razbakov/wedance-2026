@@ -1,10 +1,11 @@
 <script setup lang="ts">
 /**
- * /business/network/<handle>/contacts — people who signed up on the profile's
- * own website (RAZ-412): WeDance is its CRM. Search, note, mark unsubscribed,
- * download as CSV.
+ * /business/network/<handle>/contacts — the page's contacts (RAZ-412): people
+ * who signed up on its own website, plus lists it imported (HubSpot, wedance.vip
+ * subscribers). WeDance is its CRM. Search, note, mark unsubscribed, download
+ * as CSV. Layout options for the redesign (RAZ-949): ./contacts-variants.
  */
-import { Download, Search, Trash2, Globe, Mail, Phone, StickyNote, Check } from 'lucide-vue-next'
+import { Download, Search, Trash2, Globe, Mail, Phone, StickyNote, Check, Sparkles } from 'lucide-vue-next'
 
 definePageMeta({ layout: 'business' })
 const route = useRoute()
@@ -72,13 +73,16 @@ function csv() {
       <AdminPageHeader
         eyebrow="Contacts"
         :title="name"
-        description="People who signed up on your website. They also get your welcome email; you get an email for each one."
+        description="Everyone who gave you their email: sign-ups on your website and the lists you imported. Website sign-ups get your welcome email, and you get an email for each one."
         :back="{ to: `/business/network/${username}`, label: 'The profile' }"
       >
         <Button variant="outline-pill" size="pill-sm" as-child>
           <NuxtLink :to="`/business/network/${username}/website`"><Globe /> Website</NuxtLink>
         </Button>
         <Button variant="outline-pill" size="pill-sm" :disabled="!list.length" @click="csv"><Download /> CSV</Button>
+        <Button variant="soft" size="pill-sm" as-child>
+          <NuxtLink :to="`/business/network/${username}/contacts-variants`"><Sparkles /> New layouts</NuxtLink>
+        </Button>
       </AdminPageHeader>
       <AdminState v-if="error" kind="error" :message="error" />
 
@@ -91,7 +95,7 @@ function csv() {
         <Button type="button" size="sm" :variant="show === 'all' ? 'soft' : 'outline'" :aria-pressed="show === 'all'" @click="show = 'all'">All · {{ rows.length }}</Button>
       </div>
 
-      <AdminState v-if="!rows.length" kind="empty" message="Nobody has signed up on your website yet. When someone does, they show up here." class="mt-6" />
+      <AdminState v-if="!rows.length" kind="empty" message="No contacts yet. People who sign up on your website, and lists you import, show up here." class="mt-6" />
       <p v-else-if="!list.length" class="mt-6 text-sm text-muted-foreground">No contact matches.</p>
 
       <ul v-else class="mt-4 divide-y rounded-2xl border bg-card shadow-wd-card">
