@@ -458,6 +458,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `event_created` / `event_published` | `business/events/new.vue` ("From scratch" or "Like my last event"; starts a draft; `event_published` only when "Publish it now" is ticked); publish = draft→live in `business/events/[id]` (checklist "Publish" button or the Published box) | `event_id`, `is_festival`, `city`, `style`, `published`, `source` (scratch / copy), `dates` (copy) |
 | `event_cancelled` | `BusinessCancelEvents` (event editor → Cancel, or Business → Events → tick events / "Select today's", RAZ-948) | `event_id` (one event, else null), `events`, `notified`, `has_reason`, `bulk` |
 | `event_uncancelled` | `BusinessUncancelEvent` (event editor → "It's on again", RAZ-969) | `event_id`, `notify` (email the people told it was off), `notified` |
+| `event_link_shared` | Business → Home (RAZ-973): the share button on a Today card, or "Share it" in a quiet week's Last 7 days | `event_id`, `method` (native / copy), `surface` (business_home) |
 | `event_imported` | `business/events/new.vue` "I have a post" (#453) | `event_id`, `source` (instagram), `created` (false = this post's draft already existed), `lineup`, `has_cover` |
 | `business_profile_created` | `business/new.vue` | `profile`, `profile_type`, `from_instagram` |
 | `public_page_set` | `settings/index.vue` "Your public page" (one handle per person, #474) | `cleared`, `profile_type` |
