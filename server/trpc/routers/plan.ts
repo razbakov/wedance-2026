@@ -1,3 +1,4 @@
+import { TRPCError } from '@trpc/server'
 import { z } from 'zod'
 import { eq, and, ne, sql, inArray, gte, lt, asc, ilike, isNotNull, or } from 'drizzle-orm'
 import { router, publicProcedure, protectedProcedure } from '../trpc'
@@ -8,6 +9,7 @@ import { festivalPath } from '../../../shared/utils/eventSlug'
 import { discoverDeck, festivalPlanSlugs, myCourses, nonFestivalEventId, recordSwipe, removeSwipe, weekSocials } from '../../utils/myPlanFeeds'
 import { eventIdForFestival, recordLinkAction } from '../../utils/trackedLinks'
 import { planCounts } from '../../utils/planCounts'
+import { meetMatches } from '../../utils/meetMatches'
 import { yearReviewFor } from '../../utils/yearReview'
 import { lookBackYear } from '../../../shared/utils/yearReview'
 
@@ -653,6 +655,18 @@ export const planRouter = router({
     .mutation(async ({ ctx, input }) => {
       await recordSwipe(ctx.db, ctx.dancerId, input)
     }),
+
+  /**
+   * Meet new friends matches (RAZ-985): dancers who said yes to each other in
+   * the deck or waved at each other on a festival page, each with one next
+   * step (a night out both could go to). WeDance admins only while the product
+   * call is pending — My plan still promises "they aren't told", so nobody else
+   * may learn of a mutual yes yet. Shown on /sketches/meet-matches.
+   */
+  meetMatches: protectedProcedure.query(async ({ ctx }) => {
+    if (!ctx.isAdmin) throw new TRPCError({ code: 'FORBIDDEN', message: 'Matches are not open yet.' })
+    return { matches: await meetMatches(ctx.db, ctx.dancerId) }
+  }),
 
   /** Undo a discover decision. */
   discoverUnswipe: protectedProcedure
