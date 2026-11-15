@@ -199,6 +199,8 @@ const photoHint = computed(() => loaded.value?.type === 'artist'
         :description="`@${loaded.username}`"
         :back="{ to: '/business/network', label: 'Network' }"
       >
+        <!-- Phones only: from sm up these are in the sidebar's page menu (layouts/business.vue). -->
+        <div class="contents sm:hidden">
         <Button v-if="loaded.type !== 'organizer'" variant="outline-pill" size="pill-sm" as-child>
           <NuxtLink :to="`/business/network/${loaded.username}/bookings`"><Inbox /> Bookings</NuxtLink>
         </Button>
@@ -217,6 +219,7 @@ const photoHint = computed(() => loaded.value?.type === 'artist'
         <Button variant="outline-pill" size="pill-sm" as-child>
           <NuxtLink :to="`/@${loaded.username}`" target="_blank"><ExternalLink /> View page</NuxtLink>
         </Button>
+        </div>
       </AdminPageHeader>
 
       <BusinessCityLink :username="loaded.username" class="mt-4" />
