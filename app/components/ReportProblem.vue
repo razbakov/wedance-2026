@@ -176,6 +176,13 @@ async function submit() {
     track('problem_report_submitted', { type, identifier: id, has_screenshot: type === 'bug' && !!screenshot.value })
   } catch (e) {
     console.warn('[ReportProblem] submit failed:', e)
+    // Why it failed, so the next "Could not submit" isn't a guess (RAZ-976).
+    track('problem_report_failed', {
+      type,
+      reason: String((e as Error)?.message ?? e).slice(0, 120),
+      has_screenshot: type === 'bug' && !!screenshot.value,
+      screenshot_kb: type === 'bug' && screenshot.value ? Math.round(screenshot.value.bytes.length / 1024) : 0,
+    })
     error.value = FALLBACK_ERROR
   } finally {
     submitting.value = false
