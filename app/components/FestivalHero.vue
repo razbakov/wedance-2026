@@ -2,7 +2,7 @@
 import { sizedImage, IMG } from '#shared/utils/image'
 import { ticketProvider } from '~/lib/outbound'
 import type { Festival } from '~/types/festival'
-import { Instagram, Globe, Facebook, Users, Star, Ticket, Check, Plus } from 'lucide-vue-next'
+import { Instagram, Globe, Facebook, Users, Star, Ticket, Check, Plus, Ban, X } from 'lucide-vue-next'
 import { daysUntil as formatDaysUntil } from '#shared/utils/festivalDateFormatter'
 import { accentText, readableAccent } from '~/lib/accent'
 import { Button } from '~/components/ui/button'
@@ -28,6 +28,10 @@ const props = withDefaults(defineProps<{
   mapUrl?: string
   // Every pass is €0 — say so in the hero instead of a €0 checkout (RAZ-731).
   freeEntry?: boolean
+  // Cancelled by its organiser (RAZ-948): said here, in the hero, where the eye goes —
+  // a "Cancelled" pill instead of the countdown, the date struck through, the reason
+  // under it, no tickets / "I'm going"; someone who had it on their plan can take it off.
+  cancelled?: { reason?: string | null } | null
 }>(), { reviewTargetType: 'festival', entityLabel: 'festival', ctaAnchor: '#discover' })
 
 defineEmits<{ pick: [] }>()
@@ -131,7 +135,15 @@ const rays = Array.from({ length: 24 }, (_, i) => {
 
         <div class="flex-1 min-w-0">
           <!-- Eyebrow: days-until in Caveat, colored -->
+          <p
+            v-if="cancelled"
+            class="mb-2 inline-flex items-center gap-1.5 rounded-full bg-destructive px-3 py-1 text-xs font-black uppercase tracking-widest text-white font-sans"
+            data-testid="event-cancelled-badge"
+          >
+            <Ban class="size-3.5" aria-hidden="true" /> Cancelled
+          </p>
           <div
+            v-else
             data-visual-mask
             class="text-lg leading-none mb-2 font-hand"
             :style="{ color: festival.accentColor }"
@@ -150,7 +162,7 @@ const rays = Array.from({ length: 24 }, (_, i) => {
           <p
             class="mt-2 text-sm sm:text-base italic font-display text-muted-foreground"
           >
-            {{ dateRange }} <span class="text-secondary">·</span> {{ festival.venue.name }}
+            <span :class="cancelled ? 'line-through decoration-destructive decoration-2' : ''">{{ dateRange }}</span> <span class="text-secondary">·</span> {{ festival.venue.name }}
             <template v-if="venueAddress">
               <span class="text-secondary">·</span>
               <a v-if="mapUrl" :href="mapUrl" target="_blank" rel="noopener noreferrer" class="underline hover:text-foreground">{{ venueAddress }}</a>
@@ -158,17 +170,25 @@ const rays = Array.from({ length: 24 }, (_, i) => {
             </template>
           </p>
 
+          <p v-if="cancelled" class="mt-3 max-w-xl text-sm text-foreground font-sans" data-testid="event-cancelled-reason">
+            <b class="text-destructive">Cancelled by the organiser.</b>
+            <template v-if="cancelled.reason">
+              “{{ cancelled.reason }}”
+            </template>
+          </p>
+
           <!-- Meta: attendees + socials -->
           <div class="mt-3 flex flex-wrap items-center gap-3 text-xs">
             <span
+              v-if="!cancelled || festival.attendeeCount"
               class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-bold font-sans"
               :style="{ background: festival.accentColor + '18', color: chipText }"
             >
               <Users class="w-3 h-3" aria-hidden="true" />
-              {{ festival.attendeeCount }} going
+              {{ festival.attendeeCount }} {{ cancelled ? (festival.attendeeCount === 1 ? 'was' : 'were') + ' going' : 'going' }}
             </span>
             <span
-              v-if="freeEntry"
+              v-if="freeEntry && !cancelled"
               class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-bold font-sans bg-success/10 text-wd-green-700"
               data-free-entry
             >
@@ -210,7 +230,19 @@ const rays = Array.from({ length: 24 }, (_, i) => {
                external tickets when linked, else I'm going (add to plan). -->
           <!-- A replaced control (the poll) takes the full width on phones,
                under the logo too: logo w-20 + gap-5 = 6.25rem. -->
-          <div v-if="$slots.cta" class="-ml-[6.25rem] sm:ml-0">
+          <div v-if="cancelled" class="mt-4 flex flex-wrap gap-2">
+            <Button
+              v-if="picked"
+              type="button"
+              variant="outline-pill"
+              class="px-5"
+              data-testid="event-cancelled-remove"
+              @click="$emit('pick')"
+            >
+              <X aria-hidden="true" /> Remove from my plan
+            </Button>
+          </div>
+          <div v-else-if="$slots.cta" class="-ml-[6.25rem] sm:ml-0">
             <slot name="cta" />
           </div>
           <div v-else class="mt-4 flex flex-wrap gap-2">
