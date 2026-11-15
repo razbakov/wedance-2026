@@ -156,20 +156,23 @@ const LEVELS = ['Beginner', 'Intermediate', 'Advanced']
   </div>
 
   <!-- Passes -->
-  <div v-else-if="part === 'passes'">
+  <div v-else-if="part === 'passes'" class="min-w-0">
       <p class="text-sm font-bold">Passes</p>
       <p class="text-xs text-muted-foreground">What dancers can buy. The page recommends the best-value pass for the sessions they pick.</p>
-      <div class="mt-3 grid gap-3">
-        <div v-for="(p, i) in passes" :key="i" class="rounded-xl border">
+      <!-- min-w-0 everywhere: a grid/flex child is otherwise as wide as its
+           longest unbroken line, and the rows pushed the card open (RAZ-991). -->
+      <div class="mt-3 grid min-w-0 grid-cols-1 gap-3">
+        <div v-for="(p, i) in passes" :key="i" class="min-w-0 rounded-xl border" data-pass-row>
           <div class="flex items-center gap-3 px-3 py-2 text-sm">
-            <span class="min-w-0 flex-1 truncate">
-              <span class="font-bold">{{ p.name || 'Untitled pass' }}</span>
-              <span class="tabular-nums"> · {{ p.price }} €</span>
-              <span class="text-muted-foreground"> · {{ p.days.length ? p.days.join(', ') : 'All days' }}</span>
-              <span v-if="p.description" class="text-muted-foreground"> · {{ p.description }}</span>
-              <Badge v-if="p.soldOut" variant="outline" class="ml-1.5">Sold out</Badge>
+            <span class="min-w-0 flex-1">
+              <span class="flex min-w-0 items-center gap-1.5">
+                <span class="min-w-0 truncate font-bold">{{ p.name || 'Untitled pass' }}</span>
+                <span class="shrink-0 whitespace-nowrap tabular-nums">· {{ p.price }} €</span>
+                <Badge v-if="p.soldOut" variant="outline" class="shrink-0">Sold out</Badge>
+              </span>
+              <span class="block break-words text-xs text-muted-foreground">{{ p.days.length ? p.days.join(', ') : 'All days' }}<template v-if="p.description"> · {{ p.description }}</template></span>
             </span>
-            <Button type="button" variant="ghost" size="sm" :aria-expanded="openPass === i" @click="openPass = openPass === i ? null : i"><template v-if="openPass === i"><Check /> Done</template><template v-else><Pencil /> Edit</template></Button>
+            <Button type="button" variant="ghost" size="sm" class="shrink-0" :aria-expanded="openPass === i" @click="openPass = openPass === i ? null : i"><template v-if="openPass === i"><Check /> Done</template><template v-else><Pencil /> Edit</template></Button>
           </div>
           <div v-if="openPass === i" class="border-t p-3">
             <div class="flex flex-wrap items-end gap-2">
@@ -196,8 +199,8 @@ const LEVELS = ['Beginner', 'Intermediate', 'Advanced']
       <p v-if="!days.length" class="mt-3 text-sm text-muted-foreground">Set the date under “When” to plan its days.</p>
       <div v-for="d in byDay" :key="d.date" class="mt-4 first:mt-0">
         <h3 class="text-xs font-bold uppercase tracking-wider text-secondary">{{ fmtDay(d.date) }} <span v-if="!days.includes(d.date)" class="normal-case text-destructive">· outside the event’s dates</span></h3>
-        <ul class="mt-2 grid gap-2">
-          <li v-for="s in d.items" :key="s.id" class="rounded-xl border">
+        <ul class="mt-2 grid grid-cols-1 gap-2">
+          <li v-for="s in d.items" :key="s.id" class="min-w-0 rounded-xl border">
             <button type="button" class="flex w-full items-center gap-3 px-3 py-2 text-left text-sm" :aria-expanded="open === s.id" @click="open = open === s.id ? null : s.id">
               <span class="w-24 shrink-0 font-bold tabular-nums">{{ rangeOf(s) }}</span>
               <span class="min-w-0 flex-1 truncate">

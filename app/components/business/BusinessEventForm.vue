@@ -376,8 +376,8 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
         <h2 class="flex items-center gap-1.5 text-sm font-bold"><Ticket class="size-4 text-muted-foreground" aria-hidden="true" /> Entry and tickets</h2>
         <Button v-if="mode === 'edit'" type="button" variant="ghost" size="sm" :aria-expanded="isOpen('entry')" @click="toggle('entry')"><template v-if="isOpen('entry')"><Check /> Done</template><template v-else><Pencil /> Edit</template></Button>
       </div>
-      <div v-if="isOpen('entry')" class="mt-3 grid gap-2">
-        <BusinessFestivalEditor v-if="form.festival" v-model="form.festival" part="passes" :days="festivalDays" />
+      <div v-if="isOpen('entry')" class="mt-3 grid grid-cols-1 gap-2">
+        <BusinessFestivalEditor v-if="form.festival" v-model="form.festival" part="passes" :days="festivalDays" class="min-w-0" />
         <div class="mt-4">
           <p class="text-sm font-bold">Promotions <span class="font-normal text-muted-foreground">(optional)</span></p>
           <p class="text-xs text-muted-foreground">Deals and door prices, one per line, e.g. “Free until 21:00”, “From 21:00 · 10€”, “Early bird −20% until 1 Nov”.</p>
