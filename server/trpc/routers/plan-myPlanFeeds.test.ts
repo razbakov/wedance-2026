@@ -270,6 +270,38 @@ describe.skipIf(!DATABASE_URL)('my-plan feeds', () => {
     })
   })
 
+  // RAZ-983: a workshop saved from its (festival-style) page is an event in the
+  // plan, never a festival in the dancer's year or the header badge.
+  describe('workshops are not festivals', () => {
+    it('saves a workshop\'s "I\'m going" as an event item', async () => {
+      const me = caller(ids.me!)
+      try {
+        await me.plan.add({ itemType: 'festival', itemId: WORKSHOP })
+        const rows = await db.select({ itemType: schema.planItems.itemType, itemId: schema.planItems.itemId })
+          .from(schema.planItems).where(eq(schema.planItems.dancerId, ids.me!))
+        expect(rows).toEqual([{ itemType: 'event', itemId: ids.workshopEvent }])
+        expect(await me.plan.myPlan()).toEqual([])
+        expect((await me.plan.counts()).festivals).toBe(0)
+        // A real festival still goes in as a festival.
+        await me.plan.add({ itemType: 'festival', itemId: FEST })
+        expect((await me.plan.myPlan()).map(f => f.slug)).toEqual([FEST])
+      }
+      finally {
+        await me.plan.remove({ itemType: 'festival', itemId: WORKSHOP })
+        await me.plan.remove({ itemType: 'festival', itemId: FEST })
+      }
+      expect(await db.select().from(schema.planItems).where(eq(schema.planItems.dancerId, ids.me!))).toEqual([])
+    })
+
+    it('leaves an older festival item for a workshop out of the year and the badge', async () => {
+      const w = caller(ids.workshopper!)
+      expect(await w.plan.myPlan()).toEqual([])
+      expect((await w.plan.counts()).festivals).toBe(0)
+      const shared = await caller(ids.me!).plan.sharedPlan({ username: ids.workshopper! })
+      expect(shared?.festivals).toEqual([])
+    })
+  })
+
   describe('plan.discover', () => {
     const deckIds = async () => (await caller(ids.me!).plan.discover()).cards.map(c => `${c.targetKind}:${c.targetId}`)
 
