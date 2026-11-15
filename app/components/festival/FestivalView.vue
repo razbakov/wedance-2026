@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { sizedImage, IMG } from '#shared/utils/image'
-import type { Festival, Teacher, Workshop, PlanEntry, DanceRole, DancePartner, FestivalFriend, PartnerMatch, ExtraActivity, SwipeCard, FreemiumState } from '~/types/festival'
-import { ArrowRight, Sparkles, Check, Pencil, Ticket } from 'lucide-vue-next'
+import type { Festival, Teacher, Workshop, PlanEntry, DanceRole, DancePartner, ExtraActivity, SwipeCard, FreemiumState } from '~/types/festival'
+import { ArrowRight, Sparkles, Check, Pencil, Ticket, Share2 } from 'lucide-vue-next'
 import { isWorkshop, isEveningItem } from '#shared/utils/programme'
 import { Button } from '~/components/ui/button'
 import { artistPlaces, artistLanguages } from '~/data/artists'
@@ -465,10 +465,6 @@ function toggleTeacherFilter(id: string) {
   nextTick(() => scrollTo('schedule'))
 }
 
-// Friends and partner matches: none until they come from real data (no
-// made-up people on an event page).
-const friends = computed<FestivalFriend[]>(() => [])
-const partnerMatches = computed<PartnerMatch[]>(() => [])
 
 // Discover dancers are now loaded by the DiscoverDancers component itself
 // via tRPC (wave.discoverPool) — no mock data needed here.
@@ -792,7 +788,7 @@ const { setCartCount } = useCart()
 watch(() => plan.value.size, (n) => setCartCount(n), { immediate: true })
 
 // Navigation — only show sections that have content for this festival.
-const allSections = ['about', 'discover', 'activities', 'lineup', 'schedule', 'tickets', 'venue'] as const
+const allSections = ['about', 'discover', 'lineup', 'schedule', 'tickets', 'venue', 'activities'] as const
 const sections = computed(() =>
   allSections.filter((s) => {
     if (s === 'schedule') return workshops.length > 0
@@ -807,7 +803,7 @@ const sections = computed(() =>
 const sectionLabels: Record<string, string> = {
   'about': 'About',
   'discover': 'Shall we dance?',
-  'activities': 'Activities',
+  'activities': 'Going together',
   'lineup': 'Lineup',
   'schedule': 'Schedule',
   'tickets': 'Tickets',
@@ -1098,7 +1094,7 @@ function isTopPass(t: TicketOption): boolean {
 // the whole page in the cream + Playfair aesthetic without touching
 // the default layout (which other pages still depend on). The shared
 // components inside (FestivalHero, AboutTab, DiscoverDancers,
-// ActivitiesTab, MySpace, Lineup, ScheduleTab, VenueTab, CartDrawer,
+// ActivitiesTab, Lineup, ScheduleTab, VenueTab, CartDrawer,
 // SharedPlanView, modals) still carry shadcn styling — those get
 // restyled in a follow-up pass.
 
@@ -1253,45 +1249,6 @@ useHead({
             <h3 class="mb-3 text-lg font-bold font-display">Verified attendees</h3>
             <AttendeeRoster :festival-slug="festival.slug" />
           </div>
-        </section>
-
-        <section id="activities" class="scroll-mt-16">
-          <h2 class="text-2xl font-black leading-tight mb-1 text-foreground">Activities</h2>
-          <p class="text-sm mb-4 text-muted-foreground font-sans">Rides, rooms, dinners and more — connect with fellow dancers.</p>
-          <ActivitiesTab
-            :ride-shares="rideShares"
-            :group-dinners="groupDinners"
-            :extra-activities="extraActivities"
-            :hangouts="eventHangouts"
-            :looking-for-roommate="lookingForRoommate"
-            :roommate-others="roommateOthers"
-            :ride-error="rideError"
-            :roommate-error="roommateError"
-            :hotel-search-url="hotelSearchUrl"
-            :is-signed-in="isSignedIn"
-            @join-dinner="joinDinner"
-            @join-activity="joinActivity"
-            @post-ride="postRide"
-            @toggle-roommate="toggleRoommate"
-            @create-hangout="createEventHangout"
-            @toggle-hangout="toggleEventHangout"
-            @close-hangout="closeEventHangout"
-            @sign-in="onSignIn"
-          />
-        </section>
-
-        <section v-if="isSignedIn" id="my-plan" class="scroll-mt-16">
-          <MySpace
-            :workshops="workshops"
-            :plan-ids="planIds"
-            :plan="plan"
-            :is-signed-in="isSignedIn"
-            :friends="friends"
-            :partner-matches="partnerMatches"
-            @sign-in="onSignIn"
-            @invite-friends="onShare"
-            @add-workshop="toggleWorkshop"
-          />
         </section>
 
         <section v-if="teachers.length > 0" id="lineup" class="scroll-mt-16">
@@ -1586,6 +1543,43 @@ useHead({
         <section id="venue" class="scroll-mt-16">
           <h2 class="text-2xl font-black leading-tight mb-4 text-foreground">Venue</h2>
           <VenueTab :venue="festival.venue" />
+        </section>
+
+        <section id="activities" class="scroll-mt-16">
+          <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 mb-1">
+            <h2 class="text-2xl font-black leading-tight text-foreground">Going together</h2>
+            <!-- The old empty "Friends' Plans" box, as one button (RAZ-996). -->
+            <Button
+              v-if="workshops.length > 0"
+              type="button"
+              variant="link"
+              size="sm"
+              class="h-auto p-0 gap-1 text-xs font-bold font-sans"
+              @click="onShare"
+            >
+              <Share2 class="w-3.5 h-3.5" aria-hidden="true" /> Coming with friends? Share your plan
+            </Button>
+          </div>
+          <ActivitiesTab
+            :ride-shares="rideShares"
+            :group-dinners="groupDinners"
+            :extra-activities="extraActivities"
+            :hangouts="eventHangouts"
+            :looking-for-roommate="lookingForRoommate"
+            :roommate-others="roommateOthers"
+            :ride-error="rideError"
+            :roommate-error="roommateError"
+            :hotel-search-url="hotelSearchUrl"
+            :is-signed-in="isSignedIn"
+            @join-dinner="joinDinner"
+            @join-activity="joinActivity"
+            @post-ride="postRide"
+            @toggle-roommate="toggleRoommate"
+            @create-hangout="createEventHangout"
+            @toggle-hangout="toggleEventHangout"
+            @close-hangout="closeEventHangout"
+            @sign-in="onSignIn"
+          />
         </section>
     </div>
 
