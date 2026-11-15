@@ -1433,12 +1433,13 @@ function onLandingCardDone(role: DanceRole, styles: string[], name: string, city
   signUpPrefill.value = { name: name || undefined, danceStyles: styles, role: role as 'lead' | 'follow' | 'both', city: city || undefined }
 }
 
-// Signed-out landing: example dancers for the swipe deck (from the preview
-// deck). Emilia and Sasha both go to Timba Fest London, so two yeses show the
-// festival nudge.
+// Signed-out landing: three example dancers for the swipe deck (from the
+// preview deck) — enough to show the swipe, short enough to reach the dance
+// card. Emilia and Sasha both go to Timba Fest London, so two yeses show the
+// festival nudge; Klaus is a local regular.
+const LANDING_FRIEND_IDS = ['d2', 'd3', 'd4']
 const LANDING_FRIENDS = previewDeck
-  .filter((c): c is Extract<DeckCard, { photo: string }> => c.kind.startsWith('dancer-'))
-  .slice(0, 5)
+  .filter((c): c is Extract<DeckCard, { photo: string }> => LANDING_FRIEND_IDS.includes(c.id) && c.kind.startsWith('dancer-'))
   .map(c => ({
     id: c.id, name: c.name, city: c.city, photo: c.photo, danceStyles: c.danceStyles, reason: c.reason,
     festivalName: 'festivalName' in c ? c.festivalName : undefined,

@@ -178,5 +178,10 @@ function undo() {
     <p v-if="current" class="mt-3 text-xs text-center italic text-muted-foreground">
       Example dancers — drag or use the buttons · {{ people.length - index }} left
     </p>
+    <p v-if="current && $slots.end" class="mt-1 text-center">
+      <button type="button" class="text-xs font-bold underline text-primary" data-testid="skip-to-dance-card" @click="index = people.length">
+        Skip to my dance card →
+      </button>
+    </p>
   </div>
 </template>
