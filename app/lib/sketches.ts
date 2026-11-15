@@ -40,6 +40,17 @@ const pr = (n: number): SketchLink => ({ label: `PR #${n}`, url: `https://github
 
 export const SKETCHES: Sketch[] = [
   {
+    slug: 'rider',
+    title: 'Artist rider and the agreed sheet',
+    what: 'Four directions for what an organiser gets once an artist says yes (one agreed sheet per artist per event) and where the artist keeps their rider: a deal line in the line-up, a one-page agreement, a run sheet with to-dos, or the recommended sheet + short to-do with the rider saved from the first yes.',
+    why: 'After an artist agrees, the organiser sees one line ("Fee €120 · Needs: train from Vienna"), and a yes to a booking-page request never reaches WeDance at all.',
+    requestedBy: 'Alösha',
+    builtBy: 'Agent (Claude)',
+    created: '2026-11-15',
+    status: 'deciding',
+    ticket: linear('RAZ-965', 'give-organisers-a-full-rider-once-an-artist-says-yes'),
+  },
+  {
     slug: 'promoter',
     title: 'Promoter page that beats Linktree',
     what: 'Three directions for a promoter/agency profile, using Hummo Productions as the real case: tour-first, roster-first, or tabs (Concerts · Artists · Book) with a promoter view showing sync, clicks per city, auto IG stories and booking requests.',
