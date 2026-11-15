@@ -114,6 +114,17 @@ describe.skipIf(!DATABASE_URL)('rsvp router', () => {
     expect(f).toHaveLength(1)
   })
 
+  it('lists the people behind the counts for the organiser: names, answers, the signed-out guest without one', async () => {
+    const people = await caller(ids.ana, true).rsvp.people({ eventId: ids.event })
+    const byId = Object.fromEntries(people.filter(p => p.dancerId).map(p => [p.dancerId, p]))
+    expect(byId[ids.ana]).toMatchObject({ name: `ana ${RUN}`, answer: 'needLeader', confirmed: true })
+    expect(byId[ids.ben]).toMatchObject({ answer: 'needFollower', confirmed: true })
+    expect(byId[ids.cat]).toMatchObject({ answer: 'next' })
+    const guests = people.filter(p => !p.dancerId)
+    expect(guests).toEqual([expect.objectContaining({ name: null, answer: 'needFollower', confirmed: false })])
+    expect(JSON.stringify(people)).not.toContain('@test.wedance.local')
+  })
+
   it('drops an unconfirmed answer out of the count after 48 hours', async () => {
     const before = await caller(null).rsvp.poll({ event: ids.event })
     await db.update(schema.eventRsvps).set({ updatedAt: new Date(Date.now() - 49 * 3600_000) })
@@ -125,5 +136,6 @@ describe.skipIf(!DATABASE_URL)('rsvp router', () => {
 
   it('keeps the organiser view to the event’s managers', async () => {
     await expect(caller(ids.ben).rsvp.summary({ eventId: ids.event })).rejects.toThrow(/manage/i)
+    await expect(caller(ids.ben).rsvp.people({ eventId: ids.event })).rejects.toThrow(/manage/i)
   })
 })
