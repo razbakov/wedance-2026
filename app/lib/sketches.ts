@@ -40,6 +40,17 @@ const pr = (n: number): SketchLink => ({ label: `PR #${n}`, url: `https://github
 
 export const SKETCHES: Sketch[] = [
   {
+    slug: 'my-plan',
+    title: 'My plan on a time scale',
+    what: 'Five orders and namings of My plan: today’s far → near with "Where you’re …" headlines, near → far with time as the headline, the same plus a sticky Tonight · Week · Month · Year · Goal bar, one merged agenda, and the recommended bar + goal ring + "next up". Each scale gets its own "Post story".',
+    why: 'Four headlines mean the same thing ("Where you’re headed / going / dancing", "Where you show up"), "This week" appears twice, and tonight and this week, what people open the page for, sit at the bottom. RAZ-895 also wants each section to post its own story.',
+    requestedBy: 'Alösha',
+    builtBy: 'Agent (Claude)',
+    created: '2026-11-15',
+    status: 'deciding',
+    story: [linear('RAZ-895', 'let-each-my-plan-section-post-its-own-story-starting-with-the-weekend')],
+  },
+  {
     slug: 'contacts',
     title: 'Contacts: segments and what people do on WeDance',
     what: 'Five layouts of a page’s Contacts on its real data: segment sidebar, chips over the list, overview first, people cards, and the recommended overview strip + list. Each shows every source with its count, can / can’t email, and each contact’s activity (came to N events, going next, follows you).',
