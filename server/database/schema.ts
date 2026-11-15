@@ -1595,6 +1595,25 @@ export const profileContacts = pgTable('profile_contacts', {
   index('profile_contacts_profile_idx').on(t.profileId, t.createdAt),
 ])
 
+// Updates sent to a page's contacts (RAZ-960, migration 0072): who sent one, when, to which
+// segment (Contacts filters) and how many. Test sends to yourself aren't logged.
+export const contactUpdateSends = pgTable('contact_update_sends', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
+  sentBy: uuid('sent_by').references(() => dancers.id, { onDelete: 'set null' }),
+  segment: jsonb('segment').$type<import('../../shared/utils/contactUpdate').UpdateSegment>().notNull().default({} as any),
+  segmentLabel: text('segment_label').notNull().default(''),
+  subject: text('subject').notNull(),
+  body: text('body').notNull(),
+  eventId: uuid('event_id').references(() => events.id, { onDelete: 'set null' }),
+  template: text('template'),
+  recipients: integer('recipients').notNull().default(0),
+  failed: integer('failed').notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => [
+  index('contact_update_sends_profile_idx').on(t.profileId, t.createdAt),
+])
+
 // ---------------------------------------------------------------------------
 // MCP server: WeDance as its own OAuth 2.1 authorization server (migration 0050,
 // docs/proposals/2026-10-18-mcp-server.md). Identities stay in `dancers`; an

@@ -447,3 +447,11 @@ export const EventCopySchema = v.object({
 export const EventCancelSchema = v.object({
   reason: optionalText(280, 'Keep the reason under 280 characters.'),
 })
+
+// ── Business (contactUpdates.sendTest / send — RAZ-960) ──────────────────────
+
+/** An update to a segment of a page's contacts: a subject and the words ({name} = first name). */
+export const ContactUpdateSchema = v.object({
+  subject: v.pipe(requiredText('Write a subject.'), v.maxLength(150, 'Keep the subject under 150 characters.')),
+  body: v.pipe(requiredText('Write your update.'), v.maxLength(5000, 'Keep it under 5000 characters.')),
+})

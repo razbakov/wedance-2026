@@ -38,6 +38,7 @@ import { businessPostsRouter } from './routers/businessPosts'
 import { instagramRouter } from './routers/instagram'
 import { businessLooksRouter } from './routers/businessLooks'
 import { businessSiteRouter } from './routers/businessSite'
+import { contactUpdatesRouter } from './routers/contactUpdates'
 import { businessTeamRouter } from './routers/businessTeam'
 import { businessNetworkRouter } from './routers/businessNetwork'
 import { waveRouter } from './routers/wave'
@@ -88,6 +89,7 @@ export const appRouter = router({
   instagram: instagramRouter,
   businessLooks: businessLooksRouter,
   businessSite: businessSiteRouter,
+  contactUpdates: contactUpdatesRouter,
   businessTeam: businessTeamRouter,
   businessNetwork: businessNetworkRouter,
   roommate: roommateRouter,

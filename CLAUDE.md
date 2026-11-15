@@ -391,6 +391,21 @@ Code: `server/utils/yearReview.ts` (`plan.yearReview`), `shared/utils/yearReview
 `app/lib/yearReviewStory.ts` (one 1080×1920 picture per screen, `storyCanvas.ts`), `app/components/YearReview.vue`.
 The festival-plan story for `?user=` links (RAZ-897) is unchanged.
 
+## Send an update to contacts (RAZ-960)
+
+Contacts (`/business/network/<handle>/contacts`) → **Send an update** (`BusinessContactUpdate`, `contactUpdates` router):
+the segment is what the rail's filters show (source, WeDance activity, one event + how they're coming — not the search
+box). Recipients = `shared/utils/contactUpdate.ts` `updateAudience`: only contacts the page may email (`emailBlock`,
+RAZ-959), one email per address; **imported lists** (`IMPORTED_SOURCES`: HubSpot import / by hand, wedance.vip, other)
+are left out unless "Include imported lists" is ticked (pre-ticked only when an imported source chip is picked) — and
+even then only those who opted in. Template "Invite to my next event" = the page's upcoming events (published, not
+cancelled) → subject + words + an event card with "I'm coming" (`/events/<id>#rsvp`). Preview (`preview`, also the
+count), "Send a test to me" (`sendTest`, `[Test]`, not logged), send (`send` with `expected` = the count shown — a
+changed count or the same words within 10 min is refused). Resend batches of 100, max 2000 per send; each email has
+`List-Unsubscribe` + `List-Unsubscribe-Post` (one-click, `server/api/contacts/unsubscribe.post.ts`, that page only).
+Every send is logged in `contact_update_sends` (0072: sender, time, segment + label, words, event, sent / failed).
+Only owners and editors can test or send. Nothing goes out without the organiser's click; the procedures aren't in the scope map and refuse tokens (`noApps`).
+
 ## Analytics (PostHog)
 
 **Setup.** Client: `app/plugins/03.posthog.client.ts` (posthog-js, EU host, manual `$pageview`
@@ -507,6 +522,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `city_schedule_published` | `BusinessCitySchedule` (city page → Weekly post: Post to feed / story / Telegram) | `city`, `to` (instagram_feed / instagram_story / telegram) |
 | `city_occasion_published` | `BusinessCityOccasion` (city page → Plan → an occasion: Post to feed / story / Telegram, RAZ-970) | `city`, `occasion` (e.g. buss-und-bettag), `to` |
 | `city_occasion_asked` | `BusinessCityOccasion` → Ask organisers (email sent) | `city`, `occasion`, `pages` |
+| `contact_update_test_sent` / `contact_update_sent` | `BusinessContactUpdate` (Contacts → Send an update: "Send a test to me" / "Yes, send to N people", RAZ-960) | `profile`, `has_event`, `template` (invite_next_event / null) · sent: `recipients`, `include_imported` |
 
 ### Server events (`trackServer`, all prefixed `server_`)
 
@@ -557,6 +573,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `server_city_schedule_published` | `citySchedule.publishInstagram` / `publishTelegram` | `city`, `to` (instagram_feed / instagram_story / telegram), `events`, `channels`, `with_picture`, `$groups` |
 | `server_city_occasion_published` | `cityOccasions.publishInstagram` / `publishTelegram` (RAZ-970) | `city`, `occasion`, `kind` (silent / party / season), `to`, `langs`, `channels`, `$groups` |
 | `server_city_occasion_asked` | `cityOccasions.ask` (organisers with events in the city emailed) | `city`, `occasion`, `kind`, `pages`, `emails`, `$groups` |
+| `server_contact_update_sent` | `contactUpdates.send` (Contacts → Send an update, web only — tokens can't call it; RAZ-960) | `profile`, `profile_type`, `recipients` (sent), `failed`, `has_event`, `template`, `include_imported`, `filters` (how many segment filters), `left_out_imported`, `$groups` |
 | `server_city_admin_added` | `cityChannels.addAdmin` (Admin → Cities) | `city`, `role`, `$groups` |
 | `server_weekend_shared` | `weekend.share` (new link only; My plan makes it on its own to show the story, MCP `share_my_weekend`) | `events`, `replaced_previous`, `surface` (my_plan / mcp / web) — `my_plan` is not a share intent; count intent on `weekend_story_shared` |
 | `server_weekend_joined` | `weekend.join` (a friend's first "I'm in" on a party) | `signed_in`, `coming`, `friends` |

@@ -436,6 +436,52 @@ export async function sendSiteWelcomeEmail(params: {
   })
 }
 
+export interface ContactUpdateMessage {
+  to: string
+  subject: string
+  html: string
+  text: string
+  unsubscribeUrl: string
+}
+
+/**
+ * An update to a page's contacts (RAZ-960), sent in batches of 100 (Resend's batch API).
+ * Every message carries the page's one-click unsubscribe (List-Unsubscribe + RFC 8058 POST).
+ * Returns how many went out and how many failed; never throws. Logged instead of sent
+ * when Resend isn't configured (local dev).
+ */
+export async function sendContactUpdates(params: { profileName: string, replyTo?: string | null, messages: ContactUpdateMessage[] }): Promise<{ sent: number, failed: number }> {
+  const config = useRuntimeConfig()
+  if (!params.messages.length) return { sent: 0, failed: 0 }
+  if (!config.resendApiKey) {
+    for (const m of params.messages) console.log(`\n✉️  ${m.to}: ${m.subject}\n${m.text}\n`)
+    return { sent: params.messages.length, failed: 0 }
+  }
+  const from = (config.resendFromEmail || 'WeDance <noreply@wedance.vip>').replace(/^[^<]*</, `${params.profileName.replace(/[<>"]/g, '')} <`)
+  let sent = 0
+  let failed = 0
+  for (let i = 0; i < params.messages.length; i += 100) {
+    const chunk = params.messages.slice(i, i + 100)
+    try {
+      const r: any = await getResend().batch.send(chunk.map(m => ({
+        from,
+        to: m.to,
+        subject: m.subject,
+        html: m.html,
+        text: m.text,
+        ...(params.replyTo ? { replyTo: params.replyTo } : {}),
+        headers: { 'List-Unsubscribe': `<${m.unsubscribeUrl}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' },
+      })))
+      if (r?.error) { failed += chunk.length; console.error('[contact update] batch failed', r.error) }
+      else sent += chunk.length
+    } catch (e) {
+      failed += chunk.length
+      console.error('[contact update] batch failed', e)
+    }
+  }
+  return { sent, failed }
+}
+
 /** Gigs (MCP phase 2): someone applied to a gig role. Goes to the gig's contact email. */
 export async function sendGigApplicationEmail(params: {
   to: string

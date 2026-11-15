@@ -10,9 +10,11 @@
  * An event filter (`?event=<id>&as=<how>`, linked from the event's "Who's coming")
  * narrows the list to the contacts coming to one event and says how many others
  * signed up without being a contact.
- * Data: businessSite.contactsOverview. Nothing here sends email (RAZ-960).
+ * "Send an update" (RAZ-960, BusinessContactUpdate) emails the segment the filters show:
+ * only people the page may email, imported lists off unless ticked in.
+ * Data: businessSite.contactsOverview.
  */
-import { Download, Search, Trash2, Globe, StickyNote, Check, X, SlidersHorizontal, MailCheck, MailX, Users, CalendarCheck, Repeat, Moon, Sparkles, Heart, CalendarDays } from 'lucide-vue-next'
+import { Download, Mail, Search, Trash2, Globe, StickyNote, Check, X, SlidersHorizontal, MailCheck, MailX, Users, CalendarCheck, Repeat, Moon, Sparkles, Heart, CalendarDays } from 'lucide-vue-next'
 import { ACTIVITY_FILTERS, COMING_AS_LABEL, COMING_AS_ORDER, contactSegments, emailBlock, type ActivityFilter, type ComingAs, type ContactSourceKey } from '#shared/utils/contactSegments'
 import { comingCounts, contactsCsv, emptyFilter, filterContacts, isFiltered, sourceDetail, toggle, type ContactFilter } from '~/lib/contactFilters'
 
@@ -71,6 +73,9 @@ const toggleSource = (k: ContactSourceKey) => { f.sources = toggle(f.sources, k)
 const toggleAct = (a: ActivityFilter) => { f.activity = toggle(f.activity, a) }
 const setEmail = (e: ContactFilter['email']) => { f.email = f.email === e ? 'any' : e }
 const clear = () => Object.assign(f, emptyFilter())
+// The segment an update goes to: the rail's filters (not the search box).
+const updating = ref(false)
+const updateSegment = computed(() => ({ sources: [...f.sources], activity: [...f.activity], event: f.event, as: f.event ? f.as : null }))
 const filterCount = computed(() => f.sources.length + f.activity.length + (f.email !== 'any' ? 1 : 0) + (f.event ? 1 : 0))
 
 const detail = (r: Row) => [r.locale?.toUpperCase(), sourceDetail(r.source), r.source?.promo_code ? `code ${r.source.promo_code}` : ''].filter(Boolean).join(' · ')
@@ -119,6 +124,7 @@ function csv() {
         <Button variant="outline-pill" size="pill-sm" as-child>
           <NuxtLink :to="`/business/network/${username}/website`"><Globe /> Website</NuxtLink>
         </Button>
+        <Button v-if="segs.canEmail" variant="pill" size="pill-sm" :aria-expanded="updating" data-contacts-send-update @click="updating = !updating"><Mail /> Send an update</Button>
         <Button variant="outline-pill" size="pill-sm" :disabled="!shown.length" @click="csv"><Download /> CSV<template v-if="isFiltered(f)"> · {{ shown.length }}</template></Button>
       </AdminPageHeader>
       <p v-if="segs.total" class="mt-2 text-sm">
@@ -138,6 +144,8 @@ function csv() {
         </p>
         <Button type="button" variant="link" size="sm" class="h-auto p-0" @click="f.event = null"><X /> Show all contacts</Button>
       </div>
+
+      <BusinessContactUpdate v-if="updating" :username="username" :page-name="data.profile.name" :segment="updateSegment" :event-name="chosenEvent?.name" @close="updating = false" />
 
       <AdminState v-if="!segs.total" kind="empty" message="No contacts yet. People who sign up on your website, and lists you import, show up here." class="mt-6" />
 
