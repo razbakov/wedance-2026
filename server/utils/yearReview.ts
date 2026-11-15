@@ -18,7 +18,7 @@ import {
   attendances, dancers, eventRsvps, events, festivals, planItems, profiles, weekendShareJoins, weekendShares,
 } from '../database/schema'
 import { buildYearReview, type YearNight, type YearReview } from '../../shared/utils/yearReview'
-import { isClassType } from './myPlanFeeds'
+import { festivalPlanSlugs, isClassType } from './myPlanFeeds'
 
 type Db = any
 
@@ -105,7 +105,8 @@ export async function yearNights(db: Db, dancerId: string, year: number, now = n
   // Festivals from the year plan: a real festival row (mock slugs don't resolve), started this year, before now.
   const planned = await db.select({ slug: planItems.itemId }).from(planItems)
     .where(and(eq(planItems.dancerId, dancerId), eq(planItems.itemType, 'festival')))
-  const slugs = planned.map((p: any) => p.slug as string).filter(Boolean)
+  // Only real festivals, as My plan counts them (RAZ-983: a workshop saved from its page is not one).
+  const slugs = [...await festivalPlanSlugs(db, planned.map((p: any) => p.slug as string).filter(Boolean))]
   if (slugs.length) {
     const rows = await db
       .select({ slug: festivals.slug, name: festivals.name, startDate: festivals.startDate, endDate: festivals.endDate, city: festivals.city, country: festivals.country, styles: festivals.styles })
@@ -149,13 +150,15 @@ async function friendsJoined(db: Db, dancerId: string, year: number): Promise<nu
 
 /** Real festivals already in the plan for `year`. */
 async function festivalsPlannedFor(db: Db, dancerId: string, year: number): Promise<number> {
+  const planned = await db.select({ slug: planItems.itemId }).from(planItems)
+    .where(and(eq(planItems.dancerId, dancerId), eq(planItems.itemType, 'festival')))
+  const slugs = [...await festivalPlanSlugs(db, planned.map((p: any) => p.slug as string).filter(Boolean))]
+  if (!slugs.length) return 0
   const [row] = await db
     .select({ n: sql<number>`count(*)::int` })
-    .from(planItems)
-    .innerJoin(festivals, eq(festivals.slug, planItems.itemId))
+    .from(festivals)
     .where(and(
-      eq(planItems.dancerId, dancerId),
-      eq(planItems.itemType, 'festival'),
+      inArray(festivals.slug, slugs),
       gte(festivals.startDate, `${year}-01-01`),
       lt(festivals.startDate, `${year + 1}-01-01`),
     ))

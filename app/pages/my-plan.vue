@@ -27,6 +27,7 @@ import { citySlug as toCitySlug } from '#shared/utils/citySearch'
 import { initialOf } from '#shared/utils/initials'
 import { planView, authPending } from '~/lib/planView'
 import { isYearTurn } from '#shared/utils/yearReview'
+import { yearShareUrl, type YearStoryFestival } from '#shared/utils/yearStory'
 
 definePageMeta({ layout: false })
 
@@ -42,6 +43,7 @@ const {
   danceStyles: dancerStylesReal,
   photo: dancerPhotoReal,
   profilePublic: dancerPublicReal,
+  username: dancerUsername,
   onboardedAt: onboardedAtReal,
   justRegistered,
   isLoading: authLoading,
@@ -184,9 +186,13 @@ type CatalogueEntry = typeof catalogue[number]
 // These are the user's actual picked festivals resolved against the festivals table.
 const dbFestivals = ref<CatalogueEntry[]>([])
 
+// City and country apart, for the year story's place line and its "countries" count.
+const festivalPlaces = ref<Record<string, { city: string; country: string }>>({})
+
 async function loadMyPlanFestivals() {
   try {
     const rows = await $trpc.plan.myPlan.query()
+    festivalPlaces.value = Object.fromEntries(rows.map(r => [r.slug, { city: r.location, country: r.country }]))
     dbFestivals.value = rows.map(r => ({
       slug: r.slug,
       name: r.name,
@@ -221,6 +227,25 @@ const picked = computed(() => {
   return dbFestivals.value
     .filter(f => effectivePickIds.value.has(f.slug))
     .sort((a, b) => a.startDate.localeCompare(b.startDate))
+})
+
+// Share your festival year (RAZ-897, moved here from /my-year in RAZ-966): the
+// story of the festivals still ahead, in place under "This year" — like the
+// weekend story under "This week". Its link opens /my-year?user=<you>.
+const yearStoryFestivals = computed<YearStoryFestival[]>(() => picked.value
+  .filter(f => eventPhase(f.startDate, f.endDate) !== 'past')
+  .map(f => ({
+    name: f.name,
+    startDate: f.startDate,
+    endDate: f.endDate,
+    location: festivalPlaces.value[f.slug]?.city ?? f.location,
+    country: festivalPlaces.value[f.slug]?.country ?? '',
+    styles: f.styles ?? [],
+  })))
+const yearShareLink = ref('')
+onMounted(() => { yearShareLink.value = yearShareUrl(window.location.origin, dancerUsername.value, dancerIdReal.value) })
+watch([dancerUsername, dancerIdReal], () => {
+  if (import.meta.client) yearShareLink.value = yearShareUrl(window.location.origin, dancerUsername.value, dancerIdReal.value)
 })
 
 // Nothing is ever added to a real plan without the dancer's own action:
@@ -2948,6 +2973,21 @@ function cardSummary(f: CatalogueEntry) {
           </div>
         </div>
       </div>
+
+      <!-- The festival-year story, ready to post (RAZ-897 → here in RAZ-966). -->
+      <YearStory
+        v-if="!previewMode && yearStoryFestivals.length && yearShareLink"
+        :festivals="yearStoryFestivals"
+        :sharer-name="(dancerName || '').split(' ')[0] || ''"
+        :url="yearShareLink"
+        surface="my_plan"
+        class="mt-6 mb-10"
+      >
+        <p v-if="dancerPublicReal === false" class="mt-3 text-sm font-sans text-orange-700" data-testid="year-story-private">
+          Your profile is private, so friends who open the link won't see your year.
+          <NuxtLink to="/settings" class="underline font-bold">Make it public</NuxtLink>
+        </p>
+      </YearStory>
 
       <!-- GOALS · the long arc, after the year it shapes. -->
       <div id="goals" class="mt-4">

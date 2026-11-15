@@ -4,8 +4,8 @@
  * (`~/lib/yearStory`), "Share to story" through the phone's share sheet (the
  * link copied first, for the link sticker), "Save picture", "Copy link", and
  * the sharer's own line. The link opens their year page (/my-year?user=…).
- * Same panel as the weekend story (`WeekendStory.vue`). Shown in
- * `ShareYearPlanModal`.
+ * Same panel as the weekend story (`WeekendStory.vue`). Shown in place in
+ * My plan, under "This year" (RAZ-966).
  */
 import { Check, Copy, Download, Instagram, Loader2, Shuffle } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
