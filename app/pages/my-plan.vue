@@ -19,6 +19,7 @@ import { detectDanceStyle, relatedDanceStyles } from '#shared/dance-styles'
 import * as cubanFire from '~/data/mock-cuban-fire'
 import * as caribbeanUrbanFire from '~/data/mock-caribbean-urban-fire'
 import { WD } from '~/lib/brand'
+import { meetVisibility } from '#shared/utils/meetFriends'
 import { previewOnlyFestivals } from '~/data/mock-preview-festivals'
 import { eventPath, festivalPath } from '#shared/utils/eventSlug'
 import { weekendKey } from '#shared/utils/weekendShare'
@@ -38,6 +39,8 @@ const {
   dancerName: dancerNameReal,
   city: dancerCityReal,
   danceStyles: dancerStylesReal,
+  photo: dancerPhotoReal,
+  profilePublic: dancerPublicReal,
   onboardedAt: onboardedAtReal,
   justRegistered,
   isLoading: authLoading,
@@ -1603,6 +1606,19 @@ function commitSwipe(direction: 'yes' | 'skip' | 'later') {
   }, 260)
 }
 
+// RAZ-981: say who the deck shows, whether the dancer is in other people's
+// decks, and what to do after a Yes (it is private — nobody is told).
+const meVisible = computed(() => meetVisibility({
+  profilePublic: previewMode.value ? true : dancerPublicReal.value,
+  photo: previewMode.value ? 'preview' : dancerPhotoReal.value,
+  city: dancerCity.value,
+}))
+/** The dancer card of the latest Yes, for the "now meet them" line under the deck. */
+const lastYes = computed(() => {
+  const last = swipeHistory.value[swipeHistory.value.length - 1]
+  return last?.direction === 'yes' && isPersonCard(last.card) ? last.card : null
+})
+
 function addNudge(card: Extract<DeckCard, { kind: 'dancer-new-fest' }>) {
   const existing = festivalNudges.value.find(n => n.festivalSlug === card.festivalSlug)
   if (existing) {
@@ -1831,9 +1847,29 @@ function cardSummary(f: CatalogueEntry) {
             <Undo2 aria-hidden="true" /> Undo
           </Button>
         </div>
-        <p class="text-sm mb-6 max-w-xl text-muted-foreground font-sans">
-          Yes = you'd like to dance with them. Say yes to two people heading to the same festival and we'll suggest it for your year. Skip = we won't show them again.
-        </p>
+        <!-- RAZ-981: who is here, are you here, what happens next. -->
+        <div class="mb-6 max-w-xl space-y-2 text-sm text-muted-foreground font-sans" data-testid="meet-explainer">
+          <p>
+            <span class="font-bold text-foreground">Who's here:</span>
+            dancers with a public profile and a photo who dance in your city, or who chose "Show me" for a festival.
+          </p>
+          <p data-testid="meet-you">
+            <span class="font-bold text-foreground">You:</span>
+            {{ meVisible.text }}
+            <NuxtLink v-if="meVisible.missing.length" to="/settings" class="font-bold text-primary hover:underline whitespace-nowrap">
+              Open Settings <ArrowRight class="inline w-3.5 h-3.5" aria-hidden="true" />
+            </NuxtLink>
+            <template v-if="meVisible.shown">
+              To be found by a festival's dancers, tap "Show me" in "Shall we dance?" on its page.
+            </template>
+          </p>
+          <p>
+            <span class="font-bold text-foreground">How it works:</span>
+            Yes = you'd like to dance with them. Only you see it — they aren't told. Then meet on the floor:
+            wave at them on the festival's page, or go out the same night. Two yeses for the same festival and we suggest it for your year.
+            Skip = we won't show them again; the clock = later.
+          </p>
+        </div>
 
         <!-- Deck -->
         <div class="relative mx-auto max-w-md">
@@ -1844,6 +1880,10 @@ function cardSummary(f: CatalogueEntry) {
             </p>
             <p class="mt-2 text-sm text-muted-foreground font-sans">
               You've seen everyone and everything we have for you right now. New dancers and events show up here as they join WeDance.
+            </p>
+            <p class="mt-2 text-sm text-muted-foreground font-sans">
+              Next: <a href="#socials" class="font-bold text-primary hover:underline">go dancing this week</a> or
+              <a href="#festivals" class="font-bold text-primary hover:underline">add a festival</a> — that's where you meet them.
             </p>
           </div>
 
@@ -2027,6 +2067,17 @@ function cardSummary(f: CatalogueEntry) {
 
           <p v-if="deckCurrent" class="mt-4 text-xs text-center italic text-secondary font-display">
             Drag or use the buttons · {{ deck.length }} left
+          </p>
+
+          <!-- After a Yes: the next step toward actually meeting them (RAZ-981). -->
+          <p v-if="lastYes" class="mt-4 text-sm text-center text-muted-foreground font-sans" data-testid="meet-next-step" aria-live="polite">
+            <span class="font-bold text-foreground">Yes to {{ lastYes.name }}.</span>
+            <template v-if="(lastYes.kind === 'dancer-your-fest' || lastYes.kind === 'dancer-new-fest') && !previewMode">
+              Next: <NuxtLink :to="`${festivalPath(lastYes.festivalSlug)}#discover`" class="font-bold text-primary hover:underline">wave at them on {{ lastYes.festivalName }}</NuxtLink>.
+            </template>
+            <template v-else>
+              Next: <a href="#socials" class="font-bold text-primary hover:underline">pick a night out this week</a> — locals meet on the floor.
+            </template>
           </p>
         </div>
       </div>

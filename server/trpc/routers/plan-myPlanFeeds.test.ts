@@ -94,6 +94,7 @@ describe.skipIf(!DATABASE_URL)('my-plan feeds', () => {
     // RAZ-982: a one-hour workshop with a programme — it gets a 'festival' plan
     // item and a legacy festivals row, but it is not a festival.
     await addDancer('workshopper', { photo: 'https://example.com/w.jpg' })
+    await addDancer('quiet', { photo: 'https://example.com/q.jpg' })
     await db.insert(schema.festivals).values({ slug: WORKSHOP, name: `Workshop ${RUN}` })
     await addEvent('workshopEvent', {
       slug: WORKSHOP, type: 'Workshop', isFestival: false, festival: { key: WORKSHOP } as any,
@@ -101,13 +102,15 @@ describe.skipIf(!DATABASE_URL)('my-plan feeds', () => {
     })
     await db.insert(schema.planItems).values([
       { dancerId: ids.workshopper, itemType: 'festival', itemId: WORKSHOP },
-      { dancerId: ids.withPhoto, itemType: 'festival', itemId: FEST },
+      { dancerId: ids.withPhoto, itemType: 'festival', itemId: FEST, shareGoing: true },
+      // Going too, but hasn't shared it (RAZ-981): no festival on their card.
+      { dancerId: ids.quiet, itemType: 'festival', itemId: FEST },
       { dancerId: ids.friend, itemType: 'event', itemId: ids.socialSoon },
     ])
   })
 
   afterAll(async () => {
-    const dancerIds = Object.entries(ids).filter(([k]) => ['me', 'withPhoto', 'noPhoto', 'emptyPhoto', 'friend', 'workshopper'].includes(k)).map(([, v]) => v)
+    const dancerIds = Object.entries(ids).filter(([k]) => ['me', 'withPhoto', 'noPhoto', 'emptyPhoto', 'friend', 'workshopper', 'quiet'].includes(k)).map(([, v]) => v)
     const eventIds = Object.entries(ids).filter(([k]) => !dancerIds.includes(ids[k]!)).map(([, v]) => v)
     await db.delete(schema.discoverSwipes).where(inArray(schema.discoverSwipes.dancerId, dancerIds))
     await db.delete(schema.attendances).where(inArray(schema.attendances.dancerId, dancerIds)).catch(() => {})
@@ -294,6 +297,13 @@ describe.skipIf(!DATABASE_URL)('my-plan feeds', () => {
       const card = cards.find(c => c.targetKind === 'dancer' && c.targetId === ids.workshopper)
       expect(card?.kind).toBe('dancer-local')
       expect(card && 'festivalName' in card ? card.festivalName : undefined).toBeUndefined()
+    })
+
+    it('only says someone is going to a festival when they share it (RAZ-981)', async () => {
+      const { cards } = await caller(ids.me!).plan.discover()
+      const card = cards.find(c => c.targetKind === 'dancer' && c.targetId === ids.quiet)
+      expect(card?.kind).toBe('dancer-local')
+      expect(card && 'festivalSlug' in card ? card.festivalSlug : undefined).toBeUndefined()
     })
 
     it('a Skip is stored and the card does not come back; undo brings it back', async () => {
