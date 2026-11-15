@@ -29,6 +29,8 @@ const props = defineProps<{
   type?: string | null
   /** A dated event (not a festival) shown in this view: its RSVP is the organiser's poll (RAZ-718). */
   rsvp?: { eventId: string; path: string; startDate: string; endDate?: string | null; timezone?: string | null; organizerName?: string | null } | null
+  /** Cancelled by its organiser (RAZ-948): the hero says so; no poll, no passes. */
+  cancelled?: { reason?: string | null } | null
 }>()
 const kind = computed(() => (props.type || 'festival').toLowerCase())
 const data = props.data
@@ -1122,14 +1124,15 @@ useHead({
     <div v-if="editTo" class="border-b bg-secondary/[8%] border-border">
       <div class="max-w-3xl mx-auto px-4 py-2 flex items-center gap-3 text-sm font-sans">
         <span class="text-muted-foreground">You manage this {{ kind }}.</span>
-        <Button variant="outline-pill" size="pill-sm" class="ml-auto" as-child>
+        <EventUncancel v-if="cancelled" :event-id="data.eventId" class="ml-auto" />
+        <Button variant="outline-pill" size="pill-sm" :class="cancelled ? '' : 'ml-auto'" as-child>
           <NuxtLink :to="editTo"><Pencil /> Edit {{ kind }}</NuxtLink>
         </Button>
       </div>
     </div>
 
     <div ref="heroRef">
-      <FestivalHero :festival="heroFestival" :picked="heroPicked" :free-entry="freeEntry" :venue-address="festival.venue?.address" :map-url="festival.venue?.coordinates?.lat != null ? `https://www.google.com/maps/search/?api=1&query=${festival.venue.coordinates.lat},${festival.venue.coordinates.lng}` : (festival.venue?.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(festival.venue.address)}` : undefined)" @pick="onPick">
+      <FestivalHero :festival="heroFestival" :picked="heroPicked" :cancelled="cancelled" :free-entry="freeEntry" :venue-address="festival.venue?.address" :map-url="festival.venue?.coordinates?.lat != null ? `https://www.google.com/maps/search/?api=1&query=${festival.venue.coordinates.lat},${festival.venue.coordinates.lng}` : (festival.venue?.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(festival.venue.address)}` : undefined)" @pick="onPick">
         <!-- A dated event: the organiser's poll is the Going question. -->
         <template v-if="rsvp" #cta>
           <div id="rsvp" class="mt-4 max-w-xl scroll-mt-16">
