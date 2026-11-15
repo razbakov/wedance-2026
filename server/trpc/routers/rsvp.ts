@@ -26,6 +26,8 @@ import { CONTACT_PHONE_MAX, contactPageFor, contactState, setContactShared } fro
 
 const eventParam = z.string().min(1).max(160)
 const guestToken = z.string().uuid()
+/** Faces the poll lists at most; anyone past it is still in the counts. */
+const VOTERS_MAX = 60
 
 type Ev = { id: string; styles: string[] | null; organizerUsername: string | null; venueUsername: string | null; hostProfileId: string | null }
 
@@ -91,6 +93,33 @@ async function pollFor(db: any, ev: Ev, viewer: { dancerId: string | null; guest
     matches = rows.map((r: any) => ({ dancerId: r.dancerId, name: String(r.name || '').split(' ')[0], photo: r.photo, username: r.username, waved: waved.has(r.dancerId) }))
   }
 
+  // Who's coming (RAZ-974): like a WhatsApp poll, a signed-in viewer sees who
+  // answered what. Confirmed answers of dancers whose profile is public, first
+  // name + photo only; the rest stay in the counts.
+  let voters: { dancerId: string; name: string; photo: string | null; username: string | null; answer: RsvpAnswer; me: boolean }[] = []
+  if (viewer.dancerId) {
+    const rows = await db
+      .select({ dancerId: dancers.id, name: dancers.name, photo: dancers.photo, username: dancers.username, answer: eventRsvps.answer, profilePublic: dancers.profilePublic })
+      .from(eventRsvps)
+      .innerJoin(dancers, eq(eventRsvps.dancerId, dancers.id))
+      .where(and(
+        eq(eventRsvps.eventId, ev.id),
+        ne(eventRsvps.answer, 'next'),
+        isNotNull(eventRsvps.confirmedAt),
+        or(eq(dancers.profilePublic, true), eq(dancers.id, viewer.dancerId)),
+      ))
+      .orderBy(eventRsvps.confirmedAt)
+      .limit(VOTERS_MAX)
+    voters = rows.map((r: any) => ({
+      dancerId: r.dancerId,
+      name: String(r.name || '').split(' ')[0],
+      photo: r.photo,
+      username: r.profilePublic === false ? null : r.username,
+      answer: r.answer as RsvpAnswer,
+      me: r.dancerId === viewer.dancerId,
+    }))
+  }
+
   // "Let <page> keep in touch": for a signed-in dancer who's coming.
   let contact: { page: string; shared: boolean; phone: string | null } | null = null
   if (viewer.dancerId && mine?.confirmedAt && mine.answer !== 'next') {
@@ -107,6 +136,7 @@ async function pollFor(db: any, ev: Ev, viewer: { dancerId: string | null; guest
     coming: s.coming,
     mine: mine ? { answer: mine.answer as RsvpAnswer, confirmed: !!mine.confirmedAt } : null,
     matches,
+    voters,
   }
 }
 

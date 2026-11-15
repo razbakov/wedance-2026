@@ -115,6 +115,26 @@ describe.skipIf(!DATABASE_URL)('rsvp router', () => {
     expect(f).toHaveLength(1)
   })
 
+  it('shows a signed-in dancer who answered what, like a WhatsApp poll (RAZ-974)', async () => {
+    // Now: ana needs a leader, ben needs a follower (both confirmed), cat said next time, one guest unconfirmed.
+    const p = await caller(ids.ben).rsvp.poll({ event: ids.event })
+    const byId = Object.fromEntries(p.voters.map(v => [v.dancerId, v]))
+    expect(Object.keys(byId).sort()).toEqual([ids.ana, ids.ben].sort())
+    expect(byId[ids.ana]).toMatchObject({ name: 'ana', answer: 'needLeader', me: false })
+    expect(byId[ids.ben]).toMatchObject({ answer: 'needFollower', me: true })
+    expect(JSON.stringify(p.voters)).not.toContain('@test.wedance.local')
+    // Signed out: counts only, no people.
+    expect((await caller(null).rsvp.poll({ event: ids.event, guestToken: GUEST })).voters).toEqual([])
+    // A private profile stays a number to others, but sees itself.
+    await db.update(schema.dancers).set({ profilePublic: false }).where(eq(schema.dancers.id, ids.ana))
+    try {
+      expect((await caller(ids.ben).rsvp.poll({ event: ids.event })).voters.map(v => v.dancerId)).toEqual([ids.ben])
+      expect((await caller(ids.ana).rsvp.poll({ event: ids.event })).voters.find(v => v.me)?.dancerId).toBe(ids.ana)
+    } finally {
+      await db.update(schema.dancers).set({ profilePublic: true }).where(eq(schema.dancers.id, ids.ana))
+    }
+  })
+
   it('lists the people behind the counts for the organiser: names, answers, the signed-out guest without one', async () => {
     const people = await caller(ids.ana, true).rsvp.people({ eventId: ids.event })
     const byId = Object.fromEntries(people.filter(p => p.dancerId).map(p => [p.dancerId, p]))

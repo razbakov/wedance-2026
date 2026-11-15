@@ -12,13 +12,18 @@
  * sheet. A confirmed "I need a leader" sees who needs a follower, with a wave.
  * A confirmed dancer who's coming can also "Let <page> keep in touch": their
  * email (and a phone, if they add one) goes to the page's Contacts (rsvp.shareContact).
+ * Signed in, it reads like a WhatsApp poll (RAZ-974): faces on each answer and
+ * "See who's coming" (rsvp.poll `voters` — confirmed, public profiles, first
+ * names). Inviting friends is My plan → Share: a dancer who's coming this week
+ * gets a link there.
  */
-import { Check, Hand, Mail } from 'lucide-vue-next'
+import { ArrowRight, Check, ChevronDown, Hand, Mail, Share2 } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
 import { RsvpContactSchema, RsvpEmailSchema } from '#shared/validation'
 import { rsvpOptions, type RsvpAnswer } from '#shared/utils/rsvp'
 import { eventLocalDate } from '#shared/utils/eventTime'
 import { initialsOf } from '#shared/utils/initials'
+import { sizedImage, IMG } from '#shared/utils/image'
 
 const props = defineProps<{
   /** Event id (or its /events/<param>). */
@@ -63,6 +68,27 @@ const ended = computed(() => {
   const end = props.endDate ? new Date(props.endDate) : new Date(new Date(props.startDate).getTime() + 3 * 3600_000)
   return end.getTime() < Date.now()
 })
+
+// Who's coming: the faces behind each answer (signed in only — the server sends none otherwise).
+type Voter = Poll['voters'][number]
+const votersBy = computed(() => {
+  const by: Record<string, Voter[]> = {}
+  for (const v of poll.value?.voters ?? []) (by[v.answer] ||= []).push(v)
+  return by
+})
+const showWho = ref(false)
+const NuxtLink = resolveComponent('NuxtLink')
+const whoGroups = computed(() => options.value
+  .map(o => {
+    const people = votersBy.value[o.id] ?? []
+    return { id: o.id, label: o.label, people, more: Math.max(0, (poll.value?.counts[o.id] ?? 0) - people.length) }
+  })
+  .filter(g => g.people.length || g.more))
+
+// Inviting friends = My plan → Share (the week's story, RAZ-895). It holds the
+// coming week's parties, so the link shows for an event in the next 7 days.
+const shareInPlan = computed(() => going.value && !!mine.value?.confirmed
+  && new Date(props.startDate).getTime() - Date.now() < 7 * 86400_000)
 
 // The anonymous browser's key for its unconfirmed answer.
 const GUEST_KEY = 'wd-rsvp-guest'
@@ -195,7 +221,13 @@ async function shareContact(share: boolean) {
           <Check v-if="mine?.answer === o.id" class="w-3 h-3 text-primary-foreground" aria-hidden="true" />
         </span>
         <span class="relative font-semibold text-foreground">{{ o.label }}</span>
-        <span class="relative ml-auto text-xs font-bold tabular-nums text-muted-foreground">{{ poll?.counts[o.id] ?? 0 }}</span>
+        <span v-if="votersBy[o.id]?.length" class="relative ml-auto flex -space-x-1.5" aria-hidden="true" data-rsvp-faces>
+          <Avatar v-for="v in votersBy[o.id].slice(0, 3)" :key="v.dancerId" class="size-6 ring-2 ring-card">
+            <AvatarImage v-if="v.photo" :src="sizedImage(v.photo, IMG.avatar)" :alt="''" />
+            <AvatarFallback class="text-[10px]">{{ initialsOf(v.name) }}</AvatarFallback>
+          </Avatar>
+        </span>
+        <span class="relative text-xs font-bold tabular-nums text-muted-foreground" :class="votersBy[o.id]?.length ? '' : 'ml-auto'">{{ poll?.counts[o.id] ?? 0 }}</span>
       </button>
     </div>
 
@@ -214,6 +246,37 @@ async function shareContact(share: boolean) {
         <span class="text-muted-foreground">· unconfirmed</span>
         <Button type="button" variant="link" size="sm" class="h-auto p-0" @click="openSheet">Confirm with your email</Button>
       </template>
+    </p>
+
+    <!-- Who's coming, like the votes of a WhatsApp poll -->
+    <div v-if="poll.voters.length" class="mt-3" data-rsvp-who>
+      <Button type="button" variant="link" size="sm" class="h-auto p-0 gap-1" :aria-expanded="showWho" aria-controls="rsvp-who-list" @click="showWho = !showWho">
+        See who’s coming <ChevronDown class="size-4 transition-transform" :class="showWho ? 'rotate-180' : ''" aria-hidden="true" />
+      </Button>
+      <div v-if="showWho" id="rsvp-who-list" class="mt-2 space-y-3">
+        <div v-for="g in whoGroups" :key="g.id">
+          <p class="text-eyebrow font-black uppercase tracking-widest text-secondary mb-1.5">{{ g.label }}</p>
+          <ul class="flex flex-wrap gap-x-4 gap-y-2">
+            <li v-for="v in g.people" :key="v.dancerId">
+              <component :is="v.username && !v.me ? NuxtLink : 'span'" :to="v.username && !v.me ? `/u/${v.username}` : undefined" class="flex items-center gap-2 text-sm font-bold text-foreground" :class="v.username && !v.me ? 'hover:underline' : ''">
+                <Avatar class="size-8">
+                  <AvatarImage v-if="v.photo" :src="sizedImage(v.photo, IMG.avatar)" :alt="v.name" />
+                  <AvatarFallback>{{ initialsOf(v.name) }}</AvatarFallback>
+                </Avatar>
+                {{ v.me ? 'You' : v.name }}
+              </component>
+            </li>
+            <li v-if="g.more" class="self-center text-sm text-muted-foreground">{{ g.people.length ? `+${g.more} more` : `${g.more} ${g.more === 1 ? 'person' : 'people'}` }}</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Inviting friends lives in My plan → Share (RAZ-974) -->
+    <p v-if="shareInPlan" class="mt-3 text-sm flex flex-wrap items-center gap-x-2 gap-y-1" data-rsvp-share>
+      <Share2 class="size-4 text-secondary" aria-hidden="true" />
+      <span class="text-muted-foreground">Bring friends:</span>
+      <NuxtLink to="/my-plan#socials" class="inline-flex items-center gap-1 font-bold text-primary hover:underline">share your week from My plan <ArrowRight class="size-3.5" aria-hidden="true" /></NuxtLink>
     </p>
 
     <!-- Let the page keep in touch: the dancer's own opt-in to its Contacts -->

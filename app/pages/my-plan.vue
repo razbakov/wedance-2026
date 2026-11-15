@@ -1114,6 +1114,14 @@ watch(
 )
 onBeforeUnmount(() => clearTimeout(weekendTimer))
 
+// /my-plan#socials (an event page's "Bring friends", RAZ-974): the week loads
+// after the page, so scroll there once it's in.
+watch(weekSocialsLoaded, async (loaded) => {
+  if (!loaded || !import.meta.client || route.hash !== '#socials') return
+  await nextTick()
+  document.getElementById('socials')?.scrollIntoView({ behavior: 'smooth' })
+}, { immediate: true })
+
 const { removeEvent: removeWeekEvent, addEvent: addWeekEvent } = useWeekPlan()
 
 // Last row taken out of the plan — the list offers a one-tap Undo for it.

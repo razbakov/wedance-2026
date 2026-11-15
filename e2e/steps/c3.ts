@@ -67,8 +67,6 @@ function trackEventsCleanup(c3: C3World) {
 const cardButton = (page: Page, text: string, button: string): Locator =>
   page.locator(`xpath=//*[contains(normalize-space(.), "${text}") and not(*[contains(normalize-space(.), "${text}")])]/ancestor::*[.//button[contains(normalize-space(.), "${button}")]][1]//button[contains(normalize-space(.), "${button}")]`).first()
 
-const discover = (page: Page) => page.locator('section#discover')
-
 // ── Fixtures ────────────────────────────────────────────────────────
 
 Given('Munich has a weekly practica and a one-off social this week', async ({ c3 }) => {
@@ -123,7 +121,7 @@ async function addDancer(c3: C3World, who: string, photo: string | null) {
     c3.data.dancerCleanup = true
     c3.cleanup.push(async () => {
       const ids = Object.entries(c3.ids).filter(([k]) => k.startsWith('dancer:')).map(([, v]) => v)
-      for (const t of ['sessions', 'plan_items', 'attendances', 'festival_waves', 'discover_swipes']) {
+      for (const t of ['sessions', 'plan_items', 'attendances', 'festival_waves', 'discover_swipes', 'event_rsvps']) {
         await sql(`DELETE FROM ${t} WHERE dancer_id = ANY($1::uuid[])`, [ids]).catch(() => {})
       }
       await sql(`DELETE FROM dancers WHERE id = ANY($1::uuid[])`, [ids])
@@ -181,17 +179,6 @@ Given('an ordinary event with no attendees', async ({ c3 }) => {
   await insertEvent(c3, 'event', fixtureStart(), { name: c3.data.event })
 })
 
-Given('an ordinary event with an eligible attendee and one whose photo is broken', async ({ c3 }) => {
-  c3.data.event = `C3 Ordinary Night ${c3.run}`
-  trackEventsCleanup(c3)
-  const eventId = await insertEvent(c3, 'event', fixtureStart(), { name: c3.data.event })
-  const ok = await addDancer(c3, 'Eligible', `${baseUrl()}/alosha-charanga.jpg`)
-  const broken = await addDancer(c3, 'Broken', `${baseUrl()}/c3-missing-photo-${c3.run}.jpg`)
-  for (const id of [ok, broken]) {
-    await sql(`INSERT INTO plan_items (dancer_id, item_type, item_id, share_going) VALUES ($1, 'event', $2, true)`, [id, eventId])
-  }
-})
-
 Given('the browser clock is the day before them', async ({ page, c3 }) => {
   await page.clock.setFixedTime(new Date(c3.data.S.getTime() - DAY))
 })
@@ -203,20 +190,6 @@ Given('I am signed in as {string}', async ({ page, c3 }, who: string) => {
 Given('I watch the console for hydration warnings', async ({ page, c3 }) => {
   c3.data.hydration = [] as string[]
   page.on('console', (m) => { if (/hydrat/i.test(m.text())) c3.data.hydration.push(m.text()) })
-})
-
-Given('the discovery request is slow', async ({ page }) => {
-  await page.route('**/api/trpc/**', async (route) => {
-    if (route.request().url().includes('wave.discoverPool')) await new Promise(r => setTimeout(r, 3000))
-    await route.continue()
-  })
-})
-
-Given('the discovery request fails', async ({ page }) => {
-  await page.route('**/api/trpc/**', async (route) => {
-    if (route.request().url().includes('wave.discoverPool')) return route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"simulated"}' })
-    await route.continue()
-  })
 })
 
 // ── Navigation ──────────────────────────────────────────────────────
@@ -275,7 +248,7 @@ When('I open the one-off social', async ({ page, c3 }) => {
 
 When('I open that event', async ({ page, c3 }) => {
   await page.goto(`/events/${c3.ids.event}`)
-  await expect(discover(page)).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
 })
 
 When('I tap {string} on the one-off social', async ({ page, c3 }, label: string) => {
@@ -301,37 +274,6 @@ When('I tap {string} to undo', async ({ page }, label: string) => {
 
 When('I reload the page', async ({ page }) => {
   await page.reload()
-})
-
-When('{string} marks Going on the event', async ({ page, c3 }, who: string) => {
-  await signInAs(page, c3, who)
-  await page.goto(`/events/${c3.ids.event}`)
-  await page.waitForLoadState('networkidle')
-  const saved = page.waitForResponse(r => r.url().includes('plan.add'))
-  await page.getByRole('button', { name: 'Going?', exact: true }).first().click()
-  await expect(page.getByRole('button', { name: 'Going!', exact: true }).first()).toBeVisible()
-  expect((await saved).ok()).toBe(true)
-})
-
-When('{string} chooses {string} in the event\'s deck', async ({ page, c3 }, who: string, cta: string) => {
-  await signInAs(page, c3, who)
-  await page.goto(`/events/${c3.ids.event}`)
-  await page.waitForLoadState('networkidle')
-  const shared = page.waitForResponse(r => r.url().includes('plan.setShareGoing'))
-  await discover(page).getByRole('button', { name: cta }).click()
-  expect((await shared).ok()).toBe(true)
-  await expect(discover(page).getByText('You\'re in the deck')).toBeVisible()
-})
-
-// No page offers "hide me" any more: GoingSection (the only toggle) is not
-// mounted since #327 (follow-up RAZ-721). The opt-out is the same public API
-// the toggle called.
-When('{string} opts out of the going list through the API', async ({ request, c3 }, who: string) => {
-  const res = await request.post('/api/trpc/plan.setShareGoing?batch=1', {
-    headers: { authorization: `Bearer ${c3.data[`token:${who}`]}`, 'content-type': 'application/json' },
-    data: { 0: { itemType: 'event', itemId: c3.ids.event, share: false } },
-  })
-  expect(res.ok()).toBe(true)
 })
 
 // ── Assertions ──────────────────────────────────────────────────────
@@ -463,62 +405,42 @@ Then('no Going is saved in the database for that event', async () => {
   expect(await sql(`SELECT 1 FROM attendances WHERE event_id = $1`, [id])).toHaveLength(0)
 })
 
-Then('the database shows {string} Going on the event, hidden', async ({ c3 }, who: string) => {
-  expect(await sql(`SELECT share_going FROM plan_items WHERE dancer_id = $1 AND item_id = $2`, [c3.ids[`dancer:${who}`], c3.ids.event])).toEqual([{ share_going: false }])
-  expect(await sql(`SELECT visibility FROM attendances WHERE dancer_id = $1 AND event_id = $2`, [c3.ids[`dancer:${who}`], c3.ids.event])).toEqual([{ visibility: 'hidden' }])
+// ── RAZ-974 — who's coming in the poll; inviting friends lives in My plan ──
+
+const poll = (page: Page) => page.locator('#rsvp')
+
+When('{string} answers {string} in the event\'s poll', async ({ page, c3 }, who: string, answer: string) => {
+  await signInAs(page, c3, who)
+  await page.goto(`/events/${c3.ids.event}`)
+  const saved = page.waitForResponse(r => r.url().includes('rsvp.answer'))
+  await poll(page).getByRole('button', { name: new RegExp(answer) }).click()
+  expect((await saved).ok()).toBe(true)
+  await expect(poll(page).locator('[data-rsvp-status]')).toContainText('You’re going')
 })
 
-Then('{string} does not see {string} in the event\'s deck', async ({ page, c3 }, viewer: string, who: string) => {
+Then('{string} is led to share the week from My plan', async ({ page }, _who: string) => {
+  await expect(poll(page).locator('[data-rsvp-share]').getByRole('link')).toHaveAttribute('href', '/my-plan#socials')
+})
+
+Then('{string} sees {string} under {string} in the event\'s poll', async ({ page, c3 }, viewer: string, who: string, answer: string) => {
   await signInAs(page, c3, viewer)
   await page.goto(`/events/${c3.ids.event}`)
-  await expect(discover(page).getByTestId('discover-empty')).toBeVisible()
-  await expect(discover(page).getByText(`${who} ${c3.run}`)).toHaveCount(0)
+  await poll(page).getByRole('button', { name: /See who’s coming/ }).click()
+  const group = poll(page).locator('#rsvp-who-list > div').filter({ hasText: answer })
+  await expect(group.getByRole('link', { name: who })).toHaveAttribute('href', `/u/c3-${who.toLowerCase()}-${c3.run}`)
 })
 
-Then('{string} sees {string} in the event\'s deck', async ({ page, c3 }, viewer: string, who: string) => {
-  await signInAs(page, c3, viewer)
-  await page.goto(`/events/${c3.ids.event}`)
-  await expect(discover(page).getByText(`${who} ${c3.run}`).first()).toBeVisible()
+Then('a signed-out visitor sees the counts but nobody\'s name in the event\'s poll', async ({ page }) => {
+  await page.context().clearCookies()
+  await page.evaluate(() => localStorage.clear())
+  await page.reload()
+  await expect(poll(page).getByRole('button', { name: /With my partner/ })).toContainText('1')
+  await expect(poll(page).locator('[data-rsvp-who], [data-rsvp-faces]')).toHaveCount(0)
 })
 
-Then('the "Shall we dance?" section shows only the eligible attendee\'s card', async ({ page, c3 }) => {
-  await expect(discover(page).getByText(`Eligible ${c3.run}`).first()).toBeVisible()
-  // Give the broken photo's preload time to fail, then make sure its card never shows.
-  await page.waitForLoadState('networkidle')
-  await expect(discover(page).getByText(`Broken ${c3.run}`)).toHaveCount(0)
-  await expect(discover(page).locator('img[src*="c3-missing-photo"]')).toHaveCount(0)
-})
-
-Then('the "Shall we dance?" section shows the {string} call to action', async ({ page }, cta: string) => {
-  await expect(discover(page).getByTestId('discover-empty')).toBeVisible()
-  await expect(discover(page).getByRole('button', { name: cta })).toBeVisible()
-})
-
-Then('the "Shall we dance?" section shows the sign-up dance card and no attendee faces', async ({ page, c3 }) => {
-  await expect(discover(page).getByText('Your dance card')).toBeVisible()
-  await expect(discover(page).getByText(new RegExp(`(Eligible|Broken) ${c3.run}`))).toHaveCount(0)
-})
-
-Then('the "Shall we dance?" section offers no paid or free-spot social pass', async ({ page }) => {
-  await expect(discover(page)).toBeVisible()
-  await expect(discover(page)).not.toContainText(/€|free spot|social pass|unlock/i)
-})
-
-Then('the "Shall we dance?" section shows a loading indicator', async ({ page }) => {
-  await expect(discover(page).getByRole('status', { name: 'Loading dancers' })).toBeVisible()
-})
-
-Then('then the "Shall we dance?" section shows the {string} call to action', async ({ page }, cta: string) => {
-  await expect(discover(page).getByRole('button', { name: cta })).toBeVisible({ timeout: 15_000 })
-})
-
-Then('the "Shall we dance?" section does not say there are no dancers', async ({ page }) => {
-  await page.waitForLoadState('networkidle')
-  await expect(discover(page).getByText('No dancers in the deck yet')).toHaveCount(0)
-})
-
-Then('it offers to try loading the dancers again', async ({ page }) => {
-  await expect(discover(page).getByRole('button', { name: /try again|retry/i })).toBeVisible()
+Then('the event page has no {string} section', async ({ page }, title: string) => {
+  await expect(page.locator('section#discover')).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: title })).toHaveCount(0)
 })
 
 // ── RAZ-687 — tickets vs Going ───────────────────────────────────────
