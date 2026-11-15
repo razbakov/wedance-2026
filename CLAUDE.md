@@ -354,6 +354,19 @@ opt-in: under the poll, once confirmed and coming, "Let <page> keep in touch" (+
 `rsvp.shareContact` → `server/utils/rsvpContact.ts` (host page, else organiser — never the venue): a new contact
 with source `rsvp`, or an existing one gains `source.opted_in` (mailable either way); "Stop sharing" = unsubscribed.
 
+## Email to contacts (RAZ-975)
+
+Contacts → **Email N** (`BusinessContactMailing`) writes to the contacts the list's filter shows: N = those the page
+may email (`shared/utils/contactMailing.ts` `mailingRecipients` → `emailBlock`, each address once — unsubscribed and
+imported lists never get it). Optional "Invite to an event" (the page's published, not-cancelled events still to come)
+fills an invite and adds an event card with an "I'm coming" button to `/events/<slug>` (its poll = the RSVP). Write /
+Preview (the same `renderMailingHtml` the server sends, `{first_name}` per person), "Send me a test" (to the sender's
+account email, `[Test]` subject), then "Send to N" → confirm. `contactMailing` router (owners/editors; not in
+`PROCEDURE_SCOPES`, so MCP tokens can't send): `options`, `eventCard`, `sendTest`, `send` (re-checks every id against the
+page, refuses the same subject within 10 min). Resend batch (`sendContactMailing`), from the page's name, reply-to the
+sender, `List-Unsubscribe` + one-click POST (`/api/contacts/unsubscribe`). Every send is logged in `contact_mailings`
+(0072: who, when, segment in words + filter, subject/body, event, contact ids, sent/failed), shown as "Sent before".
+
 ## Cancelling an event (RAZ-948)
 
 Business → event → **Cancel** (or Business → Events: tick events / "Select today's" → cancel them at once), MCP
@@ -447,6 +460,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `wave_sent` / `wave_retracted` | `GoingSection`, `DiscoverDancers`, `EventRsvpPoll` pairing (sent only) | `festival`, `surface` |
 | `rsvp_answered` | `EventRsvpPoll` (event poll tap — signed out it's saved unconfirmed) | `answer` (partner / needLeader / needFollower / yes / next), `signed_in`, `surface`, `event_id` |
 | `rsvp_contact_shared` | `EventRsvpPoll` "Let <page> keep in touch" (confirmed + coming) / "Stop sharing" | `share`, `has_phone`, `surface`, `event_id` |
+| `contacts_emailed` | `BusinessContactMailing` (Contacts → "Email N" → "Yes, send", RAZ-975) | `recipients`, `has_event` (invite with an event card), `filtered` (a segment, not everyone), `tested` (sent themselves a test first), `profile` |
 | `discover_deck_joined` | `DiscoverDancers` "show me" | `item_type`, `item_id`, `was_going` |
 | `hangout_created` | `FestivalView`, `my-plan` | `kind`, `surface`, `event_id` / `event_linked` |
 | `hangout_rsvp` | `FestivalView`, `my-plan` | `going`, `surface`, `hangout_id` |
@@ -515,6 +529,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `server_rsvp_answered` | `rsvp.answer` (signed out → unconfirmed; signed in → confirmed at once) | `event_id`, `answer`, `signed_in`, `confirmed`, `$groups` |
 | `server_rsvp_confirmed` | `rsvp.answer` signed in, folding in this browser's / magic link's unconfirmed answer | `event_id`, `answer`, `hours_to_confirm`, `$groups` |
 | `server_rsvp_contact_shared` | `rsvp.shareContact` (the dancer shares / stops sharing their contact with the event's host, else organiser page) | `event_id`, `share`, `has_phone`, `new_contact`, `$groups` |
+| `server_contacts_emailed` | `contactMailing.send` (web only — connected apps can't send) | `recipients`, `sent`, `failed`, `skipped` (shown but not mailable), `has_event`, `filtered`, `profile`, `profile_type`, `$groups` |
 | `server_festival_joined` | `festivalSignup.join` | `festival` |
 | `server_ticket_checkout_started` | `festivalSignup.ticketCheckout`, `festivalSignup.createCheckoutSession` | `festival`, `tickets`, `referral` |
 | `server_subscription_checkout_started` | `organizerSubscription.createCheckout` | `plan`, `profile_type` |

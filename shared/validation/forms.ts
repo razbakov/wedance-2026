@@ -7,6 +7,7 @@ import * as v from 'valibot'
 import { inviteUrlError } from '../utils/communityGroups'
 import { parseInstagramLink } from '../utils/instagram'
 import { DANCE_LEVELS } from '../utils/styleLevelMix'
+import { MAILING_BODY_MAX, MAILING_SUBJECT_MAX } from '../utils/contactMailing'
 import {
   DANCE_ROLES,
   commaList,
@@ -446,4 +447,12 @@ export const EventCopySchema = v.object({
 /** Cancel one or several events: an optional short reason, shown on the event and in the email. */
 export const EventCancelSchema = v.object({
   reason: optionalText(280, 'Keep the reason under 280 characters.'),
+})
+
+// ── Business (contactMailing.send / sendTest — RAZ-975) ──────────────────────
+
+/** An email to a page's contacts: a subject and the text (plain; `{first_name}` is filled per person). */
+export const ContactMailingSchema = v.object({
+  subject: v.pipe(requiredText('Write a subject.'), v.maxLength(MAILING_SUBJECT_MAX, `Keep the subject under ${MAILING_SUBJECT_MAX} characters.`)),
+  body: v.pipe(requiredText('Write what you want to say.'), v.maxLength(MAILING_BODY_MAX, `Keep it under ${MAILING_BODY_MAX} characters.`)),
 })

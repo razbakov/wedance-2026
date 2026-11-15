@@ -1595,6 +1595,29 @@ export const profileContacts = pgTable('profile_contacts', {
   index('profile_contacts_profile_idx').on(t.profileId, t.createdAt),
 ])
 
+// A page's emails to its contacts (migration 0072, RAZ-975): one row per send — who, when, which
+// segment, how many. Only contacts the page may email get it (contactSegments.emailBlock).
+export const contactMailings = pgTable('contact_mailings', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
+  sentBy: uuid('sent_by').references(() => dancers.id, { onDelete: 'set null' }),
+  subject: text('subject').notNull(),
+  body: text('body').notNull(),
+  eventId: uuid('event_id').references(() => events.id, { onDelete: 'set null' }),
+  // The filter in words ("Coming to Sun 15 Nov · Casino") and as data.
+  segment: text('segment').notNull().default(''),
+  filter: jsonb('filter').$type<Record<string, unknown>>().notNull().default({}),
+  contactIds: jsonb('contact_ids').$type<string[]>().notNull().default([]),
+  recipients: integer('recipients').notNull().default(0),
+  sent: integer('sent').notNull().default(0),
+  failed: integer('failed').notNull().default(0),
+  status: text('status').notNull().default('sending').$type<'sending' | 'sent' | 'failed'>(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  finishedAt: timestamp('finished_at'),
+}, (t) => [
+  index('contact_mailings_profile_idx').on(t.profileId, t.createdAt),
+])
+
 // ---------------------------------------------------------------------------
 // MCP server: WeDance as its own OAuth 2.1 authorization server (migration 0050,
 // docs/proposals/2026-10-18-mcp-server.md). Identities stay in `dancers`; an
