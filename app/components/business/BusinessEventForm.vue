@@ -421,7 +421,7 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
       </label>
       <span class="text-xs text-muted-foreground">{{ form.published ? 'Dancers see it as soon as you create it.' : 'It starts as a draft: only you see it. Add the venue, line-up and flyer, then publish.' }}</span>
     </div>
-    <div v-else class="mt-3 flex flex-wrap items-center gap-3">
+    <div v-else id="ev-step-publish" class="mt-3 scroll-mt-20 flex flex-wrap items-center gap-3">
       <label class="inline-flex items-center gap-2 text-sm font-bold">
         <Checkbox v-model="form.published" /> Published
       </label>
