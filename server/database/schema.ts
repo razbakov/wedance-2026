@@ -327,6 +327,10 @@ export const communityGroups = pgTable('community_groups', {
   // Last invite-link check (server/utils/groupLinkCheck.ts): a dead link is hidden from the city page.
   linkStatus: text('link_status').notNull().default('unknown').$type<'unknown' | 'ok' | 'dead'>(),
   linkCheckedAt: timestamp('link_checked_at'),
+  // Who runs the group and how to reach them (RAZ-967, 0071) — personal data: only WeDance admins
+  // and the city's admins read it; never selected by public / MCP queries, never sent to PostHog.
+  adminName: text('admin_name'),
+  adminContact: text('admin_contact'),
 }, t => [
   uniqueIndex('community_groups_invite_key_uidx').on(t.inviteKey).where(sql`${t.inviteKey} IS NOT NULL`),
   index('community_groups_city_status_idx').on(t.citySlug, t.status),

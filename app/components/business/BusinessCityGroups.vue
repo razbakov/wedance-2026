@@ -4,6 +4,8 @@
  * shared, waiting for review (approve / decline), and the listed ones — with the result
  * of the last invite-link check. "Check links" visits WhatsApp / Telegram invite pages;
  * a dead link is hidden from the city page until it comes back or is shown again.
+ * Each group keeps who runs it and how to reach them (RAZ-967, <AdminGroupContact>) — for
+ * asking them to share the weekly post or fix a dead link. Never shown on the city page.
  *
  *   <BusinessCityGroups city-slug="munich" />
  */
@@ -106,6 +108,7 @@ const filterOptions = computed(() => [
             shared by {{ g.submittedBy ?? 'someone' }}
           </p>
           <a :href="g.inviteUrl" target="_blank" rel="noopener" class="mt-1 inline-flex items-center gap-1 text-xs font-bold text-wd-cyan-700 hover:underline">Open the invite <ExternalLink class="size-3" aria-hidden="true" /></a>
+          <AdminGroupContact :group="g" @saved="v => Object.assign(g, v)" />
         </li>
       </ul>
 
@@ -129,6 +132,7 @@ const filterOptions = computed(() => [
             <Button v-if="g.status === 'hidden' || g.linkStatus === 'dead'" type="button" variant="ghost" size="sm" class="h-7 text-xs" :disabled="busy === g.id" @click="setVisible(g.id, true)"><Eye /> Show again</Button>
             <Button v-else type="button" variant="ghost" size="sm" class="h-7 text-xs" :disabled="busy === g.id" @click="setVisible(g.id, false)"><EyeOff /> Hide</Button>
           </span>
+          <AdminGroupContact :group="g" class="basis-full" @saved="v => Object.assign(g, v)" />
         </li>
       </ul>
     </template>

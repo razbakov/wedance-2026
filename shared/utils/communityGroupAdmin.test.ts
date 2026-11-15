@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { checkedAgo, groupByCity, groupState, lastLinkCheck, linksDue, matchesGroup, stateCounts, type AdminGroup } from './communityGroupAdmin'
+import { adminContactHref, checkedAgo, cleanAdminField, groupByCity, groupState, lastLinkCheck, linksDue, matchesGroup, stateCounts, type AdminGroup } from './communityGroupAdmin'
 
 const g = (over: Partial<AdminGroup>): AdminGroup => ({
   citySlug: 'munich', name: 'Salsa Munich', platform: 'whatsapp', inviteUrl: 'https://chat.whatsapp.com/abc',
@@ -61,5 +61,34 @@ describe('admin community groups', () => {
     expect(checkedAgo('2026-11-14T11:00:00Z', now)).toBe('1 h ago')
     expect(checkedAgo('2026-11-12T12:00:00Z', now)).toBe('2 days ago')
     expect(checkedAgo('2026-11-14T11:59:50Z', now)).toBe('just now')
+  })
+})
+
+describe('the group admin\'s contact (RAZ-967)', () => {
+  it('cleans names and contacts; blank is null', () => {
+    expect(cleanAdminField('  Maria   Lopez ', 120)).toBe('Maria Lopez')
+    expect(cleanAdminField('   ', 120)).toBeNull()
+    expect(cleanAdminField(null, 120)).toBeNull()
+    expect(cleanAdminField('abcdef', 3)).toBe('abc')
+  })
+
+  it('turns a contact into a link where it can', () => {
+    expect(adminContactHref('+49 151 234-5678')).toBe('https://wa.me/491512345678')
+    expect(adminContactHref('0049 151 2345678')).toBe('https://wa.me/491512345678')
+    expect(adminContactHref('0151 2345678')).toBe('tel:01512345678')
+    expect(adminContactHref('wa.me/491512345678')).toBe('https://wa.me/491512345678')
+    expect(adminContactHref('https://t.me/maria')).toBe('https://t.me/maria')
+    expect(adminContactHref('maria@example.com')).toBe('mailto:maria@example.com')
+    expect(adminContactHref('@maria_l', 'telegram')).toBe('https://t.me/maria_l')
+    expect(adminContactHref('@maria_l', 'instagram')).toBe('https://instagram.com/maria_l')
+    // A WhatsApp group's @name could be anything: plain text.
+    expect(adminContactHref('@maria_l', 'whatsapp')).toBeNull()
+    expect(adminContactHref('ask at the bar')).toBeNull()
+    expect(adminContactHref('javascript:alert(1)')).toBeNull()
+    expect(adminContactHref('')).toBeNull()
+  })
+
+  it('search finds a group by its admin', () => {
+    expect(matchesGroup(g({ adminName: 'Maria Lopez' }), { q: 'maria' })).toBe(true)
   })
 })
