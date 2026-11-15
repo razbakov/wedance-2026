@@ -8,7 +8,7 @@
  * lists, from the same feeds the page uses:
  *
  *  - festivals: the planned festivals that resolve to a real festival
- *    (`plan.myPlan`) and haven't ended yet;
+ *    (`plan.myPlan`: its event is `is_festival` — RAZ-983) and haven't ended yet;
  *  - courses:   "Where you show up" (`myCourses` — each with an upcoming class);
  *  - socials:   "Where you're dancing" (`weekSocials` — the next 7 days).
  *
@@ -19,7 +19,7 @@
  */
 import { and, eq, inArray } from 'drizzle-orm'
 import { festivals, planItems } from '../database/schema'
-import { myCourses, weekSocials } from './myPlanFeeds'
+import { festivalPlanSlugs, myCourses, weekSocials } from './myPlanFeeds'
 
 type Db = any
 
@@ -82,10 +82,13 @@ async function plannedFestivals(db: Db, dancerId: string) {
     .from(planItems)
     .where(and(eq(planItems.dancerId, dancerId), eq(planItems.itemType, 'festival')))
   if (!items.length) return []
+  // Only real festivals (RAZ-983): a workshop saved from its page is not one.
+  const real = [...await festivalPlanSlugs(db, items.map((i: any) => i.itemId))]
+  if (!real.length) return []
   return db
     .select({ startDate: festivals.startDate, endDate: festivals.endDate })
     .from(festivals)
-    .where(inArray(festivals.slug, items.map((i: any) => i.itemId)))
+    .where(inArray(festivals.slug, real))
 }
 
 export async function planCounts(db: Db, dancerId: string, now = new Date()): Promise<PlanCounts> {

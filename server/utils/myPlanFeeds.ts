@@ -379,8 +379,64 @@ export type FestivalEventRow = {
   endDate: Date | string | null
 }
 
+/**
+ * RAZ-983: the dancer's year (`plan.myPlan`, `plan.sharedPlan`) and the header badge
+ * (`planCounts`) list only the festival plan items whose event is a real festival.
+ * Past festivals stay in the year, so — unlike `isClaimableFestival` — no date,
+ * publish or cancel gate here; only `events.is_festival`.
+ */
+export function isFestivalEvent(ev: Pick<FestivalEventRow, 'isFestival'>): boolean {
+  return !!ev.isFestival
+}
+
+type PlanSlugEvent = { id: string; slug: string | null; key: string | null; isFestival: boolean | null }
+
+async function eventsForPlanSlugs(db: Db, slugs: string[]): Promise<PlanSlugEvent[]> {
+  return db
+    .select({ id: events.id, slug: events.slug, key: sql<string | null>`${events.festival}->>'key'`, isFestival: events.isFestival })
+    .from(events)
+    .where(or(inArray(events.slug, slugs), inArray(sql`${events.festival}->>'key'`, slugs)))
+}
+
+/**
+ * Of `slugs` (festival plan item ids: a festival key or an event slug), the ones
+ * that point at a real festival event. Pure — unit-tested.
+ */
+export function pickFestivalSlugs(slugs: string[], rows: PlanSlugEvent[]): Set<string> {
+  const wanted = new Set(slugs)
+  const out = new Set<string>()
+  for (const r of rows) {
+    if (!isFestivalEvent(r)) continue
+    for (const s of [r.key, r.slug]) if (s && wanted.has(s)) out.add(s)
+  }
+  return out
+}
+
+export async function festivalPlanSlugs(db: Db, slugs: string[]): Promise<Set<string>> {
+  const wanted = [...new Set(slugs.filter(Boolean))]
+  if (!wanted.length) return new Set()
+  return pickFestivalSlugs(wanted, await eventsForPlanSlugs(db, wanted))
+}
+
+/**
+ * RAZ-983: where a "festival" plan item for `slug` really belongs. A one-off event
+ * with a programme (a workshop, a class) uses the festival page, so its "I'm going"
+ * arrives as a festival; it is saved as an event, by the event's id. A slug that
+ * matches a festival — or no event at all — stays a festival. Pure — unit-tested.
+ */
+export function eventIdForNonFestival(slug: string, rows: PlanSlugEvent[]): string | null {
+  const mine = rows.filter(r => r.slug === slug || r.key === slug)
+  if (!mine.length || mine.some(isFestivalEvent)) return null
+  return (mine.find(r => r.slug === slug) ?? mine[0])!.id
+}
+
+export async function nonFestivalEventId(db: Db, slug: string): Promise<string | null> {
+  if (!slug) return null
+  return eventIdForNonFestival(slug, await eventsForPlanSlugs(db, [slug]))
+}
+
 export function isClaimableFestival(ev: FestivalEventRow, now = new Date()): boolean {
-  if (!ev.isFestival || !ev.published || ev.archived || ev.cancelledAt) return false
+  if (!isFestivalEvent(ev) || !ev.published || ev.archived || ev.cancelledAt) return false
   const last = ev.endDate ?? ev.startDate
   if (!last) return false
   return new Date(last).getTime() >= now.getTime()

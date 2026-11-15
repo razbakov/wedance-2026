@@ -31,6 +31,11 @@ const props = defineProps<{
   rsvp?: { eventId: string; path: string; startDate: string; endDate?: string | null; timezone?: string | null; organizerName?: string | null } | null
   /** Cancelled by its organiser (RAZ-948): the hero says so; no poll, no passes. */
   cancelled?: { reason?: string | null } | null
+  /**
+   * How "I'm going" saves it (RAZ-983): a real festival goes in the year plan; a one-off
+   * event with a programme (a workshop, a class) goes in the plan as an event, by its id.
+   */
+  planAs?: 'festival' | 'event'
 }>()
 const kind = computed(() => (props.type || 'festival').toLowerCase())
 const data = props.data
@@ -60,13 +65,13 @@ const rsvpPoll = ref<{ coming: number; mine: { answer: string } | null } | null>
 function onPoll(p: { coming: number; mine: { answer: string } | null }) { rsvpPoll.value = p }
 const heroPicked = computed(() => rsvpPoll.value
   ? !!rsvpPoll.value.mine && rsvpPoll.value.mine.answer !== 'next'
-  : yearPlanIds.value.has(festival.slug))
+  : inPlan.value)
 
 // Fetch the real count client-side (public, no auth required).
 const { $trpc } = useNuxtApp()
 onMounted(async () => {
   try {
-    const count = await $trpc.plan.count.query({ itemType: 'festival', itemId: festival.slug })
+    const count = await $trpc.plan.count.query(planAsEvent ? { itemType: 'event', itemId: data.eventId } : { itemType: 'festival', itemId: festival.slug })
     liveAttendeeCount.value = count
   } catch { /* keep mock fallback */ }
 })
@@ -74,6 +79,11 @@ onMounted(async () => {
 // Festival-level "Pick" — adds the whole festival to the year plan (distinct
 // from the per-workshop picks below).
 const { yearPlanIds, toggleFestival } = useYearPlan()
+// A workshop or class shown in this view is saved as an event, never as a festival
+// (RAZ-983) — otherwise it turned up, and was counted, in the dancer's year of festivals.
+const { weekPlanIds, toggleEvent } = useWeekPlan()
+const planAsEvent = props.planAs === 'event'
+const inPlan = computed(() => planAsEvent ? weekPlanIds.value.has(data.eventId) : yearPlanIds.value.has(festival.slug))
 
 // Shared plan view detection — supports both the new `?invite=<encoded>` token
 // and the legacy `?plan=shared` query for backward compatibility.
@@ -749,9 +759,10 @@ function onPick() {
     showSignUp.value = true
     return
   }
-  const wasGoing = yearPlanIds.value.has(festival.slug)
+  const wasGoing = inPlan.value
   liveAttendeeCount.value = Math.max(0, liveAttendeeCount.value + (wasGoing ? -1 : 1))
-  toggleFestival(festival.slug, { surface: 'festival' })
+  if (planAsEvent) toggleEvent(data.eventId, { event_type: props.type ?? null, surface: 'festival' })
+  else toggleFestival(festival.slug, { surface: 'festival' })
 }
 
 function onSave() {

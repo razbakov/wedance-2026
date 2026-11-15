@@ -4,7 +4,7 @@
  * week — is covered in server/trpc/routers/plan-myPlanFeeds.test.ts.
  */
 import { describe, it, expect } from 'vitest'
-import { isClaimableFestival, isClassType, resolveWeekOccurrences, slugifyCity, stylesForDancer, stylesMatch } from './myPlanFeeds'
+import { eventIdForNonFestival, isClaimableFestival, isClassType, pickFestivalSlugs, resolveWeekOccurrences, slugifyCity, stylesForDancer, stylesMatch } from './myPlanFeeds'
 
 describe('stylesMatch', () => {
   it('matches the same style and its variants', () => {
@@ -102,5 +102,33 @@ describe('isClaimableFestival', () => {
   })
   it('never claims a festival without dates', () => {
     expect(isClaimableFestival({ ...fest, startDate: null, endDate: null }, now)).toBe(false)
+  })
+})
+
+// RAZ-983: festival plan items whose event is not a festival (a workshop, a class).
+describe('pickFestivalSlugs', () => {
+  const rows = [
+    { id: 'e1', slug: 'dance-fest-2027', key: 'dance-fest', isFestival: true },
+    { id: 'e2', slug: 'casino-partnerwork-a0e56', key: 'casino-partnerwork-a0e56', isFestival: false },
+    { id: 'e3', slug: 'salsa-from-zero-a73d4', key: null, isFestival: null },
+  ]
+  it('keeps festival keys and slugs of real festivals only', () => {
+    expect(pickFestivalSlugs(['dance-fest', 'dance-fest-2027', 'casino-partnerwork-a0e56', 'salsa-from-zero-a73d4', 'gone'], rows))
+      .toEqual(new Set(['dance-fest', 'dance-fest-2027']))
+  })
+})
+
+describe('eventIdForNonFestival', () => {
+  it('maps a workshop or class slug to its event id', () => {
+    expect(eventIdForNonFestival('casino-partnerwork-a0e56', [{ id: 'e2', slug: 'casino-partnerwork-a0e56', key: 'casino-partnerwork-a0e56', isFestival: false }])).toBe('e2')
+    expect(eventIdForNonFestival('clave', [{ id: 'e3', slug: 'clave-872c0', key: 'clave', isFestival: null }])).toBe('e3')
+  })
+  it('keeps a festival, or a slug with no event, a festival', () => {
+    expect(eventIdForNonFestival('dance-fest', [{ id: 'e1', slug: 'dance-fest-2027', key: 'dance-fest', isFestival: true }])).toBeNull()
+    expect(eventIdForNonFestival('dance-fest', [
+      { id: 'e1', slug: 'dance-fest-2027', key: 'dance-fest', isFestival: true },
+      { id: 'e4', slug: 'dance-fest-2026', key: 'dance-fest', isFestival: false },
+    ])).toBeNull()
+    expect(eventIdForNonFestival('no-such', [])).toBeNull()
   })
 })

@@ -254,7 +254,7 @@ useHead(() => ({
       <p><b>Preview, not published yet.</b> The organiser shared this draft with you so you can see the plan. Dancers can't see it, and details may still change.</p>
     </div>
   </div>
-  <FestivalView v-if="festivalData && !pending" :data="festivalData" :type="ev?.eventType" :edit-to="canEdit ? `/business/events/${festivalData.eventId}` : undefined" :cancelled="ev?.cancelled ? { reason: ev.cancelReason } : null" :rsvp="ev?.pollable && !ev.archived && !isPreview ? { eventId: ev.id, path: route.path, startDate: ev.startDate, endDate: ev.endDate, timezone: ev.timezone, organizerName: ev.organizerName || (ev.organizerHandle ? `@${ev.organizerHandle}` : null) } : null" />
+  <FestivalView v-if="festivalData && !pending" :data="festivalData" :type="ev?.eventType" :edit-to="canEdit ? `/business/events/${festivalData.eventId}` : undefined" :cancelled="ev?.cancelled ? { reason: ev.cancelReason } : null" :plan-as="ev?.pollable ? 'event' : 'festival'" :rsvp="ev?.pollable && !ev.archived && !isPreview ? { eventId: ev.id, path: route.path, startDate: ev.startDate, endDate: ev.endDate, timezone: ev.timezone, organizerName: ev.organizerName || (ev.organizerHandle ? `@${ev.organizerHandle}` : null) } : null" />
   <div v-else class="min-h-screen bg-background text-foreground font-display">
     <SiteHeader />
 

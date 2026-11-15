@@ -5,7 +5,7 @@ import { planItems, dancers, festivals, festivalSignups, events, attendances, da
 import { getReferralDiscountPercent, getEarlyBirdInfo } from '../../utils/ticket-prices'
 import { eventPath } from '../../../shared/utils/eventSlug'
 import { festivalPath } from '../../../shared/utils/eventSlug'
-import { discoverDeck, myCourses, recordSwipe, removeSwipe, weekSocials } from '../../utils/myPlanFeeds'
+import { discoverDeck, festivalPlanSlugs, myCourses, nonFestivalEventId, recordSwipe, removeSwipe, weekSocials } from '../../utils/myPlanFeeds'
 import { eventIdForFestival, recordLinkAction } from '../../utils/trackedLinks'
 import { planCounts } from '../../utils/planCounts'
 
@@ -86,7 +86,11 @@ export const planRouter = router({
         metadata: z.record(z.string(), z.string()).optional(),
       }),
     )
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx, input: asked }) => {
+      // A workshop or class saved from its (festival-style) page goes in as an
+      // event, never as a festival (RAZ-983).
+      const asEvent = asked.itemType === 'festival' ? await nonFestivalEventId(ctx.db, asked.itemId) : null
+      const input = asEvent ? { ...asked, itemType: 'event' as const, itemId: asEvent } : asked
       const values: typeof planItems.$inferInsert = {
         dancerId: ctx.dancerId,
         itemType: input.itemType,
@@ -192,7 +196,16 @@ export const planRouter = router({
         itemId: z.string(),
       }),
     )
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx, input: asked }) => {
+      // Same mapping as `add` (RAZ-983). The festival item an older save wrote for
+      // that event goes too, so "I'm going" can always be taken back.
+      const asEvent = asked.itemType === 'festival' ? await nonFestivalEventId(ctx.db, asked.itemId) : null
+      const input = asEvent ? { ...asked, itemType: 'event' as const, itemId: asEvent } : asked
+      if (asEvent) {
+        await ctx.db
+          .delete(planItems)
+          .where(and(eq(planItems.dancerId, ctx.dancerId), eq(planItems.itemType, 'festival'), eq(planItems.itemId, asked.itemId)))
+      }
       await ctx.db
         .delete(planItems)
         .where(
@@ -360,7 +373,9 @@ export const planRouter = router({
 
     if (items.length === 0) return []
 
-    const slugs = items.map((i) => i.itemId)
+    // Only real festivals (RAZ-983): a workshop saved from its page is not one.
+    const slugs = [...await festivalPlanSlugs(ctx.db, items.map((i) => i.itemId))]
+    if (slugs.length === 0) return []
 
     const festivalRows = await ctx.db
       .select({
@@ -496,7 +511,9 @@ export const planRouter = router({
           ),
         )
 
-      if (items.length === 0) {
+      // Only real festivals (RAZ-983): a workshop saved from its page is not one.
+      const slugs = items.length ? [...await festivalPlanSlugs(ctx.db, items.map((i) => i.itemId))] : []
+      if (slugs.length === 0) {
         return {
           sharer: {
             name: sharer.name,
@@ -507,8 +524,6 @@ export const planRouter = router({
           festivals: [],
         }
       }
-
-      const slugs = items.map((i) => i.itemId)
 
       // 3. Fetch festival details for all planned slugs.
       const festivalRows = await ctx.db
