@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { toMs, mapStyles, parseVenue, cityFromAddress, buildCityIndex, resolveCity, resolveTimezone, mapV3Event, learnPlaceLocalities, decodeValue, seriesKey, dedupeKey, selectRows, type MappedEvent } from './v3EventSync'
+import { toMs, mapStyles, parseVenue, cityFromAddress, buildCityIndex, resolveCity, resolveTimezone, mapV3Event, isCalendarFeed, eventWebsite, learnPlaceLocalities, decodeValue, seriesKey, dedupeKey, selectRows, type MappedEvent } from './v3EventSync'
 
 const MUNICH = 'ChIJ2V-Mo_l1nkcRfZixfUq4DAE'
 const NOW = Date.parse('2026-10-04T00:00:00Z')
@@ -274,5 +274,27 @@ describe('C3 website is not a ticket link (RAZ-687)', () => {
   it('drops a non-http "link" instead of passing it on', () => {
     const r = mapV3Event({ ...base, link: 'call us', sourceUrl: null, facebook: null, source: null }, ctx)
     expect(r.ok && r.row.link).toBeNull()
+  })
+})
+
+// RAZ-980 — v3's ical importer kept the studio's Google Calendar feed as the event source;
+// "Event website" on every KULT Studio party then downloaded a .ics file.
+describe('a calendar feed is not the event website (RAZ-980)', () => {
+  const feed = 'https://calendar.google.com/calendar/ical/1acjrr7t8665qp44orefni8v10%40group.calendar.google.com/public/basic.ics'
+
+  it('recognises calendar feeds and leaves real pages alone', () => {
+    expect(isCalendarFeed(feed)).toBe(true)
+    expect(isCalendarFeed('https://club.example/events/salsa.ics')).toBe(true)
+    expect(isCalendarFeed('https://www.google.com/calendar/feeds/abc%40group.calendar.google.com/public/basic')).toBe(true)
+    expect(isCalendarFeed('https://www.kult.studio/')).toBe(false)
+    expect(isCalendarFeed('https://calendar.google.com/calendar/event?eid=abc')).toBe(false)
+  })
+
+  it('drops a feed in any link field, falling back to the next real link', () => {
+    const none = mapV3Event({ ...base, link: feed, sourceUrl: null, facebook: null, source: feed }, ctx)
+    expect(none.ok && none.row.link).toBeNull()
+    const fb = mapV3Event({ ...base, link: feed, facebook: 'https://facebook.com/events/123' }, ctx)
+    expect(fb.ok && fb.row.link).toBe('https://facebook.com/events/123')
+    expect(eventWebsite(null, ' https://club.example/night ', feed)).toBe('https://club.example/night')
   })
 })
