@@ -64,7 +64,10 @@ function setScreenshot(frame: ScreenFrame | null) {
   screenshotUrl.value = frame ? URL.createObjectURL(frame.blob) : null
 }
 
-/** Wait until the hidden dialog has animated out and the browser picker closed. */
+/**
+ * Wait until the hidden dialog has animated out. captureScreenFrame adds its
+ * own wait for the browser's picker and skips frames captured before (RAZ-976).
+ */
 function settle(): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(() => requestAnimationFrame(() => requestAnimationFrame(() => resolve())), 350)
@@ -79,11 +82,13 @@ function settle(): Promise<void> {
 async function takeScreenshot() {
   if (!canCapture.value || capturing.value) return
   capturing.value = true
+  const retake = !!screenshot.value
   const pending = captureScreenFrame(settle)
   const frame = await pending
   capturing.value = false
+  // A declined retake keeps the earlier shot.
   if (frame) setScreenshot(frame)
-  track('problem_report_screenshot', { captured: !!frame })
+  track('problem_report_screenshot', { captured: !!frame, retake })
 }
 
 /** Open the hub. */
@@ -307,6 +312,15 @@ async function submit() {
               <ImageIcon v-else class="size-4 shrink-0 text-secondary" aria-hidden="true" />
               <span v-if="screenshot" class="flex-1">Screenshot attached.</span>
               <span v-else class="flex-1">No screenshot — the session replay will show us what happened.</span>
+              <Button
+                v-if="screenshot && canCapture"
+                type="button"
+                variant="link"
+                class="h-auto shrink-0 gap-1 p-0 text-xs font-bold underline text-primary"
+                @click="takeScreenshot"
+              >
+                <Camera class="size-3.5" aria-hidden="true" /> Retake
+              </Button>
               <Button
                 v-if="screenshot"
                 type="button"
