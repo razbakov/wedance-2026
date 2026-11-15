@@ -40,6 +40,17 @@ const pr = (n: number): SketchLink => ({ label: `PR #${n}`, url: `https://github
 
 export const SKETCHES: Sketch[] = [
   {
+    slug: 'meet-matches',
+    title: 'Meet new friends: when both say yes',
+    what: 'Four ways a mutual yes shows up on My plan: a match card above the deck with a night out you could both go to, one "dance friends" list merging deck matches and festival waves with "Say hi", the match card plus an email to the other dancer, and the recommended list with the night as the one next step. Admins can switch to their real matches.',
+    why: 'A Yes in the My plan deck goes nowhere: the other dancer is never told and a mutual Yes is never noticed. Only festival waves become "festival friends", on the festival page.',
+    requestedBy: 'Alösha',
+    builtBy: 'Agent (Claude)',
+    created: '2026-11-15',
+    status: 'deciding',
+    ticket: linear('RAZ-985', 'meet-new-friends-tell-both-dancers-when-they-say-yes-to-each-other'),
+  },
+  {
     slug: 'business-home',
     title: 'Business home',
     what: 'Four directions for /business: tonight first (today’s events with who’s coming, Door, Share), pulse first (three numbers for the last 7 days + what pulls people), people first (plans, followers, bookings, join requests), and the recommended mix. Tasks shrink to one line; no flyer nags for weekly classes or events < 24 h away. Busy / Quiet week toggle.',
