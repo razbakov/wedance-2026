@@ -39,6 +39,8 @@ function stopViewing() {
   navigateTo('/admin/users')
 }
 watch(showSignIn, (open) => { if (!open) check() })
+// Re-read when a page bumps the list (a page deleted: BusinessDeletePage → onDeleted).
+watch(useBusinessProfilesVersion(), () => check())
 // Re-read after creating/claiming a profile (the editor route changes).
 watch(() => route.path, (p, old) => { if (state.value === 'ok' && old?.startsWith('/business/new')) check() })
 

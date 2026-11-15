@@ -3,7 +3,7 @@ import { sizedImage, IMG } from '#shared/utils/image'
 /**
  * /business/network/<handle> — edit a profile you manage: details, photos (one is the main
  * photo used on cards and flyers), links (with the business's other Instagram accounts),
- * venue details for venues, its handle, and duplicates to merge into this page.
+ * venue details for venues, its handle, duplicates to merge into this page, and (owners) deleting it.
  */
 import { ExternalLink, Star, Trash2, Check, Users, Palette, Inbox, Globe, Contact, X } from 'lucide-vue-next'
 import { parseInstagramHandle } from '#shared/utils/instagram'
@@ -49,6 +49,15 @@ function socialOf(p: Profile, platform: string) {
 // New handle: the editor moves to its new address (the old one now redirects).
 async function onRenamed(handle: string) {
   await navigateTo(`/business/network/${handle}`, { replace: true })
+}
+
+// Deleted: back to Business home, where the page is gone from the list.
+const businessProfile = useBusinessProfile()
+const profilesVersion = useBusinessProfilesVersion()
+async function onDeleted(gone: string) {
+  if (businessProfile.value === gone) businessProfile.value = ''
+  profilesVersion.value++
+  await navigateTo('/business', { replace: true })
 }
 
 // quiet: refresh in place (after a merge) without unmounting the page.
@@ -310,6 +319,8 @@ const photoHint = computed(() => loaded.value?.type === 'artist'
       <BusinessHandle :username="loaded.username" :instagram="socialOf(loaded, 'instagram')" class="mt-8" @renamed="onRenamed" />
 
       <BusinessDuplicates :username="loaded.username" :name="loaded.name" class="mt-8" @merged="load(true)" />
+
+      <BusinessDeletePage v-if="loaded.isOwner" :username="loaded.username" class="mt-8" @deleted="onDeleted" />
     </template>
   </div>
 </template>
