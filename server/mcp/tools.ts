@@ -12,6 +12,7 @@ import { agendaToSessions, cleanSession, emptyEventDetails, inferDurations, newS
 import { setupChecklist, setupNext } from './checklist'
 import { dupeReasonText } from '../utils/profileDupes'
 import { parseInstagramLink } from '../../shared/utils/instagram'
+import { EVENT_ARTISTS_MAX } from '../../shared/utils/eventLimits'
 import { mergeSocials } from '../../shared/utils/socials'
 import { siteChangeSummary } from '../../shared/utils/siteDiff'
 import { SITE_FONTS, SITE_THEMES } from '../../shared/utils/siteThemes'
@@ -210,7 +211,7 @@ const PATCH_FIELDS = {
   venue_handle: z.string().max(200).nullable().optional().describe('Handle of a venue on WeDance (find one with find_lineup type=venue or suggest_venues).'),
   venue_name: z.string().max(200).nullable().optional().describe('Venue name when it isn’t on WeDance.'),
   venue_address: z.string().max(300).nullable().optional(),
-  artists: z.array(z.string().min(1).max(200)).max(40).optional().describe('Line-up as WeDance handles (find_lineup, add_profile_from_instagram): who performs, teaches or plays. Not the people who organise it (co_organizers).'),
+  artists: z.array(z.string().min(1).max(200)).max(EVENT_ARTISTS_MAX).optional().describe('Line-up as WeDance handles (find_lineup, add_profile_from_instagram): who performs, teaches or plays. Not the people who organise it (co_organizers).'),
   co_organizers: z.array(z.union([
     z.string().min(1).max(200),
     z.object({ handle: z.string().min(1).max(200), role: z.string().trim().max(40).optional().describe('e.g. "co-organiser", "host", "partner". Default: co-organiser.') }),

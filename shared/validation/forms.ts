@@ -8,6 +8,7 @@ import { inviteUrlError } from '../utils/communityGroups'
 import { parseInstagramLink } from '../utils/instagram'
 import { DANCE_LEVELS } from '../utils/styleLevelMix'
 import { MAILING_BODY_MAX, MAILING_SUBJECT_MAX } from '../utils/contactMailing'
+import { EVENT_ARTISTS_MAX, PASS_DESCRIPTION_MAX, PRACTICAL_INFO_LINE_MAX, PRACTICAL_INFO_MAX } from '../utils/eventLimits'
 import {
   DANCE_ROLES,
   commaList,
@@ -455,4 +456,24 @@ export const EventCancelSchema = v.object({
 export const ContactMailingSchema = v.object({
   subject: v.pipe(requiredText('Write a subject.'), v.maxLength(MAILING_SUBJECT_MAX, `Keep the subject under ${MAILING_SUBJECT_MAX} characters.`)),
   body: v.pipe(requiredText('Write what you want to say.'), v.maxLength(MAILING_BODY_MAX, `Keep it under ${MAILING_BODY_MAX} characters.`)),
+})
+
+// ── Business (businessEvents.update — RAZ-991) ───────────────────────────────
+
+/**
+ * The editor's size limits (`shared/utils/eventLimits.ts`), checked before Save so
+ * a too-long line is flagged where it is instead of failing on the server. Paths
+ * match the form (`festival.practicalInfo.11`), so each error lands on its row.
+ */
+export const EventLimitsSchema = v.object({
+  artists: v.pipe(v.array(v.string()), v.maxLength(EVENT_ARTISTS_MAX, `Keep the line-up to ${EVENT_ARTISTS_MAX} artists.`)),
+  festival: v.nullish(v.object({
+    practicalInfo: v.optional(v.pipe(
+      v.array(v.pipe(v.string(), v.trim(), v.maxLength(PRACTICAL_INFO_LINE_MAX, `Keep each line under ${PRACTICAL_INFO_LINE_MAX} characters, or split it in two.`))),
+      v.maxLength(PRACTICAL_INFO_MAX, `Keep practical info to ${PRACTICAL_INFO_MAX} lines.`),
+    )),
+    passes: v.optional(v.array(v.object({
+      description: v.optional(v.pipe(v.string(), v.trim(), v.maxLength(PASS_DESCRIPTION_MAX, `Keep what's included under ${PASS_DESCRIPTION_MAX} characters.`))),
+    }))),
+  })),
 })

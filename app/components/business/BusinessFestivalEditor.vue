@@ -13,6 +13,7 @@
 import type { PropType } from 'vue'
 import { Plus, X, ChevronDown, ChevronUp, Pencil, Check } from 'lucide-vue-next'
 import type { FestivalDetails, FestivalPass, FestivalSession, SessionType } from '#shared/types/festivalDetails'
+import { PASS_DESCRIPTION_MAX, PRACTICAL_INFO_LINE_MAX } from '#shared/utils/eventLimits'
 import { SESSION_TYPES, SESSION_TYPE_LABEL, DEFAULT_DURATION, inferDurations, isWorkshop, sessionKindLabel, sessionTimeRange } from '#shared/utils/programme'
 
 type Editable = Omit<FestivalDetails, 'key'>
@@ -60,6 +61,8 @@ const weekdays = computed(() => [...new Set(props.days.map(weekday))])
 const PLATFORMS = ['website', 'instagram', 'facebook', 'youtube', 'tiktok', 'whatsapp', 'telegram']
 const links = computed(() => model.value.socialLinks!)
 const info = computed(() => model.value.practicalInfo!)
+// Over the server's limit (shared/utils/eventLimits.ts): flagged as it's typed (RAZ-991).
+const tooLong = (v: string | undefined, max: number) => (v ?? '').trim().length > max
 
 // --- passes
 const passes = computed(() => model.value.passes!)
@@ -147,9 +150,18 @@ const LEVELS = ['Beginner', 'Intermediate', 'Advanced']
       <p class="text-sm font-bold">Practical info <span class="font-normal text-muted-foreground">(optional)</span></p>
       <p class="text-xs text-muted-foreground">Venues, transport, payment, what to bring: one line each.</p>
       <div class="mt-2 grid gap-2">
-        <div v-for="(_, i) in info" :key="i" class="flex gap-2">
-          <Input v-model="info[i]" class="flex-1" :aria-label="`Practical info, line ${i + 1}`" />
-          <Button type="button" variant="ghost" size="icon-sm" :aria-label="`Remove line ${i + 1}`" @click="info.splice(i, 1)"><X /></Button>
+        <div v-for="(_, i) in info" :key="i" class="min-w-0">
+          <div class="flex gap-2">
+            <Input
+              v-model="info[i]"
+              class="min-w-0 flex-1"
+              :aria-label="`Practical info, line ${i + 1}`"
+              :aria-invalid="tooLong(info[i], PRACTICAL_INFO_LINE_MAX) ? 'true' : undefined"
+              :aria-describedby="tooLong(info[i], PRACTICAL_INFO_LINE_MAX) ? `pi-${i}-error` : undefined"
+            />
+            <Button type="button" variant="ghost" size="icon-sm" :aria-label="`Remove line ${i + 1}`" @click="info.splice(i, 1)"><X /></Button>
+          </div>
+          <FieldError :id="`pi-${i}-error`" :message="tooLong(info[i], PRACTICAL_INFO_LINE_MAX) ? `${(info[i] ?? '').trim().length} characters: keep each line under ${PRACTICAL_INFO_LINE_MAX}, or split it in two.` : undefined" />
         </div>
         <Button type="button" variant="ghost" size="sm" class="justify-self-start" @click="info.push('')"><Plus /> Add a line</Button>
       </div>
@@ -181,7 +193,7 @@ const LEVELS = ['Beginner', 'Intermediate', 'Advanced']
               <label class="mb-2 inline-flex items-center gap-2 text-sm"><Checkbox v-model="p.soldOut" /> Sold out</label>
               <Button type="button" variant="ghost" size="icon-sm" class="mb-1" :aria-label="`Remove pass ${p.name || i + 1}`" @click="passes.splice(i, 1); openPass = null"><X /></Button>
             </div>
-            <Field :id="`pass-desc-${i}`" label="What’s included" optional class="mt-2"><Input v-model="p.description" placeholder="All workshops + all parties" /></Field>
+            <Field :id="`pass-desc-${i}`" label="What’s included" optional class="mt-2" :error="tooLong(p.description, PASS_DESCRIPTION_MAX) ? `Keep it under ${PASS_DESCRIPTION_MAX} characters.` : undefined"><Input v-model="p.description" placeholder="All workshops + all parties" /></Field>
             <div class="mt-2 flex flex-wrap items-center gap-2 text-sm">
               <span class="text-xs text-muted-foreground">Days:</span>
               <label v-for="d in weekdays" :key="d" class="inline-flex items-center gap-1.5"><Checkbox :model-value="p.days.includes(d)" @update:model-value="toggleDay(p, d)" /> {{ d }}</label>

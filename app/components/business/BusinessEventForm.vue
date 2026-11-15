@@ -11,6 +11,8 @@ import { MapPin, CalendarDays, Send, Pencil, Check, Plus, X, FileText, ListOrder
 import { priceLines } from '#shared/utils/flyer'
 import { agendaToSessions, emptyEventDetails, legacyAgendaOf } from '#shared/utils/programme'
 import { blankBusinessEvent, lineupSummary } from '~/lib/businessEvent'
+import { eventErrorCard, eventFieldLabel, type SaveError } from '~/lib/eventSaveError'
+import { EventLimitsSchema, validateForm } from '#shared/validation'
 
 export type BusinessEventValues = {
   hostUsername: string
@@ -56,6 +58,8 @@ const props = defineProps({
   labels: { type: Object as PropType<{ venue?: string; host?: string }>, default: () => ({}) },
   /** What the host's other events suggest (RAZ-939): artists they booked, last time's price. */
   hints: { type: Object as PropType<{ artists: string[]; price: string | null }>, default: () => ({ artists: [], price: null }) },
+  /** The last save the server refused (RAZ-991): shown in the save bar, its fields' cards opened. */
+  saveError: { type: Object as PropType<SaveError | null>, default: null },
 })
 const emit = defineEmits<{ submit: [values: BusinessEventValues] }>()
 
@@ -128,6 +132,28 @@ const coHandles = computed<string[]>({
 })
 
 const errors = reactive<Record<string, string | undefined>>({})
+// Size limits (line-up, practical info, passes) the server would refuse: checked
+// live, shown once a save was tried, so a too-long line is flagged before Save.
+const limits = computed(() => validateForm(EventLimitsSchema, { artists: form.artists, festival: form.festival }))
+const showLimits = ref(false)
+const limitErrors = computed(() => (showLimits.value && !limits.value.success ? limits.value.fieldErrors : {}))
+// What the save bar says: this form's own problem first, else the server's refusal.
+const barError = computed(() => {
+  const own = Object.values(errors).find(Boolean)
+  if (own) return own
+  const [path, msg] = Object.entries(limitErrors.value)[0] ?? []
+  if (path && msg) return `${eventFieldLabel(path.split('.').map(x => (/^\d+$/.test(x) ? Number(x) : x)))}: ${msg}`
+  return props.saveError?.message || ''
+})
+/** Open the cards these fields live in and bring the first one into view. */
+function reveal(cards: string[]) {
+  if (!cards.length) return
+  open.value = new Set([...open.value, ...cards])
+  nextTick(() => document.getElementById(`ev-card-${cards[0]}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+}
+watch(() => props.saveError, (e) => {
+  if (e) reveal([...new Set(e.paths.map(eventErrorCard).filter((c): c is string => !!c))])
+})
 function validate() {
   errors.host = props.hosts.length && !form.hostUsername ? 'Pick who runs this event.' : undefined
   errors.name = form.name.trim() ? undefined : 'Add a name.'
@@ -140,7 +166,9 @@ function validate() {
   const next = new Set(open.value)
   for (const [k, v] of Object.entries(errors)) if (v && card[k]) next.add(card[k]!)
   open.value = next
-  return !Object.values(errors).some(Boolean)
+  showLimits.value = !limits.value.success
+  if (!limits.value.success) reveal([...new Set(Object.keys(limits.value.fieldErrors).map(eventErrorCard).filter((c): c is string => !!c))])
+  return !Object.values(errors).some(Boolean) && limits.value.success
 }
 function submit() {
   if (!validate()) return false
@@ -334,6 +362,7 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
       <p v-if="!isOpen('lineup')" class="mt-1 text-sm" data-lineup-summary>{{ lineupSummary(form.artists, form.names) }}</p>
       <template v-else>
         <p class="text-xs text-muted-foreground">DJs, teachers, performers. Everyone is named on the flyer. Pick the photo it uses, or “Name only”.</p>
+        <FieldError id="ev-artists-error" :message="limitErrors.artists" />
         <BusinessLineupPicker
           v-model="form.artists"
           v-model:photos="form.photos"
@@ -441,6 +470,7 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
         {{ mode === 'create' ? 'Publish it now' : 'Published' }}
       </label>
       <span class="hidden min-w-0 flex-1 text-xs text-muted-foreground lg:inline">{{ publishHint }}</span>
+      <p v-if="barError && !saving" class="order-last basis-full text-sm font-bold text-destructive" role="alert" data-save-error>{{ barError }}</p>
       <span v-if="dirty && !saving" class="ml-auto text-sm font-bold text-wd-amber-800" role="status">Unsaved changes</span>
       <Button type="submit" variant="pill" :loading="saving" :class="dirty && !saving ? '' : 'ml-auto'">{{ submitLabel }}</Button>
       <slot name="after-submit" :dirty="dirty" />
