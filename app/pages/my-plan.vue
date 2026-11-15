@@ -7,10 +7,10 @@ import { sizedImage, IMG } from '#shared/utils/image'
  *   -> Week (socials) -> Tonight (hangouts)
  * Every section uses the V3 tropical style + accordion / compact-list
  * pattern established by the Year cards. Week socials (plan.weekSocials)
- * and the discover deck (plan.discover + discover_swipes) are DB-backed;
+ * and the Meet new friends entry (plan.discover; the deck is /meet) are DB-backed;
  * ?preview=1 swaps in the preview* demo arrays and never writes.
  */
-import { ArrowRight, MapPin, Calendar, Search, Ticket, Plane, Home, GraduationCap, Heart, Coffee, CalendarPlus, Check, ExternalLink, ChevronDown, Target, Flame, Sparkles, MoonStar, UtensilsCrossed, GlassWater, Car, X, Clock, Users as UsersIcon, Undo2, Plus } from 'lucide-vue-next'
+import { ArrowRight, MapPin, Calendar, Search, Ticket, Plane, Home, GraduationCap, Heart, Coffee, CalendarPlus, Check, ExternalLink, ChevronDown, Target, Flame, Sparkles, MoonStar, UtensilsCrossed, GlassWater, Car, X, Users as UsersIcon, Plus } from 'lucide-vue-next'
 import * as salsaOpen from '~/data/mock-festival'
 import * as meneate from '~/data/mock-meneate'
 import type { CityEvent } from '~/types/city'
@@ -19,7 +19,7 @@ import { detectDanceStyle, relatedDanceStyles } from '#shared/dance-styles'
 import * as cubanFire from '~/data/mock-cuban-fire'
 import * as caribbeanUrbanFire from '~/data/mock-caribbean-urban-fire'
 import { WD } from '~/lib/brand'
-import { meetVisibility } from '#shared/utils/meetFriends'
+import { toMeetCards, type MeetCard } from '~/lib/meetDeck'
 import { previewOnlyFestivals } from '~/data/mock-preview-festivals'
 import { eventPath, festivalPath } from '#shared/utils/eventSlug'
 import { weekendKey } from '#shared/utils/weekendShare'
@@ -41,7 +41,6 @@ const {
   dancerName: dancerNameReal,
   city: dancerCityReal,
   danceStyles: dancerStylesReal,
-  photo: dancerPhotoReal,
   profilePublic: dancerPublicReal,
   username: dancerUsername,
   onboardedAt: onboardedAtReal,
@@ -1408,46 +1407,11 @@ const goalsSummary = computed(() => goalsList.value.length
   : 'One year, one arc, one reason to keep showing up')
 
 // -----------------------------------------------------------------------
-// DISCOVER · widen-your-year deck below hangouts.
-// Swipeable cards mixing dancers going to fests + local dancers + events.
-// Yes-swipe on a dancer heading to an unpicked festival accumulates a
-// nudge in the Year section: "3 friends heading to Prague — add it?".
+// DISCOVER · "Meet new friends" lives on its own page, /meet (RAZ-989).
+// My plan keeps two things from plan.discover: the entry card (first faces
+// waiting + how many) and the nudges built from earlier Yes swipes — "2
+// dancers you said yes to are heading to X — add it?" in This year.
 // -----------------------------------------------------------------------
-// `target` is what a decision is stored against (discover_swipes); preview
-// cards have none and never write.
-type DeckTarget = { kind: 'dancer' | 'event' | 'festival'; id: string; festivalSlug?: string }
-type DeckCard =
-  | { id: string; kind: 'dancer-your-fest';   target?: DeckTarget; name: string; photo: string; city: string; danceStyles: string[]; festivalSlug: string; festivalName: string; festivalColor: string; reason: string }
-  | { id: string; kind: 'dancer-new-fest';    target?: DeckTarget; name: string; photo: string; city: string; danceStyles: string[]; festivalSlug: string; festivalName: string; festivalColor: string; reason: string }
-  | { id: string; kind: 'dancer-local';       target?: DeckTarget; name: string; photo: string; city: string; danceStyles: string[]; regularAt?: string; reason: string }
-  | { id: string; kind: 'event-festival';     target?: DeckTarget; name: string; slug: string;  dateISO: string; venue: string; city: string; friendsGoing: number; color: string; reason: string }
-  | { id: string; kind: 'event-social';       target?: DeckTarget; name: string; dayLabel: string; dateISO?: string; time: string; venue: string; city: string; style: string; friendsGoing: number; color: string; reason: string }
-
-const previewDeck: DeckCard[] = [
-  { id: 'd1', kind: 'dancer-your-fest',  name: 'Ivana',   city: 'Berlin',    photo: 'https://i.pravatar.cc/240?u=ivana',   danceStyles: ['Timba', 'Son'],       festivalSlug: 'meneate-viena-2026',           festivalName: 'Menéate Viena',        festivalColor: WD.red600, reason: 'You both dance Timba — and she\'s at Menéate Viena too.' },
-  { id: 'd2', kind: 'dancer-new-fest',   name: 'Emilia',  city: 'Munich',    photo: 'https://i.pravatar.cc/240?u=emilia',  danceStyles: ['Timba', 'Salsa'], festivalSlug: 'timba-fest-london-2026',      festivalName: 'Timba Fest London',    festivalColor: WD.sky500, reason: 'She dances Timba in Munich — and heads to a Timba festival you haven\'t picked.' },
-  { id: 'e1', kind: 'event-social',      name: 'Salsa on the Isar',  dayLabel: 'Sat', time: '15:00', venue: 'Muffatwerk terrace', city: 'Munich', style: 'Salsa', friendsGoing: 6, color: WD.amber500, reason: 'Salsa in your city, 6 friends going — matches your style.' },
-  { id: 'd3', kind: 'dancer-local',      name: 'Klaus',   city: 'Munich',    photo: 'https://i.pravatar.cc/240?u=klaus',   danceStyles: ['Salsa', 'Bachata'],    regularAt: 'La Rumba Fridays', reason: 'You both do Salsa in Munich — he\'s at La Rumba every Friday.' },
-  { id: 'd4', kind: 'dancer-new-fest',   name: 'Sasha',   city: 'Vienna',    photo: 'https://i.pravatar.cc/240?u=sasha',   danceStyles: ['Timba', 'Rumba'],     festivalSlug: 'timba-fest-london-2026',      festivalName: 'Timba Fest London',    festivalColor: WD.sky500, reason: 'Timba dancer from Vienna heading to a festival not in your year yet.' },
-  { id: 'e2', kind: 'event-festival',    name: 'Salsa Fusion Prague', slug: 'salsa-fusion-prague-2026', dateISO: '2026-11-14', venue: 'La Loca', city: 'Prague',   friendsGoing: 2, color: WD.purple500, reason: 'Salsa festival a short trip away — 2 friends already going.' },
-  { id: 'd5', kind: 'dancer-your-fest',  name: 'Silvio',  city: 'Havana',    photo: 'https://i.pravatar.cc/240?u=silvio',  danceStyles: ['Bachata', 'Salsa'],   festivalSlug: 'bachata-stars-barcelona-2026', festivalName: 'Bachata Stars Barcelona', festivalColor: WD.violet600, reason: 'Bachata dancer from Havana — also going to Bachata Stars Barcelona.' },
-  { id: 'd6', kind: 'dancer-local',      name: 'Barbara', city: 'Munich',    photo: 'https://i.pravatar.cc/240?u=barbara', danceStyles: ['Rumba', 'Son'],       regularAt: 'Cuban Sunday practica', reason: 'Rumba and Son right in Munich — you might click at the practica.' },
-  { id: 'd7', kind: 'dancer-new-fest',   name: 'Egor',    city: 'Munich',    photo: 'https://i.pravatar.cc/240?u=egor',    danceStyles: ['Timba', 'Casino'],    festivalSlug: 'timba-fest-london-2026',      festivalName: 'Timba Fest London',    festivalColor: WD.sky500, reason: 'Local Timba dancer — a third person heading to Timba Fest London.' },
-  { id: 'e3', kind: 'event-social',      name: 'Havana Nights',      dayLabel: 'Fri', time: '22:30', venue: '537 Bar',          city: 'Munich', style: 'Cuban', friendsGoing: 8, color: WD.red600, reason: 'Cuban night in Munich with 8 friends — right up your alley.' },
-]
-
-// Live deck state
-// "Meet new friends" is a people deck: dancers going to your festivals, to
-// ones you haven't picked, and locals. Festival / social cards are left out —
-// This week and This year already hold those.
-const isPersonCard = (c: DeckCard) => c.kind.startsWith('dancer-')
-// The festival chip links to the festival (RAZ-982); preview cards are mock data with no page.
-const NuxtLink = resolveComponent('NuxtLink')
-const deck = ref<DeckCard[]>(isPreviewInitial ? previewDeck.filter(isPersonCard) : [])
-// History stack for Undo
-const swipeHistory = ref<Array<{ card: DeckCard; direction: 'yes' | 'skip' | 'later'; nudgeAdded?: string; addedFestival?: boolean; addedEvent?: boolean }>>([])
-// Yes-swipes on dancers heading to a festival → accumulator. Real mode loads
-// these from the server (built from stored Yes swipes), so they survive a reload.
 type FestivalNudge = { festivalSlug: string; festivalName: string; festivalColor: string; dancerNames: string[]; dismissed: boolean }
 const festivalNudges = ref<FestivalNudge[]>(isPreviewInitial
   ? [
@@ -1455,74 +1419,24 @@ const festivalNudges = ref<FestivalNudge[]>(isPreviewInitial
       { festivalSlug: 'timba-fest-london-2026', festivalName: 'Timba Fest London', festivalColor: WD.sky500, dancerNames: ['Emilia', 'Sasha'], dismissed: false },
     ]
   : [])
+const PREVIEW_MEET_FACES = [
+  { id: 'ivana', name: 'Ivana', photo: 'https://i.pravatar.cc/240?u=ivana' },
+  { id: 'emilia', name: 'Emilia', photo: 'https://i.pravatar.cc/240?u=emilia' },
+  { id: 'klaus', name: 'Klaus', photo: 'https://i.pravatar.cc/240?u=klaus' },
+]
+const meetPeople = ref<MeetCard[]>([])
+const meetLoaded = ref(false)
+const meetFaces = computed(() => previewMode.value ? PREVIEW_MEET_FACES : meetPeople.value.slice(0, 3))
+const meetCount = computed<number | null>(() => previewMode.value ? 13 : (meetLoaded.value ? meetPeople.value.length : null))
 
-/** Load the discover deck from the backend for signed-in users. */
+/** Load the entry card's people and the festival nudges for signed-in users. */
 async function loadDiscoverDeck() {
   if (previewMode.value || !isSignedIn.value) return
   try {
     const result = await $trpc.plan.discover.query()
-
     festivalNudges.value = result.nudges.map(n => ({ ...n, dismissed: false }))
-
-    const myCity = dancerCity.value ?? ''
-    const myStyles = dancerStyles.value ?? []
-    const sharedWith = (styles: string[]) => styles.filter(s => myStyles.some(m => relatedDanceStyles(s, m)))
-
-    const mapped: DeckCard[] = []
-    for (const c of result.cards) {
-      const id = `${c.targetKind}:${c.targetId}`
-      if (c.targetKind === 'dancer') {
-        const target: DeckTarget = { kind: 'dancer', id: c.targetId, festivalSlug: c.festivalSlug }
-        const shared = sharedWith(c.dancerStyles)
-        if (c.kind === 'dancer-local') {
-          mapped.push({
-            id, target, kind: 'dancer-local',
-            name: c.dancerName, photo: c.dancerPhoto, city: c.dancerCity, danceStyles: c.dancerStyles,
-            // The chip already says where they dance; only add what you share.
-            reason: shared.length
-              ? `You both dance ${shared.join(' & ')}${c.dancerCity && c.dancerCity.toLowerCase() === myCity.toLowerCase() ? ` in ${c.dancerCity}` : ''}.`
-              : '',
-          })
-        } else if (c.kind === 'dancer-new-fest') {
-          mapped.push({
-            id, target, kind: 'dancer-new-fest',
-            name: c.dancerName, photo: c.dancerPhoto, city: c.dancerCity, danceStyles: c.dancerStyles,
-            festivalSlug: c.festivalSlug ?? '', festivalName: c.festivalName ?? '', festivalColor: c.festivalColor ?? WD.sky500,
-            reason: shared.length
-              ? `${shared.join(' & ')} dancer heading to ${c.festivalName} — a festival not in your year yet.`
-              : `Heading to ${c.festivalName} — a festival you haven't explored.`,
-          })
-        } else {
-          mapped.push({
-            id, target, kind: 'dancer-your-fest',
-            name: c.dancerName, photo: c.dancerPhoto, city: c.dancerCity, danceStyles: c.dancerStyles,
-            festivalSlug: c.festivalSlug ?? '', festivalName: c.festivalName ?? '', festivalColor: c.festivalColor ?? WD.violet600,
-            reason: `Also going to ${c.festivalName} — you'll be at the same festival.`,
-          })
-        }
-      } else if (c.kind === 'event-festival') {
-        mapped.push({
-          id, target: { kind: 'festival', id: c.targetId }, kind: 'event-festival',
-          name: c.eventName, slug: c.eventSlug, dateISO: eventLocalDate(c.eventDateISO, c.eventTimezone || undefined),
-          venue: c.eventVenue, city: c.eventCity, friendsGoing: c.friendsGoing, color: c.color,
-          reason: `Festival in ${c.eventCity} — not in your year yet.`,
-        })
-      } else {
-        const tz = c.eventTimezone || undefined
-        mapped.push({
-          id, target: { kind: 'event', id: c.targetId }, kind: 'event-social',
-          name: c.eventName,
-          dayLabel: WEEKDAY_SHORT_ENROLL[eventLocalWeekday(c.eventDateISO, tz)] || '',
-          dateISO: eventLocalDate(c.eventDateISO, tz),
-          time: eventLocalTime(c.eventDateISO, tz),
-          venue: c.eventVenue, city: c.eventCity, style: c.eventStyle, friendsGoing: c.friendsGoing, color: c.color,
-          reason: c.eventStyle && sharedWith([c.eventStyle]).length
-            ? `${c.eventStyle} in ${c.eventCity} — matches your style.`
-            : `${c.eventStyle || 'Dance'} event in ${c.eventCity}.`,
-        })
-      }
-    }
-    deck.value = mapped.filter(isPersonCard)
+    meetPeople.value = toMeetCards(result.cards, { city: dancerCity.value, styles: dancerStyles.value })
+    meetLoaded.value = true
   } catch (err) {
     console.error('[discover] loadDiscoverDeck failed:', err)
   }
@@ -1531,170 +1445,6 @@ async function loadDiscoverDeck() {
 const activeFestivalNudges = computed(() =>
   festivalNudges.value.filter(n => !n.dismissed && !effectivePickIds.value.has(n.festivalSlug) && n.dancerNames.length >= 2)
 )
-
-const deckCurrent = computed(() => deck.value[0] ?? null)
-const deckNext    = computed(() => deck.value[1] ?? null)
-const deckAfter   = computed(() => deck.value[2] ?? null)
-const canUndo     = computed(() => swipeHistory.value.length > 0)
-
-// Pointer-gesture state for the top card
-const dragDx = ref(0)
-const dragActive = ref(false)
-const dragStartX = ref(0)
-const dragPointerId = ref<number | null>(null)
-const cardExitDir = ref<'yes' | 'skip' | 'later' | null>(null)
-
-const SWIPE_THRESHOLD = 110
-
-function currentCardTransform(): string {
-  if (cardExitDir.value === 'yes')  return 'translateX(120vw) rotate(18deg)'
-  if (cardExitDir.value === 'skip') return 'translateX(-120vw) rotate(-18deg)'
-  if (cardExitDir.value === 'later') return 'translateY(120vh) scale(0.9)'
-  const dx = dragDx.value
-  const rot = dx * 0.06
-  return `translateX(${dx}px) rotate(${rot}deg)`
-}
-
-function onCardPointerDown(e: PointerEvent) {
-  if (cardExitDir.value) return
-  dragPointerId.value = e.pointerId
-  dragStartX.value = e.clientX
-  dragActive.value = true
-  ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
-}
-
-function onCardPointerMove(e: PointerEvent) {
-  if (!dragActive.value || e.pointerId !== dragPointerId.value) return
-  dragDx.value = e.clientX - dragStartX.value
-}
-
-function onCardPointerUp(e: PointerEvent) {
-  if (e.pointerId !== dragPointerId.value) return
-  dragActive.value = false
-  dragPointerId.value = null
-  if (dragDx.value > SWIPE_THRESHOLD)       commitSwipe('yes')
-  else if (dragDx.value < -SWIPE_THRESHOLD) commitSwipe('skip')
-  else                                      dragDx.value = 0
-}
-
-/** Store a decision server-side (real mode only). Failures are logged, not fatal. */
-function persistSwipe(card: DeckCard, decision: 'yes' | 'skip') {
-  if (previewMode.value || !card.target) return
-  $trpc.plan.discoverSwipe
-    .mutate({ targetKind: card.target.kind, targetId: card.target.id, decision, festivalSlug: card.target.festivalSlug })
-    .catch(err => console.warn('[discover] swipe not saved:', err))
-}
-
-/**
- * Yes / Skip are stored, so the card never comes back. "Later" only moves the
- * card to the back of the deck for this visit — nothing is stored.
- */
-function commitSwipe(direction: 'yes' | 'skip' | 'later') {
-  const card = deckCurrent.value
-  if (!card || cardExitDir.value) return
-  cardExitDir.value = direction
-
-  let nudgeAdded: string | undefined
-  let addedFestival = false
-  let addedEvent = false
-  if (direction === 'yes') {
-    if (card.kind === 'dancer-new-fest') {
-      nudgeAdded = card.festivalSlug
-      addNudge(card)
-    }
-    if (card.kind === 'event-festival' && !effectivePickIds.value.has(card.slug)) {
-      // Add straight to the year picks
-      if (!previewMode.value) addFestival(card.slug, { surface: 'discover' })
-      addedFestival = true
-    }
-    if (card.kind === 'event-social') {
-      addedEvent = true
-      if (previewMode.value) {
-        socials.value = [...socials.value, {
-          id: card.id, planItemId: card.id, name: card.name, dayLabel: card.dayLabel, dateISO: card.dateISO ?? '', time: card.time,
-          venue: card.venue, city: card.city, style: card.style, friendsGoing: card.friendsGoing, color: card.color,
-        }]
-      }
-      if (!previewMode.value && card.target) {
-        $trpc.plan.add
-          .mutate({ itemType: 'event', itemId: card.target.id, metadata: { type: 'social', name: card.name, style: card.style, venue: card.venue, date: card.dateISO ?? '', time: card.time } })
-          // Shows up under "This week" if it's within the week.
-          .then(() => loadWeekSocials())
-          .catch(err => console.warn('[discover] add to plan failed:', err))
-      }
-    }
-  }
-  if (direction === 'yes' || direction === 'skip') persistSwipe(card, direction)
-  if (!previewMode.value) useTrack().track('discover_swipe', { direction, card_kind: card.kind, added_festival: addedFestival, added_event: addedEvent })
-
-  // Animate out then advance
-  setTimeout(() => {
-    swipeHistory.value = [...swipeHistory.value, { card, direction, nudgeAdded, addedFestival, addedEvent }]
-    deck.value = direction === 'later' ? [...deck.value.slice(1), card] : deck.value.slice(1)
-    dragDx.value = 0
-    cardExitDir.value = null
-  }, 260)
-}
-
-// RAZ-981: say who the deck shows, whether the dancer is in other people's
-// decks, and what to do after a Yes (it is private — nobody is told).
-const meVisible = computed(() => meetVisibility({
-  profilePublic: previewMode.value ? true : dancerPublicReal.value,
-  photo: previewMode.value ? 'preview' : dancerPhotoReal.value,
-  city: dancerCity.value,
-}))
-/** The dancer card of the latest Yes, for the "now meet them" line under the deck. */
-const lastYes = computed(() => {
-  const last = swipeHistory.value[swipeHistory.value.length - 1]
-  return last?.direction === 'yes' && isPersonCard(last.card) ? last.card : null
-})
-
-function addNudge(card: Extract<DeckCard, { kind: 'dancer-new-fest' }>) {
-  const existing = festivalNudges.value.find(n => n.festivalSlug === card.festivalSlug)
-  if (existing) {
-    if (!existing.dancerNames.includes(card.name)) {
-      existing.dancerNames = [...existing.dancerNames, card.name]
-    }
-    existing.dismissed = false
-  } else {
-    festivalNudges.value = [
-      ...festivalNudges.value,
-      { festivalSlug: card.festivalSlug, festivalName: card.festivalName, festivalColor: card.festivalColor, dancerNames: [card.name], dismissed: false },
-    ]
-  }
-}
-
-function undoSwipe() {
-  const last = swipeHistory.value[swipeHistory.value.length - 1]
-  if (!last) return
-  swipeHistory.value = swipeHistory.value.slice(0, -1)
-  const card = last.card
-  deck.value = [card, ...(last.direction === 'later' ? deck.value.filter(c => c.id !== card.id) : deck.value)]
-  if (last.direction === 'later') return
-
-  if (!previewMode.value && card.target) {
-    $trpc.plan.discoverUnswipe
-      .mutate({ targetKind: card.target.kind, targetId: card.target.id })
-      .catch(err => console.warn('[discover] undo not saved:', err))
-  }
-  if (last.direction !== 'yes') return
-  if (last.nudgeAdded) {
-    const n = festivalNudges.value.find(x => x.festivalSlug === last.nudgeAdded)
-    if (n && 'name' in card) n.dancerNames = n.dancerNames.filter(name => name !== card.name)
-  }
-  if (last.addedFestival && card.kind === 'event-festival' && !previewMode.value) {
-    removeFestival(card.slug)
-  }
-  if (last.addedEvent && card.kind === 'event-social') {
-    const eventId = card.target?.id ?? card.id
-    socials.value = socials.value.filter(s => s.planItemId !== eventId)
-    if (!previewMode.value && card.target) {
-      $trpc.plan.remove
-        .mutate({ itemType: 'event', itemId: card.target.id })
-        .catch(err => console.warn('[discover] undo add failed:', err))
-    }
-  }
-}
 
 function acceptFestivalNudge(n: FestivalNudge) {
   if (!previewMode.value) addFestival(n.festivalSlug, { surface: 'nudge' })
@@ -1852,6 +1602,8 @@ function cardSummary(f: CatalogueEntry) {
         </div>
         <YearReviewEntry v-if="!showYearReviewBanner" variant="link" class="mt-6" />
       </div>
+      <!-- Nothing picked yet is no reason not to meet people (RAZ-989). -->
+      <MeetFriendsEntry :faces="meetFaces" :count="meetCount" surface="my_plan_empty" class="mt-6" />
     </section>
 
     <!-- SIGNED IN, WITH PICKS -->
@@ -1867,256 +1619,8 @@ function cardSummary(f: CatalogueEntry) {
         @dismiss="hideChatgptPitch"
       />
 
-      <!-- MEET NEW FRIENDS · the people deck, first thing in the plan. -->
-      <div id="discover" class="mt-2">
-        <div class="flex items-baseline justify-between mb-4">
-          <div>
-            <h2 class="text-3xl leading-tight font-display text-foreground">Meet new friends</h2>
-            <p class="mt-1 text-sm text-muted-foreground font-sans">Dancers going where you go, and locals who dance like you</p>
-          </div>
-          <Button
-            variant="link"
-            class="h-auto p-0 gap-1 text-xs font-normal italic text-secondary font-display disabled:opacity-40 [&_svg]:size-3"
-            :disabled="!canUndo"
-            @click="undoSwipe"
-          >
-            <Undo2 aria-hidden="true" /> Undo
-          </Button>
-        </div>
-        <!-- RAZ-981: who is here, are you here, what happens next. -->
-        <div class="mb-6 max-w-xl space-y-2 text-sm text-muted-foreground font-sans" data-testid="meet-explainer">
-          <p>
-            <span class="font-bold text-foreground">Who's here:</span>
-            dancers with a public profile and a photo who dance in your city, or who chose "Show me" for a festival.
-          </p>
-          <p data-testid="meet-you">
-            <span class="font-bold text-foreground">You:</span>
-            {{ meVisible.text }}
-            <NuxtLink v-if="meVisible.missing.length" to="/settings" class="font-bold text-primary hover:underline whitespace-nowrap">
-              Open Settings <ArrowRight class="inline w-3.5 h-3.5" aria-hidden="true" />
-            </NuxtLink>
-            <template v-if="meVisible.shown">
-              To be found by a festival's dancers, tap "Show me" in "Shall we dance?" on its page.
-            </template>
-          </p>
-          <p>
-            <span class="font-bold text-foreground">How it works:</span>
-            Yes = you'd like to dance with them. Only you see it — they aren't told. Then meet on the floor:
-            wave at them on the festival's page, or go out the same night. Two yeses for the same festival and we suggest it for your year.
-            Skip = we won't show them again; the clock = later.
-          </p>
-        </div>
-
-        <!-- Deck -->
-        <div class="relative mx-auto max-w-md">
-          <div v-if="!deckCurrent" class="rounded-2xl p-10 text-center border-2 border-dashed border-input bg-white/50">
-            <Sparkles class="w-10 h-10 mx-auto mb-3 text-secondary" />
-            <p class="text-lg font-display text-foreground">
-              That's it for this pass.
-            </p>
-            <p class="mt-2 text-sm text-muted-foreground font-sans">
-              You've seen everyone and everything we have for you right now. New dancers and events show up here as they join WeDance.
-            </p>
-            <p class="mt-2 text-sm text-muted-foreground font-sans">
-              Next: <a href="#socials" class="font-bold text-primary hover:underline">go dancing this week</a> or
-              <a href="#festivals" class="font-bold text-primary hover:underline">add a festival</a> — that's where you meet them.
-            </p>
-          </div>
-
-          <!-- min-height, not a fixed height: the card grows with its text (it used to clip). -->
-          <div v-else class="relative min-h-[400px]">
-            <!-- Peek: card 3 behind -->
-            <div v-if="deckAfter" class="absolute inset-0 rounded-3xl bg-white border" style="transform: scale(0.88) translateY(20px); opacity:0.35; border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); box-shadow: 0 6px 22px rgba(0,0,0,0.08);" />
-            <!-- Peek: card 2 behind -->
-            <div v-if="deckNext" class="absolute inset-0 rounded-3xl bg-white border" style="transform: scale(0.94) translateY(10px); opacity:0.65; border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); box-shadow: 0 6px 22px rgba(0,0,0,0.08);" />
-            <!-- Current card — gestures live here -->
-            <div
-              :key="deckCurrent.id"
-              class="relative rounded-3xl bg-white border overflow-hidden touch-none select-none cursor-grab active:cursor-grabbing"
-              :style="{
-                borderColor: 'color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent)',
-                boxShadow: '0 12px 32px rgba(0,0,0,0.14)',
-                transform: currentCardTransform(),
-                transition: dragActive || cardExitDir ? 'transform 260ms ease-out' : 'transform 220ms ease-out',
-              }"
-              @pointerdown="onCardPointerDown"
-              @pointermove="onCardPointerMove"
-              @pointerup="onCardPointerUp"
-              @pointercancel="onCardPointerUp"
-            >
-              <!-- YES / SKIP labels tinted by drag -->
-              <div
-                class="absolute top-6 left-6 z-10 px-3 py-1 rounded-full border-2 text-sm font-black uppercase tracking-widest pointer-events-none transition-opacity text-primary border-wd-red-600"
-                style="transform: rotate(-10deg);"
-                :style="{ opacity: Math.min(1, Math.max(0, -dragDx / 100)) }"
-              >Skip</div>
-              <div
-                class="absolute top-6 right-6 z-10 px-3 py-1 rounded-full border-2 text-sm font-black uppercase tracking-widest pointer-events-none transition-opacity text-wd-green-600 border-wd-green-600"
-                style="transform: rotate(10deg);"
-                :style="{ opacity: Math.min(1, Math.max(0, dragDx / 100)) }"
-              >Yes</div>
-
-              <!-- DANCER CARDS (any of the 3 dancer kinds) -->
-              <template v-if="deckCurrent.kind === 'dancer-your-fest' || deckCurrent.kind === 'dancer-new-fest' || deckCurrent.kind === 'dancer-local'">
-                <img :src="sizedImage(deckCurrent.photo, IMG.card)" :alt="deckCurrent.name" class="w-full h-64 object-cover" draggable="false">
-                <div class="p-5">
-                  <div class="flex items-baseline justify-between gap-3">
-                    <div class="text-xl font-black font-display text-foreground">
-                      {{ deckCurrent.name }}
-                    </div>
-                    <div class="text-xs italic text-secondary font-display">
-                      {{ deckCurrent.city }}
-                    </div>
-                  </div>
-                  <!-- Context chip -->
-                  <component :is="previewMode ? 'div' : NuxtLink"
-                       v-if="deckCurrent.kind === 'dancer-your-fest'"
-                       :to="previewMode ? undefined : festivalPath(deckCurrent.festivalSlug)"
-                       class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold hover:underline"
-                       :style="{ background: deckCurrent.festivalColor + '18', color: deckCurrent.festivalColor }"
-                       @pointerdown.stop>
-                    <Plane class="w-3 h-3" style="stroke-width:1.5;" />
-                    Also going to {{ deckCurrent.festivalName }}
-                  </component>
-                  <component :is="previewMode ? 'div' : NuxtLink"
-                       v-else-if="deckCurrent.kind === 'dancer-new-fest'"
-                       :to="previewMode ? undefined : festivalPath(deckCurrent.festivalSlug)"
-                       class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold hover:underline"
-                       :style="{ background: deckCurrent.festivalColor + '18', color: deckCurrent.festivalColor }"
-                       @pointerdown.stop>
-                    <Plane class="w-3 h-3" style="stroke-width:1.5;" />
-                    Going to {{ deckCurrent.festivalName }} — you're not
-                  </component>
-                  <div v-else-if="deckCurrent.kind === 'dancer-local' && (deckCurrent.regularAt || deckCurrent.city)"
-                       class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold text-wd-green-600"
-                       style="background:color-mix(in srgb, var(--wd-green-600) 9.4%, transparent);">
-                    <MapPin class="w-3 h-3" style="stroke-width:1.5;" />
-                    <template v-if="deckCurrent.regularAt">Regular at {{ deckCurrent.regularAt }}</template>
-                    <template v-else>Dances in {{ deckCurrent.city }}</template>
-                  </div>
-                  <div class="mt-3 flex flex-wrap gap-1">
-                    <span v-for="st in deckCurrent.danceStyles" :key="st"
-                          class="text-eyebrow font-bold uppercase tracking-widest px-2 py-0.5 rounded-full text-muted-foreground"
-                          style="background:color-mix(in srgb, var(--wd-brown-900) 3.9%, transparent);">
-                      {{ st }}
-                    </span>
-                  </div>
-                  <p v-if="deckCurrent.reason" class="mt-3 text-xs italic leading-snug text-muted-foreground font-display">
-                    {{ deckCurrent.reason }}
-                  </p>
-                </div>
-              </template>
-
-              <!-- EVENT: FESTIVAL -->
-              <template v-else-if="deckCurrent.kind === 'event-festival'">
-                <div class="h-64 p-6 flex flex-col justify-end" :style="{ background: 'linear-gradient(135deg, ' + (deckCurrent as any).color + ', var(--wd-orange-500))' }">
-                  <div class="text-eyebrow uppercase tracking-widest font-bold text-white/90">Festival · not in your year</div>
-                  <div class="mt-1 text-3xl font-black leading-none text-white font-display">
-                    {{ deckCurrent.name }}
-                  </div>
-                </div>
-                <div class="p-5">
-                  <div class="flex items-center gap-4 text-xs text-muted-foreground font-sans">
-                    <span class="inline-flex items-center gap-1">
-                      <Calendar class="w-3 h-3 text-secondary" />
-                      {{ new Date(`${(deckCurrent as any).dateISO}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }) }}
-                    </span>
-                    <span class="inline-flex items-center gap-1">
-                      <MapPin class="w-3 h-3 text-secondary" />
-                      {{ (deckCurrent as any).venue }}, {{ (deckCurrent as any).city }}
-                    </span>
-                  </div>
-                  <div v-if="(deckCurrent as any).friendsGoing > 0" class="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold text-wd-amber-500"
-                       style="background:color-mix(in srgb, var(--wd-amber-500) 9.4%, transparent);">
-                    <UsersIcon class="w-3 h-3" style="stroke-width:1.5;" />
-                    {{ (deckCurrent as any).friendsGoing }} friend{{ (deckCurrent as any).friendsGoing === 1 ? '' : 's' }} going
-                  </div>
-                  <p v-if="deckCurrent.reason" class="mt-3 text-xs italic leading-snug text-muted-foreground font-display">
-                    {{ deckCurrent.reason }}
-                  </p>
-                </div>
-              </template>
-
-              <!-- EVENT: LOCAL SOCIAL -->
-              <template v-else>
-                <div class="h-64 p-6 flex flex-col justify-end" :style="{ background: 'linear-gradient(135deg, ' + (deckCurrent as any).color + ', var(--wd-violet-600))' }">
-                  <div class="text-eyebrow uppercase tracking-widest font-bold text-white/90">Local · {{ (deckCurrent as any).style }}</div>
-                  <div class="mt-1 text-3xl font-black leading-none text-white font-display">
-                    {{ deckCurrent.name }}
-                  </div>
-                </div>
-                <div class="p-5">
-                  <div class="flex items-center gap-4 text-xs text-muted-foreground font-sans">
-                    <span class="inline-flex items-center gap-1">
-                      <Calendar class="w-3 h-3 text-secondary" />
-                      {{ [(deckCurrent as any).dayLabel, shortDayDate((deckCurrent as any).dateISO ?? '')].filter(Boolean).join(' ') }} · {{ (deckCurrent as any).time }}
-                    </span>
-                    <span class="inline-flex items-center gap-1">
-                      <MapPin class="w-3 h-3 text-secondary" />
-                      {{ (deckCurrent as any).venue }}, {{ (deckCurrent as any).city }}
-                    </span>
-                  </div>
-                  <div v-if="(deckCurrent as any).friendsGoing > 0" class="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold text-wd-amber-500"
-                       style="background:color-mix(in srgb, var(--wd-amber-500) 9.4%, transparent);">
-                    <UsersIcon class="w-3 h-3" style="stroke-width:1.5;" />
-                    {{ (deckCurrent as any).friendsGoing }} friend{{ (deckCurrent as any).friendsGoing === 1 ? '' : 's' }} going
-                  </div>
-                  <p v-if="deckCurrent.reason" class="mt-3 text-xs italic leading-snug text-muted-foreground font-display">
-                    {{ deckCurrent.reason }}
-                  </p>
-                </div>
-              </template>
-            </div>
-          </div>
-
-          <!-- Action buttons -->
-          <div v-if="deckCurrent" class="mt-8 flex items-center justify-center gap-6">
-            <button
-              type="button"
-              class="w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95 text-primary"
-              style="background:white; border:2px solid color-mix(in srgb, var(--wd-red-600) 33.3%, transparent);"
-              aria-label="Skip"
-              @click="commitSwipe('skip')"
-            >
-              <X class="w-6 h-6" />
-            </button>
-            <button
-              type="button"
-              class="w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95 text-wd-amber-500"
-              style="background:white; border:2px solid color-mix(in srgb, var(--wd-amber-500) 33.3%, transparent);"
-              aria-label="Later — show again at the end"
-              title="Later — show again at the end"
-              @click="commitSwipe('later')"
-            >
-              <Clock class="w-5 h-5" />
-            </button>
-            <button
-              type="button"
-              class="w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95 text-wd-green-600"
-              style="background:white; border:2px solid color-mix(in srgb, var(--wd-green-600) 33.3%, transparent);"
-              aria-label="Yes"
-              @click="commitSwipe('yes')"
-            >
-              <Heart class="w-6 h-6" />
-            </button>
-          </div>
-
-          <p v-if="deckCurrent" class="mt-4 text-xs text-center italic text-secondary font-display">
-            Drag or use the buttons · {{ deck.length }} left
-          </p>
-
-          <!-- After a Yes: the next step toward actually meeting them (RAZ-981). -->
-          <p v-if="lastYes" class="mt-4 text-sm text-center text-muted-foreground font-sans" data-testid="meet-next-step" aria-live="polite">
-            <span class="font-bold text-foreground">Yes to {{ lastYes.name }}.</span>
-            <template v-if="(lastYes.kind === 'dancer-your-fest' || lastYes.kind === 'dancer-new-fest') && !previewMode">
-              Next: <NuxtLink :to="`${festivalPath(lastYes.festivalSlug)}#discover`" class="font-bold text-primary hover:underline">wave at them on {{ lastYes.festivalName }}</NuxtLink>.
-            </template>
-            <template v-else>
-              Next: <a href="#socials" class="font-bold text-primary hover:underline">pick a night out this week</a> — locals meet on the floor.
-            </template>
-          </p>
-        </div>
-      </div>
+      <!-- MEET NEW FRIENDS · its own page (/meet, RAZ-989); first thing in the plan. -->
+      <MeetFriendsEntry :faces="meetFaces" :count="meetCount" surface="my_plan" class="mt-2" />
 
       <!-- TONIGHT · Hangouts. -->
       <div id="tonight" class="mt-14">

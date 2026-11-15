@@ -473,7 +473,8 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `week_plan_add` / `week_plan_remove` | `useWeekPlan` (Going! toggle), `my-plan` enroll / course X | `event_id`, `week_count` or `source`; add: `event_type`, `city`, `surface` |
 | `year_plan_add` / `year_plan_remove` | `useYearPlan` | `festival_slug`, `year_count`; add: `festival`, `surface` |
 | `workshop_plan_add` / `workshop_plan_remove` | `festival/FestivalView.vue` | `festival`, `workshop_id`, `workshop_type`, `partner_status` |
-| `discover_swipe` | `my-plan` discover deck | `direction`, `card_kind`, `added_festival`, `added_event` |
+| `discover_swipe` | `/meet` Meet new friends deck (on My plan until RAZ-989) | `direction`, `card_kind`, `added_festival`, `added_event` (always false since the deck is people only), `surface` (meet) |
+| `meet_friends_opened` | `MeetFriendsEntry` on My plan (the card leading to `/meet`, RAZ-989) | `surface` (my_plan / my_plan_empty), `people` (dancers waiting in the deck; null = not loaded) |
 | `goal_added` | `useGoals.addGoal` | `style` |
 | `follow` / `unfollow` | `/@handle`, `PromoterProfile` (profiles); `FestivalView` shared plan (dancer) | `target`, `profile`, `profile_type`, `surface` |
 | `whos_going_profile_opened` | `GoingSection` face tap | `item_type`, `item_id` |

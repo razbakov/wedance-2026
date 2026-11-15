@@ -2,7 +2,7 @@
  * "Meet new friends" matches (RAZ-985): two dancers who said yes to each other.
  *
  * Two places record a "yes" to another dancer today:
- *  - the deck on /my-plan → discover_swipes (target_kind 'dancer', decision 'yes');
+ *  - the deck on /meet (linked from My plan) → discover_swipes (target_kind 'dancer', decision 'yes');
  *  - "Shall we dance?" on a festival page → festival_waves (per festival).
  * A match is a yes in both directions, in either place. Both are merged here
  * into one list per other dancer, with where it came from (`deck`, festivals).
