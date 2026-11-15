@@ -47,7 +47,12 @@ async function run(key: string, fn: () => Promise<unknown>) {
   finally { busy.value = null }
 }
 
-const review = (id: string, approve: boolean) => run(id, () => $trpc.communityGroup.review.mutate({ id, approve, verified: approve ? true : undefined }))
+// A WeDance admin approving here also clears it from their Admin badge.
+const { refresh: refreshAttention } = useAdminAttention()
+const review = (id: string, approve: boolean) => run(id, async () => {
+  await $trpc.communityGroup.review.mutate({ id, approve, verified: approve ? true : undefined })
+  refreshAttention(true)
+})
 const setVisible = (id: string, visible: boolean) => run(id, () => $trpc.communityGroup.setVisible.mutate({ id, visible }))
 const checkLinks = () => run('check', async () => {
   const r = await $trpc.communityGroup.checkLinks.mutate({ citySlug: props.citySlug, limit: 40 })

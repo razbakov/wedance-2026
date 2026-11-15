@@ -6,43 +6,29 @@
  * real security boundary; this gate is UX.
  */
 import { ShieldAlert, ArrowLeft } from 'lucide-vue-next'
-import { ADMIN_NAV, adminNavActive, type AdminBadges } from '~/lib/admin-nav'
+import { ADMIN_NAV, adminNavActive } from '~/lib/admin-nav'
 
 const route = useRoute()
 const { $trpc } = useNuxtApp()
 
 const state = ref<'checking' | 'ok' | 'denied'>('checking')
 const showSignIn = ref(false)
-const pendingVideos = ref<number | null>(null)
-const pendingClaims = ref<number | null>(null)
+// Pending counts per section — the same ones every other side shows on the Admin link.
+const { counts: badges, refresh: refreshBadges } = useAdminAttention()
 
 async function check() {
   try {
     const me = await $trpc.auth.me.query()
     state.value = me?.isAdmin ? 'ok' : 'denied'
-    if (state.value === 'ok') loadBadges()
+    if (state.value === 'ok') refreshBadges(true)
   } catch {
     state.value = 'denied'
-  }
-}
-async function loadBadges() {
-  try {
-    const [videos, claims] = await Promise.all([
-      $trpc.cityVideo.pendingList.query({}),
-      $trpc.business.listClaims.query(),
-    ])
-    pendingVideos.value = videos.length
-    pendingClaims.value = claims.length
-  } catch {
-    pendingVideos.value = null
-    pendingClaims.value = null
   }
 }
 
 onMounted(check)
 watch(showSignIn, (open) => { if (!open) check() })
 
-const badges = computed<AdminBadges>(() => ({ videos: pendingVideos.value, claims: pendingClaims.value }))
 const nav = computed(() => ADMIN_NAV.map(item => ({ ...item, count: (item.badge && badges.value[item.badge]) || null })))
 const isActive = (item: { to: string; exact?: boolean }) => adminNavActive(item, route.path)
 </script>

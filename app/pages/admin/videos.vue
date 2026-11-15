@@ -44,12 +44,15 @@ async function load() {
   }
 }
 
+const { refresh: refreshAttention } = useAdminAttention()
+
 async function setStatus(v: PendingVideo, status: 'approved' | 'rejected') {
   busyId.value = v.id
   try {
     await $trpc.cityVideo.setStatus.mutate({ videoId: v.id, status })
     // Drop from the queue — pendingList only holds `pending`.
     videos.value = videos.value.filter(x => x.id !== v.id)
+    refreshAttention(true)
   } catch (e: any) {
     error.value = e?.message || 'Could not update that video.'
   } finally {
