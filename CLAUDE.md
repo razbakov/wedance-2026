@@ -343,6 +343,17 @@ time (`BusinessEventForm` `focus()`). A new draft opens on its first step to do.
 host's other events suggest (`pastEventHints`: artists booked before, last time's price). Same order as MCP
 `create_event`.
 
+## Who's coming → Contacts
+
+The organiser's event page shows **Who's coming** (`BusinessWhosComing`, `rsvp.people`: names and photos of everyone
+who signed up — poll, Going!, tickets — never email; organisers see them whatever the dancer's public visibility).
+Contact details live only in the host page's **Contacts** (`/business/network/<handle>/contacts`), which "See their
+contacts" opens filtered to the event (`?event=<id>&as=<needLeader|…>`; `businessSite.contactsOverview` → `events`,
+`activity.events` per contact, `shared/utils/contactSegments.ts` `ComingAs`). A dancer gets there by their own
+opt-in: under the poll, once confirmed and coming, "Let <page> keep in touch" (+ optional phone) →
+`rsvp.shareContact` → `server/utils/rsvpContact.ts` (host page, else organiser — never the venue): a new contact
+with source `rsvp`, or an existing one gains `source.opted_in` (mailable either way); "Stop sharing" = unsubscribed.
+
 ## Cancelling an event (RAZ-948)
 
 Business → event → **Cancel** (or Business → Events: tick events / "Select today's" → cancel them at once), MCP
@@ -435,6 +446,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `going_visibility_changed` | `GoingSection` share toggle | `share`, `item_type`, `item_id` |
 | `wave_sent` / `wave_retracted` | `GoingSection`, `DiscoverDancers`, `EventRsvpPoll` pairing (sent only) | `festival`, `surface` |
 | `rsvp_answered` | `EventRsvpPoll` (event poll tap — signed out it's saved unconfirmed) | `answer` (partner / needLeader / needFollower / yes / next), `signed_in`, `surface`, `event_id` |
+| `rsvp_contact_shared` | `EventRsvpPoll` "Let <page> keep in touch" (confirmed + coming) / "Stop sharing" | `share`, `has_phone`, `surface`, `event_id` |
 | `discover_deck_joined` | `DiscoverDancers` "show me" | `item_type`, `item_id`, `was_going` |
 | `hangout_created` | `FestivalView`, `my-plan` | `kind`, `surface`, `event_id` / `event_linked` |
 | `hangout_rsvp` | `FestivalView`, `my-plan` | `going`, `surface`, `hangout_id` |
@@ -502,6 +514,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `server_page_deleted` | `business.deletePage` (owners; only a page nothing uses — `server/utils/deleteProfile.ts`) | `profile`, `profile_type`, `followers`, `team`, `days_old`, `$groups` |
 | `server_rsvp_answered` | `rsvp.answer` (signed out → unconfirmed; signed in → confirmed at once) | `event_id`, `answer`, `signed_in`, `confirmed`, `$groups` |
 | `server_rsvp_confirmed` | `rsvp.answer` signed in, folding in this browser's / magic link's unconfirmed answer | `event_id`, `answer`, `hours_to_confirm`, `$groups` |
+| `server_rsvp_contact_shared` | `rsvp.shareContact` (the dancer shares / stops sharing their contact with the event's host, else organiser page) | `event_id`, `share`, `has_phone`, `new_contact`, `$groups` |
 | `server_festival_joined` | `festivalSignup.join` | `festival` |
 | `server_ticket_checkout_started` | `festivalSignup.ticketCheckout`, `festivalSignup.createCheckoutSession` | `festival`, `tickets`, `referral` |
 | `server_subscription_checkout_started` | `organizerSubscription.createCheckout` | `plan`, `profile_type` |

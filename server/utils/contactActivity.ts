@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm'
-import { summariseActivity, EMPTY_ACTIVITY, type ActivitySignal, type ContactActivity } from '../../shared/utils/contactSegments'
+import { summariseActivity, EMPTY_ACTIVITY, EVENT_FILTER_PAST_DAYS, type ActivitySignal, type ContactActivity } from '../../shared/utils/contactSegments'
+import { UNCONFIRMED_TTL_HOURS } from '../../shared/utils/rsvp'
 
 /**
  * What a page's contacts do on WeDance (RAZ-949), for contacts linked to an
@@ -50,3 +51,44 @@ export async function loadContactActivity(db: any, page: { id: string, username:
 
 export const activityFor = (m: Map<string, ContactActivity>, dancerId: string | null | undefined): ContactActivity =>
   (dancerId && m.get(dancerId)) || EMPTY_ACTIVITY
+
+// Columns are UTC timestamps without a zone: compare with a UTC literal.
+const utc = (d: Date) => sql`(${d.toISOString()}::timestamptz at time zone 'UTC')`
+
+export interface PageEventOption { id: string, name: string, startDate: string, timezone: string | null, coming: number }
+
+/**
+ * The page's events the Contacts page can filter by: published, from
+ * EVENT_FILTER_PAST_DAYS back to 120 days ahead, with how many people signed up
+ * (Going!, a poll answer other than "Next time" — signed out ones while they
+ * count — or a ticket; a guest counts once). Only events someone signed up for.
+ */
+export async function loadPageEvents(db: any, page: { id: string, username: string }, now = new Date()): Promise<PageEventOption[]> {
+  const co = JSON.stringify([{ username: page.username }])
+  const from = new Date(now.getTime() - EVENT_FILTER_PAST_DAYS * 86_400_000)
+  const to = new Date(now.getTime() + 120 * 86_400_000)
+  const fresh = new Date(now.getTime() - UNCONFIRMED_TTL_HOURS * 3_600_000)
+  const res: any = await db.execute(sql`
+    with ev as (
+      select id, name, start_date, timezone from events
+      where (host_profile_id = ${page.id} or organizer_username = ${page.username} or venue_username = ${page.username}
+         or co_organizers @> ${co}::jsonb)
+        and published and not archived and start_date >= ${utc(from)} and start_date < ${utc(to)}
+    ), who as (
+      select a.event_id, coalesce(a.dancer_id::text, 'buyer:' || a.buyer_email) as who from attendances a
+        join ev on ev.id = a.event_id where a.status in ('going', 'ticket_holder')
+      union
+      select r.event_id, coalesce(r.dancer_id::text, 'guest:' || r.guest_token) from event_rsvps r
+        join ev on ev.id = r.event_id where r.answer <> 'next' and (r.confirmed_at is not null or r.updated_at > ${utc(fresh)})
+      union
+      select ev.id, p.dancer_id::text from plan_items p join ev on ev.id::text = p.item_id where p.item_type = 'event'
+    )
+    select ev.id, ev.name, to_char(ev.start_date, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as start_date, ev.timezone, count(who.who)::int as coming
+      from ev join who on who.event_id = ev.id
+      group by ev.id, ev.name, ev.start_date, ev.timezone
+      order by ev.start_date
+      limit 60
+  `)
+  const rows: any[] = res.rows ?? res
+  return rows.map(r => ({ id: r.id, name: r.name || 'Event', startDate: r.start_date, timezone: r.timezone ?? null, coming: Number(r.coming) }))
+}

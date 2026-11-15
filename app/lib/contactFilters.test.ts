@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { filterContacts, emptyFilter, isFiltered, toggle, contactsCsv, sourceDetail, contactSince, CSV_COLUMNS, type FilterableContact } from './contactFilters'
+import { filterContacts, comingCounts, emptyFilter, isFiltered, toggle, contactsCsv, sourceDetail, contactSince, CSV_COLUMNS, type FilterableContact } from './contactFilters'
 import { EMPTY_ACTIVITY } from '#shared/utils/contactSegments'
 
 const NOW = new Date('2026-11-15T12:00:00Z')
@@ -76,5 +76,23 @@ describe('contactSince', () => {
   it('CSV writes the bound, not a made-up day', () => {
     const csv = contactsCsv([{ ...c({ name: 'Old', source: { from: 'wedance-v3', subscribed_before: '2024-03-24T15:23:43Z' } }), locale: null, sourceLabel: 'wedance.vip subscribers' }])
     expect(csv).toContain('"before 2024-03-24"')
+  })
+})
+
+describe('the event filter', () => {
+  const coming = [
+    c({ name: 'Ana', activity: { ...EMPTY_ACTIVITY, events: { e1: 'needLeader' } } }),
+    c({ name: 'Ben', activity: { ...EMPTY_ACTIVITY, events: { e1: 'ticket', e2: 'going' } } }),
+    c({ name: 'Cat', activity: { ...EMPTY_ACTIVITY, events: { e2: 'needLeader' } } }),
+    c({ name: 'Dan' }),
+  ]
+  it('keeps the contacts coming to the event, and narrows by how they come', () => {
+    expect(filterContacts(coming, { ...emptyFilter(), event: 'e1' }, NOW).map(x => x.name)).toEqual(['Ana', 'Ben'])
+    expect(filterContacts(coming, { ...emptyFilter(), event: 'e1', as: 'needLeader' }, NOW).map(x => x.name)).toEqual(['Ana'])
+    expect(isFiltered({ ...emptyFilter(), event: 'e1' })).toBe(true)
+  })
+  it('counts them by how they come', () => {
+    expect(comingCounts(coming, 'e1')).toEqual({ total: 2, by: { needLeader: 1, ticket: 1 } })
+    expect(comingCounts(coming, 'nope')).toEqual({ total: 0, by: {} })
   })
 })

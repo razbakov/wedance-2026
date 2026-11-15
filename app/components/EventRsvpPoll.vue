@@ -10,10 +10,12 @@
  * event and the answer (/auth/verify?redirect=/events/<id>&do=<answer>&guest=…)
  * and lands back here confirmed, no /onboarding detour. Signed in: one tap, no
  * sheet. A confirmed "I need a leader" sees who needs a follower, with a wave.
+ * A confirmed dancer who's coming can also "Let <page> keep in touch": their
+ * email (and a phone, if they add one) goes to the page's Contacts (rsvp.shareContact).
  */
 import { Check, Hand, Mail } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
-import { RsvpEmailSchema } from '#shared/validation'
+import { RsvpContactSchema, RsvpEmailSchema } from '#shared/validation'
 import { rsvpOptions, type RsvpAnswer } from '#shared/utils/rsvp'
 import { eventLocalDate } from '#shared/utils/eventTime'
 import { initialsOf } from '#shared/utils/initials'
@@ -144,6 +146,29 @@ async function wave(dancerId: string) {
     if (m) m.waved = true
   } catch { /* stays un-waved */ } finally { waving.value = null }
 }
+
+// "Let <page> keep in touch" — only offered once the answer is confirmed and coming.
+const contact = computed(() => (going.value && mine.value?.confirmed ? poll.value?.contact ?? null : null))
+const contactForm = reactive({ phone: '' })
+const { errors: contactErrors, validate: validateContact, fieldAttrs: contactAttrs } = useFormValidation(RsvpContactSchema, contactForm)
+const sharing = ref(false)
+async function shareContact(share: boolean) {
+  if (!poll.value || sharing.value) return
+  let phone: string | undefined
+  if (share) {
+    const result = validateContact()
+    if (!result.success) return
+    phone = result.data.phone
+  }
+  sharing.value = true; error.value = ''
+  try {
+    setPoll(await $trpc.rsvp.shareContact.mutate({ event: props.eventId, share, phone }))
+    useTrack().track('rsvp_contact_shared', { share, has_phone: !!phone, surface: props.surface, event_id: poll.value?.eventId })
+    contactForm.phone = ''
+  } catch {
+    error.value = share ? 'Couldn’t share your contact. Please try again.' : 'Couldn’t stop sharing. Please try again.'
+  } finally { sharing.value = false }
+}
 </script>
 
 <template>
@@ -190,6 +215,25 @@ async function wave(dancerId: string) {
         <Button type="button" variant="link" size="sm" class="h-auto p-0" @click="openSheet">Confirm with your email</Button>
       </template>
     </p>
+
+    <!-- Let the page keep in touch: the dancer's own opt-in to its Contacts -->
+    <div v-if="contact" class="mt-4 border-t border-border pt-3 text-sm" data-rsvp-contact>
+      <p v-if="contact.shared" class="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <span class="inline-flex items-center gap-1 font-bold text-wd-green-700"><Check class="size-4" aria-hidden="true" /> {{ contact.page }} can reach you</span>
+        <span class="text-muted-foreground">· by email{{ contact.phone ? ` and on ${contact.phone}` : '' }}</span>
+        <Button type="button" variant="link" size="sm" class="h-auto p-0" :loading="sharing" @click="shareContact(false)">Stop sharing</Button>
+      </p>
+      <form v-else class="grid gap-2" novalidate @submit.prevent="shareContact(true)">
+        <p><span class="font-bold">Let {{ contact.page }} keep in touch?</span> <span class="text-muted-foreground">They’ll see your name and email, and your number if you add it, to tell you about this and their next events. You can stop any time.</span></p>
+        <div class="flex flex-wrap items-start gap-2">
+          <div class="min-w-0 flex-1">
+            <Input v-model="contactForm.phone" type="tel" placeholder="Phone / WhatsApp (optional)" autocomplete="tel" aria-label="Phone or WhatsApp (optional)" v-bind="contactAttrs('phone', 'rsvp-phone-error')" />
+            <FieldError id="rsvp-phone-error" :message="contactErrors.phone" />
+          </div>
+          <Button type="submit" variant="outline-pill" size="pill-sm" :loading="sharing"><Mail aria-hidden="true" /> Share my contact</Button>
+        </div>
+      </form>
+    </div>
 
     <!-- Pairing: a confirmed "I need a leader" ↔ "I need a follower" -->
     <div v-if="mine?.confirmed && (mine.answer === 'needLeader' || mine.answer === 'needFollower')" class="mt-4 border-t border-border pt-3">

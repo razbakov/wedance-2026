@@ -9,13 +9,18 @@
  * mailable until Alex decides otherwise. Imported lists and wedance.vip
  * subscribers never asked for email from this page, so they're "can't email"
  * until they opt in (the one-time ask, RAZ-949 step 4).
+ *
+ * A dancer who ticks "Let <page> keep in touch" under an event's poll opts in
+ * themselves: a new contact gets source `rsvp`, an existing one keeps its source
+ * and gains `source.opted_in` (both mailable).
  */
 
-export const CONTACT_SOURCES = ['website', 'hubspot_form', 'hubspot_import', 'hubspot_manual', 'wedance_v3', 'other'] as const
+export const CONTACT_SOURCES = ['website', 'rsvp', 'hubspot_form', 'hubspot_import', 'hubspot_manual', 'wedance_v3', 'other'] as const
 export type ContactSourceKey = typeof CONTACT_SOURCES[number]
 
 export const SOURCE_LABEL: Record<ContactSourceKey, string> = {
   website: 'Your website',
+  rsvp: 'Shared at an event',
   hubspot_form: 'HubSpot form',
   hubspot_import: 'HubSpot imported list',
   hubspot_manual: 'HubSpot by hand',
@@ -24,7 +29,7 @@ export const SOURCE_LABEL: Record<ContactSourceKey, string> = {
 }
 
 /** Sources where the person signed up for this page's emails themselves. Provisional — see the header. */
-export const SELF_OPT_IN_SOURCES: readonly ContactSourceKey[] = ['website', 'hubspot_form']
+export const SELF_OPT_IN_SOURCES: readonly ContactSourceKey[] = ['website', 'rsvp', 'hubspot_form']
 
 export type ContactSource = Record<string, string> | null | undefined
 
@@ -38,6 +43,7 @@ export function contactSourceKey(source: ContactSource): ContactSourceKey {
     return 'other'
   }
   if (s.from === 'wedance-v3') return 'wedance_v3'
+  if (s.from === 'rsvp') return 'rsvp'
   if (!s.from && (s.form || s.page || s.site || s.referrer || s.utm_source)) return 'website'
   return 'other'
 }
@@ -47,6 +53,7 @@ export type EmailBlock = 'unsubscribed' | 'not_opted_in'
 /** Why the page may not email this contact, or null when it may. */
 export function emailBlock(c: { status: string, source: ContactSource }): EmailBlock | null {
   if (c.status !== 'subscribed') return 'unsubscribed'
+  if (c.source?.opted_in) return null
   if (!SELF_OPT_IN_SOURCES.includes(contactSourceKey(c.source))) return 'not_opted_in'
   return null
 }
@@ -75,6 +82,12 @@ export interface ActivitySignal {
 
 export interface ContactEvent { id: string, name: string, startDate: string }
 
+/** How a contact is coming to one event: a ticket, their poll answer, else just "going" (Going! / attendance). */
+export type ComingAs = 'ticket' | 'partner' | 'needLeader' | 'needFollower' | 'yes' | 'going'
+
+/** The event filter covers events from this many days back (and everything ahead). */
+export const EVENT_FILTER_PAST_DAYS = 30
+
 export interface ContactActivity {
   follows: boolean
   followedAt: string | null
@@ -86,9 +99,11 @@ export interface ContactActivity {
   upcoming: ContactEvent[]
   /** Start of the latest past event they went to. */
   lastEventAt: string | null
+  /** The page's events (from EVENT_FILTER_PAST_DAYS back) they're coming to, and how. */
+  events: Record<string, ComingAs>
 }
 
-export const EMPTY_ACTIVITY: ContactActivity = { follows: false, followedAt: null, wentTo: 0, checkedIn: 0, upcoming: [], lastEventAt: null }
+export const EMPTY_ACTIVITY: ContactActivity = { follows: false, followedAt: null, wentTo: 0, checkedIn: 0, upcoming: [], lastEventAt: null, events: {} }
 
 /** Does this signal mean "I'm coming"? "Interested" and "Next time" don't. */
 export function isGoingSignal(s: ActivitySignal): boolean {
@@ -102,13 +117,19 @@ const iso = (d: string | Date | null | undefined) => (d ? new Date(d).toISOStrin
 
 /** `follow` = the follow row (its date may be unknown), or null when they don't follow the page. */
 export function summariseActivity(signals: ActivitySignal[], follow: { at: string | Date | null } | null | undefined, now = new Date()): ContactActivity {
-  const byEvent = new Map<string, { name: string, start: string | null, going: boolean, checkedIn: boolean }>()
+  const byEvent = new Map<string, { name: string, start: string | null, going: boolean, checkedIn: boolean, as: ComingAs | null }>()
   for (const s of signals) {
-    const e = byEvent.get(s.eventId) ?? { name: s.name || 'Event', start: iso(s.startDate), going: false, checkedIn: false }
-    if (isGoingSignal(s)) e.going = true
+    const e = byEvent.get(s.eventId) ?? { name: s.name || 'Event', start: iso(s.startDate), going: false, checkedIn: false, as: null }
+    if (isGoingSignal(s)) {
+      e.going = true
+      e.as = strongerComingAs(e.as, comingAs(s))
+    }
     if (s.checkedInAt) e.checkedIn = true
     byEvent.set(s.eventId, e)
   }
+  const since = now.getTime() - EVENT_FILTER_PAST_DAYS * 86_400_000
+  const events: Record<string, ComingAs> = {}
+  for (const [id, e] of byEvent) if (e.going && e.as && e.start && new Date(e.start).getTime() >= since) events[id] = e.as
   const going = [...byEvent.entries()].filter(([, e]) => e.going && e.start)
   const past = going.filter(([, e]) => new Date(e.start!) < now)
   const upcoming = going.filter(([, e]) => new Date(e.start!) >= now)
@@ -123,8 +144,31 @@ export function summariseActivity(signals: ActivitySignal[], follow: { at: strin
     checkedIn: past.filter(([, e]) => e.checkedIn).length,
     upcoming,
     lastEventAt: last,
+    events,
   }
 }
+
+function comingAs(s: ActivitySignal): ComingAs {
+  if (s.kind === 'attendance' && s.detail === 'ticket_holder') return 'ticket'
+  if (s.kind === 'rsvp' && s.detail && s.detail !== 'next') return s.detail as ComingAs
+  return 'going'
+}
+
+// A ticket says the most, then the poll answer, then a plain Going!.
+const COMING_RANK: Record<ComingAs, number> = { ticket: 3, partner: 2, needLeader: 2, needFollower: 2, yes: 2, going: 1 }
+function strongerComingAs(a: ComingAs | null, b: ComingAs): ComingAs {
+  return !a || COMING_RANK[b] > COMING_RANK[a] ? b : a
+}
+
+export const COMING_AS_LABEL: Record<ComingAs, string> = {
+  ticket: 'Has a ticket',
+  partner: 'With a partner',
+  needLeader: 'Needs a leader',
+  needFollower: 'Needs a follower',
+  yes: 'Coming alone',
+  going: 'Going (no answer)',
+}
+export const COMING_AS_ORDER: ComingAs[] = ['ticket', 'partner', 'needLeader', 'needFollower', 'yes', 'going']
 
 // ---------------------------------------------------------------------------
 // Activity filters and the segment counts.

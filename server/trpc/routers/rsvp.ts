@@ -22,16 +22,17 @@ import {
   type RsvpAnswer,
 } from '../../../shared/utils/rsvp'
 import { mergeSignups } from '../../../shared/utils/rsvpPeople'
+import { CONTACT_PHONE_MAX, contactPageFor, contactState, setContactShared } from '../../utils/rsvpContact'
 
 const eventParam = z.string().min(1).max(160)
 const guestToken = z.string().uuid()
 
-type Ev = { id: string; styles: string[] | null; organizerUsername: string | null; venueUsername: string | null }
+type Ev = { id: string; styles: string[] | null; organizerUsername: string | null; venueUsername: string | null; hostProfileId: string | null }
 
 async function findEvent(db: any, param: string): Promise<Ev> {
   for (const where of publicEventWhere(param)) {
     const [row] = await db
-      .select({ id: events.id, styles: events.styles, organizerUsername: events.organizerUsername, venueUsername: events.venueUsername })
+      .select({ id: events.id, styles: events.styles, organizerUsername: events.organizerUsername, venueUsername: events.venueUsername, hostProfileId: events.hostProfileId })
       .from(events).where(where).limit(1)
     if (row) return row
   }
@@ -90,9 +91,17 @@ async function pollFor(db: any, ev: Ev, viewer: { dancerId: string | null; guest
     matches = rows.map((r: any) => ({ dancerId: r.dancerId, name: String(r.name || '').split(' ')[0], photo: r.photo, username: r.username, waved: waved.has(r.dancerId) }))
   }
 
+  // "Let <page> keep in touch": for a signed-in dancer who's coming.
+  let contact: { page: string; shared: boolean; phone: string | null } | null = null
+  if (viewer.dancerId && mine?.confirmedAt && mine.answer !== 'next') {
+    const page = await contactPageFor(db, ev)
+    if (page) contact = await contactState(db, page, viewer.dancerId)
+  }
+
   return {
     eventId: ev.id,
     partner: isPartnerEvent(ev.styles),
+    contact,
     counts: s.counts,
     unconfirmed: s.unconfirmed,
     coming: s.coming,
@@ -176,6 +185,25 @@ export const rsvpRouter = router({
         trackServer(ctx, 'rsvp_answered', { event_id: ev.id, answer: input.answer, signed_in: true, confirmed: true, ...eventGroup(ev) })
       }
       return pollFor(ctx.db, ev, { dancerId })
+    }),
+
+  /**
+   * "Let <page> keep in touch": share my email (and optionally a phone) with the
+   * page running the event, as its contact — or stop. Signed in, and only for an
+   * event I'm coming to.
+   */
+  shareContact: protectedProcedure
+    .input(z.object({ event: eventParam, share: z.boolean(), phone: z.string().trim().max(CONTACT_PHONE_MAX).optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const ev = await findEvent(ctx.db, input.event)
+      const [mine] = await ctx.db.select({ answer: eventRsvps.answer }).from(eventRsvps)
+        .where(and(eq(eventRsvps.eventId, ev.id), eq(eventRsvps.dancerId, ctx.dancerId))).limit(1)
+      if (input.share && (!mine || mine.answer === 'next')) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Answer the poll first.' })
+      const page = await contactPageFor(ctx.db, ev)
+      if (!page) throw new TRPCError({ code: 'BAD_REQUEST', message: 'This event has no page to keep in touch with.' })
+      const { created } = await setContactShared(ctx.db, page, ctx.dancerId, input.share, { phone: input.phone, eventId: ev.id })
+      trackServer(ctx, 'rsvp_contact_shared', { event_id: ev.id, share: input.share, has_phone: !!input.phone, new_contact: created, ...eventGroup(ev) })
+      return pollFor(ctx.db, ev, { dancerId: ctx.dancerId })
     }),
 
   /** The organiser's view: the same buckets plus a one-line read. Event managers only. */

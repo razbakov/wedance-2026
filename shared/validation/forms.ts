@@ -49,6 +49,11 @@ export const RsvpEmailSchema = v.object({
   email: email(),
 })
 
+// rsvp.shareContact — "Let <page> keep in touch" (phone ≤ 40, CONTACT_PHONE_MAX).
+export const RsvpContactSchema = v.object({
+  phone: optionalText(40, 'Keep the number under 40 characters.'),
+})
+
 export const ResetPasswordSchema = v.pipe(
   v.object({
     password: newPassword(),

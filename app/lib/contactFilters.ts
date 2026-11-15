@@ -2,9 +2,10 @@
  * Filtering a page's contacts on the Contacts page (RAZ-949): by source, by
  * whether the page may email them, by WeDance activity, and by free text
  * (name, email, phone, note, account name and the source details — form, UTM,
- * promo code). Plus the CSV of whatever the filter shows.
+ * promo code). One event narrows it to the contacts coming to it, optionally by
+ * how they're coming (ticket, poll answer). Plus the CSV of whatever the filter shows.
  */
-import { EMAIL_BLOCK_LABEL, matchesActivity, type ActivityFilter, type ContactSourceKey, type EmailBlock, type SegmentContact } from '#shared/utils/contactSegments'
+import { EMAIL_BLOCK_LABEL, matchesActivity, type ActivityFilter, type ComingAs, type ContactSourceKey, type EmailBlock, type SegmentContact } from '#shared/utils/contactSegments'
 
 export interface FilterableContact extends SegmentContact {
   name: string | null
@@ -22,13 +23,17 @@ export interface ContactFilter {
   email: 'any' | 'can' | 'cant'
   /** All of these must match. */
   activity: ActivityFilter[]
+  /** One of the page's events: only contacts coming to it. */
+  event: string | null
+  /** With `event`: only those coming this way. */
+  as: ComingAs | null
   q: string
 }
 
-export const emptyFilter = (): ContactFilter => ({ sources: [], email: 'any', activity: [], q: '' })
+export const emptyFilter = (): ContactFilter => ({ sources: [], email: 'any', activity: [], event: null, as: null, q: '' })
 
 export function isFiltered(f: ContactFilter): boolean {
-  return f.sources.length > 0 || f.email !== 'any' || f.activity.length > 0 || f.q.trim() !== ''
+  return f.sources.length > 0 || f.email !== 'any' || f.activity.length > 0 || !!f.event || f.q.trim() !== ''
 }
 
 export function filterContacts<T extends FilterableContact>(list: T[], f: ContactFilter, now = new Date()): T[] {
@@ -38,9 +43,26 @@ export function filterContacts<T extends FilterableContact>(list: T[], f: Contac
     if (f.email === 'can' && c.emailBlock) return false
     if (f.email === 'cant' && !c.emailBlock) return false
     if (!f.activity.every(a => matchesActivity(c, a, now))) return false
+    if (f.event) {
+      const as = c.activity.events?.[f.event]
+      if (!as || (f.as && as !== f.as)) return false
+    }
     if (needle && ![c.name, c.email, c.phone, c.note, c.account?.name, ...Object.values(c.source ?? {})].some(v => typeof v === 'string' && v.toLowerCase().includes(needle))) return false
     return true
   })
+}
+
+/** How many of `list` come to `eventId`, in total and by how they're coming. */
+export function comingCounts(list: readonly FilterableContact[], eventId: string): { total: number, by: Partial<Record<ComingAs, number>> } {
+  const by: Partial<Record<ComingAs, number>> = {}
+  let total = 0
+  for (const c of list) {
+    const as = c.activity.events?.[eventId]
+    if (!as) continue
+    total++
+    by[as] = (by[as] ?? 0) + 1
+  }
+  return { total, by }
 }
 
 /** Toggle a value in a list filter (chips). */
