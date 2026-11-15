@@ -7,11 +7,14 @@
  * where they came from and what they do on WeDance; on a phone it hides behind
  * a Filters button. Each contact shows its WeDance activity around the page's
  * events. Search, note, unsubscribe / resubscribe, delete, CSV of what's shown.
+ * An event filter (`?event=<id>&as=<how>`, linked from the event's "Who's coming")
+ * narrows the list to the contacts coming to one event and says how many others
+ * signed up without being a contact.
  * Data: businessSite.contactsOverview. Nothing here sends email (RAZ-960).
  */
-import { Download, Search, Trash2, Globe, StickyNote, Check, X, SlidersHorizontal, MailCheck, MailX, Users, CalendarCheck, Repeat, Moon, Sparkles, Heart } from 'lucide-vue-next'
-import { ACTIVITY_FILTERS, contactSegments, emailBlock, type ActivityFilter, type ContactSourceKey } from '#shared/utils/contactSegments'
-import { contactsCsv, emptyFilter, filterContacts, isFiltered, sourceDetail, toggle, type ContactFilter } from '~/lib/contactFilters'
+import { Download, Search, Trash2, Globe, StickyNote, Check, X, SlidersHorizontal, MailCheck, MailX, Users, CalendarCheck, Repeat, Moon, Sparkles, Heart, CalendarDays } from 'lucide-vue-next'
+import { ACTIVITY_FILTERS, COMING_AS_LABEL, COMING_AS_ORDER, contactSegments, emailBlock, type ActivityFilter, type ComingAs, type ContactSourceKey } from '#shared/utils/contactSegments'
+import { comingCounts, contactsCsv, emptyFilter, filterContacts, isFiltered, sourceDetail, toggle, type ContactFilter } from '~/lib/contactFilters'
 
 definePageMeta({ layout: 'business' })
 const route = useRoute()
@@ -38,6 +41,24 @@ const segs = computed(() => (data.value?.truncated ? data.value.segments : conta
 
 const f = reactive<ContactFilter>(emptyFilter())
 const railOpen = ref(false)
+
+// The event filter lives in the URL, so "Who's coming" can link straight to it.
+const router = useRouter()
+const q1 = (v: unknown) => (Array.isArray(v) ? v[0] : v) as string | undefined
+f.event = q1(route.query.event) || null
+f.as = (q1(route.query.as) as ComingAs) || null
+if (f.event) railOpen.value = true
+watch(() => [f.event, f.as] as const, ([event, as]) => {
+  if (!event) f.as = null
+  const query = { ...route.query, event: event || undefined, as: (event && as) || undefined }
+  if (query.event !== q1(route.query.event) || query.as !== q1(route.query.as)) router.replace({ query })
+})
+const pageEvents = computed(() => data.value?.events ?? [])
+const chosenEvent = computed(() => pageEvents.value.find(e => e.id === f.event) ?? null)
+const eventCounts = computed(() => (f.event ? comingCounts(all.value, f.event) : { total: 0, by: {} }))
+const eventLabel = (e: { name: string, startDate: string, timezone: string | null }) =>
+  `${new Date(e.startDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: e.timezone || 'Europe/Berlin' })} · ${e.name}`
+const setAs = (a: ComingAs) => { f.as = f.as === a ? null : a }
 const shown = computed(() => filterContacts(all.value, f))
 const LIMIT = 60
 const more = ref(LIMIT)
@@ -50,7 +71,7 @@ const toggleSource = (k: ContactSourceKey) => { f.sources = toggle(f.sources, k)
 const toggleAct = (a: ActivityFilter) => { f.activity = toggle(f.activity, a) }
 const setEmail = (e: ContactFilter['email']) => { f.email = f.email === e ? 'any' : e }
 const clear = () => Object.assign(f, emptyFilter())
-const filterCount = computed(() => f.sources.length + f.activity.length + (f.email !== 'any' ? 1 : 0))
+const filterCount = computed(() => f.sources.length + f.activity.length + (f.email !== 'any' ? 1 : 0) + (f.event ? 1 : 0))
 
 const detail = (r: Row) => [r.locale?.toUpperCase(), sourceDetail(r.source), r.source?.promo_code ? `code ${r.source.promo_code}` : ''].filter(Boolean).join(' · ')
 
@@ -92,7 +113,7 @@ function csv() {
       <AdminPageHeader
         eyebrow="Contacts"
         :title="data.profile.name"
-        description="Everyone who gave you their email: sign-ups on your website and the lists you imported. Only people who signed up themselves can be emailed."
+        description="Everyone who gave you their email: sign-ups on your website, dancers who shared it when answering your event’s poll, and the lists you imported. Only people who signed up themselves can be emailed."
         :back="{ to: `/business/network/${username}`, label: 'The profile' }"
       >
         <Button variant="outline-pill" size="pill-sm" as-child>
@@ -106,6 +127,18 @@ function csv() {
       <p v-if="data.truncated" class="mt-1 text-xs text-muted-foreground">The counts cover everyone; the list shows the newest 2000.</p>
       <AdminState v-if="error" kind="error" :message="error" class="mt-4" />
 
+      <div v-if="f.event" class="mt-4 rounded-2xl border bg-card p-4 text-sm shadow-wd-card" data-contacts-event>
+        <p class="font-bold">
+          <CalendarDays class="mr-1 inline size-4" aria-hidden="true" />
+          <template v-if="chosenEvent">{{ eventLabel(chosenEvent) }} · {{ chosenEvent.coming }} coming · {{ eventCounts.total }} in your contacts</template>
+          <template v-else>Nobody has signed up for this event yet, or it was more than 30 days ago.</template>
+        </p>
+        <p v-if="chosenEvent && chosenEvent.coming > eventCounts.total" class="mt-1 text-muted-foreground">
+          The other {{ chosenEvent.coming - eventCounts.total }} haven’t shared their contact with you. Dancers can tick “Let {{ data.profile.name }} keep in touch” when they answer the event’s poll; their names are on the event’s “Who’s coming”.
+        </p>
+        <Button type="button" variant="link" size="sm" class="h-auto p-0" @click="f.event = null"><X /> Show all contacts</Button>
+      </div>
+
       <AdminState v-if="!segs.total" kind="empty" message="No contacts yet. People who sign up on your website, and lists you import, show up here." class="mt-6" />
 
       <div v-else class="mt-5 lg:grid lg:grid-cols-[15rem_1fr] lg:gap-6">
@@ -113,6 +146,18 @@ function csv() {
           <SlidersHorizontal /> Filters<template v-if="filterCount"> · {{ filterCount }}</template>
         </Button>
         <aside id="contacts-filters" class="mb-4 content-start gap-5 rounded-2xl border bg-card p-4 text-sm shadow-wd-card lg:sticky lg:top-6 lg:mb-0 lg:grid lg:self-start" :class="railOpen ? 'grid' : 'hidden'" aria-label="Filter contacts">
+          <section v-if="pageEvents.length">
+            <h2 class="mb-1 text-eyebrow font-black uppercase tracking-widest text-muted-foreground"><label for="contacts-event">Coming to</label></h2>
+            <select id="contacts-event" v-model="f.event" class="w-full rounded-lg border bg-background px-2 py-1.5 text-sm" data-contacts-event-select>
+              <option :value="null">Any event</option>
+              <option v-for="e in pageEvents" :key="e.id" :value="e.id">{{ eventLabel(e) }} ({{ e.coming }})</option>
+            </select>
+            <template v-if="f.event">
+              <button v-for="a in COMING_AS_ORDER.filter(a => eventCounts.by[a])" :key="a" type="button" class="mt-1 flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-accent" :class="f.as === a ? 'bg-primary/8 font-bold text-wd-red-800' : ''" :aria-pressed="f.as === a" @click="setAs(a)">
+                <span>{{ COMING_AS_LABEL[a] }}</span><span class="tabular-nums">{{ eventCounts.by[a] }}</span>
+              </button>
+            </template>
+          </section>
           <section>
             <h2 class="mb-1 text-eyebrow font-black uppercase tracking-widest text-muted-foreground">Email</h2>
             <button v-for="e in (['can', 'cant'] as const)" :key="e" type="button" class="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left hover:bg-accent" :class="f.email === e ? 'bg-primary/8 font-bold text-wd-red-800' : ''" :aria-pressed="f.email === e" @click="setEmail(e)">

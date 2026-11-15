@@ -10,7 +10,7 @@ import { TRPCError } from '@trpc/server'
 import { sitePreviewToken } from '../../utils/sitePreview'
 import { SITE_PREVIEW_TTL_S, hostedSiteUrl } from '../../../shared/utils/hostedSite'
 import { isPublished } from '../../../shared/types/profileSite'
-import { loadContactActivity, activityFor } from '../../utils/contactActivity'
+import { loadContactActivity, loadPageEvents, activityFor } from '../../utils/contactActivity'
 import { contactSegments, contactSourceKey, emailBlock, SOURCE_LABEL } from '../../../shared/utils/contactSegments'
 
 /**
@@ -119,7 +119,7 @@ export const businessSiteRouter = router({
    */
   contactsOverview: protectedProcedure.input(z.object({ username: z.string().min(1) })).query(async ({ ctx, input }) => {
     const p = await requireMember(ctx, input.username)
-    const [rows, act] = await Promise.all([
+    const [rows, act, pageEvents] = await Promise.all([
       ctx.db.select({
         id: profileContacts.id, email: profileContacts.email, name: profileContacts.name, phone: profileContacts.phone,
         locale: profileContacts.locale, source: profileContacts.source, note: profileContacts.note, status: profileContacts.status,
@@ -128,6 +128,7 @@ export const businessSiteRouter = router({
       }).from(profileContacts).leftJoin(dancers, eq(dancers.id, profileContacts.dancerId))
         .where(eq(profileContacts.profileId, p.id)).orderBy(desc(profileContacts.createdAt)),
       loadContactActivity(ctx.db, { id: p.id, username: p.username }),
+      loadPageEvents(ctx.db, { id: p.id, username: p.username }),
     ])
     const contacts = rows.map((r: any) => {
       const sourceKey = contactSourceKey(r.source)
@@ -147,6 +148,8 @@ export const businessSiteRouter = router({
       profile: { username: p.username, name: p.name, type: p.type },
       segments: contactSegments(contacts),
       followers: { total: act.followers, notContacts: followersNotContacts },
+      // For the event filter: who signed up, contacts or not ("12 coming · 5 in your contacts").
+      events: pageEvents,
       // The list stays capped; the counts above cover everyone.
       contacts: contacts.slice(0, 2000),
       truncated: contacts.length > 2000,

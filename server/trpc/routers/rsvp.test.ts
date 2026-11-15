@@ -126,6 +126,43 @@ describe.skipIf(!DATABASE_URL)('rsvp router', () => {
     expect(JSON.stringify(people)).not.toContain('@test.wedance.local')
   })
 
+  it('lets a confirmed dancer who is coming share their contact with the organiser page, and stop', async () => {
+    const before = await caller(ids.ana).rsvp.poll({ event: ids.event })
+    expect(before.contact).toEqual({ page: `Org ${RUN}`, shared: false, phone: null })
+
+    const on = await caller(ids.ana).rsvp.shareContact({ event: ids.event, share: true, phone: '+49 151 000' })
+    expect(on.contact).toEqual({ page: `Org ${RUN}`, shared: true, phone: '+49 151 000' })
+    const rows = await db.select().from(schema.profileContacts).where(eq(schema.profileContacts.profileId, ids.org))
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({ dancerId: ids.ana, email: `ana-${RUN}@test.wedance.local`, phone: '+49 151 000', status: 'subscribed', source: { from: 'rsvp', event: ids.event } })
+
+    const off = await caller(ids.ana).rsvp.shareContact({ event: ids.event, share: false })
+    expect(off.contact?.shared).toBe(false)
+    const [row] = await db.select().from(schema.profileContacts).where(eq(schema.profileContacts.id, rows[0].id))
+    expect(row.status).toBe('unsubscribed')
+  })
+
+  it('an imported contact who shares keeps its row and source, and becomes mailable', async () => {
+    await db.insert(schema.profileContacts).values({ profileId: ids.org, email: `BEN-${RUN}@test.wedance.local`, source: { from: 'hubspot', hubspot_origin: 'import' } })
+    await caller(ids.ben).rsvp.shareContact({ event: ids.event, share: true })
+    const rows = await db.select().from(schema.profileContacts).where(and(eq(schema.profileContacts.profileId, ids.org), eq(schema.profileContacts.dancerId, ids.ben)))
+    expect(rows).toHaveLength(1)
+    expect(rows[0].source).toMatchObject({ from: 'hubspot', hubspot_origin: 'import', opted_in: 'rsvp', opted_in_event: ids.event })
+  })
+
+  it('only someone coming can share', async () => {
+    await expect(caller(ids.cat).rsvp.shareContact({ event: ids.event, share: true })).rejects.toThrow(/answer the poll/i)
+  })
+
+  it('Contacts can filter by the event: who is coming, and how many signed up in all', async () => {
+    const o = await caller(ids.ana, true).businessSite.contactsOverview({ username: `org-${RUN}` })
+    const ev = o.events.find(e => e.id === ids.event)
+    expect(ev?.coming).toBeGreaterThanOrEqual(2)
+    const ben = o.contacts.find(c => c.hasAccount && c.email.toLowerCase() === `ben-${RUN}@test.wedance.local`)
+    expect(ben?.activity.events[ids.event]).toBe('needFollower')
+    expect(ben?.emailBlock).toBeNull()
+  })
+
   it('drops an unconfirmed answer out of the count after 48 hours', async () => {
     const before = await caller(null).rsvp.poll({ event: ids.event })
     await db.update(schema.eventRsvps).set({ updatedAt: new Date(Date.now() - 49 * 3600_000) })

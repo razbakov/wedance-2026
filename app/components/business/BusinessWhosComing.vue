@@ -4,12 +4,15 @@
  * and, under them, the people behind the numbers — poll answers, Going! and
  * ticket holders (`rsvp.people`). A chip filters the list to its answer; on a
  * partner event the leaders and followers who could pair up are named.
+ * Names only: to email or call someone, "See their contacts" opens the host
+ * page's Contacts filtered to this event — the people who shared their contact.
  */
 import { rsvpOptions, type RsvpAnswer } from '#shared/utils/rsvp'
 import { signupDisplayName, type SignupPerson } from '#shared/utils/rsvpPeople'
 import { initialsOf } from '#shared/utils/initials'
 
-const props = defineProps<{ eventId: string }>()
+const props = defineProps<{ eventId: string, contactsPage?: string | null }>()
+
 const { $trpc } = useNuxtApp()
 
 const poll = ref<Awaited<ReturnType<typeof $trpc.rsvp.summary.query>> | null>(null)
@@ -25,6 +28,12 @@ onMounted(async () => {
 
 type Filter = RsvpAnswer | 'plan' | null
 const filter = ref<Filter>(null)
+// The chip's answer carries over to Contacts' "how they're coming" filter.
+const contactsTo = computed(() => {
+  if (!props.contactsPage) return null
+  const as = filter.value && filter.value !== 'plan' && filter.value !== 'next' ? `&as=${filter.value}` : ''
+  return `/business/network/${props.contactsPage}/contacts?event=${props.eventId}${as}`
+})
 
 const options = computed(() => poll.value ? rsvpOptions(poll.value.partner) : [])
 const labelOf = computed(() => Object.fromEntries(options.value.map(o => [o.id, o.label])) as Record<string, string>)
@@ -91,6 +100,8 @@ const pairs = computed(() => {
       </li>
     </ul>
     <p v-else-if="!people.length" class="mt-3 text-sm text-muted-foreground">Nobody yet. Names show here as people answer.</p>
+
+    <NuxtLink v-if="contactsTo && people.length" :to="contactsTo" class="mt-3 inline-block text-sm font-bold underline-offset-2 hover:underline" data-rsvp-contacts>See their contacts →</NuxtLink>
 
     <p v-if="poll.unconfirmed" class="mt-3 text-xs text-muted-foreground">Not confirmed: answered without an account yet, so there’s no name. They count for 48 hours unless confirmed by email.</p>
   </section>

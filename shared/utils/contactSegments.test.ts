@@ -108,3 +108,33 @@ describe('activityLine', () => {
     expect(activityLine(EMPTY_ACTIVITY)).toBe('')
   })
 })
+
+describe('RSVP opt-in (Let <page> keep in touch)', () => {
+  it('a contact made at an event is its own, mailable source', () => {
+    expect(contactSourceKey({ from: 'rsvp', event: 'e1' })).toBe('rsvp')
+    expect(emailBlock({ status: 'subscribed', source: { from: 'rsvp', event: 'e1' } })).toBeNull()
+  })
+  it('an imported contact who opts in keeps its source and becomes mailable, until unsubscribed', () => {
+    const src = { from: 'hubspot', hubspot_origin: 'import', opted_in: 'rsvp' }
+    expect(contactSourceKey(src)).toBe('hubspot_import')
+    expect(emailBlock({ status: 'subscribed', source: src })).toBeNull()
+    expect(emailBlock({ status: 'unsubscribed', source: src })).toBe('unsubscribed')
+  })
+})
+
+describe('summariseActivity → events (the event filter)', () => {
+  const sig = (eventId: string, startDate: string, kind: ActivitySignal['kind'], detail?: string): ActivitySignal => ({ eventId, name: eventId, startDate, kind, detail })
+  it('keeps how they come to each recent or upcoming event: ticket over poll answer over Going!', () => {
+    const a = summariseActivity([
+      sig('fri', '2026-11-21T19:00:00Z', 'plan'),
+      sig('fri', '2026-11-21T19:00:00Z', 'rsvp', 'needLeader'),
+      sig('sat', '2026-11-22T19:00:00Z', 'rsvp', 'partner'),
+      sig('sat', '2026-11-22T19:00:00Z', 'attendance', 'ticket_holder'),
+      sig('sun', '2026-11-23T19:00:00Z', 'plan'),
+      sig('mon', '2026-11-24T19:00:00Z', 'rsvp', 'next'),
+      sig('last-week', '2026-11-08T19:00:00Z', 'attendance', 'going'),
+      sig('long-ago', '2026-09-01T19:00:00Z', 'attendance', 'going'),
+    ], null, NOW)
+    expect(a.events).toEqual({ 'fri': 'needLeader', 'sat': 'ticket', 'sun': 'going', 'last-week': 'going' })
+  })
+})
