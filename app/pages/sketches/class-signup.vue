@@ -70,9 +70,11 @@ const variant = ref<Variant>('E')
 const device = ref<'desktop' | 'mobile'>('desktop')
 const paid = ref<'paid' | 'free'>('paid')
 type Kind = 'class' | 'course' | 'festival'
-type Auth = 'new' | 'returning' | 'signedIn'
+// Signed out, the page can't tell a new visitor from someone with an account, so there is one
+// signed-out state; the difference only shows in the email (new account vs. sign-in link).
+type Auth = 'signedOut' | 'signedIn'
 const kind = ref<Kind>('class')
-const auth = ref<Auth>('new')
+const auth = ref<Auth>('signedOut')
 const isMobile = computed(() => device.value === 'mobile')
 const current = computed(() => VARIANTS.find(v => v.id === variant.value)!)
 
@@ -266,12 +268,12 @@ function finishCheckout() {
         </div>
         <div v-if="variant === 'E'" class="flex rounded-full border border-border p-0.5 bg-background text-xs">
           <button
-            v-for="a in (['new', 'returning', 'signedIn'] as const)" :key="a" type="button"
+            v-for="a in (['signedOut', 'signedIn'] as const)" :key="a" type="button"
             class="px-3 h-7 rounded-full font-semibold"
             :class="auth === a ? 'bg-foreground text-background' : 'text-muted-foreground'"
             :data-testid="`auth-${a}`"
             @click="auth = a"
-          >{{ a === 'new' ? 'New visitor' : a === 'returning' ? 'Has account, signed out' : 'Signed in' }}</button>
+          >{{ a === 'signedOut' ? 'Signed out' : 'Signed in' }}</button>
         </div>
         <button type="button" class="text-xs font-semibold text-muted-foreground underline" @click="reset">Start over</button>
       </div>
@@ -486,8 +488,8 @@ function finishCheckout() {
                       <p class="text-sm text-muted-foreground" data-testid="e-contact-line">{{ EVENT.org }} has you on the list as {{ contactLine }}, for changes to this {{ kind === 'festival' ? 'event' : 'class' }} and its WhatsApp group.<template v-if="!signedIn"> Your ticket and a link to your new account are in your email.</template></p>
                     </div>
                     <div v-else class="rounded-2xl border border-wd-amber-500/40 bg-wd-amber-100 px-4 py-3 space-y-1" data-testid="e-sent">
-                      <p class="font-bold text-foreground inline-flex items-center gap-1.5"><Mail class="size-4" /> {{ auth === 'returning' ? 'Welcome back! ' : '' }}Almost there: open the link we sent to {{ eEmail }}</p>
-                      <p class="text-sm text-muted-foreground">It confirms your spot ({{ summary }}){{ auth === 'new' ? ' and makes your account, no password' : ' and signs you in' }}. Until then {{ EVENT.org }} sees you as unconfirmed for 48 h.</p>
+                      <p class="font-bold text-foreground inline-flex items-center gap-1.5"><Mail class="size-4" /> Almost there: open the link we sent to {{ eEmail }}</p>
+                      <p class="text-sm text-muted-foreground">It confirms your spot ({{ summary }}) and signs you in; new here, it makes your account, no password. Until then {{ EVENT.org }} sees you as unconfirmed for 48 h.</p>
                       <p class="text-sm flex gap-4"><button type="button" class="font-bold text-primary">Resend</button> <button type="button" class="font-bold text-primary" @click="eStart">Change</button> <button type="button" class="text-xs text-muted-foreground underline ml-auto" data-testid="e-open-link" @click="eState = 'in'">(sketch: I opened the link)</button></p>
                     </div>
                   </template>
@@ -557,7 +559,7 @@ function finishCheckout() {
                               <p v-if="eEmailError" class="mt-1 text-xs font-bold text-primary">{{ eEmailError }}</p>
                               <p class="mt-1 text-xs text-muted-foreground">
                                 No password: we email you a link{{ pay === 'now' ? ' after you pay, with your ticket' : ' that confirms your spot' }}.
-                                <template v-if="auth === 'returning'">Signed up before? Use the same email, it signs you in.</template>
+                                Signed up before? Use the same email, it signs you in.
                               </p>
                             </div>
                             <p v-else class="text-sm text-muted-foreground"><span class="font-bold text-foreground">{{ ACCOUNT_NAME }}</span> · {{ ACCOUNT_EMAIL }} (your account)</p>
@@ -600,7 +602,7 @@ function finishCheckout() {
               </div>
               <p class="mt-2 text-sm">
                 <template v-if="eState === 'sent'"><span class="text-muted-foreground">Open the link in your email to see who they are.</span></template>
-                <template v-else><span class="text-muted-foreground">Sign up to see who they are</span><template v-if="auth === 'returning'"> · <button type="button" class="font-bold text-primary">Sign in</button></template></template>
+                <template v-else><span class="text-muted-foreground">Sign up to see who they are</span> · <button type="button" class="font-bold text-primary" data-testid="who-sign-in">Sign in</button></template>
               </p>
             </div>
             <ul v-else class="mt-3 flex flex-wrap gap-4" data-testid="who-faces">
