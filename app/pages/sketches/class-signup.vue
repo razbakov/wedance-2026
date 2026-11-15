@@ -200,6 +200,51 @@ const ACCOUNT_NAME = 'Alex Razbakov'
 // Who's coming shows faces only to a signed-in viewer (rsvp.poll). Signing up signed out
 // makes you signed in once the link is opened or Stripe sends you back.
 const seesFaces = computed(() => signedIn.value || eState.value === 'in')
+
+// ── Who's coming at festival scale (1,000 people) ───────────────────────────
+// Never a list of everyone up front: a few faces picked for YOU (people you follow,
+// then dancers who fit your answer), the totals, and "See all" = search + filters,
+// paged from the server. Replaces both the poll's 60-name cap and GoingSection.
+const FIRST = ['Anna', 'Marco', 'Lena', 'Juan', 'Sofia', 'Ivan', 'Mia', 'Leo', 'Nina', 'Omar', 'Clara', 'Tomas', 'Eva', 'Diego', 'Yuki', 'Paul', 'Rosa', 'Ali', 'Jana', 'Felix']
+const CITIES = ['Munich', 'Vienna', 'Milan', 'Prague']
+type Person = { id: string, name: string, photo: string, role: Role, city: string, friend: boolean }
+const FEST_PEOPLE: Person[] = Array.from({ length: 60 }, (_, i) => ({
+  id: `p${i}`,
+  name: i < 20 ? FIRST[i]! : `${FIRST[i % 20]} ${String.fromCharCode(65 + (i % 26))}.`,
+  photo: `https://i.pravatar.cc/80?u=fest${i}`,
+  role: (['partner', 'needLeader', 'needFollower'] as Role[])[i % 3]!,
+  city: CITIES[i % 4]!,
+  friend: i < 3,
+}))
+const FEST_COUNTS: Record<Role, number> = { partner: 312, needLeader: 140, needFollower: 95 }
+const whoRef = ref<HTMLElement | null>(null)
+const isBig = computed(() => variant.value === 'E' && kind.value === 'festival')
+const mineIn = computed(() => eState.value !== 'idle' && !!role.value)
+const whoCounts = computed(() => {
+  if (!isBig.value) return counts.value
+  const c = { ...FEST_COUNTS }
+  if (mineIn.value) c[role.value!]++
+  return c
+})
+const whoTotal = computed(() => (isBig.value ? 1000 + (mineIn.value ? 1 : 0) : going.value))
+// Who fits your answer: a follower looking for a leader ↔ a leader looking for a follower.
+const fitRole = computed<Role | null>(() => (role.value === 'needLeader' ? 'needFollower' : role.value === 'needFollower' ? 'needLeader' : null))
+const preview = computed(() => {
+  const friends = FEST_PEOPLE.filter(p => p.friend)
+  const fit = fitRole.value ? FEST_PEOPLE.filter(p => !p.friend && p.role === fitRole.value) : []
+  const rest = FEST_PEOPLE.filter(p => !p.friend && !fit.includes(p))
+  return [...friends, ...fit, ...rest].slice(0, 8)
+})
+const whoAllOpen = ref(false)
+const whoQuery = ref('')
+const whoFilter = ref<'all' | 'friends' | Role>('all')
+const whoShown = ref(20)
+const whoList = computed(() => FEST_PEOPLE.filter(p =>
+  (whoFilter.value === 'all' || (whoFilter.value === 'friends' ? p.friend : p.role === whoFilter.value))
+  && (!whoQuery.value || `${p.name} ${p.city}`.toLowerCase().includes(whoQuery.value.toLowerCase()))))
+const roleWord = (r: Role) => (r === 'partner' ? 'couple' : r === 'needLeader' ? 'follower, needs a leader' : 'leader, needs a follower')
+function openWhoAll(f: 'all' | 'friends' | Role = 'all') { whoFilter.value = f; whoQuery.value = ''; whoShown.value = 20; whoAllOpen.value = true }
+watch([variant, kind, auth], () => { whoAllOpen.value = false })
 const contactLine = computed(() => `${signedIn.value ? ACCOUNT_NAME : eName.value.trim()}${ePartner.value.trim() ? ` (+ ${ePartner.value.trim()})` : ''} · ${signedIn.value ? ACCOUNT_EMAIL : eEmail.value} · ${ePhone.value}`)
 function eToggleSave(id: string) { const s = new Set(eSaved.value); s.has(id) ? s.delete(id) : s.add(id); eSaved.value = s }
 watch([variant, device, paid, kind, auth], reset)
@@ -478,7 +523,8 @@ function finishCheckout() {
                   <template v-if="!eOpen">
                     <div v-if="eState === 'idle'" class="flex flex-wrap items-center gap-3">
                       <Button variant="cta" class="px-6" data-testid="e-cta" @click="eStart"><Ticket /> {{ ctaLabel }}</Button>
-                      <span class="text-sm text-muted-foreground">{{ going }} going · {{ counts.needFollower }} leader looking for a follower</span>
+                      <!-- Just the count: the breakdown lives once, in Who's coming below -->
+                      <a href="#who" class="text-sm font-bold text-secondary hover:underline" data-testid="e-going-link" @click.prevent="whoRef?.scrollIntoView({ behavior: 'smooth', block: 'start' })">{{ whoTotal.toLocaleString('en') }} going ↓</a>
                     </div>
                     <div v-else-if="eState === 'in'" class="rounded-2xl border border-wd-green-600/30 bg-wd-green-600/10 px-4 py-3 space-y-2" data-testid="e-in">
                       <p class="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -589,21 +635,72 @@ function finishCheckout() {
           </div>
 
           <!-- D: who's coming lives under the hero, not in the card -->
-          <section v-if="variant === 'D' || variant === 'E'" class="mt-8 font-sans">
-            <h2 class="font-display text-2xl font-black">Who’s coming <span class="font-hand text-secondary text-lg">— {{ going }}</span></h2>
+          <section v-if="variant === 'D' || variant === 'E'" id="who" ref="whoRef" class="mt-8 font-sans scroll-mt-4">
+            <h2 class="font-display text-2xl font-black">Who’s coming <span class="font-hand text-secondary text-lg">— {{ whoTotal.toLocaleString('en') }}</span></h2>
             <!-- As rsvp.poll does: faces only for a signed-in viewer (confirmed answers, public profiles, first name).
                  A visitor sees counts. In E, finishing the steps signs you in (magic link / back from Stripe). -->
             <div v-if="variant === 'E' && !seesFaces" class="mt-3" data-testid="who-anon">
               <div class="flex items-center gap-3">
                 <span class="flex -space-x-2" aria-hidden="true">
-                  <span v-for="n in going" :key="n" class="size-9 rounded-full bg-muted ring-2 ring-background grid place-items-center"><Users class="size-4 text-muted-foreground" /></span>
+                  <span v-for="n in Math.min(whoTotal, 5)" :key="n" class="size-9 rounded-full bg-muted ring-2 ring-background grid place-items-center"><Users class="size-4 text-muted-foreground" /></span>
                 </span>
-                <span class="text-sm text-muted-foreground">{{ counts.needFollower }} {{ counts.needFollower === 1 ? 'leader looks' : 'leaders look' }} for a follower<template v-if="counts.needLeader"> · {{ counts.needLeader }} {{ counts.needLeader === 1 ? 'follower looks' : 'followers look' }} for a leader</template><template v-if="counts.partner"> · {{ counts.partner }} {{ counts.partner === 1 ? 'couple' : 'couples' }}</template></span>
+                <span class="text-sm text-muted-foreground">{{ whoCounts.needFollower }} {{ whoCounts.needFollower === 1 ? 'leader looks' : 'leaders look' }} for a follower<template v-if="whoCounts.needLeader"> · {{ whoCounts.needLeader }} {{ whoCounts.needLeader === 1 ? 'follower looks' : 'followers look' }} for a leader</template><template v-if="whoCounts.partner"> · {{ whoCounts.partner }} {{ whoCounts.partner === 1 ? 'couple' : 'couples' }}</template></span>
               </div>
               <p class="mt-2 text-sm">
                 <template v-if="eState === 'sent'"><span class="text-muted-foreground">Open the link in your email to see who they are.</span></template>
                 <template v-else><span class="text-muted-foreground">Sign up to see who they are</span> · <button type="button" class="font-bold text-primary" data-testid="who-sign-in">Sign in</button></template>
               </p>
+            </div>
+            <!-- Festival scale: a few faces picked for you, totals, then search -->
+            <div v-else-if="isBig" class="mt-3 space-y-4" data-testid="who-big">
+              <div>
+                <div class="flex items-center gap-3 flex-wrap">
+                  <span class="flex -space-x-2">
+                    <img v-for="p in preview" :key="p.id" :src="p.photo" :alt="p.name" :title="p.name" class="size-10 rounded-full ring-2 ring-background object-cover">
+                  </span>
+                  <span class="text-sm font-bold">+{{ (whoTotal - preview.length).toLocaleString('en') }}</span>
+                </div>
+                <p class="mt-2 text-sm"><span class="font-bold">Anna, Marco and Lena</span> <span class="text-muted-foreground">are going — people you follow.</span></p>
+              </div>
+              <p class="text-sm text-muted-foreground">{{ whoCounts.partner }} couples · {{ whoCounts.needLeader }} followers need a leader · {{ whoCounts.needFollower }} leaders need a follower</p>
+
+              <div v-if="fitRole" class="rounded-2xl border border-border bg-card p-4" data-testid="who-fit">
+                <p class="text-eyebrow font-black uppercase tracking-widest text-secondary">{{ fitRole === 'needFollower' ? 'Leaders looking for a follower' : 'Followers looking for a leader' }} · {{ whoCounts[fitRole] }}</p>
+                <ul class="mt-2 space-y-2">
+                  <li v-for="p in FEST_PEOPLE.filter(x => x.role === fitRole).slice(0, 4)" :key="p.id" class="flex items-center gap-3 text-sm">
+                    <img :src="p.photo" class="size-9 rounded-full" alt=""> <span class="font-bold">{{ p.name }}</span> <span class="text-muted-foreground">{{ p.city }}</span>
+                    <Button variant="outline-pill" size="pill-sm" class="ml-auto"><Hand /> Wave</Button>
+                  </li>
+                </ul>
+                <button type="button" class="mt-2 text-sm font-bold text-primary" @click="openWhoAll(fitRole)">See all {{ whoCounts[fitRole] }}</button>
+              </div>
+
+              <Button variant="outline-pill" size="pill-sm" data-testid="who-see-all" @click="openWhoAll()"><Users /> See all {{ whoTotal.toLocaleString('en') }}</Button>
+
+              <div v-if="whoAllOpen" class="rounded-2xl border border-border bg-card p-4" data-testid="who-all">
+                <div class="flex items-center gap-2">
+                  <Input v-model="whoQuery" type="search" placeholder="Search a name or city" aria-label="Search who's coming" class="flex-1" data-testid="who-search" @input="whoShown = 20" />
+                  <button type="button" aria-label="Close" @click="whoAllOpen = false"><X class="size-5" /></button>
+                </div>
+                <div class="mt-3 flex flex-wrap gap-1.5 text-xs">
+                  <button
+                    v-for="f in ([['all', 'All'], ['friends', 'People you follow'], ['partner', 'Couples'], ['needLeader', 'Need a leader'], ['needFollower', 'Need a follower']] as const)" :key="f[0]" type="button"
+                    class="px-3 h-7 rounded-full border font-semibold"
+                    :class="whoFilter === f[0] ? 'bg-foreground text-background border-foreground' : 'border-border text-muted-foreground'"
+                    :data-testid="`who-filter-${f[0]}`"
+                    @click="whoFilter = f[0]; whoShown = 20"
+                  >{{ f[1] }}</button>
+                </div>
+                <ul class="mt-3 grid gap-2" :class="isMobile ? 'grid-cols-1' : 'grid-cols-2'">
+                  <li v-for="p in whoList.slice(0, whoShown)" :key="p.id" class="flex items-center gap-2 text-sm">
+                    <img :src="p.photo" class="size-8 rounded-full" alt=""> <span class="font-bold">{{ p.name }}</span>
+                    <span class="text-xs text-muted-foreground truncate">{{ roleWord(p.role) }} · {{ p.city }}</span>
+                  </li>
+                </ul>
+                <p v-if="!whoList.length" class="mt-2 text-sm text-muted-foreground">Nobody by that name.</p>
+                <button v-if="whoList.length > whoShown" type="button" class="mt-3 text-sm font-bold text-primary" data-testid="who-more" @click="whoShown += 20">Show 20 more</button>
+                <p class="mt-2 text-xs text-muted-foreground">Sketch: 60 mock dancers; the real list pages through all {{ whoTotal.toLocaleString('en') }} from the server.</p>
+              </div>
             </div>
             <ul v-else class="mt-3 flex flex-wrap gap-4" data-testid="who-faces">
               <li v-for="o in OTHERS" :key="o.name" class="flex flex-wrap items-center gap-2 text-sm font-bold">
