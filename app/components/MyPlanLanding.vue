@@ -56,15 +56,6 @@ function onLandingCardDone(role: DanceRole, styles: string[], name: string, city
   signUpPrefill.value = { name: name || undefined, danceStyles: styles, role: role as 'lead' | 'follow' | 'both', city: city || undefined }
 }
 
-// "Not here to dance?" — the existing business pages.
-const BUSINESS_LINKS = [
-  { to: '/for-organizers', label: 'Organizers', cta: 'festival_organizers' },
-  { to: '/for-venues', label: 'Venues', cta: 'venues' },
-  { to: '/for-events', label: 'Private events', cta: 'private_events' },
-  { to: '/for-sponsors', label: 'Sponsors', cta: 'sponsors' },
-] as const
-const trackBusiness = (cta: string) => useTrack().track('landing_cta_click', { cta, section: 'business' })
-
 // My plan, shown with a small static example.
 const LANDING_EXAMPLE = [
   { title: 'Tonight', summary: '2 friends out', rows: [
@@ -207,16 +198,6 @@ const LANDING_EXAMPLE = [
         </div>
       </div>
     </div>
-    <!-- 5 · Not here to dance? The business pages, one line. -->
-    <nav class="mt-16 rounded-2xl border border-border bg-card px-5 py-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm font-sans" aria-label="For business" data-testid="landing-business-strip">
-      <span class="font-bold text-foreground">Not here to dance?</span>
-      <NuxtLink
-        v-for="b in BUSINESS_LINKS" :key="b.to" :to="b.to"
-        class="italic underline text-secondary font-display hover:text-foreground"
-        @click="trackBusiness(b.cta)"
-      >{{ b.label }}</NuxtLink>
-    </nav>
-
     <SignUpModal v-model:open="showAuth" :action="authAction" :prefill="signUpPrefill" />
   </div>
 </template>
