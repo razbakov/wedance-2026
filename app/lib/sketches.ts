@@ -47,8 +47,9 @@ export const SKETCHES: Sketch[] = [
     requestedBy: 'Alösha',
     builtBy: 'Agent (Claude)',
     created: '2026-11-15',
-    status: 'deciding',
-    story: [linear('RAZ-895', 'let-each-my-plan-section-post-its-own-story-starting-with-the-weekend')],
+    status: 'shipped',
+    decision: 'B — near → far, the time scale as the headline, to-dos on their rows',
+    ticket: linear('RAZ-895', 'let-each-my-plan-section-post-its-own-story-starting-with-the-weekend'),
   },
   {
     slug: 'contacts',

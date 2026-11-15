@@ -981,7 +981,7 @@ async function loadCoursesFromDb() {
 }
 
 // -----------------------------------------------------------------------
-// SOCIALS · "Where you're dancing": ONLY the events the dancer put in their
+// SOCIALS · "This week": ONLY the events the dancer put in their
 // plan (plan.weekSocials — RSVPs from the city/event pages, discover Yes…)
 // happening in the next 7 days. No suggestions here; discovery is "Full week".
 // -----------------------------------------------------------------------
@@ -1022,7 +1022,7 @@ function shortDayDate(iso: string): string {
 }
 
 // Share my weekend (#527, RAZ-895): the story for this week's parties, in place under
-// "Where you're dancing". Its link (/w/<code>) is made — or the same one reused, see
+// "This week". Its link (/w/<code>) is made — or the same one reused, see
 // `weekend.share` — when the list loads, and again when the set of parties changes.
 type WeekendPlan = NonNullable<Awaited<ReturnType<typeof $trpc.weekend.get.query>>>
 const weekendPlan = ref<WeekendPlan | null>(null)
@@ -1317,54 +1317,36 @@ async function closeHangout(id: string) {
 }
 
 // -----------------------------------------------------------------------
-// HEAT STRIP · up to 3 to-dos across every scale, sorted by urgency.
+// SECTION SUMMARIES · the line under each time-scale headline. The page runs
+// near → far (Tonight, This week, This month, This year, Your goals); what
+// needs doing (an early-bird, an unpaid course, an open invite) sits on its
+// own row in that section, not in a strip at the top.
 // -----------------------------------------------------------------------
-type HeatItem = { key: string; label: string; detail: string; href: string; external?: boolean; color: string; urgency: number }
-const heatItems = computed<HeatItem[]>(() => {
-  const items: HeatItem[] = []
-  // Festivals: early-bird deadlines
-  picked.value.forEach(f => {
-    if (!f.earlyBirdDeadline) return
-    const d = daysBetween(f.earlyBirdDeadline)
-    if (d < 0 || d > 14 || getProgress(f.slug).ticketBought) return
-    items.push({
-      key: `fest-${f.slug}`,
-      label: `${f.name} · early-bird`,
-      detail: `Ends in ${d}d · from €${f.ticketFromPrice}`,
-      href: `${festivalPath(f.slug)}#tickets`,
-      external: false,
-      color: WD.red600,
-      urgency: 100 - d,
-    })
-  })
-  // Courses: unpaid this month — only where payment is actually tracked
-  // (never for courses without payment data).
-  courses.value.filter(c => c.paidThroughMonth === false).forEach(c => {
-    items.push({
-      key: `course-${c.id}`,
-      label: `${c.name || c.school} · pay this month`,
-      detail: [c.style, c.level, `${c.weekday} ${c.time}`].filter(Boolean).join(' · '),
-      href: c.eventId ? eventPath({ id: c.eventId, name: c.name }) : '#courses',
-      color: WD.amber500,
-      urgency: 70,
-    })
-  })
-  // Nights out the dancer is going to are NOT repeated here: they already
-  // sit under "Where you're dancing" below (RAZ-894). The strip only carries
-  // what needs doing — tickets, payments, open invites.
-  // Tonight: any open invites
-  hangouts.value.filter(h => !h.going).slice(0, 1).forEach(h => {
-    items.push({
-      key: `tonight-${h.id}`,
-      label: `Tonight · ${h.title}`,
-      detail: `${h.time} · ${h.venue ?? h.host ?? ''}`,
-      href: '#tonight',
-      color: WD.purple500,
-      urgency: 90,
-    })
-  })
-  return items.sort((a, b) => b.urgency - a.urgency).slice(0, 3)
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
+const tonightSummary = computed(() => {
+  const all = hangouts.value.length
+  if (!all) return 'Nothing planned yet'
+  const going = hangouts.value.filter(h => h.going).length
+  return [plural(all, 'hangout'), going ? `you're in ${going}` : ''].filter(Boolean).join(' · ')
 })
+const weekSummary = computed(() => {
+  const n = upcomingSocials.value.length
+  const where = dancerCity.value ? ` in ${dancerCity.value}` : ''
+  return n ? `${plural(n, 'night')} out${where}` : `No nights picked yet${where}`
+})
+const monthSummary = computed(() => {
+  const n = courses.value.length
+  if (!n) return 'No course this month'
+  const unpaid = courses.value.filter(c => c.paidThroughMonth === false).length
+  return [plural(n, 'course'), unpaid ? `${unpaid} to pay this month` : ''].filter(Boolean).join(' · ')
+})
+const yearSummary = computed(() => {
+  const { count, urgentDeadlines } = summary.value
+  return [plural(count, 'festival'), urgentDeadlines ? `${plural(urgentDeadlines, 'early-bird')} ending this week` : ''].filter(Boolean).join(' · ')
+})
+const goalsSummary = computed(() => goalsList.value.length
+  ? plural(goalsList.value.length, 'goal')
+  : 'One year, one arc, one reason to keep showing up')
 
 // -----------------------------------------------------------------------
 // DISCOVER · widen-your-year deck below hangouts.
@@ -1571,7 +1553,7 @@ function commitSwipe(direction: 'yes' | 'skip' | 'later') {
       if (!previewMode.value && card.target) {
         $trpc.plan.add
           .mutate({ itemType: 'event', itemId: card.target.id, metadata: { type: 'social', name: card.name, style: card.style, venue: card.venue, date: card.dateISO ?? '', time: card.time } })
-          // Shows up under "Where you're dancing" if it's within the week.
+          // Shows up under "This week" if it's within the week.
           .then(() => loadWeekSocials())
           .catch(err => console.warn('[discover] add to plan failed:', err))
       }
@@ -1843,171 +1825,416 @@ function cardSummary(f: CatalogueEntry) {
 
     <!-- SIGNED IN, WITH PICKS -->
     <section v-else class="max-w-4xl mx-auto px-4 py-6 pb-16">
-      <!-- HEAT STRIP · up to 3 to-dos (tickets, payments, invites), sorted by urgency.
-           Hidden when there is nothing to do; events you're going to live in "Where you're dancing". -->
-      <div v-if="heatItems.length" class="rounded-2xl mb-8 p-5 sm:p-6 relative overflow-hidden" style="background:linear-gradient(135deg, var(--wd-amber-100) 0%, var(--wd-red-100) 100%); border:1px solid color-mix(in srgb, var(--wd-red-600) 20%, transparent);">
-        <div class="flex items-baseline justify-between mb-3">
-          <div class="text-xs uppercase tracking-[0.3em] font-bold text-primary">This week · do these first</div>
-          <span class="text-xs text-secondary font-hand" style="font-size:18px;">
-            — {{ heatItems.length === 1 ? '1 thing' : `${heatItems.length} things` }} across your plan
-          </span>
+      <!-- TONIGHT · Hangouts. -->
+      <div id="tonight" class="mt-2">
+        <div class="flex items-baseline justify-between mb-4">
+          <div>
+            <h2 class="text-3xl leading-tight font-display text-foreground">Tonight</h2>
+            <p class="mt-1 text-sm text-muted-foreground font-sans">{{ tonightSummary }}</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button
+              v-if="isSignedIn"
+              type="button"
+              class="inline-flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full bg-wd-brown-900 font-sans"
+              style="color:white;"
+              @click="openHangoutForm"
+            >
+              <Plus class="w-3.5 h-3.5" />
+              I'm out
+            </button>
+            <span
+              class="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full text-primary font-sans"
+              style="background:color-mix(in srgb, var(--wd-red-600) 9.4%, transparent);"
+            >
+              <span class="w-1.5 h-1.5 rounded-full animate-pulse bg-wd-red-600" />
+              Live
+            </span>
+          </div>
         </div>
-        <div class="grid gap-2">
-          <a
-            v-for="item in heatItems"
-            :key="item.key"
-            :href="item.href"
-            :target="item.external ? '_blank' : undefined"
-            :rel="item.external ? 'noopener noreferrer' : undefined"
-            class="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/80 hover:bg-white transition-all border"
-            :style="{ borderColor: item.color + '55' }"
+
+        <!-- Create hangout form -->
+        <div v-if="showHangoutForm" class="rounded-2xl bg-white border p-4 mb-4" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);">
+          <div class="flex flex-wrap gap-2 mb-3">
+            <button
+              v-for="k in (['dinner', 'coffee', 'bar', 'ride', 'floor'] as const)"
+              :key="k"
+              type="button"
+              class="text-xs font-bold px-3 py-1.5 rounded-full capitalize"
+              :aria-pressed="newHangout.kind === k"
+              :style="newHangout.kind === k
+                ? { background: hangoutColors[k], color: 'white' }
+                : { background: 'white', color: hangoutColors[k], border: '1.5px solid ' + hangoutColors[k] + '55' }"
+              @click="newHangout.kind = k"
+            >
+              {{ k }}
+            </button>
+          </div>
+          <div class="space-y-2 mb-3">
+            <Field id="hangout-title" label="What's the plan?">
+              <Input v-model="newHangout.title" size="sm" placeholder="e.g. Dinner before La Rumba" />
+            </Field>
+            <Field id="hangout-event" label="For which night?" optional>
+              <Select v-model="newHangout.eventId" size="sm">
+                <option value="">Not tied to an event</option>
+                <optgroup v-if="hangoutEventOptions.inPlan.length" label="In your plan tonight">
+                  <option v-for="e in hangoutEventOptions.inPlan" :key="e.id" :value="e.id">{{ eventOptionLabel(e) }}</option>
+                </optgroup>
+                <optgroup v-if="hangoutEventOptions.others.length" :label="`Also tonight${dancerCity ? ' in ' + dancerCity : ''}`">
+                  <option v-for="e in hangoutEventOptions.others" :key="e.id" :value="e.id">{{ eventOptionLabel(e) }}</option>
+                </optgroup>
+              </Select>
+            </Field>
+            <div class="grid grid-cols-[110px_minmax(0,1fr)] gap-2">
+              <Field id="hangout-time" label="Time">
+                <Input v-model="newHangout.time" type="time" size="sm" />
+              </Field>
+              <Field id="hangout-venue" label="Where?" optional>
+                <HangoutsPlaceAutocomplete
+                  v-if="!previewMode && dancerCity"
+                  v-model="newHangout.venue"
+                  :city-slug="dancerCity"
+                  size="sm"
+                  :placeholder="pickedHangoutEvent?.venueName ? `${pickedHangoutEvent.venueName} (the event's venue)` : 'Search a place'"
+                  @place="newHangoutPlace = $event"
+                />
+                <Input v-else v-model="newHangout.venue" size="sm" placeholder="Venue or address" />
+              </Field>
+            </div>
+          </div>
+          <p v-if="hangoutError" class="text-xs mb-2 px-1 text-primary font-sans" role="alert">
+            {{ hangoutError }}
+          </p>
+          <div class="flex justify-end gap-2">
+            <Button variant="ghost" size="sm" class="rounded-full text-xs text-muted-foreground" @click="showHangoutForm = false">
+              Cancel
+            </Button>
+            <Button
+              variant="pill"
+              size="pill-sm"
+              :loading="creatingHangout"
+              :disabled="!newHangout.title.trim()"
+              @click="createHangout"
+            >
+              {{ creatingHangout ? 'Posting…' : 'Post' }}
+            </Button>
+          </div>
+        </div>
+
+        <div v-if="!hangouts.length && !showHangoutForm" class="rounded-2xl p-6 text-center border-2 border-dashed border-input bg-white/50">
+          <MoonStar class="w-8 h-8 mx-auto mb-3 text-secondary" />
+          <p class="text-sm text-muted-foreground font-sans">
+            Nobody's out yet. Post a dinner, a bar hop, or a ride — dancers show up when someone starts.
+          </p>
+        </div>
+        <div v-else class="rounded-2xl bg-white border overflow-hidden" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);">
+          <div
+            v-for="(h, i) in hangouts"
+            :key="h.id"
+            class="flex flex-wrap items-center gap-3 px-4 py-3"
+            :class="i > 0 ? 'border-t' : ''"
+            :style="{ borderColor: 'color-mix(in srgb, var(--wd-brown-900) 5.1%, transparent)', background: h.going ? (WD.green600 + '08') : 'white' }"
           >
-            <span class="w-2 h-2 rounded-full shrink-0 animate-pulse" :style="{ background: item.color }" />
-            <span class="font-bold text-sm text-foreground font-display">{{ item.label }}</span>
-            <span class="text-xs italic hidden sm:inline text-muted-foreground font-sans">
-              — {{ item.detail }}
+            <component :is="hangoutIcon(h.kind)" class="w-4 h-4 shrink-0" :style="{ color: h.color, 'stroke-width': 1.5 }" />
+            <span class="text-sm font-bold w-12 text-foreground font-sans">
+              {{ h.time }}
             </span>
-            <span class="ml-auto text-xs font-bold" :style="{ color: item.color }">
-              <template v-if="item.external">Open ↗</template>
-              <template v-else>Go →</template>
-            </span>
-          </a>
+            <div class="min-w-0 flex-1">
+              <div class="text-sm font-bold truncate text-foreground">{{ h.title }}</div>
+              <div v-if="h.event" class="text-xs truncate font-sans">
+                <span class="text-muted-foreground">For </span>
+                <NuxtLink v-if="!previewMode" :to="eventPath({ id: h.event.id, name: h.event.name })" class="font-bold text-primary hover:underline">{{ h.event.name }}</NuxtLink>
+                <span v-else class="font-bold text-primary">{{ h.event.name }}</span>
+                <span v-if="h.event.startDate" class="text-muted-foreground"> · {{ eventLocalTime(h.event.startDate, h.event.timezone || undefined) }}</span>
+                <span v-if="h.inMyPlan" class="ml-1 text-eyebrow font-bold uppercase tracking-widest text-wd-green-600">in your plan</span>
+              </div>
+              <div class="text-xs truncate text-muted-foreground font-sans">
+                <span v-if="h.host">{{ h.host }} · </span>
+                <a
+                  v-if="h.venue && h.placeAddress"
+                  :href="`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(h.venue + ', ' + h.placeAddress)}`"
+                  target="_blank"
+                  rel="noopener"
+                  class="hover:underline"
+                  :title="h.placeAddress"
+                >{{ h.venue }}</a><span v-else-if="h.venue">{{ h.venue }}</span><span v-if="h.venue"> · </span>
+                {{ h.people }} in
+              </div>
+            </div>
+            <button
+              type="button"
+              class="text-xs font-bold px-3 py-1.5 rounded-full whitespace-nowrap"
+              :aria-pressed="h.going"
+              :style="h.going
+                ? { background: 'var(--wd-green-600)', color: 'white' }
+                : { background: 'white', color: h.color, border: '1.5px solid ' + h.color + '55' }"
+              @click="toggleHangout(h.id)"
+            >
+              {{ h.going ? '✓ In' : 'Join' }}
+            </button>
+            <Button
+              v-if="h.mine"
+              variant="ghost"
+              size="icon-sm"
+              class="size-7 rounded-full text-secondary [&_svg]:size-3.5"
+              aria-label="Close this hangout"
+              @click="closeHangout(h.id)"
+            >
+              <X aria-hidden="true" />
+            </Button>
+          </div>
         </div>
       </div>
 
-      <!-- GOALS · long arcs above the horizon. -->
-      <div class="mb-10">
+      <!-- WEEK · Socials. -->
+      <div id="socials" class="mt-14">
         <div class="flex items-baseline justify-between mb-4">
           <div>
-            <div class="text-xs uppercase tracking-[0.3em] text-secondary">Goals · your compass</div>
-            <h2 class="mt-2 text-2xl leading-tight font-display text-foreground">
-              Where you're <em class="italic text-primary">headed.</em>
-            </h2>
+            <h2 class="text-3xl leading-tight font-display text-foreground">This week</h2>
+            <p class="mt-1 text-sm text-muted-foreground font-sans">{{ weekSummary }}</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <NuxtLink
+              :to="citySocialsLink"
+              class="text-xs italic hover:underline text-secondary font-display"
+            >
+              Full week →
+            </NuxtLink>
+          </div>
+        </div>
+
+        <div v-if="removedSocial" class="mb-2 flex items-center gap-2 text-xs text-muted-foreground font-sans" role="status">
+          Removed {{ removedSocial.name }} from your plan.
+          <Button variant="link" class="h-auto p-0 text-xs font-bold text-primary" @click="undoRemoveSocial">Undo</Button>
+        </div>
+
+        <div v-if="!upcomingSocials.length && (weekSocialsLoaded || !dancerCity)" class="rounded-2xl p-6 text-center border-2 border-dashed border-input bg-white/50">
+          <Sparkles class="w-8 h-8 mx-auto mb-3 text-secondary" aria-hidden="true" />
+          <template v-if="dancerCity">
+            <p class="text-sm font-bold text-foreground font-sans">Nothing planned this week.</p>
+            <p class="mt-1 text-sm text-muted-foreground font-sans">Pick the nights you're going out from this week's socials in {{ dancerCity }}.</p>
+            <NuxtLink :to="citySocialsLink" class="mt-3 inline-flex items-center gap-1 rounded-full px-4 py-2 text-xs font-bold bg-wd-brown-900 font-sans" style="color:white;">
+              See this week in {{ dancerCity }} <ArrowRight class="w-3.5 h-3.5" aria-hidden="true" />
+            </NuxtLink>
+          </template>
+          <template v-else>
+            <p class="text-sm text-muted-foreground font-sans">Pick your city and we'll show this week's socials to choose from.</p>
+            <NuxtLink to="/settings" class="mt-2 inline-block font-sans text-xs font-bold underline text-primary">
+              Set your city
+            </NuxtLink>
+          </template>
+        </div>
+        <div v-else-if="upcomingSocials.length" class="rounded-2xl bg-white border overflow-hidden" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);">
+          <div
+            v-for="(s, i) in upcomingSocials"
+            :key="s.id"
+            class="flex flex-wrap items-center gap-3 px-4 py-3"
+            :class="i > 0 ? 'border-t' : ''"
+            :style="{ borderColor: 'color-mix(in srgb, var(--wd-brown-900) 5.1%, transparent)', background: WD.green600 + '08' }"
+          >
+            <span
+              class="w-12 text-center text-eyebrow font-black uppercase tracking-widest px-1.5 py-0.5 rounded leading-tight"
+              :style="{ background: s.color + '18', color: s.color }"
+            >{{ s.dayLabel }}<span v-if="s.dateISO" class="block font-bold normal-case tracking-normal">{{ shortDayDate(s.dateISO) }}</span></span>
+            <span class="text-sm font-bold text-foreground font-sans">
+              {{ s.time }}
+            </span>
+            <div class="min-w-0 flex-1">
+              <NuxtLink v-if="!previewMode" :to="eventPath({ id: s.id, name: s.name })" class="block text-sm font-bold truncate text-foreground hover:underline">{{ s.name }}</NuxtLink>
+              <div v-else class="text-sm font-bold truncate text-foreground">{{ s.name }}</div>
+              <div class="text-xs truncate text-muted-foreground font-sans">
+                {{ s.venue }}<template v-if="s.style"> · <span :style="{ color: s.color }">{{ s.style }}</span></template><template v-if="s.friendsGoing > 0"> · {{ s.friendsGoing }} friend{{ s.friendsGoing === 1 ? '' : 's' }} going</template>
+              </div>
+            </div>
+            <button
+              type="button"
+              class="text-xs font-bold px-3 py-1.5 rounded-full whitespace-nowrap"
+              style="background: var(--wd-green-600); color: white;"
+              :aria-label="`Going to ${s.name} — tap to remove from your plan`"
+              :title="'Tap to remove from your plan'"
+              @click="removeSocialFromPlan(s.id)"
+            >
+              ✓ Going
+            </button>
+          </div>
+        </div>
+
+        <!-- The weekend story, ready to post (RAZ-895). -->
+        <WeekendStory
+          v-if="weekendPlan && upcomingSocials.length"
+          :plan="weekendPlan"
+          surface="my_plan"
+          class="mt-4"
+        >
+          <NuxtLink
+            :to="`/w/${weekendPlan.code}`"
+            class="mt-2 inline-flex items-center gap-1 text-xs font-bold underline text-primary font-sans"
+            data-testid="weekend-page-link"
+          >
+            See who's joining <ArrowRight class="w-3.5 h-3.5" aria-hidden="true" />
+          </NuxtLink>
+        </WeekendStory>
+        <p v-if="shareWeekendError && upcomingSocials.length" role="alert" class="mt-2 text-xs text-destructive font-sans">{{ shareWeekendError }}</p>
+      </div>
+
+      <!-- MONTH · Courses. -->
+      <div id="courses" class="mt-14">
+        <div class="flex items-baseline justify-between mb-4">
+          <div>
+            <h2 class="text-3xl leading-tight font-display text-foreground">This month</h2>
+            <p class="mt-1 text-sm text-muted-foreground font-sans">{{ monthSummary }}</p>
           </div>
           <Button
-            v-if="!showGoalForm"
+            v-if="!showEnrollPicker && availableClasses.length > 0"
             variant="link"
             class="h-auto p-0 text-xs font-normal italic text-secondary font-display"
-            @click="showGoalForm = true"
+            @click="showEnrollPicker = true"
           >
-            + Add a goal
+            + Enroll
+          </Button>
+          <Button
+            v-else-if="showEnrollPicker"
+            variant="link"
+            class="h-auto p-0 text-xs font-normal italic text-muted-foreground font-display"
+            @click="showEnrollPicker = false"
+          >
+            Done
           </Button>
         </div>
 
-        <!-- Inline add-goal form -->
-        <div v-if="showGoalForm" class="rounded-2xl bg-white p-6 border mb-4" style="border-color:color-mix(in srgb, var(--wd-amber-600) 33.3%, transparent); box-shadow: 0 4px 16px rgba(59,31,18,0.06);">
-          <div class="text-sm font-bold mb-4 text-foreground font-display">
-            What are you working toward this year?
+        <!-- Enroll picker — available classes from the city -->
+        <div v-if="showEnrollPicker" class="rounded-2xl bg-white p-5 border mb-4" style="border-color:color-mix(in srgb, var(--wd-amber-600) 33.3%, transparent); box-shadow: 0 4px 16px rgba(59,31,18,0.06);">
+          <div class="text-sm font-bold mb-3 text-foreground font-display">
+            Upcoming classes in {{ dancerCity || 'your city' }}
           </div>
-          <form class="space-y-4" novalidate @submit.prevent="onGoalSubmit">
-            <Field id="goal-title" label="Your goal" :error="goalFormError || undefined">
-              <Input v-model="goalFormTitle" placeholder="e.g. Learn Bachata Sensual" />
-            </Field>
-            <Field id="goal-why" label="Why does it matter?" optional>
-              <Input v-model="goalFormWhy" placeholder="e.g. Feel confident on the dance floor" />
-            </Field>
-            <Field id="goal-style" label="Dance style" optional hint="Links this goal to your courses & festivals.">
-              <DanceStylePicker v-model="goalFormStyles" single label="Dance style" :popular-count="6" />
-            </Field>
-            <div class="flex items-center gap-3 pt-1">
-              <Button type="submit" variant="pill" :disabled="!goalFormTitle.trim() || !!goalFormError">
-                Add goal
-              </Button>
-              <Button type="button" variant="ghost" class="rounded-full font-bold uppercase tracking-wider text-muted-foreground" @click="onGoalCancel">
-                Cancel
-              </Button>
-            </div>
-          </form>
+          <div v-if="!availableClasses.length" class="text-xs py-2 text-muted-foreground font-sans">
+            No upcoming classes found. Check your city page for more.
+          </div>
+          <div v-else class="space-y-2">
+            <button
+              v-for="cls in availableClasses"
+              :key="cls.id"
+              type="button"
+              class="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl border hover:bg-amber-50/50 cursor-pointer transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              style="border-color:color-mix(in srgb, var(--wd-brown-900) 6.7%, transparent);"
+              @click="enrollClass(cls)"
+            >
+              <span class="w-2 h-2 rounded-full shrink-0" :style="{ background: STYLE_COLORS_ENROLL[cls.style] || WD.gray500 }" />
+              <span class="block flex-1 min-w-0">
+                <span class="block text-sm font-bold text-foreground">{{ cls.name }}</span>
+                <span class="block text-xs text-muted-foreground font-sans">
+                  {{ cls.date ? formatShortDate(cls.date) : cls.day }}, {{ cls.time }} · {{ cls.venue }} · {{ cls.level || 'All levels' }}
+                </span>
+              </span>
+              <span class="text-xs font-bold italic shrink-0 text-primary">+ Add</span>
+            </button>
+          </div>
         </div>
 
-        <div v-if="!goalsList.length && !showGoalForm" class="rounded-2xl p-6 text-center border-2 border-dashed border-input bg-white/50">
-          <Target class="w-8 h-8 mx-auto mb-3 text-secondary" aria-hidden="true" />
-          <p class="text-sm text-muted-foreground font-sans">
-            No goals yet. One year, one arc, one reason to keep showing up.
+        <div v-if="!courses.length && !showEnrollPicker" class="rounded-2xl p-6 text-center border-2 border-dashed border-input bg-white/50">
+          <GraduationCap class="w-8 h-8 mx-auto mb-3 text-secondary" />
+          <p class="text-sm font-bold text-foreground font-sans">No classes yet.</p>
+          <p class="mt-1 mb-3 text-sm text-muted-foreground font-sans">
+            A weekly class is the quickest way to keep momentum.
           </p>
-          <Button variant="link" class="mt-2 h-auto p-0 text-xs font-bold underline text-primary font-sans" @click="showGoalForm = true">
-            Set a goal
+          <Button as-child variant="pill" class="px-5">
+            <NuxtLink :to="cityClassesLink">
+              Find a class{{ dancerCity ? ` in ${dancerCity}` : '' }} <ArrowRight aria-hidden="true" />
+            </NuxtLink>
           </Button>
         </div>
-        <div v-else-if="goalsList.length" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div v-else class="grid sm:grid-cols-2 gap-4">
           <div
-            v-for="g in goalsList"
-            :key="g.id"
-            class="rounded-2xl bg-white p-5 border group"
-            :style="{ borderColor: g.color + '55', boxShadow: '0 1px 0 ' + g.color + '22, 0 8px 22px rgba(59,31,18,0.05)' }"
+            v-for="c in courses"
+            :key="c.id"
+            class="group rounded-2xl bg-white p-5 border"
+            :style="{ borderColor: c.color + '55', boxShadow: '0 1px 0 ' + c.color + '22, 0 6px 18px rgba(59,31,18,0.04)' }"
           >
-            <div class="flex items-start gap-3 mb-3">
-              <component :is="g.icon" class="w-5 h-5 shrink-0" :style="{ color: g.color, 'stroke-width': 1.5 }" />
-              <div class="flex-1 min-w-0">
-                <div class="text-base font-bold leading-tight text-foreground">
-                  {{ g.title }}
+            <div class="flex items-start justify-between gap-3 mb-2">
+              <div class="min-w-0">
+                <NuxtLink
+                  v-if="c.eventId && !previewMode"
+                  :to="eventPath({ id: c.eventId, name: c.name })"
+                  class="block text-base font-bold leading-tight text-foreground hover:underline"
+                >{{ c.name || c.school }}</NuxtLink>
+                <div v-else class="text-base font-bold leading-tight text-foreground">
+                  {{ c.name || c.school }}
                 </div>
-                <div class="mt-1 text-xs italic text-muted-foreground font-display">
-                  {{ g.why }}
+                <div class="text-xs mt-0.5 text-muted-foreground font-sans">
+                  <template v-if="c.name && c.school">
+                    <NuxtLink v-if="c.schoolUsername && !previewMode" :to="`/@${c.schoolUsername}`" class="hover:underline">{{ c.school }}</NuxtLink>
+                    <span v-else>{{ c.school }}</span>
+                  </template>
+                  <span v-else-if="c.teacher">{{ c.teacher }}</span>
+                  <template v-if="c.style || c.level"> · <span class="text-secondary">{{ [c.style, c.level].filter(Boolean).join(' · ') }}</span></template>
                 </div>
-                <span
-                  v-if="goalEffectiveStyle(g)"
-                  class="inline-block mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
-                  style="background:color-mix(in srgb, var(--wd-amber-600) 12%, transparent); color:var(--wd-amber-600);"
+                <div
+                  v-if="c.style && goalsForStyle(c.style).length"
+                  class="text-[10px] mt-1 italic"
+                  style="color:var(--wd-green-600); font-family:var(--wd-font-display);"
                 >
-                  {{ goalEffectiveStyle(g) }}
-                </span>
+                  Serves your goal: {{ goalsForStyle(c.style).join(', ') }}
+                </div>
               </div>
-              <Button
-                v-if="!previewMode"
-                variant="ghost"
-                size="icon-sm"
-                class="size-7 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity shrink-0 rounded hover:bg-wd-red-50 text-primary hover:text-primary [&_svg]:size-3.5"
-                :aria-label="`Remove goal: ${g.title}`"
-                @click="removeGoal(g.id)"
-              >
-                <X aria-hidden="true" />
-              </Button>
+              <div class="flex items-center gap-2 shrink-0">
+                <!-- Payment status only when there's real data for this enrolment. -->
+                <template v-if="c.paidThroughMonth !== undefined">
+                  <span
+                    v-if="!c.paidThroughMonth"
+                    class="text-eyebrow font-bold uppercase tracking-widest px-2 py-1 rounded-full whitespace-nowrap"
+                    :style="{ color: 'var(--wd-red-600)', background: 'color-mix(in srgb, var(--wd-red-600) 9.4%, transparent)' }"
+                  >
+                    Pay due
+                  </span>
+                  <span
+                    v-else
+                    class="text-eyebrow font-bold uppercase tracking-widest px-2 py-1 rounded-full whitespace-nowrap"
+                    :style="{ color: 'var(--wd-green-600)', background: 'color-mix(in srgb, var(--wd-green-600) 9.4%, transparent)' }"
+                  >
+                    Paid
+                  </span>
+                </template>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  class="size-7 rounded hover:bg-wd-red-50 text-primary hover:text-primary [&_svg]:size-3.5"
+                  :aria-label="`Remove from your plan: ${c.name || c.school}`"
+                  @click="unenrollCourse(c.id)"
+                >
+                  <X aria-hidden="true" />
+                </Button>
+              </div>
             </div>
-            <!-- Progress bar — editable in real mode -->
-            <div class="mt-4">
+
+            <div class="mt-3 space-y-1.5 text-xs text-muted-foreground font-sans">
+              <div class="flex items-center gap-2">
+                <Calendar class="w-3 h-3 text-secondary" />
+                Next class <strong>{{ c.nextClassDate ? formatShortDate(c.nextClassDate) : c.weekday }}, {{ c.time }}</strong>
+              </div>
+              <div v-if="c.venue" class="flex items-center gap-2">
+                <MapPin class="w-3 h-3 text-secondary" />
+                {{ c.venue }}
+              </div>
+            </div>
+
+            <!-- Attendance only when it's tracked for this enrolment (never 0 / 0). -->
+            <div v-if="c.total && c.total > 0" class="mt-4">
               <div class="flex items-baseline justify-between mb-1">
-                <span class="text-eyebrow uppercase tracking-widest font-bold text-secondary">Progress</span>
-                <button
-                  v-if="!previewMode"
-                  type="button"
-                  class="text-xs font-black cursor-pointer hover:underline"
-                  :style="{ color: goalProgressColor(g.progress), fontFamily: 'var(--wd-font-display)' }"
-                  :aria-label="`Edit progress, currently ${g.progress}%`"
-                  @click="startEditingProgress(g.id)"
-                >
-                  {{ g.progress }}%
-                </button>
-                <span v-else class="text-xs font-black" :style="{ color: goalProgressColor(g.progress), fontFamily: 'var(--wd-font-display)' }">{{ g.progress }}%</span>
+                <span class="text-eyebrow uppercase tracking-widest font-bold text-secondary">Attendance this cycle</span>
+                <span class="text-xs font-black text-foreground font-display">{{ c.attended ?? 0 }} / {{ c.total }}</span>
               </div>
-              <input
-                v-if="editingProgressGoalId === g.id"
-                type="range"
-                min="0"
-                max="100"
-                :value="g.progress"
-                class="w-full h-2 rounded-full appearance-none cursor-pointer"
-                style="accent-color:var(--wd-amber-600);"
-                @input="onProgressChange(g.id, Number(($event.target as HTMLInputElement).value))"
-                @change="stopEditingProgress()"
-              />
-              <div v-else class="w-full h-2 rounded-full overflow-hidden" style="background:color-mix(in srgb, var(--wd-brown-900) 6.3%, transparent);">
-                <div class="h-full transition-all" :style="{ width: g.progress + '%', background: goalProgressColor(g.progress) }" />
+              <div class="w-full h-1.5 rounded-full overflow-hidden" style="background:color-mix(in srgb, var(--wd-brown-900) 6.3%, transparent);">
+                <div class="h-full transition-all" :style="{ width: Math.round(((c.attended ?? 0) / c.total) * 100) + '%', background: c.color }" />
               </div>
-            </div>
-            <div v-if="g.nudge" class="mt-3 text-sm font-hand text-secondary" style="font-size:17px;">
-              — {{ g.nudge }}
             </div>
           </div>
         </div>
       </div>
 
       <!-- YEAR · festivals section header -->
-      <div class="mb-4">
-        <div class="text-xs uppercase tracking-[0.3em] text-secondary">This year · festivals</div>
-        <h2 class="mt-2 text-2xl leading-tight font-display text-foreground">
-          Where you're <em class="italic text-primary">going.</em>
-        </h2>
+      <div id="festivals" class="mt-14 mb-4">
+        <h2 class="text-3xl leading-tight font-display text-foreground">This year</h2>
+        <p class="mt-1 text-sm text-muted-foreground font-sans">{{ yearSummary }}</p>
       </div>
 
       <!-- Cross-festival summary — the money + urgency crosscut. -->
@@ -2453,416 +2680,127 @@ function cardSummary(f: CatalogueEntry) {
         </div>
       </div>
 
-      <!-- MONTH · Courses. -->
-      <div id="courses" class="mt-14">
+      <!-- GOALS · the long arc, after the year it shapes. -->
+      <div id="goals" class="mt-4">
         <div class="flex items-baseline justify-between mb-4">
           <div>
-            <div class="text-xs uppercase tracking-[0.3em] text-secondary">This month · courses</div>
-            <h2 class="mt-2 text-2xl leading-tight font-display text-foreground">
-              Where you <em class="italic text-primary">show up.</em>
-            </h2>
+            <h2 class="text-3xl leading-tight font-display text-foreground">Your goals</h2>
+            <p class="mt-1 text-sm text-muted-foreground font-sans">{{ goalsSummary }}</p>
           </div>
           <Button
-            v-if="!showEnrollPicker && availableClasses.length > 0"
+            v-if="!showGoalForm"
             variant="link"
             class="h-auto p-0 text-xs font-normal italic text-secondary font-display"
-            @click="showEnrollPicker = true"
+            @click="showGoalForm = true"
           >
-            + Enroll
-          </Button>
-          <Button
-            v-else-if="showEnrollPicker"
-            variant="link"
-            class="h-auto p-0 text-xs font-normal italic text-muted-foreground font-display"
-            @click="showEnrollPicker = false"
-          >
-            Done
+            + Add a goal
           </Button>
         </div>
 
-        <!-- Enroll picker — available classes from the city -->
-        <div v-if="showEnrollPicker" class="rounded-2xl bg-white p-5 border mb-4" style="border-color:color-mix(in srgb, var(--wd-amber-600) 33.3%, transparent); box-shadow: 0 4px 16px rgba(59,31,18,0.06);">
-          <div class="text-sm font-bold mb-3 text-foreground font-display">
-            Upcoming classes in {{ dancerCity || 'your city' }}
+        <!-- Inline add-goal form -->
+        <div v-if="showGoalForm" class="rounded-2xl bg-white p-6 border mb-4" style="border-color:color-mix(in srgb, var(--wd-amber-600) 33.3%, transparent); box-shadow: 0 4px 16px rgba(59,31,18,0.06);">
+          <div class="text-sm font-bold mb-4 text-foreground font-display">
+            What are you working toward this year?
           </div>
-          <div v-if="!availableClasses.length" class="text-xs py-2 text-muted-foreground font-sans">
-            No upcoming classes found. Check your city page for more.
-          </div>
-          <div v-else class="space-y-2">
-            <button
-              v-for="cls in availableClasses"
-              :key="cls.id"
-              type="button"
-              class="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl border hover:bg-amber-50/50 cursor-pointer transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              style="border-color:color-mix(in srgb, var(--wd-brown-900) 6.7%, transparent);"
-              @click="enrollClass(cls)"
-            >
-              <span class="w-2 h-2 rounded-full shrink-0" :style="{ background: STYLE_COLORS_ENROLL[cls.style] || WD.gray500 }" />
-              <span class="block flex-1 min-w-0">
-                <span class="block text-sm font-bold text-foreground">{{ cls.name }}</span>
-                <span class="block text-xs text-muted-foreground font-sans">
-                  {{ cls.date ? formatShortDate(cls.date) : cls.day }}, {{ cls.time }} · {{ cls.venue }} · {{ cls.level || 'All levels' }}
-                </span>
-              </span>
-              <span class="text-xs font-bold italic shrink-0 text-primary">+ Add</span>
-            </button>
-          </div>
-        </div>
-
-        <div v-if="!courses.length && !showEnrollPicker" class="rounded-2xl p-6 text-center border-2 border-dashed border-input bg-white/50">
-          <GraduationCap class="w-8 h-8 mx-auto mb-3 text-secondary" />
-          <p class="text-sm font-bold text-foreground font-sans">No classes yet.</p>
-          <p class="mt-1 mb-3 text-sm text-muted-foreground font-sans">
-            A weekly class is the quickest way to keep momentum.
-          </p>
-          <Button as-child variant="pill" class="px-5">
-            <NuxtLink :to="cityClassesLink">
-              Find a class{{ dancerCity ? ` in ${dancerCity}` : '' }} <ArrowRight aria-hidden="true" />
-            </NuxtLink>
-          </Button>
-        </div>
-        <div v-else class="grid sm:grid-cols-2 gap-4">
-          <div
-            v-for="c in courses"
-            :key="c.id"
-            class="group rounded-2xl bg-white p-5 border"
-            :style="{ borderColor: c.color + '55', boxShadow: '0 1px 0 ' + c.color + '22, 0 6px 18px rgba(59,31,18,0.04)' }"
-          >
-            <div class="flex items-start justify-between gap-3 mb-2">
-              <div class="min-w-0">
-                <NuxtLink
-                  v-if="c.eventId && !previewMode"
-                  :to="eventPath({ id: c.eventId, name: c.name })"
-                  class="block text-base font-bold leading-tight text-foreground hover:underline"
-                >{{ c.name || c.school }}</NuxtLink>
-                <div v-else class="text-base font-bold leading-tight text-foreground">
-                  {{ c.name || c.school }}
-                </div>
-                <div class="text-xs mt-0.5 text-muted-foreground font-sans">
-                  <template v-if="c.name && c.school">
-                    <NuxtLink v-if="c.schoolUsername && !previewMode" :to="`/@${c.schoolUsername}`" class="hover:underline">{{ c.school }}</NuxtLink>
-                    <span v-else>{{ c.school }}</span>
-                  </template>
-                  <span v-else-if="c.teacher">{{ c.teacher }}</span>
-                  <template v-if="c.style || c.level"> · <span class="text-secondary">{{ [c.style, c.level].filter(Boolean).join(' · ') }}</span></template>
-                </div>
-                <div
-                  v-if="c.style && goalsForStyle(c.style).length"
-                  class="text-[10px] mt-1 italic"
-                  style="color:var(--wd-green-600); font-family:var(--wd-font-display);"
-                >
-                  Serves your goal: {{ goalsForStyle(c.style).join(', ') }}
-                </div>
-              </div>
-              <div class="flex items-center gap-2 shrink-0">
-                <!-- Payment status only when there's real data for this enrolment. -->
-                <template v-if="c.paidThroughMonth !== undefined">
-                  <span
-                    v-if="!c.paidThroughMonth"
-                    class="text-eyebrow font-bold uppercase tracking-widest px-2 py-1 rounded-full whitespace-nowrap"
-                    :style="{ color: 'var(--wd-red-600)', background: 'color-mix(in srgb, var(--wd-red-600) 9.4%, transparent)' }"
-                  >
-                    Pay due
-                  </span>
-                  <span
-                    v-else
-                    class="text-eyebrow font-bold uppercase tracking-widest px-2 py-1 rounded-full whitespace-nowrap"
-                    :style="{ color: 'var(--wd-green-600)', background: 'color-mix(in srgb, var(--wd-green-600) 9.4%, transparent)' }"
-                  >
-                    Paid
-                  </span>
-                </template>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  class="size-7 rounded hover:bg-wd-red-50 text-primary hover:text-primary [&_svg]:size-3.5"
-                  :aria-label="`Remove from your plan: ${c.name || c.school}`"
-                  @click="unenrollCourse(c.id)"
-                >
-                  <X aria-hidden="true" />
-                </Button>
-              </div>
-            </div>
-
-            <div class="mt-3 space-y-1.5 text-xs text-muted-foreground font-sans">
-              <div class="flex items-center gap-2">
-                <Calendar class="w-3 h-3 text-secondary" />
-                Next class <strong>{{ c.nextClassDate ? formatShortDate(c.nextClassDate) : c.weekday }}, {{ c.time }}</strong>
-              </div>
-              <div v-if="c.venue" class="flex items-center gap-2">
-                <MapPin class="w-3 h-3 text-secondary" />
-                {{ c.venue }}
-              </div>
-            </div>
-
-            <!-- Attendance only when it's tracked for this enrolment (never 0 / 0). -->
-            <div v-if="c.total && c.total > 0" class="mt-4">
-              <div class="flex items-baseline justify-between mb-1">
-                <span class="text-eyebrow uppercase tracking-widest font-bold text-secondary">Attendance this cycle</span>
-                <span class="text-xs font-black text-foreground font-display">{{ c.attended ?? 0 }} / {{ c.total }}</span>
-              </div>
-              <div class="w-full h-1.5 rounded-full overflow-hidden" style="background:color-mix(in srgb, var(--wd-brown-900) 6.3%, transparent);">
-                <div class="h-full transition-all" :style="{ width: Math.round(((c.attended ?? 0) / c.total) * 100) + '%', background: c.color }" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- WEEK · Socials. -->
-      <div id="socials" class="mt-14">
-        <div class="flex items-baseline justify-between mb-4">
-          <div>
-            <div class="text-xs uppercase tracking-[0.3em] text-secondary">
-              This week · socials<template v-if="dancerCity"> · {{ dancerCity }}</template>
-            </div>
-            <h2 class="mt-2 text-2xl leading-tight font-display text-foreground">
-              Where you're <em class="italic text-primary">dancing.</em>
-            </h2>
-          </div>
-          <div class="flex items-center gap-3">
-            <NuxtLink
-              :to="citySocialsLink"
-              class="text-xs italic hover:underline text-secondary font-display"
-            >
-              Full week →
-            </NuxtLink>
-          </div>
-        </div>
-
-        <div v-if="removedSocial" class="mb-2 flex items-center gap-2 text-xs text-muted-foreground font-sans" role="status">
-          Removed {{ removedSocial.name }} from your plan.
-          <Button variant="link" class="h-auto p-0 text-xs font-bold text-primary" @click="undoRemoveSocial">Undo</Button>
-        </div>
-
-        <div v-if="!upcomingSocials.length && (weekSocialsLoaded || !dancerCity)" class="rounded-2xl p-6 text-center border-2 border-dashed border-input bg-white/50">
-          <Sparkles class="w-8 h-8 mx-auto mb-3 text-secondary" aria-hidden="true" />
-          <template v-if="dancerCity">
-            <p class="text-sm font-bold text-foreground font-sans">Nothing planned this week.</p>
-            <p class="mt-1 text-sm text-muted-foreground font-sans">Pick the nights you're going out from this week's socials in {{ dancerCity }}.</p>
-            <NuxtLink :to="citySocialsLink" class="mt-3 inline-flex items-center gap-1 rounded-full px-4 py-2 text-xs font-bold bg-wd-brown-900 font-sans" style="color:white;">
-              See this week in {{ dancerCity }} <ArrowRight class="w-3.5 h-3.5" aria-hidden="true" />
-            </NuxtLink>
-          </template>
-          <template v-else>
-            <p class="text-sm text-muted-foreground font-sans">Pick your city and we'll show this week's socials to choose from.</p>
-            <NuxtLink to="/settings" class="mt-2 inline-block font-sans text-xs font-bold underline text-primary">
-              Set your city
-            </NuxtLink>
-          </template>
-        </div>
-        <div v-else-if="upcomingSocials.length" class="rounded-2xl bg-white border overflow-hidden" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);">
-          <div
-            v-for="(s, i) in upcomingSocials"
-            :key="s.id"
-            class="flex flex-wrap items-center gap-3 px-4 py-3"
-            :class="i > 0 ? 'border-t' : ''"
-            :style="{ borderColor: 'color-mix(in srgb, var(--wd-brown-900) 5.1%, transparent)', background: WD.green600 + '08' }"
-          >
-            <span
-              class="w-12 text-center text-eyebrow font-black uppercase tracking-widest px-1.5 py-0.5 rounded leading-tight"
-              :style="{ background: s.color + '18', color: s.color }"
-            >{{ s.dayLabel }}<span v-if="s.dateISO" class="block font-bold normal-case tracking-normal">{{ shortDayDate(s.dateISO) }}</span></span>
-            <span class="text-sm font-bold text-foreground font-sans">
-              {{ s.time }}
-            </span>
-            <div class="min-w-0 flex-1">
-              <NuxtLink v-if="!previewMode" :to="eventPath({ id: s.id, name: s.name })" class="block text-sm font-bold truncate text-foreground hover:underline">{{ s.name }}</NuxtLink>
-              <div v-else class="text-sm font-bold truncate text-foreground">{{ s.name }}</div>
-              <div class="text-xs truncate text-muted-foreground font-sans">
-                {{ s.venue }}<template v-if="s.style"> · <span :style="{ color: s.color }">{{ s.style }}</span></template><template v-if="s.friendsGoing > 0"> · {{ s.friendsGoing }} friend{{ s.friendsGoing === 1 ? '' : 's' }} going</template>
-              </div>
-            </div>
-            <button
-              type="button"
-              class="text-xs font-bold px-3 py-1.5 rounded-full whitespace-nowrap"
-              style="background: var(--wd-green-600); color: white;"
-              :aria-label="`Going to ${s.name} — tap to remove from your plan`"
-              :title="'Tap to remove from your plan'"
-              @click="removeSocialFromPlan(s.id)"
-            >
-              ✓ Going
-            </button>
-          </div>
-        </div>
-
-        <!-- The weekend story, ready to post (RAZ-895). -->
-        <WeekendStory
-          v-if="weekendPlan && upcomingSocials.length"
-          :plan="weekendPlan"
-          surface="my_plan"
-          class="mt-4"
-        >
-          <NuxtLink
-            :to="`/w/${weekendPlan.code}`"
-            class="mt-2 inline-flex items-center gap-1 text-xs font-bold underline text-primary font-sans"
-            data-testid="weekend-page-link"
-          >
-            See who's joining <ArrowRight class="w-3.5 h-3.5" aria-hidden="true" />
-          </NuxtLink>
-        </WeekendStory>
-        <p v-if="shareWeekendError && upcomingSocials.length" role="alert" class="mt-2 text-xs text-destructive font-sans">{{ shareWeekendError }}</p>
-      </div>
-
-      <!-- TONIGHT · Hangouts. -->
-      <div id="tonight" class="mt-14">
-        <div class="flex items-baseline justify-between mb-4">
-          <div>
-            <div class="text-xs uppercase tracking-[0.3em] text-secondary">Tonight · hangouts</div>
-            <h2 class="mt-2 text-2xl leading-tight font-display text-foreground">
-              Who's <em class="italic text-primary">out.</em>
-            </h2>
-          </div>
-          <div class="flex items-center gap-2">
-            <button
-              v-if="isSignedIn"
-              type="button"
-              class="inline-flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full bg-wd-brown-900 font-sans"
-              style="color:white;"
-              @click="openHangoutForm"
-            >
-              <Plus class="w-3.5 h-3.5" />
-              I'm out
-            </button>
-            <span
-              class="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full text-primary font-sans"
-              style="background:color-mix(in srgb, var(--wd-red-600) 9.4%, transparent);"
-            >
-              <span class="w-1.5 h-1.5 rounded-full animate-pulse bg-wd-red-600" />
-              Live
-            </span>
-          </div>
-        </div>
-
-        <!-- Create hangout form -->
-        <div v-if="showHangoutForm" class="rounded-2xl bg-white border p-4 mb-4" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);">
-          <div class="flex flex-wrap gap-2 mb-3">
-            <button
-              v-for="k in (['dinner', 'coffee', 'bar', 'ride', 'floor'] as const)"
-              :key="k"
-              type="button"
-              class="text-xs font-bold px-3 py-1.5 rounded-full capitalize"
-              :aria-pressed="newHangout.kind === k"
-              :style="newHangout.kind === k
-                ? { background: hangoutColors[k], color: 'white' }
-                : { background: 'white', color: hangoutColors[k], border: '1.5px solid ' + hangoutColors[k] + '55' }"
-              @click="newHangout.kind = k"
-            >
-              {{ k }}
-            </button>
-          </div>
-          <div class="space-y-2 mb-3">
-            <Field id="hangout-title" label="What's the plan?">
-              <Input v-model="newHangout.title" size="sm" placeholder="e.g. Dinner before La Rumba" />
+          <form class="space-y-4" novalidate @submit.prevent="onGoalSubmit">
+            <Field id="goal-title" label="Your goal" :error="goalFormError || undefined">
+              <Input v-model="goalFormTitle" placeholder="e.g. Learn Bachata Sensual" />
             </Field>
-            <Field id="hangout-event" label="For which night?" optional>
-              <Select v-model="newHangout.eventId" size="sm">
-                <option value="">Not tied to an event</option>
-                <optgroup v-if="hangoutEventOptions.inPlan.length" label="In your plan tonight">
-                  <option v-for="e in hangoutEventOptions.inPlan" :key="e.id" :value="e.id">{{ eventOptionLabel(e) }}</option>
-                </optgroup>
-                <optgroup v-if="hangoutEventOptions.others.length" :label="`Also tonight${dancerCity ? ' in ' + dancerCity : ''}`">
-                  <option v-for="e in hangoutEventOptions.others" :key="e.id" :value="e.id">{{ eventOptionLabel(e) }}</option>
-                </optgroup>
-              </Select>
+            <Field id="goal-why" label="Why does it matter?" optional>
+              <Input v-model="goalFormWhy" placeholder="e.g. Feel confident on the dance floor" />
             </Field>
-            <div class="grid grid-cols-[110px_minmax(0,1fr)] gap-2">
-              <Field id="hangout-time" label="Time">
-                <Input v-model="newHangout.time" type="time" size="sm" />
-              </Field>
-              <Field id="hangout-venue" label="Where?" optional>
-                <HangoutsPlaceAutocomplete
-                  v-if="!previewMode && dancerCity"
-                  v-model="newHangout.venue"
-                  :city-slug="dancerCity"
-                  size="sm"
-                  :placeholder="pickedHangoutEvent?.venueName ? `${pickedHangoutEvent.venueName} (the event's venue)` : 'Search a place'"
-                  @place="newHangoutPlace = $event"
-                />
-                <Input v-else v-model="newHangout.venue" size="sm" placeholder="Venue or address" />
-              </Field>
+            <Field id="goal-style" label="Dance style" optional hint="Links this goal to your courses & festivals.">
+              <DanceStylePicker v-model="goalFormStyles" single label="Dance style" :popular-count="6" />
+            </Field>
+            <div class="flex items-center gap-3 pt-1">
+              <Button type="submit" variant="pill" :disabled="!goalFormTitle.trim() || !!goalFormError">
+                Add goal
+              </Button>
+              <Button type="button" variant="ghost" class="rounded-full font-bold uppercase tracking-wider text-muted-foreground" @click="onGoalCancel">
+                Cancel
+              </Button>
             </div>
-          </div>
-          <p v-if="hangoutError" class="text-xs mb-2 px-1 text-primary font-sans" role="alert">
-            {{ hangoutError }}
-          </p>
-          <div class="flex justify-end gap-2">
-            <Button variant="ghost" size="sm" class="rounded-full text-xs text-muted-foreground" @click="showHangoutForm = false">
-              Cancel
-            </Button>
-            <Button
-              variant="pill"
-              size="pill-sm"
-              :loading="creatingHangout"
-              :disabled="!newHangout.title.trim()"
-              @click="createHangout"
-            >
-              {{ creatingHangout ? 'Posting…' : 'Post' }}
-            </Button>
-          </div>
+          </form>
         </div>
 
-        <div v-if="!hangouts.length && !showHangoutForm" class="rounded-2xl p-6 text-center border-2 border-dashed border-input bg-white/50">
-          <MoonStar class="w-8 h-8 mx-auto mb-3 text-secondary" />
+        <div v-if="!goalsList.length && !showGoalForm" class="rounded-2xl p-6 text-center border-2 border-dashed border-input bg-white/50">
+          <Target class="w-8 h-8 mx-auto mb-3 text-secondary" aria-hidden="true" />
           <p class="text-sm text-muted-foreground font-sans">
-            Nobody's out yet. Post a dinner, a bar hop, or a ride — dancers show up when someone starts.
+            No goals yet. One year, one arc, one reason to keep showing up.
           </p>
+          <Button variant="link" class="mt-2 h-auto p-0 text-xs font-bold underline text-primary font-sans" @click="showGoalForm = true">
+            Set a goal
+          </Button>
         </div>
-        <div v-else class="rounded-2xl bg-white border overflow-hidden" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);">
+        <div v-else-if="goalsList.length" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div
-            v-for="(h, i) in hangouts"
-            :key="h.id"
-            class="flex flex-wrap items-center gap-3 px-4 py-3"
-            :class="i > 0 ? 'border-t' : ''"
-            :style="{ borderColor: 'color-mix(in srgb, var(--wd-brown-900) 5.1%, transparent)', background: h.going ? (WD.green600 + '08') : 'white' }"
+            v-for="g in goalsList"
+            :key="g.id"
+            class="rounded-2xl bg-white p-5 border group"
+            :style="{ borderColor: g.color + '55', boxShadow: '0 1px 0 ' + g.color + '22, 0 8px 22px rgba(59,31,18,0.05)' }"
           >
-            <component :is="hangoutIcon(h.kind)" class="w-4 h-4 shrink-0" :style="{ color: h.color, 'stroke-width': 1.5 }" />
-            <span class="text-sm font-bold w-12 text-foreground font-sans">
-              {{ h.time }}
-            </span>
-            <div class="min-w-0 flex-1">
-              <div class="text-sm font-bold truncate text-foreground">{{ h.title }}</div>
-              <div v-if="h.event" class="text-xs truncate font-sans">
-                <span class="text-muted-foreground">For </span>
-                <NuxtLink v-if="!previewMode" :to="eventPath({ id: h.event.id, name: h.event.name })" class="font-bold text-primary hover:underline">{{ h.event.name }}</NuxtLink>
-                <span v-else class="font-bold text-primary">{{ h.event.name }}</span>
-                <span v-if="h.event.startDate" class="text-muted-foreground"> · {{ eventLocalTime(h.event.startDate, h.event.timezone || undefined) }}</span>
-                <span v-if="h.inMyPlan" class="ml-1 text-eyebrow font-bold uppercase tracking-widest text-wd-green-600">in your plan</span>
+            <div class="flex items-start gap-3 mb-3">
+              <component :is="g.icon" class="w-5 h-5 shrink-0" :style="{ color: g.color, 'stroke-width': 1.5 }" />
+              <div class="flex-1 min-w-0">
+                <div class="text-base font-bold leading-tight text-foreground">
+                  {{ g.title }}
+                </div>
+                <div class="mt-1 text-xs italic text-muted-foreground font-display">
+                  {{ g.why }}
+                </div>
+                <span
+                  v-if="goalEffectiveStyle(g)"
+                  class="inline-block mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
+                  style="background:color-mix(in srgb, var(--wd-amber-600) 12%, transparent); color:var(--wd-amber-600);"
+                >
+                  {{ goalEffectiveStyle(g) }}
+                </span>
               </div>
-              <div class="text-xs truncate text-muted-foreground font-sans">
-                <span v-if="h.host">{{ h.host }} · </span>
-                <a
-                  v-if="h.venue && h.placeAddress"
-                  :href="`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(h.venue + ', ' + h.placeAddress)}`"
-                  target="_blank"
-                  rel="noopener"
-                  class="hover:underline"
-                  :title="h.placeAddress"
-                >{{ h.venue }}</a><span v-else-if="h.venue">{{ h.venue }}</span><span v-if="h.venue"> · </span>
-                {{ h.people }} in
+              <Button
+                v-if="!previewMode"
+                variant="ghost"
+                size="icon-sm"
+                class="size-7 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity shrink-0 rounded hover:bg-wd-red-50 text-primary hover:text-primary [&_svg]:size-3.5"
+                :aria-label="`Remove goal: ${g.title}`"
+                @click="removeGoal(g.id)"
+              >
+                <X aria-hidden="true" />
+              </Button>
+            </div>
+            <!-- Progress bar — editable in real mode -->
+            <div class="mt-4">
+              <div class="flex items-baseline justify-between mb-1">
+                <span class="text-eyebrow uppercase tracking-widest font-bold text-secondary">Progress</span>
+                <button
+                  v-if="!previewMode"
+                  type="button"
+                  class="text-xs font-black cursor-pointer hover:underline"
+                  :style="{ color: goalProgressColor(g.progress), fontFamily: 'var(--wd-font-display)' }"
+                  :aria-label="`Edit progress, currently ${g.progress}%`"
+                  @click="startEditingProgress(g.id)"
+                >
+                  {{ g.progress }}%
+                </button>
+                <span v-else class="text-xs font-black" :style="{ color: goalProgressColor(g.progress), fontFamily: 'var(--wd-font-display)' }">{{ g.progress }}%</span>
+              </div>
+              <input
+                v-if="editingProgressGoalId === g.id"
+                type="range"
+                min="0"
+                max="100"
+                :value="g.progress"
+                class="w-full h-2 rounded-full appearance-none cursor-pointer"
+                style="accent-color:var(--wd-amber-600);"
+                @input="onProgressChange(g.id, Number(($event.target as HTMLInputElement).value))"
+                @change="stopEditingProgress()"
+              />
+              <div v-else class="w-full h-2 rounded-full overflow-hidden" style="background:color-mix(in srgb, var(--wd-brown-900) 6.3%, transparent);">
+                <div class="h-full transition-all" :style="{ width: g.progress + '%', background: goalProgressColor(g.progress) }" />
               </div>
             </div>
-            <button
-              type="button"
-              class="text-xs font-bold px-3 py-1.5 rounded-full whitespace-nowrap"
-              :aria-pressed="h.going"
-              :style="h.going
-                ? { background: 'var(--wd-green-600)', color: 'white' }
-                : { background: 'white', color: h.color, border: '1.5px solid ' + h.color + '55' }"
-              @click="toggleHangout(h.id)"
-            >
-              {{ h.going ? '✓ In' : 'Join' }}
-            </button>
-            <Button
-              v-if="h.mine"
-              variant="ghost"
-              size="icon-sm"
-              class="size-7 rounded-full text-secondary [&_svg]:size-3.5"
-              aria-label="Close this hangout"
-              @click="closeHangout(h.id)"
-            >
-              <X aria-hidden="true" />
-            </Button>
+            <div v-if="g.nudge" class="mt-3 text-sm font-hand text-secondary" style="font-size:17px;">
+              — {{ g.nudge }}
+            </div>
           </div>
         </div>
       </div>
@@ -2871,10 +2809,8 @@ function cardSummary(f: CatalogueEntry) {
       <div id="discover" class="mt-14">
         <div class="flex items-baseline justify-between mb-4">
           <div>
-            <div class="text-xs uppercase tracking-[0.3em] text-secondary">Widen your year · discover</div>
-            <h2 class="mt-2 text-2xl leading-tight font-display text-foreground">
-              What could <em class="italic text-primary">rearrange</em> the year?
-            </h2>
+            <h2 class="text-3xl leading-tight font-display text-foreground">Discover</h2>
+            <p class="mt-1 text-sm text-muted-foreground font-sans">Festivals, nights and dancers you haven't added yet</p>
           </div>
           <Button
             variant="link"
