@@ -11,7 +11,7 @@ import type { NavMode } from '~/composables/useAccountNav'
 const props = defineProps<{ mode: NavMode }>()
 
 const route = useRoute()
-const { displayName, initial, photo, accountLinks, switchLinks, handleSignOut } = useAccountNav(props.mode)
+const { displayName, initial, photo, accountLinks, switchLinks, switchAttention, handleSignOut } = useAccountNav(props.mode)
 const open = ref(false)
 const showSignOutConfirm = ref(false)
 const root = ref<HTMLElement | null>(null)
@@ -42,8 +42,8 @@ function askSignOut() {
   <div ref="root" class="relative">
     <button
       type="button"
-      class="flex items-center gap-1.5 rounded-full border border-border p-1 sm:pr-2 h-9 hover:bg-muted transition-colors"
-      aria-label="Account menu"
+      class="relative flex items-center gap-1.5 rounded-full border border-border p-1 sm:pr-2 h-9 hover:bg-muted transition-colors"
+      :aria-label="switchAttention ? 'Account menu (something waits for you in Admin)' : 'Account menu'"
       aria-haspopup="menu"
       :aria-expanded="open"
       @click="open = !open"
@@ -53,6 +53,7 @@ function askSignOut() {
       <!-- Phones: avatar only, so the slim top bar has room. -->
       <span class="hidden sm:inline text-sm font-semibold max-w-[10rem] truncate">{{ displayName }}</span>
       <ChevronDown class="hidden sm:block w-4 h-4 text-muted-foreground" />
+      <span v-if="switchAttention" class="absolute -top-0.5 left-6 size-2.5 rounded-full bg-primary ring-2 ring-card" aria-hidden="true" />
     </button>
     <div
       v-if="open"
@@ -71,7 +72,8 @@ function askSignOut() {
       <div class="my-1 border-t border-border" />
       <NuxtLink v-for="l in switchLinks" :key="l.to" :to="l.to" role="menuitem" class="flex items-center gap-2.5 px-3.5 py-2 hover:bg-muted">
         <component :is="l.icon" class="w-4 h-4 text-primary" />
-        <span>{{ l.label }}<span class="block text-[11px] text-muted-foreground">{{ l.hint }}</span></span>
+        <span class="min-w-0 flex-1">{{ l.label }}<span class="block text-[11px]" :class="l.count ? 'text-primary font-semibold' : 'text-muted-foreground'">{{ l.hint }}</span></span>
+        <span v-if="l.count" class="bg-primary text-primary-foreground text-[11px] font-bold min-w-5 h-5 rounded-full grid place-items-center px-1.5">{{ l.count }}</span>
       </NuxtLink>
       <div class="my-1 border-t border-border" />
       <button

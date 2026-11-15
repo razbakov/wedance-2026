@@ -23,7 +23,7 @@ const props = withDefaults(
 const route = useRoute()
 const {
   appearsSignedIn, displayName, displayUsername, initial, photo, profileTo,
-  accountLinks, switchLinks, handleSignOut,
+  accountLinks, switchLinks, switchAttention, handleSignOut,
 } = useAccountNav(props.mode)
 const meOpen = ref(false)
 const showSignIn = ref(false)
@@ -51,7 +51,8 @@ const sectionLinks = computed(() => {
   return []
 })
 // The Me tab carries a dot while a section in its sheet waits on something (pending videos).
-const meDot = computed(() => sectionLinks.value.some(l => l.badge > 0))
+// …or the Admin link waits on something while I'm on another side.
+const meDot = computed(() => switchAttention.value || sectionLinks.value.some(l => l.badge > 0))
 
 const tabs = computed(() => props.mode === 'dance'
   ? [
@@ -136,7 +137,11 @@ function askSignOut() {
         ><component :is="l.icon" class="w-5 h-5 text-muted-foreground" />{{ l.label }}</NuxtLink>
         <NuxtLink v-for="l in switchLinks" :key="l.to" :to="l.to" class="flex items-center gap-3 py-3 border-b border-border/60">
           <component :is="l.icon" class="w-5 h-5 text-primary" />
-          <span>{{ l.label }}<span class="block text-xs text-muted-foreground">{{ l.hint }}</span></span>
+          <span class="min-w-0 flex-1">{{ l.label }}<span class="block text-xs" :class="l.count ? 'text-primary font-semibold' : 'text-muted-foreground'">{{ l.hint }}</span></span>
+          <span
+            v-if="l.count"
+            class="bg-primary text-primary-foreground text-[11px] font-bold min-w-5 h-5 rounded-full grid place-items-center px-1.5"
+          >{{ l.count }}</span>
         </NuxtLink>
         <button type="button" class="w-full flex items-center gap-3 py-3 text-muted-foreground text-left" @click="askSignOut">
           <LogOut class="w-5 h-5" />Sign out

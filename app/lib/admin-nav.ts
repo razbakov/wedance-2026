@@ -9,7 +9,7 @@ import {
   LayoutDashboard, Video, Gift, Users, UtensilsCrossed, BadgeCheck, UserRound, Cpu, MapPin,
 } from 'lucide-vue-next'
 
-export type AdminBadge = 'videos' | 'claims'
+export type AdminBadge = 'videos' | 'claims' | 'groups'
 export type AdminBadges = Partial<Record<AdminBadge, number | null>>
 
 export interface AdminNavItem {
@@ -29,7 +29,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { to: '/admin/users', label: 'Users', icon: UserRound, tab: true },
   { to: '/admin/videos', label: 'Videos', icon: Video, badge: 'videos' },
   { to: '/admin/cities', label: 'Cities', icon: MapPin },
-  { to: '/admin/community-groups', label: 'Community', icon: Users },
+  { to: '/admin/community-groups', label: 'Community', icon: Users, badge: 'groups' },
   { to: '/admin/festivals', label: 'Festivals', icon: UtensilsCrossed },
   { to: '/admin/giveaways', label: 'Giveaways', icon: Gift },
   { to: '/admin/ai-usage', label: 'AI usage', icon: Cpu },

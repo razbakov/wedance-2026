@@ -149,3 +149,17 @@ describe.skipIf(!DATABASE_URL)('admin.revealRestaurant', () => {
       .where(eq(schema.dinners.id, dinnerWithRestaurant.id))
   })
 })
+
+describe.skipIf(!DATABASE_URL)('admin.attention', () => {
+  it('is for admins only', async () => {
+    await expect(createCaller({ dancerId: 'some-id' }).admin.attention()).rejects.toThrow('Admin access required')
+  })
+
+  it('counts what waits on an admin', async () => {
+    const r = await createCaller({ dancerId: 'admin-id', isAdmin: true }).admin.attention()
+    for (const k of ['claims', 'videos', 'groups'] as const) {
+      expect(Number.isInteger(r[k])).toBe(true)
+      expect(r[k]).toBeGreaterThanOrEqual(0)
+    }
+  })
+})

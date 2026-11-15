@@ -131,8 +131,10 @@ const checkLinks = () => run('check', async () => {
   return `Checked ${r.checked} links: ${r.ok} working, ${r.dead} dead${r.unknown ? `, ${r.unknown} unclear` : ''}.${r.dead ? ' Showing the dead ones.' : ''}`
 })
 
+const { refresh: refreshAttention } = useAdminAttention()
 const review = (g: Group, approve: boolean) => run(g.id, async () => {
   await $trpc.communityGroup.review.mutate({ id: g.id, approve, verified: approve ? true : undefined })
+  refreshAttention(true)
   return approve ? `“${g.name}” is listed.` : `“${g.name}” was declined.`
 })
 const setVisible = (g: Group, visible: boolean) => run(g.id, async () => {
