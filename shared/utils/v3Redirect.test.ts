@@ -53,7 +53,8 @@ describe('planV3Redirect', () => {
     expect(planV3Redirect('/blog/chango-aluya-and-a-la-meta-steps')).toEqual({ to: '/whats-new', code: 301 })
     expect(planV3Redirect(`/stories/${FSID}`)).toEqual({ to: '/', code: 301 })
     expect(planV3Redirect('/organize/')).toEqual({ to: '/for-organizers', code: 301 })
-    expect(planV3Redirect('/about')).toEqual({ to: '/', code: 302 })
+    // 2026 has its own /about since 2026-11-15: no redirect.
+    expect(planV3Redirect('/about')).toBeNull()
     expect(planV3Redirect('/settings/calendars')).toEqual({ to: '/settings', code: 301 })
     expect(planV3Redirect('/admin/reports')).toEqual({ to: '/admin', code: 301 })
     expect(planV3Redirect('/competition/submit')).toEqual({ to: '/battle', code: 301 })

@@ -52,12 +52,14 @@ const onClick = () => useTrack().track('ai_app_cta_click', { app: 'chatgpt', sur
         <div class="inline-flex items-center gap-1.5 text-eyebrow uppercase tracking-[0.3em] font-bold text-primary">
           <Sparkles class="w-3.5 h-3.5" aria-hidden="true" /> WeDance in ChatGPT
         </div>
-        <h2
+        <!-- As the hero of a landing it is the page's h1. -->
+        <component
+          :is="variant === 'hero' ? 'h1' : 'h2'"
           class="mt-2 leading-tight font-display text-foreground"
           :class="variant === 'hero' ? 'text-4xl sm:text-5xl' : 'text-2xl sm:text-3xl'"
         >
           Ask where to dance. <em class="italic text-primary">Get your plan.</em>
-        </h2>
+        </component>
         <p class="mt-3 text-sm sm:text-base text-muted-foreground font-sans" :class="variant === 'hero' ? 'max-w-md mx-auto md:mx-0' : ''">
           Add WeDance to ChatGPT once. Then ask about parties, festivals and courses in plain words — what you pick lands on your plan here.
         </p>

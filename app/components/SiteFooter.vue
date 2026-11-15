@@ -29,6 +29,7 @@ const columns = [
       { to: '/for-organizers', label: 'For organizers' },
       { to: '/for-venues', label: 'For venues' },
       { to: '/for-sponsors', label: 'For sponsors' },
+      { to: '/about', label: 'About' },
       { to: '/press', label: 'Press' },
       { to: '/whats-new', label: 'What’s new' },
       { to: '/open', label: 'Open metrics' },
