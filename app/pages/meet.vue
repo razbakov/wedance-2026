@@ -10,7 +10,7 @@
  *
  * ?preview=1 shows example dancers and never writes.
  */
-import { ArrowLeft, ArrowRight, MapPin, Plane, Heart, Sparkles, X, Clock, Undo2 } from 'lucide-vue-next'
+import { ArrowLeft, ArrowRight, MapPin, Plane, Heart, X, Clock, Undo2 } from 'lucide-vue-next'
 import { sizedImage, IMG } from '#shared/utils/image'
 import { festivalPath } from '#shared/utils/eventSlug'
 import { meetVisibility } from '#shared/utils/meetFriends'
@@ -251,18 +251,8 @@ const lastYes = computed(() => {
         </p>
 
         <div class="relative mx-auto max-w-md">
-          <div v-if="!deckCurrent" class="rounded-2xl p-10 text-center border-2 border-dashed border-input bg-white/50" data-testid="meet-empty">
-            <Sparkles class="w-10 h-10 mx-auto mb-3 text-secondary" aria-hidden="true" />
-            <p class="text-lg font-display text-foreground">
-              No one new right now
-            </p>
-            <p class="mt-2 text-sm text-muted-foreground font-sans">
-              Go to a night out — everyone going will see you here, and you’ll see them.
-            </p>
-            <Button as-child variant="cta" size="pill-sm" class="mt-4">
-              <NuxtLink :to="nightsLink" data-testid="meet-empty-nights">Find a night out <ArrowRight aria-hidden="true" /></NuxtLink>
-            </Button>
-          </div>
+          <!-- RAZ-1002: an empty deck is one thing to do about it. -->
+          <MeetEmptyNext v-if="!deckCurrent" :preview="previewMode" :city="dancerCity" />
 
           <!-- min-height, not a fixed height: the card grows with its text. -->
           <div v-else class="relative min-h-[400px]">
