@@ -21,7 +21,7 @@ export type MeetVisibilityInput = {
 export type MeetVisibility = {
   /** True when other dancers' decks show this dancer right now. */
   shown: boolean
-  /** What to do, in that order: photo / public in Settings, or go out (`night`). */
+  /** What to do, in that order: photo / public on /dance-card, or go out (`night`). */
   missing: Array<'photo' | 'public' | 'night'>
   /** One sentence for the dancer, in the second person. */
   text: string

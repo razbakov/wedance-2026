@@ -10,8 +10,7 @@
  *
  * ?preview=1 shows example dancers and never writes.
  */
-import { ArrowLeft, ArrowRight, MapPin, Plane, Heart, X, Clock, Undo2 } from 'lucide-vue-next'
-import { sizedImage, IMG } from '#shared/utils/image'
+import { ArrowLeft, ArrowRight, Heart, X, Clock, Undo2 } from 'lucide-vue-next'
 import { festivalPath } from '#shared/utils/eventSlug'
 import { meetVisibility } from '#shared/utils/meetFriends'
 import { toMeetCards, type MeetCard } from '~/lib/meetDeck'
@@ -52,8 +51,6 @@ const PREVIEW_DECK: MeetCard[] = [
   { id: 'd6', kind: 'dancer-going-out', name: 'Barbara', city: 'Munich', photo: 'https://i.pravatar.cc/240?u=barbara', danceStyles: ['Rumba', 'Son'], night: { path: '', name: 'Cuban Sunday practica', when: 'Sun 19:00', venue: 'Bar Tropical' }, reason: 'Going to Cuban Sunday practica. Join them, and you\'ll meet there.' },
 ]
 
-// The chip links to the festival (RAZ-982) or the night (RAZ-981); preview cards are mock data with no page.
-const NuxtLink = resolveComponent('NuxtLink')
 const deck = ref<MeetCard[]>(route.query.preview === '1' ? [...PREVIEW_DECK] : [])
 const deckLoaded = ref(route.query.preview === '1')
 const swipeHistory = ref<Array<{ card: MeetCard; direction: 'yes' | 'skip' | 'later' }>>([])
@@ -273,14 +270,18 @@ const lastYes = computed(() => {
           data-testid="meet-you"
         >
           <span>{{ meVisible.text }}</span>
-          <NuxtLink v-if="meVisible.missing.includes('photo')" to="/settings" class="font-bold text-primary hover:underline whitespace-nowrap">
+          <NuxtLink v-if="meVisible.missing.includes('photo')" to="/dance-card" data-testid="meet-add-photo" class="font-bold text-primary hover:underline whitespace-nowrap">
             Add a photo <ArrowRight class="inline w-3.5 h-3.5" aria-hidden="true" />
           </NuxtLink>
-          <NuxtLink v-else-if="meVisible.missing.includes('public')" to="/settings" class="font-bold text-primary hover:underline whitespace-nowrap">
+          <NuxtLink v-else-if="meVisible.missing.includes('public')" to="/dance-card" class="font-bold text-primary hover:underline whitespace-nowrap">
             Make it public <ArrowRight class="inline w-3.5 h-3.5" aria-hidden="true" />
           </NuxtLink>
           <NuxtLink v-else-if="meVisible.missing.includes('night')" :to="nightsLink" class="font-bold text-primary hover:underline whitespace-nowrap" data-testid="meet-find-night">
             Find a night <ArrowRight class="inline w-3.5 h-3.5" aria-hidden="true" />
+          </NuxtLink>
+          <!-- RAZ-1005: see and change what the others see. -->
+          <NuxtLink v-else to="/dance-card" class="font-bold text-primary hover:underline whitespace-nowrap" data-testid="meet-my-card">
+            Your card <ArrowRight class="inline w-3.5 h-3.5" aria-hidden="true" />
           </NuxtLink>
         </p>
 
@@ -319,55 +320,7 @@ const lastYes = computed(() => {
                 :style="{ opacity: Math.min(1, Math.max(0, dragDx / 100)) }"
               >Yes</div>
 
-              <img :src="sizedImage(deckCurrent.photo, IMG.card)" :alt="deckCurrent.name" class="w-full h-64 object-cover" draggable="false">
-              <div class="p-5">
-                <div class="flex items-baseline justify-between gap-3">
-                  <div class="text-xl font-black font-display text-foreground">
-                    {{ deckCurrent.name }}
-                  </div>
-                  <div class="text-xs italic text-secondary font-display">
-                    {{ deckCurrent.city }}
-                  </div>
-                </div>
-                <!-- Context chip -->
-                <component
-                  :is="previewMode ? 'div' : NuxtLink"
-                  v-if="deckCurrent.kind === 'dancer-your-fest' || deckCurrent.kind === 'dancer-new-fest'"
-                  :to="previewMode ? undefined : festivalPath(deckCurrent.festivalSlug)"
-                  class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold hover:underline"
-                  :style="{ background: deckCurrent.festivalColor + '18', color: deckCurrent.festivalColor }"
-                  @pointerdown.stop
-                >
-                  <Plane class="w-3 h-3" style="stroke-width:1.5;" />
-                  <template v-if="deckCurrent.kind === 'dancer-your-fest'">Also going to {{ deckCurrent.festivalName }}</template>
-                  <template v-else>Going to {{ deckCurrent.festivalName }} — you're not</template>
-                </component>
-                <component
-                  :is="previewMode ? 'div' : NuxtLink"
-                  v-else-if="isNightCard(deckCurrent)"
-                  :to="previewMode ? undefined : deckCurrent.night.path"
-                  class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold text-wd-green-600 hover:underline"
-                  style="background:color-mix(in srgb, var(--wd-green-600) 9.4%, transparent);"
-                  data-testid="meet-card-night"
-                  @pointerdown.stop
-                >
-                  <MapPin class="w-3 h-3" style="stroke-width:1.5;" />
-                  {{ deckCurrent.kind === 'dancer-same-night' ? 'Also going to' : 'Going to' }} {{ deckCurrent.night.name }} · {{ deckCurrent.night.when }}<template v-if="deckCurrent.night.venue"> · {{ deckCurrent.night.venue }}</template>
-                </component>
-                <div class="mt-3 flex flex-wrap gap-1">
-                  <span
-                    v-for="st in deckCurrent.danceStyles"
-                    :key="st"
-                    class="text-eyebrow font-bold uppercase tracking-widest px-2 py-0.5 rounded-full text-muted-foreground"
-                    style="background:color-mix(in srgb, var(--wd-brown-900) 3.9%, transparent);"
-                  >
-                    {{ st }}
-                  </span>
-                </div>
-                <p v-if="deckCurrent.reason" class="mt-3 text-xs italic leading-snug text-muted-foreground font-display">
-                  {{ deckCurrent.reason }}
-                </p>
-              </div>
+              <MeetDeckCard :card="deckCurrent" :preview="previewMode" />
             </div>
           </div>
 

@@ -5,7 +5,8 @@
  * nearby in the next two weeks (server/utils/myPlanFeeds.ts `discoverDeck`), so
  * this says so, asks for what's missing (a photo, a public profile) and leads
  * to the deck — the people there are going out too, and each card links to
- * their night. Shown under "You're in" in EventSignup.
+ * their night. Shown under "You're in" in EventSignup. "Add a photo" opens the
+ * dancer's own card (/dance-card, RAZ-1005) and comes back here.
  */
 import { ArrowRight, Camera, Users } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
@@ -16,6 +17,7 @@ const props = defineProps<{
   surface: string
 }>()
 
+const route = useRoute()
 const { photo, profilePublic } = useAuth()
 const hasPhoto = computed(() => !!photo.value?.trim())
 const isPublic = computed(() => profilePublic.value !== false)
@@ -51,7 +53,7 @@ function open() {
         <NuxtLink to="/meet" data-meet-prompt-open @click="open">Meet who’s going <ArrowRight aria-hidden="true" /></NuxtLink>
       </Button>
       <Button v-if="!shown" as-child variant="outline" size="pill-sm">
-        <NuxtLink to="/settings" data-meet-prompt-settings>
+        <NuxtLink :to="`/dance-card?back=${encodeURIComponent(route.fullPath)}`" data-meet-prompt-settings>
           <Camera v-if="!hasPhoto" aria-hidden="true" /> {{ hasPhoto ? 'Make my profile public' : 'Add a photo' }}
         </NuxtLink>
       </Button>
