@@ -73,6 +73,28 @@ function excludeIds(exclude: SignupRows['exclude']): string[] {
 
 /** Everyone to tell that this event is cancelled (or on again). */
 export async function signupsOf(db: any, ev: any, exclude?: string | string[] | null): Promise<CancelRecipient[]> {
+  const { dancers: list, emails } = await signupRowsOf(db, ev)
+  const ids = [...new Set(list.map(d => d.id).concat(excludeIds(exclude)))]
+  const people = ids.length
+    ? await db.select({ id: dancers.id, name: dancers.name, email: dancers.email }).from(dancers).where(inArray(dancers.id, ids))
+    : []
+  return cancelRecipients({ dancers: list, emails, people, exclude })
+}
+
+/**
+ * Did this dancer sign up for the event (RAZ-1011: only they may review it)? Same sources as
+ * `signupsOf` — on their plan, a confirmed poll answer other than "next", going / a ticket —
+ * matched by dancer id, or by their email for ticket stubs and guests who signed in later.
+ */
+export async function wentTo(db: any, ev: any, dancer: { id: string; email?: string | null }): Promise<boolean> {
+  const { dancers: list, emails } = await signupRowsOf(db, ev)
+  if (list.some(d => d.id === dancer.id)) return true
+  const mine = (dancer.email ?? '').trim().toLowerCase()
+  return !!mine && emails.some(e => e.email.trim().toLowerCase() === mine)
+}
+
+/** The raw sign-ups of one event (dancer ids + email-only people), from every table above. */
+export async function signupRowsOf(db: any, ev: any): Promise<Pick<SignupRows, 'dancers' | 'emails'>> {
   const key: string | null = (ev.festival as any)?.key ?? (ev.isFestival ? ev.slug : null)
   const list: SignupRows['dancers'] = []
   const emails: SignupRows['emails'] = []
@@ -114,11 +136,7 @@ export async function signupsOf(db: any, ev: any, exclude?: string | string[] | 
     }
   }
 
-  const ids = [...new Set(list.map(d => d.id).concat(excludeIds(exclude)))]
-  const people = ids.length
-    ? await db.select({ id: dancers.id, name: dancers.name, email: dancers.email }).from(dancers).where(inArray(dancers.id, ids))
-    : []
-  return cancelRecipients({ dancers: list, emails, people, exclude })
+  return { dancers: list, emails }
 }
 
 export type CancelResult = { id: string; name: string; cancelled: boolean; notified: number; alreadyCancelled: boolean }

@@ -14,6 +14,7 @@ import { WD } from '~/lib/brand'
 import { mixHex, readableOn } from '~/lib/contrast'
 import { isUuid, eventSlug, sessionKey } from '#shared/utils/eventSlug'
 import { festivalPath } from '#shared/utils/eventSlug'
+import { nightWeekday, rateFromQuery } from '#shared/utils/eventReview'
 
 definePageMeta({ layout: false })
 
@@ -272,6 +273,48 @@ function openPageTab(t: PageTab, via: 'nav' | 'hero') {
   })
 }
 
+// "How was it?" (RAZ-1011): after the night, people who went rate it in the hero, in place of
+// the sign-up. The morning-after email's stars land here with ?rate=N; its "didn't make it"
+// with ?review=missed&t=<token>.
+type Ask = { open: boolean; opensAt: string | null; signedIn: boolean; went: boolean; missed: boolean; mine: { rating: number; text: string | null } | null }
+const ask = ref<Ask | null>(null)
+const rateParam = computed(() => rateFromQuery(route.query.rate))
+const missedToken = computed(() => (route.query.review === 'missed' && typeof route.query.t === 'string' ? route.query.t : null))
+async function loadAsk() {
+  const e = ev.value
+  if (!e?.id || !isUuid(e.id) || festivalData.value) { ask.value = null; return }
+  try { ask.value = await $trpc.review.eventAsk.query({ eventId: e.id }) } catch { /* stays as it was */ }
+}
+watch(() => ev.value?.id, loadAsk)
+watch(isSignedIn, loadAsk)
+const showAsk = computed(() => {
+  const a = ask.value
+  if (!a || !ev.value || ev.value.cancelled || isPreview.value) return false
+  if (missedToken.value) return true
+  if (!a.open || a.missed) return false
+  return a.went || (!a.signedIn && !!rateParam.value)
+})
+// A star link from the email opened the page: once per mount.
+watch(showAsk, (v) => {
+  if (v && rateParam.value && ev.value) useTrack().trackOnce(`rate:${ev.value.id}`, 'review_ask_opened', { event_id: ev.value.id, rating: rateParam.value, signed_in: isSignedIn.value, went: !!ask.value?.went })
+})
+// Bumped after a post so the Reviews list loads again with the new review on top.
+const reviewsKey = ref(0)
+function onReviewPosted() {
+  loadAsk()
+  reviewsKey.value++
+  openPageTab('reviews', 'hero')
+}
+// What the Reviews tab says about who can write one (where the reader looks).
+const reviewNote = computed(() => {
+  const a = ask.value
+  if (!a || ev.value?.cancelled) return ''
+  if (!a.open) return 'Going? You can review it the day after — we’ll send you a link.'
+  if (a.went && !a.mine && !a.missed) return 'You went — rate it at the top of the page.'
+  return 'Reviews are from people who went.'
+})
+const rateNotAllowed = computed(() => !!ask.value?.signedIn && !!rateParam.value && !!ask.value.open && !ask.value.went && !missedToken.value)
+
 useHead(() => ({
   title: ev.value ? `${ev.value.title || 'Event'} — WeDance` : (failed.value ? 'Event not found — WeDance' : 'WeDance — Event'),
   meta: failed.value || isPreview.value ? [{ name: 'robots', content: 'noindex' }] : [],
@@ -327,10 +370,16 @@ useHead(() => ({
       </div>
 
       <!-- Same hero as festivals -->
-      <FestivalHero :festival="asFestival" :image="ev.cover" :presenters="heroPresenters" :description="ev.message" review-target-type="event" entity-label="event" cta-anchor="#rsvp" cta-fallback-label="I'm going" :picked="picked" :cancelled="ev.cancelled ? { reason: ev.cancelReason } : null" :date-label="ev.when" :venue-address="ev.venueAddress" :map-url="ev.mapUrl" @pick="onPick" @reviews="openPageTab('reviews', 'hero')">
+      <FestivalHero :festival="asFestival" :rating-version="reviewsKey" :image="ev.cover" :presenters="heroPresenters" :description="ev.message" review-target-type="event" entity-label="event" cta-anchor="#rsvp" cta-fallback-label="I'm going" :picked="picked" :cancelled="ev.cancelled ? { reason: ev.cancelReason } : null" :date-label="ev.when" :venue-address="ev.venueAddress" :map-url="ev.mapUrl" @pick="onPick" @reviews="openPageTab('reviews', 'hero')">
         <!-- The RSVP: the organiser's poll IS the hero's Going question (RAZ-731). -->
-        <template v-if="ev.pollable && !ev.archived && !isPreview && !ev.cancelled" #cta>
-          <div id="rsvp" class="mt-4 max-w-xl scroll-mt-16">
+        <template v-if="showAsk || (ev.pollable && !ev.archived && !isPreview && !ev.cancelled)" #cta>
+          <EventHowWasIt
+            v-if="showAsk" :event-id="ev.id" :event-name="ev.title || 'Event'" :weekday="nightWeekday(ev)" :mine="ask?.mine ?? null" :signed-in="!!ask?.signedIn"
+            :initial-rating="rateParam" :from-email="!!rateParam" :missed-token="missedToken"
+            @posted="onReviewPosted" @reviews="openPageTab('reviews', 'hero')" @sign-in="onSignIn('review')" @missed="loadAsk"
+          />
+          <p v-else-if="rateNotAllowed" class="mt-4 text-sm text-muted-foreground font-sans" data-review-not-went>Only people who signed up for this night can review it.</p>
+          <div v-if="ev.pollable && !ev.archived && !isPreview && !ev.cancelled" id="rsvp" class="mt-4 max-w-xl scroll-mt-16">
             <EventSignup :event-type="ev.eventType" :event-id="ev.id" :path="route.path" :start-date="ev.startDate" :end-date="ev.endDate" :timezone="ev.timezone" :organizer-name="ev.organizerName || (ev.organizerHandle ? `@${ev.organizerHandle}` : null)" surface="event" @poll="onPoll" />
           </div>
         </template>
@@ -419,7 +468,7 @@ useHead(() => ({
 
         <!-- Reviews (same component as venues/festivals), its own tab -->
         <section v-else id="reviews" class="scroll-mt-16">
-          <ReviewsSection target-type="event" :target-slug="ev.id" :target-name="ev.title || 'Event'" class="!mt-0" />
+          <ReviewsSection :key="reviewsKey" target-type="event" :target-slug="ev.id" :target-name="ev.title || 'Event'" :can-write="false" :note="reviewNote" class="!mt-0" />
         </section>
       </div>
     </template>

@@ -1,5 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nuxtjs",
-  "buildCommand": "bun scripts/db-migrate.ts --deploy && nuxt build"
+  "buildCommand": "bun scripts/db-migrate.ts --deploy && nuxt build",
+  "crons": [
+    { "path": "/api/cron/review-asks", "schedule": "0 9 * * *" }
+  ]
 }

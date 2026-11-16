@@ -20,6 +20,7 @@ import { protectedProcedure, adminProcedure } from '../trpc'
 // Every entry needs a one-line reason so reviewers know why it's public.
 // ---------------------------------------------------------------------------
 const PUBLIC_MUTATIONS_ALLOW_LIST: Record<string, string> = {
+  'review.missed': 'the morning-after email\'s "didn\'t make it" — authorised by its unguessable per-address token (RAZ-1011)',
   'auth.requestMagicLink': 'unauthenticated by definition — initiates the sign-in flow',
   'auth.verifyMagicLink': 'unauthenticated by definition — completes the magic-link sign-in',
   'auth.resetPassword': 'unauthenticated by definition — password recovery flow',

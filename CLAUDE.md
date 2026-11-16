@@ -426,6 +426,22 @@ person undoing it; nobody once the event is over. Email: `sendEventBackOnEmail` 
 holders are asked to check with the organiser if they already asked for a refund). Nobody is emailed without the
 organiser's choice.
 
+## Event reviews: only people who went, after the night (RAZ-1011)
+
+The rating sits under the hero picture; the stars open the page's Reviews tab (plain events: Overview / Reviews in
+`events/[id].vue`; festivals: FestivalView's fifth tab, still open to anyone signed in). An **event** is reviewed only
+by someone who signed up — `wentTo` in `server/utils/eventCancel.ts`, the same sources as `signupsOf` (plan, confirmed
+poll answer other than "next", attendances / tickets, matched by id or email) — and only once the night is over
+(`shared/utils/eventReview.ts` `reviewOpen`: its end, else start + 3 h). Enforced in `review.create`; such reviews carry
+`reviews.went` (0075) and show "Went". **How was it?** (`EventHowWasIt`) replaces the sign-up in the hero for a dancer
+who went (`review.eventAsk`): tap a star, an optional line, post → Reviews tab. Before the night the tab says you can
+review it the day after. **Morning-after email**: a daily Vercel cron (`vercel.json` → `/api/cron/review-asks`, 09:00
+UTC, `Authorization: Bearer $CRON_SECRET` — unset = 503, nothing sent) emails everyone who went to nights over 4–30 h
+ago (`server/utils/reviewAsk.ts`; not festivals, cancelled, archived or drafts): "How was Thursday at <host>?", five
+star links (`/events/<slug>?rate=N`) and "Didn't make it?" (`?review=missed&t=<token>` → a "Don't ask me again" tap →
+`review.missed`; a GET never changes anything). Once per event per address: `event_review_asks` (unique event + email,
+inserted before sending). Not yet: tips to the organiser after a good review (needs a Stripe payout decision).
+
 ## My plan: Today / Week / Month / Year (RAZ-1006)
 
 `/my-plan` is four tabs (sketch `/sketches/plan-zoom`, variant A; opens on Today). Each tab holds everything in its span,
@@ -536,7 +552,9 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `dinner_joined` · `ride_share_posted` · `roommate_search_toggled` | `useDinners` · `useRideShares` · `useRoommates` | `dinner_id` · `festival`, `type` · `festival`, `looking` |
 | `shared_plan_signup` | `FestivalView`, `my-year` ("add friend" from a shared plan) | `surface`, `slug` |
 | `ask_locals_post` · `video_submit` · `video_vote` · `city_battle_vote` | city components | `city`, … |
-| `review_submitted` · `giveaway_entered` · `election_nominated` | `ReviewsSection` · `GiveawayCard` · `elections/[handle]` | target ids |
+| `review_submitted` · `giveaway_entered` · `election_nominated` | `ReviewsSection`, `EventHowWasIt` (an event's hero after the night, RAZ-1011) · `GiveawayCard` · `elections/[handle]` | target ids; event hero: `target_type`, `target`, `rating`, `has_text`, `updated`, `via` (email / page), `surface` (event_hero) |
+| `review_ask_opened` | `events/[id]` opened from a star in the morning-after email (`?rate=N`, once per mount, RAZ-1011) | `event_id`, `rating`, `signed_in`, `went` |
+| `review_ask_missed` | `EventHowWasIt` "Don’t ask me again" (the email's "Didn’t make it?" link) | `event_id`, `signed_in` |
 | `event_form_opened` | `business/events/new.vue` — the organiser answers "Where are you starting from?" (RAZ-939) | `start` (post / copy / scratch) |
 | `event_created` / `event_published` | `business/events/new.vue` ("From scratch" or "Like my last event"; starts a draft; `event_published` only when "Publish it now" is ticked); publish = draft→live in `business/events/[id]` (checklist "Publish" button or the Published box) | `event_id`, `is_festival`, `city`, `style`, `published`, `source` (scratch / copy), `dates` (copy) |
 | `event_cancelled` | `BusinessCancelEvents` (event editor → Cancel, or Business → Events → tick events / "Select today's", RAZ-948) | `event_id` (one event, else null), `events`, `notified`, `has_reason`, `bulk` |
@@ -600,6 +618,9 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `server_business_profile_created` | `business.create` | `profile`, `profile_type` |
 | `server_profile_merged` | `business.merge` (web + MCP `merge_profiles`) | `profile` (kept), `merged_profile`, `profile_type`, `same_type`, `moved`, `$groups` |
 | `server_page_deleted` | `business.deletePage` (owners; only a page nothing uses — `server/utils/deleteProfile.ts`) | `profile`, `profile_type`, `followers`, `team`, `days_old`, `$groups` |
+| `server_review_submitted` | `review.create` (web + MCP `write_review`; events only from people who went, after the night — RAZ-1011) | `target_type`, `rating`, `has_text`, `updated`, `went`, `event_id`, `$groups` (events) |
+| `server_review_ask_missed` | `review.missed` ("Didn’t make it?" in the morning-after email, first time per ask) | `event_id`, `signed_in` |
+| `server_review_asks_sent` | `/api/cron/review-asks` (daily Vercel cron) — **anonymous**, one per event asked | `event_id`, `asked`, `failed`, `channel: cron` |
 | `server_rsvp_answered` | `rsvp.answer` (signed out → unconfirmed; signed in → confirmed at once) | `event_id`, `answer`, `signed_in`, `confirmed`, `$groups` |
 | `server_rsvp_confirmed` | `rsvp.answer` signed in, folding in this browser's / magic link's unconfirmed answer | `event_id`, `answer`, `hours_to_confirm`, `$groups` |
 | `server_event_signed_up` | `rsvp.signUp` (RAZ-995: how you come + pass + pay + contact; signed out = unconfirmed until the magic link) | `event_id`, `answer`, `signed_in`, `has_pass`, `pay`, `people`, `keep_in_touch`, `$groups` |
