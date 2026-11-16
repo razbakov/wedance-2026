@@ -68,6 +68,26 @@ export function noPassForRole(passes: readonly FestivalPass[], answer: RsvpAnswe
   return perRole && !priced.some(p => passFor(p) === want && !p.soldOut)
 }
 
+/**
+ * What a pass covers, when the organiser didn't say (workshopCount / includesParty unset): read from
+ * its name and description. Without this an unset pass reads as "every workshop", so a party pass or
+ * a masterclass was suggested for a plan of workshops. Set fields always win.
+ * workshopCount 0 = no workshops; undefined = all of them.
+ */
+export function passCoverage<P extends Pick<FestivalPass, 'name' | 'description' | 'workshopCount' | 'includesParty'>>(pass: P): P {
+  const text = `${pass.name ?? ''} ${pass.description ?? ''}`.toLowerCase()
+  const masterclass = /masterclass/.test(text)
+  const noWorkshops = masterclass || /\bno workshops?\b|\b(party|parties|social|socials) only\b|\b(party|social) pass\b/.test(text)
+  const party = /\bno (party|parties)\b/.test(text) ? false
+    : masterclass && !/\bpart(y|ies)\b/.test(text) ? false
+    : /\bpart(y|ies)\b|\bsocials?\b/.test(text) ? true : undefined
+  return {
+    ...pass,
+    workshopCount: pass.workshopCount ?? (noWorkshops ? 0 : undefined),
+    includesParty: pass.includesParty ?? party,
+  }
+}
+
 /** What a pass costs for the people coming, in euros. */
 export function passTotal(pass: Pick<FestivalPass, 'name' | 'price' | 'couplePrice'>, people: 1 | 2): number {
   const price = Number(pass.price) || 0

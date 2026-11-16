@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { chosenPass, fullNameOk, noPassForRole, passFor, passesFor, signupNeedsPhone, passPriceLabel, passTotal, peopleFor, phoneOk, pricedPasses, signupCta, signupSteps } from './eventSignup'
+import { chosenPass, passCoverage, fullNameOk, noPassForRole, passFor, passesFor, signupNeedsPhone, passPriceLabel, passTotal, peopleFor, phoneOk, pricedPasses, signupCta, signupSteps } from './eventSignup'
 
 const drop = { name: 'This class', price: 10, days: [], couplePrice: 18 }
 const course = { name: 'Whole course', price: 60, days: [], couplePrice: 110 }
@@ -110,5 +110,26 @@ describe('passes per role (festivals)', () => {
     expect(signupSteps({ passes: ddf, answer: 'partner' })).toEqual(['role', 'pass', 'pay', 'you'])
     expect(chosenPass(ddf, 'Full Pass — Leader', 'partner')).toBeNull()
     expect(chosenPass(ddf, 'Full Pass — Couple (leader + follower)', 'partner')?.price).toBe(240)
+  })
+})
+
+describe('passCoverage: what a pass covers, read from its words when unset', () => {
+  const cov = (name: string, description?: string, extra = {}) => {
+    const c = passCoverage({ name, description, ...extra })
+    return [c.workshopCount, c.includesParty]
+  }
+  it('reads DDF-style passes', () => {
+    expect(cov('Full Pass — Leader', 'All workshops, socials and parties, Friday to Sunday')).toEqual([undefined, true])
+    expect(cov('Friday Day Pass — Leader', 'Workshops, social and party on Friday')).toEqual([undefined, true])
+    expect(cov('Friday Party Pass — Leader', 'Party only')).toEqual([0, true])
+    expect(cov('Party Pass Fri + Sat — Leader', 'Both parties, no workshops, no social')).toEqual([0, true])
+    expect(cov('Saturday Social Pass — Single leader', 'Afternoon social only')).toEqual([0, true])
+    expect(cov('Masterclass: Asia — Musicality', '1 hour masterclass on musicality')).toEqual([0, false])
+  })
+  it('never overrides what the organiser set', () => {
+    expect(cov('Party Pass', 'Party only', { workshopCount: 2, includesParty: false })).toEqual([2, false])
+  })
+  it('leaves a plain pass unknown', () => {
+    expect(cov('This class')).toEqual([undefined, undefined])
   })
 })

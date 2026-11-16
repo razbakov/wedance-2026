@@ -46,6 +46,8 @@ const props = defineProps<{
   programme?: { id: string; date: string; time: string; duration: number; type: any; title?: string }[]
   /** Programme items already on the dancer's plan: they pick the pass that fits. */
   plannedIds?: string[]
+  /** A festival's pick: of these passes, the one covering the workshops on the dancer's plan. */
+  recommend?: (passes: FestivalPass[]) => string | null
 }>()
 
 type Poll = Awaited<ReturnType<ReturnType<typeof useNuxtApp>['$trpc']['rsvp']['poll']['query']>>
@@ -113,7 +115,7 @@ const programmeItems = computed(() => props.programme ?? [])
 const includesOf = (p: FestivalPass | null) => programmeItems.value.length ? includesLine(p, programmeItems.value) : ''
 const fitsPlan = computed(() => {
   const want = (props.plannedIds ?? []).filter(id => programmeItems.value.some(s => s.id === id))
-  if (!want.length) return null
+  if (!want.length) return props.recommend?.(fitting.value.filter(p => !p.soldOut)) ?? null
   return fitting.value.filter(p => !p.soldOut)
     .filter(p => { const c = new Set(passCovers(p, programmeItems.value).map(s => s.id)); return want.every(id => c.has(id)) })
     .sort((a, b) => Number(a.price) - Number(b.price))[0]?.name ?? null

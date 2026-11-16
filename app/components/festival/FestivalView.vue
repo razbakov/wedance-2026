@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CLASS_EVENT_TYPES } from '#shared/utils/eventSignup'
+import { CLASS_EVENT_TYPES, passCoverage, passesFor } from '#shared/utils/eventSignup'
 import { sizedImage, IMG } from '#shared/utils/image'
 import type { Festival, Teacher, Workshop, PlanEntry, DanceRole, DancePartner, ExtraActivity, FreemiumState } from '~/types/festival'
 import { ArrowRight, Sparkles, Check, Plus, Pencil, Ticket, Share2, Users } from 'lucide-vue-next'
@@ -964,6 +964,7 @@ const hasTicket = computed(() => freemiumState.value.verifiedTicketHolder)
 
 function chooseTicket(ticket: TicketOption) {
   if (hasTicket.value) return
+  if (bookInSteps(ticket.name)) return
   selectedTickets.value = [ticket]
   showCheckout.value = true
 }
@@ -1067,9 +1068,12 @@ const passesDescribed = (festival.tickets ?? []).some((t) =>
   t.days.length > 0 || t.workshopCount !== undefined || t.includesParty !== undefined,
 )
 
+// Booked already (leader / follower / with a partner)? Only the passes for that way of coming.
+const myAnswer = computed(() => { const a = rsvpPoll.value?.mine?.answer; return a && a !== 'next' ? a : null })
 const recommendation = computed<Recommendation | null>(() => {
   if (plannedDays.value.size === 0) return null
-  return recommendFor(plannedDays.value, plannedWorkshopCount.value, hasPartyInPlan.value)
+  const among = myAnswer.value ? passesFor(festival.tickets ?? [], myAnswer.value) as TicketOption[] : undefined
+  return recommendFor(plannedDays.value, plannedWorkshopCount.value, hasPartyInPlan.value, among)
 })
 
 // Before the dancer picks anything: the cheapest way to the whole programme.
@@ -1079,8 +1083,9 @@ const bestValueNames = computed(() => new Set((recommendFor(
   workshops.some((w) => isEveningItem(w.type)),
 )?.tickets ?? []).map((t) => t.name)))
 
-function recommendFor(days: Set<string>, workshopCount: number, wantsParty: boolean): Recommendation | null {
-  const all = festival.tickets
+function recommendFor(days: Set<string>, workshopCount: number, wantsParty: boolean, among?: TicketOption[], singleOnly = false): Recommendation | null {
+  // What each pass covers, read from its description where the organiser left it unset.
+  const all = (among ?? festival.tickets)?.map(passCoverage)
   if (!all?.length || !passesDescribed || days.size === 0) return null
 
   interface Candidate { tickets: TicketOption[]; total: number; soldOut: boolean }
@@ -1134,6 +1139,7 @@ function recommendFor(days: Set<string>, workshopCount: number, wantsParty: bool
     if (party) candidates.push({ tickets: [party], total: party.price, soldOut: !!party.soldOut })
   }
 
+  if (singleOnly) candidates.splice(0, candidates.length, ...candidates.filter(c => c.tickets.length === 1))
   if (candidates.length === 0) return null
   // Prefer buyable options over sold-out ones, then cheapest.
   candidates.sort((a, b) => (Number(a.soldOut) - Number(b.soldOut)) || (a.total - b.total))
@@ -1150,10 +1156,30 @@ function recommendFor(days: Set<string>, workshopCount: number, wantsParty: bool
 // Which ticket names are in the current recommendation (for grid highlight)
 const recommendedNames = computed(() => new Set((recommendation.value?.tickets ?? []).map((t) => t.name)))
 
+// The booking steps (EventSignup) ask: of the passes that fit how you're coming, which one covers
+// the workshops you picked? One pass only — the steps book one.
+function recommendAmong(passes: any[]): string | null {
+  if (plannedDays.value.size === 0) return null
+  return recommendFor(plannedDays.value, plannedWorkshopCount.value, hasPartyInPlan.value, passes, true)?.tickets[0]?.name ?? null
+}
+
+// With the booking steps (every event since festivals book like classes), a pass is booked there:
+// back to Overview, the steps open on that pass.
+function bookInSteps(name: string): boolean {
+  if (!props.rsvp || !signupRef.value) return false
+  openTab('overview', 'link')
+  nextTick(() => {
+    signupRef.value?.start(name)
+    document.getElementById('rsvp')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  })
+  return true
+}
+
 function getRecommendedPass() {
   if (hasTicket.value) return
   const rec = recommendation.value
   if (!rec) return
+  if (rec.tickets.length === 1 && bookInSteps(rec.tickets[0]!.name)) return
   const buyable = rec.tickets.filter((t) => !t.soldOut)
   if (buyable.length === 0) return
   selectedTickets.value = buyable
@@ -1323,7 +1349,7 @@ useHead({
               :event-id="rsvp.eventId" :path="rsvp.path" :start-date="rsvp.startDate" :end-date="rsvp.endDate" :timezone="rsvp.timezone" :organizer-name="rsvp.organizerName"
               :passes="festival.tickets" :pay-at-door="festival.payAtDoor" :pass-key="festival.slug" :has-ticket="hasTicket" :event-type="type"
               :programme="isNightEvent ? nightItems : []" :planned-ids="[...plannedIds]"
-              ref="signupRef" surface="event" @poll="onPoll"
+              ref="signupRef" surface="event" :recommend="recommendAmong" @poll="onPoll"
             >
               <template v-if="isNightEvent" #booked="{ pass }">
                 <EventYourNight
