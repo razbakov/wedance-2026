@@ -21,6 +21,7 @@ import { rsvpOptions, type RsvpAnswer } from '#shared/utils/rsvp'
 import { chosenPass, passPriceLabel, passTotal, peopleFor, pricedPasses, signupCta, signupNeedsPhone, signupSteps, type PayMethod, type SignupStep } from '#shared/utils/eventSignup'
 import type { FestivalPass } from '#shared/types/festivalDetails'
 import { sizedImage, IMG } from '#shared/utils/image'
+import { includesLine, passCovers } from '#shared/utils/yourNight'
 
 const props = defineProps<{
   /** Event id (or its /events/<param>). */
@@ -41,6 +42,10 @@ const props = defineProps<{
   hasTicket?: boolean
   /** events.type: a class / course asks for the phone (signupNeedsPhone). */
   eventType?: string | null
+  /** A night's programme (RAZ-1007): each pass says what it includes. Empty = not a night. */
+  programme?: { id: string; date: string; time: string; duration: number; type: any; title?: string }[]
+  /** Programme items already on the dancer's plan: they pick the pass that fits. */
+  plannedIds?: string[]
 }>()
 
 type Poll = Awaited<ReturnType<ReturnType<typeof useNuxtApp>['$trpc']['rsvp']['poll']['query']>>
@@ -99,11 +104,23 @@ const { errors, validate, fieldAttrs, reset } = useFormValidation(schema, form)
 const phoneKnown = computed(() => isSignedIn.value && !!me.value?.phone && !editingPhone.value)
 const phonePlaceholder = computed(() => (needsPhone.value ? 'Phone / WhatsApp' : 'Phone / WhatsApp (optional)'))
 
-function start() {
+// RAZ-1007: a night's passes say what they include; the one covering what you planned is suggested.
+const programmeItems = computed(() => props.programme ?? [])
+const includesOf = (p: FestivalPass | null) => programmeItems.value.length ? includesLine(p, programmeItems.value) : ''
+const fitsPlan = computed(() => {
+  const want = (props.plannedIds ?? []).filter(id => programmeItems.value.some(s => s.id === id))
+  if (!want.length) return null
+  return priced.value.filter(p => !p.soldOut)
+    .filter(p => { const c = new Set(passCovers(p, programmeItems.value).map(s => s.id)); return want.every(id => c.has(id)) })
+    .sort((a, b) => Number(a.price) - Number(b.price))[0]?.name ?? null
+})
+
+/** Open the steps; `withPass` picks a pass up front ("Not in your pass · +€7" on Your night). */
+function start(withPass?: string) {
   justCancelled.value = false
   const s = mine.value?.signup
   answer.value = coming.value ? mine.value!.answer : null
-  passName.value = s?.pass ?? null
+  passName.value = (typeof withPass === 'string' ? withPass : null) ?? s?.pass ?? fitsPlan.value ?? null
   pay.value = s?.pay ?? null
   keepInTouch.value = s?.keepInTouch ?? false
   form.partnerName = s?.partnerName ?? ''
@@ -251,6 +268,8 @@ const saved = computed(() => {
   }
 })
 const payLabel = (p: FestivalPass) => passPriceLabel(p, people.value)
+
+defineExpose({ start })
 </script>
 
 <template>
@@ -265,6 +284,7 @@ const payLabel = (p: FestivalPass) => passPriceLabel(p, people.value)
         <!-- A quieter option next to it, e.g. "+ My plan" (RAZ-1003). -->
         <slot name="beside" />
       </div>
+      <p v-if="!coming && priced.length <= 1 && includesOf(priced[0] ?? null)" class="mt-2 text-xs text-muted-foreground" data-signup-includes>Includes {{ includesOf(priced[0] ?? null) }}</p>
 
       <template v-else-if="mine?.confirmed">
       <div class="rounded-2xl border border-success/30 bg-success/10 px-4 py-3 space-y-1" role="status" data-signup-in>
@@ -293,6 +313,8 @@ const payLabel = (p: FestivalPass) => passPriceLabel(p, people.value)
           </div>
         </div>
       </div>
+      <!-- RAZ-1007: the night you booked (the page fills it). -->
+      <slot name="booked" :pass="saved?.pass ?? null" />
       <!-- RAZ-981: signing up is how you get into Meet new friends. -->
       <EventMeetPrompt :event-id="eventId" :answer="mine.answer" :surface="`${surface}_signup`" class="mt-3" />
       </template>
@@ -362,6 +384,8 @@ const payLabel = (p: FestivalPass) => passPriceLabel(p, people.value)
                 <span class="min-w-0">
                   <span class="block text-sm font-bold">{{ p.name }}<template v-if="p.soldOut"> · sold out</template></span>
                   <span v-if="p.description" class="block text-xs text-muted-foreground">{{ p.description }}</span>
+                  <span v-if="includesOf(p)" class="block text-xs text-muted-foreground" data-signup-pass-includes>Includes {{ includesOf(p) }}</span>
+                  <span v-if="fitsPlan === p.name" class="mt-1 inline-block text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-success/15 text-wd-green-700">Fits your plan</span>
                 </span>
                 <span class="ml-auto text-right shrink-0">
                   <span class="block font-display text-lg font-black">€{{ passTotal(p, people) }}</span>

@@ -21,6 +21,8 @@ export type MyPlanEvent = {
   signedUp?: boolean
   takesSignup?: boolean
   price?: string | null
+  /** A night's programme (RAZ-1007): your pass, when to come, the parts you're at. */
+  night?: { pass: string | null; arrival: string | null; parts: string[] } | null
 }
 
 const props = defineProps<{
@@ -51,6 +53,11 @@ const link = computed(() => eventPath({ id: props.s.id, name: props.s.name }))
       <div v-else class="text-sm font-bold truncate text-foreground">{{ s.name }}</div>
       <div class="text-xs truncate text-muted-foreground font-sans">
         <template v-if="s.isClass">Class · </template>{{ s.venue }}<template v-if="s.style"> · <span :style="{ color: s.color }">{{ s.style }}</span></template><template v-if="s.friendsGoing > 0"> · {{ s.friendsGoing }} friend{{ s.friendsGoing === 1 ? '' : 's' }} going</template>
+      </div>
+      <!-- RAZ-1007: one row for the night — your pass, when to come, what you're at -->
+      <div v-if="s.night && s.night.parts.length" class="text-xs truncate font-sans" :class="s.signedUp ? 'text-wd-green-700' : 'text-muted-foreground'" data-plan-night>
+        <template v-if="s.signedUp">{{ [[s.night.pass, s.night.arrival ? `from ${s.night.arrival}` : null].filter(Boolean).join(' · '), s.night.parts.join(', ')].filter(Boolean).join(': ') }}</template>
+        <template v-else>Planned: {{ s.night.parts.join(', ') }}</template>
       </div>
     </div>
     <!-- Signed up (RAZ-1003): a commitment, cancelled on the event page, never here. -->

@@ -71,6 +71,7 @@ const festivalInput = z.object({
     workshopCount: z.number().int().min(0).max(100).optional(),
     includesParty: z.boolean().optional(),
     couplePrice: z.number().min(0).max(200000).optional(),
+    sessions: z.array(z.string().trim().min(1).max(60)).max(200).optional(),
   })).max(30).default([]),
   payAtDoor: z.boolean().optional(),
   sessions: z.array(z.object({

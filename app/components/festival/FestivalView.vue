@@ -5,6 +5,7 @@ import type { Festival, Teacher, Workshop, PlanEntry, DanceRole, DancePartner, E
 import { ArrowRight, Sparkles, Check, Plus, Pencil, Ticket, Share2, Users } from 'lucide-vue-next'
 import { isWorkshop, isEveningItem, stylesOf } from '#shared/utils/programme'
 import { heroTagline } from '#shared/utils/heroTagline'
+import { isNight } from '#shared/utils/yourNight'
 import { Button } from '~/components/ui/button'
 import { artistPlaces, artistLanguages } from '~/data/artists'
 import { WD } from '~/lib/brand'
@@ -68,7 +69,16 @@ const hideSessionSave = computed(() => !!props.rsvp && (workshops.length <= 1 ||
 
 // The sign-up (RAZ-995) answers "am I coming?" for a dated event, in the hero; Who's coming sits under it.
 const rsvpPoll = ref<any | null>(null)
-function onPoll(p: any) { rsvpPoll.value = p }
+const signupRef = ref<any>(null)
+// RAZ-1007: booking (or cancelling, or a new pass) changes a night's programme items on the
+// server; take the plan from there so the ticks match.
+let lastBooking: string | null = null
+function onPoll(p: any) {
+  rsvpPoll.value = p
+  const b = p?.mine ? `${p.mine.answer}|${p.mine.signup?.pass ?? ''}` : ''
+  if (lastBooking !== null && b !== lastBooking && isNightEvent.value) reloadNightPlan()
+  lastBooking = b
+}
 const heroPicked = computed(() => rsvpPoll.value
   ? !!rsvpPoll.value.mine && rsvpPoll.value.mine.answer !== 'next'
   : inPlan.value)
@@ -423,6 +433,26 @@ function persistWorkshopRemove(workshopId: string) {
       .mutate({ itemType: 'workshop', itemId: `${slug}:${workshopId}` })
       .catch(() => { persistedWorkshopIds.value.add(workshopId) }),
   )
+}
+
+// "Your night" (RAZ-1007): a booked event whose programme runs one item after another.
+const nightItems = computed(() => workshops
+  .filter(w => w.date && w.type !== 'doors')
+  .map(w => ({
+    id: w.id, date: w.date!, time: w.time, duration: w.duration, type: w.type ?? 'workshop', title: w.title,
+    sub: [teachers.find(t => t.id === w.teacherId)?.name, w.level].filter(Boolean).join(' · ') || undefined,
+  })))
+const isNightEvent = computed(() => !!props.rsvp && isNight(nightItems.value))
+const plannedIds = computed(() => new Set(plan.value.keys()))
+async function reloadNightPlan() {
+  if (!isSignedIn.value) return
+  try {
+    const items = await $trpc.plan.list.query()
+    const prefix = `${slug}:`
+    const ids = items.filter(i => i.itemType === 'workshop' && i.itemId.startsWith(prefix)).map(i => i.itemId.slice(prefix.length))
+    persistedWorkshopIds.value = new Set(ids)
+    plan.value = new Map(ids.map(id => [id, plan.value.get(id) ?? { workshopId: id, role: null, partnerStatus: 'solo' }]))
+  } catch { /* keep what's shown */ }
 }
 
 // Load persisted workshops and reconcile with the local plan.
@@ -1281,8 +1311,16 @@ useHead({
             <EventSignup
               :event-id="rsvp.eventId" :path="rsvp.path" :start-date="rsvp.startDate" :end-date="rsvp.endDate" :timezone="rsvp.timezone" :organizer-name="rsvp.organizerName"
               :passes="festival.tickets" :pay-at-door="festival.payAtDoor" :pass-key="festival.slug" :has-ticket="hasTicket" :event-type="type"
-              surface="event" @poll="onPoll"
+              :programme="isNightEvent ? nightItems : []" :planned-ids="[...plannedIds]"
+              ref="signupRef" surface="event" @poll="onPoll"
             >
+              <template v-if="isNightEvent" #booked="{ pass }">
+                <EventYourNight
+                  :items="nightItems" :pass="pass" :passes="festival.tickets ?? []" :planned-ids="plannedIds"
+                  :event-name="festival.name" :address="festival.venue?.address" :timezone="rsvp.timezone"
+                  @toggle="toggleWorkshop" @upgrade="(p) => signupRef?.start(p)"
+                />
+              </template>
               <!-- Planning isn't signing up (RAZ-1003): "+ My plan" keeps it to decide later.
                    Once you're in, the sign-up shows "On My plan" as a status instead. -->
               <template #beside>

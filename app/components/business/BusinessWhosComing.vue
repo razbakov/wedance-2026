@@ -17,14 +17,19 @@ const { $trpc } = useNuxtApp()
 
 const poll = ref<Awaited<ReturnType<typeof $trpc.rsvp.summary.query>> | null>(null)
 const people = ref<SignupPerson[]>([])
+// RAZ-1007: a night's programme — how many come to what, and when they arrive.
+const night = ref<Awaited<ReturnType<typeof $trpc.rsvp.night.query>>>(null)
 onMounted(async () => {
-  const [s, p] = await Promise.allSettled([
+  const [s, p, n] = await Promise.allSettled([
     $trpc.rsvp.summary.query({ eventId: props.eventId }),
     $trpc.rsvp.people.query({ eventId: props.eventId }),
+    $trpc.rsvp.night.query({ eventId: props.eventId }),
   ])
   if (s.status === 'fulfilled') poll.value = s.value
   if (p.status === 'fulfilled') people.value = p.value as SignupPerson[]
+  if (n.status === 'fulfilled') night.value = n.value
 })
+const maxArrival = computed(() => Math.max(1, ...(night.value?.arrivals ?? []).map(a => a.people)))
 
 type Filter = RsvpAnswer | 'plan' | null
 const filter = ref<Filter>(null)
@@ -104,5 +109,30 @@ const pairs = computed(() => {
     <NuxtLink v-if="contactsTo && people.length" :to="contactsTo" class="mt-3 inline-block text-sm font-bold underline-offset-2 hover:underline" data-rsvp-contacts>See their contacts →</NuxtLink>
 
     <p v-if="poll.unconfirmed" class="mt-3 text-xs text-muted-foreground">Not confirmed: answered without an account yet, so there’s no name. They count for 48 hours unless confirmed by email.</p>
+
+    <!-- RAZ-1007: the night, item by item (bookings × what each dancer ticked) -->
+    <div v-if="night && night.items.length" class="mt-4 border-t pt-4 space-y-4" data-rsvp-night>
+      <div class="space-y-2">
+        <p class="text-xs font-bold uppercase tracking-widest text-secondary">By programme item</p>
+        <div v-for="it in night.items" :key="it.id" class="rounded-xl border px-3 py-2 text-sm" :data-rsvp-night-item="it.id">
+          <div class="flex items-center gap-3">
+            <span class="w-12 font-bold tabular-nums">{{ it.time }}</span>
+            <span class="flex-1 min-w-0 truncate font-bold">{{ it.title }}</span>
+            <span class="text-lg font-black tabular-nums">{{ it.people }}</span>
+          </div>
+          <p v-if="it.type === 'workshop' && (it.leaders || it.followers)" class="mt-0.5 pl-[3.75rem] text-xs text-muted-foreground">
+            {{ it.leaders }} leader{{ it.leaders === 1 ? '' : 's' }} · {{ it.followers }} follower{{ it.followers === 1 ? '' : 's' }}<template v-if="it.leaders !== it.followers"> — {{ Math.abs(it.leaders - it.followers) }} more {{ it.leaders > it.followers ? 'leader' : 'follower' }}{{ Math.abs(it.leaders - it.followers) === 1 ? '' : 's' }}</template>
+          </p>
+        </div>
+      </div>
+      <div v-if="night.arrivals.length" class="space-y-1.5">
+        <p class="text-xs font-bold uppercase tracking-widest text-secondary">When they arrive</p>
+        <div v-for="a in night.arrivals" :key="a.id" class="flex items-center gap-3 text-sm">
+          <span class="w-12 font-bold tabular-nums">{{ a.time }}</span>
+          <div class="flex-1 h-2.5 rounded-full bg-muted overflow-hidden"><div class="h-full rounded-full bg-primary/70" :style="{ width: `${a.people / maxArrival * 100}%` }" /></div>
+          <span class="w-20 text-xs text-muted-foreground tabular-nums">~{{ a.people }}</span>
+        </div>
+      </div>
+    </div>
   </section>
 </template>

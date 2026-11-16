@@ -14,6 +14,8 @@ export type FestivalPass = {
   includesParty?: boolean
   /** The price for two people coming together (RAZ-995); unset = 2 × price. */
   couplePrice?: number
+  /** The programme items it covers (session ids, RAZ-1007); unset = every item on its days. */
+  sessions?: string[]
 }
 
 /**

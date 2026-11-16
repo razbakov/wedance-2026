@@ -845,6 +845,8 @@ type Course = {
   signedUp?: boolean
   /** What signing up costs ("€10"); null = free. */
   price?: string | null
+  /** A night's programme (RAZ-1007): your pass, when to come, the parts you're at. */
+  night?: { pass: string | null; arrival: string | null; parts: string[] } | null
   /** The next class's event (the card links there; "where it's edited"). */
   eventId?: string
   name?: string
@@ -1103,6 +1105,7 @@ async function loadWeekSocials() {
         signedUp: e.signedUp,
         takesSignup: e.takesSignup,
         price: e.price,
+        night: e.night,
         isClass: e.isClass,
       }
     })
