@@ -20,6 +20,14 @@ function openAuth(action: 'dashboard' | 'signin') {
   showAuth.value = true
 }
 
+// The Meet card's faces: the same example dancers signed-out /meet lets visitors swipe
+// (and labels as examples) — visitors have no deck, and real dancers stay signed-in only.
+const EXAMPLE_FACES = [
+  { id: 'd2', name: 'Emilia', photo: 'https://i.pravatar.cc/240?u=emilia' },
+  { id: 'd3', name: 'Klaus', photo: 'https://i.pravatar.cc/240?u=klaus' },
+  { id: 'd4', name: 'Sasha', photo: 'https://i.pravatar.cc/240?u=sasha' },
+]
+
 // Signed-out landing: the two story pictures WeDance draws today (weekend, year).
 const LANDING_STORIES = [
   { head1: 'Come dance', head2: 'with me', line: 'This weekend 💃', color: WD.orange500, bands: [
@@ -81,7 +89,7 @@ const LANDING_STORIES = [
     <ChatgptPlanPitch class="mt-16" variant="hero" heading="h2" :surface="surface" />
 
     <!-- 3 · Meet new friends: the same card My plan shows, leading to /meet (its example deck lives there). -->
-    <MeetFriendsEntry class="mt-14" :faces="[]" :count="null" :surface="surface" data-testid="my-plan-landing-friends" />
+    <MeetFriendsEntry class="mt-14" :faces="EXAMPLE_FACES" :count="null" :surface="surface" data-testid="my-plan-landing-friends" />
 
     <SignUpModal v-model:open="showAuth" :action="authAction" />
   </div>
