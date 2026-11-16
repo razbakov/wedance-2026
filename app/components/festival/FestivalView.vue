@@ -4,6 +4,7 @@ import { sizedImage, IMG } from '#shared/utils/image'
 import type { Festival, Teacher, Workshop, PlanEntry, DanceRole, DancePartner, ExtraActivity, FreemiumState } from '~/types/festival'
 import { ArrowRight, Sparkles, Check, Plus, Pencil, Ticket, Share2, Users } from 'lucide-vue-next'
 import { isWorkshop, isEveningItem } from '#shared/utils/programme'
+import { heroTagline } from '#shared/utils/heroTagline'
 import { Button } from '~/components/ui/button'
 import { artistPlaces, artistLanguages } from '~/data/artists'
 import { WD } from '~/lib/brand'
@@ -842,6 +843,9 @@ function openTab(t: Tab, via: 'nav' | 'summary' | 'hero' | 'link' = 'link', base
 watch(() => route.query.tab, () => { activeTab.value = tabFromRoute() })
 
 
+// About keeps only what the hero doesn't say (co-organisers, or a text the hero can't sum up) — RAZ-1008.
+const aboutHasContent = computed(() => (festival.organizers?.length ?? 0) > 1 || (!!festival.description?.trim() && !heroTagline(festival.description)))
+
 // Overview summary: what's inside each tab, one card each, so the first page
 // shows there is a lot to explore without showing all of it.
 const priceFrom = computed(() => {
@@ -1315,7 +1319,7 @@ useHead({
 
     <div class="max-w-3xl mx-auto px-4 space-y-14 pt-8 pb-20">
         <template v-if="currentTab === 'overview'">
-        <section id="about" class="scroll-mt-12">
+        <section v-if="aboutHasContent" id="about" class="scroll-mt-12">
           <AboutTab :festival="festival" />
         </section>
 

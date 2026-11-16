@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { heroTagline } from '#shared/utils/heroTagline'
 /**
  * /events/<name>-<short id> (old /events/<id> links redirect here) — a single event, rendered through the SAME rich view as a
  * festival (an event is just a smaller festival). It reuses FestivalHero and the
@@ -330,7 +331,7 @@ useHead(() => ({
 
       <div class="max-w-3xl mx-auto px-4 space-y-14 pt-8 pb-20 font-sans">
         <!-- About -->
-        <section v-if="ev.message || ev.link || ev.price || ev.agenda?.length || ev.coOrganizers?.length" id="about" class="scroll-mt-16">
+        <section v-if="(ev.message && !heroTagline(ev.message)) || ev.link || ev.price || ev.agenda?.length || ev.coOrganizers?.length" id="about" class="scroll-mt-16">
           <h2 class="text-2xl font-black leading-tight mb-3 font-display text-foreground">About</h2>
           <div class="flex flex-wrap items-center gap-2 mb-4">
             <span v-if="ev.eventType" class="text-eyebrow font-black uppercase tracking-widest px-2 py-1 rounded bg-secondary/[9.4%] text-secondary">{{ ev.eventType }}</span>
@@ -358,7 +359,9 @@ useHead(() => ({
               <li v-for="(a, i) in ev.agenda" :key="i"><span class="font-bold tabular-nums">{{ a.time }}</span> {{ a.what }}</li>
             </ul>
           </div>
-          <p v-if="ev.message" class="text-sm leading-relaxed whitespace-pre-line break-words text-muted-foreground">{{ ev.message }}</p>
+          <!-- The description lives in the hero (RAZ-1008); About keeps it only when the hero has
+               nothing to show (a synced event's import notice and source link). -->
+          <p v-if="ev.message && !heroTagline(ev.message)" class="text-sm leading-relaxed whitespace-pre-line break-words text-muted-foreground">{{ ev.message }}</p>
         </section>
 
         <!-- Lineup -->
