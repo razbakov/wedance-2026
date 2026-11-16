@@ -304,7 +304,7 @@ useHead(() => ({
       </div>
 
       <!-- Same hero as festivals -->
-      <FestivalHero :festival="asFestival" :image="ev.cover" :presenters="heroPresenters" :description="ev.message" review-target-type="event" entity-label="event" cta-anchor="#rsvp" cta-fallback-label="I'm going" :hide-going="ev.pollable && !ev.archived && !isPreview && !ev.cancelled" :picked="picked" :cancelled="ev.cancelled ? { reason: ev.cancelReason } : null" :date-label="ev.when" :venue-address="ev.venueAddress" :map-url="ev.mapUrl" @pick="onPick">
+      <FestivalHero :festival="asFestival" :image="ev.cover" :presenters="heroPresenters" :description="ev.message" review-target-type="event" entity-label="event" cta-anchor="#rsvp" cta-fallback-label="I'm going" :picked="picked" :cancelled="ev.cancelled ? { reason: ev.cancelReason } : null" :date-label="ev.when" :venue-address="ev.venueAddress" :map-url="ev.mapUrl" @pick="onPick">
         <!-- The RSVP: the organiser's poll IS the hero's Going question (RAZ-731). -->
         <template v-if="ev.pollable && !ev.archived && !isPreview && !ev.cancelled" #cta>
           <div id="rsvp" class="mt-4 max-w-xl scroll-mt-16">
