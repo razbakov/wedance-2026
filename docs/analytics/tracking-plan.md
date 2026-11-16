@@ -105,7 +105,7 @@ Data-hygiene problems (fix before trusting any number):
 | Checkout started | `server_ticket_checkout_started` S | ✅ | `festival`, `tickets`, `referral` | — |
 | **Ticket paid** | `server_ticket_purchased` S | ✅ (#404) Stripe `checkout.session.completed` + TicketTailor first of `order.created`/`order.completed` per order; buyer's dancer id, dedupe uuid per session/order | `festival`, `amount`, `currency`, `tickets`, `provider`, `product`, `referral`, `referral_code`, `discount`, `$revenue` | — |
 | Checkout abandoned | `server_ticket_checkout_expired` S | ✅ (#404) | `festival`, `tickets`, `product`, `referral` | — |
-| Share plan link | `plan_shared` C | ✅ (#407) festival + year share modals; `SharePlanModal` no longer fires `shared_plan_signup` on share | `object` (festival/year), `method` (copy/native) | — |
+| Share plan link | `plan_shared` C | ✅ (#407) festival + year share modals; `SharePlanModal` no longer fires `shared_plan_signup` on share | `object` (festival/event/year), `method` (copy/native), `referral` | — |
 | Shared plan viewed | `shared_plan_viewed` C | ✅ (#407) | `object`, `signed_in`, `has_referral` | — |
 | Dinner / ride / roommate | `dinner_joined`, `ride_share_posted`, `roommate_search_toggled` C | ✅ | — | — |
 | Check-in at festival | `server_checked_in` S | ✅ (#407) `attendance.checkIn` | `event_id`, `is_festival` | — |
@@ -155,7 +155,7 @@ Data-hygiene problems (fix before trusting any number):
 | Onboarding steps | `onboarding_step_completed` C | ✅ (#407) — `repeat` flags re-onboarding of already-onboarded accounts | `step`, `intent`, `repeat` | — |
 | Profile updated | `profile_updated` C | ✅ + `fields_changed` (names only, #407) | — | — |
 | Connected AI app | `app_connected` C | ✅ | — | — |
-| Referral link shared | `referral_link_shared` C | ✅ (#407) the dancer referral link in `SharePlanModal`; the promoter link (`referral.myLink`) has no web UI (MCP only) — its use shows up as `server_promo_kit_opened` / `tracked_link_visit` | `method` | — |
+| Referral link shared | `referral_link_shared` C | retired in RAZ-1001 (the referral code rides on the one "Bring friends" link, `plan_shared` `referral`); the promoter link (`referral.myLink`) has no web UI (MCP only) — its use shows up as `server_promo_kit_opened` / `tracked_link_visit` | `method` | — |
 | Account deleted | `server_account_deleted` S | ✅ (#407) sent anonymously (account is gone) | `days_since_signup` | — |
 | Problem report | `problem_report_*` C | ✅ (+ replay link fixed) | — | — |
 

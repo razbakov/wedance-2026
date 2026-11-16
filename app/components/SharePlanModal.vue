@@ -1,10 +1,15 @@
 <script setup lang="ts">
 import type { Workshop, PlanEntry, DanceRole, Teacher } from '~/types/festival'
-import { Link, UserPlus, Gift, Copy, Check, ExternalLink } from 'lucide-vue-next'
+import { Share2, Gift, Copy, Check } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
 import { Badge } from '~/components/ui/badge'
 import { festivalPath } from '#shared/utils/eventSlug'
+import { eventNoun, shareMode, shareText, withReferral } from '~/lib/shareInvite'
 
+// "Bring friends" (RAZ-1001): one link, one button. It carries the workshop
+// plan only when there is one to show (more than one session, some picked);
+// otherwise it's the event's own link. The referral discount is folded into the
+// same link, and mentioned only when this event actually has one.
 const props = defineProps<{
   open: boolean
   workshops: Workshop[]
@@ -13,6 +18,8 @@ const props = defineProps<{
   planIds: Set<string>
   festivalName: string
   festivalSlug: string
+  /** The event's type (class, party, festival…) — names it in the copy. */
+  eventType?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -20,29 +27,10 @@ const emit = defineEmits<{
 }>()
 
 const copied = ref(false)
-const activeTab = ref<'link' | 'preview'>('link')
 
+const { $trpc } = useNuxtApp()
 const { dancerName, dancerId, username, role } = useAuth()
 const { buildShareUrl } = useSharePlan()
-
-const shareUrl = computed(() => {
-  const name = dancerName.value || 'A dancer'
-  const danceRole = (role.value === 'lead' || role.value === 'follow') ? role.value : 'follow'
-  return buildShareUrl(props.festivalSlug, name, danceRole as DanceRole, props.plan, dancerId.value)
-})
-
-const baseUrl = computed(() => {
-  if (import.meta.client) {
-    return window.location.origin
-  }
-  return ''
-})
-
-const referralCode = computed(() => username.value || dancerId.value || '')
-const referralUrl = computed(() => {
-  if (!referralCode.value) return ''
-  return `${baseUrl.value}${festivalPath(props.festivalSlug)}?ref=${encodeURIComponent(referralCode.value)}`
-})
 
 const planned = computed(() => {
   return props.workshops
@@ -53,6 +41,31 @@ const planned = computed(() => {
       if (dayDiff !== 0) return dayDiff
       return a.time.localeCompare(b.time)
     })
+})
+
+const mode = computed(() => shareMode(props.workshops.length, planned.value.length))
+const noun = computed(() => eventNoun(props.eventType))
+
+// The referral discount, asked once per open (null = no program / not signed in).
+const referralCode = computed(() => username.value || dancerId.value || '')
+const discountPercent = ref(0)
+watch(() => props.open, async (open) => {
+  if (!open || !referralCode.value || discountPercent.value) return
+  try {
+    const r = await $trpc.referral.validate.query({ festivalSlug: props.festivalSlug, referralCode: referralCode.value })
+    discountPercent.value = r?.discountPercent ?? 0
+  } catch { /* no discount */ }
+}, { immediate: true })
+
+const link = computed(() => {
+  const base = import.meta.client ? window.location.origin : ''
+  let url = `${base}${festivalPath(props.festivalSlug)}`
+  if (mode.value === 'plan') {
+    const name = dancerName.value || 'A dancer'
+    const danceRole = (role.value === 'lead' || role.value === 'follow') ? role.value : 'follow'
+    url = buildShareUrl(props.festivalSlug, name, danceRole as DanceRole, props.plan, dancerId.value)
+  }
+  return withReferral(url, referralCode.value, discountPercent.value)
 })
 
 const groupedByDay = computed(() => {
@@ -77,43 +90,43 @@ function entryFor(workshopId: string): PlanEntry | undefined {
   return props.plan.get(workshopId)
 }
 
-function teacherFor(workshop: Workshop): Teacher | undefined {
-  return props.teachers.find((t) => t.id === workshop.teacherId)
-}
-
 const roleLabel: Record<DanceRole, string> = { lead: 'Lead', follow: 'Follow' }
 
-// plan_shared (C4) — the share intent; referral_link_shared for the
-// referral link. (`shared_plan_signup` is the sign-up end, not the share.)
-function trackShare(kind: 'plan' | 'referral', method: 'copy' | 'native') {
-  if (kind === 'referral') useTrack().track('referral_link_shared', { method, festival: props.festivalSlug, surface: 'share-modal' })
-  else useTrack().track('plan_shared', { object: 'festival', method, festival: props.festivalSlug, workshops: planned.value.length, surface: 'share-modal' })
+// plan_shared (C4) — the share intent. `object` says what went out: the
+// workshop plan (festival) or just the event's link (event).
+function trackShare(method: 'copy' | 'native') {
+  useTrack().track('plan_shared', {
+    object: mode.value === 'plan' ? 'festival' : 'event',
+    method,
+    festival: props.festivalSlug,
+    workshops: planned.value.length,
+    referral: discountPercent.value > 0,
+    surface: 'share-modal',
+  })
 }
 
-async function copyLink(url: string) {
+async function copyLink() {
+  trackShare('copy')
   try {
-    await navigator.clipboard.writeText(url)
+    await navigator.clipboard.writeText(link.value)
     copied.value = true
     setTimeout(() => { copied.value = false }, 2000)
   } catch {
-    // fallback: select text
+    // the link stays selectable in the field
   }
 }
 
-async function nativeShare() {
-  trackShare('plan', navigator.share ? 'native' : 'copy')
-  if (navigator.share) {
-    try {
-      await navigator.share({
-        title: `My plan for ${props.festivalName}`,
-        text: `Check out my ${planned.value.length} workshop plan for ${props.festivalName}!`,
-        url: shareUrl.value,
-      })
-    } catch {
-      // user cancelled
-    }
-  } else {
-    copyLink(shareUrl.value)
+async function send() {
+  if (!navigator.share) return copyLink()
+  trackShare('native')
+  try {
+    await navigator.share({
+      title: props.festivalName,
+      text: shareText(mode.value, props.festivalName, planned.value.length),
+      url: link.value,
+    })
+  } catch {
+    // user cancelled
   }
 }
 </script>
@@ -122,79 +135,46 @@ async function nativeShare() {
   <Dialog :open="open" @update:open="emit('update:open', $event)">
     <DialogContent class="sm:max-w-md max-h-[85vh] flex flex-col">
       <DialogHeader>
-        <DialogTitle>Share Your Plan</DialogTitle>
-        <DialogDescription>
-          Share your {{ planned.length }} workshop plan for {{ festivalName }}.
+        <DialogTitle>Bring friends</DialogTitle>
+        <DialogDescription v-if="mode === 'plan'">
+          Send your plan for {{ festivalName }}. Friends see your {{ planned.length }}
+          {{ planned.length === 1 ? 'workshop' : 'workshops' }} and where you need a partner.
+        </DialogDescription>
+        <DialogDescription v-else>
+          Send your friends this {{ noun }}, {{ festivalName }}.
         </DialogDescription>
       </DialogHeader>
 
       <div class="space-y-4 py-2 overflow-y-auto flex-1 -mx-6 px-6">
-        <!-- Share link -->
-        <div class="rounded-lg border p-4 space-y-3">
-          <div class="flex items-center gap-3">
-            <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-              <Link class="w-4 h-4 text-primary" />
-            </div>
-            <div>
-              <p class="text-sm font-medium">Share your plan</p>
-              <p class="text-xs text-muted-foreground">Anyone with the link can see your workshops and open partner slots</p>
-            </div>
-          </div>
+        <p
+          v-if="discountPercent > 0"
+          class="flex items-start gap-2 rounded-lg border border-dashed px-3 py-2.5 text-xs"
+          data-testid="share-discount"
+        >
+          <Gift class="w-4 h-4 text-green-600 shrink-0 mt-px" aria-hidden="true" />
+          <span>A friend who buys a ticket through your link gets {{ discountPercent }}% off, and you both get a discount.</span>
+        </p>
 
-          <div class="flex gap-2">
-            <div class="flex-1 rounded-md border bg-muted/50 px-3 py-2 text-xs text-muted-foreground truncate">
-              {{ shareUrl }}
-            </div>
-            <Button
-              size="sm"
-              variant="outline"
-              class="shrink-0"
-              @click="trackShare('plan', 'copy'); copyLink(shareUrl)"
-            >
-              <component :is="copied ? Check : Copy" class="w-3.5 h-3.5 mr-1" />
-              {{ copied ? 'Copied!' : 'Copy' }}
-            </Button>
-          </div>
+        <Button class="w-full gap-2" data-testid="share-send" @click="send">
+          <Share2 class="w-4 h-4" aria-hidden="true" /> Send to friends
+        </Button>
 
-          <Button
-            class="w-full"
-            size="sm"
-            @click="nativeShare"
+        <div class="flex gap-2">
+          <input
+            :value="link"
+            readonly
+            aria-label="Link"
+            class="flex-1 min-w-0 rounded-md border bg-muted/50 px-3 py-2 text-xs text-muted-foreground"
+            @focus="($event.target as HTMLInputElement).select()"
           >
-            Share via...
+          <Button size="sm" variant="outline" class="shrink-0" data-testid="share-copy" @click="copyLink">
+            <component :is="copied ? Check : Copy" class="w-3.5 h-3.5 mr-1" aria-hidden="true" />
+            {{ copied ? 'Copied' : 'Copy' }}
           </Button>
         </div>
 
-        <!-- Invite with referral -->
-        <div class="rounded-lg border border-dashed p-4 space-y-3">
-          <div class="flex items-center gap-3">
-            <div class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center shrink-0">
-              <Gift class="w-4 h-4 text-green-600" />
-            </div>
-            <div>
-              <p class="text-sm font-medium">Invite & save together</p>
-              <p class="text-xs text-muted-foreground">Share your referral link. If a friend buys a ticket, you both get a discount.</p>
-            </div>
-          </div>
-
-          <div class="flex gap-2">
-            <div class="flex-1 rounded-md border bg-muted/50 px-3 py-2 text-xs text-muted-foreground truncate">
-              {{ referralUrl }}
-            </div>
-            <Button
-              size="sm"
-              variant="outline"
-              class="shrink-0"
-              @click="trackShare('referral', 'copy'); copyLink(referralUrl)"
-            >
-              <Copy class="w-3.5 h-3.5 mr-1" />
-              Copy
-            </Button>
-          </div>
-        </div>
-
-        <!-- Plan preview -->
-        <div class="rounded-lg border bg-muted/30 p-4">
+        <!-- Plan preview — only when a plan goes out -->
+        <div v-if="mode === 'plan'" class="rounded-lg border bg-muted/30 p-4">
           <p class="text-xs font-medium text-muted-foreground mb-2">What they'll see:</p>
           <div class="space-y-3">
             <div v-for="[day, dayWorkshops] in groupedByDay" :key="day">
@@ -230,6 +210,9 @@ async function nativeShare() {
             Looking for a partner in {{ lookingCount }} {{ lookingCount === 1 ? 'workshop' : 'workshops' }}
           </p>
         </div>
+        <p v-else-if="workshops.length > 1" class="text-xs text-muted-foreground">
+          Pick workshops on the Schedule first and the link carries your plan too.
+        </p>
       </div>
     </DialogContent>
   </Dialog>
