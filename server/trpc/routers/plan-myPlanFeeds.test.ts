@@ -88,6 +88,7 @@ describe.skipIf(!DATABASE_URL)('my-plan feeds', () => {
     // A weekly course: last week's class (planned) and the next one; plus a course that has ended.
     await addEvent('courseLast', { type: 'Course', seriesId: `course-${RUN}`, startDate: new Date(now - 3 * DAY), endDate: new Date(now - 3 * DAY + 3600_000) })
     await addEvent('courseNext', { type: 'Course', seriesId: `course-${RUN}`, startDate: new Date(now + 4 * DAY), endDate: new Date(now + 4 * DAY + 3600_000), organizerName: `School ${RUN}`, organizerUsername: `school-${RUN}` })
+    await addEvent('courseAfter', { type: 'Course', seriesId: `course-${RUN}`, startDate: new Date(now + 11 * DAY), endDate: new Date(now + 11 * DAY + 3600_000) })
     // A weekend workshop that started yesterday and runs until tomorrow (RAZ-891).
     await addEvent('workshop', { type: 'Workshop', styles: ['Zouk'], startDate: new Date(now - DAY), endDate: new Date(now + DAY) })
     await addEvent('courseEnded', { type: 'Course', startDate: new Date(now - 10 * DAY), endDate: new Date(now - 10 * DAY + 3600_000) })
@@ -178,10 +179,11 @@ describe.skipIf(!DATABASE_URL)('my-plan feeds', () => {
       await me.plan.remove({ itemType: 'event', itemId: ids.past! })
     })
 
-    it('leaves out courses (they have their own section)', async () => {
+    it('lists a planned class on its day, marked as a class (RAZ-1006)', async () => {
       const me = caller(ids.me!)
       await me.plan.add({ itemType: 'event', itemId: ids.course!, metadata: { type: 'class' } })
-      expect(await weekIds()).toEqual([])
+      const { socials } = await me.plan.weekSocials()
+      expect(socials.map(s => [s.id, s.isClass])).toEqual([[ids.course, true]])
       await me.plan.remove({ itemType: 'event', itemId: ids.course! })
     })
 
@@ -204,7 +206,7 @@ describe.skipIf(!DATABASE_URL)('my-plan feeds', () => {
       expect(await courseIds()).toEqual([])
     })
 
-    it('shows a course added from the event page (no metadata) at its next class, and not in the week socials', async () => {
+    it('shows a course added from the event page (no metadata) at its next class, which the week shows as a class', async () => {
       const me = caller(ids.me!)
       await me.plan.add({ itemType: 'event', itemId: ids.courseLast! })
       const { courses } = await me.plan.myCourses()
@@ -216,7 +218,7 @@ describe.skipIf(!DATABASE_URL)('my-plan feeds', () => {
       // Planning the next occurrence too doesn't list the course twice.
       await me.plan.add({ itemType: 'event', itemId: ids.courseNext! })
       expect(await courseIds()).toEqual([ids.courseNext])
-      expect((await me.plan.weekSocials()).socials.map(s => s.id)).not.toContain(ids.courseNext)
+      expect((await me.plan.weekSocials()).socials.filter(s => s.id === ids.courseNext).map(s => s.isClass)).toEqual([true])
     })
 
     it('removing the plan item removes the course for good', async () => {
@@ -224,6 +226,21 @@ describe.skipIf(!DATABASE_URL)('my-plan feeds', () => {
       await me.plan.remove({ itemType: 'event', itemId: ids.courseLast! })
       await me.plan.remove({ itemType: 'event', itemId: ids.courseNext! })
       expect(await courseIds()).toEqual([])
+    })
+
+    it('lists every class of a planned course in the month window, only this week\'s in the week (RAZ-1006)', async () => {
+      const me = caller(ids.me!)
+      await me.plan.add({ itemType: 'event', itemId: ids.courseLast! })
+      try {
+        const week = (await me.plan.weekSocials()).socials.filter(s => s.isClass).map(s => s.id)
+        const month = (await me.plan.weekSocials({ days: 30 })).socials.filter(s => s.isClass).map(s => s.id)
+        expect(week).toEqual([ids.courseNext])
+        expect(month).toEqual([ids.courseNext, ids.courseAfter])
+        expect((await me.plan.weekSocials({ days: 30 })).socials.find(s => s.id === ids.courseAfter)?.planItemId).toBe(ids.courseLast)
+      }
+      finally {
+        await me.plan.remove({ itemType: 'event', itemId: ids.courseLast! })
+      }
     })
 
     it('leaves out ended courses and nights out', async () => {
@@ -235,11 +252,11 @@ describe.skipIf(!DATABASE_URL)('my-plan feeds', () => {
       await me.plan.remove({ itemType: 'event', itemId: ids.socialSoon! })
     })
 
-    it('shows a workshop the dancer said they are going to on its event page, not in the week socials (RAZ-891)', async () => {
+    it('shows a workshop the dancer said they are going to on its event page, as a class in the week (RAZ-891)', async () => {
       const me = caller(ids.me!)
       await me.rsvp.answer({ event: ids.workshop!, answer: 'needFollower' })
       expect(await courseIds()).toEqual([ids.workshop])
-      expect((await me.plan.weekSocials()).socials.map(s => s.id)).not.toContain(ids.workshop)
+      expect((await me.plan.weekSocials()).socials.filter(s => s.id === ids.workshop).map(s => s.isClass)).toEqual([true])
       // The My plan badge counts it as a course, this week (RAZ-889 counts from the same feed).
       expect(await me.plan.counts()).toMatchObject({ courses: 1, week: 1, total: 1 })
       // "Next time" takes it off again.
@@ -281,7 +298,7 @@ describe.skipIf(!DATABASE_URL)('my-plan feeds', () => {
         expect(counts).toEqual({ festivals: 1, courses: 1, socials: 1, week: 2, total: 3 })
         // The same feeds /my-plan renders.
         expect(counts.courses).toBe(courses.length)
-        expect(counts.socials).toBe(socials.length)
+        expect(counts.socials).toBe(socials.filter(s => !s.isClass).length)
       }
       finally {
         for (const itemId of [FEST, PAST_FEST, `no-such-fest-${RUN}`]) await me.plan.remove({ itemType: 'festival', itemId })

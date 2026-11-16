@@ -385,7 +385,7 @@ export const planRouter = router({
     const legacy = await legacyPlanFestivals(ctx, slugs)
     // Festivals live in `events` (ADR-006); the legacy table above only knows some.
     // "+ My plan" on /festivals saves a festival with details by its key, any other
-    // festival event by its id (RAZ-1003) — both belong in "This year".
+    // festival event by its id (RAZ-1003) — both belong in "Your festivals".
     const known = new Set(legacy.map((f) => f.slug))
     const fromEvents = await eventPlanFestivals(ctx.db, slugs.filter((s) => !known.has(s)), eventIds)
     return [...legacy, ...fromEvents].sort((a, b) => a.startDate.localeCompare(b.startDate))
@@ -610,9 +610,13 @@ export const planRouter = router({
    * 7 days, soonest first; a recurring event shows its next occurrence.
    * Includes a real count of friends (mutual follows) going.
    */
-  weekSocials: protectedProcedure.query(async ({ ctx }) => {
-    return weekSocials(ctx.db, ctx.dancerId)
-  }),
+  weekSocials: protectedProcedure
+    .input(z.object({ days: z.number().int().min(1).max(35).optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      // Nights out and classes, every class of a course included: My plan's Today / Week / Month
+      // tabs all read this one feed (Month asks for 30 days), RAZ-1006.
+      return weekSocials(ctx.db, ctx.dancerId, new Date(), input?.days ?? 7, { classes: true, everyClass: true })
+    }),
 
   /**
    * "Month · courses" — only the courses in the dancer's plan, backed by real
