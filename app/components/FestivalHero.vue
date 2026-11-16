@@ -2,7 +2,7 @@
 import { sizedImage, IMG } from '#shared/utils/image'
 import { ticketProvider } from '~/lib/outbound'
 import type { Festival } from '~/types/festival'
-import { Instagram, Globe, Facebook, Users, Star, Ticket, Check, Plus, Ban, X, CalendarDays, MapPin, ChevronDown, ArrowRight } from 'lucide-vue-next'
+import { Instagram, Globe, Facebook, Users, Star, Ticket, Check, Plus, Ban, X, CalendarDays, MapPin, ChevronDown, ArrowRight, ArrowUpRight } from 'lucide-vue-next'
 import { daysUntil as formatDaysUntil } from '#shared/utils/festivalDateFormatter'
 import { accentText, readableAccent } from '~/lib/accent'
 import { Button } from '~/components/ui/button'
@@ -93,8 +93,8 @@ const tagline = computed(() => heroTagline(props.description))
 const taglineCut = computed(() => !!tagline.value && tagline.value.length < (props.description ?? '').trim().length)
 const expanded = ref(false)
 
-// Practical info sits under the venue, opened from its name (RAZ-1008). Links in it are
-// clickable, shown as their host + file ("res.cloudinary.com/…/schedule-friday.png").
+// Practical info sits under the venue, opened from its row (RAZ-1008). Links in it are
+// clickable and read as words, not URLs: a picture is "picture", anything else its site.
 const venueOpen = ref(false)
 // Google Maps for the venue: the parent's link, else built from name + address / coordinates.
 const venueMapUrl = computed(() => {
@@ -113,7 +113,10 @@ function linkParts(text: string): { text: string; href?: string }[] {
     if (m.index! > last) out.push({ text: text.slice(last, m.index) })
     const url = m[0]
     let label = url
-    try { const u = new URL(url); const file = u.pathname.split('/').filter(Boolean).pop(); label = file && u.pathname.length > 1 ? `${u.host}/…/${file}` : u.host } catch { /* keep the url */ }
+    try {
+      const u = new URL(url)
+      label = /\.(png|jpe?g|webp|gif|avif)$/i.test(u.pathname) ? 'picture' : /\.pdf$/i.test(u.pathname) ? 'PDF' : u.host.replace(/^www\./, '')
+    } catch { /* keep the url */ }
     out.push({ text: label, href: url })
     last = m.index! + url.length
   }
@@ -232,17 +235,7 @@ const rays = Array.from({ length: 24 }, (_, i) => {
                     <span v-if="venueAddress" class="block text-sm text-muted-foreground">{{ venueAddress }}</span>
                   </span>
                 </button>
-                <div v-if="venueOpen" id="hero-venue-info" class="mt-2 ml-6.5 max-w-xl rounded-xl border border-border bg-card/80 px-3 py-3 space-y-3" data-hero-venue-info>
-                  <div class="flex flex-wrap gap-2">
-                    <Button v-if="venueMapUrl" as-child variant="outline-pill" size="pill-sm">
-                      <a :href="venueMapUrl" target="_blank" rel="noopener noreferrer" data-outbound-kind="map" data-hero-map>
-                        <MapPin aria-hidden="true" /> Open in Google Maps
-                      </a>
-                    </Button>
-                    <Button v-if="festival.venue?.handle" as-child variant="outline-pill" size="pill-sm">
-                      <NuxtLink :to="`/@${festival.venue.handle}`">Venue page <ArrowRight aria-hidden="true" /></NuxtLink>
-                    </Button>
-                  </div>
+                <div v-if="venueOpen" id="hero-venue-info" class="mt-2 ml-6.5 max-w-xl rounded-xl border border-border bg-card/80 px-3 py-3 space-y-2.5" data-hero-venue-info>
                   <ul v-if="practicalInfo.length" class="space-y-1.5 text-sm text-muted-foreground">
                     <li v-for="(info, i) in practicalInfo" :key="i">
                       <template v-for="(part, j) in linkParts(info)" :key="j">
@@ -251,6 +244,15 @@ const rays = Array.from({ length: 24 }, (_, i) => {
                       </template>
                     </li>
                   </ul>
+                  <!-- Plain links, not buttons: directions and the venue's own page. -->
+                  <p class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm font-bold">
+                    <a v-if="venueMapUrl" :href="venueMapUrl" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-secondary hover:underline" data-outbound-kind="map" data-hero-map>
+                      Directions <ArrowUpRight class="size-3.5" aria-hidden="true" />
+                    </a>
+                    <NuxtLink v-if="festival.venue?.handle" :to="`/@${festival.venue.handle}`" class="inline-flex items-center gap-1 text-secondary hover:underline">
+                      About the venue <ArrowRight class="size-3.5" aria-hidden="true" />
+                    </NuxtLink>
+                  </p>
                 </div>
               </dd>
             </div>
