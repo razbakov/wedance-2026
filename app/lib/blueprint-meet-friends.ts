@@ -47,8 +47,8 @@ export const meetSteps: BpStep<MeetLane, MeetPhase>[] = [
     note: 'To reach a festival’s dancers you add it to your plan and tap “Show me” in “Shall we dance?” on its page (the same switch as “Who’s going”). It lives on each festival page, one by one; /meet only tells you it exists.' },
 
   // Browse
-  { id: 'deck', phase: 'browse', lane: 'system', name: 'Build the deck', status: 'live', marks: [], code: 'plan.discover → discoverDeck (server/utils/myPlanFeeds.ts)',
-    note: 'Festival-goers who chose “Show me” (your festivals, then ones you haven’t picked), then locals in your city, most shared styles first. If nobody local is left it falls back to anyone with a public profile and photo — the deck can feel random.' },
+  { id: 'deck', phase: 'browse', lane: 'system', name: 'Build the deck', status: 'live', marks: [], refs: ['#608'], code: 'plan.discover → discoverDeck (server/utils/myPlanFeeds.ts)',
+    note: 'Festival-goers who chose “Show me” (your festivals, then ones you haven’t picked), then locals in your city under any of its names (Munich = München), most shared styles first. No city or nobody left → no locals, and /meet says why (#608). Locals don’t opt in: a public profile with a photo is enough.' },
   { id: 'swipe', phase: 'browse', lane: 'me', name: 'Yes / Skip / Later', status: 'live', marks: [], route: '/meet', code: 'plan.discoverSwipe · discoverUnswipe',
     note: 'Swipe or buttons, undo. Yes and Skip are stored and never come back; Later moves the card to the end for this visit. Explainer on top: who’s here, whether you are, how it works.' },
   { id: 'fest-deck', phase: 'browse', lane: 'me', name: 'Festival “Shall we dance?”', status: 'live', marks: [], route: '/events/[id]', code: 'wave.discoverPool · wave.send',
