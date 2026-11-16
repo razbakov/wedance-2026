@@ -9,7 +9,7 @@
  * every event there shows them; a venue with none shows just its name and address.
  * DDF's venue, meet & DANCE in Dachau, with its real details. Mock data, no API, no DB.
  */
-import { MapPin, CalendarDays, ChevronDown, ChevronRight, ArrowUpRight, ArrowRight, TrainFront, Car, Footprints } from 'lucide-vue-next'
+import { MapPin, CalendarDays, ChevronDown, ChevronRight, ArrowUpRight, ArrowRight, TrainFront, Car, Footprints, Shirt } from 'lucide-vue-next'
 
 definePageMeta({ layout: false })
 useHead({ title: 'WeDance — Venue row sketch', meta: [{ name: 'robots', content: 'noindex' }] })
@@ -39,7 +39,8 @@ const venue = {
 const HINTS = [
   { icon: TrainFront, text: 'Dachau Bahnhof (S2)', detail: '20 min walk or 5 min by bus' },
   { icon: Car, text: 'Garage next door', detail: 'Entrance by the Audi dealership' },
-  { icon: Footprints, text: 'Bring indoor dance shoes', detail: 'There’s no cloakroom' },
+  { icon: Footprints, text: 'Indoor dance shoes only', detail: 'Bring a pair to change into' },
+  { icon: Shirt, text: 'No cloakroom', detail: 'Keep your coat and bag with you' },
 ]
 const hints = computed(() => filled.value ? HINTS : [])
 
