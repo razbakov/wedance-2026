@@ -110,6 +110,10 @@ Given('a C3 city with an active and an idle profile per role, and a smaller city
     artists: JSON.stringify([people['artists:active']!.handle]),
   })
   c3.cleanup.push(async () => { await sql(`DELETE FROM profiles WHERE username LIKE $1`, [`c3-%-${c3.run}`]) })
+  // The active organiser runs its page on WeDance, so its nights take bookings (RAZ-1007: an event
+  // whose page has no team shows where it was imported from instead of the sign-up steps).
+  const host = await addDancer(c3, 'Host', null)
+  await sql(`INSERT INTO profile_members (profile_id, dancer_id, role) SELECT id, $2, 'owner' FROM profiles WHERE username = $1`, [people['organisers:active']!.handle, host])
 })
 
 async function addDancer(c3: C3World, who: string, photo: string | null) {
