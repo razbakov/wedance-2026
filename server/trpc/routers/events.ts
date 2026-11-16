@@ -145,6 +145,11 @@ export const eventsRouter = router({
         agenda: events.agenda,
         festival: events.festival,
         published: events.published,
+        // When the v3 sync last saw it (imported events: "last checked").
+        syncedAt: events.syncedAt,
+        // Someone on WeDance gets the bookings: the page they go to (host, else organiser —
+        // contactPageFor) has a team. Otherwise "Book my spot" says it's imported, and where from.
+        bookable: sql<boolean>`exists (select 1 from profile_members m where m.profile_id = coalesce(${events.hostProfileId}, (select p.id from profiles p where p.username = ${events.organizerUsername} limit 1)))`,
       }
       let ev: any
       for (const where of publicEventWhere(input.id)) {
@@ -169,12 +174,14 @@ export const eventsRouter = router({
   // A festival event in the shape the festival page renders (Festival,
   // workshops, teachers — app/types/festival.ts), built from the event, its
   // festival details and its line-up's profiles.
+  // Every event renders this way (one layout for all events, RAZ-1007): a plain event is a
+  // festival without programme, passes or logo of its own.
   festival: publicProcedure
     .input(z.object({ id: z.string().uuid(), preview: z.string().max(100).optional() }))
     .query(async ({ ctx, input }) => {
       const draftOk = !!input.preview && (await inviteEventId(ctx.db, input.preview)) === input.id
       const [ev] = await ctx.db.select().from(events).where(and(eq(events.id, input.id), draftOk ? undefined : eq(events.published, true)))
-      if (!ev?.festival) throw new TRPCError({ code: 'NOT_FOUND', message: 'Festival not found.' })
+      if (!ev) throw new TRPCError({ code: 'NOT_FOUND', message: 'Event not found.' })
       return festivalView(ctx.db, ev)
     }),
 })

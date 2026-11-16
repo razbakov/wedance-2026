@@ -9,6 +9,7 @@ import { heroTagline } from '#shared/utils/heroTagline'
 import { isNight } from '#shared/utils/yourNight'
 import { nightWeekday } from '#shared/utils/eventReview'
 import { Button } from '~/components/ui/button'
+import type { EventFactsData } from '~/components/EventFacts.vue'
 import { artistPlaces, artistLanguages } from '~/data/artists'
 import { WD } from '~/lib/brand'
 import { accentText } from '~/lib/accent'
@@ -33,7 +34,11 @@ const props = defineProps<{
   /** The event's type ("Weekender"), for the wording: "You manage this weekender". */
   type?: string | null
   /** A dated event (not a festival) shown in this view: its RSVP is the organiser's poll (RAZ-718). */
-  rsvp?: { eventId: string; path: string; startDate: string; endDate?: string | null; timezone?: string | null; organizerName?: string | null } | null
+  rsvp?: {
+    eventId: string; path: string; startDate: string; endDate?: string | null; timezone?: string | null; organizerName?: string | null
+    /** Nobody on WeDance takes its bookings (RAZ-1007): "Book my spot" says where it comes from. */
+    notBookable?: { imported: boolean; from?: string | null; checkedAt?: string | null } | null
+  } | null
   /** Cancelled by its organiser (RAZ-948): the hero says so; no poll, no passes. */
   cancelled?: { reason?: string | null } | null
   /**
@@ -41,6 +46,16 @@ const props = defineProps<{
    * event with a programme (a workshop, a class) goes in the plan as an event, by its id.
    */
   planAs?: 'festival' | 'event'
+  /** The hero's date line with times, in the event's zone (a plain event, RAZ-1007). */
+  dateLabel?: string
+  /** A plain event (RAZ-1007 — one layout for every event): what the old event page showed. */
+  event?: {
+    facts: EventFactsData
+    /** "Checked by … · date": last edited on WeDance. */
+    checked?: { at: string; by?: string | null } | null
+    archived?: boolean
+    city?: { slug: string; name: string } | null
+  } | null
 }>()
 const kind = computed(() => (props.type || 'festival').toLowerCase())
 const data = props.data
@@ -889,6 +904,10 @@ watch(() => route.query.tab, () => { activeTab.value = tabFromRoute() })
 
 
 // About keeps only what the hero doesn't say (co-organisers, or a text the hero can't sum up) — RAZ-1008.
+const eventHasFacts = computed(() => {
+  const f = props.event?.facts
+  return !!f && !!(f.type || f.styles?.length || f.price || f.link || f.agenda?.length)
+})
 const aboutHasContent = computed(() => (festival.organizers?.length ?? 0) > 1 || (!!festival.description?.trim() && !heroTagline(festival.description)))
 
 // Overview summary: what's inside each tab, one card each, so the first page
@@ -1323,7 +1342,12 @@ useHead({
 
     <!-- v-show, not v-if: the hero holds the sign-up, whose poll the schedule reads on every tab. -->
     <div v-show="currentTab === 'overview'" ref="heroRef">
-      <FestivalHero :festival="heroFestival" :image="festival.flyer" :presenters="festival.organizers" :description="festival.description" :picked="heroPicked" :cancelled="cancelled" :free-entry="freeEntry" :venue-address="festival.venue?.address" :map-url="festival.venue?.coordinates?.lat != null ? `https://www.google.com/maps/search/?api=1&query=${festival.venue.coordinates.lat},${festival.venue.coordinates.lng}` : (festival.venue?.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(festival.venue.address)}` : undefined)" :review-target-type="planAsEvent ? 'event' : 'festival'" :review-target-slug="planAsEvent ? data.eventId : undefined" :rating-version="reviewAsk.reviewsKey.value" @pick="onPick" @reviews="openTab('reviews', 'hero')">
+      <div v-if="event?.checked" class="max-w-3xl mx-auto px-4 pt-3 font-sans">
+        <p class="inline-flex items-center gap-1.5 rounded-full bg-success/10 px-3 py-1 text-xs font-bold text-wd-green-700">
+          <Check class="size-3.5" aria-hidden="true" /> Checked{{ event?.checked?.by ? ` by ${event.checked.by}` : '' }} · {{ new Date(event?.checked?.at ?? '').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) }}
+        </p>
+      </div>
+      <FestivalHero :festival="heroFestival" :image="festival.flyer" :presenters="festival.organizers" :description="festival.description" :picked="heroPicked" :cancelled="cancelled" :free-entry="freeEntry" :venue-address="festival.venue?.address" :map-url="festival.venue?.coordinates?.lat != null ? `https://www.google.com/maps/search/?api=1&query=${festival.venue.coordinates.lat},${festival.venue.coordinates.lng}` : (festival.venue?.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(festival.venue.address)}` : undefined)" :review-target-type="planAsEvent ? 'event' : 'festival'" :review-target-slug="planAsEvent ? data.eventId : undefined" :rating-version="reviewAsk.reviewsKey.value" :date-label="dateLabel" @pick="onPick" @reviews="openTab('reviews', 'hero')">
         <!-- What's inside, before the buttons (RAZ-1008): one compact card per tab, no header —
              enough to see there's lots to explore; each opens its tab. -->
         <template v-if="summaryCards.length" #before-cta>
@@ -1368,7 +1392,7 @@ useHead({
               :event-id="rsvp.eventId" :path="rsvp.path" :start-date="rsvp.startDate" :end-date="rsvp.endDate" :timezone="rsvp.timezone" :organizer-name="rsvp.organizerName"
               :passes="festival.tickets" :pay-at-door="festival.payAtDoor" :pass-key="festival.slug" :has-ticket="hasTicket" :event-type="type"
               :programme="isNightEvent ? nightItems : []" :planned-ids="[...plannedIds]"
-              ref="signupRef" surface="event" :recommend="recommendAmong" @poll="onPoll"
+              ref="signupRef" surface="event" :recommend="recommendAmong" :not-bookable="rsvp.notBookable" @poll="onPoll"
             >
               <template v-if="isNightEvent" #booked="{ pass }">
                 <EventYourNight
@@ -1436,7 +1460,10 @@ useHead({
 
     <div class="max-w-3xl mx-auto px-4 space-y-14 pt-8 pb-20">
         <template v-if="currentTab === 'overview'">
-        <section v-if="aboutHasContent" id="about" class="scroll-mt-12">
+        <p v-if="event?.archived" class="rounded-xl px-4 py-3 text-sm bg-warning/[12.2%] text-wd-amber-800 font-sans">This event is no longer listed by its organiser — it may have been cancelled or moved.</p>
+        <section v-if="aboutHasContent || eventHasFacts" id="about" class="scroll-mt-12 space-y-4">
+          <h2 v-if="eventHasFacts" class="text-2xl font-black leading-tight font-display text-foreground">About</h2>
+          <EventFacts v-if="eventHasFacts" :facts="event.facts" />
           <AboutTab :festival="festival" />
         </section>
 
@@ -1781,6 +1808,8 @@ useHead({
             @sign-in="onSignIn"
           />
         </section>
+
+        <p v-if="currentTab === 'overview' && event?.city" class="text-sm font-sans"><NuxtLink :to="`/cities/${event.city.slug}`" class="font-bold hover:underline text-secondary">More dancing in {{ event.city.name }} →</NuxtLink></p>
 
         <section v-if="currentTab === 'reviews'" id="reviews" class="scroll-mt-16">
           <ClientOnly>

@@ -48,6 +48,8 @@ const props = defineProps<{
   plannedIds?: string[]
   /** A festival's pick: of these passes, the one covering the workshops on the dancer's plan. */
   recommend?: (passes: FestivalPass[]) => string | null
+  /** Nobody on WeDance takes bookings for it (RAZ-1007): the button says where it comes from instead. */
+  notBookable?: { imported: boolean; from?: string | null; checkedAt?: string | null } | null
 }>()
 
 type Poll = Awaited<ReturnType<ReturnType<typeof useNuxtApp>['$trpc']['rsvp']['poll']['query']>>
@@ -123,8 +125,16 @@ const fitsPlan = computed(() => {
 })
 
 /** Open the steps; `withPass` picks a pass up front ("Not in your pass · +€7" on Your night). */
+// "Book my spot" on an event nobody here takes bookings for: where it comes from, not the steps.
+const showImported = ref(false)
+
 function start(withPass?: string) {
   justCancelled.value = false
+  if (props.notBookable && !coming.value) {
+    showImported.value = !showImported.value
+    if (showImported.value) useTrack().track('event_signup_opened', { surface: props.surface, event_id: poll.value?.eventId, changing: false, not_bookable: true })
+    return
+  }
   const s = mine.value?.signup
   answer.value = coming.value ? mine.value!.answer : null
   passName.value = (typeof withPass === 'string' ? withPass : null) ?? s?.pass ?? fitsPlan.value ?? null
@@ -300,6 +310,7 @@ defineExpose({ start })
         <slot name="beside" />
       </div>
       <p v-if="priced.length <= 1 && includesOf(priced[0] ?? null)" class="mt-2 text-xs text-muted-foreground" data-signup-includes>Includes {{ includesOf(priced[0] ?? null) }}</p>
+      <EventImportedNotice v-if="showImported && notBookable" :imported="notBookable.imported" :from="notBookable.from" :checked-at="notBookable.checkedAt" :organizer-name="org" />
       </template>
       <template v-else-if="state === 'booked'">
       <div class="rounded-2xl border border-success/30 bg-success/10 px-4 py-3 space-y-1" role="status" data-signup-in>
