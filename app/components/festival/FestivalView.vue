@@ -6,7 +6,7 @@ import type { Festival, Teacher, Workshop, PlanEntry, DanceRole, DancePartner, E
 import { ArrowRight, Sparkles, Check, Plus, Pencil, Ticket, Share2, Users } from 'lucide-vue-next'
 import { isWorkshop, isEveningItem, stylesOf } from '#shared/utils/programme'
 import { heroTagline } from '#shared/utils/heroTagline'
-import { isNight } from '#shared/utils/yourNight'
+import { includesLine, isNight } from '#shared/utils/yourNight'
 import { nightWeekday } from '#shared/utils/eventReview'
 import { Button } from '~/components/ui/button'
 import type { EventFactsData } from '~/components/EventFacts.vue'
@@ -917,6 +917,12 @@ const priceFrom = computed(() => {
   return prices.length ? Math.min(...prices) : null
 })
 const sessionCount = computed(() => workshops.filter(w => isWorkshop(w.type)).length || workshops.length)
+// One night with at most one class: nothing to pick, so the card shows the night
+// itself ("19:00 class · 20:00 party · 22:00 concert"), not "1 session · pick yours".
+const programmeCard = computed(() => {
+  if (days.length > 1 || workshops.filter(w => isWorkshop(w.type)).length > 1) return ''
+  return includesLine(null, nightItems.value)
+})
 const summaryCards = computed(() => {
   const cards: { tab: Tab; title: string; line: string; photos?: string[] }[] = []
   if (tabs.value.includes('lineup')) {
@@ -927,7 +933,9 @@ const summaryCards = computed(() => {
       photos: teachers.filter(t => t.photo).slice(0, 4).map(t => t.photo),
     })
   }
-  if (tabs.value.includes('schedule')) {
+  if (tabs.value.includes('schedule') && programmeCard.value) {
+    cards.push({ tab: 'schedule', title: 'The programme', line: programmeCard.value })
+  } else if (tabs.value.includes('schedule')) {
     const n = sessionCount.value
     cards.push({
       tab: 'schedule',
@@ -1391,7 +1399,7 @@ useHead({
             <EventSignup
               :event-id="rsvp.eventId" :path="rsvp.path" :start-date="rsvp.startDate" :end-date="rsvp.endDate" :timezone="rsvp.timezone" :organizer-name="rsvp.organizerName"
               :passes="festival.tickets" :pay-at-door="festival.payAtDoor" :pass-key="festival.slug" :has-ticket="hasTicket" :event-type="type"
-              :programme="isNightEvent ? nightItems : []" :planned-ids="[...plannedIds]"
+              :programme="isNightEvent ? nightItems : []" :planned-ids="[...plannedIds]" :programme-shown="!!programmeCard"
               ref="signupRef" surface="event" :recommend="recommendAmong" :not-bookable="rsvp.notBookable" @poll="onPoll"
             >
               <template v-if="isNightEvent" #booked="{ pass }">
