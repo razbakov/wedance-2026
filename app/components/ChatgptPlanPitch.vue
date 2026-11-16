@@ -26,16 +26,20 @@ const emit = defineEmits<{ dismiss: [] }>()
 const where = computed(() => props.city || 'Munich')
 const what = computed(() => (props.style || 'salsa').toLowerCase())
 const question = computed(() => `Where can I dance ${what.value} in ${where.value} this weekend?`)
-const answer = computed(() => `4 ${what.value} parties this weekend. Friday's has friends of yours going — want me to add it to your plan?`)
+const answer = computed(() => props.variant === 'hero'
+  ? `4 ${what.value} parties. Add Friday's to your plan?`
+  : `4 ${what.value} parties this weekend. Friday's has friends of yours going — want me to add it to your plan?`)
+const hero = computed(() => props.variant === 'hero')
 
 const onClick = () => useTrack().track('ai_app_cta_click', { app: 'chatgpt', surface: props.surface })
 </script>
 
 <template>
+  <!-- The hero is an open section of a landing (no box); the card sits in My plan. -->
   <div
-    class="relative rounded-2xl border bg-card overflow-hidden"
-    :class="variant === 'hero' ? 'p-6 sm:p-10' : 'p-5 sm:p-6'"
-    style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); box-shadow: 0 1px 0 color-mix(in srgb, var(--wd-brown-900) 3.9%, transparent), 0 10px 28px rgba(59,31,18,0.06);"
+    class="relative"
+    :class="hero ? '' : 'rounded-2xl border bg-card overflow-hidden p-5 sm:p-6'"
+    :style="hero ? undefined : 'border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); box-shadow: 0 1px 0 color-mix(in srgb, var(--wd-brown-900) 3.9%, transparent), 0 10px 28px rgba(59,31,18,0.06);'"
     data-outbound-kind="ai_app"
     data-testid="chatgpt-plan-pitch"
   >
@@ -49,8 +53,8 @@ const onClick = () => useTrack().track('ai_app_cta_click', { app: 'chatgpt', sur
       <X class="w-4 h-4" aria-hidden="true" />
     </button>
 
-    <div class="grid gap-6 items-center" :class="variant === 'hero' ? 'md:grid-cols-[1.1fr_1fr]' : 'sm:grid-cols-[1fr_1fr]'">
-      <div :class="variant === 'hero' ? 'text-center md:text-left' : ''">
+    <div class="grid items-center" :class="hero ? 'gap-8 md:grid-cols-[1fr_1fr]' : 'gap-6 sm:grid-cols-[1fr_1fr]'">
+      <div :class="hero ? 'text-center md:text-left' : ''">
         <div class="inline-flex items-center gap-1.5 text-eyebrow uppercase tracking-[0.3em] font-bold text-primary">
           <Sparkles class="w-3.5 h-3.5" aria-hidden="true" /> WeDance in ChatGPT
         </div>
@@ -58,15 +62,18 @@ const onClick = () => useTrack().track('ai_app_cta_click', { app: 'chatgpt', sur
         <component
           :is="heading ?? (variant === 'hero' ? 'h1' : 'h2')"
           class="mt-2 leading-tight font-display text-foreground"
-          :class="variant === 'hero' ? 'text-4xl sm:text-5xl' : 'text-2xl sm:text-3xl'"
+:class="hero ? 'text-3xl sm:text-4xl' : 'text-2xl sm:text-3xl'"
         >
           Ask where to dance. <em class="italic text-primary">Get your plan.</em>
         </component>
-        <p class="mt-3 text-sm sm:text-base text-muted-foreground font-sans" :class="variant === 'hero' ? 'max-w-md mx-auto md:mx-0' : ''">
+        <p v-if="hero" class="mt-3 text-sm sm:text-base text-muted-foreground font-sans max-w-sm mx-auto md:mx-0">
+          Add WeDance to ChatGPT, then just ask. What you pick lands on your plan.
+        </p>
+        <p v-else class="mt-3 text-sm sm:text-base text-muted-foreground font-sans">
           Add WeDance to ChatGPT once. Then ask about parties, festivals and courses in plain words — what you pick lands on your plan here.
         </p>
-        <div class="mt-5 flex flex-wrap items-center gap-3" :class="variant === 'hero' ? 'justify-center md:justify-start' : ''">
-          <Button variant="cta" :size="variant === 'hero' ? 'lg' : 'default'" as-child>
+        <div class="mt-5 flex flex-wrap items-center gap-3" :class="hero ? 'justify-center md:justify-start' : ''">
+          <Button variant="cta" :size="hero ? 'lg' : 'default'" as-child>
             <a :href="CHATGPT_PLUGIN_URL" target="_blank" rel="noopener" @click="onClick">
               Add WeDance to ChatGPT <ExternalLink aria-hidden="true" />
             </a>
@@ -76,12 +83,17 @@ const onClick = () => useTrack().track('ai_app_cta_click', { app: 'chatgpt', sur
       </div>
 
       <!-- Example chat -->
-      <div class="rounded-2xl p-4 space-y-3 font-sans" style="background:color-mix(in srgb, var(--wd-brown-900) 4%, transparent);" aria-label="Example chat">
-        <div class="ml-auto max-w-[85%] rounded-2xl rounded-br-md px-3.5 py-2.5 text-sm bg-wd-brown-900" style="color:white;">
+      <div
+        class="space-y-2.5 font-sans"
+        :class="hero ? 'mx-auto w-full max-w-sm' : 'rounded-2xl p-4'"
+        :style="hero ? undefined : 'background:color-mix(in srgb, var(--wd-brown-900) 4%, transparent);'"
+        aria-label="Example chat"
+      >
+        <div class="ml-auto w-fit max-w-[85%] rounded-2xl rounded-br-md px-3.5 py-2.5 text-sm bg-wd-brown-900" style="color:white;">
           {{ question }}
         </div>
-        <div class="max-w-[90%] rounded-2xl rounded-bl-md px-3.5 py-2.5 text-sm bg-white text-foreground border border-border">
-          <div class="text-eyebrow uppercase tracking-widest font-bold text-primary mb-1">WeDance</div>
+        <div class="w-fit max-w-[90%] rounded-2xl rounded-bl-md px-3.5 py-2.5 text-sm bg-white text-foreground border border-border">
+          <div v-if="!hero" class="text-eyebrow uppercase tracking-widest font-bold text-primary mb-1">WeDance</div>
           {{ answer }}
         </div>
       </div>
