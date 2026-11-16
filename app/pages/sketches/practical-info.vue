@@ -1,40 +1,45 @@
 <script setup lang="ts">
 /**
- * Sketch: the venue panel (RAZ-1009, step 1).
+ * Sketch: what the hero says about the venue (RAZ-1009, step 1).
  *
- * Today the venue row in an event's hero opens `festival.practicalInfo` — one free-text list
- * mixing the venue, the nights and the ticket rules. Start small: the panel shows only what
- * is true about the venue itself, for every event held there (filled in once, on the venue's
- * page). DDF's venue, meet & DANCE in Dachau, with its real details. Mock data, no API, no DB.
+ * Today the venue row opens `festival.practicalInfo`: one free-text list mixing the venue, the
+ * nights and the ticket rules, hidden behind a toggle. The new row has no toggle: up to three
+ * short hints under the address, each answering a question you have before leaving home
+ * (how do I get there, where do I park, what do I bring). They come from the venue's page, so
+ * every event there shows them; a venue with none shows just its name and address.
+ * DDF's venue, meet & DANCE in Dachau, with its real details. Mock data, no API, no DB.
  */
-import { MapPin, CalendarDays, ChevronDown, ArrowUpRight, ArrowRight, Layers, Train, Car, Footprints } from 'lucide-vue-next'
+import { MapPin, CalendarDays, ChevronDown, ArrowUpRight, ArrowRight, TrainFront, Car, Footprints } from 'lucide-vue-next'
 
 definePageMeta({ layout: false })
-useHead({ title: 'WeDance — Venue panel sketch', meta: [{ name: 'robots', content: 'noindex' }] })
+useHead({ title: 'WeDance — Venue row sketch', meta: [{ name: 'robots', content: 'noindex' }] })
 
 type Variant = 'today' | 'new'
 const VARIANTS: { id: Variant, name: string, idea: string }[] = [
   { id: 'today', name: 'Today', idea: 'The venue row opens DDF’s whole practical-info list: 12 lines about the venue, the nights and the tickets.' },
-  { id: 'new', name: 'Venue only', idea: 'The venue row opens only the venue: rooms, getting there, parking, house rules. Filled in once on the venue’s page, so every event there shows it.' },
+  { id: 'new', name: 'New', idea: 'No toggle. Up to three short hints under the address (getting there, parking, what to bring), from the venue’s page. The address opens directions; the name opens the venue.' },
 ]
 
 const variant = ref<Variant>('new')
 const device = ref<'desktop' | 'mobile'>('desktop')
+const filled = ref(true)
 const isMobile = computed(() => device.value === 'mobile')
 const current = computed(() => VARIANTS.find(v => v.id === variant.value)!)
 const venueOpen = ref(true)
-watch([variant, device], () => { venueOpen.value = true })
+watch([variant, device, filled], () => { venueOpen.value = true })
 
 const venue = {
   name: 'meet & DANCE – Die Tanzschule',
-  address: 'Münchner Str. 87b, 85221 Dachau',
-  mapUrl: 'https://www.google.com/maps/search/?api=1&query=48.2442085,11.4478376',
-  rooms: ['Floor 1', 'Floor 2', 'Floor 3', 'Floor 5', 'Bar'],
-  transit: 'S2 to Dachau Bahnhof (about 25 min from Munich, every 20 min)',
-  lastMile: 'Then bus or taxi 5–10 min, or walk 20–25 min',
-  parking: 'Garage next door, entrance between the studio and the Audi dealership',
-  rules: ['Indoor dance shoes only', 'No cloakroom'],
+  address: 'Münchner Str. 87b, Dachau',
+  mapUrl: 'https://www.google.com/maps/dir/?api=1&destination=48.2442085,11.4478376',
 }
+// The venue's three hints: one line each, the fact first, the detail after.
+const HINTS = [
+  { icon: TrainFront, text: 'Dachau Bahnhof (S2)', detail: '20 min walk or 5 min by bus' },
+  { icon: Car, text: 'Garage next door', detail: 'entrance by the Audi dealership' },
+  { icon: Footprints, text: 'Bring indoor dance shoes', detail: 'no cloakroom' },
+]
+const hints = computed(() => filled.value ? HINTS : [])
 
 // DDF's practicalInfo as it is stored today (the poster links shortened).
 const TODAY = [
@@ -58,7 +63,7 @@ const TODAY = [
     <!-- Control bar (not part of the design) -->
     <div class="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur px-4 py-2.5">
       <div class="mx-auto flex max-w-5xl flex-wrap items-center gap-x-4 gap-y-2">
-        <span class="text-sm font-bold">Venue panel · RAZ-1009</span>
+        <span class="text-sm font-bold">Venue row · RAZ-1009</span>
         <div class="flex rounded-lg border border-border p-0.5 text-sm">
           <button
             v-for="v in VARIANTS" :key="v.id" type="button"
@@ -75,6 +80,15 @@ const TODAY = [
             :class="device === d ? 'bg-foreground text-background' : 'text-muted-foreground'"
             @click="device = d"
           >{{ d }}</button>
+        </div>
+        <div v-if="variant === 'new'" class="flex rounded-lg border border-border p-0.5 text-sm">
+          <button
+            v-for="f in [true, false]" :key="String(f)" type="button"
+            class="rounded-md px-3 py-1 font-bold cursor-pointer"
+            :class="filled === f ? 'bg-foreground text-background' : 'text-muted-foreground'"
+            :data-testid="f ? 'state-filled' : 'state-empty'"
+            @click="filled = f"
+          >{{ f ? 'Venue filled in' : 'Venue with no hints' }}</button>
         </div>
         <p class="w-full text-xs text-muted-foreground">{{ current.idea }}</p>
       </div>
@@ -99,7 +113,9 @@ const TODAY = [
               <CalendarDays class="mt-0.5 size-4 shrink-0 text-secondary" aria-hidden="true" />
               <dd class="font-bold">Fri 16 – Sun 18 Oct 2026</dd>
             </div>
-            <div>
+
+            <!-- Today: the row toggles the whole free-text list -->
+            <div v-if="variant === 'today'">
               <dd>
                 <button
                   type="button"
@@ -117,9 +133,7 @@ const TODAY = [
                     <span class="block text-sm text-muted-foreground">{{ venue.address }}</span>
                   </span>
                 </button>
-
-                <!-- Today: the whole free-text list -->
-                <div v-if="venueOpen && variant === 'today'" class="mt-2 ml-6.5 max-w-xl rounded-xl border border-border bg-card/80 px-3 py-3 space-y-2.5" data-sketch-venue-panel>
+                <div v-if="venueOpen" class="mt-2 ml-6.5 max-w-xl rounded-xl border border-border bg-card/80 px-3 py-3 space-y-2.5" data-sketch-venue-panel>
                   <ul class="space-y-1.5 text-sm text-muted-foreground">
                     <li v-for="(line, i) in TODAY" :key="i">{{ line }}</li>
                   </ul>
@@ -128,35 +142,25 @@ const TODAY = [
                     <span class="inline-flex items-center gap-1 text-secondary">About the venue <ArrowRight class="size-3.5" /></span>
                   </p>
                 </div>
+              </dd>
+            </div>
 
-                <!-- New: the venue only -->
-                <div v-if="venueOpen && variant === 'new'" class="mt-2 ml-6.5 max-w-xl rounded-xl border border-border bg-card/80 px-3 py-3 space-y-3 text-sm" data-sketch-venue-panel>
-                  <div class="flex items-start gap-2.5">
-                    <Layers class="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                    <div class="flex flex-wrap gap-1.5">
-                      <span v-for="r in venue.rooms" :key="r" class="rounded-full bg-muted px-2 py-0.5 text-xs font-bold">{{ r }}</span>
-                    </div>
-                  </div>
-                  <div class="flex items-start gap-2.5">
-                    <Train class="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                    <p>
-                      <span class="font-bold">{{ venue.transit }}</span>
-                      <span class="block text-muted-foreground">{{ venue.lastMile }}</span>
-                    </p>
-                  </div>
-                  <div class="flex items-start gap-2.5">
-                    <Car class="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                    <p>{{ venue.parking }}</p>
-                  </div>
-                  <div class="flex items-start gap-2.5">
-                    <Footprints class="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                    <p>{{ venue.rules.join(' · ') }}</p>
-                  </div>
-                  <p class="flex flex-wrap gap-x-4 font-bold">
-                    <a :href="venue.mapUrl" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-secondary hover:underline">Directions <ArrowUpRight class="size-3.5" /></a>
-                    <span class="inline-flex items-center gap-1 text-secondary">About the venue <ArrowRight class="size-3.5" /></span>
-                  </p>
-                </div>
+            <!-- New: no toggle. Name → the venue's page, address → directions, hints in plain sight. -->
+            <div v-else class="flex items-start gap-2.5" data-sketch-venue>
+              <MapPin class="mt-0.5 size-4 shrink-0 text-secondary" aria-hidden="true" />
+              <dd class="min-w-0">
+                <span class="inline-flex items-center gap-1 font-bold hover:underline cursor-pointer">
+                  {{ venue.name }} <ArrowRight class="size-3.5 text-secondary" aria-hidden="true" />
+                </span>
+                <a :href="venue.mapUrl" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1 text-muted-foreground hover:text-foreground hover:underline" data-sketch-directions>
+                  {{ venue.address }} <ArrowUpRight class="size-3.5 shrink-0" aria-hidden="true" />
+                </a>
+                <ul v-if="hints.length" class="mt-2 space-y-1" data-sketch-hints>
+                  <li v-for="h in hints" :key="h.text" class="flex items-start gap-2">
+                    <component :is="h.icon" class="mt-0.5 size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                    <span><span class="text-foreground">{{ h.text }}</span><span class="text-muted-foreground"> · {{ h.detail }}</span></span>
+                  </li>
+                </ul>
               </dd>
             </div>
           </dl>
