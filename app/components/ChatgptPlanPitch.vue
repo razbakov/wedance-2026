@@ -5,10 +5,14 @@
  * official app. Used at the top of My plan until the dancer has connected
  * ChatGPT (`card`) and as the opening of the signed-out My plan landing (`hero`).
  *
+ * The button carries OpenAI's Blossom logo, unmodified, from openai.com/brand
+ * (public/brand/openai-blossom-white.svg; Marks usage terms accepted 2026-11-16):
+ * only next to this link to our listed app, never larger than WeDance's own brand.
+ *
  * Fires `ai_app_cta_click` { app, surface }; the delegated listener also sends
  * `outbound_click` with kind `ai_app` (data-outbound-kind).
  */
-import { ExternalLink, Sparkles, X } from 'lucide-vue-next'
+import { Sparkles, X } from 'lucide-vue-next'
 import { CHATGPT_PLUGIN_URL } from '~/lib/ai-apps'
 
 const props = withDefaults(defineProps<{
@@ -75,7 +79,9 @@ const onClick = () => useTrack().track('ai_app_cta_click', { app: 'chatgpt', sur
         <div class="mt-5 flex flex-wrap items-center gap-3" :class="hero ? 'justify-center md:justify-start' : ''">
           <Button variant="cta" :size="hero ? 'lg' : 'default'" as-child>
             <a :href="CHATGPT_PLUGIN_URL" target="_blank" rel="noopener" @click="onClick">
-              Add WeDance to ChatGPT <ExternalLink aria-hidden="true" />
+              <!-- OpenAI's Blossom, exactly as provided (openai.com/brand, white on our button), smaller than our own name. -->
+              <img src="/brand/openai-blossom-white.svg" alt="" class="size-6 -my-1 shrink-0" width="24" height="24" draggable="false">
+              Add WeDance to ChatGPT
             </a>
           </Button>
           <NuxtLink to="/docs/connect-ai" class="text-xs italic underline text-secondary font-display">How it works</NuxtLink>
