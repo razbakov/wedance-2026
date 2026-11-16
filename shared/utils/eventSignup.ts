@@ -23,6 +23,16 @@ export function pricedPasses(passes: readonly FestivalPass[] | null | undefined)
   return (passes ?? []).filter(p => p.name?.trim() && Number(p.price) > 0)
 }
 
+/**
+ * What the closed sign-up shows — exactly one of: the "Book my spot" button, "Spot booked",
+ * or "Almost there: open the link". Not coming (no answer, or "next" after "Cancel my spot")
+ * is always the button, even when the cancelled answer is a confirmed row.
+ */
+export function signupState(mine: { answer: RsvpAnswer, confirmed: boolean } | null | undefined): 'book' | 'booked' | 'sent' {
+  if (!mine || mine.answer === 'next') return 'book'
+  return mine.confirmed ? 'booked' : 'sent'
+}
+
 /** "With my partner" / "With a friend" is two people. */
 export function peopleFor(answer: RsvpAnswer | null | undefined): 1 | 2 {
   return answer === 'partner' ? 2 : 1
