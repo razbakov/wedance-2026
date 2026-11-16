@@ -64,8 +64,8 @@ export const SKETCHES: Sketch[] = [
   },
   {
     slug: 'practical-info',
-    title: 'Event practical info, where it’s used',
-    what: 'DDF’s 12 lines of practical info placed four ways: where each piece is used (venue panel, schedule, passes, good to know, contact by the organiser), one "Know before you go" infographic card, the weekend as a day-by-day timeline, and the recommended placement + day cards in the schedule. The venue panel holds only venue things in all four.',
+    title: 'Venue panel: only the venue',
+    what: 'The venue row in an event’s hero, today vs venue only: rooms, getting there, parking and house rules for meet & DANCE (DDF’s venue), filled in once on the venue’s page so every event there shows them.',
     why: 'Practical info is one free-text list under the venue: for DDF it mixes the venue, the nights (food, dress code, shoes, when Sunday ends) and booking rules (sold-out followers, refunds, fee) — a wall of text, mostly not about the venue.',
     requestedBy: 'Alösha',
     builtBy: 'Agent (Claude)',
