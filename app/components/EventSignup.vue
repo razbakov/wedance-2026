@@ -18,7 +18,7 @@ import { ArrowRight, Check, Mail, Ticket, X } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
 import { signupGuestSchema, signupMemberSchema } from '#shared/validation'
 import { rsvpOptions, type RsvpAnswer } from '#shared/utils/rsvp'
-import { chosenPass, noPassForRole, passFor, passPriceLabel, passTotal, passesFor, peopleFor, pricedPasses, signupCta, signupNeedsPhone, signupSteps, type PayMethod, type SignupStep } from '#shared/utils/eventSignup'
+import { chosenPass, noPassForRole, passFor, passPriceLabel, passTotal, passesFor, peopleFor, pricedPasses, signupCta, signupState, signupNeedsPhone, signupSteps, type PayMethod, type SignupStep } from '#shared/utils/eventSignup'
 import type { FestivalPass } from '#shared/types/festivalDetails'
 import { sizedImage, IMG } from '#shared/utils/image'
 import { includesLine, passCovers } from '#shared/utils/yourNight'
@@ -67,7 +67,8 @@ const priced = computed(() => pricedPasses(passes.value))
 // on their own is offered follower passes, a couple the couple passes, priced once for both.
 const steps = computed(() => signupSteps({ passes: passes.value, answer: answer.value }))
 const mine = computed(() => poll.value?.mine ?? null)
-const coming = computed(() => !!mine.value && mine.value.answer !== 'next')
+const state = computed(() => signupState(mine.value))
+const coming = computed(() => state.value !== 'book')
 const me = computed(() => poll.value?.me ?? null)
 const org = computed(() => props.organizerName || 'The organiser')
 const ended = computed(() => {
@@ -297,16 +298,18 @@ defineExpose({ start })
     <!-- Closed: the one button, or the line that says you're in -->
     <template v-if="!open">
       <p v-if="!coming && justCancelled" class="mb-2 text-sm text-muted-foreground" role="status" data-signup-cancelled>Spot cancelled. Changed your mind? Sign up again.</p>
-      <div v-if="!coming" class="flex flex-wrap items-center gap-2">
+      <!-- One chain (book / booked / sent): nothing may sit between the v-if / v-else-if / v-else. -->
+      <template v-if="state === 'book'">
+      <div class="flex flex-wrap items-center gap-2">
         <Button variant="cta" class="px-6" data-signup-start @click="start">
           <Ticket aria-hidden="true" /> {{ signupCta(passes) }}
         </Button>
         <!-- A quieter option next to it, e.g. "+ My plan" (RAZ-1003). -->
         <slot name="beside" />
       </div>
-      <p v-if="!coming && priced.length <= 1 && includesUnderButton" class="mt-2 text-xs text-muted-foreground" data-signup-includes>Includes {{ includesUnderButton }}</p>
-
-      <template v-else-if="mine?.confirmed">
+      <p v-if="priced.length <= 1 && includesUnderButton" class="mt-2 text-xs text-muted-foreground" data-signup-includes>Includes {{ includesUnderButton }}</p>
+      </template>
+      <template v-else-if="state === 'booked'">
       <div class="rounded-2xl border border-success/30 bg-success/10 px-4 py-3 space-y-1" role="status" data-signup-in>
         <p class="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span class="inline-flex items-center gap-1.5 font-bold text-wd-green-700"><Check class="size-4" aria-hidden="true" /> Spot booked<template v-if="saved?.parts"> · {{ saved.parts }}</template></span>

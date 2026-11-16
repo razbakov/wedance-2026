@@ -189,8 +189,8 @@ export const weekendRouter = router({
   share: protectedProcedure
     .input(z.object({
       eventIds: z.array(z.string().uuid()).min(1).max(WEEKEND_MAX_EVENTS).optional(),
-      /** Where the link was made: `my_plan` = the story shown in place on My plan (RAZ-895), made without a tap. */
-      surface: z.enum(['web', 'my_plan', 'mcp']).optional(),
+      /** Where the link was made: `my_plan` = the story shown in place on My plan (RAZ-895), made without a tap; `event` = an event page's "Bring friends" (RAZ-1001), one event. */
+      surface: z.enum(['web', 'my_plan', 'mcp', 'event']).optional(),
     }).optional())
     .mutation(async ({ ctx, input }) => {
       const wanted = input?.eventIds?.length
