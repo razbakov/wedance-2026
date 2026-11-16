@@ -30,8 +30,8 @@ Feature: C3 — Going: plan, share, discover
     And there were no hydration warnings
 
   # ── RAZ-974 / RAZ-995 — Who's coming under the sign-up ──
-  # Ordinary events only: a festival keeps its "Shall we dance?" deck and its
-  # verified-ticket rule (RAZ-314).
+  # Ordinary events only: a festival keeps its verified-ticket rule (RAZ-314); its
+  # "Meet who’s going" shows once it is on your plan (RAZ-1008).
 
   @write
   Scenario: A signed-in dancer sees who signed up for the event; a visitor sees only the counts

@@ -484,6 +484,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `city_viewed` | `pages/cities/[city]/index.vue` (once per mount) | `city`, `style` |
 | `event_viewed` | `pages/events/[id].vue` (non-festival, once per mount) | `event_id`, `city`, `style`, `event_type`, `synced`, `is_festival` |
 | `festival_viewed` | `pages/events/[id].vue` (festival) | same as `event_viewed` |
+| `event_tab_opened` | `FestivalView` (an event with sessions or a festival): Overview / Lineup / Schedule / Passes tabs (RAZ-1008; `?tab=`) | `tab`, `via` (nav / summary = a "What's inside" card / hero = Get pass / link), `event_id`, `is_festival` |
 | `filter_used` | city page style chip | `surface`, `city`, `filter_keys`, `style` |
 | `search_used` | `/festivals`, `/artists`, `/gigs` (`useTrackSearch`, debounced) | `surface`, `query_length`, `filter_keys`, `results` |
 | `week_plan_add` / `week_plan_remove` | `useWeekPlan` (Going! toggle), `my-plan` enroll / course X | `event_id`, `week_count` or `source`; add: `event_type`, `city`, `surface` |

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { CLASS_EVENT_TYPES } from '#shared/utils/eventSignup'
 import { sizedImage, IMG } from '#shared/utils/image'
-import type { Festival, Teacher, Workshop, PlanEntry, DanceRole, DancePartner, ExtraActivity, SwipeCard, FreemiumState } from '~/types/festival'
+import type { Festival, Teacher, Workshop, PlanEntry, DanceRole, DancePartner, ExtraActivity, FreemiumState } from '~/types/festival'
 import { ArrowRight, Sparkles, Check, Plus, Pencil, Ticket, Share2 } from 'lucide-vue-next'
 import { isWorkshop, isEveningItem } from '#shared/utils/programme'
 import { Button } from '~/components/ui/button'
@@ -187,8 +187,7 @@ function onBePartner(workshopId: string) {
   }
   // Add the workshop to user's plan and scroll to schedule
   toggleWorkshop(workshopId)
-  router.replace({ query: {} })
-  nextTick(() => scrollTo('schedule'))
+  openTab('schedule', 'link', {})
 }
 
 const days = [...new Set(workshops.map((w) => w.day))]
@@ -481,12 +480,11 @@ const lineupCards = teachers.map((teacher, i) => {
 
 function toggleTeacherFilter(id: string) {
   selectedTeacherId.value = selectedTeacherId.value === id ? null : id
-  nextTick(() => scrollTo('schedule'))
+  if (selectedTeacherId.value) openTab('schedule', 'link')
 }
 
 
-// Discover dancers are now loaded by the DiscoverDancers component itself
-// via tRPC (wave.discoverPool) — no mock data needed here.
+// Meeting dancers lives in Meet new friends (/meet) — the same flow as any event (RAZ-1008).
 
 // Payment success confirmation
 const showPaymentSuccess = ref(false)
@@ -716,31 +714,6 @@ function tryUnlockSocialActivity(action: () => void) {
   action()
 }
 
-// Extra cards (dinner, activity, onboarding) interleaved into the swipe deck
-// by DiscoverDancers. Dancer cards come from the component's own tRPC query.
-const extraSwipeCards = computed<SwipeCard[]>(() => {
-  const dinners: SwipeCard[] = groupDinners.value.map(d => ({ ...d, cardType: 'dinner' as const }))
-  const activities: SwipeCard[] = extraActivities.value.map(a => ({ ...a, cardType: 'activity' as const }))
-  const result: SwipeCard[] = [...dinners, ...activities]
-
-  // Insert onboarding cards at the front when not signed in
-  if (!isSignedIn.value) {
-    result.unshift(
-      {
-        id: 'onboarding-dancecard',
-        cardType: 'onboarding-dancecard',
-        availableStyles: styles,
-      },
-      {
-        id: 'onboarding-profile',
-        cardType: 'onboarding-profile',
-      },
-    )
-  }
-
-  return result
-})
-
 // Sign-up gate
 const showSignUp = ref(false)
 const signUpAction = ref('share')
@@ -749,15 +722,6 @@ const signUpPrefill = ref<{ name?: string; danceStyles?: string[]; role?: 'lead'
 function onSignIn(action?: string) {
   signUpAction.value = action || 'share'
   showSignUp.value = true
-}
-
-function onOnboardingComplete(role: DanceRole, styles: string[], name: string, city: string) {
-  signUpPrefill.value = {
-    name: name || undefined,
-    danceStyles: styles,
-    role: role as 'lead' | 'follow' | 'both',
-    city: city || undefined,
-  }
 }
 
 function onSignedIn() {
@@ -806,46 +770,100 @@ function onShare() {
 const { setCartCount } = useCart()
 watch(() => plan.value.size, (n) => setCartCount(n), { immediate: true })
 
-// Navigation — only show sections that have content for this festival.
-const allSections = ['about', 'discover', 'lineup', 'schedule', 'tickets', 'venue', 'activities'] as const
-const sections = computed(() =>
-  allSections.filter((s) => {
-    if (s === 'schedule') return workshops.length > 0
-    if (s === 'lineup') return teachers.length > 0
-    if (s === 'tickets') return sellsPasses.value && !props.rsvp
-    // A dated event (it has the poll) has no swipe deck: meeting people lives
-    // in My plan → Meet new friends, inviting them in My plan → Share (RAZ-974).
-    if (s === 'discover') return !props.rsvp
+// Tabs (RAZ-1008): the first page is an overview (about, a summary of what's
+// inside, who's going, the venue, going together); line-up, schedule and
+// passes are their own tabs, so a first visit plans instead of drowning.
+// The tab lives in ?tab= (deep links, Back); old #tickets / #schedule /
+// #lineup anchors still open their tab.
+const ALL_TABS = ['overview', 'lineup', 'schedule', 'tickets'] as const
+type Tab = typeof ALL_TABS[number]
+const showTickets = computed(() => !props.rsvp && (sellsPasses.value || (!!festival.tickets?.length && hasTicket.value)))
+const tabs = computed<Tab[]>(() =>
+  ALL_TABS.filter((t) => {
+    if (t === 'lineup') return teachers.length > 0
+    if (t === 'schedule') return workshops.length > 0
+    if (t === 'tickets') return showTickets.value
     return true
   }),
 )
-const sectionLabels: Record<string, string> = {
-  'about': 'About',
-  'discover': 'Shall we dance?',
-  'activities': 'Going together',
-  'lineup': 'Lineup',
-  'schedule': 'Schedule',
-  'tickets': 'Tickets',
-  'venue': 'Venue',
+const tabLabels: Record<Tab, string> = {
+  overview: 'Overview',
+  lineup: 'Lineup',
+  schedule: 'Schedule',
+  tickets: 'Passes',
 }
+function tabFromRoute(): Tab {
+  const q = String(route.query.tab ?? '')
+  const h = route.hash.replace('#', '')
+  const t = (ALL_TABS as readonly string[]).includes(q) ? q : (ALL_TABS as readonly string[]).includes(h) ? h : 'overview'
+  return t as Tab
+}
+const activeTab = ref<Tab>(tabFromRoute())
+const currentTab = computed<Tab>(() => tabs.value.includes(activeTab.value) ? activeTab.value : 'overview')
+const tabsRef = ref<HTMLElement | null>(null)
 
-function scrollTo(id: string) {
-  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
-  activeSection.value = id // immediate feedback; observer keeps it honest
+function openTab(t: Tab, via: 'nav' | 'summary' | 'hero' | 'link' = 'link', base: Record<string, any> = route.query) {
+  if (t !== currentTab.value) {
+    useTrack().track('event_tab_opened', { tab: t, via, event_id: data.eventId, is_festival: !props.rsvp })
+  }
+  activeTab.value = t
+  const query = { ...base }
+  if (t === 'overview') delete query.tab
+  else query.tab = t
+  router.replace({ query, hash: '' })
+  // Land at the top of the tab, under the sticky bar — not halfway down the old one.
+  nextTick(() => {
+    const top = (tabsRef.value?.getBoundingClientRect().top ?? 0) + window.scrollY
+    if (window.scrollY > top) window.scrollTo({ top, behavior: 'smooth' })
+  })
 }
+watch(() => route.query.tab, () => { activeTab.value = tabFromRoute() })
+
+// Overview summary: what's inside each tab, one card each, so the first page
+// shows there is a lot to explore without showing all of it.
+const priceFrom = computed(() => {
+  const prices = (festival.tickets ?? []).filter(t => !t.soldOut && t.price > 0).map(t => t.price)
+  return prices.length ? Math.min(...prices) : null
+})
+const sessionCount = computed(() => workshops.filter(w => isWorkshop(w.type)).length || workshops.length)
+const summaryCards = computed(() => {
+  const cards: { tab: Tab; title: string; line: string; photos?: string[] }[] = []
+  if (tabs.value.includes('lineup')) {
+    cards.push({
+      tab: 'lineup',
+      title: `${teachers.length} ${teachers.length === 1 ? 'artist' : 'artists'}`,
+      line: teachers.slice(0, 3).map(t => t.name).join(', ') + (teachers.length > 3 ? ' and more' : ''),
+      photos: teachers.filter(t => t.photo).slice(0, 4).map(t => t.photo),
+    })
+  }
+  if (tabs.value.includes('schedule')) {
+    const n = sessionCount.value
+    cards.push({
+      tab: 'schedule',
+      title: `${n} ${n === 1 ? 'session' : 'sessions'}`,
+      line: [days.length > 1 ? `${days.length} days` : null, styles.length ? `${styles.length} ${styles.length === 1 ? 'style' : 'styles'}` : null, 'pick yours'].filter(Boolean).join(' · '),
+    })
+  }
+  if (tabs.value.includes('tickets')) {
+    const n = festival.tickets?.length ?? 0
+    cards.push({
+      tab: 'tickets',
+      title: hasTicket.value ? 'You have a pass' : priceFrom.value != null ? `Passes from €${priceFrom.value}` : 'Passes',
+      line: hasTicket.value ? 'See what it covers' : `${n} to choose from · we suggest the one for your plan`,
+    })
+  }
+  return cards
+})
 
 // ── Sticky nav behaviour ──────────────────────────────────────────
-// - The festival name only appears in the sticky nav once the hero has
-//   scrolled out of view (so a deep-link straight to #tickets still
-//   shows which festival you're on).
-// - The nav highlights the section currently at the top and updates as
-//   you scroll (scrollspy).
+// The festival name only appears in the sticky bar once the hero has
+// scrolled out of view, so a deep link straight to ?tab=tickets still
+// shows which festival you're on.
 const heroRef = ref<HTMLElement | null>(null)
 const heroVisible = ref(true)
-const activeSection = ref<string>('about')
+function scrollToTop() { window.scrollTo({ top: 0, behavior: 'smooth' }) }
 
 let heroObserver: IntersectionObserver | null = null
-let sectionObserver: IntersectionObserver | null = null
 
 onMounted(() => {
   if (heroRef.value) {
@@ -855,29 +873,10 @@ onMounted(() => {
     )
     heroObserver.observe(heroRef.value)
   }
-
-  // Scrollspy — track which section sits under the sticky nav.
-  const seen = new Set<string>()
-  sectionObserver = new IntersectionObserver(
-    (entries) => {
-      for (const e of entries) {
-        if (e.isIntersecting) seen.add(e.target.id)
-        else seen.delete(e.target.id)
-      }
-      const active = sections.value.find((s) => seen.has(s))
-      if (active) activeSection.value = active
-    },
-    { rootMargin: '-64px 0px -60% 0px', threshold: 0 },
-  )
-  for (const s of sections.value) {
-    const el = document.getElementById(s)
-    if (el) sectionObserver.observe(el)
-  }
 })
 
 onBeforeUnmount(() => {
   heroObserver?.disconnect()
-  sectionObserver?.disconnect()
   if (paymentSuccessTimer) clearTimeout(paymentSuccessTimer)
 })
 
@@ -1183,10 +1182,10 @@ useHead({
         <!-- A festival that sells passes: the pass is the Going. -->
         <template v-else-if="sellsPasses" #cta>
           <div class="mt-4 flex flex-wrap gap-2">
-            <Button v-if="hasTicket" type="button" variant="pill" class="px-5" @click="scrollTo('tickets')">
+            <Button v-if="hasTicket" type="button" variant="pill" class="px-5" @click="openTab('tickets', 'hero')">
               <Check aria-hidden="true" /> You have a pass
             </Button>
-            <Button v-else type="button" variant="cta" class="px-5" data-hero-get-pass @click="scrollTo('tickets')">
+            <Button v-else type="button" variant="cta" class="px-5" data-hero-get-pass @click="openTab('tickets', 'hero')">
               <Ticket aria-hidden="true" /> Get pass
             </Button>
             <Button type="button" :variant="inPlan ? 'pill' : 'outline-pill'" class="px-5 font-sans" :aria-pressed="inPlan" data-hero-my-plan @click="onPick">
@@ -1206,6 +1205,8 @@ useHead({
          the left once the hero has scrolled out of view, so a deep-link
          (Buy Tickets from the official site) always shows which festival
          you're on. The active section is highlighted and tracks scroll. -->
+    <!-- Where the tab bar sits before it sticks: switching tabs scrolls back up to here. -->
+    <div ref="tabsRef" aria-hidden="true" />
     <nav class="sticky top-0 z-20 border-b" style="background:rgba(251, 245, 234, 0.95); backdrop-filter: blur(8px); border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);">
       <div class="max-w-4xl mx-auto flex items-center gap-2 px-4 min-w-0">
         <Transition
@@ -1221,7 +1222,7 @@ useHead({
             :to="`/events/${festival.slug}`"
             class="flex items-center gap-2 shrink-0 pr-3 mr-1 border-r"
             style="border-color:color-mix(in srgb, var(--wd-brown-900) 8.2%, transparent);"
-            @click.prevent="scrollTo('about')"
+            @click.prevent="openTab('overview', 'nav'); scrollToTop()"
           >
             <img
               v-if="festival.logo"
@@ -1241,20 +1242,22 @@ useHead({
             </span>
           </NuxtLink>
         </Transition>
-        <div class="flex gap-0 overflow-x-auto min-w-0">
+        <div class="flex gap-0 overflow-x-auto min-w-0" role="tablist" aria-label="Sections">
           <button
-            v-for="section in sections"
-            :key="section"
+            v-for="tab in tabs"
+            :key="tab"
             type="button"
+            role="tab"
+            :aria-selected="currentTab === tab"
+            :data-event-tab="tab"
             class="relative px-3 py-3 text-sm italic whitespace-nowrap transition-colors font-display cursor-pointer"
-            :class="activeSection === section ? 'font-bold' : 'font-normal text-muted-foreground'"
-            :style="activeSection === section ? { color: festival.accentColor } : undefined"
-            :aria-current="activeSection === section ? 'location' : undefined"
-            @click="scrollTo(section)"
+            :class="currentTab === tab ? 'font-bold' : 'font-normal text-muted-foreground'"
+            :style="currentTab === tab ? { color: festival.accentColor } : undefined"
+            @click="openTab(tab, 'nav')"
           >
-            {{ sectionLabels[section] }}
+            {{ tabLabels[tab] }}
             <span
-              v-if="activeSection === section"
+              v-if="currentTab === tab"
               class="absolute left-3 right-3 bottom-0 h-[2px] rounded-full"
               :style="{ background: festival.accentColor }"
             />
@@ -1264,33 +1267,54 @@ useHead({
     </nav>
 
     <div class="max-w-3xl mx-auto px-4 space-y-14 pt-8 pb-20">
+        <template v-if="currentTab === 'overview'">
         <section id="about" class="scroll-mt-12">
           <AboutTab :festival="festival" />
         </section>
 
-        <section v-if="!rsvp" id="discover" class="scroll-mt-16">
-          <h2 class="text-2xl font-black leading-tight mb-1 text-foreground">Shall we <em class="italic text-primary">dance?</em></h2>
-          <p class="text-sm mb-4 text-muted-foreground font-sans">Swipe to discover dancers, group dinners, and activities happening around the {{ kind }}.</p>
-          <DiscoverDancers
-            :festival-slug="festival.slug"
-            :entity-label="kind"
-            :extra-cards="extraSwipeCards"
-            :workshops="workshops"
-            :plan-ids="planIds"
-            :is-signed-in="isSignedIn"
-            @sign-in="onSignIn"
-            @onboarding-complete="onOnboardingComplete"
-            @join-dinner="joinDinner"
-            @join-activity="joinActivity"
-          />
+        <!-- What's inside: one card per tab, so it's clear there is lots to explore (RAZ-1008). -->
+        <section v-if="summaryCards.length" aria-labelledby="inside-title" data-event-summary>
+          <h2 id="inside-title" class="text-2xl font-black leading-tight mb-4 text-foreground">What’s <em class="italic text-primary">inside</em></h2>
+          <ul class="grid gap-3 sm:grid-cols-3">
+            <li v-for="c in summaryCards" :key="c.tab">
+              <button
+                type="button"
+                class="group flex h-full w-full flex-col gap-2 rounded-2xl border border-border bg-card p-4 text-left transition-colors hover:border-primary/40 hover:bg-white cursor-pointer"
+                :data-summary-card="c.tab"
+                @click="openTab(c.tab, 'summary')"
+              >
+                <div v-if="c.photos?.length" class="flex -space-x-2">
+                  <img
+                    v-for="(src, i) in c.photos"
+                    :key="i"
+                    :src="sizedImage(src, IMG.avatar)"
+                    alt=""
+                    class="size-8 rounded-full object-cover ring-2 ring-card"
+                  >
+                </div>
+                <span class="text-lg font-black leading-tight text-foreground font-display">{{ c.title }}</span>
+                <span class="text-sm text-muted-foreground font-sans line-clamp-2">{{ c.line }}</span>
+                <span class="mt-auto inline-flex items-center gap-1 text-xs font-bold text-secondary font-sans">
+                  {{ tabLabels[c.tab] }} <ArrowRight class="size-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+                </span>
+              </button>
+            </li>
+          </ul>
+        </section>
+
+        <!-- Meeting people: the same flow as any event (RAZ-1008, RAZ-981). Once it's on your plan
+             (or you have a pass) you're in Meet new friends with everyone else going. -->
+        <section v-if="!rsvp && (inPlan || hasTicket)" id="meet" aria-label="Meet who’s going">
+          <EventMeetPrompt :event-id="data.eventId" surface="festival" />
           <!-- Verified ticket holders: the TicketTailor claim flow exists for Charanga only (/charanga/claim). -->
           <div v-if="festival.slug === 'charanga-habanera-munich-2026'" class="mt-6">
             <h3 class="mb-3 text-lg font-bold font-display">Verified attendees</h3>
             <AttendeeRoster :festival-slug="festival.slug" />
           </div>
         </section>
+        </template>
 
-        <section v-if="teachers.length > 0" id="lineup" class="scroll-mt-16">
+        <section v-if="currentTab === 'lineup'" id="lineup" class="scroll-mt-16">
           <div class="flex items-baseline justify-between gap-3 mb-1">
             <h2 class="text-2xl font-black leading-tight text-foreground">Lineup</h2>
             <Button
@@ -1322,7 +1346,7 @@ useHead({
           </div>
         </section>
 
-        <section v-if="workshops.length > 0" id="schedule" class="scroll-mt-16">
+        <section v-if="currentTab === 'schedule'" id="schedule" class="scroll-mt-16">
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-2xl font-black leading-tight text-foreground">Schedule</h2>
             <Button
@@ -1353,7 +1377,7 @@ useHead({
         </section>
 
         <!-- A dated event's passes are in the sign-up up top (RAZ-995); festivals keep this section. -->
-        <section v-if="!rsvp && (sellsPasses || (festival.tickets?.length && hasTicket))" id="tickets" class="scroll-mt-16">
+        <section v-if="currentTab === 'tickets'" id="tickets" class="scroll-mt-16">
           <div class="mb-4">
             <div class="text-xs uppercase tracking-[0.3em] text-secondary">Passes</div>
             <h2 v-if="hasTicket" class="mt-2 text-2xl font-black leading-tight text-foreground">
@@ -1443,10 +1467,10 @@ useHead({
           <!-- Nudge: no plan yet (only when we can actually recommend) -->
           <NuxtLink
             v-else-if="passesDescribed"
-            to="#schedule"
+            :to="{ query: { ...route.query, tab: 'schedule' } }"
             class="rounded-2xl p-5 mb-6 flex items-center gap-3 border-2 border-dashed transition-colors hover:bg-white/60"
             style="border-color:color-mix(in srgb, var(--wd-brown-900) 20%, transparent); background:rgba(255,255,255,0.4);"
-            @click="scrollTo('schedule')"
+            @click.prevent="openTab('schedule', 'link')"
           >
             <Sparkles class="w-6 h-6 shrink-0 text-secondary" />
             <div>
@@ -1581,12 +1605,12 @@ useHead({
           </div>
         </section>
 
-        <section id="venue" class="scroll-mt-16">
+        <section v-if="currentTab === 'overview'" id="venue" class="scroll-mt-16">
           <h2 class="text-2xl font-black leading-tight mb-4 text-foreground">Venue</h2>
           <VenueTab :venue="festival.venue" />
         </section>
 
-        <section id="activities" class="scroll-mt-16">
+        <section v-if="currentTab === 'overview'" id="activities" class="scroll-mt-16">
           <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 mb-1">
             <h2 class="text-2xl font-black leading-tight text-foreground">Going together</h2>
             <!-- The old empty "Friends' Plans" box, as one button (RAZ-996). -->

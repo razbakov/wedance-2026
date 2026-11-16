@@ -89,7 +89,7 @@ const IT: [UxJourneyId, UxStageKey, string, string, UxStatus, string, string][] 
 ['C3','discover','City page this week','/cities/[city]','live','Real week and "Coming up" (300+ Munich events, synced from wedance.vip). The going counts fail to load on big cities (RAZ-923).','P216 P217 P601 RAZ-923'],
 ['C3','discover','Venues & organisers tabs','/cities/[city]/venues','live','"Who\'s on the floor" tabs.','RAZ-168'],
 ['C3','evaluate','Event page','/events/[id]','live','Time in the event\'s zone, venue, line-up, organiser.',''],
-['C3','evaluate','Who\'s going (opt-in faces)','/events/[id]','partial','Shows "N going" and the "Shall we dance?" deck of dancers who joined it. The faces grid with its share toggle (GoingSection) shipped after the July audit, then left the pages in #327.','P205 P207 P211 RAZ-19 RAZ-930'],
+['C3','evaluate','Who\'s going (opt-in faces)','/events/[id]','partial','Shows "N going"; once it is on your plan, "Meet who\'s going" leads to Meet new friends, as on any event (the festival-only "Shall we dance?" deck left in RAZ-1008). The faces grid with its share toggle (GoingSection) shipped after the July audit, then left the pages in #327.','P205 P207 P211 RAZ-19 RAZ-930'],
 ['C3','evaluate','Ask the locals, community groups','/cities/[city]','live','',''],
 ['C3','commit','Going! / organiser\'s RSVP poll','/events/[id]','live','Partner / need a leader / need a follower; signed-out answers show as unconfirmed and survive sign-up.','RAZ-718 RAZ-731'],
 ['C3','attend','Hangouts tonight','/my-plan','live','Event-linked hangouts.','P232 RAZ-439'],
