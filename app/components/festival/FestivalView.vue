@@ -2117,6 +2117,7 @@ useHead({
       :festival-name="festival.name"
       :festival-slug="festival.slug"
       :event-type="props.type"
+      :event-id="data.eventId"
     />
 
 

@@ -1,15 +1,17 @@
 <script setup lang="ts">
 import type { Workshop, PlanEntry, DanceRole, Teacher } from '~/types/festival'
-import { Share2, Gift, Copy, Check } from 'lucide-vue-next'
+import { Share2, Gift, Copy, Check, Loader2, ArrowRight } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
 import { Badge } from '~/components/ui/badge'
 import { festivalPath } from '#shared/utils/eventSlug'
 import { eventNoun, shareMode, shareText, withReferral } from '~/lib/shareInvite'
 
-// "Bring friends" (RAZ-1001): one link, one button. It carries the workshop
-// plan only when there is one to show (more than one session, some picked);
-// otherwise it's the event's own link. The referral discount is folded into the
-// same link, and mentioned only when this event actually has one.
+// "Bring friends" (RAZ-1001): the same "Post it as a story" card as My plan's
+// week (WeekendStory), made for this one event — a /w/<code> link where friends
+// tap "I'm in" and the sharer is emailed. Signed out, or when the event can't
+// get a story (past, not a real event row), it falls back to one link and one
+// button. A picked workshop plan goes as its own link under the story.
+// The referral discount rides on the plain link only when this event has one.
 const props = defineProps<{
   open: boolean
   workshops: Workshop[]
@@ -20,6 +22,8 @@ const props = defineProps<{
   festivalSlug: string
   /** The event's type (class, party, festival…) — names it in the copy. */
   eventType?: string | null
+  /** The `events` row behind the page: the story link is made for it. */
+  eventId?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -29,7 +33,7 @@ const emit = defineEmits<{
 const copied = ref(false)
 
 const { $trpc } = useNuxtApp()
-const { dancerName, dancerId, username, role } = useAuth()
+const { dancerName, dancerId, username, role, isSignedIn } = useAuth()
 const { buildShareUrl } = useSharePlan()
 
 const planned = computed(() => {
@@ -55,6 +59,22 @@ watch(() => props.open, async (open) => {
     const r = await $trpc.referral.validate.query({ festivalSlug: props.festivalSlug, referralCode: referralCode.value })
     discountPercent.value = r?.discountPercent ?? 0
   } catch { /* no discount */ }
+}, { immediate: true })
+
+// The story: weekend.share for this one event (the same link comes back within a few days).
+type Story = NonNullable<Awaited<ReturnType<typeof $trpc.weekend.get.query>>>
+const story = ref<Story | null>(null)
+const storyState = ref<'idle' | 'loading' | 'none'>('idle')
+watch(() => props.open, async (open) => {
+  if (!open || story.value || storyState.value === 'loading' || !isSignedIn.value || !props.eventId) return
+  storyState.value = 'loading'
+  try {
+    const r = await $trpc.weekend.share.mutate({ eventIds: [props.eventId], surface: 'event' })
+    story.value = await $trpc.weekend.get.query({ code: r.code })
+    storyState.value = story.value ? 'idle' : 'none'
+  } catch {
+    storyState.value = 'none'
+  }
 }, { immediate: true })
 
 const link = computed(() => {
@@ -133,10 +153,13 @@ async function send() {
 
 <template>
   <Dialog :open="open" @update:open="emit('update:open', $event)">
-    <DialogContent class="sm:max-w-md max-h-[85vh] flex flex-col">
+    <DialogContent class="sm:max-w-lg max-h-[85vh] flex flex-col">
       <DialogHeader>
         <DialogTitle>Bring friends</DialogTitle>
-        <DialogDescription v-if="mode === 'plan'">
+        <DialogDescription v-if="story || storyState === 'loading'">
+          Post {{ festivalName }} as a story. Friends tap the link, say “I’m in”, and we tell you.
+        </DialogDescription>
+        <DialogDescription v-else-if="mode === 'plan'">
           Send your plan for {{ festivalName }}. Friends see your {{ planned.length }}
           {{ planned.length === 1 ? 'workshop' : 'workshops' }} and where you need a partner.
         </DialogDescription>
@@ -146,35 +169,55 @@ async function send() {
       </DialogHeader>
 
       <div class="space-y-4 py-2 overflow-y-auto flex-1 -mx-6 px-6">
-        <p
-          v-if="discountPercent > 0"
-          class="flex items-start gap-2 rounded-lg border border-dashed px-3 py-2.5 text-xs"
-          data-testid="share-discount"
-        >
-          <Gift class="w-4 h-4 text-green-600 shrink-0 mt-px" aria-hidden="true" />
-          <span>A friend who buys a ticket through your link gets {{ discountPercent }}% off, and you both get a discount.</span>
-        </p>
-
-        <Button class="w-full gap-2" data-testid="share-send" @click="send">
-          <Share2 class="w-4 h-4" aria-hidden="true" /> Send to friends
-        </Button>
-
-        <div class="flex gap-2">
-          <input
-            :value="link"
-            readonly
-            aria-label="Link"
-            class="flex-1 min-w-0 rounded-md border bg-muted/50 px-3 py-2 text-xs text-muted-foreground"
-            @focus="($event.target as HTMLInputElement).select()"
+        <!-- The story, as on My plan → Week -->
+        <div v-if="storyState === 'loading'" class="grid place-items-center py-10" data-testid="share-story-loading">
+          <Loader2 class="size-5 animate-spin text-muted-foreground" aria-label="Making your story" />
+        </div>
+        <WeekendStory v-else-if="story" :plan="story" surface="event">
+          <NuxtLink
+            :to="`/w/${story.code}`"
+            class="mt-2 inline-flex items-center gap-1 text-xs font-bold underline text-primary font-sans"
+            data-testid="share-story-page"
           >
-          <Button size="sm" variant="outline" class="shrink-0" data-testid="share-copy" @click="copyLink">
-            <component :is="copied ? Check : Copy" class="w-3.5 h-3.5 mr-1" aria-hidden="true" />
-            {{ copied ? 'Copied' : 'Copy' }}
+            See who's joining <ArrowRight class="w-3.5 h-3.5" aria-hidden="true" />
+          </NuxtLink>
+        </WeekendStory>
+
+        <template v-if="!story && storyState !== 'loading'">
+          <p
+            v-if="discountPercent > 0"
+            class="flex items-start gap-2 rounded-lg border border-dashed px-3 py-2.5 text-xs"
+            data-testid="share-discount"
+          >
+            <Gift class="w-4 h-4 text-green-600 shrink-0 mt-px" aria-hidden="true" />
+            <span>A friend who buys a ticket through your link gets {{ discountPercent }}% off, and you both get a discount.</span>
+          </p>
+
+          <Button class="w-full gap-2" data-testid="share-send" @click="send">
+            <Share2 class="w-4 h-4" aria-hidden="true" /> Send to friends
           </Button>
+        </template>
+
+        <!-- The plain link — the fallback, or the workshop plan under a story -->
+        <div v-if="(!story && storyState !== 'loading') || mode === 'plan'">
+          <p v-if="story" class="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Or send your workshop plan</p>
+          <div class="flex gap-2">
+            <input
+              :value="link"
+              readonly
+              aria-label="Link"
+              class="flex-1 min-w-0 rounded-md border bg-muted/50 px-3 py-2 text-xs text-muted-foreground"
+              @focus="($event.target as HTMLInputElement).select()"
+            >
+            <Button size="sm" variant="outline" class="shrink-0" data-testid="share-copy" @click="copyLink">
+              <component :is="copied ? Check : Copy" class="w-3.5 h-3.5 mr-1" aria-hidden="true" />
+              {{ copied ? 'Copied' : 'Copy' }}
+            </Button>
+          </div>
         </div>
 
-        <!-- Plan preview — only when a plan goes out -->
-        <div v-if="mode === 'plan'" class="rounded-lg border bg-muted/30 p-4">
+        <!-- Plan preview — only when a plan goes out without a story -->
+        <div v-if="mode === 'plan' && !story && storyState !== 'loading'" class="rounded-lg border bg-muted/30 p-4">
           <p class="text-xs font-medium text-muted-foreground mb-2">What they'll see:</p>
           <div class="space-y-3">
             <div v-for="[day, dayWorkshops] in groupedByDay" :key="day">
@@ -210,9 +253,6 @@ async function send() {
             Looking for a partner in {{ lookingCount }} {{ lookingCount === 1 ? 'workshop' : 'workshops' }}
           </p>
         </div>
-        <p v-else-if="workshops.length > 1" class="text-xs text-muted-foreground">
-          Pick workshops on the Schedule first and the link carries your plan too.
-        </p>
       </div>
     </DialogContent>
   </Dialog>

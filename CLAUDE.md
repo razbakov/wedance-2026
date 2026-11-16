@@ -328,6 +328,10 @@ browser's guest joins into the account — on their plan, confirmed "yes" on the
 sharer. Signed-in joins also add a confirmed "yes" on the poll. The sharer gets `sendWeekendJoinEmail` per new join. Entry points: My plan → "Your week" shows the story in place (nights only — classes stay off it) (`app/components/WeekendStory.vue`, shared with `/w/<code>`; the link is made when the list loads and again when its parties change — RAZ-895), MCP `share_my_weekend`
 (returns `storyUrl` = the link + `?story=1`, which shows the story maker to whoever opens it).
 Code: `server/trpc/routers/weekend.ts`, `shared/utils/weekendShare.ts`, `app/pages/w/[code].vue`.
+**One event (RAZ-1001):** an event page's "Bring friends" (`SharePlanModal`) shows the same `WeekendStory` card for
+that event alone (`weekend.share({ eventIds: [id], surface: 'event' })`; the picture says "<NAME> IS GOING", not
+"WEEKEND"). Signed out, or an event the share refuses (past, not an `events` row), gets the plain link instead; a picked
+workshop plan stays a separate `?invite=` link under the story.
 No auto-posting: Instagram's publishing API is Business/Creator-only and the Meta app is in dev mode.
 
 ## New event: one question, then steps (RAZ-939)
@@ -544,7 +548,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `find_your_dance_started` / `find_your_dance_completed` | `find-your-dance.vue` (first video watched or choice · a style or the taster chosen; not a quiz) | `style`, `via` · `style_chosen`, `taster`, `answers_count` (videos watched), `styles_suggested` |
 | `profile_viewed` | `/@handle` (business profiles, `trackOnce`), `/u/<handle>` (dancers — no handle sent) | `profile` (business only), `profile_type`, `city`, `claimed`, `own`, `surface` |
 | `outbound_click` | delegated listener `plugins/06.outbound-click.client.ts` (every external link) | `kind` (ticket / website / instagram / map / whatsapp / telegram / community_group / email / phone / ai_app / …; `data-outbound-kind` overrides), `platform`, `host` (never path/query), `object_type`, `object_id` (`data-object-*` or the page's `useTrackContext`), `city`, `surface` (route name) |
-| `plan_shared` | `SharePlanModal` "Bring friends" (RAZ-1001: the workshop plan when there is one, else the event's own link; the festival year is shared as a story, `year_story_shared`) | `object` (festival = a workshop plan / event = just the link / year), `method` (copy / native), `festival` / `workshops` / `festivals`, `referral` (the link carried `?ref=`, only when the festival has a referral discount), `surface` |
+| `plan_shared` | `SharePlanModal` "Bring friends" (RAZ-1001: the plain link — signed out or no story for the event — or "Or send your workshop plan" under the story; the festival year is shared as a story, `year_story_shared`) | `object` (festival = a workshop plan / event = just the link / year), `method` (copy / native), `festival` / `workshops` / `festivals`, `referral` (the link carried `?ref=`, only when the festival has a referral discount), `surface` |
 | `shared_plan_viewed` | `FestivalView` (`?invite=` / `?plan=shared`), `my-year?user=` | `object`, `festival`, `signed_in`, `workshops` / `festivals`, `has_referral` |
 | `referral_link_shared` | (retired in RAZ-1001: the referral code rides on the one "Bring friends" link — `plan_shared` `referral`) | `method`, `festival`, `surface` |
 | `tracked_link_visit` | `plugins/05.tracked-link.client.ts` (`?via=` promoter link) | `code_type`, `referral_code` (promoter link code), `counted`, `landing` |
@@ -612,7 +616,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `weekend_plan_viewed` | `w/[code].vue` (Share my weekend page, once per mount) | `own`, `parties`, `friends`, `story` (opened with `?story=1`) |
 | `weekend_joined` | `w/[code].vue` "I'm in" | `signed_in`, `surface` |
 | `weekend_reminder_requested` | `w/[code].vue` email step after a guest's "I'm in" (magic link sent) | `surface` |
-| `weekend_story_shared` | `WeekendStory` story panel (`w/[code].vue`, My plan → "Where you're dancing") | `method` (native / download / copy), `parties`, `own_line` (the sharer wrote their own line), `surface` (weekend-page / my_plan) |
+| `weekend_story_shared` | `WeekendStory` story panel (`w/[code].vue`, My plan → "Where you're dancing", an event page's "Bring friends" — one event, RAZ-1001) | `method` (native / download / copy), `parties`, `own_line` (the sharer wrote their own line), `surface` (weekend-page / my_plan / event) |
 | `year_story_shared` | `YearStory` story panel in My plan under "Your festivals" (RAZ-897; moved from /my-year in RAZ-966; the link opens `/my-year?user=`) | `method` (native / download / copy), `festivals`, `own_line` (the sharer wrote their own line), `surface` (my_plan; year-modal before RAZ-966) |
 | `year_review_viewed` | `YearReview` on /my-year (your year in dance, RAZ-966; once per year per session) | `year`, `nights`, `screens`, `festivals` |
 | `year_review_shared` | `YearReview` "Share this one" / "Share all" / "Save picture" / "Save all" | `method` (native / download), `screens` (pictures shared), `screen` (kind on screen), `year` |
@@ -679,7 +683,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `server_city_occasion_published` | `cityOccasions.publishInstagram` / `publishTelegram` (RAZ-970) | `city`, `occasion`, `kind` (silent / party / season), `to`, `langs`, `channels`, `$groups` |
 | `server_city_occasion_asked` | `cityOccasions.ask` (organisers with events in the city emailed) | `city`, `occasion`, `kind`, `pages`, `emails`, `$groups` |
 | `server_city_admin_added` | `cityChannels.addAdmin` (Admin → Cities) | `city`, `role`, `$groups` |
-| `server_weekend_shared` | `weekend.share` (new link only; My plan makes it on its own to show the story, MCP `share_my_weekend`) | `events`, `replaced_previous`, `surface` (my_plan / mcp / web) — `my_plan` is not a share intent; count intent on `weekend_story_shared` |
+| `server_weekend_shared` | `weekend.share` (new link only; My plan makes it on its own to show the story, MCP `share_my_weekend`) | `events`, `replaced_previous`, `surface` (my_plan / mcp / web / event = an event page's "Bring friends", RAZ-1001) — `my_plan` is not a share intent; count intent on `weekend_story_shared` |
 | `server_weekend_joined` | `weekend.join` (a friend's first "I'm in" on a party) | `signed_in`, `coming`, `friends` |
 | `server_weekend_join_confirmed` | `weekend.join` signed in with a guest token (the magic link came back; guest joins folded into the account) | `parties`, `hours_to_confirm` |
 | `server_member_role_set` | `businessTeam.setRole` (role actually changed) | `profile`, `profile_type`, `from_role`, `role`, `self`, `$groups` |
