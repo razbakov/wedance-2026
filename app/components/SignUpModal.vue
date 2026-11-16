@@ -39,7 +39,8 @@ const headlines: Record<string, string> = {
   profile: 'Join to view dancer profiles',
   share: 'Join to share your plan',
   save: 'Join to save your plan',
-  dashboard: 'Join to build your dashboard',
+  dashboard: 'Join to make your dance plan',
+  meet: 'Join to meet dancers going out',
   onboarding: 'Almost there! Join to start discovering',
   partner: 'Join to find a dance partner',
   social: 'Join the community',
@@ -321,7 +322,7 @@ async function handleRecovery() {
               {{ isRegister ? 'Join the floor' : 'Welcome back' }}
             </div>
             <DialogTitle class="text-2xl leading-tight text-foreground font-display">
-              {{ isRegister ? (headlines[action] || 'Join WeDance') : 'Sign in to WeDance' }}
+              {{ isRegister ? (action === 'signin' ? 'Join WeDance' : headlines[action] || 'Join WeDance') : 'Sign in to WeDance' }}
             </DialogTitle>
             <DialogDescription class="text-muted-foreground font-sans">
               {{ isRegister ? 'Create your account with email and password.' : 'Enter your email and password.' }}

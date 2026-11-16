@@ -255,7 +255,7 @@ const lastYes = computed(() => {
         <p class="mt-6 text-center text-sm text-muted-foreground font-sans">
           These are examples. <button type="button" class="font-bold text-primary hover:underline" @click="showAuth = true">Join</button> to meet the real ones.
         </p>
-        <SignUpModal v-model:open="showAuth" action="dashboard" :prefill="signUpPrefill" />
+        <SignUpModal v-model:open="showAuth" action="meet" :prefill="signUpPrefill" />
       </section>
 
       <!-- LOADING -->
