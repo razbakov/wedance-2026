@@ -4,7 +4,7 @@ import { TRPCError } from '@trpc/server'
 import { router, publicProcedure } from '../trpc'
 import { events, cities } from '../../database/schema'
 import { festivalView } from '../../utils/festivalView'
-import { listFestivals } from '../../utils/festivalListing'
+import { festivalEventsWhere, listFestivals } from '../../utils/festivalListing'
 import { inviteEventId, previewEventWhere, publicEventWhere } from '../../utils/eventLookup'
 import { resolveCoOrganizers } from '../../utils/coOrganizers'
 
@@ -77,7 +77,7 @@ export const eventsRouter = router({
       const end = new Date(new Date(`${input.to && input.to >= input.from ? input.to : input.from}T00:00:00Z`).getTime() + 86400_000)
       const overlaps = and(lt(events.startDate, new Date(end.getTime() + 2 * 3600_000)), gte(sql`coalesce(${events.endDate}, ${events.startDate})`, new Date(start.getTime() + 4 * 3600_000)))
       const except = input.exceptId ? ne(events.id, input.exceptId) : undefined
-      const multiDay = or(eq(events.isFestival, true), sql`${events.festival} is not null`, sql`${events.type} in ('Festival', 'Weekender', 'Congress')`)
+      const multiDay = festivalEventsWhere()
       const [inCity, festivals] = await Promise.all([
         selectCards(ctx.db, and(live(), overlaps, eq(events.citySlug, citySlug), except), 50),
         c?.country ? selectCards(ctx.db, and(live(), overlaps, eq(events.country, c.country), multiDay, sql`${events.citySlug} is distinct from ${citySlug}`, except), 30) : [],

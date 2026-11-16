@@ -828,7 +828,7 @@ export const businessEventsRouter = router({
         if (!r.alreadyCancelled) {
           trackServer(ctx, 'event_cancelled', {
             event_id: ev.id, notified: r.notified, has_reason: !!input.reason?.trim(), bulk: input.ids.length > 1,
-            is_festival: !!ev.festival || !!ev.isFestival, host_type: host?.type ?? null, ...profileGroup(host?.username),
+            is_festival: !!ev.isFestival, host_type: host?.type ?? null, ...profileGroup(host?.username),
           })
         }
         results.push(r)
@@ -865,7 +865,7 @@ export const businessEventsRouter = router({
       trackServer(ctx, 'event_uncancelled', {
         event_id: ev.id, notified: r.notified, notify: input.notify,
         hours_cancelled: Math.round((Date.now() - new Date(ev.cancelledAt).getTime()) / 3600_000),
-        is_festival: !!ev.festival || !!ev.isFestival, host_type: host?.type ?? null, ...profileGroup(host?.username),
+        is_festival: !!ev.isFestival, host_type: host?.type ?? null, ...profileGroup(host?.username),
       })
       return r
     }),
