@@ -37,8 +37,9 @@ const venue = {
   mapEmbed: 'https://www.openstreetmap.org/export/embed.html?bbox=11.4378%2C48.2392%2C11.4578%2C48.2492&layer=mapnik&marker=48.2442085%2C11.4478376',
 }
 // The venue's three hints: a title and one quiet line each.
-const HINTS: { icon: Component, text: string, detail: string, missing?: boolean }[] = [
-  { icon: TrainFront, text: 'Dachau Bahnhof (S2)', detail: '20 min walk or 5 min by bus' },
+const HINTS: { icon: Component, line?: { name: string, color: string }, text: string, detail: string, missing?: boolean }[] = [
+  // The nearest stop leads with its line badge, in the line's own colour (Munich S2 = green).
+  { icon: TrainFront, line: { name: 'S2', color: '#76B82A' }, text: 'Dachau Bahnhof', detail: '20 min walk or 5 min by bus' },
   { icon: Car, text: 'Garage next door', detail: 'Entrance by the Audi dealership' },
   { icon: Footprints, text: 'Indoor dance shoes only', detail: 'Bring a pair to change into' },
   // Something the venue doesn't have: Airbnb's unavailable amenity — struck through, icon crossed.
@@ -202,7 +203,13 @@ const TODAY = [
                     </div>
                     <ul class="mt-4 space-y-4 border-t border-border pt-4" data-sketch-hints>
                       <li v-for="h in hints" :key="h.text" class="flex items-start gap-4">
-                        <span class="relative shrink-0" aria-hidden="true">
+                        <span
+                          v-if="h.line"
+                          class="flex size-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold leading-none text-white"
+                          :style="{ background: h.line.color }"
+                          data-sketch-line
+                        >{{ h.line.name }}</span>
+                        <span v-else class="relative shrink-0" aria-hidden="true">
                           <component :is="h.icon" class="size-6" :class="h.missing ? 'text-muted-foreground' : 'text-foreground'" :stroke-width="1.5" />
                           <span v-if="h.missing" class="absolute left-1/2 top-1/2 h-[1.5px] w-7 -translate-x-1/2 -translate-y-1/2 -rotate-45 rounded-full bg-muted-foreground ring-2 ring-card" />
                         </span>
