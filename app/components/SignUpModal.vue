@@ -51,11 +51,14 @@ const headlines: Record<string, string> = {
 
 type Mode = 'login' | 'register' | 'recovery'
 
-/** The two ways in, side by side; the hint says which one is yours. */
+/** The two ways in, side by side. */
 const AUTH_TABS = [
-  { value: 'register', label: 'Join', hint: 'New to WeDance', testid: 'auth-tab-join' },
-  { value: 'login', label: 'Sign in', hint: 'I have an account', testid: 'auth-tab-signin' },
+  { value: 'register', label: 'Join', testid: 'auth-tab-join' },
+  { value: 'login', label: 'Sign in', testid: 'auth-tab-signin' },
 ] as const
+
+/** Why this popup opened ("Join to make your dance plan"), shown under the tabs; null = the tabs say it all. */
+const reason = computed(() => (mode.value === 'register' && props.action !== 'signin' ? headlines[props.action] ?? null : null))
 
 // signin action → start in login mode; every other action is a "join" prompt →
 // start in register mode. The user can flip to recovery via "Forgot password?".
@@ -233,12 +236,33 @@ async function handleRecovery() {
 <template>
   <Dialog :open="open" @update:open="emit('update:open', $event)">
     <DialogContent
-      class="sm:max-w-md border-0 p-0 overflow-hidden [&>button]:top-6 [&>button]:right-5 bg-background text-foreground font-display"
+      class="sm:max-w-md border-0 p-0 gap-0 overflow-hidden [&>button]:top-4 [&>button]:right-4 bg-background text-foreground font-display"
     >
-      <!-- Accent bar -->
-      <div class="h-1.5 bg-primary" />
+      <!-- Join / Sign in: real tabs across the top. The open one sits on the form's
+           background with a red top edge; the other is shaded behind it. The
+           last cell keeps the close button clear of the tabs. -->
+      <Tabs
+        v-if="!isRecovery"
+        :model-value="isRegister ? 'register' : 'login'"
+        @update:model-value="(v: string | number) => switchMode(v as Mode)"
+      >
+        <TabsList aria-label="Join or sign in" class="flex h-auto w-full rounded-none bg-transparent p-0">
+          <TabsTrigger
+            v-for="t in AUTH_TABS"
+            :key="t.value"
+            :value="t.value"
+            class="flex-1 rounded-none border-t-4 border-b border-transparent border-b-border bg-muted px-4 py-4 font-sans text-base font-bold text-muted-foreground hover:text-foreground data-[state=active]:border-t-primary data-[state=active]:border-b-transparent data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-none"
+            :data-testid="t.testid"
+          >
+            {{ t.label }}
+          </TabsTrigger>
+          <span class="w-14 shrink-0 self-stretch border-b border-border bg-muted" aria-hidden="true" />
+        </TabsList>
+      </Tabs>
+      <!-- Recovery: the accent bar instead of the tabs. -->
+      <div v-else class="h-1.5 bg-primary" />
 
-      <div class="px-6 pb-6 pt-4">
+      <div class="px-6 pb-6" :class="isRecovery ? 'pt-4' : 'pt-5'">
         <!-- ============================ RECOVERY ============================ -->
         <template v-if="isRecovery">
           <DialogHeader class="text-left space-y-1">
@@ -323,31 +347,18 @@ async function handleRecovery() {
 
         <!-- ======================= LOGIN / REGISTER ======================= -->
         <template v-else>
-          <!-- Join / Sign in as two tabs: you see both ways in at once. -->
-          <Tabs :model-value="isRegister ? 'register' : 'login'" class="mb-5 pr-8" @update:model-value="(v: string | number) => switchMode(v as Mode)">
-            <TabsList aria-label="Join or sign in" class="grid h-auto w-full grid-cols-2 rounded-none border-b border-border bg-transparent p-0">
-              <TabsTrigger
-                v-for="t in AUTH_TABS"
-                :key="t.value"
-                :value="t.value"
-                class="-mb-px flex-col gap-0.5 rounded-none border-b-[3px] border-transparent px-2 pb-2.5 pt-1 font-sans text-foreground opacity-55 hover:opacity-90 data-[state=active]:opacity-100 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
-                :data-testid="t.testid"
-              >
-                <span class="block text-base font-bold leading-tight">{{ t.label }}</span>{{ ' ' }}<span class="block text-xs font-normal">{{ t.hint }}</span>
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
 
-          <DialogHeader class="text-left space-y-1">
-            <DialogTitle class="text-2xl leading-tight text-foreground font-display">
-              {{ isRegister ? (action === 'signin' ? 'Join WeDance' : headlines[action] || 'Join WeDance') : 'Welcome back' }}
+          <!-- The tabs already say Join / Sign in: a heading only when it adds why. -->
+          <DialogHeader class="text-left">
+            <DialogTitle :class="reason ? 'text-2xl leading-tight text-foreground font-display' : 'sr-only'">
+              {{ reason ?? (isRegister ? 'Join WeDance' : 'Sign in to WeDance') }}
             </DialogTitle>
-            <DialogDescription class="text-muted-foreground font-sans">
+            <DialogDescription class="sr-only">
               {{ isRegister ? 'Create your account with email and password.' : 'Enter your email and password.' }}
             </DialogDescription>
           </DialogHeader>
 
-          <form class="space-y-4 pt-4" novalidate @submit.prevent="handleSubmit">
+          <form class="space-y-4" :class="reason ? 'pt-4' : 'pt-1'" novalidate @submit.prevent="handleSubmit">
             <!-- Name (register only, unless prefilled) -->
             <Field v-if="isRegister && !hasPrefillName" id="auth-name" label="Name" :error="authForm.errors.name">
               <Input
