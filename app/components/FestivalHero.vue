@@ -166,11 +166,12 @@ const rays = Array.from({ length: 24 }, (_, i) => {
 
     <div class="relative max-w-4xl mx-auto px-4 pt-10 pb-12">
       <div class="grid gap-5 sm:gap-8" :class="image ? 'sm:grid-cols-[minmax(0,15rem)_1fr] sm:items-start' : ''">
-        <!-- The event's picture: 4:5 beside the text, a short band on top on phones (the buttons stay in view).
-             Flyers are busy, so it's cropped from the top; tap for the whole thing. -->
+        <!-- The event's picture: the whole flyer beside the text, at its own shape (RAZ-1015 — a 4:5 crop cut
+             off the flyer's bottom line), capped so a story-shaped one stays sane; a short band on top on
+             phones (the buttons stay in view), cropped from the top; tap for the whole thing. -->
         <div v-if="image">
           <a :href="image" target="_blank" rel="noopener" class="block overflow-hidden rounded-2xl border border-border shadow-wd-card bg-wd-brown-900/[3.9%]" data-hero-image>
-            <img :src="sizedImage(image, IMG.large)" :alt="`${festival.name} — picture`" class="w-full h-36 sm:h-auto sm:aspect-[4/5] object-cover object-top">
+            <img :src="sizedImage(image, IMG.large)" :alt="`${festival.name} — picture`" class="w-full h-36 object-cover object-top sm:h-auto sm:max-h-[36rem] sm:object-contain">
           </a>
           <!-- How it's rated, under the picture (RAZ-1011): the stars open the Reviews tab. -->
           <a
