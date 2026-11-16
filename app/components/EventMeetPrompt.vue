@@ -6,7 +6,9 @@
  * this says so, asks for what's missing (a photo, a public profile) and leads
  * to the deck — the people there are going out too, and each card links to
  * their night. Shown under "You're in" in EventSignup. "Add a photo" opens the
- * dancer's own card (/dance-card, RAZ-1005) and comes back here.
+ * dancer's own card (/dance-card, RAZ-1005) and comes back here. Until others
+ * can see them (photo + public profile) that is the one button: the deck comes
+ * after, so nobody is pointed at it before they're in it.
  */
 import { ArrowRight, Camera, Users } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
@@ -48,19 +50,20 @@ function open() {
     </p>
     <p v-else-if="!hasPhoto" class="text-sm text-muted-foreground" data-meet-prompt-photo>
       Add a photo and dancers going out near you will see you’re going to this night — in Meet new friends and in Who’s coming.
-      Without one, nobody can recognise you.
+      Without one, nobody can recognise you. Then meet who’s going.
     </p>
     <p v-else class="text-sm text-muted-foreground" data-meet-prompt-private>
-      Your profile is private, so nobody sees you’re going. Make it public and dancers going out near you can find you in Meet new friends.
+      Your profile is private, so nobody sees you’re going. Make it public and dancers going out near you can find you in Meet new friends,
+      then meet who’s going.
     </p>
     <p v-if="lookingFor" class="text-sm text-muted-foreground">
-      Looking for {{ lookingFor }}? The ones going are under Who’s coming below, and in the deck.
+      Looking for {{ lookingFor }}? The ones going are under Who’s coming below<template v-if="shown">, and in the deck</template>.
     </p>
     <div class="flex flex-wrap items-center gap-2">
-      <Button as-child variant="cta" size="pill-sm">
+      <Button v-if="shown" as-child variant="cta" size="pill-sm">
         <NuxtLink to="/meet" data-meet-prompt-open @click="open">Meet who’s going <ArrowRight aria-hidden="true" /></NuxtLink>
       </Button>
-      <Button v-if="!shown" as-child variant="outline" size="pill-sm">
+      <Button v-else as-child variant="cta" size="pill-sm">
         <NuxtLink :to="cardLink" data-meet-prompt-settings>
           <Camera v-if="!hasPhoto" aria-hidden="true" /> {{ hasPhoto ? 'Make my profile public' : 'Add a photo' }}
         </NuxtLink>
