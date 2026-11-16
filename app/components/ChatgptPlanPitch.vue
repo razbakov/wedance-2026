@@ -67,7 +67,7 @@ const onClick = () => useTrack().track('ai_app_cta_click', { app: 'chatgpt', sur
           Ask where to dance. <em class="italic text-primary">Get your plan.</em>
         </component>
         <p v-if="hero" class="mt-3 text-sm sm:text-base text-muted-foreground font-sans max-w-sm mx-auto md:mx-0">
-          Add WeDance to ChatGPT, then just ask. What you pick lands on your plan.
+          Add it once, then just ask. What you pick lands on your plan.
         </p>
         <p v-else class="mt-3 text-sm sm:text-base text-muted-foreground font-sans">
           Add WeDance to ChatGPT once. Then ask about parties, festivals and courses in plain words — what you pick lands on your plan here.
