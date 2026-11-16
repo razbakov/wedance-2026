@@ -51,6 +51,7 @@ export const hubNav: DocSection[] = [
       { title: 'First class blueprint', to: '/docs/blueprints/first-class', status: 'beta', summary: 'Newcomer, WeDance and the school lane by lane: from curious to a second class, and what the school never hears.' },
       { title: 'Keep progressing blueprint', to: '/docs/blueprints/keep-progressing', status: 'beta', summary: 'Student, WeDance and the teacher or school lane by lane: from a goal to the next level, and where momentum is left to WhatsApp.' },
       { title: 'Artist booking blueprint', to: '/docs/blueprints/artist-booking', status: 'beta', summary: 'Artist, WeDance and organiser lane by lane: from having a page to being booked again, and where a request goes unanswered.' },
+      { title: 'Make a page real blueprint', to: '/docs/blueprints/make-it-real', status: 'beta', summary: 'Page owner, WeDance and dancers lane by lane: from a synced or imported page to one its owner runs, and where claims wait on an admin.' },
     ],
   },
   {
