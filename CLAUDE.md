@@ -386,6 +386,10 @@ tab and its year plan (`plan-as="festival"`; booking also adds `plan_items` `fes
 read from their names (`passFor`: couple / leader / follower, else for anyone) and `passesFor(passes, answer)` offers only
 the ones that fit how you come; a couple pass is priced once for both (`passTotal`), and when a role has none left the
 pass step says so (`noPassForRole`). The server checks the pass against the answer (`chosenPass(…, answer)`).
+The pass step suggests ("Fits your plan", preselected) the pass covering the workshops picked on the Schedule — the same
+`recommendFor` as the Passes tab's "Best value for your plan", among the passes for that way of coming (`recommend` prop);
+the Passes tab's buttons open the steps on that pass. Unset `workshopCount` / `includesParty` are read from the pass's
+words (`passCoverage`: "Party only", "no workshops", masterclass), else a party pass looked like it covered every workshop.
 Not yet: Stripe without an account, a 1,000-person Who's coming with search for festivals.
 
 **One audience (RAZ-963):** Contacts also lists everyone else connected to the page — followers and accounts that went /
