@@ -24,7 +24,7 @@ useSeoMeta({
       <template #about="{ updated }">
         Gaps are where markers cluster. Click a step for its code, or a gap below to light up its steps.
         Built from the code on {{ updated }} (<NuxtLink to="/festivals" class="underline">/festivals</NuxtLink>, a festival’s
-        page, <NuxtLink to="/my-plan" class="underline">My plan</NuxtLink>’s “This year”, the ticket checkout and its
+        page, <NuxtLink to="/my-plan" class="underline">My plan</NuxtLink>’s Year tab, the ticket checkout and its
         Stripe and TicketTailor webhooks); not yet run end to end with a test dancer and a real checkout. See also the
         <NuxtLink to="/docs/blueprints/meet-friends" class="underline">meet new friends blueprint</NuxtLink>. This is job
         <NuxtLink to="/docs/jobs#j4" class="underline">J4, plan and afford my dance travel</NuxtLink>.

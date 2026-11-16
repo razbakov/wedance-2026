@@ -5,8 +5,8 @@
  * the ticket provider (Stripe, TicketTailor, or the organiser's own shop).
  * Hand-maintained from the code (procedures named in `code`): /festivals
  * (listFestivals), the festival page (FestivalView: + My plan, workshops,
- * passes, rides, roommates, dinners, hangouts, sharing), My plan's "This
- * year", festivalSignup.*, the Stripe and TicketTailor webhooks,
+ * passes, rides, roommates, dinners, hangouts, sharing), My plan's Year
+ * tab, festivalSignup.*, the Stripe and TicketTailor webhooks,
  * /charanga/claim, and the MCP tools. Not run end to end with a test dancer
  * and a real checkout yet. Shown at /docs/blueprints/festival-travel.
  */
@@ -50,7 +50,7 @@ export const travelSteps: BpStep<TravelLane, TravelPhase>[] = [
   // Pick the year
   { id: 'going', phase: 'year', lane: 'me', name: '+ My plan', status: 'live', marks: [], route: '/events/[id]', code: 'useYearPlan.toggleFestival → plan.add (festival)',
     note: 'One tap on the festival page or a /festivals card puts it in the year plan; signed out it opens sign-up first. A festival event without festival details is saved as an event instead, by its id.' },
-  { id: 'this-year', phase: 'year', lane: 'system', name: 'My plan “This year”', status: 'partial', marks: [], route: '/my-plan', code: 'plan.myPlan',
+  { id: 'this-year', phase: 'year', lane: 'system', name: 'My plan, Year tab', status: 'partial', marks: [], route: '/my-plan', code: 'plan.myPlan', refs: ['RAZ-1006'],
     note: 'Lists the picked festivals with dates and place. For real festivals the rows carry no ticket price and no early-bird deadline — only the hard-coded mock catalogue (and ?preview=1) has them.' },
   { id: 'checklist', phase: 'year', lane: 'me', name: 'Tick ticket / travel / stay', status: 'partial', marks: ['manual'], route: '/my-plan', code: 'localStorage wedance-plan-progress · attendance.updateLogistics (no caller)',
     note: 'Per festival: ticket bought, travel, stay, partner, holiday — ticked by hand and kept in this browser only. Only “ticket bought” syncs, from festivalSignup.myTickets. attendance.updateLogistics would store the rest but nothing calls it.' },
@@ -60,16 +60,16 @@ export const travelSteps: BpStep<TravelLane, TravelPhase>[] = [
   // Plan workshops
   { id: 'programme', phase: 'workshops', lane: 'organiser', name: 'Programme + passes', status: 'partial', marks: [], route: '/business/events/[id]', code: 'BusinessFestivalEditor (passes, programme) · events.festival', refs: ['RAZ-946'],
     note: 'The organiser enters passes (price, days, workshops, party, couple price) and the programme by day. A mirrored festival has neither until its organiser claims the page and fills them in.' },
-  { id: 'pick', phase: 'workshops', lane: 'me', name: 'Pick workshops', status: 'live', marks: [], route: '/events/[id]#schedule', code: 'plan.add (workshop, <festival>:<id>) · RolePickerModal',
+  { id: 'pick', phase: 'workshops', lane: 'me', name: 'Pick workshops', status: 'live', marks: [], route: '/events/[id]?tab=schedule', code: 'plan.add (workshop, <festival>:<id>) · RolePickerModal',
     note: 'Tap a workshop: lead or follow, with a partner or looking (remembered once). Same-time picks replace each other. Saved per workshop in plan_items.' },
   { id: 'plan-workshops', phase: 'workshops', lane: 'me', name: 'Workshops on My plan', status: 'partial', marks: ['silent'], route: '/my-plan', code: 'localStorage wedance-plan-workshops',
     note: 'My plan has its own workshop picker kept in this browser, not in plan_items — picks made there don’t reach the festival page or another device, and the reverse.' },
-  { id: 'recommend', phase: 'workshops', lane: 'system', name: 'Best pass for my picks', status: 'partial', marks: [], route: '/events/[id]#tickets', code: 'FestivalView recommendation (cheapestDayCoverage)',
+  { id: 'recommend', phase: 'workshops', lane: 'system', name: 'Best pass for my picks', status: 'partial', marks: [], route: '/events/[id]?tab=tickets', code: 'FestivalView recommendation (cheapestDayCoverage)',
     note: 'From the days, workshops and parties picked, the cheapest pass or day-pass combo, with the saving. Shown only when the passes say what they cover; passes entered as name + price get no advice.' },
 
   // Tickets
-  { id: 'checkout', phase: 'tickets', lane: 'me', name: 'Get pass', status: 'live', marks: [], route: '/events/[id]#tickets', code: 'festivalSignup.ticketCheckout · MCP buy_ticket',
-    note: 'Signed in, pick a pass (or two people) → Stripe Checkout with your email filled in. Price is worked out on the server from the saved passes; a referral code and earned credit come off as one coupon.' },
+  { id: 'checkout', phase: 'tickets', lane: 'me', name: 'Get pass', status: 'live', marks: [], route: '/events/[id]?tab=tickets', code: 'festivalSignup.ticketCheckout · MCP buy_ticket',
+    note: 'On the Passes tab, signed in, pick a pass (or two people) → Stripe Checkout with your email filled in. Price is worked out on the server from the saved passes; a referral code and earned credit come off as one coupon.' },
   { id: 'stripe', phase: 'tickets', lane: 'provider', name: 'Stripe webhook', status: 'live', marks: [], code: '/api/stripe/webhook (checkout.session.completed)',
     note: 'Writes the festival_signups row as a verified ticket holder, completes the referral, credits a promoter link and emails the ticket. Redeliveries collapse.' },
   { id: 'paid', phase: 'tickets', lane: 'system', name: 'Back on the page', status: 'live', marks: ['wait'], route: '/events/[id]?payment=success', code: 'festivalSignup.status · sendTicketConfirmationEmail',
@@ -84,17 +84,17 @@ export const travelSteps: BpStep<TravelLane, TravelPhase>[] = [
     note: 'Sign in by magic link, then the stub rows for your email become yours. WeDance sends no email with this link; you find it under “Verified attendees” on that one festival’s page.' },
 
   // Travel and room
-  { id: 'ride', phase: 'travel', lane: 'me', name: 'Offer or look for a ride', status: 'partial', marks: ['manual'], route: '/events/[id]#activities', code: 'rideShare.create · MCP offer_ride',
+  { id: 'ride', phase: 'travel', lane: 'me', name: 'Offer or look for a ride', status: 'partial', marks: ['manual'], route: '/events/[id]', code: 'rideShare.create · MCP offer_ride',
     note: 'From city, date, seats and a contact link. Agreeing happens on that link, outside WeDance; the contact shows only to signed-in dancers.' },
   { id: 'rides-seen', phase: 'travel', lane: 'friends', name: 'Find a ride', status: 'partial', marks: ['silent'], code: 'rideShare.list · MCP list_rides',
-    note: 'A list on the festival page, not matched by city or date. Nobody is told when a ride from their city is posted.' },
-  { id: 'roommate', phase: 'travel', lane: 'me', name: 'Look for a roommate', status: 'partial', marks: ['manual'], route: '/events/[id]#activities', code: 'roommate.toggle · MCP toggle_roommate_search',
+    note: 'A list on the festival page’s Overview, not matched by city or date. Nobody is told when a ride from their city is posted.' },
+  { id: 'roommate', phase: 'travel', lane: 'me', name: 'Look for a roommate', status: 'partial', marks: ['manual'], route: '/events/[id]', code: 'roommate.toggle · MCP toggle_roommate_search',
     note: 'A switch, then the names of others looking. No way to reach them but their profile; when nobody is looking, a Google Hotels search for the venue and dates.' },
   { id: 'roommate-seen', phase: 'travel', lane: 'friends', name: 'Hear someone needs a room', status: 'missing', marks: ['silent'], code: 'roommate.list',
     note: 'Only by opening the festival page — no email or My plan item when someone going starts looking.' },
   { id: 'dinners', phase: 'travel', lane: 'system', name: 'Group dinners', status: 'missing', marks: [], code: 'dinner.list · dinner.join (no create)',
     note: 'Join and leave work, but no procedure or admin page creates a dinner, so the list is empty on real festivals.' },
-  { id: 'hangout', phase: 'travel', lane: 'friends', name: 'Going together', status: 'partial', marks: ['silent'], route: '/events/[id]#activities', code: 'hangouts.create · hangouts.toggleRsvp',
+  { id: 'hangout', phase: 'travel', lane: 'friends', name: 'Going together', status: 'partial', marks: ['silent'], route: '/events/[id]', code: 'hangouts.create · hangouts.toggleRsvp',
     note: 'Anyone can post a dinner, coffee or bar for the festival and others tap going. The host isn’t told when someone joins.' },
   { id: 'book-stay', phase: 'travel', lane: 'me', name: 'Book travel and stay', status: 'gap', marks: ['manual'],
     note: 'Off the platform; only the checklist tick on My plan (this browser) remembers it.' },
@@ -114,9 +114,9 @@ export const travelSteps: BpStep<TravelLane, TravelPhase>[] = [
     note: 'When a friend adds the same festival or buys a pass, nothing reaches you; their plan reaches you only through a link they send.' },
 
   // The festival
-  { id: 'whos-going', phase: 'festival', lane: 'me', name: 'Who’s going, Shall we dance?', status: 'partial', marks: [], route: '/events/[id]#discover', code: 'wave.discoverPool · festivalSignup.publicRoster',
-    note: 'The festival’s deck of dancers who chose “Show me” (see the meet new friends blueprint). The verified-ticket roster shows on one festival only.' },
-  { id: 'my-schedule', phase: 'festival', lane: 'me', name: 'My workshops on the day', status: 'partial', marks: [], route: '/events/[id]#schedule',
+  { id: 'whos-going', phase: 'festival', lane: 'me', name: 'Meet who’s going', status: 'partial', marks: [], route: '/events/[id]', code: 'plan.setShareGoing · festivalSignup.publicRoster', refs: ['RAZ-1008'],
+    note: 'On the Overview, “Show me” puts you in Meet new friends for the festival (see the meet new friends blueprint); the per-festival deck is gone. The verified-ticket roster shows on one festival only.' },
+  { id: 'my-schedule', phase: 'festival', lane: 'me', name: 'My workshops on the day', status: 'partial', marks: [], route: '/events/[id]?tab=schedule',
     note: 'Your picks are marked on the festival schedule. No day view of just your plan, no change alerts if the organiser moves a workshop.' },
   { id: 'check-in', phase: 'festival', lane: 'organiser', name: 'Door check-in', status: 'missing', marks: [], code: 'attendance.checkIn (no caller)',
     note: 'The procedure marks an attendances row, but no page calls it, and festival passes are festival_signups rows it doesn’t read. The organiser checks names on their own list.' },
@@ -132,8 +132,8 @@ export const travelSteps: BpStep<TravelLane, TravelPhase>[] = [
 
 export const travelGaps: BpGap[] = [
   { title: 'No money in the plan',
-    why: 'The job is to plan AND afford the year, but no price reaches the planning surfaces: /festivals cards have none, “This year” rows for real festivals have none, and the budget field sits in a component no page renders.',
-    fix: 'Carry the cheapest live pass (livePasses) and any early-bird deadline into listFestivals and plan.myPlan; on “This year”, show each festival’s pass price and a year total, with travel and stay as optional amounts.',
+    why: 'The job is to plan AND afford the year, but no price reaches the planning surfaces: /festivals cards have none, the Year tab’s rows for real festivals have none, and the budget field sits in a component no page renders.',
+    fix: 'Carry the cheapest live pass (livePasses) and any early-bird deadline into listFestivals and plan.myPlan; on the Year tab, show each festival’s pass price and a year total, with travel and stay as optional amounts.',
     steps: ['browse', 'this-year', 'budget', 'recommend'] },
   { title: 'Tickets bought elsewhere stay unknown',
     why: 'Most festivals sell on their own shop, and TicketTailor is mapped for one festival in code. A pass bought there never reaches the plan, and the TicketTailor claim link is never sent.',
