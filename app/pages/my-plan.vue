@@ -2,9 +2,9 @@
 import { sizedImage, IMG } from '#shared/utils/image'
 /**
  * /my-plan — signed-in dashboard: the whole planning cascade.
- * Sections top-to-bottom follow the mental model that big motivates small:
- *   Heat strip -> Goals -> Year (festivals) -> Month (courses)
- *   -> Week (socials) -> Tonight (hangouts)
+ * Sections run near → far (RAZ-1006): Your week (a day strip — today's nights,
+ * classes and hangouts first, then each day of the coming week) -> Your courses
+ * -> Your festivals -> Your goals.
  * Every section uses the V3 tropical style + accordion / compact-list
  * pattern established by the Year cards. Week socials (plan.weekSocials)
  * and the Meet new friends entry (plan.discover; the deck is /meet) are DB-backed;
@@ -238,7 +238,7 @@ const picked = computed(() => {
 })
 
 // Share your festival year (RAZ-897, moved here from /my-year in RAZ-966): the
-// story of the festivals still ahead, in place under "This year" — like the
+// story of the festivals still ahead, in place under "Your festivals" — like the
 // weekend story under "This week". Its link opens /my-year?user=<you>.
 const yearStoryFestivals = computed<YearStoryFestival[]>(() => picked.value
   .filter(f => eventPhase(f.startDate, f.endDate) !== 'past')
@@ -678,7 +678,7 @@ function tracks(f: CatalogueEntry): Track[] {
 }
 
 // -----------------------------------------------------------------------
-// Cross-festival summary (the line under "This year"). Real math, no invented totals.
+// Cross-festival summary (the line under "Your festivals"). Real math, no invented totals.
 // -----------------------------------------------------------------------
 const summary = computed(() => {
   const list = picked.value
@@ -1009,6 +1009,8 @@ async function loadCoursesFromDb() {
 // happening in the next 7 days. No suggestions here; discovery is "Full week".
 // -----------------------------------------------------------------------
 type Social = {
+  /** A course's or workshop's class (RAZ-1006): shown on its day, managed under Your courses. */
+  isClass?: boolean
   /** Signed up on the event page (RAZ-1003): not a plain plan toggle here. */
   signedUp?: boolean
   /** Only planned, and the event takes a sign-up: "Planned · Sign up →". */
@@ -1033,9 +1035,11 @@ function previewDay(offset: number): { dayLabel: string; dateISO: string } {
   }
 }
 const previewSocials: Social[] = [
+  { id: 'preview', planItemId: 'preview', name: 'La Rumba Friday', ...previewDay(0), time: '22:00', venue: 'La Rumba', city: 'Munich', style: 'Salsa', friendsGoing: 6, color: WD.red600 },
   { id: 's1', planItemId: 's1', name: 'La Rumba night',         ...previewDay(1), time: '21:00', venue: 'La Rumba',   city: 'Munich', style: 'Cuban',   friendsGoing: 5, color: WD.red600 },
   { id: 's2', planItemId: 's2', name: 'Rueda flashmob',         ...previewDay(2), time: '14:00', venue: 'Diana Tempel', city: 'Munich', style: 'Rueda',   friendsGoing: 12, color: WD.amber500 },
   { id: 's3', planItemId: 's3', name: 'Bailala night',          ...previewDay(2), time: '22:00', venue: 'Bailala',   city: 'Munich', style: 'Bachata', friendsGoing: 3, color: WD.purple500 },
+  { id: 'c1', planItemId: 'c1', name: 'Casino Partnerwork',   ...previewDay(3), time: '20:00', venue: 'Buena Vista Bar', city: 'Munich', style: 'Salsa', friendsGoing: 1, color: WD.amber600, isClass: true },
   { id: 's4', planItemId: 's4', name: 'Cuban practica',         ...previewDay(3), time: '19:00', venue: 'Buena Vista', city: 'Munich', style: 'Practica', friendsGoing: 4, color: WD.green600 },
   { id: 's5', planItemId: 's5', name: 'Warm-up social',         ...previewDay(6), time: '20:30', venue: 'La Rumba',   city: 'Munich', style: 'All',     friendsGoing: 2, color: WD.cyan600 },
 ]
@@ -1072,10 +1076,13 @@ async function loadWeekendStory(key: string) {
   }
 }
 
+/** How far ahead the plan feed reaches: My plan's Month tab (RAZ-1006). */
+const MONTH_DAYS = 30
 async function loadWeekSocials() {
   if (previewMode.value || !isSignedIn.value) return
   try {
-    const { socials: rows, citySlug } = await $trpc.plan.weekSocials.query()
+    // One feed for Today, Week and Month: the next 30 days, every class of a course included.
+    const { socials: rows, citySlug } = await $trpc.plan.weekSocials.query({ days: MONTH_DAYS })
     const guessed = dancerCitySlug.value
     resolvedCitySlug.value = citySlug || ''
     // The typed name slugged differently ("münchen") — refetch with the real slug.
@@ -1099,6 +1106,7 @@ async function loadWeekSocials() {
         takesSignup: e.takesSignup,
         price: e.price,
         night: e.night,
+        isClass: e.isClass,
       }
     })
   } catch (err) {
@@ -1109,14 +1117,21 @@ async function loadWeekSocials() {
 }
 
 
-// The server already limits the list to the coming week; drop anything that
-// has started since the page loaded.
+// The server sends the next MONTH_DAYS days; drop anything that has started since the page loaded.
 const upcomingSocials = computed(() =>
-  socials.value.filter(s => !s.dateISO || s.dateISO >= todayISO.value),
+  socials.value
+    .filter(s => !s.dateISO || s.dateISO >= todayISO.value)
+    .sort((a, b) => (a.dateISO + a.time).localeCompare(b.dateISO + b.time)),
 )
+const isoDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+const isoPlus = (from: string, days: number) => { const d = new Date(`${from}T12:00:00`); d.setDate(d.getDate() + days); return isoDate(d) }
+// Week = today and the next six days (as the city page's week and the weekend story).
+const weekPlans = computed(() => upcomingSocials.value.filter(s => !s.dateISO || s.dateISO < isoPlus(todayISO.value, 7)))
+// The nights out this week — what the weekend story and its link are about (classes stay off it).
+const upcomingNights = computed(() => weekPlans.value.filter(s => !s.isClass))
 
 watch(
-  () => (isSignedIn.value && !previewMode.value && weekSocialsLoaded.value ? weekendKey(upcomingSocials.value.map(x => x.id)) : ''),
+  () => (isSignedIn.value && !previewMode.value && weekSocialsLoaded.value ? weekendKey(upcomingNights.value.map(x => x.id)) : ''),
   (key) => {
     if (key === weekendFor) return
     weekendFor = key
@@ -1359,31 +1374,101 @@ async function closeHangout(id: string) {
 
 // -----------------------------------------------------------------------
 // SECTION SUMMARIES · the line under each time-scale headline. The page runs
-// near → far (Tonight, This week, This month, This year, Your goals); what
+// near → far (Today, Week, Month, Year tabs); what
 // needs doing (an early-bird, an unpaid course, an open invite) sits on its
 // own row in that section, not in a strip at the top.
 // -----------------------------------------------------------------------
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
-const tonightSummary = computed(() => {
-  const all = hangouts.value.length
-  if (!all) return 'Nothing planned yet'
-  const going = hangouts.value.filter(h => h.going).length
-  return [plural(all, 'hangout'), going ? `you're in ${going}` : ''].filter(Boolean).join(' · ')
-})
 const weekSummary = computed(() => {
-  const n = upcomingSocials.value.length
+  const n = upcomingNights.value.length
+  const c = weekPlans.value.length - n
   const where = dancerCity.value ? ` in ${dancerCity.value}` : ''
-  if (!n) return `No nights picked yet${where}`
+  if (!n && !c) return `No nights picked yet${where}`
   // Planned, not signed up yet (RAZ-1003): say there's still something to do.
-  const toDecide = upcomingSocials.value.filter(s => s.takesSignup && !s.signedUp).length
-  return `${plural(n, 'night')} out${where}${toDecide ? ` · ${toDecide} to book` : ''}`
+  const toDecide = upcomingNights.value.filter(s => s.takesSignup && !s.signedUp).length
+  return [
+    n ? `${plural(n, 'night')} out${where}` : '',
+    c ? plural(c, 'class', 'classes') : '',
+    toDecide ? `${toDecide} to book` : '',
+  ].filter(Boolean).join(' · ')
 })
-const monthSummary = computed(() => {
+const coursesSummary = computed(() => {
   const n = courses.value.length
-  if (!n) return 'No course this month'
+  if (!n) return 'Weekly classes you’re enrolled in'
   const unpaid = courses.value.filter(c => c.paidThroughMonth === false).length
-  return [plural(n, 'course'), unpaid ? `${unpaid} to pay this month` : ''].filter(Boolean).join(' · ')
+  return [plural(n, 'course'), unpaid ? `${unpaid} to pay this month` : 'each class also shows on its day'].filter(Boolean).join(' · ')
 })
+const nightsAndClasses = (list: Social[]) => {
+  const n = list.filter(s => !s.isClass).length
+  const c = list.length - n
+  return [n ? `${plural(n, 'night')} out` : '', c ? plural(c, 'class', 'classes') : ''].filter(Boolean).join(' · ')
+}
+
+// -----------------------------------------------------------------------
+// ZOOM TABS (RAZ-1006): Today / Week / Month / Year. Each tab holds everything in its span, of every
+// kind — a Sunday class is in Today on Sunday, in Week and in Month. Today = tonight's nights and
+// classes, each with the hangouts posted for it, then the other hangouts tonight; Week = the next
+// seven days; Month = the next 30 days plus Your courses; Year = Your festivals and Your goals.
+// Old anchors (#tonight, #socials, #courses, #festivals, #goals) open their tab.
+// -----------------------------------------------------------------------
+type Zoom = 'today' | 'week' | 'month' | 'year'
+const ZOOM_TABS: { id: Zoom; label: string }[] = [
+  { id: 'today', label: 'Today' }, { id: 'week', label: 'Week' }, { id: 'month', label: 'Month' }, { id: 'year', label: 'Year' },
+]
+const ZOOM_HASH: Record<string, Zoom> = {
+  '#today': 'today', '#tonight': 'today',
+  '#week': 'week', '#socials': 'week',
+  '#month': 'month', '#courses': 'month',
+  '#year': 'year', '#festivals': 'year', '#goals': 'year',
+}
+const zoom = ref<Zoom>(ZOOM_HASH[route.hash] ?? 'today')
+watch(() => route.hash, (h) => { if (ZOOM_HASH[h]) zoom.value = ZOOM_HASH[h] })
+function openZoom(z: Zoom) {
+  if (z === zoom.value) return
+  useTrack().track('plan_zoom_opened', { tab: z, from: zoom.value })
+  zoom.value = z
+  // Keep the tab on reload and in a shared link, without a jump.
+  if (import.meta.client) history.replaceState(history.state, '', `${route.path}${location.search}#${z}`)
+}
+
+const dayChip = (s: Social) => ({ top: s.dateISO === todayISO.value ? 'Today' : s.dayLabel, bottom: s.dateISO ? shortDayDate(s.dateISO) : '' })
+const todayPlans = computed(() => upcomingSocials.value.filter(s => s.dateISO === todayISO.value))
+type DayRow =
+  | { kind: 'plan'; key: string; s: Social }
+  | { kind: 'hangout'; key: string; h: Hangout; nested: boolean }
+  | { kind: 'label'; key: string; text: string }
+const todayRows = computed<DayRow[]>(() => {
+  const rows: DayRow[] = []
+  const used = new Set<string>()
+  for (const s of todayPlans.value) {
+    rows.push({ kind: 'plan', key: `p-${s.id}`, s })
+    for (const h of hangouts.value.filter(h => h.event?.id === s.id)) {
+      used.add(h.id)
+      rows.push({ kind: 'hangout', key: `h-${h.id}`, h, nested: true })
+    }
+  }
+  const rest = hangouts.value.filter(h => !used.has(h.id))
+  if (rest.length && todayPlans.value.length) rows.push({ kind: 'label', key: 'also', text: 'Also out tonight' })
+  for (const h of rest) rows.push({ kind: 'hangout', key: `h-${h.id}`, h, nested: false })
+  return rows
+})
+const tonightSummary = computed(() => [
+  nightsAndClasses(todayPlans.value),
+  hangouts.value.length ? plural(hangouts.value.length, 'hangout') : '',
+].filter(Boolean).join(' · ') || 'Nothing planned tonight')
+// Month: grouped by week from today — this week, next week, then later.
+const monthGroups = computed(() => {
+  const groups: { key: string; title: string; items: Social[] }[] = []
+  for (const s of upcomingSocials.value) {
+    const offset = s.dateISO ? Math.floor((new Date(`${s.dateISO}T12:00:00`).getTime() - new Date(`${todayISO.value}T12:00:00`).getTime()) / 86400_000) : 0
+    const key = offset < 7 ? 'this' : offset < 14 ? 'next' : 'later'
+    const title = key === 'this' ? 'This week' : key === 'next' ? 'Next week' : 'Later this month'
+    const g = groups.find(x => x.key === key) ?? (groups.push({ key, title, items: [] }), groups[groups.length - 1]!)
+    g.items.push(s)
+  }
+  return groups
+})
+const monthSummary = computed(() => nightsAndClasses(upcomingSocials.value) || 'Nothing planned for the next 30 days')
 const yearSummary = computed(() => festivalYearLine(summary.value))
 const goalsSummary = computed(() => goalsList.value.length
   ? plural(goalsList.value.length, 'goal')
@@ -1393,7 +1478,7 @@ const goalsSummary = computed(() => goalsList.value.length
 // DISCOVER · "Meet new friends" lives on its own page, /meet (RAZ-989).
 // My plan keeps two things from plan.discover: the entry card (first faces
 // waiting + how many) and the nudges built from earlier Yes swipes — "2
-// dancers you said yes to are heading to X — add it?" in This year.
+// dancers you said yes to are heading to X — add it?" in Your festivals.
 // -----------------------------------------------------------------------
 type FestivalNudge = { festivalSlug: string; festivalName: string; festivalColor: string; dancerNames: string[]; dismissed: boolean }
 const festivalNudges = ref<FestivalNudge[]>(isPreviewInitial
@@ -1605,32 +1690,51 @@ function cardSummary(f: CatalogueEntry) {
       <!-- MEET NEW FRIENDS · its own page (/meet, RAZ-989); first thing in the plan. -->
       <MeetFriendsEntry :faces="meetFaces" :count="meetCount" surface="my_plan" class="mt-2" />
 
-      <!-- TONIGHT · Hangouts. -->
-      <div id="tonight" class="mt-14">
-        <div class="flex items-baseline justify-between mb-4">
-          <div>
+      <!-- ZOOM TABS (RAZ-1006): Today / Week / Month / Year — each holds everything in its span. -->
+      <div class="mt-12 sticky top-0 z-20 -mx-4 px-4 py-2 bg-background/95 backdrop-blur" data-testid="plan-zoom">
+        <div class="grid grid-cols-4 gap-1 rounded-full border bg-white p-1" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);" role="tablist" aria-label="Your plan by time">
+          <button
+            v-for="t in ZOOM_TABS"
+            :id="`plan-tab-${t.id}`"
+            :key="t.id"
+            type="button"
+            role="tab"
+            class="h-10 rounded-full text-sm font-bold font-sans transition-colors"
+            :class="zoom === t.id ? 'bg-wd-brown-900 text-white' : 'text-muted-foreground hover:text-foreground'"
+            :aria-selected="zoom === t.id"
+            :aria-controls="`plan-panel-${t.id}`"
+            :data-testid="`plan-tab-${t.id}`"
+            @click="openZoom(t.id)"
+          >
+            {{ t.label }}
+          </button>
+        </div>
+      </div>
+
+        <div v-if="removedSocial" class="mt-4 flex items-center gap-2 text-xs text-muted-foreground font-sans" role="status">
+          Removed {{ removedSocial.name }} from your plan.
+          <Button variant="link" class="h-auto p-0 text-xs font-bold text-primary" @click="undoRemoveSocial">Undo</Button>
+        </div>
+
+
+      <!-- TODAY · tonight's nights and classes, each with its hangouts, then the other hangouts tonight. -->
+      <div v-show="zoom === 'today'" id="plan-panel-today" class="mt-6" role="tabpanel" aria-labelledby="plan-tab-today">
+        <span id="tonight" class="block scroll-mt-20" aria-hidden="true" />
+        <div class="flex items-baseline justify-between gap-3 mb-4">
+          <div class="min-w-0">
             <h2 class="text-3xl leading-tight font-display text-foreground">Tonight</h2>
             <p class="mt-1 text-sm text-muted-foreground font-sans">{{ tonightSummary }}</p>
           </div>
-          <div class="flex items-center gap-2">
-            <button
-              v-if="isSignedIn"
-              type="button"
-              class="inline-flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full bg-wd-brown-900 font-sans"
-              style="color:white;"
-              @click="openHangoutForm"
-            >
-              <Plus class="w-3.5 h-3.5" />
-              I'm out
-            </button>
-            <span
-              class="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full text-primary font-sans"
-              style="background:color-mix(in srgb, var(--wd-red-600) 9.4%, transparent);"
-            >
-              <span class="w-1.5 h-1.5 rounded-full animate-pulse bg-wd-red-600" />
-              Live
-            </span>
-          </div>
+          <button
+            v-if="isSignedIn"
+            type="button"
+            class="shrink-0 inline-flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full bg-wd-brown-900 font-sans"
+            style="color:white;"
+            @click="openHangoutForm"
+          >
+            <Plus class="w-3.5 h-3.5" />
+            I'm out
+          </button>
         </div>
 
         <!-- Create hangout form -->
@@ -1701,94 +1805,99 @@ function cardSummary(f: CatalogueEntry) {
           </div>
         </div>
 
-        <div v-if="!hangouts.length && !showHangoutForm" class="rounded-2xl p-6 text-center border-2 border-dashed border-input bg-white/50">
-          <MoonStar class="w-8 h-8 mx-auto mb-3 text-secondary" />
-          <p class="text-sm text-muted-foreground font-sans">
-            Nobody's out yet. Post a dinner, a bar hop, or a ride — dancers show up when someone starts.
-          </p>
+        <div v-if="!todayRows.length && !showHangoutForm && (weekSocialsLoaded || !dancerCity)" class="rounded-2xl p-6 text-center border-2 border-dashed border-input bg-white/50">
+          <MoonStar class="w-8 h-8 mx-auto mb-3 text-secondary" aria-hidden="true" />
+          <p class="text-sm font-bold text-foreground font-sans">Nothing planned tonight.</p>
+          <p class="mt-1 text-sm text-muted-foreground font-sans">Pick a party, or post “I’m out” — dancers show up when someone starts.</p>
+          <NuxtLink v-if="dancerCity" :to="citySocialsLink" class="mt-3 inline-flex items-center gap-1 rounded-full px-4 py-2 text-xs font-bold bg-wd-brown-900 font-sans" style="color:white;">
+            See this week in {{ dancerCity }} <ArrowRight class="w-3.5 h-3.5" aria-hidden="true" />
+          </NuxtLink>
         </div>
-        <div v-else class="rounded-2xl bg-white border overflow-hidden" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);">
-          <div
-            v-for="(h, i) in hangouts"
-            :key="h.id"
-            class="flex flex-wrap items-center gap-3 px-4 py-3"
-            :class="i > 0 ? 'border-t' : ''"
-            :style="{ borderColor: 'color-mix(in srgb, var(--wd-brown-900) 5.1%, transparent)', background: h.going ? (WD.green600 + '08') : 'white' }"
-          >
-            <component :is="hangoutIcon(h.kind)" class="w-4 h-4 shrink-0" :style="{ color: h.color, 'stroke-width': 1.5 }" />
-            <span class="text-sm font-bold w-12 text-foreground font-sans">
-              {{ h.time }}
-            </span>
-            <div class="min-w-0 flex-1">
-              <div class="text-sm font-bold truncate text-foreground">{{ h.title }}</div>
-              <div v-if="h.event" class="text-xs truncate font-sans">
-                <span class="text-muted-foreground">For </span>
-                <NuxtLink v-if="!previewMode" :to="eventPath({ id: h.event.id, name: h.event.name })" class="font-bold text-primary hover:underline">{{ h.event.name }}</NuxtLink>
-                <span v-else class="font-bold text-primary">{{ h.event.name }}</span>
-                <span v-if="h.event.startDate" class="text-muted-foreground"> · {{ eventLocalTime(h.event.startDate, h.event.timezone || undefined) }}</span>
-                <span v-if="h.inMyPlan" class="ml-1 text-eyebrow font-bold uppercase tracking-widest text-wd-green-600">in your plan</span>
+        <div v-else-if="todayRows.length" class="rounded-2xl bg-white border overflow-hidden" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);" data-testid="today-list">
+          <template v-for="(r, i) in todayRows" :key="r.key">
+            <p
+              v-if="r.kind === 'label'"
+              class="px-4 pt-3 pb-1 border-t text-eyebrow uppercase tracking-widest font-bold text-secondary font-sans"
+              style="border-color:color-mix(in srgb, var(--wd-brown-900) 5.1%, transparent);"
+            >{{ r.text }}</p>
+            <MyPlanEventRow
+              v-else-if="r.kind === 'plan'"
+              :s="r.s"
+              :preview="previewMode"
+              :class="i > 0 ? 'border-t' : ''"
+              style="border-color:color-mix(in srgb, var(--wd-brown-900) 5.1%, transparent);"
+              @remove="removeSocialFromPlan"
+            />
+              <div
+                v-else-if="r.kind === 'hangout'"
+                class="flex flex-wrap items-center gap-3 py-2.5 pr-4"
+                :class="[r.nested ? 'pl-11' : 'pl-4', i > 0 && !r.nested && todayRows[i - 1]?.kind !== 'label' ? 'border-t' : '']"
+                :style="{ borderColor: 'color-mix(in srgb, var(--wd-brown-900) 5.1%, transparent)', background: r.h.going ? (WD.green600 + '08') : (r.nested ? 'color-mix(in srgb, var(--wd-brown-900) 2.5%, white)' : 'white') }"
+                data-week-row="hangout"
+              >
+                <component :is="hangoutIcon(r.h.kind)" class="w-4 h-4 shrink-0" :style="{ color: r.h.color, 'stroke-width': 1.5 }" />
+                <span class="text-sm font-bold w-12 text-foreground font-sans">
+                  {{ r.h.time }}
+                </span>
+                <div class="min-w-0 flex-1">
+                  <div class="text-sm font-bold truncate text-foreground">{{ r.h.title }}</div>
+                  <div v-if="r.h.event && !r.nested" class="text-xs truncate font-sans">
+                    <span class="text-muted-foreground">For </span>
+                    <NuxtLink v-if="!previewMode" :to="eventPath({ id: r.h.event.id, name: r.h.event.name })" class="font-bold text-primary hover:underline">{{ r.h.event.name }}</NuxtLink>
+                    <span v-else class="font-bold text-primary">{{ r.h.event.name }}</span>
+                    <span v-if="r.h.event.startDate" class="text-muted-foreground"> · {{ eventLocalTime(r.h.event.startDate, r.h.event.timezone || undefined) }}</span>
+                    <span v-if="r.h.inMyPlan" class="ml-1 text-eyebrow font-bold uppercase tracking-widest text-wd-green-600">in your plan</span>
+                  </div>
+                  <div class="text-xs truncate text-muted-foreground font-sans">
+                    <span v-if="r.h.host">{{ r.h.host }} · </span>
+                    <a
+                      v-if="r.h.venue && r.h.placeAddress"
+                      :href="`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(r.h.venue + ', ' + r.h.placeAddress)}`"
+                      target="_blank"
+                      rel="noopener"
+                      class="hover:underline"
+                      :title="r.h.placeAddress"
+                    >{{ r.h.venue }}</a><span v-else-if="r.h.venue">{{ r.h.venue }}</span><span v-if="r.h.venue"> · </span>
+                    {{ r.h.people }} in
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  class="text-xs font-bold px-3 py-1.5 rounded-full whitespace-nowrap"
+                  :aria-pressed="r.h.going"
+                  :style="r.h.going
+                    ? { background: 'var(--wd-green-600)', color: 'white' }
+                    : { background: 'white', color: r.h.color, border: '1.5px solid ' + r.h.color + '55' }"
+                  @click="toggleHangout(r.h.id)"
+                >
+                  {{ r.h.going ? '✓ In' : 'Join' }}
+                </button>
+                <Button
+                  v-if="r.h.mine"
+                  variant="ghost"
+                  size="icon-sm"
+                  class="size-7 rounded-full text-secondary [&_svg]:size-3.5"
+                  aria-label="Close this hangout"
+                  @click="closeHangout(r.h.id)"
+                >
+                  <X aria-hidden="true" />
+                </Button>
               </div>
-              <div class="text-xs truncate text-muted-foreground font-sans">
-                <span v-if="h.host">{{ h.host }} · </span>
-                <a
-                  v-if="h.venue && h.placeAddress"
-                  :href="`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(h.venue + ', ' + h.placeAddress)}`"
-                  target="_blank"
-                  rel="noopener"
-                  class="hover:underline"
-                  :title="h.placeAddress"
-                >{{ h.venue }}</a><span v-else-if="h.venue">{{ h.venue }}</span><span v-if="h.venue"> · </span>
-                {{ h.people }} in
-              </div>
-            </div>
-            <button
-              type="button"
-              class="text-xs font-bold px-3 py-1.5 rounded-full whitespace-nowrap"
-              :aria-pressed="h.going"
-              :style="h.going
-                ? { background: 'var(--wd-green-600)', color: 'white' }
-                : { background: 'white', color: h.color, border: '1.5px solid ' + h.color + '55' }"
-              @click="toggleHangout(h.id)"
-            >
-              {{ h.going ? '✓ In' : 'Join' }}
-            </button>
-            <Button
-              v-if="h.mine"
-              variant="ghost"
-              size="icon-sm"
-              class="size-7 rounded-full text-secondary [&_svg]:size-3.5"
-              aria-label="Close this hangout"
-              @click="closeHangout(h.id)"
-            >
-              <X aria-hidden="true" />
-            </Button>
-          </div>
+          </template>
         </div>
       </div>
 
-      <!-- WEEK · Socials. -->
-      <div id="socials" class="mt-14">
-        <div class="flex items-baseline justify-between mb-4">
-          <div>
+      <!-- WEEK · the next seven days, nights and classes by day; the weekend story under it. -->
+      <div v-show="zoom === 'week'" id="plan-panel-week" class="mt-6" role="tabpanel" aria-labelledby="plan-tab-week">
+        <span id="socials" class="block scroll-mt-20" aria-hidden="true" />
+        <div class="flex items-baseline justify-between gap-3 mb-4">
+          <div class="min-w-0">
             <h2 class="text-3xl leading-tight font-display text-foreground">This week</h2>
             <p class="mt-1 text-sm text-muted-foreground font-sans">{{ weekSummary }}</p>
           </div>
-          <div class="flex items-center gap-3">
-            <NuxtLink
-              :to="citySocialsLink"
-              class="text-xs italic hover:underline text-secondary font-display"
-            >
-              Full week →
-            </NuxtLink>
-          </div>
+          <NuxtLink :to="citySocialsLink" class="shrink-0 text-xs italic hover:underline text-secondary font-display">Full week →</NuxtLink>
         </div>
-
-        <div v-if="removedSocial" class="mb-2 flex items-center gap-2 text-xs text-muted-foreground font-sans" role="status">
-          Removed {{ removedSocial.name }} from your plan.
-          <Button variant="link" class="h-auto p-0 text-xs font-bold text-primary" @click="undoRemoveSocial">Undo</Button>
-        </div>
-
-        <div v-if="!upcomingSocials.length && (weekSocialsLoaded || !dancerCity)" class="rounded-2xl p-6 text-center border-2 border-dashed border-input bg-white/50">
+        <div v-if="!weekPlans.length && (weekSocialsLoaded || !dancerCity)" class="rounded-2xl p-6 text-center border-2 border-dashed border-input bg-white/50">
           <Sparkles class="w-8 h-8 mx-auto mb-3 text-secondary" aria-hidden="true" />
           <template v-if="dancerCity">
             <p class="text-sm font-bold text-foreground font-sans">Nothing planned this week.</p>
@@ -1799,78 +1908,25 @@ function cardSummary(f: CatalogueEntry) {
           </template>
           <template v-else>
             <p class="text-sm text-muted-foreground font-sans">Pick your city and we'll show this week's socials to choose from.</p>
-            <NuxtLink to="/settings" class="mt-2 inline-block font-sans text-xs font-bold underline text-primary">
-              Set your city
-            </NuxtLink>
+            <NuxtLink to="/settings" class="mt-2 inline-block font-sans text-xs font-bold underline text-primary">Set your city</NuxtLink>
           </template>
         </div>
-        <div v-else-if="upcomingSocials.length" class="rounded-2xl bg-white border overflow-hidden" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);">
-          <div
-            v-for="(s, i) in upcomingSocials"
+        <div v-else-if="weekPlans.length" class="rounded-2xl bg-white border overflow-hidden" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);" data-testid="week-list">
+          <MyPlanEventRow
+            v-for="(s, i) in weekPlans"
             :key="s.id"
-            class="flex flex-wrap items-center gap-3 px-4 py-3"
+            :s="s"
+            :chip="dayChip(s)"
+            :preview="previewMode"
             :class="i > 0 ? 'border-t' : ''"
-            :style="{ borderColor: 'color-mix(in srgb, var(--wd-brown-900) 5.1%, transparent)', background: WD.green600 + '08' }"
-          >
-            <span
-              class="w-12 text-center text-eyebrow font-black uppercase tracking-widest px-1.5 py-0.5 rounded leading-tight"
-              :style="{ background: s.color + '18', color: s.color }"
-            >{{ s.dayLabel }}<span v-if="s.dateISO" class="block font-bold normal-case tracking-normal">{{ shortDayDate(s.dateISO) }}</span></span>
-            <span class="text-sm font-bold text-foreground font-sans">
-              {{ s.time }}
-            </span>
-            <div class="min-w-0 flex-1">
-              <NuxtLink v-if="!previewMode" :to="eventPath({ id: s.id, name: s.name })" class="block text-sm font-bold truncate text-foreground hover:underline">{{ s.name }}</NuxtLink>
-              <div v-else class="text-sm font-bold truncate text-foreground">{{ s.name }}</div>
-              <div class="text-xs truncate text-muted-foreground font-sans">
-                {{ s.venue }}<template v-if="s.style"> · <span :style="{ color: s.color }">{{ s.style }}</span></template><template v-if="s.friendsGoing > 0"> · {{ s.friendsGoing }} friend{{ s.friendsGoing === 1 ? '' : 's' }} going</template>
-              </div>
-              <!-- RAZ-1007: one row for the night — your pass, when to come, what you're at -->
-              <div v-if="s.night && s.night.parts.length" class="text-xs truncate font-sans" :class="s.signedUp ? 'text-wd-green-700' : 'text-muted-foreground'" data-plan-night>
-                <template v-if="s.signedUp">{{ [[s.night.pass, s.night.arrival ? `from ${s.night.arrival}` : null].filter(Boolean).join(' · '), s.night.parts.join(', ')].filter(Boolean).join(': ') }}</template>
-                <template v-else>Planned: {{ s.night.parts.join(', ') }}</template>
-              </div>
-            </div>
-            <!-- Signed up (RAZ-1003): a commitment, cancelled on the event page, never here. -->
-            <NuxtLink
-              v-if="s.signedUp && !previewMode"
-              :to="eventPath({ id: s.id, name: s.name })"
-              class="text-xs font-bold px-3 py-1.5 rounded-full whitespace-nowrap font-sans"
-              style="background: var(--wd-green-600); color: white;"
-              :title="'You’re signed up — to cancel, open the event'"
-            >
-              ✓ Signed up
-            </NuxtLink>
-            <!-- Only planned (RAZ-1003): the state, the next step (with its price), and Remove —
-                 which only takes it off the plan; nothing is signed up yet. -->
-            <span v-else-if="s.takesSignup && !previewMode" class="inline-flex items-center gap-3 text-xs font-sans whitespace-nowrap">
-              <span class="text-muted-foreground">Planned</span>
-              <NuxtLink
-                :to="eventPath({ id: s.id, name: s.name })"
-                class="font-bold px-3 py-1.5 rounded-full border text-primary border-primary/40 hover:bg-primary/5"
-                data-plan-signup
-              >
-                Book{{ s.price ? ` · ${s.price}` : '' }} →
-              </NuxtLink>
-              <button type="button" class="text-muted-foreground hover:text-primary hover:underline" :aria-label="`Remove ${s.name} from your plan`" data-plan-remove @click="removeSocialFromPlan(s.id)">Remove</button>
-            </span>
-            <button
-              v-else
-              type="button"
-              class="text-xs font-bold px-3 py-1.5 rounded-full whitespace-nowrap font-sans"
-              style="background: var(--wd-green-600); color: white;"
-              :aria-label="`${s.name} is in your plan — tap to remove it`"
-              :title="'Tap to remove from your plan'"
-              @click="removeSocialFromPlan(s.id)"
-            >
-              ✓ My plan
-            </button>
-          </div>
+            style="border-color:color-mix(in srgb, var(--wd-brown-900) 5.1%, transparent);"
+            @remove="removeSocialFromPlan"
+          />
         </div>
 
         <!-- The weekend story, ready to post (RAZ-895). -->
         <WeekendStory
-          v-if="weekendPlan && upcomingSocials.length"
+          v-if="weekendPlan && upcomingNights.length"
           :plan="weekendPlan"
           surface="my_plan"
           class="mt-4"
@@ -1883,684 +1939,706 @@ function cardSummary(f: CatalogueEntry) {
             See who's joining <ArrowRight class="w-3.5 h-3.5" aria-hidden="true" />
           </NuxtLink>
         </WeekendStory>
-        <p v-if="shareWeekendError && upcomingSocials.length" role="alert" class="mt-2 text-xs text-destructive font-sans">{{ shareWeekendError }}</p>
+        <p v-if="shareWeekendError && upcomingNights.length" role="alert" class="mt-2 text-xs text-destructive font-sans">{{ shareWeekendError }}</p>
       </div>
 
-      <!-- MONTH · Courses. -->
-      <div id="courses" class="mt-14">
-        <div class="flex items-baseline justify-between mb-4">
-          <div>
-            <h2 class="text-3xl leading-tight font-display text-foreground">This month</h2>
-            <p class="mt-1 text-sm text-muted-foreground font-sans">{{ monthSummary }}</p>
-          </div>
-          <Button
-            v-if="!showEnrollPicker && availableClasses.length > 0"
-            variant="link"
-            class="h-auto p-0 text-xs font-normal italic text-secondary font-display"
-            @click="showEnrollPicker = true"
-          >
-            + Enroll
-          </Button>
-          <Button
-            v-else-if="showEnrollPicker"
-            variant="link"
-            class="h-auto p-0 text-xs font-normal italic text-muted-foreground font-display"
-            @click="showEnrollPicker = false"
-          >
-            Done
-          </Button>
+      <!-- MONTH · the next 30 days of every kind, then the courses behind the classes. -->
+      <div v-show="zoom === 'month'" id="plan-panel-month" class="mt-6" role="tabpanel" aria-labelledby="plan-tab-month">
+        <div class="mb-4">
+          <h2 class="text-3xl leading-tight font-display text-foreground">This month</h2>
+          <p class="mt-1 text-sm text-muted-foreground font-sans">{{ monthSummary }}</p>
+        </div>
+        <div v-if="!upcomingSocials.length && weekSocialsLoaded" class="rounded-2xl p-6 text-center border-2 border-dashed border-input bg-white/50 text-sm text-muted-foreground font-sans">
+          Nothing planned for the next 30 days — enroll in a course below, or pick nights on {{ dancerCity || 'your city' }}’s page.
+        </div>
+        <div v-else-if="upcomingSocials.length" class="rounded-2xl bg-white border overflow-hidden" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);" data-testid="month-list">
+          <template v-for="(g, gi) in monthGroups" :key="g.key">
+            <p class="px-4 pt-3 pb-1 text-eyebrow uppercase tracking-widest font-bold text-secondary font-sans" :class="gi > 0 ? 'border-t' : ''" style="border-color:color-mix(in srgb, var(--wd-brown-900) 5.1%, transparent);">{{ g.title }}</p>
+            <MyPlanEventRow
+              v-for="s in g.items"
+              :key="s.id"
+              :s="s"
+              :chip="dayChip(s)"
+              :preview="previewMode"
+              @remove="removeSocialFromPlan"
+            />
+          </template>
         </div>
 
-        <!-- Enroll picker — available classes from the city -->
-        <div v-if="showEnrollPicker" class="rounded-2xl bg-white p-5 border mb-4" style="border-color:color-mix(in srgb, var(--wd-amber-600) 33.3%, transparent); box-shadow: 0 4px 16px rgba(59,31,18,0.06);">
-          <div class="text-sm font-bold mb-3 text-foreground font-display">
-            Upcoming classes in {{ dancerCity || 'your city' }}
-          </div>
-          <div v-if="!availableClasses.length" class="text-xs py-2 text-muted-foreground font-sans">
-            No upcoming classes found. Check your city page for more.
-          </div>
-          <div v-else class="space-y-2">
-            <button
-              v-for="cls in availableClasses"
-              :key="cls.id"
-              type="button"
-              class="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl border hover:bg-amber-50/50 cursor-pointer transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              style="border-color:color-mix(in srgb, var(--wd-brown-900) 6.7%, transparent);"
-              @click="enrollClass(cls)"
+        <!-- YOUR COURSES · what you're enrolled in; each class also shows on its day above (RAZ-1006). -->
+        <div id="courses" class="mt-12 scroll-mt-20">
+          <div class="flex items-baseline justify-between mb-4">
+            <div>
+              <h2 class="text-3xl leading-tight font-display text-foreground">Your courses</h2>
+              <p class="mt-1 text-sm text-muted-foreground font-sans">{{ coursesSummary }}</p>
+            </div>
+            <Button
+              v-if="!showEnrollPicker && availableClasses.length > 0"
+              variant="link"
+              class="h-auto p-0 text-xs font-normal italic text-secondary font-display"
+              @click="showEnrollPicker = true"
             >
-              <span class="w-2 h-2 rounded-full shrink-0" :style="{ background: STYLE_COLORS_ENROLL[cls.style] || WD.gray500 }" />
-              <span class="block flex-1 min-w-0">
-                <span class="block text-sm font-bold text-foreground">{{ cls.name }}</span>
-                <span class="block text-xs text-muted-foreground font-sans">
-                  {{ cls.date ? formatShortDate(cls.date) : cls.day }}, {{ cls.time }} · {{ cls.venue }} · {{ cls.level || 'All levels' }}
-                </span>
-              </span>
-              <span class="text-xs font-bold italic shrink-0 text-primary">+ Add</span>
-            </button>
+              + Enroll
+            </Button>
+            <Button
+              v-else-if="showEnrollPicker"
+              variant="link"
+              class="h-auto p-0 text-xs font-normal italic text-muted-foreground font-display"
+              @click="showEnrollPicker = false"
+            >
+              Done
+            </Button>
           </div>
-        </div>
 
-        <div v-if="!courses.length && !showEnrollPicker" class="rounded-2xl p-6 text-center border-2 border-dashed border-input bg-white/50">
-          <GraduationCap class="w-8 h-8 mx-auto mb-3 text-secondary" />
-          <p class="text-sm font-bold text-foreground font-sans">No classes yet.</p>
-          <p class="mt-1 mb-3 text-sm text-muted-foreground font-sans">
-            A weekly class is the quickest way to keep momentum.
-          </p>
-          <Button as-child variant="pill" class="px-5">
-            <NuxtLink :to="cityClassesLink">
-              Find a class{{ dancerCity ? ` in ${dancerCity}` : '' }} <ArrowRight aria-hidden="true" />
-            </NuxtLink>
-          </Button>
-        </div>
-        <div v-else class="grid sm:grid-cols-2 gap-4">
-          <div
-            v-for="c in courses"
-            :key="c.id"
-            class="group rounded-2xl bg-white p-5 border"
-            :style="{ borderColor: c.color + '55', boxShadow: '0 1px 0 ' + c.color + '22, 0 6px 18px rgba(59,31,18,0.04)' }"
-          >
-            <div class="flex items-start justify-between gap-3 mb-2">
-              <div class="min-w-0">
-                <NuxtLink
-                  v-if="c.eventId && !previewMode"
-                  :to="eventPath({ id: c.eventId || c.id, name: c.name })"
-                  class="block text-base font-bold leading-tight text-foreground hover:underline"
-                >{{ c.name || c.school }}</NuxtLink>
-                <div v-else class="text-base font-bold leading-tight text-foreground">
-                  {{ c.name || c.school }}
-                </div>
-                <div class="text-xs mt-0.5 text-muted-foreground font-sans">
-                  <template v-if="c.name && c.school">
-                    <NuxtLink v-if="c.schoolUsername && !previewMode" :to="`/@${c.schoolUsername}`" class="hover:underline">{{ c.school }}</NuxtLink>
-                    <span v-else>{{ c.school }}</span>
-                  </template>
-                  <span v-else-if="c.teacher">{{ c.teacher }}</span>
-                  <template v-if="c.style || c.level"> · <span class="text-secondary">{{ [c.style, c.level].filter(Boolean).join(' · ') }}</span></template>
-                </div>
-                <div
-                  v-if="c.style && goalsForStyle(c.style).length"
-                  class="text-[10px] mt-1 italic"
-                  style="color:var(--wd-green-600); font-family:var(--wd-font-display);"
-                >
-                  Serves your goal: {{ goalsForStyle(c.style).join(', ') }}
-                </div>
-              </div>
-              <div class="flex items-center gap-2 shrink-0">
-                <!-- Payment status only when there's real data for this enrolment. -->
-                <template v-if="c.paidThroughMonth !== undefined">
-                  <span
-                    v-if="!c.paidThroughMonth"
-                    class="text-eyebrow font-bold uppercase tracking-widest px-2 py-1 rounded-full whitespace-nowrap"
-                    :style="{ color: 'var(--wd-red-600)', background: 'color-mix(in srgb, var(--wd-red-600) 9.4%, transparent)' }"
-                  >
-                    Pay due
-                  </span>
-                  <span
-                    v-else
-                    class="text-eyebrow font-bold uppercase tracking-widest px-2 py-1 rounded-full whitespace-nowrap"
-                    :style="{ color: 'var(--wd-green-600)', background: 'color-mix(in srgb, var(--wd-green-600) 9.4%, transparent)' }"
-                  >
-                    Paid
-                  </span>
-                </template>
-                <!-- Only planned (RAZ-1003): the next step is signing up for the class. -->
-                <template v-if="!c.signedUp && !previewMode">
-                  <span class="text-xs text-muted-foreground font-sans">Planned</span>
-                  <NuxtLink
-                    :to="eventPath({ id: c.eventId || c.id, name: c.name })"
-                    class="text-xs font-bold px-2.5 py-1 rounded-full whitespace-nowrap border font-sans text-primary border-primary/40 hover:bg-primary/5"
-                    data-plan-signup
-                  >
-                    Book{{ c.price ? ` · ${c.price}` : '' }} →
-                  </NuxtLink>
-                </template>
-                <NuxtLink
-                  v-if="c.signedUp"
-                  :to="eventPath({ id: c.eventId || c.id, name: c.name })"
-                  class="text-eyebrow font-bold uppercase tracking-widest px-2 py-1 rounded-full whitespace-nowrap hover:underline"
-                  :style="{ color: 'var(--wd-green-600)', background: 'color-mix(in srgb, var(--wd-green-600) 9.4%, transparent)' }"
-                  :title="'You’re signed up — to cancel, open the class'"
-                >
-                  Signed up
-                </NuxtLink>
-                <button
-                  v-else
-                  type="button"
-                  class="text-xs text-muted-foreground hover:text-primary hover:underline font-sans"
-                  :aria-label="`Remove ${c.name || c.school} from your plan`"
-                  data-plan-remove
-                  @click="unenrollCourse(c.id)"
-                >
-                  Remove
-                </button>
-              </div>
+          <!-- Enroll picker — available classes from the city -->
+          <div v-if="showEnrollPicker" class="rounded-2xl bg-white p-5 border mb-4" style="border-color:color-mix(in srgb, var(--wd-amber-600) 33.3%, transparent); box-shadow: 0 4px 16px rgba(59,31,18,0.06);">
+            <div class="text-sm font-bold mb-3 text-foreground font-display">
+              Upcoming classes in {{ dancerCity || 'your city' }}
             </div>
-
-            <div class="mt-3 space-y-1.5 text-xs text-muted-foreground font-sans">
-              <div class="flex items-center gap-2">
-                <Calendar class="w-3 h-3 text-secondary" />
-                Next class <strong>{{ c.nextClassDate ? formatShortDate(c.nextClassDate) : c.weekday }}, {{ c.time }}</strong>
-              </div>
-              <div v-if="c.venue" class="flex items-center gap-2">
-                <MapPin class="w-3 h-3 text-secondary" />
-                {{ c.venue }}
-              </div>
+            <div v-if="!availableClasses.length" class="text-xs py-2 text-muted-foreground font-sans">
+              No upcoming classes found. Check your city page for more.
             </div>
-
-            <!-- Attendance only when it's tracked for this enrolment (never 0 / 0). -->
-            <div v-if="c.total && c.total > 0" class="mt-4">
-              <div class="flex items-baseline justify-between mb-1">
-                <span class="text-eyebrow uppercase tracking-widest font-bold text-secondary">Attendance this cycle</span>
-                <span class="text-xs font-black text-foreground font-display">{{ c.attended ?? 0 }} / {{ c.total }}</span>
-              </div>
-              <div class="w-full h-1.5 rounded-full overflow-hidden" style="background:color-mix(in srgb, var(--wd-brown-900) 6.3%, transparent);">
-                <div class="h-full transition-all" :style="{ width: Math.round(((c.attended ?? 0) / c.total) * 100) + '%', background: c.color }" />
-              </div>
+            <div v-else class="space-y-2">
+              <button
+                v-for="cls in availableClasses"
+                :key="cls.id"
+                type="button"
+                class="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl border hover:bg-amber-50/50 cursor-pointer transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                style="border-color:color-mix(in srgb, var(--wd-brown-900) 6.7%, transparent);"
+                @click="enrollClass(cls)"
+              >
+                <span class="w-2 h-2 rounded-full shrink-0" :style="{ background: STYLE_COLORS_ENROLL[cls.style] || WD.gray500 }" />
+                <span class="block flex-1 min-w-0">
+                  <span class="block text-sm font-bold text-foreground">{{ cls.name }}</span>
+                  <span class="block text-xs text-muted-foreground font-sans">
+                    {{ cls.date ? formatShortDate(cls.date) : cls.day }}, {{ cls.time }} · {{ cls.venue }} · {{ cls.level || 'All levels' }}
+                  </span>
+                </span>
+                <span class="text-xs font-bold italic shrink-0 text-primary">+ Add</span>
+              </button>
             </div>
           </div>
-        </div>
-      </div>
 
-      <!-- YEAR · festivals section header -->
-      <div id="festivals" class="mt-14 mb-4">
-        <h2 class="text-3xl leading-tight font-display text-foreground">This year</h2>
-        <p class="mt-1 text-sm text-muted-foreground font-sans">{{ yearSummary }}</p>
-        <YearReviewEntry v-if="!showYearReviewBanner" variant="link" class="mt-2" />
-      </div>
-
-      <!-- Nudges from Discover swipes — "3 friends heading to X, add it?" -->
-      <div v-if="activeFestivalNudges.length" class="mb-4 grid gap-2">
-        <div
-          v-for="n in activeFestivalNudges"
-          :key="n.festivalSlug"
-          class="rounded-2xl p-4 flex flex-wrap items-center gap-3 bg-white border"
-          :style="{ borderColor: n.festivalColor + '55', boxShadow: '0 1px 0 ' + n.festivalColor + '22, 0 6px 18px rgba(59,31,18,0.04)' }"
-        >
-          <span
-            class="inline-flex items-center gap-1.5 text-eyebrow font-black uppercase tracking-widest px-2.5 py-1 rounded-full"
-            :style="{ background: n.festivalColor + '18', color: n.festivalColor }"
-          >
-            <UsersIcon class="w-3 h-3" /> {{ n.dancerNames.length }} match{{ n.dancerNames.length === 1 ? '' : 'es' }}
-          </span>
-          <div class="min-w-0 flex-1">
-            <div class="text-sm font-bold text-foreground">
-              {{ n.dancerNames.slice(0, 3).join(', ') }}<span v-if="n.dancerNames.length > 3"> and {{ n.dancerNames.length - 3 }} more</span> heading to
-              <span :style="{ color: n.festivalColor }">{{ n.festivalName }}</span>.
-            </div>
-            <div class="text-xs italic text-muted-foreground font-display">
-              Not in your year yet — add it and you'll meet them there.
-            </div>
-          </div>
-          <Button variant="pill" size="pill-sm" :accent="n.festivalColor" class="tracking-widest" @click="acceptFestivalNudge(n)">
-            Add to year
-          </Button>
-          <Button variant="link" class="h-auto p-0 text-xs font-normal italic shrink-0 text-secondary" @click="dismissFestivalNudge(n)">
-            Not this year
-          </Button>
-        </div>
-      </div>
-
-      <div class="flex items-baseline justify-between mb-4">
-        <div class="text-xs uppercase tracking-[0.3em] text-secondary">Festivals</div>
-        <span class="text-xs text-secondary font-hand" style="font-size:18px;">
-          — {{ picked.length }} in your year
-        </span>
-      </div>
-
-      <div class="grid gap-4">
-        <div
-          v-for="f in picked"
-          :id="`f-${f.slug}`"
-          :key="f.slug"
-          class="rounded-2xl overflow-hidden bg-white border transition-all scroll-mt-20"
-          :style="{ borderColor: f.accentColor + '55', boxShadow: '0 1px 0 ' + f.accentColor + '22, 0 8px 22px rgba(59,31,18,0.05)' }"
-        >
-          <div class="h-1.5" :style="{ background: f.accentColor }" />
-
-          <!-- CARD HEADER — always visible; click anywhere to toggle. -->
-          <button
-            type="button"
-            class="w-full text-left flex items-start gap-4 p-4 sm:p-5 transition-colors hover:bg-black/[0.015]"
-            :aria-expanded="expandedSlugs.has(f.slug)"
-            @click="toggleExpanded(f.slug)"
-          >
-            <!-- Logo -->
-            <div class="shrink-0">
-              <img
-                v-if="f.logo"
-                :src="sizedImage(f.logo, IMG.avatar)"
-                :alt="f.name"
-                class="w-12 h-12 rounded-full shadow-sm"
-              >
-              <div
-                v-else
-                class="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold text-white shadow-sm"
-                :style="{ background: f.accentColor }"
-              >
-                {{ initialOf(f.name) }}
-              </div>
-            </div>
-
-            <div class="flex-1 min-w-0">
-              <div class="flex items-start justify-between gap-3">
-                <h3 class="font-bold text-lg leading-tight truncate text-foreground">
-                  {{ f.name }}
-                </h3>
-                <span
-                  class="text-xs shrink-0 mt-1 whitespace-nowrap"
-                  :style="{
-                    color: daysUntilLabel(f.startDate, f.endDate).urgent ? WD.red600 : f.accentColor,
-                    fontFamily: 'var(--wd-font-hand)',
-                    fontSize: '16px',
-                  }"
-                >
-                  — {{ daysUntilLabel(f.startDate, f.endDate).text }}
-                </span>
-              </div>
-
-              <div class="flex items-center flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-muted-foreground font-sans">
-                <span class="inline-flex items-center gap-1">
-                  <Calendar class="w-3 h-3 text-secondary" />
-                  {{ formatDateRange(f.startDate, f.endDate) }}
-                </span>
-                <span class="inline-flex items-center gap-1">
-                  <MapPin class="w-3 h-3 text-secondary" />
-                  {{ f.venue }}, {{ f.location }}
-                </span>
-                <span
-                  v-if="f.styles?.some((s: string) => goalsForStyle(s).length)"
-                  class="inline-flex items-center gap-1 text-[10px] italic"
-                  style="color:var(--wd-green-600); font-family:var(--wd-font-display);"
-                >
-                  <Target class="w-3 h-3" />
-                  Serves: {{ f.styles.filter((s: string) => goalsForStyle(s).length).flatMap((s: string) => goalsForStyle(s)).filter((v: string, i: number, a: string[]) => a.indexOf(v) === i).join(', ') }}
-                </span>
-              </div>
-
-              <!-- Collapsed summary: progress pips + headline chip.
-                   Only rendered when the card is collapsed. -->
-              <div
-                v-if="!expandedSlugs.has(f.slug)"
-                class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2"
-              >
-                <!-- 5-pip progress bar (one pip per toggleable track) -->
-                <div class="inline-flex items-center gap-1.5">
-                  <span
-                    v-for="i in cardSummary(f).totalCount"
-                    :key="i"
-                    class="w-2 h-2 rounded-full"
-                    :style="{ background: i <= cardSummary(f).doneCount ? WD.green600 : (WD.brown900 + '22') }"
-                  />
-                  <span class="ml-1 text-meta font-bold text-muted-foreground font-sans">
-                    {{ cardSummary(f).doneCount }} of {{ cardSummary(f).totalCount }} ready
-                  </span>
-                </div>
-
-                <!-- Headline chip: the single most-urgent open track -->
-                <span
-                  v-if="cardSummary(f).allDone"
-                  class="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full"
-                  :style="toneStyle('done')"
-                >
-                  <Check class="w-3 h-3" style="stroke-width:2.5;" />
-                  <span class="font-sans">All planned</span>
-                </span>
-                <span
-                  v-else-if="cardSummary(f).headline"
-                  class="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full"
-                  :style="toneStyle(cardSummary(f).headline!.state.tone)"
-                >
-                  <component :is="cardSummary(f).headline!.icon" class="w-3 h-3" style="stroke-width:1.5;" />
-                  <span class="font-bold font-sans">
-                    {{ cardSummary(f).headline!.label }}:
-                  </span>
-                  <span class="font-sans">
-                    {{ cardSummary(f).headline!.state.text }}
-                  </span>
-                </span>
-              </div>
-            </div>
-
-            <!-- Chevron -->
-            <ChevronDown
-              class="w-5 h-5 shrink-0 mt-1 transition-transform"
-              :style="{
-                color: 'var(--wd-amber-600)',
-                'stroke-width': 1.75,
-                transform: expandedSlugs.has(f.slug) ? 'rotate(180deg)' : 'none',
-              }"
-            />
-          </button>
-
-          <!-- EXPANDED PANEL — multi-track detail + footer -->
-          <div v-if="expandedSlugs.has(f.slug)" class="px-4 sm:px-5 pb-5">
-            <div class="rounded-xl overflow-hidden border" style="border-color:color-mix(in srgb, var(--wd-brown-900) 8.2%, transparent);">
-              <div
-                v-for="(t, i) in tracks(f)"
-                :key="t.key"
-                class="flex flex-wrap items-center gap-3 px-3 sm:px-4 py-3"
-                :class="i > 0 ? 'border-t' : ''"
-                :style="{ borderColor: 'color-mix(in srgb, var(--wd-brown-900) 5.1%, transparent)', background: t.done ? (WD.green600 + '08') : 'white' }"
-              >
-                <component :is="t.icon" class="w-4 h-4 shrink-0" :style="{ color: t.done ? WD.green600 : WD.amber600, 'stroke-width': 1.5 }" />
-                <div class="w-24 shrink-0 text-sm font-bold text-foreground">
-                  {{ t.label }}
-                </div>
-                <span
-                  class="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full"
-                  :style="toneStyle(t.state.tone)"
-                >
-                  <Check v-if="t.done" class="w-3 h-3" style="stroke-width:2.5;" />
-                  <span class="font-sans">{{ t.state.text }}</span>
-                </span>
-
-                <button
-                  v-if="t.action && t.onAction"
-                  type="button"
-                  class="text-xs font-bold italic hover:underline ml-auto whitespace-nowrap"
-                  :style="{ color: f.accentColor }"
-                  @click.stop="t.onAction()"
-                >
-                  {{ t.action.label }} →
-                </button>
-                <NuxtLink
-                  v-else-if="t.action && !t.action.external"
-                  :to="t.action.href"
-                  class="text-xs font-bold italic hover:underline ml-auto whitespace-nowrap"
-                  :style="{ color: f.accentColor }"
-                >
-                  {{ t.action.label }} →
-                </NuxtLink>
-                <a
-                  v-else-if="t.action && t.action.external"
-                  :href="t.action.href"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="text-xs font-bold italic hover:underline ml-auto inline-flex items-center gap-1 whitespace-nowrap"
-                  :style="{ color: f.accentColor }"
-                >
-                  {{ t.action.label }} <ExternalLink class="w-3 h-3" />
-                </a>
-                <span v-else class="ml-auto" />
-
-                <a
-                  v-if="t.altAction && t.altAction.external"
-                  :href="t.altAction.href"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="text-eyebrow italic hover:underline inline-flex items-center gap-0.5 whitespace-nowrap text-secondary font-display"
-                >
-                  {{ t.altAction.label }} <ExternalLink class="w-2.5 h-2.5" />
-                </a>
-                <NuxtLink
-                  v-else-if="t.altAction"
-                  :to="t.altAction.href"
-                  class="text-eyebrow italic hover:underline whitespace-nowrap text-secondary font-display"
-                >
-                  {{ t.altAction.label }} →
-                </NuxtLink>
-
-                <button
-                  v-if="t.toggleKey"
-                  type="button"
-                  class="text-eyebrow font-bold italic hover:underline shrink-0 whitespace-nowrap text-secondary"
-                  :aria-pressed="t.done"
-                  @click.stop="toggleTrack(f.slug, t.toggleKey)"
-                >
-                  {{ t.done ? 'Undo' : 'Mark done' }}
-                </button>
-              </div>
-            </div>
-
-            <!-- FIND A RIDE PANEL -->
-            <FindRidePanel
-              v-if="rideOpenSlugs.has(f.slug)"
-              :festival-slug="f.slug"
-              :festival-location="f.location"
-              :festival-start-date="f.startDate"
-              :accent-color="f.accentColor"
-              :is-signed-in="isSignedIn && !previewMode"
-              class="mt-4"
-              @sign-in="openAuth('signin')"
-            />
-
-            <!-- WORKSHOP PICKER -->
-            <div v-if="getWorkshopsForFestival(f.slug).length > 0" class="mt-6 pt-6 border-t" style="border-color:color-mix(in srgb, var(--wd-brown-900) 5.1%, transparent);">
-              <div class="mb-4">
-                <h4 class="text-sm font-bold mb-3 text-foreground">
-                  Pick workshops ({{ getSelectedWorkshops(f.slug).size }} selected)
-                </h4>
-
-                <!-- Group workshops by day -->
-                <div
-                  v-for="day in ['Friday', 'Saturday', 'Sunday', 'Monday', 'Tuesday']"
-                  :key="day"
-                  class="mb-4"
-                >
-                  <div
-                    v-if="getWorkshopsForFestival(f.slug).filter(w => w.day === day).length > 0"
-                  >
-                    <div class="text-xs font-bold uppercase tracking-widest mb-2 text-secondary">
-                      {{ day }}
-                    </div>
-                    <div class="space-y-2">
-                      <label
-                        v-for="w in getWorkshopsForFestival(f.slug).filter(ws => ws.day === day && ws.type !== 'party')"
-                        :key="w.id"
-                        class="flex items-start gap-3 p-2.5 rounded-lg hover:bg-black/[0.02] cursor-pointer"
-                        @click.stop
-                      >
-                        <input
-                          type="checkbox"
-                          :checked="getSelectedWorkshops(f.slug).has(w.id)"
-                          class="mt-0.5 size-4 shrink-0 cursor-pointer accent-primary"
-                          @change="toggleWorkshop(f.slug, w.id)"
-                        >
-                        <div class="flex-1 min-w-0">
-                          <div class="text-sm font-bold leading-tight text-foreground">
-                            {{ w.time }} · {{ w.title }}
-                          </div>
-                          <div class="text-xs mt-0.5 text-muted-foreground font-sans">
-                            <template v-if="w.teacherId">
-                              {{ getTeacherName(f.slug, w.teacherId) }}
-                            </template>
-                            {{ w.level }}
-                            <template v-if="w.room">
-                              · {{ w.room }}
-                            </template>
-                          </div>
-                        </div>
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Selected workshops summary -->
-              <div v-if="getSelectedWorkshops(f.slug).size > 0" class="mt-4 pt-4 border-t" style="border-color:color-mix(in srgb, var(--wd-brown-900) 5.1%, transparent);">
-                <div class="text-xs font-bold uppercase tracking-widest mb-3 text-secondary">
-                  Your picks
-                </div>
-                <div class="space-y-2">
-                  <div
-                    v-for="w in getWorkshopsForFestival(f.slug).filter(ws => getSelectedWorkshops(f.slug).has(ws.id))"
-                    :key="w.id"
-                    class="flex items-start gap-2 p-2.5 rounded-lg bg-green-50"
-                  >
-                    <Check class="w-4 h-4 mt-0.5 shrink-0 text-wd-green-600" />
-                    <div class="flex-1 min-w-0">
-                      <div class="text-sm font-bold leading-tight text-foreground">
-                        {{ w.time }} · {{ w.title }}
-                      </div>
-                      <div class="text-xs text-muted-foreground font-sans">
-                        {{ w.day }} · {{ w.level }}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      class="text-xs font-bold italic hover:underline shrink-0 text-primary"
-                      @click.stop="removeSelectedWorkshop(f.slug, w.id)"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="mt-4 flex items-center gap-4 text-xs">
-              <NuxtLink
-                :to="`${festivalHref(f)}`"
-                class="italic hover:underline text-muted-foreground font-sans"
-              >
-                Open festival page →
+          <div v-if="!courses.length && !showEnrollPicker" class="rounded-2xl p-6 text-center border-2 border-dashed border-input bg-white/50">
+            <GraduationCap class="w-8 h-8 mx-auto mb-3 text-secondary" />
+            <p class="text-sm font-bold text-foreground font-sans">No classes yet.</p>
+            <p class="mt-1 mb-3 text-sm text-muted-foreground font-sans">
+              A weekly class is the quickest way to keep momentum.
+            </p>
+            <Button as-child variant="pill" class="px-5">
+              <NuxtLink :to="cityClassesLink">
+                Find a class{{ dancerCity ? ` in ${dancerCity}` : '' }} <ArrowRight aria-hidden="true" />
               </NuxtLink>
-              <Button variant="link" class="ml-auto h-auto p-0 text-xs font-normal italic text-secondary font-sans" @click.stop="onRemove(f.slug)">
-                Remove
-              </Button>
+            </Button>
+          </div>
+          <div v-else class="grid sm:grid-cols-2 gap-4">
+            <div
+              v-for="c in courses"
+              :key="c.id"
+              class="group rounded-2xl bg-white p-5 border"
+              :style="{ borderColor: c.color + '55', boxShadow: '0 1px 0 ' + c.color + '22, 0 6px 18px rgba(59,31,18,0.04)' }"
+            >
+              <div class="flex items-start justify-between gap-3 mb-2">
+                <div class="min-w-0">
+                  <NuxtLink
+                    v-if="c.eventId && !previewMode"
+                    :to="eventPath({ id: c.eventId || c.id, name: c.name })"
+                    class="block text-base font-bold leading-tight text-foreground hover:underline"
+                  >{{ c.name || c.school }}</NuxtLink>
+                  <div v-else class="text-base font-bold leading-tight text-foreground">
+                    {{ c.name || c.school }}
+                  </div>
+                  <div class="text-xs mt-0.5 text-muted-foreground font-sans">
+                    <template v-if="c.name && c.school">
+                      <NuxtLink v-if="c.schoolUsername && !previewMode" :to="`/@${c.schoolUsername}`" class="hover:underline">{{ c.school }}</NuxtLink>
+                      <span v-else>{{ c.school }}</span>
+                    </template>
+                    <span v-else-if="c.teacher">{{ c.teacher }}</span>
+                    <template v-if="c.style || c.level"> · <span class="text-secondary">{{ [c.style, c.level].filter(Boolean).join(' · ') }}</span></template>
+                  </div>
+                  <div
+                    v-if="c.style && goalsForStyle(c.style).length"
+                    class="text-[10px] mt-1 italic"
+                    style="color:var(--wd-green-600); font-family:var(--wd-font-display);"
+                  >
+                    Serves your goal: {{ goalsForStyle(c.style).join(', ') }}
+                  </div>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                  <!-- Payment status only when there's real data for this enrolment. -->
+                  <template v-if="c.paidThroughMonth !== undefined">
+                    <span
+                      v-if="!c.paidThroughMonth"
+                      class="text-eyebrow font-bold uppercase tracking-widest px-2 py-1 rounded-full whitespace-nowrap"
+                      :style="{ color: 'var(--wd-red-600)', background: 'color-mix(in srgb, var(--wd-red-600) 9.4%, transparent)' }"
+                    >
+                      Pay due
+                    </span>
+                    <span
+                      v-else
+                      class="text-eyebrow font-bold uppercase tracking-widest px-2 py-1 rounded-full whitespace-nowrap"
+                      :style="{ color: 'var(--wd-green-600)', background: 'color-mix(in srgb, var(--wd-green-600) 9.4%, transparent)' }"
+                    >
+                      Paid
+                    </span>
+                  </template>
+                  <!-- Only planned (RAZ-1003): the next step is signing up for the class. -->
+                  <template v-if="!c.signedUp && !previewMode">
+                    <span class="text-xs text-muted-foreground font-sans">Planned</span>
+                    <NuxtLink
+                      :to="eventPath({ id: c.eventId || c.id, name: c.name })"
+                      class="text-xs font-bold px-2.5 py-1 rounded-full whitespace-nowrap border font-sans text-primary border-primary/40 hover:bg-primary/5"
+                      data-plan-signup
+                    >
+                      Book{{ c.price ? ` · ${c.price}` : '' }} →
+                    </NuxtLink>
+                  </template>
+                  <NuxtLink
+                    v-if="c.signedUp"
+                    :to="eventPath({ id: c.eventId || c.id, name: c.name })"
+                    class="text-eyebrow font-bold uppercase tracking-widest px-2 py-1 rounded-full whitespace-nowrap hover:underline"
+                    :style="{ color: 'var(--wd-green-600)', background: 'color-mix(in srgb, var(--wd-green-600) 9.4%, transparent)' }"
+                    :title="'You’re signed up — to cancel, open the class'"
+                  >
+                    Signed up
+                  </NuxtLink>
+                  <button
+                    v-else
+                    type="button"
+                    class="text-xs text-muted-foreground hover:text-primary hover:underline font-sans"
+                    :aria-label="`Remove ${c.name || c.school} from your plan`"
+                    data-plan-remove
+                    @click="unenrollCourse(c.id)"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+
+              <div class="mt-3 space-y-1.5 text-xs text-muted-foreground font-sans">
+                <div class="flex items-center gap-2">
+                  <Calendar class="w-3 h-3 text-secondary" />
+                  Next class <strong>{{ c.nextClassDate ? formatShortDate(c.nextClassDate) : c.weekday }}, {{ c.time }}</strong>
+                </div>
+                <div v-if="c.venue" class="flex items-center gap-2">
+                  <MapPin class="w-3 h-3 text-secondary" />
+                  {{ c.venue }}
+                </div>
+              </div>
+
+              <!-- Attendance only when it's tracked for this enrolment (never 0 / 0). -->
+              <div v-if="c.total && c.total > 0" class="mt-4">
+                <div class="flex items-baseline justify-between mb-1">
+                  <span class="text-eyebrow uppercase tracking-widest font-bold text-secondary">Attendance this cycle</span>
+                  <span class="text-xs font-black text-foreground font-display">{{ c.attended ?? 0 }} / {{ c.total }}</span>
+                </div>
+                <div class="w-full h-1.5 rounded-full overflow-hidden" style="background:color-mix(in srgb, var(--wd-brown-900) 6.3%, transparent);">
+                  <div class="h-full transition-all" :style="{ width: Math.round(((c.attended ?? 0) / c.total) * 100) + '%', background: c.color }" />
+                </div>
+              </div>
             </div>
           </div>
         </div>
+
       </div>
 
-      <!-- The festival-year story, ready to post (RAZ-897 → here in RAZ-966). -->
-      <YearStory
-        v-if="!previewMode && yearStoryFestivals.length && yearShareLink"
-        :festivals="yearStoryFestivals"
-        :sharer-name="(dancerName || '').split(' ')[0] || ''"
-        :url="yearShareLink"
-        surface="my_plan"
-        class="mt-6 mb-10"
-      >
-        <p v-if="dancerPublicReal === false" class="mt-3 text-sm font-sans text-orange-700" data-testid="year-story-private">
-          Your profile is private, so friends who open the link won't see your year.
-          <NuxtLink to="/settings" class="underline font-bold">Make it public</NuxtLink>
-        </p>
-      </YearStory>
-
-      <!-- GOALS · the long arc, after the year it shapes. -->
-      <div id="goals" class="mt-4">
-        <div class="flex items-baseline justify-between mb-4">
-          <div>
-            <h2 class="text-3xl leading-tight font-display text-foreground">Your goals</h2>
-            <p class="mt-1 text-sm text-muted-foreground font-sans">{{ goalsSummary }}</p>
-          </div>
-          <Button
-            v-if="!showGoalForm"
-            variant="link"
-            class="h-auto p-0 text-xs font-normal italic text-secondary font-display"
-            @click="showGoalForm = true"
-          >
-            + Add a goal
-          </Button>
+      <!-- YEAR · your festivals and your goals. -->
+      <div v-show="zoom === 'year'" id="plan-panel-year" class="mt-6" role="tabpanel" aria-labelledby="plan-tab-year">
+        <!-- YEAR · festivals section header -->
+        <div id="festivals" class="mb-4 scroll-mt-20">
+          <h2 class="text-3xl leading-tight font-display text-foreground">Your festivals</h2>
+          <p class="mt-1 text-sm text-muted-foreground font-sans">{{ yearSummary }}</p>
+          <YearReviewEntry v-if="!showYearReviewBanner" variant="link" class="mt-2" />
         </div>
 
-        <!-- Inline add-goal form -->
-        <div v-if="showGoalForm" class="rounded-2xl bg-white p-6 border mb-4" style="border-color:color-mix(in srgb, var(--wd-amber-600) 33.3%, transparent); box-shadow: 0 4px 16px rgba(59,31,18,0.06);">
-          <div class="text-sm font-bold mb-4 text-foreground font-display">
-            What are you working toward this year?
-          </div>
-          <form class="space-y-4" novalidate @submit.prevent="onGoalSubmit">
-            <Field id="goal-title" label="Your goal" :error="goalFormError || undefined">
-              <Input v-model="goalFormTitle" placeholder="e.g. Learn Bachata Sensual" />
-            </Field>
-            <Field id="goal-why" label="Why does it matter?" optional>
-              <Input v-model="goalFormWhy" placeholder="e.g. Feel confident on the dance floor" />
-            </Field>
-            <Field id="goal-style" label="Dance style" optional hint="Links this goal to your courses & festivals.">
-              <DanceStylePicker v-model="goalFormStyles" single label="Dance style" :popular-count="6" />
-            </Field>
-            <div class="flex items-center gap-3 pt-1">
-              <Button type="submit" variant="pill" :disabled="!goalFormTitle.trim() || !!goalFormError">
-                Add goal
-              </Button>
-              <Button type="button" variant="ghost" class="rounded-full font-bold uppercase tracking-wider text-muted-foreground" @click="onGoalCancel">
-                Cancel
-              </Button>
-            </div>
-          </form>
-        </div>
-
-        <div v-if="!goalsList.length && !showGoalForm" class="rounded-2xl p-6 text-center border-2 border-dashed border-input bg-white/50">
-          <Target class="w-8 h-8 mx-auto mb-3 text-secondary" aria-hidden="true" />
-          <p class="text-sm text-muted-foreground font-sans">
-            No goals yet. One year, one arc, one reason to keep showing up.
-          </p>
-          <Button variant="link" class="mt-2 h-auto p-0 text-xs font-bold underline text-primary font-sans" @click="showGoalForm = true">
-            Set a goal
-          </Button>
-        </div>
-        <div v-else-if="goalsList.length" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Nudges from Discover swipes — "3 friends heading to X, add it?" -->
+        <div v-if="activeFestivalNudges.length" class="mb-4 grid gap-2">
           <div
-            v-for="g in goalsList"
-            :key="g.id"
-            class="rounded-2xl bg-white p-5 border group"
-            :style="{ borderColor: g.color + '55', boxShadow: '0 1px 0 ' + g.color + '22, 0 8px 22px rgba(59,31,18,0.05)' }"
+            v-for="n in activeFestivalNudges"
+            :key="n.festivalSlug"
+            class="rounded-2xl p-4 flex flex-wrap items-center gap-3 bg-white border"
+            :style="{ borderColor: n.festivalColor + '55', boxShadow: '0 1px 0 ' + n.festivalColor + '22, 0 6px 18px rgba(59,31,18,0.04)' }"
           >
-            <div class="flex items-start gap-3 mb-3">
-              <component :is="g.icon" class="w-5 h-5 shrink-0" :style="{ color: g.color, 'stroke-width': 1.5 }" />
+            <span
+              class="inline-flex items-center gap-1.5 text-eyebrow font-black uppercase tracking-widest px-2.5 py-1 rounded-full"
+              :style="{ background: n.festivalColor + '18', color: n.festivalColor }"
+            >
+              <UsersIcon class="w-3 h-3" /> {{ n.dancerNames.length }} match{{ n.dancerNames.length === 1 ? '' : 'es' }}
+            </span>
+            <div class="min-w-0 flex-1">
+              <div class="text-sm font-bold text-foreground">
+                {{ n.dancerNames.slice(0, 3).join(', ') }}<span v-if="n.dancerNames.length > 3"> and {{ n.dancerNames.length - 3 }} more</span> heading to
+                <span :style="{ color: n.festivalColor }">{{ n.festivalName }}</span>.
+              </div>
+              <div class="text-xs italic text-muted-foreground font-display">
+                Not in your year yet — add it and you'll meet them there.
+              </div>
+            </div>
+            <Button variant="pill" size="pill-sm" :accent="n.festivalColor" class="tracking-widest" @click="acceptFestivalNudge(n)">
+              Add to year
+            </Button>
+            <Button variant="link" class="h-auto p-0 text-xs font-normal italic shrink-0 text-secondary" @click="dismissFestivalNudge(n)">
+              Not this year
+            </Button>
+          </div>
+        </div>
+
+        <div class="grid gap-4">
+          <div
+            v-for="f in picked"
+            :id="`f-${f.slug}`"
+            :key="f.slug"
+            class="rounded-2xl overflow-hidden bg-white border transition-all scroll-mt-20"
+            :style="{ borderColor: f.accentColor + '55', boxShadow: '0 1px 0 ' + f.accentColor + '22, 0 8px 22px rgba(59,31,18,0.05)' }"
+          >
+            <div class="h-1.5" :style="{ background: f.accentColor }" />
+
+            <!-- CARD HEADER — always visible; click anywhere to toggle. -->
+            <button
+              type="button"
+              class="w-full text-left flex items-start gap-4 p-4 sm:p-5 transition-colors hover:bg-black/[0.015]"
+              :aria-expanded="expandedSlugs.has(f.slug)"
+              @click="toggleExpanded(f.slug)"
+            >
+              <!-- Logo -->
+              <div class="shrink-0">
+                <img
+                  v-if="f.logo"
+                  :src="sizedImage(f.logo, IMG.avatar)"
+                  :alt="f.name"
+                  class="w-12 h-12 rounded-full shadow-sm"
+                >
+                <div
+                  v-else
+                  class="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold text-white shadow-sm"
+                  :style="{ background: f.accentColor }"
+                >
+                  {{ initialOf(f.name) }}
+                </div>
+              </div>
+
               <div class="flex-1 min-w-0">
-                <div class="text-base font-bold leading-tight text-foreground">
-                  {{ g.title }}
+                <div class="flex items-start justify-between gap-3">
+                  <h3 class="font-bold text-lg leading-tight truncate text-foreground">
+                    {{ f.name }}
+                  </h3>
+                  <span
+                    class="text-xs shrink-0 mt-1 whitespace-nowrap"
+                    :style="{
+                      color: daysUntilLabel(f.startDate, f.endDate).urgent ? WD.red600 : f.accentColor,
+                      fontFamily: 'var(--wd-font-hand)',
+                      fontSize: '16px',
+                    }"
+                  >
+                    — {{ daysUntilLabel(f.startDate, f.endDate).text }}
+                  </span>
                 </div>
-                <div class="mt-1 text-xs italic text-muted-foreground font-display">
-                  {{ g.why }}
+
+                <div class="flex items-center flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-muted-foreground font-sans">
+                  <span class="inline-flex items-center gap-1">
+                    <Calendar class="w-3 h-3 text-secondary" />
+                    {{ formatDateRange(f.startDate, f.endDate) }}
+                  </span>
+                  <span class="inline-flex items-center gap-1">
+                    <MapPin class="w-3 h-3 text-secondary" />
+                    {{ f.venue }}, {{ f.location }}
+                  </span>
+                  <span
+                    v-if="f.styles?.some((s: string) => goalsForStyle(s).length)"
+                    class="inline-flex items-center gap-1 text-[10px] italic"
+                    style="color:var(--wd-green-600); font-family:var(--wd-font-display);"
+                  >
+                    <Target class="w-3 h-3" />
+                    Serves: {{ f.styles.filter((s: string) => goalsForStyle(s).length).flatMap((s: string) => goalsForStyle(s)).filter((v: string, i: number, a: string[]) => a.indexOf(v) === i).join(', ') }}
+                  </span>
                 </div>
-                <span
-                  v-if="goalEffectiveStyle(g)"
-                  class="inline-block mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
-                  style="background:color-mix(in srgb, var(--wd-amber-600) 12%, transparent); color:var(--wd-amber-600);"
+
+                <!-- Collapsed summary: progress pips + headline chip.
+                     Only rendered when the card is collapsed. -->
+                <div
+                  v-if="!expandedSlugs.has(f.slug)"
+                  class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2"
                 >
-                  {{ goalEffectiveStyle(g) }}
-                </span>
+                  <!-- 5-pip progress bar (one pip per toggleable track) -->
+                  <div class="inline-flex items-center gap-1.5">
+                    <span
+                      v-for="i in cardSummary(f).totalCount"
+                      :key="i"
+                      class="w-2 h-2 rounded-full"
+                      :style="{ background: i <= cardSummary(f).doneCount ? WD.green600 : (WD.brown900 + '22') }"
+                    />
+                    <span class="ml-1 text-meta font-bold text-muted-foreground font-sans">
+                      {{ cardSummary(f).doneCount }} of {{ cardSummary(f).totalCount }} ready
+                    </span>
+                  </div>
+
+                  <!-- Headline chip: the single most-urgent open track -->
+                  <span
+                    v-if="cardSummary(f).allDone"
+                    class="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full"
+                    :style="toneStyle('done')"
+                  >
+                    <Check class="w-3 h-3" style="stroke-width:2.5;" />
+                    <span class="font-sans">All planned</span>
+                  </span>
+                  <span
+                    v-else-if="cardSummary(f).headline"
+                    class="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full"
+                    :style="toneStyle(cardSummary(f).headline!.state.tone)"
+                  >
+                    <component :is="cardSummary(f).headline!.icon" class="w-3 h-3" style="stroke-width:1.5;" />
+                    <span class="font-bold font-sans">
+                      {{ cardSummary(f).headline!.label }}:
+                    </span>
+                    <span class="font-sans">
+                      {{ cardSummary(f).headline!.state.text }}
+                    </span>
+                  </span>
+                </div>
               </div>
-              <Button
-                v-if="!previewMode"
-                variant="ghost"
-                size="icon-sm"
-                class="size-7 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity shrink-0 rounded hover:bg-wd-red-50 text-primary hover:text-primary [&_svg]:size-3.5"
-                :aria-label="`Remove goal: ${g.title}`"
-                @click="removeGoal(g.id)"
-              >
-                <X aria-hidden="true" />
-              </Button>
-            </div>
-            <!-- Progress bar — editable in real mode -->
-            <div class="mt-4">
-              <div class="flex items-baseline justify-between mb-1">
-                <span class="text-eyebrow uppercase tracking-widest font-bold text-secondary">Progress</span>
-                <button
-                  v-if="!previewMode"
-                  type="button"
-                  class="text-xs font-black cursor-pointer hover:underline"
-                  :style="{ color: goalProgressColor(g.progress), fontFamily: 'var(--wd-font-display)' }"
-                  :aria-label="`Edit progress, currently ${g.progress}%`"
-                  @click="startEditingProgress(g.id)"
-                >
-                  {{ g.progress }}%
-                </button>
-                <span v-else class="text-xs font-black" :style="{ color: goalProgressColor(g.progress), fontFamily: 'var(--wd-font-display)' }">{{ g.progress }}%</span>
-              </div>
-              <input
-                v-if="editingProgressGoalId === g.id"
-                type="range"
-                min="0"
-                max="100"
-                :value="g.progress"
-                class="w-full h-2 rounded-full appearance-none cursor-pointer"
-                style="accent-color:var(--wd-amber-600);"
-                @input="onProgressChange(g.id, Number(($event.target as HTMLInputElement).value))"
-                @change="stopEditingProgress()"
+
+              <!-- Chevron -->
+              <ChevronDown
+                class="w-5 h-5 shrink-0 mt-1 transition-transform"
+                :style="{
+                  color: 'var(--wd-amber-600)',
+                  'stroke-width': 1.75,
+                  transform: expandedSlugs.has(f.slug) ? 'rotate(180deg)' : 'none',
+                }"
               />
-              <div v-else class="w-full h-2 rounded-full overflow-hidden" style="background:color-mix(in srgb, var(--wd-brown-900) 6.3%, transparent);">
-                <div class="h-full transition-all" :style="{ width: g.progress + '%', background: goalProgressColor(g.progress) }" />
+            </button>
+
+            <!-- EXPANDED PANEL — multi-track detail + footer -->
+            <div v-if="expandedSlugs.has(f.slug)" class="px-4 sm:px-5 pb-5">
+              <div class="rounded-xl overflow-hidden border" style="border-color:color-mix(in srgb, var(--wd-brown-900) 8.2%, transparent);">
+                <div
+                  v-for="(t, i) in tracks(f)"
+                  :key="t.key"
+                  class="flex flex-wrap items-center gap-3 px-3 sm:px-4 py-3"
+                  :class="i > 0 ? 'border-t' : ''"
+                  :style="{ borderColor: 'color-mix(in srgb, var(--wd-brown-900) 5.1%, transparent)', background: t.done ? (WD.green600 + '08') : 'white' }"
+                >
+                  <component :is="t.icon" class="w-4 h-4 shrink-0" :style="{ color: t.done ? WD.green600 : WD.amber600, 'stroke-width': 1.5 }" />
+                  <div class="w-24 shrink-0 text-sm font-bold text-foreground">
+                    {{ t.label }}
+                  </div>
+                  <span
+                    class="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full"
+                    :style="toneStyle(t.state.tone)"
+                  >
+                    <Check v-if="t.done" class="w-3 h-3" style="stroke-width:2.5;" />
+                    <span class="font-sans">{{ t.state.text }}</span>
+                  </span>
+
+                  <button
+                    v-if="t.action && t.onAction"
+                    type="button"
+                    class="text-xs font-bold italic hover:underline ml-auto whitespace-nowrap"
+                    :style="{ color: f.accentColor }"
+                    @click.stop="t.onAction()"
+                  >
+                    {{ t.action.label }} →
+                  </button>
+                  <NuxtLink
+                    v-else-if="t.action && !t.action.external"
+                    :to="t.action.href"
+                    class="text-xs font-bold italic hover:underline ml-auto whitespace-nowrap"
+                    :style="{ color: f.accentColor }"
+                  >
+                    {{ t.action.label }} →
+                  </NuxtLink>
+                  <a
+                    v-else-if="t.action && t.action.external"
+                    :href="t.action.href"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="text-xs font-bold italic hover:underline ml-auto inline-flex items-center gap-1 whitespace-nowrap"
+                    :style="{ color: f.accentColor }"
+                  >
+                    {{ t.action.label }} <ExternalLink class="w-3 h-3" />
+                  </a>
+                  <span v-else class="ml-auto" />
+
+                  <a
+                    v-if="t.altAction && t.altAction.external"
+                    :href="t.altAction.href"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="text-eyebrow italic hover:underline inline-flex items-center gap-0.5 whitespace-nowrap text-secondary font-display"
+                  >
+                    {{ t.altAction.label }} <ExternalLink class="w-2.5 h-2.5" />
+                  </a>
+                  <NuxtLink
+                    v-else-if="t.altAction"
+                    :to="t.altAction.href"
+                    class="text-eyebrow italic hover:underline whitespace-nowrap text-secondary font-display"
+                  >
+                    {{ t.altAction.label }} →
+                  </NuxtLink>
+
+                  <button
+                    v-if="t.toggleKey"
+                    type="button"
+                    class="text-eyebrow font-bold italic hover:underline shrink-0 whitespace-nowrap text-secondary"
+                    :aria-pressed="t.done"
+                    @click.stop="toggleTrack(f.slug, t.toggleKey)"
+                  >
+                    {{ t.done ? 'Undo' : 'Mark done' }}
+                  </button>
+                </div>
               </div>
-            </div>
-            <div v-if="g.nudge" class="mt-3 text-sm font-hand text-secondary" style="font-size:17px;">
-              — {{ g.nudge }}
+
+              <!-- FIND A RIDE PANEL -->
+              <FindRidePanel
+                v-if="rideOpenSlugs.has(f.slug)"
+                :festival-slug="f.slug"
+                :festival-location="f.location"
+                :festival-start-date="f.startDate"
+                :accent-color="f.accentColor"
+                :is-signed-in="isSignedIn && !previewMode"
+                class="mt-4"
+                @sign-in="openAuth('signin')"
+              />
+
+              <!-- WORKSHOP PICKER -->
+              <div v-if="getWorkshopsForFestival(f.slug).length > 0" class="mt-6 pt-6 border-t" style="border-color:color-mix(in srgb, var(--wd-brown-900) 5.1%, transparent);">
+                <div class="mb-4">
+                  <h4 class="text-sm font-bold mb-3 text-foreground">
+                    Pick workshops ({{ getSelectedWorkshops(f.slug).size }} selected)
+                  </h4>
+
+                  <!-- Group workshops by day -->
+                  <div
+                    v-for="day in ['Friday', 'Saturday', 'Sunday', 'Monday', 'Tuesday']"
+                    :key="day"
+                    class="mb-4"
+                  >
+                    <div
+                      v-if="getWorkshopsForFestival(f.slug).filter(w => w.day === day).length > 0"
+                    >
+                      <div class="text-xs font-bold uppercase tracking-widest mb-2 text-secondary">
+                        {{ day }}
+                      </div>
+                      <div class="space-y-2">
+                        <label
+                          v-for="w in getWorkshopsForFestival(f.slug).filter(ws => ws.day === day && ws.type !== 'party')"
+                          :key="w.id"
+                          class="flex items-start gap-3 p-2.5 rounded-lg hover:bg-black/[0.02] cursor-pointer"
+                          @click.stop
+                        >
+                          <input
+                            type="checkbox"
+                            :checked="getSelectedWorkshops(f.slug).has(w.id)"
+                            class="mt-0.5 size-4 shrink-0 cursor-pointer accent-primary"
+                            @change="toggleWorkshop(f.slug, w.id)"
+                          >
+                          <div class="flex-1 min-w-0">
+                            <div class="text-sm font-bold leading-tight text-foreground">
+                              {{ w.time }} · {{ w.title }}
+                            </div>
+                            <div class="text-xs mt-0.5 text-muted-foreground font-sans">
+                              <template v-if="w.teacherId">
+                                {{ getTeacherName(f.slug, w.teacherId) }}
+                              </template>
+                              {{ w.level }}
+                              <template v-if="w.room">
+                                · {{ w.room }}
+                              </template>
+                            </div>
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Selected workshops summary -->
+                <div v-if="getSelectedWorkshops(f.slug).size > 0" class="mt-4 pt-4 border-t" style="border-color:color-mix(in srgb, var(--wd-brown-900) 5.1%, transparent);">
+                  <div class="text-xs font-bold uppercase tracking-widest mb-3 text-secondary">
+                    Your picks
+                  </div>
+                  <div class="space-y-2">
+                    <div
+                      v-for="w in getWorkshopsForFestival(f.slug).filter(ws => getSelectedWorkshops(f.slug).has(ws.id))"
+                      :key="w.id"
+                      class="flex items-start gap-2 p-2.5 rounded-lg bg-green-50"
+                    >
+                      <Check class="w-4 h-4 mt-0.5 shrink-0 text-wd-green-600" />
+                      <div class="flex-1 min-w-0">
+                        <div class="text-sm font-bold leading-tight text-foreground">
+                          {{ w.time }} · {{ w.title }}
+                        </div>
+                        <div class="text-xs text-muted-foreground font-sans">
+                          {{ w.day }} · {{ w.level }}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        class="text-xs font-bold italic hover:underline shrink-0 text-primary"
+                        @click.stop="removeSelectedWorkshop(f.slug, w.id)"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-4 flex items-center gap-4 text-xs">
+                <NuxtLink
+                  :to="`${festivalHref(f)}`"
+                  class="italic hover:underline text-muted-foreground font-sans"
+                >
+                  Open festival page →
+                </NuxtLink>
+                <Button variant="link" class="ml-auto h-auto p-0 text-xs font-normal italic text-secondary font-sans" @click.stop="onRemove(f.slug)">
+                  Remove
+                </Button>
+              </div>
             </div>
           </div>
         </div>
+
+        <!-- The festival-year story, ready to post (RAZ-897 → here in RAZ-966). -->
+        <YearStory
+          v-if="!previewMode && yearStoryFestivals.length && yearShareLink"
+          :festivals="yearStoryFestivals"
+          :sharer-name="(dancerName || '').split(' ')[0] || ''"
+          :url="yearShareLink"
+          surface="my_plan"
+          class="mt-6 mb-10"
+        >
+          <p v-if="dancerPublicReal === false" class="mt-3 text-sm font-sans text-orange-700" data-testid="year-story-private">
+            Your profile is private, so friends who open the link won't see your year.
+            <NuxtLink to="/settings" class="underline font-bold">Make it public</NuxtLink>
+          </p>
+        </YearStory>
+
+        <!-- GOALS · the long arc, after the year it shapes. -->
+        <div id="goals" class="mt-4">
+          <div class="flex items-baseline justify-between mb-4">
+            <div>
+              <h2 class="text-3xl leading-tight font-display text-foreground">Your goals</h2>
+              <p class="mt-1 text-sm text-muted-foreground font-sans">{{ goalsSummary }}</p>
+            </div>
+            <Button
+              v-if="!showGoalForm"
+              variant="link"
+              class="h-auto p-0 text-xs font-normal italic text-secondary font-display"
+              @click="showGoalForm = true"
+            >
+              + Add a goal
+            </Button>
+          </div>
+
+          <!-- Inline add-goal form -->
+          <div v-if="showGoalForm" class="rounded-2xl bg-white p-6 border mb-4" style="border-color:color-mix(in srgb, var(--wd-amber-600) 33.3%, transparent); box-shadow: 0 4px 16px rgba(59,31,18,0.06);">
+            <div class="text-sm font-bold mb-4 text-foreground font-display">
+              What are you working toward this year?
+            </div>
+            <form class="space-y-4" novalidate @submit.prevent="onGoalSubmit">
+              <Field id="goal-title" label="Your goal" :error="goalFormError || undefined">
+                <Input v-model="goalFormTitle" placeholder="e.g. Learn Bachata Sensual" />
+              </Field>
+              <Field id="goal-why" label="Why does it matter?" optional>
+                <Input v-model="goalFormWhy" placeholder="e.g. Feel confident on the dance floor" />
+              </Field>
+              <Field id="goal-style" label="Dance style" optional hint="Links this goal to your courses & festivals.">
+                <DanceStylePicker v-model="goalFormStyles" single label="Dance style" :popular-count="6" />
+              </Field>
+              <div class="flex items-center gap-3 pt-1">
+                <Button type="submit" variant="pill" :disabled="!goalFormTitle.trim() || !!goalFormError">
+                  Add goal
+                </Button>
+                <Button type="button" variant="ghost" class="rounded-full font-bold uppercase tracking-wider text-muted-foreground" @click="onGoalCancel">
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </div>
+
+          <div v-if="!goalsList.length && !showGoalForm" class="rounded-2xl p-6 text-center border-2 border-dashed border-input bg-white/50">
+            <Target class="w-8 h-8 mx-auto mb-3 text-secondary" aria-hidden="true" />
+            <p class="text-sm text-muted-foreground font-sans">
+              No goals yet. One year, one arc, one reason to keep showing up.
+            </p>
+            <Button variant="link" class="mt-2 h-auto p-0 text-xs font-bold underline text-primary font-sans" @click="showGoalForm = true">
+              Set a goal
+            </Button>
+          </div>
+          <div v-else-if="goalsList.length" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div
+              v-for="g in goalsList"
+              :key="g.id"
+              class="rounded-2xl bg-white p-5 border group"
+              :style="{ borderColor: g.color + '55', boxShadow: '0 1px 0 ' + g.color + '22, 0 8px 22px rgba(59,31,18,0.05)' }"
+            >
+              <div class="flex items-start gap-3 mb-3">
+                <component :is="g.icon" class="w-5 h-5 shrink-0" :style="{ color: g.color, 'stroke-width': 1.5 }" />
+                <div class="flex-1 min-w-0">
+                  <div class="text-base font-bold leading-tight text-foreground">
+                    {{ g.title }}
+                  </div>
+                  <div class="mt-1 text-xs italic text-muted-foreground font-display">
+                    {{ g.why }}
+                  </div>
+                  <span
+                    v-if="goalEffectiveStyle(g)"
+                    class="inline-block mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
+                    style="background:color-mix(in srgb, var(--wd-amber-600) 12%, transparent); color:var(--wd-amber-600);"
+                  >
+                    {{ goalEffectiveStyle(g) }}
+                  </span>
+                </div>
+                <Button
+                  v-if="!previewMode"
+                  variant="ghost"
+                  size="icon-sm"
+                  class="size-7 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity shrink-0 rounded hover:bg-wd-red-50 text-primary hover:text-primary [&_svg]:size-3.5"
+                  :aria-label="`Remove goal: ${g.title}`"
+                  @click="removeGoal(g.id)"
+                >
+                  <X aria-hidden="true" />
+                </Button>
+              </div>
+              <!-- Progress bar — editable in real mode -->
+              <div class="mt-4">
+                <div class="flex items-baseline justify-between mb-1">
+                  <span class="text-eyebrow uppercase tracking-widest font-bold text-secondary">Progress</span>
+                  <button
+                    v-if="!previewMode"
+                    type="button"
+                    class="text-xs font-black cursor-pointer hover:underline"
+                    :style="{ color: goalProgressColor(g.progress), fontFamily: 'var(--wd-font-display)' }"
+                    :aria-label="`Edit progress, currently ${g.progress}%`"
+                    @click="startEditingProgress(g.id)"
+                  >
+                    {{ g.progress }}%
+                  </button>
+                  <span v-else class="text-xs font-black" :style="{ color: goalProgressColor(g.progress), fontFamily: 'var(--wd-font-display)' }">{{ g.progress }}%</span>
+                </div>
+                <input
+                  v-if="editingProgressGoalId === g.id"
+                  type="range"
+                  min="0"
+                  max="100"
+                  :value="g.progress"
+                  class="w-full h-2 rounded-full appearance-none cursor-pointer"
+                  style="accent-color:var(--wd-amber-600);"
+                  @input="onProgressChange(g.id, Number(($event.target as HTMLInputElement).value))"
+                  @change="stopEditingProgress()"
+                />
+                <div v-else class="w-full h-2 rounded-full overflow-hidden" style="background:color-mix(in srgb, var(--wd-brown-900) 6.3%, transparent);">
+                  <div class="h-full transition-all" :style="{ width: g.progress + '%', background: goalProgressColor(g.progress) }" />
+                </div>
+              </div>
+              <div v-if="g.nudge" class="mt-3 text-sm font-hand text-secondary" style="font-size:17px;">
+                — {{ g.nudge }}
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
 
     </section>

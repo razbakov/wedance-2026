@@ -48,6 +48,8 @@ export const hubNav: DocSection[] = [
       { title: 'UX map', to: '/docs/ux-map', status: 'beta', summary: 'Every user journey, stage by stage: what is live, partial, missing.' },
       { title: 'Event setup blueprint', to: '/docs/blueprints/event-setup', status: 'beta', summary: 'Organiser, venue, artists and dancers lane by lane: every wait, hand-carried link and missed update.' },
       { title: 'Meet new friends blueprint', to: '/docs/blueprints/meet-friends', status: 'beta', summary: 'You, WeDance and the other dancer lane by lane: from joining to dancing with someone new, and where a Yes goes nowhere.' },
+      { title: 'First class blueprint', to: '/docs/blueprints/first-class', status: 'beta', summary: 'Newcomer, WeDance and the school lane by lane: from curious to a second class, and what the school never hears.' },
+      { title: 'Keep progressing blueprint', to: '/docs/blueprints/keep-progressing', status: 'beta', summary: 'Student, WeDance and the teacher or school lane by lane: from a goal to the next level, and where momentum is left to WhatsApp.' },
     ],
   },
   {

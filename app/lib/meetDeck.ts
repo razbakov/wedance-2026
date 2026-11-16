@@ -5,7 +5,7 @@
  * signed up to a night out in your city — the same night as you first — and
  * dancers going to a festival who chose "Show me". Each card leads to that
  * night or festival. `plan.discover` also returns festival / social cards —
- * This week and This year on My plan already hold those, so they are dropped.
+ * Your week and Your festivals on My plan already hold those, so they are dropped.
  */
 import { relatedDanceStyles } from '#shared/dance-styles'
 import { eventPath } from '#shared/utils/eventSlug'
@@ -91,31 +91,4 @@ export function meetEntryLine(count: number | null): string {
   if (count === null) return 'Dancers going out near you, and to your festivals'
   if (count === 0) return 'Nobody new is going out yet — sign up to a night and you’ll be the first they see'
   return `${count} ${count === 1 ? 'dancer' : 'dancers'} going out — meet them there`
-}
-
-/**
- * The dancer's own card as others see it in their deck (/dance-card, RAZ-1005):
- * on it for their next night out. Without one they are in nobody's deck yet,
- * so the chip holds a placeholder and the page says to find a night.
- */
-export function myMeetCard(me: {
-  name: string
-  city: string
-  photo: string
-  danceStyles: readonly string[]
-  nextNight?: { eventId: string; eventName: string; eventDateISO: string; eventTimezone: string | null } | null
-}): MeetCard {
-  const n = me.nextNight
-  return {
-    id: 'me',
-    kind: 'dancer-going-out',
-    name: me.name.trim() || 'Your name',
-    city: me.city.trim(),
-    photo: me.photo,
-    danceStyles: [...me.danceStyles],
-    night: n
-      ? { path: eventPath({ id: n.eventId, name: n.eventName }), name: n.eventName, when: nightWhen(n.eventDateISO, n.eventTimezone), venue: '' }
-      : { path: '', name: 'your next night out', when: '', venue: '' },
-    reason: n ? `Going to ${n.eventName}. Join them, and you'll meet there.` : '',
-  }
 }

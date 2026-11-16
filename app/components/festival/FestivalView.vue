@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { CLASS_EVENT_TYPES } from '#shared/utils/eventSignup'
 import { sizedImage, IMG } from '#shared/utils/image'
-import type { Festival, Teacher, Workshop, PlanEntry, DanceRole, DancePartner, ExtraActivity, SwipeCard, FreemiumState } from '~/types/festival'
-import { ArrowRight, Sparkles, Check, Plus, Pencil, Ticket, Share2 } from 'lucide-vue-next'
+import type { Festival, Teacher, Workshop, PlanEntry, DanceRole, DancePartner, ExtraActivity, FreemiumState } from '~/types/festival'
+import { ArrowRight, Sparkles, Check, Plus, Pencil, Ticket, Share2, Users } from 'lucide-vue-next'
+import { isWorkshop, isEveningItem, stylesOf } from '#shared/utils/programme'
+import { heroTagline } from '#shared/utils/heroTagline'
 import { isNight } from '#shared/utils/yourNight'
-import { isWorkshop, isEveningItem } from '#shared/utils/programme'
 import { Button } from '~/components/ui/button'
 import { artistPlaces, artistLanguages } from '~/data/artists'
 import { WD } from '~/lib/brand'
@@ -99,6 +100,28 @@ const { yearPlanIds, toggleFestival } = useYearPlan()
 const { weekPlanIds, toggleEvent } = useWeekPlan()
 const planAsEvent = props.planAs === 'event'
 const inPlan = computed(() => planAsEvent ? weekPlanIds.value.has(data.eventId) : yearPlanIds.value.has(festival.slug))
+
+// Festival-goers are in Meet new friends only once they say so (plan_items.share_going,
+// opt-in — ADR-008). The overview asks with "Show me" and offers "Hide me" after (RAZ-1008),
+// in place of the old "Shall we dance?" deck's Show me.
+const shareGoing = ref<boolean | null>(null)
+const shareBusy = ref(false)
+async function loadShareGoing() {
+  if (props.rsvp || !isSignedIn.value || !inPlan.value) { shareGoing.value = null; return }
+  try {
+    const r = await $trpc.plan.getShareGoing.query({ itemType: 'festival', itemId: festival.slug })
+    shareGoing.value = r.share
+  } catch { shareGoing.value = null }
+}
+async function setShareGoing(share: boolean) {
+  shareBusy.value = true
+  try {
+    await $trpc.plan.setShareGoing.mutate({ itemType: 'festival', itemId: festival.slug, share })
+    shareGoing.value = share
+    useTrack().track('going_visibility_changed', { share, item_type: 'festival', item_id: festival.slug, surface: 'festival_overview' })
+  } catch { /* stays as it was */ } finally { shareBusy.value = false }
+}
+onMounted(() => { watch([isSignedIn, inPlan], loadShareGoing, { immediate: true }) })
 
 // Shared plan view detection — supports both the new `?invite=<encoded>` token
 // and the legacy `?plan=shared` query for backward compatibility.
@@ -197,12 +220,11 @@ function onBePartner(workshopId: string) {
   }
   // Add the workshop to user's plan and scroll to schedule
   toggleWorkshop(workshopId)
-  router.replace({ query: {} })
-  nextTick(() => scrollTo('schedule'))
+  openTab('schedule', 'link', {})
 }
 
 const days = [...new Set(workshops.map((w) => w.day))]
-const styles = [...new Set(workshops.map((w) => w.style))]
+const styles = [...new Set(workshops.filter(w => isWorkshop(w.type)).flatMap(w => stylesOf(w.style)))]
 
 // Auth state (needed early for workshop persistence)
 const { isSignedIn, dancerId: myDancerId, danceStyles: myDanceStyles, role: myRole, city: myCity, onboardedAt, completeOnboarding, updateProfile } = useAuth()
@@ -511,12 +533,11 @@ const lineupCards = teachers.map((teacher, i) => {
 
 function toggleTeacherFilter(id: string) {
   selectedTeacherId.value = selectedTeacherId.value === id ? null : id
-  nextTick(() => scrollTo('schedule'))
+  if (selectedTeacherId.value) openTab('schedule', 'link')
 }
 
 
-// Discover dancers are now loaded by the DiscoverDancers component itself
-// via tRPC (wave.discoverPool) — no mock data needed here.
+// Meeting dancers lives in Meet new friends (/meet) — the same flow as any event (RAZ-1008).
 
 // Payment success confirmation
 const showPaymentSuccess = ref(false)
@@ -746,31 +767,6 @@ function tryUnlockSocialActivity(action: () => void) {
   action()
 }
 
-// Extra cards (dinner, activity, onboarding) interleaved into the swipe deck
-// by DiscoverDancers. Dancer cards come from the component's own tRPC query.
-const extraSwipeCards = computed<SwipeCard[]>(() => {
-  const dinners: SwipeCard[] = groupDinners.value.map(d => ({ ...d, cardType: 'dinner' as const }))
-  const activities: SwipeCard[] = extraActivities.value.map(a => ({ ...a, cardType: 'activity' as const }))
-  const result: SwipeCard[] = [...dinners, ...activities]
-
-  // Insert onboarding cards at the front when not signed in
-  if (!isSignedIn.value) {
-    result.unshift(
-      {
-        id: 'onboarding-dancecard',
-        cardType: 'onboarding-dancecard',
-        availableStyles: styles,
-      },
-      {
-        id: 'onboarding-profile',
-        cardType: 'onboarding-profile',
-      },
-    )
-  }
-
-  return result
-})
-
 // Sign-up gate
 const showSignUp = ref(false)
 const signUpAction = ref('share')
@@ -779,15 +775,6 @@ const signUpPrefill = ref<{ name?: string; danceStyles?: string[]; role?: 'lead'
 function onSignIn(action?: string) {
   signUpAction.value = action || 'share'
   showSignUp.value = true
-}
-
-function onOnboardingComplete(role: DanceRole, styles: string[], name: string, city: string) {
-  signUpPrefill.value = {
-    name: name || undefined,
-    danceStyles: styles,
-    role: role as 'lead' | 'follow' | 'both',
-    city: city || undefined,
-  }
 }
 
 function onSignedIn() {
@@ -836,46 +823,103 @@ function onShare() {
 const { setCartCount } = useCart()
 watch(() => plan.value.size, (n) => setCartCount(n), { immediate: true })
 
-// Navigation — only show sections that have content for this festival.
-const allSections = ['about', 'discover', 'lineup', 'schedule', 'tickets', 'venue', 'activities'] as const
-const sections = computed(() =>
-  allSections.filter((s) => {
-    if (s === 'schedule') return workshops.length > 0
-    if (s === 'lineup') return teachers.length > 0
-    if (s === 'tickets') return sellsPasses.value && !props.rsvp
-    // A dated event (it has the poll) has no swipe deck: meeting people lives
-    // in My plan → Meet new friends, inviting them in My plan → Share (RAZ-974).
-    if (s === 'discover') return !props.rsvp
+// Tabs (RAZ-1008): the first page is an overview (about, a summary of what's
+// inside, who's going, the venue, going together); line-up, schedule and
+// passes are their own tabs, so a first visit plans instead of drowning.
+// The tab lives in ?tab= (deep links, Back); old #tickets / #schedule /
+// #lineup anchors still open their tab.
+const ALL_TABS = ['overview', 'lineup', 'schedule', 'tickets'] as const
+type Tab = typeof ALL_TABS[number]
+const showTickets = computed(() => !props.rsvp && (sellsPasses.value || (!!festival.tickets?.length && hasTicket.value)))
+const tabs = computed<Tab[]>(() =>
+  ALL_TABS.filter((t) => {
+    if (t === 'lineup') return teachers.length > 0
+    if (t === 'schedule') return workshops.length > 0
+    if (t === 'tickets') return showTickets.value
     return true
   }),
 )
-const sectionLabels: Record<string, string> = {
-  'about': 'About',
-  'discover': 'Shall we dance?',
-  'activities': 'Going together',
-  'lineup': 'Lineup',
-  'schedule': 'Schedule',
-  'tickets': 'Tickets',
-  'venue': 'Venue',
+const tabLabels: Record<Tab, string> = {
+  overview: 'Overview',
+  lineup: 'Lineup',
+  schedule: 'Schedule',
+  tickets: 'Passes',
 }
+function tabFromRoute(): Tab {
+  const q = String(route.query.tab ?? '')
+  const h = route.hash.replace('#', '')
+  const t = (ALL_TABS as readonly string[]).includes(q) ? q : (ALL_TABS as readonly string[]).includes(h) ? h : 'overview'
+  return t as Tab
+}
+const activeTab = ref<Tab>(tabFromRoute())
+const currentTab = computed<Tab>(() => tabs.value.includes(activeTab.value) ? activeTab.value : 'overview')
+const tabsRef = ref<HTMLElement | null>(null)
 
-function scrollTo(id: string) {
-  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
-  activeSection.value = id // immediate feedback; observer keeps it honest
+function openTab(t: Tab, via: 'nav' | 'summary' | 'hero' | 'link' = 'link', base: Record<string, any> = route.query) {
+  if (t !== currentTab.value) {
+    useTrack().track('event_tab_opened', { tab: t, via, event_id: data.eventId, is_festival: !props.rsvp })
+  }
+  activeTab.value = t
+  const query = { ...base }
+  if (t === 'overview') delete query.tab
+  else query.tab = t
+  router.replace({ query, hash: '' })
+  // Land at the top of the tab, under the sticky bar — not halfway down the old one.
+  nextTick(() => {
+    const top = (tabsRef.value?.getBoundingClientRect().top ?? 0) + window.scrollY
+    if (window.scrollY > top) window.scrollTo({ top, behavior: 'smooth' })
+  })
 }
+watch(() => route.query.tab, () => { activeTab.value = tabFromRoute() })
+
+
+// About keeps only what the hero doesn't say (co-organisers, or a text the hero can't sum up) — RAZ-1008.
+const aboutHasContent = computed(() => (festival.organizers?.length ?? 0) > 1 || (!!festival.description?.trim() && !heroTagline(festival.description)))
+
+// Overview summary: what's inside each tab, one card each, so the first page
+// shows there is a lot to explore without showing all of it.
+const priceFrom = computed(() => {
+  const prices = (festival.tickets ?? []).filter(t => !t.soldOut && t.price > 0).map(t => t.price)
+  return prices.length ? Math.min(...prices) : null
+})
+const sessionCount = computed(() => workshops.filter(w => isWorkshop(w.type)).length || workshops.length)
+const summaryCards = computed(() => {
+  const cards: { tab: Tab; title: string; line: string; photos?: string[] }[] = []
+  if (tabs.value.includes('lineup')) {
+    cards.push({
+      tab: 'lineup',
+      title: `${teachers.length} ${teachers.length === 1 ? 'artist' : 'artists'}`,
+      line: teachers.slice(0, 3).map(t => t.name).join(', ') + (teachers.length > 3 ? ' and more' : ''),
+      photos: teachers.filter(t => t.photo).slice(0, 4).map(t => t.photo),
+    })
+  }
+  if (tabs.value.includes('schedule')) {
+    const n = sessionCount.value
+    cards.push({
+      tab: 'schedule',
+      title: `${n} ${n === 1 ? 'session' : 'sessions'}`,
+      line: [days.length > 1 ? `${days.length} days` : null, styles.length ? `${styles.length} ${styles.length === 1 ? 'style' : 'styles'}` : null, 'pick yours'].filter(Boolean).join(' · '),
+    })
+  }
+  if (tabs.value.includes('tickets')) {
+    const n = festival.tickets?.length ?? 0
+    cards.push({
+      tab: 'tickets',
+      title: hasTicket.value ? 'You have a pass' : priceFrom.value != null ? `Passes from €${priceFrom.value}` : 'Passes',
+      line: hasTicket.value ? 'See what it covers' : `${n} to choose from · we suggest the one for your plan`,
+    })
+  }
+  return cards
+})
 
 // ── Sticky nav behaviour ──────────────────────────────────────────
-// - The festival name only appears in the sticky nav once the hero has
-//   scrolled out of view (so a deep-link straight to #tickets still
-//   shows which festival you're on).
-// - The nav highlights the section currently at the top and updates as
-//   you scroll (scrollspy).
+// The festival name appears in the sticky tab bar whenever the hero isn't in view —
+// scrolled past, or on another tab (the hero is only on Overview, RAZ-1008).
 const heroRef = ref<HTMLElement | null>(null)
 const heroVisible = ref(true)
-const activeSection = ref<string>('about')
+function scrollToTop() { window.scrollTo({ top: 0, behavior: 'smooth' }) }
 
 let heroObserver: IntersectionObserver | null = null
-let sectionObserver: IntersectionObserver | null = null
 
 onMounted(() => {
   if (heroRef.value) {
@@ -885,29 +929,10 @@ onMounted(() => {
     )
     heroObserver.observe(heroRef.value)
   }
-
-  // Scrollspy — track which section sits under the sticky nav.
-  const seen = new Set<string>()
-  sectionObserver = new IntersectionObserver(
-    (entries) => {
-      for (const e of entries) {
-        if (e.isIntersecting) seen.add(e.target.id)
-        else seen.delete(e.target.id)
-      }
-      const active = sections.value.find((s) => seen.has(s))
-      if (active) activeSection.value = active
-    },
-    { rootMargin: '-64px 0px -60% 0px', threshold: 0 },
-  )
-  for (const s of sections.value) {
-    const el = document.getElementById(s)
-    if (el) sectionObserver.observe(el)
-  }
 })
 
 onBeforeUnmount(() => {
   heroObserver?.disconnect()
-  sectionObserver?.disconnect()
   if (paymentSuccessTimer) clearTimeout(paymentSuccessTimer)
 })
 
@@ -1190,8 +1215,96 @@ useHead({
       </div>
     </div>
 
-    <div ref="heroRef">
-      <FestivalHero :festival="heroFestival" :picked="heroPicked" :cancelled="cancelled" :free-entry="freeEntry" :hide-going="!!rsvp && !cancelled" :venue-address="festival.venue?.address" :map-url="festival.venue?.coordinates?.lat != null ? `https://www.google.com/maps/search/?api=1&query=${festival.venue.coordinates.lat},${festival.venue.coordinates.lng}` : (festival.venue?.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(festival.venue.address)}` : undefined)" @pick="onPick">
+    <!-- The tabs come first, above the hero (RAZ-1008): the hero is the Overview's top, the other
+         tabs start right here. The festival's name slides into the bar whenever the hero isn't in
+         view (another tab, or scrolled past it), so a deep link always shows which festival it is. -->
+    <!-- Where the tab bar sits before it sticks: switching tabs scrolls back up to here. -->
+    <div ref="tabsRef" aria-hidden="true" />
+    <nav class="sticky top-0 z-20 border-b" style="background:rgba(251, 245, 234, 0.95); backdrop-filter: blur(8px); border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);">
+      <div class="max-w-4xl mx-auto flex items-center gap-2 px-4 min-w-0">
+        <Transition
+          enter-active-class="transition-all duration-200 ease-out"
+          enter-from-class="opacity-0 -translate-x-2"
+          enter-to-class="opacity-100 translate-x-0"
+          leave-active-class="transition-all duration-150 ease-in"
+          leave-from-class="opacity-100 translate-x-0"
+          leave-to-class="opacity-0 -translate-x-2"
+        >
+          <NuxtLink
+            v-if="!heroVisible || currentTab !== 'overview'"
+            :to="`/events/${festival.slug}`"
+            class="flex items-center gap-2 shrink-0 pr-3 mr-1 border-r"
+            style="border-color:color-mix(in srgb, var(--wd-brown-900) 8.2%, transparent);"
+            @click.prevent="openTab('overview', 'nav'); scrollToTop()"
+          >
+            <img
+              v-if="festival.logo"
+              :src="sizedImage(festival.logo, IMG.avatar)"
+              :alt="festival.name"
+              class="w-6 h-6 rounded-full shrink-0"
+            >
+            <div
+              v-else
+              class="w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-eyebrow font-bold text-white"
+              :style="{ background: festival.accentColor }"
+            >
+              {{ initialOf(festival.name) }}
+            </div>
+            <span class="text-sm font-bold whitespace-nowrap hidden sm:inline font-display text-foreground">
+              {{ festival.name }}
+            </span>
+          </NuxtLink>
+        </Transition>
+        <div class="flex gap-0 overflow-x-auto min-w-0" role="tablist" aria-label="Sections">
+          <button
+            v-for="tab in tabs"
+            :key="tab"
+            type="button"
+            role="tab"
+            :aria-selected="currentTab === tab"
+            :data-event-tab="tab"
+            class="relative px-3 py-3 text-sm italic whitespace-nowrap transition-colors font-display cursor-pointer"
+            :class="currentTab === tab ? 'font-bold' : 'font-normal text-muted-foreground'"
+            :style="currentTab === tab ? { color: festival.accentColor } : undefined"
+            @click="openTab(tab, 'nav')"
+          >
+            {{ tabLabels[tab] }}
+            <span
+              v-if="currentTab === tab"
+              class="absolute left-3 right-3 bottom-0 h-[2px] rounded-full"
+              :style="{ background: festival.accentColor }"
+            />
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <!-- v-show, not v-if: the hero holds the sign-up, whose poll the schedule reads on every tab. -->
+    <div v-show="currentTab === 'overview'" ref="heroRef">
+      <FestivalHero :festival="heroFestival" :image="festival.flyer" :presenters="festival.organizers" :description="festival.description" :picked="heroPicked" :cancelled="cancelled" :free-entry="freeEntry" :venue-address="festival.venue?.address" :map-url="festival.venue?.coordinates?.lat != null ? `https://www.google.com/maps/search/?api=1&query=${festival.venue.coordinates.lat},${festival.venue.coordinates.lng}` : (festival.venue?.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(festival.venue.address)}` : undefined)" @pick="onPick">
+        <!-- What's inside, before the buttons (RAZ-1008): one compact card per tab, no header —
+             enough to see there's lots to explore; each opens its tab. -->
+        <template v-if="summaryCards.length" #before-cta>
+          <ul class="grid grid-cols-3 gap-2 max-w-xl" data-event-summary>
+            <li v-for="c in summaryCards" :key="c.tab">
+              <button
+                type="button"
+                class="group flex h-full w-full flex-col gap-1 rounded-xl border border-border bg-card/80 px-3 py-2 sm:py-2.5 text-left transition-colors hover:border-primary/40 hover:bg-card cursor-pointer"
+                :data-summary-card="c.tab"
+                @click="openTab(c.tab, 'summary')"
+              >
+                <div v-if="c.photos?.length" class="hidden sm:flex -space-x-1.5 mb-0.5">
+                  <img v-for="(src, i) in c.photos" :key="i" :src="sizedImage(src, IMG.avatar)" alt="" class="size-6 rounded-full object-cover ring-2 ring-card">
+                </div>
+                <span class="text-sm sm:text-base font-black leading-tight text-foreground font-display">{{ c.title }}</span>
+                <span class="hidden sm:block text-xs text-muted-foreground font-sans line-clamp-2">{{ c.line }}</span>
+                <span class="mt-auto hidden sm:inline-flex items-center gap-1 text-xs font-bold text-secondary font-sans">
+                  {{ tabLabels[c.tab] }} <ArrowRight class="size-3 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+                </span>
+              </button>
+            </li>
+          </ul>
+        </template>
         <!-- A dated event: the organiser's poll is the Going question. -->
         <template v-if="rsvp" #cta>
           <div id="rsvp" class="mt-4 max-w-xl scroll-mt-16">
@@ -1221,10 +1334,10 @@ useHead({
         <!-- A festival that sells passes: the pass is the Going. -->
         <template v-else-if="sellsPasses" #cta>
           <div class="mt-4 flex flex-wrap gap-2">
-            <Button v-if="hasTicket" type="button" variant="pill" class="px-5" @click="scrollTo('tickets')">
+            <Button v-if="hasTicket" type="button" variant="pill" class="px-5" @click="openTab('tickets', 'hero')">
               <Check aria-hidden="true" /> You have a pass
             </Button>
-            <Button v-else type="button" variant="cta" class="px-5" data-hero-get-pass @click="scrollTo('tickets')">
+            <Button v-else type="button" variant="cta" class="px-5" data-hero-get-pass @click="openTab('tickets', 'hero')">
               <Ticket aria-hidden="true" /> Get pass
             </Button>
             <Button type="button" :variant="inPlan ? 'pill' : 'outline-pill'" class="px-5 font-sans" :aria-pressed="inPlan" data-hero-my-plan @click="onPick">
@@ -1232,103 +1345,54 @@ useHead({
             </Button>
           </div>
         </template>
+        <!-- Meeting people sits where it does on any event: under the "am I coming?" control,
+             once it's on your plan or you have a pass (RAZ-1008, RAZ-981). Festival-goers
+             show only after "Show me" (plan_items.share_going, opt-in — ADR-008). -->
+        <template v-if="!rsvp && (inPlan || hasTicket) && shareGoing !== null" #after-cta>
+          <div class="mt-3 max-w-xl" data-festival-meet>
+            <template v-if="shareGoing">
+              <EventMeetPrompt :event-id="data.eventId" surface="festival" />
+              <Button type="button" variant="link" size="sm" class="mt-1 h-auto p-0 text-xs font-sans text-muted-foreground" :disabled="shareBusy" data-meet-hide @click="setShareGoing(false)">
+                Hide me from dancers going
+              </Button>
+            </template>
+            <div v-else-if="shareGoing === false" class="rounded-2xl border border-border bg-card px-4 py-3 space-y-2 font-sans" data-meet-show>
+              <p class="inline-flex items-center gap-1.5 font-bold text-foreground">
+                <Users class="size-4" aria-hidden="true" /> Meet who’s going
+              </p>
+              <p class="text-sm text-muted-foreground">
+                Dancers going to this {{ kind }} can’t see you yet. Show yourself and you’ll meet them in Meet new friends; you can hide again any time.
+              </p>
+              <Button type="button" variant="cta" size="pill-sm" :disabled="shareBusy" @click="setShareGoing(true)">
+                <Check aria-hidden="true" /> Show me
+              </Button>
+            </div>
+          </div>
+        </template>
       </FestivalHero>
     </div>
 
     <!-- Who's coming, under the sign-up (RAZ-995) -->
-    <div v-if="rsvp && rsvpPoll && !cancelled" class="max-w-4xl mx-auto px-4 pt-6">
+    <div v-if="rsvp && rsvpPoll && !cancelled && currentTab === 'overview'" class="max-w-4xl mx-auto px-4 pt-6">
       <EventWhosComing :poll="rsvpPoll" />
     </div>
 
-    <!-- Section anchor nav — V3 restyled. Festival identity slides in on
-         the left once the hero has scrolled out of view, so a deep-link
-         (Buy Tickets from the official site) always shows which festival
-         you're on. The active section is highlighted and tracks scroll. -->
-    <nav class="sticky top-0 z-20 border-b" style="background:rgba(251, 245, 234, 0.95); backdrop-filter: blur(8px); border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);">
-      <div class="max-w-4xl mx-auto flex items-center gap-2 px-4 min-w-0">
-        <Transition
-          enter-active-class="transition-all duration-200 ease-out"
-          enter-from-class="opacity-0 -translate-x-2"
-          enter-to-class="opacity-100 translate-x-0"
-          leave-active-class="transition-all duration-150 ease-in"
-          leave-from-class="opacity-100 translate-x-0"
-          leave-to-class="opacity-0 -translate-x-2"
-        >
-          <NuxtLink
-            v-if="!heroVisible"
-            :to="`/events/${festival.slug}`"
-            class="flex items-center gap-2 shrink-0 pr-3 mr-1 border-r"
-            style="border-color:color-mix(in srgb, var(--wd-brown-900) 8.2%, transparent);"
-            @click.prevent="scrollTo('about')"
-          >
-            <img
-              v-if="festival.logo"
-              :src="sizedImage(festival.logo, IMG.avatar)"
-              :alt="festival.name"
-              class="w-6 h-6 rounded-full shrink-0"
-            >
-            <div
-              v-else
-              class="w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-eyebrow font-bold text-white"
-              :style="{ background: festival.accentColor }"
-            >
-              {{ initialOf(festival.name) }}
-            </div>
-            <span class="text-sm font-bold whitespace-nowrap hidden sm:inline font-display text-foreground">
-              {{ festival.name }}
-            </span>
-          </NuxtLink>
-        </Transition>
-        <div class="flex gap-0 overflow-x-auto min-w-0">
-          <button
-            v-for="section in sections"
-            :key="section"
-            type="button"
-            class="relative px-3 py-3 text-sm italic whitespace-nowrap transition-colors font-display cursor-pointer"
-            :class="activeSection === section ? 'font-bold' : 'font-normal text-muted-foreground'"
-            :style="activeSection === section ? { color: festival.accentColor } : undefined"
-            :aria-current="activeSection === section ? 'location' : undefined"
-            @click="scrollTo(section)"
-          >
-            {{ sectionLabels[section] }}
-            <span
-              v-if="activeSection === section"
-              class="absolute left-3 right-3 bottom-0 h-[2px] rounded-full"
-              :style="{ background: festival.accentColor }"
-            />
-          </button>
-        </div>
-      </div>
-    </nav>
 
     <div class="max-w-3xl mx-auto px-4 space-y-14 pt-8 pb-20">
-        <section id="about" class="scroll-mt-12">
+        <template v-if="currentTab === 'overview'">
+        <section v-if="aboutHasContent" id="about" class="scroll-mt-12">
           <AboutTab :festival="festival" />
         </section>
 
-        <section v-if="!rsvp" id="discover" class="scroll-mt-16">
-          <h2 class="text-2xl font-black leading-tight mb-1 text-foreground">Shall we <em class="italic text-primary">dance?</em></h2>
-          <p class="text-sm mb-4 text-muted-foreground font-sans">Swipe to discover dancers, group dinners, and activities happening around the {{ kind }}.</p>
-          <DiscoverDancers
-            :festival-slug="festival.slug"
-            :entity-label="kind"
-            :extra-cards="extraSwipeCards"
-            :workshops="workshops"
-            :plan-ids="planIds"
-            :is-signed-in="isSignedIn"
-            @sign-in="onSignIn"
-            @onboarding-complete="onOnboardingComplete"
-            @join-dinner="joinDinner"
-            @join-activity="joinActivity"
-          />
-          <!-- Verified ticket holders: the TicketTailor claim flow exists for Charanga only (/charanga/claim). -->
-          <div v-if="festival.slug === 'charanga-habanera-munich-2026'" class="mt-6">
-            <h3 class="mb-3 text-lg font-bold font-display">Verified attendees</h3>
-            <AttendeeRoster :festival-slug="festival.slug" />
-          </div>
-        </section>
 
-        <section v-if="teachers.length > 0" id="lineup" class="scroll-mt-16">
+        <!-- Verified ticket holders: the TicketTailor claim flow exists for Charanga only (/charanga/claim). -->
+        <section v-if="festival.slug === 'charanga-habanera-munich-2026' && (inPlan || hasTicket)" aria-labelledby="verified-title">
+          <h3 id="verified-title" class="mb-3 text-lg font-bold font-display">Verified attendees</h3>
+          <AttendeeRoster :festival-slug="festival.slug" />
+        </section>
+        </template>
+
+        <section v-if="currentTab === 'lineup'" id="lineup" class="scroll-mt-16">
           <div class="flex items-baseline justify-between gap-3 mb-1">
             <h2 class="text-2xl font-black leading-tight text-foreground">Lineup</h2>
             <Button
@@ -1360,7 +1424,7 @@ useHead({
           </div>
         </section>
 
-        <section v-if="workshops.length > 0" id="schedule" class="scroll-mt-16">
+        <section v-if="currentTab === 'schedule'" id="schedule" class="scroll-mt-16">
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-2xl font-black leading-tight text-foreground">Schedule</h2>
             <Button
@@ -1391,7 +1455,7 @@ useHead({
         </section>
 
         <!-- A dated event's passes are in the sign-up up top (RAZ-995); festivals keep this section. -->
-        <section v-if="!rsvp && (sellsPasses || (festival.tickets?.length && hasTicket))" id="tickets" class="scroll-mt-16">
+        <section v-if="currentTab === 'tickets'" id="tickets" class="scroll-mt-16">
           <div class="mb-4">
             <div class="text-xs uppercase tracking-[0.3em] text-secondary">Passes</div>
             <h2 v-if="hasTicket" class="mt-2 text-2xl font-black leading-tight text-foreground">
@@ -1481,10 +1545,10 @@ useHead({
           <!-- Nudge: no plan yet (only when we can actually recommend) -->
           <NuxtLink
             v-else-if="passesDescribed"
-            to="#schedule"
+            :to="{ query: { ...route.query, tab: 'schedule' } }"
             class="rounded-2xl p-5 mb-6 flex items-center gap-3 border-2 border-dashed transition-colors hover:bg-white/60"
             style="border-color:color-mix(in srgb, var(--wd-brown-900) 20%, transparent); background:rgba(255,255,255,0.4);"
-            @click="scrollTo('schedule')"
+            @click.prevent="openTab('schedule', 'link')"
           >
             <Sparkles class="w-6 h-6 shrink-0 text-secondary" />
             <div>
@@ -1619,12 +1683,9 @@ useHead({
           </div>
         </section>
 
-        <section id="venue" class="scroll-mt-16">
-          <h2 class="text-2xl font-black leading-tight mb-4 text-foreground">Venue</h2>
-          <VenueTab :venue="festival.venue" />
-        </section>
+        <!-- The venue, its address and its practical info live in the hero (RAZ-1008). -->
 
-        <section id="activities" class="scroll-mt-16">
+        <section v-if="currentTab === 'overview'" id="activities" class="scroll-mt-16">
           <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 mb-1">
             <h2 class="text-2xl font-black leading-tight text-foreground">Going together</h2>
             <!-- The old empty "Friends' Plans" box, as one button (RAZ-996). -->

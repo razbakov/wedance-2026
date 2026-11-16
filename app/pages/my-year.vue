@@ -2,7 +2,7 @@
 /**
  * /my-year — "Your <year> in dance" (RAZ-966): the look back at the dancer's
  * year, and nothing else. Planning and sharing the festival year live in
- * My plan ("This year").
+ * My plan ("Your festivals").
  *
  * `?user=<handle or id>` is a friend's festival year (RAZ-897): the link on the
  * year story posted from My plan leads here, so that view stays.

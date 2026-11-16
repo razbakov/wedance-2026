@@ -121,6 +121,8 @@ export type WeekSocial = {
   price: string | null
   /** A night's programme (RAZ-1007): your pass, when to come, the parts you're at. Null = not a night. */
   night: { pass: string | null; arrival: string | null; parts: string[] } | null
+  /** A class of a course or workshop the dancer planned (only with `classes: true`, RAZ-1006). */
+  isClass: boolean
 }
 
 type WeekRow = { id: string; seriesId: string | null; startDate: Date | string | null }
@@ -163,7 +165,9 @@ export function stylesForDancer(eventStyles: string[], myStyles: readonly string
  * "Where you're dancing" — ONLY the events the dancer put in their plan
  * (plan_items of type 'event', from any surface: RSVP, discover Yes, the
  * city or event page), happening in the next `days` days, soonest first.
- * Courses and workshops (CLASS_TYPES, or metadata type 'class') have their own section and are left out.
+ * `everyClass` (with `classes`) lists each class of a planned course in the window, not just the next.
+ * Courses and workshops (CLASS_TYPES, or metadata type 'class') are left out unless `classes` is set:
+ * My plan's "Your week" shows each class on its day too (RAZ-1006); the plan badge counts nights only.
  * Suggestions never appear here; discovery lives on the city page.
  */
 export async function weekSocials(
@@ -171,7 +175,7 @@ export async function weekSocials(
   dancerId: string,
   now = new Date(),
   days = 7,
-  opts: { friends?: boolean } = {},
+  opts: { friends?: boolean; classes?: boolean; everyClass?: boolean } = {},
 ): Promise<{ socials: WeekSocial[]; citySlug: string }> {
   const [me] = await db.select({ danceStyles: dancers.danceStyles, city: dancers.city }).from(dancers).where(eq(dancers.id, dancerId))
   // The section's "Full week" link: the dancer's city page, by its real slug
@@ -182,18 +186,21 @@ export async function weekSocials(
     .select({ itemId: planItems.itemId, metadata: planItems.metadata })
     .from(planItems)
     .where(and(eq(planItems.dancerId, dancerId), eq(planItems.itemType, 'event')))
+  const classMeta = new Set<string>(planRows
+    .filter((r: any) => (r.metadata as Record<string, string> | null)?.type === 'class')
+    .map((r: any) => r.itemId as string))
   const plannedIds = planRows
-    .filter((r: any) => (r.metadata as Record<string, string> | null)?.type !== 'class')
     .map((r: any) => r.itemId as string)
-    .filter((id: string) => UUID_RE.test(id))
+    .filter((id: string) => UUID_RE.test(id) && (opts.classes || !classMeta.has(id)))
   if (!plannedIds.length) return { socials: [], citySlug }
 
-  // Courses and workshops (CLASS_TYPES) have their own section, however they were added.
-  const planned: Array<{ id: string; seriesId: string | null }> = (await db
+  // Courses and workshops (CLASS_TYPES) are classes, however they were added.
+  const planned: Array<{ id: string; seriesId: string | null; isClass: boolean }> = (await db
     .select({ id: events.id, seriesId: events.seriesId, type: events.type })
     .from(events)
     .where(inArray(events.id, plannedIds)))
-    .filter((p: any) => !isClassType(p.type))
+    .map((p: any) => ({ id: p.id, seriesId: p.seriesId, isClass: isClassType(p.type) || classMeta.has(p.id) }))
+    .filter((p: any) => opts.classes || !p.isClass)
   if (!planned.length) return { socials: [], citySlug }
   const seriesIds = [...new Set(planned.map(p => p.seriesId).filter(Boolean) as string[])]
 
@@ -226,7 +233,20 @@ export async function weekSocials(
     .limit(200)
 
   const picks = resolveWeekOccurrences(planned, rows)
+  // Every class of a planned course in the window, not only the next one (My plan's Month tab, RAZ-1006).
+  if (opts.classes && opts.everyClass) {
+    const used = new Set(picks.map(p => p.eventId))
+    for (const p of planned) {
+      if (!p.isClass || !p.seriesId) continue
+      for (const r of rows as WeekRow[]) {
+        if (r.seriesId !== p.seriesId || used.has(r.id)) continue
+        used.add(r.id)
+        picks.push({ eventId: r.id, planItemId: p.id })
+      }
+    }
+  }
   const byId = new Map<string, any>(rows.map((r: any) => [r.id, r]))
+  const classItem = new Set(planned.filter(p => p.isClass).map(p => p.id))
 
   const myStyles = (me?.danceStyles as string[] | null) ?? []
   // The plan badge only needs the rows, not who else is going.
@@ -254,6 +274,7 @@ export async function weekSocials(
         takesSignup: !r.isFestival,
         price: signupPrice(r.festival?.passes),
         night: nights.get(eventId) ?? null,
+        isClass: classItem.has(planItemId) || isClassType(r.type),
       }
     })
     .sort((a, b) => a.startDate.localeCompare(b.startDate))

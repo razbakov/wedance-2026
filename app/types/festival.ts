@@ -35,6 +35,8 @@ export interface Festival {
 export interface Venue {
   name: string
   address: string
+  /** The venue's WeDance page (/@handle), when it has one. */
+  handle?: string
   coordinates?: { lat: number; lng: number }
   practicalInfo: string[]
 }
@@ -170,6 +172,32 @@ export interface SwipeCardOnboardingDanceCard {
 export interface SwipeCardOnboardingProfile {
   id: string
   cardType: 'onboarding-profile'
+}
+
+type DanceLevelName = 'Beginner' | 'Intermediate' | 'Advanced'
+
+/** What a signed-in dancer already has, to start the dance card from (RAZ-1005, /dance-card). */
+export interface DanceCardPrefill {
+  role?: string | null
+  styles: string[]
+  levels: Record<string, DanceLevelName>
+  name: string
+  city: string
+  bio: string
+  /** A stored photo URL. */
+  photo: string
+}
+
+/** The finished dance card. `photoFile` is a newly picked photo (null = keep the current one). */
+export interface DanceCardResult {
+  role: DanceRole
+  styles: string[]
+  /** Only styles with a level picked. */
+  levels: Record<string, DanceLevelName>
+  name: string
+  city: string
+  bio: string
+  photoFile: File | null
 }
 
 export type SwipeCard = (DiscoverDancer & { cardType?: 'dancer' }) | SwipeCardDinner | SwipeCardActivity | SwipeCardFreespot | SwipeCardOnboardingDanceCard | SwipeCardOnboardingProfile

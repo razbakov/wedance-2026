@@ -198,3 +198,8 @@ export function programmePostLine(s: { date: string; time: string; duration?: nu
   const when = isWorkshop(s.type) ? s.time : sessionTimeRange(s)
   return [`${day} ${when}`, s.title, who].filter(Boolean).join(' · ')
 }
+
+/** A session's dance styles: "Bachata Dominicana, Timba" → two; empty → none (RAZ-1008). */
+export function stylesOf(style: string | null | undefined): string[] {
+  return String(style ?? '').split(/\s*[,/]\s*/).map(s => s.trim()).filter(Boolean)
+}

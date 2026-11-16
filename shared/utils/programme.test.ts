@@ -129,3 +129,14 @@ describe('rendering helpers', () => {
     expect(programmePostLine({ date: '2026-10-31', time: '18:00', duration: 60, type: 'workshop', title: 'Salsa' }, 'Sat', 'Ana')).toBe('Sat 18:00 · Salsa · Ana')
   })
 })
+
+describe('stylesOf (RAZ-1008)', () => {
+  it('splits combined styles and drops empty ones', async () => {
+    const { stylesOf } = await import('./programme')
+    expect(stylesOf('Bachata Dominicana, Timba')).toEqual(['Bachata Dominicana', 'Timba'])
+    expect(stylesOf('Salsa / Bachata')).toEqual(['Salsa', 'Bachata'])
+    expect(stylesOf('')).toEqual([])
+    expect(stylesOf(undefined)).toEqual([])
+    expect(stylesOf(' Reparto ')).toEqual(['Reparto'])
+  })
+})

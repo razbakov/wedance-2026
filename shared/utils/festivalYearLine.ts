@@ -1,4 +1,4 @@
-// The one line under "This year" in My plan (RAZ-990). It replaced the
+// The one line under "Your festivals" in My plan (RAZ-990). It replaced the
 // "Festivals this year" stats card and the "Your year at a glance" month strip,
 // so it carries what the stats card showed when it had something to say: money
 // already paid, money still to pay, and early-bird deadlines ending this week.

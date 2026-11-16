@@ -187,14 +187,6 @@ export const DiscoverProfileSchema = v.object({
   city: requiredText('City is required.'),
 })
 
-/** /dance-card (RAZ-1005): what the dancer's own deck card shows. Mirrors `profile.update`. */
-export const MyDanceCardSchema = v.object({
-  name: requiredText('Your name is what dancers see on your card.'),
-  // Blank clears the city.
-  city: trimmedText(),
-  danceStyles: v.array(v.string()),
-})
-
 export const DanceFeedbackSchema = v.object({
   text: requiredText('Write a few words first.'),
 })

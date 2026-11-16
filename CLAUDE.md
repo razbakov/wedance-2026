@@ -325,7 +325,7 @@ Friends tap "I'm in" per party (`weekend_share_joins`): signed in → it goes on
 name + the RSVP guest token, mirrored as an unconfirmed "yes" on the event's poll. After a guest's tap the page offers an
 optional email: a magic link back to `/w/<code>?confirm=<event>&guest=<token>`, which (signed in) folds that
 browser's guest joins into the account — on their plan, confirmed "yes" on the poll, no second email to the
-sharer. Signed-in joins also add a confirmed "yes" on the poll. The sharer gets `sendWeekendJoinEmail` per new join. Entry points: My plan → "Where you're dancing" shows the story in place (`app/components/WeekendStory.vue`, shared with `/w/<code>`; the link is made when the list loads and again when its parties change — RAZ-895), MCP `share_my_weekend`
+sharer. Signed-in joins also add a confirmed "yes" on the poll. The sharer gets `sendWeekendJoinEmail` per new join. Entry points: My plan → "Your week" shows the story in place (nights only — classes stay off it) (`app/components/WeekendStory.vue`, shared with `/w/<code>`; the link is made when the list loads and again when its parties change — RAZ-895), MCP `share_my_weekend`
 (returns `storyUrl` = the link + `?story=1`, which shows the story maker to whoever opens it).
 Code: `server/trpc/routers/weekend.ts`, `shared/utils/weekendShare.ts`, `app/pages/w/[code].vue`.
 No auto-posting: Instagram's publishing API is Business/Creator-only and the Meta app is in dev mode.
@@ -412,12 +412,23 @@ person undoing it; nobody once the event is over. Email: `sendEventBackOnEmail` 
 holders are asked to check with the organiser if they already asked for a refund). Nobody is emailed without the
 organiser's choice.
 
+## My plan: Today / Week / Month / Year (RAZ-1006)
+
+`/my-plan` is four tabs (sketch `/sketches/plan-zoom`, variant A; opens on Today). Each tab holds everything in its span,
+of every kind — a Sunday class is in Today on Sunday, in Week and in Month. **Today**: tonight's nights and classes, each
+with the hangouts posted for it, then "Also out tonight", and "I'm out". **Week**: the next seven days by day + the weekend
+story (nights only). **Month**: the next 30 days grouped this week / next week / later, then **Your courses**. **Year**:
+**Your festivals** (+ the year story) and **Your goals**. One feed: `plan.weekSocials({ days: 30 })` with classes
+(`isClass`), every class of a planned course (`everyClass`); `weekend.share` / `planCounts` still call `weekSocials`
+without classes. A class row books on its event page and is removed under Your courses (`MyPlanEventRow`). Old anchors
+open their tab (`#tonight`, `#socials`, `#courses`, `#festivals`, `#goals`; the tab writes `#today|week|month|year`).
+
 ## Your year in dance (RAZ-966)
 
 `/my-year` is only the look back at the dancer's year, told as a story (Wrapped style) to post at New Year, ending on
-"Plan <next year>" (→ My plan's "This year"). The festival year is planned and shared in My plan: the year story
-(`YearStory`, RAZ-897) sits in place under "This year", for the festivals still ahead. Found in My plan only (`YearReviewEntry`): a
-banner at the top in December and January (`isYearTurn`), a quiet link under "This year" (and on an empty plan) the rest
+"Plan <next year>" (→ My plan's "Your festivals"). The festival year is planned and shared in My plan: the year story
+(`YearStory`, RAZ-897) sits in place under "Your festivals", for the festivals still ahead. Found in My plan only (`YearReviewEntry`): a
+banner at the top in December and January (`isYearTurn`), a quiet link under "Your festivals" (and on an empty plan) the rest
 of the year; not in the footer or account menu. Year = `lookBackYear` (last year in January, else this one).
 A "night" = a past, not-cancelled event of that year the dancer was going to — Going! (plan_items), a confirmed poll
 answer other than "next", an attendance, a weekend they shared or joined — plus real festivals in their year plan;
@@ -484,19 +495,21 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `city_viewed` | `pages/cities/[city]/index.vue` (once per mount) | `city`, `style` |
 | `event_viewed` | `pages/events/[id].vue` (non-festival, once per mount) | `event_id`, `city`, `style`, `event_type`, `synced`, `is_festival` |
 | `festival_viewed` | `pages/events/[id].vue` (festival) | same as `event_viewed` |
+| `event_tab_opened` | `FestivalView` (an event with sessions or a festival): Overview / Lineup / Schedule / Passes tabs (RAZ-1008; `?tab=`) | `tab`, `via` (nav / summary = a "What's inside" card / hero = Get pass / link), `event_id`, `is_festival` |
 | `filter_used` | city page style chip | `surface`, `city`, `filter_keys`, `style` |
 | `search_used` | `/festivals`, `/artists`, `/gigs` (`useTrackSearch`, debounced) | `surface`, `query_length`, `filter_keys`, `results` |
 | `week_plan_add` / `week_plan_remove` | `useWeekPlan` (Going! toggle), `my-plan` enroll / course X | `event_id`, `week_count` or `source`; add: `event_type`, `city`, `surface` |
 | `year_plan_add` / `year_plan_remove` | `useYearPlan` | `festival_slug`, `year_count`; add: `festival`, `surface` |
 | `workshop_plan_add` / `workshop_plan_remove` | `festival/FestivalView.vue` | `festival`, `workshop_id`, `workshop_type`, `partner_status` |
 | `discover_swipe` | `/meet` Meet new friends deck (on My plan until RAZ-989) | `direction`, `card_kind`, `added_festival`, `added_event` (always false since the deck is people only), `surface` (meet) |
+| `plan_zoom_opened` | My plan's Today / Week / Month / Year tabs (RAZ-1006): a tab clicked | `tab` (today / week / month / year), `from` |
 | `meet_friends_opened` | `MeetFriendsEntry` on My plan (the card leading to `/meet`, RAZ-989) · `EventMeetPrompt` under "You're in" after signing up to a night (RAZ-981) | `surface` (my_plan / my_plan_empty / `<event surface>_signup`), `people` (dancers waiting in the deck; null = not loaded) |
-| `dance_card_photo_added` | `/dance-card` (your card in Meet new friends, RAZ-1005): a photo picked on the card, uploaded and saved | `replaced` (there was one before), `surface` (back_link = came from a night's "Add a photo" / direct) |
+| `dance_card_saved` | `/dance-card` (RAZ-1005): a signed-in dancer saves the deck's dance card (Lead / Follow + levels, then photo, name, city, bio — the same cards as signed-out /meet) to their profile | `photo_added` (first photo), `photo_replaced`, `styles` (count), `surface` (back_link = came from a night's "Add a photo" / direct) |
 | `meet_empty_shared` | `MeetEmptyNext` (an empty /meet deck, RAZ-1002): "Ask" an organiser for their next night, "Send" a venue's page, "Invite a friend" | `what` (organiser / venue / friend), `stage` (nights / organisers / venues / nothing / no-city), `method` (native / copy / none) |
 | `goal_added` | `useGoals.addGoal` | `style` |
 | `follow` / `unfollow` | `/@handle`, `PromoterProfile` (profiles); `FestivalView` shared plan (dancer) | `target`, `profile`, `profile_type`, `surface` |
 | `whos_going_profile_opened` | `GoingSection` face tap | `item_type`, `item_id` |
-| `going_visibility_changed` | `GoingSection` share toggle | `share`, `item_type`, `item_id` |
+| `going_visibility_changed` | `GoingSection` share toggle · festival Overview "Show me" / "Hide me" (RAZ-1008, `surface: festival_overview`) | `share`, `item_type`, `item_id` |
 | `wave_sent` / `wave_retracted` | `GoingSection`, `DiscoverDancers`, `EventWhosComing` pairing (sent only) | `festival`, `surface` |
 | `rsvp_answered` | `EventSignup` "Cancel my spot" → confirm (answer `next`, RAZ-1003; was "I can’t come after all"; signing up is `event_signed_up` since RAZ-995) | `answer` (partner / needLeader / needFollower / yes / next), `signed_in`, `surface`, `event_id` |
 | `rsvp_contact_shared` | (retired in RAZ-995: the sign-up's "Also tell me about next events" replaced "Let <page> keep in touch"; `rsvp.shareContact` stays for MCP) | `share`, `has_phone`, `surface`, `event_id` |
@@ -539,11 +552,11 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `weekend_joined` | `w/[code].vue` "I'm in" | `signed_in`, `surface` |
 | `weekend_reminder_requested` | `w/[code].vue` email step after a guest's "I'm in" (magic link sent) | `surface` |
 | `weekend_story_shared` | `WeekendStory` story panel (`w/[code].vue`, My plan → "Where you're dancing") | `method` (native / download / copy), `parties`, `own_line` (the sharer wrote their own line), `surface` (weekend-page / my_plan) |
-| `year_story_shared` | `YearStory` story panel in My plan under "This year" (RAZ-897; moved from /my-year in RAZ-966; the link opens `/my-year?user=`) | `method` (native / download / copy), `festivals`, `own_line` (the sharer wrote their own line), `surface` (my_plan; year-modal before RAZ-966) |
+| `year_story_shared` | `YearStory` story panel in My plan under "Your festivals" (RAZ-897; moved from /my-year in RAZ-966; the link opens `/my-year?user=`) | `method` (native / download / copy), `festivals`, `own_line` (the sharer wrote their own line), `surface` (my_plan; year-modal before RAZ-966) |
 | `year_review_viewed` | `YearReview` on /my-year (your year in dance, RAZ-966; once per year per session) | `year`, `nights`, `screens`, `festivals` |
 | `year_review_shared` | `YearReview` "Share this one" / "Share all" / "Save picture" / "Save all" | `method` (native / download), `screens` (pictures shared), `screen` (kind on screen), `year` |
-| `year_review_plan_clicked` | `YearReview` last step "Plan <next year>" (→ My plan's "This year") / "Find festivals" | `to` (plan / festivals), `year`, `nights` |
-| `year_review_entry_clicked` | `YearReviewEntry` in My plan (banner in Dec/Jan, else the link under "This year" / the empty plan) | `variant` (banner / link), `year`, `year_turn` |
+| `year_review_plan_clicked` | `YearReview` last step "Plan <next year>" (→ My plan's "Your festivals") / "Find festivals" | `to` (plan / festivals), `year`, `nights` |
+| `year_review_entry_clicked` | `YearReviewEntry` in My plan (banner in Dec/Jan, else the link under "Your festivals" / the empty plan) | `variant` (banner / link), `year`, `year_turn` |
 | `problem_report_opened` / `problem_report_submitted` / `problem_report_screenshot` / `problem_report_failed` | `ReportProblem` | `type` · `has_screenshot`, `screenshot_dropped` (submitted: sent only after leaving the shot out) · `captured`, `retake` (screenshot) · `reason` (failed: blocked / timeout / forbidden / no_client / other — `feedbackFailure` in `app/lib/sentry-feedback.ts`). Sentry's traffic goes through our own `/api/m` tunnel (`server/utils/sentryTunnel.ts`) so blockers of `*.sentry.io` don't drop reports |
 | `community_group_submitted` | `SubmitGroupDialog` ("Share a group" on a city's Local groups) | `city`, `platform`, `duplicate` |
 | `city_schedule_published` | `BusinessCitySchedule` (city page → Weekly post: Post to feed / story / Telegram) | `city`, `to` (instagram_feed / instagram_story / telegram) |

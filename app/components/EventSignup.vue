@@ -316,7 +316,7 @@ defineExpose({ start })
       <!-- RAZ-1007: the night you booked (the page fills it). -->
       <slot name="booked" :pass="saved?.pass ?? null" />
       <!-- RAZ-981: signing up is how you get into Meet new friends. -->
-      <EventMeetPrompt :answer="mine.answer" :surface="`${surface}_signup`" class="mt-3" />
+      <EventMeetPrompt :event-id="eventId" :answer="mine.answer" :surface="`${surface}_signup`" class="mt-3" />
       </template>
 
       <div v-else class="rounded-2xl border border-warning/40 bg-warning/[12%] px-4 py-3 space-y-1" role="status" data-signup-sent>
