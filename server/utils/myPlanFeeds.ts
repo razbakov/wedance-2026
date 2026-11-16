@@ -10,7 +10,7 @@
  * "Friends" = mutual dancer follows (RAZ-319). Counts are real or absent —
  * never a placeholder number.
  */
-import { and, asc, eq, gte, inArray, isNotNull, lt, ne, notInArray, or, sql, ilike } from 'drizzle-orm'
+import { and, asc, eq, gte, inArray, isNotNull, lt, ne, notInArray, or, sql } from 'drizzle-orm'
 import { cities, dancers, discoverSwipes, events, festivals, follows, planItems } from '../database/schema'
 import { relatedDanceStyles } from '../../shared/dance-styles'
 
@@ -45,6 +45,35 @@ export async function citySlugFor(db: Db, city: string | null | undefined): Prom
     if (c?.slug) return c.slug
   } catch { /* cities table missing → slugify */ }
   return slugifyCity(name)
+}
+
+/**
+ * Every name a city goes by, lowercased and trimmed: what the dancer typed plus,
+ * when it is a known city, its English and local names, alt names (München,
+ * Мюнхен…) and its slug as words. Dancers' cities are free text, so the deck
+ * matches locals on any of these (RAZ-981): "Munich" and "München" are one city.
+ */
+export function cityNameSet(
+  typed: string,
+  row?: { slug: string; name: string; localName?: string | null; altNames?: string[] | null } | null,
+): string[] {
+  const names = [typed, row?.name, row?.localName, row?.slug?.replace(/-/g, ' '), ...(row?.altNames ?? [])]
+  return [...new Set(names.map(n => (n ?? '').trim().toLowerCase()).filter(Boolean))]
+}
+
+/** `cityNameSet` for a dancer's city, looked up in `cities` the way `citySlugFor` does. */
+export async function cityNamesFor(db: Db, city: string | null | undefined): Promise<string[]> {
+  const name = (city ?? '').trim()
+  if (!name) return []
+  try {
+    const [c] = await db
+      .select({ slug: cities.slug, name: cities.name, localName: cities.localName, altNames: cities.altNames })
+      .from(cities)
+      .where(sql`lower(${cities.name}) = lower(${name}) or lower(${cities.localName}) = lower(${name}) or ${cities.altNames} @> ${JSON.stringify([name])}::jsonb`)
+      .limit(1)
+    return cityNameSet(name, c ?? null)
+  } catch { /* cities table missing → just the typed name */ }
+  return cityNameSet(name)
 }
 
 /** True when any of an event's styles is the same as, or a variant of, one of the dancer's. */
@@ -560,22 +589,25 @@ export async function discoverDeck(db: Db, dancerId: string, now = new Date()): 
     }
   } catch { /* non-critical */ }
 
-  // 2. Dancers in my city, shared styles first. Falls back to anyone when the
-  //    city is unknown or has nobody left to show.
-  const peopleQuery = (cityFilter: boolean) => db
-    .select({ id: dancers.id, name: dancers.name, photo: dancers.photo, city: dancers.city, danceStyles: dancers.danceStyles })
-    .from(dancers)
-    .where(and(
-      ...(cityFilter ? [ilike(dancers.city, myCity)] : []),
-      ne(dancers.id, dancerId),
-      eq(dancers.profilePublic, true),
-      ...hasPhoto(),
-      ...notSwipedDancer,
-    ))
-    .limit(30)
+  // 2. Dancers in my city — under any name it goes by — shared styles first.
+  //    No city, or nobody there yet → no locals. The deck used to fall back to
+  //    anyone anywhere, which filled it with strangers from other cities
+  //    (RAZ-981); /meet says why it is empty instead.
   try {
-    let locals: any[] = myCity ? await peopleQuery(true) : []
-    if (!locals.length && !dancerCards.length) locals = await peopleQuery(false)
+    const myCityNames = await cityNamesFor(db, myCity)
+    const locals: any[] = myCityNames.length
+      ? await db
+        .select({ id: dancers.id, name: dancers.name, photo: dancers.photo, city: dancers.city, danceStyles: dancers.danceStyles })
+        .from(dancers)
+        .where(and(
+          inArray(sql`lower(trim(${dancers.city}))`, myCityNames),
+          ne(dancers.id, dancerId),
+          eq(dancers.profilePublic, true),
+          ...hasPhoto(),
+          ...notSwipedDancer,
+        ))
+        .limit(60)
+      : []
     const scored = locals
       .filter(d => !usedDancers.has(d.id) && d.photo)
       .map(d => {

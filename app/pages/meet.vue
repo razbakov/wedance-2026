@@ -228,7 +228,7 @@ const lastYes = computed(() => {
         <div class="mb-6 max-w-xl space-y-2 text-sm text-muted-foreground font-sans" data-testid="meet-explainer">
           <p>
             <span class="font-bold text-foreground">Who's here:</span>
-            dancers with a public profile and a photo who dance in your city, or who chose "Show me" for a festival.
+            dancers with a public profile and a photo who live in your city (however they spell it), or who chose "Show me" for a festival.
           </p>
           <p data-testid="meet-you">
             <span class="font-bold text-foreground">You:</span>
@@ -254,8 +254,13 @@ const lastYes = computed(() => {
             <p class="text-lg font-display text-foreground">
               That's it for this pass.
             </p>
-            <p class="mt-2 text-sm text-muted-foreground font-sans">
-              You've seen everyone we have for you right now. New dancers show up here as they join WeDance.
+            <p v-if="!dancerCity" class="mt-2 text-sm text-muted-foreground font-sans" data-testid="meet-empty-city">
+              We show locals from your city, and you haven't told us yours.
+              <NuxtLink to="/settings" class="font-bold text-primary hover:underline">Add your city</NuxtLink>
+            </p>
+            <p v-else class="mt-2 text-sm text-muted-foreground font-sans">
+              You've seen everyone in {{ dancerCity }} with a photo, and everyone going to a festival who chose "Show me".
+              New dancers show up here as they join WeDance.
             </p>
             <p class="mt-2 text-sm text-muted-foreground font-sans">
               Next: <NuxtLink to="/my-plan#socials" class="font-bold text-primary hover:underline">go dancing this week</NuxtLink> or

@@ -61,6 +61,10 @@ describe.skipIf(!DATABASE_URL)('my-plan feeds', () => {
     await addDancer('noPhoto', { photo: null })
     await addDancer('emptyPhoto', { photo: '' })
     await addDancer('friend', { photo: 'https://example.com/f.jpg', city: 'Elsewhere' })
+    // RAZ-981: the same city under another name is a local; another city is not.
+    await db.insert(schema.cities).values({ googlePlaceId: `test-place-${RUN}`, slug: CITY_SLUG, name: CITY, altNames: [`Testdorf ${RUN}`] })
+    await addDancer('altSpelling', { photo: 'https://example.com/a.jpg', city: `  testdorf ${RUN} ` })
+    await addDancer('stranger', { photo: 'https://example.com/s.jpg', city: `Faraway ${RUN}` })
 
     // Friend = mutual follow.
     await db.insert(schema.follows).values([
@@ -119,6 +123,7 @@ describe.skipIf(!DATABASE_URL)('my-plan feeds', () => {
     await db.delete(schema.follows).where(inArray(schema.follows.dancerId, dancerIds))
     await db.delete(schema.events).where(inArray(schema.events.id, eventIds))
     await db.delete(schema.festivals).where(inArray(schema.festivals.slug, [FEST, WORKSHOP]))
+    await db.delete(schema.cities).where(eq(schema.cities.googlePlaceId, `test-place-${RUN}`))
     await db.delete(schema.dancers).where(like(schema.dancers.email, `%-${RUN}@test.wedance.local`))
   })
 
@@ -313,6 +318,12 @@ describe.skipIf(!DATABASE_URL)('my-plan feeds', () => {
       expect(deck).not.toContain(`dancer:${ids.me}`)
       const { cards } = await caller(ids.me!).plan.discover()
       for (const c of cards) if (c.targetKind === 'dancer') expect(c.dancerPhoto).toBeTruthy()
+    })
+
+    it('shows locals under any name of the city, never strangers from other cities (RAZ-981)', async () => {
+      const deck = await deckIds()
+      expect(deck).toContain(`dancer:${ids.altSpelling}`)
+      expect(deck).not.toContain(`dancer:${ids.stranger}`)
     })
 
     it('shows each dancer once, with the festival that put them on the card', async () => {
