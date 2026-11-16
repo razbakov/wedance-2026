@@ -6,12 +6,15 @@
  * photo, name, city, bio), started from what the dancer already has and saved
  * to their profile. "Add a photo" / "Make it public" lead here (after signing
  * up to a night, on /meet) instead of the long Settings form.
- * `?back=/events/…` returns to where the dancer came from.
+ * `?back=/events/…` returns to where the dancer came from. From a night
+ * (`?event=<id>&as=<sign-up answer>`) the card starts with that night's dances
+ * and the role the dancer signed up as (`danceCardStart`).
  */
 import { ArrowLeft, ArrowRight, Check, Lock } from 'lucide-vue-next'
 import { meetVisibility } from '#shared/utils/meetFriends'
 import type { DanceCardPrefill, DanceCardResult, SwipeCard } from '~/types/festival'
 import type { DiscoverMe } from '~~/server/utils/myPlanFeeds'
+import { danceCardStart } from '~/lib/danceCard'
 
 definePageMeta({ layout: false })
 useHead({ title: 'WeDance — Your dance card', meta: [{ name: 'robots', content: 'noindex' }] })
@@ -32,8 +35,19 @@ const back = computed(() => {
   return b.startsWith('/') && !b.startsWith('//') ? b : null
 })
 
-/** The dances on the card: the dancer's own first, then the ones the /meet card offers. */
-const COMMON_STYLES = ['Salsa', 'Bachata', 'Kizomba', 'Zouk', 'Tango']
+// The night the dancer came from: its dances (undefined = still loading).
+const eventId = computed(() => typeof route.query.event === 'string' ? route.query.event : '')
+const answer = computed(() => typeof route.query.as === 'string' ? route.query.as : null)
+const night = ref<{ styles: string[] } | null | undefined>(eventId.value ? undefined : null)
+onMounted(async () => {
+  if (!eventId.value) return
+  try {
+    const ev = await $trpc.events.get.query({ id: eventId.value })
+    night.value = { styles: ((ev as { styles?: string[] | null } | null)?.styles ?? []) }
+  } catch {
+    night.value = null
+  }
+})
 
 // The card starts from the profile as it is now (on load, and again on "Edit again").
 const prefill = ref<DanceCardPrefill | null>(null)
@@ -41,19 +55,25 @@ const cards = ref<SwipeCard[]>([])
 const saved = ref(false)
 const cardKey = ref(0)
 function startCard() {
-  const mine = [...(danceStyles.value ?? [])]
+  const start = danceCardStart({
+    profileRole: role.value,
+    profileStyles: danceStyles.value ?? [],
+    event: night.value ? { styles: night.value.styles, answer: answer.value } : null,
+  })
   prefill.value = {
-    role: role.value, styles: mine, levels: { ...(danceLevels.value as DanceCardPrefill['levels']) },
+    role: start.role, styles: start.ticked, levels: { ...(danceLevels.value as DanceCardPrefill['levels']) },
     name: dancerName.value ?? '', city: city.value ?? '', bio: bio.value ?? '', photo: photo.value ?? '',
   }
   cards.value = [
-    { id: 'onboarding-dancecard', cardType: 'onboarding-dancecard', availableStyles: [...new Set([...mine, ...COMMON_STYLES])] },
+    { id: 'onboarding-dancecard', cardType: 'onboarding-dancecard', availableStyles: start.listed },
     { id: 'onboarding-profile', cardType: 'onboarding-profile' },
   ]
   saved.value = false
   cardKey.value++
 }
-watch(isLoading, (loadingNow) => { if (!loadingNow && !prefill.value) startCard() }, { immediate: true })
+watch([isLoading, night], ([loadingNow, n]) => {
+  if (!loadingNow && n !== undefined && !prefill.value) startCard()
+}, { immediate: true })
 const NO_PLAN = new Set<string>()
 
 // My next night out — whether others can see me.

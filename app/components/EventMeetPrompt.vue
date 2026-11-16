@@ -12,6 +12,8 @@ import { ArrowRight, Camera, Users } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
 
 const props = defineProps<{
+  /** The night signed up to: the dance card starts with its dances. */
+  eventId: string
   /** The dancer's answer: a lone leader / follower gets a line about finding a partner. */
   answer?: string | null
   surface: string
@@ -22,6 +24,12 @@ const { photo, profilePublic } = useAuth()
 const hasPhoto = computed(() => !!photo.value?.trim())
 const isPublic = computed(() => profilePublic.value !== false)
 const shown = computed(() => hasPhoto.value && isPublic.value)
+/** The dance card, started from this night and how they signed up (RAZ-1005); Back returns here. */
+const cardLink = computed(() => {
+  const q = new URLSearchParams({ event: props.eventId, back: route.fullPath })
+  if (props.answer) q.set('as', props.answer)
+  return `/dance-card?${q}`
+})
 const lookingFor = computed(() => props.answer === 'needLeader' ? 'a leader' : props.answer === 'needFollower' ? 'a follower' : null)
 
 function open() {
@@ -53,7 +61,7 @@ function open() {
         <NuxtLink to="/meet" data-meet-prompt-open @click="open">Meet who’s going <ArrowRight aria-hidden="true" /></NuxtLink>
       </Button>
       <Button v-if="!shown" as-child variant="outline" size="pill-sm">
-        <NuxtLink :to="`/dance-card?back=${encodeURIComponent(route.fullPath)}`" data-meet-prompt-settings>
+        <NuxtLink :to="cardLink" data-meet-prompt-settings>
           <Camera v-if="!hasPhoto" aria-hidden="true" /> {{ hasPhoto ? 'Make my profile public' : 'Add a photo' }}
         </NuxtLink>
       </Button>

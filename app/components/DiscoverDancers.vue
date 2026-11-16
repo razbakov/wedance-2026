@@ -250,6 +250,14 @@ const currentDanceCard = computed(() => isDanceCard.value ? currentCard.value as
 const selectedRole = ref<DanceRole | null>(null)
 const selectedStyles = ref<Map<string, 'Beginner' | 'Intermediate' | 'Advanced' | null>>(new Map())
 
+/** Tapping a dance's name ticks it without a level, or unticks it. */
+function toggleStyle(style: string) {
+  const next = new Map(selectedStyles.value)
+  if (next.has(style)) next.delete(style)
+  else next.set(style, null)
+  selectedStyles.value = next
+}
+
 function toggleStyleLevel(style: string, level: 'Beginner' | 'Intermediate' | 'Advanced') {
   const next = new Map(selectedStyles.value)
   if (next.get(style) === level) {
@@ -303,7 +311,9 @@ function onPhotoChange(e: Event) {
 }
 
 const profile = computed(() => validateForm(DiscoverProfileSchema, { name: profileName.value, city: profileCity.value }))
-const canSubmitProfile = computed(() => profile.value.success)
+/** Saved to a profile (signed in), the card needs a photo: without one nobody sees it in the deck. */
+const needsPhoto = computed(() => !!props.saveDanceCard && !profilePhotoUrl.value)
+const canSubmitProfile = computed(() => profile.value.success && !needsPhoto.value)
 
 const savingCard = ref(false)
 const saveCardError = ref('')
@@ -652,8 +662,14 @@ function endorsementCount(dancer: DiscoverDancer, styleName: string): number {
                 v-for="style in currentDanceCard.availableStyles"
                 :key="style"
                 class="flex items-center gap-2 rounded-lg border bg-background p-2"
+                :class="selectedStyles.has(style) ? 'border-sky-400 ring-1 ring-sky-400' : ''"
               >
-                <span class="text-sm font-medium flex-1 min-w-0 truncate">{{ style }}</span>
+                <button
+                  type="button"
+                  class="text-sm font-medium flex-1 min-w-0 truncate text-left"
+                  :aria-pressed="selectedStyles.has(style)"
+                  @click.stop="toggleStyle(style)"
+                >{{ style }}</button>
                 <div class="flex gap-1 shrink-0">
                   <button
                     v-for="level in (['Beginner', 'Intermediate', 'Advanced'] as const)"
@@ -684,16 +700,26 @@ function endorsementCount(dancer: DiscoverDancer, styleName: string): number {
 
           <!-- ONBOARDING: PROFILE CARD (live preview — same size as dancer cards) -->
           <div v-else-if="isProfileCard" class="relative aspect-square bg-muted">
-            <img
-              v-if="profilePhotoUrl"
-              :src="sizedImage(profilePhotoUrl, IMG.card)"
-              class="w-full h-full object-cover"
-            />
-            <div v-else class="w-full h-full bg-gradient-to-br from-rose-100 to-pink-200 flex items-center justify-center">
-              <Camera class="w-16 h-16 text-pink-300" />
-            </div>
-            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-            <div class="absolute bottom-0 left-0 right-0 p-3 text-white space-y-2">
+            <!-- The picture is the photo button (RAZ-1005). -->
+            <label class="absolute inset-0 cursor-pointer" data-testid="dance-card-photo" @mousedown.stop @touchstart.stop>
+              <span class="sr-only">{{ profilePhotoUrl ? 'Change your photo' : 'Add your photo' }}</span>
+              <img
+                v-if="profilePhotoUrl"
+                :src="sizedImage(profilePhotoUrl, IMG.card)"
+                alt=""
+                class="w-full h-full object-cover"
+              />
+              <span v-else class="w-full h-full bg-gradient-to-br from-rose-100 to-pink-200 flex flex-col items-center justify-start pt-[22%] gap-2">
+                <Camera class="w-14 h-14 text-pink-400" aria-hidden="true" />
+                <span class="text-sm font-semibold text-pink-700">Tap to add your photo</span>
+              </span>
+              <span v-if="profilePhotoUrl" class="absolute top-3 right-3 z-10 inline-flex items-center gap-1 rounded-full bg-black/55 px-2.5 py-1 text-xs font-semibold text-white">
+                <Camera class="w-3.5 h-3.5" aria-hidden="true" /> Change
+              </span>
+              <input type="file" accept="image/*" class="sr-only" data-testid="dance-card-photo-input" @change="onPhotoChange" />
+            </label>
+            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
+            <div class="absolute bottom-0 left-0 right-0 p-3 text-white space-y-2 pointer-events-none">
               <div>
                 <div class="flex items-center gap-1.5">
                   <h4 class="text-base font-semibold">{{ profileName || 'Your name' }}</h4>
@@ -866,15 +892,6 @@ function endorsementCount(dancer: DiscoverDancer, styleName: string): number {
 
       <!-- Profile form (below card, only when profile card is showing) -->
       <div v-if="isProfileCard" class="max-w-[340px] mx-auto mt-4 rounded-xl border bg-background p-4 space-y-3">
-        <!-- Photo upload -->
-        <div class="flex items-center gap-3">
-          <label class="relative w-10 h-10 rounded-full bg-pink-100 border-2 border-dashed border-pink-300 flex items-center justify-center cursor-pointer hover:border-pink-400 transition-colors overflow-hidden shrink-0">
-            <img v-if="profilePhotoUrl" :src="sizedImage(profilePhotoUrl, IMG.card)" class="w-full h-full object-cover" />
-            <Camera v-else class="w-4 h-4 text-pink-400" />
-            <input type="file" accept="image/*" class="hidden" data-testid="dance-card-photo-input" @change="onPhotoChange" />
-          </label>
-          <span class="text-xs text-muted-foreground">{{ profilePhotoUrl ? 'Change photo' : 'Add a photo' }}</span>
-        </div>
         <p v-if="photoError" role="alert" class="text-xs font-bold text-primary">{{ photoError }}</p>
 
         <!-- Name + City row -->
@@ -902,7 +919,7 @@ function endorsementCount(dancer: DiscoverDancer, styleName: string): number {
           data-testid="dance-card-save"
           @click="submitProfile"
         >
-          {{ savingCard ? 'Saving…' : 'Save profile' }}
+          {{ savingCard ? 'Saving…' : needsPhoto ? 'Add a photo to save' : 'Save profile' }}
         </Button>
       </div>
 
