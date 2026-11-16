@@ -59,7 +59,7 @@ const CARDS_TODAY: Card[] = [
 // One card per tab: the Schedule card counts sessions and parties, and its line is the dress codes.
 const CARDS_NEW: Card[] = [
   CARDS_TODAY[0]!,
-  { key: 'schedule', title: '42 sessions, 2 parties', line: 'Dress code: Fri red-black or black-white · Sat King & Queen', link: 'Schedule', isNew: true },
+  { key: 'schedule', title: '42 workshops, 2 parties', line: 'Dress code: Fri red-black or black-white · Sat King & Queen', link: 'Schedule', isNew: true },
   CARDS_TODAY[2]!,
 ]
 const cards = computed(() => variant.value === 'new' ? CARDS_NEW : CARDS_TODAY)
