@@ -3,8 +3,9 @@
  * (`/api/cron/review-asks`, vercel.json) finds the nights that have been over for 4–30 hours
  * and emails everyone who went (`signupsOf`: plan, poll, attendances, tickets). Each address
  * gets it once per event: the `event_review_asks` row is inserted first (unique on event +
- * email) and only a fresh insert sends. Festivals are left out (they are reviewed as a
- * festival); cancelled, archived and unpublished events too.
+ * email) and only a fresh insert sends. Festivals (`is_festival`) are left out — they are
+ * reviewed as a festival; an event with a programme is asked like any night. Cancelled,
+ * archived and unpublished events too.
  */
 import { randomBytes } from 'node:crypto'
 import { and, eq, gt, inArray, isNull, lt } from 'drizzle-orm'
@@ -29,7 +30,7 @@ export async function dueEvents(db: any, now = new Date()): Promise<any[]> {
     gt(events.startDate, new Date(now.getTime() - LOOKBACK_DAYS * 86_400_000)),
     lt(events.startDate, now),
   ))
-  return rows.filter((ev: any) => !ev.festival && inAskWindow(ev, now.getTime()))
+  return rows.filter((ev: any) => inAskWindow(ev, now.getTime()))
 }
 
 /** The name the email speaks for: the hosting page, else the organiser, else the venue. */

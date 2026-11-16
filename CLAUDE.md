@@ -437,18 +437,20 @@ organiser's choice.
 ## Event reviews: only people who went, after the night (RAZ-1011)
 
 The rating sits under the hero picture; the stars open the page's Reviews tab (plain events: Overview / Reviews in
-`events/[id].vue`; festivals: FestivalView's fifth tab, still open to anyone signed in). An **event** is reviewed only
+`events/[id].vue`; an event with a programme: FestivalView's fifth tab, reviewed as the event; real festivals
+(`is_festival`): the same tab, festival reviews, still open to anyone signed in). An **event** is reviewed only
 by someone who signed up — `wentTo` in `server/utils/eventCancel.ts`, the same sources as `signupsOf` (plan, confirmed
 poll answer other than "next", attendances / tickets, matched by id or email) — and only once the night is over
 (`shared/utils/eventReview.ts` `reviewOpen`: its end, else start + 3 h). Enforced in `review.create`; such reviews carry
-`reviews.went` (0075) and show "Went". **How was it?** (`EventHowWasIt`) replaces the sign-up in the hero for a dancer
+`reviews.went` (0075) and show "Went". **How was it?** (`EventHowWasIt`, state in `useEventReviewAsk`, shared by
+`events/[id].vue` and `FestivalView` with `planAs: 'event'`) replaces the sign-up in the hero for a dancer
 who went (`review.eventAsk`): tap a star, an optional line, post → Reviews tab. Before the night the tab says you can
 review it the day after. **Morning-after email**: a daily Vercel cron (`vercel.json` → `/api/cron/review-asks`, 09:00
 UTC, `Authorization: Bearer $CRON_SECRET` — unset = 503, nothing sent) emails everyone who went to nights over 4–30 h
-ago (`server/utils/reviewAsk.ts`; not festivals, cancelled, archived or drafts): "How was Thursday at <host>?", five
+ago (`server/utils/reviewAsk.ts`; events with a programme too; not festivals, cancelled, archived or drafts): "How was Thursday at <host>?", five
 star links (`/events/<slug>?rate=N`) and "Didn't make it?" (`?review=missed&t=<token>` → a "Don't ask me again" tap →
 `review.missed`; a GET never changes anything). Once per event per address: `event_review_asks` (unique event + email,
-inserted before sending). Not yet: tips to the organiser after a good review (needs a Stripe payout decision).
+inserted before sending). Not yet: tips to the organiser after a good review (RAZ-1013, needs a Stripe payout decision).
 
 ## My plan: Today / Week / Month / Year (RAZ-1006)
 

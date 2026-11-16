@@ -6,6 +6,7 @@ import { ArrowRight, Sparkles, Check, Plus, Pencil, Ticket, Share2, Users } from
 import { isWorkshop, isEveningItem, stylesOf } from '#shared/utils/programme'
 import { heroTagline } from '#shared/utils/heroTagline'
 import { isNight } from '#shared/utils/yourNight'
+import { nightWeekday } from '#shared/utils/eventReview'
 import { Button } from '~/components/ui/button'
 import { artistPlaces, artistLanguages } from '~/data/artists'
 import { WD } from '~/lib/brand'
@@ -829,6 +830,15 @@ watch(() => plan.value.size, (n) => setCartCount(n), { immediate: true })
 // The tab lives in ?tab= (deep links, Back); old #tickets / #schedule /
 // #lineup anchors still open their tab. Reviews is a tab too, opened from the hero's stars
 // (RAZ-1011), so it no longer sits under every tab at the bottom of the page.
+// A one-off event with a programme is reviewed as an event (RAZ-1011): only people who went, after
+// the night, from "How was it?" in the hero. A real festival keeps its festival reviews.
+const reviewAsk = useEventReviewAsk({
+  eventId: () => (planAsEvent ? data.eventId : null),
+  blocked: () => !!props.cancelled,
+  openReviews: () => openTab('reviews', 'hero'),
+})
+const reviewWeekday = computed(() => nightWeekday({ startDate: props.rsvp?.startDate ?? festival.startDate, timezone: props.rsvp?.timezone ?? festival.timezone }))
+
 const ALL_TABS = ['overview', 'lineup', 'schedule', 'tickets', 'reviews'] as const
 type Tab = typeof ALL_TABS[number]
 // A class or course is booked in the steps alone (RAZ-995); a festival keeps its Passes tab to compare them.
@@ -1311,7 +1321,7 @@ useHead({
 
     <!-- v-show, not v-if: the hero holds the sign-up, whose poll the schedule reads on every tab. -->
     <div v-show="currentTab === 'overview'" ref="heroRef">
-      <FestivalHero :festival="heroFestival" :image="festival.flyer" :presenters="festival.organizers" :description="festival.description" :picked="heroPicked" :cancelled="cancelled" :free-entry="freeEntry" :venue-address="festival.venue?.address" :map-url="festival.venue?.coordinates?.lat != null ? `https://www.google.com/maps/search/?api=1&query=${festival.venue.coordinates.lat},${festival.venue.coordinates.lng}` : (festival.venue?.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(festival.venue.address)}` : undefined)" @pick="onPick" @reviews="openTab('reviews', 'hero')">
+      <FestivalHero :festival="heroFestival" :image="festival.flyer" :presenters="festival.organizers" :description="festival.description" :picked="heroPicked" :cancelled="cancelled" :free-entry="freeEntry" :venue-address="festival.venue?.address" :map-url="festival.venue?.coordinates?.lat != null ? `https://www.google.com/maps/search/?api=1&query=${festival.venue.coordinates.lat},${festival.venue.coordinates.lng}` : (festival.venue?.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(festival.venue.address)}` : undefined)" :review-target-type="planAsEvent ? 'event' : 'festival'" :review-target-slug="planAsEvent ? data.eventId : undefined" :rating-version="reviewAsk.reviewsKey.value" @pick="onPick" @reviews="openTab('reviews', 'hero')">
         <!-- What's inside, before the buttons (RAZ-1008): one compact card per tab, no header —
              enough to see there's lots to explore; each opens its tab. -->
         <template v-if="summaryCards.length" #before-cta>
@@ -1343,8 +1353,15 @@ useHead({
           </ul>
         </template>
         <!-- A dated event: the organiser's poll is the Going question. -->
-        <template v-if="rsvp" #cta>
-          <div id="rsvp" class="mt-4 max-w-xl scroll-mt-16">
+        <template v-if="rsvp || reviewAsk.show.value" #cta>
+          <!-- After the night, for people who went (RAZ-1011): "How was it?" -->
+          <EventHowWasIt
+            v-if="reviewAsk.show.value" :event-id="data.eventId" :event-name="festival.name" :weekday="reviewWeekday" :mine="reviewAsk.ask.value?.mine ?? null" :signed-in="!!reviewAsk.ask.value?.signedIn"
+            :initial-rating="reviewAsk.rateParam.value" :from-email="!!reviewAsk.rateParam.value" :missed-token="reviewAsk.missedToken.value"
+            @posted="reviewAsk.onPosted" @reviews="openTab('reviews', 'hero')" @sign-in="onSignIn('review')" @missed="reviewAsk.load"
+          />
+          <p v-else-if="reviewAsk.notAllowed.value" class="mt-4 text-sm text-muted-foreground font-sans" data-review-not-went>Only people who signed up for this night can review it.</p>
+          <div v-if="rsvp" id="rsvp" class="mt-4 max-w-xl scroll-mt-16">
             <EventSignup
               :event-id="rsvp.eventId" :path="rsvp.path" :start-date="rsvp.startDate" :end-date="rsvp.endDate" :timezone="rsvp.timezone" :organizer-name="rsvp.organizerName"
               :passes="festival.tickets" :pay-at-door="festival.payAtDoor" :pass-key="festival.slug" :has-ticket="hasTicket" :event-type="type"
@@ -1764,7 +1781,8 @@ useHead({
 
         <section v-if="currentTab === 'reviews'" id="reviews" class="scroll-mt-16">
           <ClientOnly>
-            <ReviewsSection target-type="festival" :target-slug="festival.slug" :target-name="festival.name" class="!mt-0" />
+            <ReviewsSection v-if="planAsEvent" :key="reviewAsk.reviewsKey.value" target-type="event" :target-slug="data.eventId" :target-name="festival.name" :can-write="false" :note="reviewAsk.note.value" class="!mt-0" />
+            <ReviewsSection v-else target-type="festival" :target-slug="festival.slug" :target-name="festival.name" class="!mt-0" />
           </ClientOnly>
         </section>
     </div>
