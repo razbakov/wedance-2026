@@ -5,7 +5,7 @@
  * signed up to a night out in your city — the same night as you first — and
  * dancers going to a festival who chose "Show me". Each card leads to that
  * night or festival. `plan.discover` also returns festival / social cards —
- * Your week and Your year on My plan already hold those, so they are dropped.
+ * Your week and Your festivals on My plan already hold those, so they are dropped.
  */
 import { relatedDanceStyles } from '#shared/dance-styles'
 import { eventPath } from '#shared/utils/eventSlug'

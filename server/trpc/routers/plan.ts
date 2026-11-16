@@ -385,7 +385,7 @@ export const planRouter = router({
     const legacy = await legacyPlanFestivals(ctx, slugs)
     // Festivals live in `events` (ADR-006); the legacy table above only knows some.
     // "+ My plan" on /festivals saves a festival with details by its key, any other
-    // festival event by its id (RAZ-1003) — both belong in "Your year".
+    // festival event by its id (RAZ-1003) — both belong in "Your festivals".
     const known = new Set(legacy.map((f) => f.slug))
     const fromEvents = await eventPlanFestivals(ctx.db, slugs.filter((s) => !known.has(s)), eventIds)
     return [...legacy, ...fromEvents].sort((a, b) => a.startDate.localeCompare(b.startDate))

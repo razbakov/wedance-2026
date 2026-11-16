@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * Where dancers find "Your year in dance" (RAZ-966): in My plan, not the main
- * navigation. All year it's a quiet link under "Your year"; around the turn of
+ * navigation. All year it's a quiet link under "Your festivals"; around the turn of
  * the year (December, January) it's a banner at the top, so the year gets
  * closed properly before the next one is planned.
  */

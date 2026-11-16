@@ -6,7 +6,7 @@
  * see is what they share: "Share" sends the current one (or all of them)
  * through the phone's share sheet, "Save" downloads it. The last screen turns
  * to next year: celebrate first, then plan (`plan-next` emit → My plan's
- * "Your year", or /festivals).
+ * "Your festivals", or /festivals).
  */
 import { ChevronLeft, ChevronRight, Download, Images, Loader2, Share2, Sparkles } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
