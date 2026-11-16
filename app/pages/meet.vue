@@ -197,7 +197,7 @@ const lastYes = computed(() => {
       <div class="mt-4 flex items-baseline justify-between gap-4 mb-4">
         <div>
           <h1 class="text-4xl sm:text-5xl leading-tight font-display text-foreground">Meet new friends</h1>
-          <p class="mt-1 text-sm text-muted-foreground font-sans">Dancers going out near you, and to your festivals</p>
+          <p class="mt-1 text-sm text-muted-foreground font-sans">Dancers going out soon. Like someone? Meet them there.</p>
         </div>
         <Button
           v-if="view === 'deck'"
@@ -232,44 +232,36 @@ const lastYes = computed(() => {
 
       <!-- THE DECK -->
       <section v-else data-testid="meet-deck">
-        <!-- RAZ-981: who is here, are you here, what happens next. -->
-        <div class="mb-6 max-w-xl space-y-2 text-sm text-muted-foreground font-sans" data-testid="meet-explainer">
-          <p>
-            <span class="font-bold text-foreground">Who's here:</span>
-            dancers going out near you in the next two weeks — each card says which night — and dancers going to a festival who chose "Show me".
-          </p>
-          <p data-testid="meet-you">
-            <span class="font-bold text-foreground">You:</span>
-            {{ meVisible.text }}
-            <NuxtLink v-if="meVisible.missing.includes('photo') || meVisible.missing.includes('public')" to="/settings" class="font-bold text-primary hover:underline whitespace-nowrap">
-              Open Settings <ArrowRight class="inline w-3.5 h-3.5" aria-hidden="true" />
-            </NuxtLink>
-            <NuxtLink v-else-if="meVisible.missing.includes('night')" :to="nightsLink" class="font-bold text-primary hover:underline whitespace-nowrap" data-testid="meet-find-night">
-              Find a night <ArrowRight class="inline w-3.5 h-3.5" aria-hidden="true" />
-            </NuxtLink>
-          </p>
-          <p>
-            <span class="font-bold text-foreground">How it works:</span>
-            Yes = you'd like to dance with them. Only you see it — they aren't told. Then meet on the floor:
-            go to their night (tap it on the card), or wave at them on the festival's page. Two yeses for the same festival and we suggest it for your year.
-            Skip = we won't show them again; the clock = later.
-          </p>
-        </div>
+        <!-- RAZ-981: one line — can others see you, and what to do if not. -->
+        <p
+          class="mb-6 mx-auto max-w-md flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm text-center font-sans"
+          :class="meVisible.shown ? 'text-wd-green-700' : 'text-muted-foreground'"
+          data-testid="meet-you"
+        >
+          <span>{{ meVisible.text }}</span>
+          <NuxtLink v-if="meVisible.missing.includes('photo')" to="/settings" class="font-bold text-primary hover:underline whitespace-nowrap">
+            Add a photo <ArrowRight class="inline w-3.5 h-3.5" aria-hidden="true" />
+          </NuxtLink>
+          <NuxtLink v-else-if="meVisible.missing.includes('public')" to="/settings" class="font-bold text-primary hover:underline whitespace-nowrap">
+            Make it public <ArrowRight class="inline w-3.5 h-3.5" aria-hidden="true" />
+          </NuxtLink>
+          <NuxtLink v-else-if="meVisible.missing.includes('night')" :to="nightsLink" class="font-bold text-primary hover:underline whitespace-nowrap" data-testid="meet-find-night">
+            Find a night <ArrowRight class="inline w-3.5 h-3.5" aria-hidden="true" />
+          </NuxtLink>
+        </p>
 
         <div class="relative mx-auto max-w-md">
           <div v-if="!deckCurrent" class="rounded-2xl p-10 text-center border-2 border-dashed border-input bg-white/50" data-testid="meet-empty">
             <Sparkles class="w-10 h-10 mx-auto mb-3 text-secondary" aria-hidden="true" />
             <p class="text-lg font-display text-foreground">
-              That's it for this pass.
+              No one new right now
             </p>
             <p class="mt-2 text-sm text-muted-foreground font-sans">
-              Nobody else{{ dancerCity ? ` in ${dancerCity}` : '' }} is signed up to a night in the next two weeks — or you've seen them all.
-              Be the first: sign up to one, and everyone who joins that night meets you here.
+              Go to a night out — everyone going will see you here, and you’ll see them.
             </p>
-            <p class="mt-2 text-sm text-muted-foreground font-sans">
-              <NuxtLink :to="nightsLink" class="font-bold text-primary hover:underline" data-testid="meet-empty-nights">Find a night out</NuxtLink> or
-              <NuxtLink to="/festivals" class="font-bold text-primary hover:underline">pick a festival</NuxtLink>
-            </p>
+            <Button as-child variant="cta" size="pill-sm" class="mt-4">
+              <NuxtLink :to="nightsLink" data-testid="meet-empty-nights">Find a night out <ArrowRight aria-hidden="true" /></NuxtLink>
+            </Button>
           </div>
 
           <!-- min-height, not a fixed height: the card grows with its text. -->
@@ -388,7 +380,7 @@ const lastYes = computed(() => {
           </div>
 
           <p v-if="deckCurrent" class="mt-4 text-xs text-center italic text-secondary font-display">
-            Drag or use the buttons · {{ deck.length }} left
+            {{ deck.length }} left
           </p>
 
           <!-- After a Yes: the next step toward actually meeting them (RAZ-981). -->
@@ -405,6 +397,16 @@ const lastYes = computed(() => {
               Next: <NuxtLink :to="lastYes.night.path" class="font-bold text-primary hover:underline">join {{ lastYes.night.name }}</NuxtLink> {{ lastYes.night.when }} — you'll meet on the floor.
             </template>
           </p>
+
+          <details class="mt-8 text-sm text-muted-foreground font-sans" data-testid="meet-how">
+            <summary class="cursor-pointer text-center font-bold text-foreground">How does this work?</summary>
+            <ul class="mt-3 space-y-1.5">
+              <li><span class="font-bold text-wd-green-600">♥</span> — you’d like to dance with them. Only you know.</li>
+              <li><span class="font-bold text-foreground">Their night</span> — tap it on the card and go. That’s where you meet.</li>
+              <li><span class="font-bold text-primary">✕</span> — not for you. <span class="font-bold text-wd-amber-500">◷</span> — show again later.</li>
+              <li><span class="font-bold text-foreground">You show up here</span> when you’re going to a night out, too.</li>
+            </ul>
+          </details>
         </div>
       </section>
     </main>
