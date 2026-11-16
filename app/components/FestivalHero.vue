@@ -2,7 +2,7 @@
 import { sizedImage, IMG } from '#shared/utils/image'
 import { ticketProvider } from '~/lib/outbound'
 import type { Festival } from '~/types/festival'
-import { Instagram, Globe, Facebook, Users, Star, Ticket, Check, Plus, Ban, X } from 'lucide-vue-next'
+import { Instagram, Globe, Facebook, Users, Star, Ticket, Check, Plus, Ban, X, CalendarDays, MapPin } from 'lucide-vue-next'
 import { daysUntil as formatDaysUntil } from '#shared/utils/festivalDateFormatter'
 import { accentText, readableAccent } from '~/lib/accent'
 import { Button } from '~/components/ui/button'
@@ -168,19 +168,34 @@ const rays = Array.from({ length: 24 }, (_, i) => {
             {{ festival.name }}
           </h1>
 
-          <!-- Date + venue -->
-          <p
-            class="mt-2 text-sm sm:text-base italic font-display text-muted-foreground"
-          >
-            <span :class="cancelled ? 'line-through decoration-destructive decoration-2' : ''">{{ dateRange }}</span>
-            <template v-if="!cancelled">{{ ' ' }}<span data-visual-mask class="not-italic font-hand text-lg leading-none" :style="{ color: festival.accentColor }">— {{ daysUntil }}</span></template>
-            {{ ' ' }}<span class="text-secondary">·</span> {{ festival.venue.name }}
-            <template v-if="venueAddress">
-              {{ ' ' }}<span class="text-secondary">·</span>{{ ' ' }}
-              <a v-if="mapUrl" :href="mapUrl" target="_blank" rel="noopener noreferrer" class="underline hover:text-foreground">{{ venueAddress }}</a>
-              <span v-else>{{ venueAddress }}</span>
-            </template>
-          </p>
+          <!-- The facts, one per row (RAZ-1008): when (with the countdown as a chip) and where
+               (the venue, its address under it, linking to the map). -->
+          <dl class="mt-3 space-y-2 text-sm sm:text-base font-sans" data-hero-facts>
+            <div class="flex items-start gap-2.5">
+              <dt class="sr-only">When</dt>
+              <CalendarDays class="mt-0.5 size-4 shrink-0 text-secondary" aria-hidden="true" />
+              <dd class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span class="font-bold text-foreground" :class="cancelled ? 'line-through decoration-destructive decoration-2' : ''">{{ dateRange }}</span>
+                <span
+                  v-if="!cancelled"
+                  data-visual-mask
+                  class="rounded-full px-2 py-0.5 text-xs font-bold"
+                  :style="{ background: festival.accentColor + '18', color: chipText }"
+                >{{ daysUntil }}</span>
+              </dd>
+            </div>
+            <div v-if="festival.venue?.name || venueAddress" class="flex items-start gap-2.5">
+              <dt class="sr-only">Where</dt>
+              <MapPin class="mt-0.5 size-4 shrink-0 text-secondary" aria-hidden="true" />
+              <dd class="min-w-0">
+                <span v-if="festival.venue?.name" class="block font-bold text-foreground">{{ festival.venue.name }}</span>
+                <template v-if="venueAddress">
+                  <a v-if="mapUrl" :href="mapUrl" target="_blank" rel="noopener noreferrer" class="block text-sm text-muted-foreground underline decoration-border underline-offset-2 hover:text-foreground">{{ venueAddress }}</a>
+                  <span v-else class="block text-sm text-muted-foreground">{{ venueAddress }}</span>
+                </template>
+              </dd>
+            </div>
+          </dl>
 
           <!-- What it is, in a sentence, before the buttons (RAZ-1008). "More" opens the whole text right here. -->
           <div v-if="tagline" class="mt-3 max-w-xl text-sm sm:text-base leading-relaxed text-foreground font-sans" data-hero-tagline>
@@ -247,6 +262,11 @@ const rays = Array.from({ length: 24 }, (_, i) => {
                 <span v-else class="text-xs capitalize italic">{{ link.platform }}</span>
               </a>
             </div>
+          </div>
+
+          <!-- What's inside (RAZ-1008): the parent's summary of its tabs, right before the buttons. -->
+          <div v-if="$slots['before-cta']" class="mt-4">
+            <slot name="before-cta" />
           </div>
 
           <!-- The one "am I coming?" control (RAZ-731). The parent can replace it

@@ -3,7 +3,7 @@ import { CLASS_EVENT_TYPES } from '#shared/utils/eventSignup'
 import { sizedImage, IMG } from '#shared/utils/image'
 import type { Festival, Teacher, Workshop, PlanEntry, DanceRole, DancePartner, ExtraActivity, FreemiumState } from '~/types/festival'
 import { ArrowRight, Sparkles, Check, Plus, Pencil, Ticket, Share2, Users } from 'lucide-vue-next'
-import { isWorkshop, isEveningItem } from '#shared/utils/programme'
+import { isWorkshop, isEveningItem, stylesOf } from '#shared/utils/programme'
 import { heroTagline } from '#shared/utils/heroTagline'
 import { Button } from '~/components/ui/button'
 import { artistPlaces, artistLanguages } from '~/data/artists'
@@ -214,7 +214,7 @@ function onBePartner(workshopId: string) {
 }
 
 const days = [...new Set(workshops.map((w) => w.day))]
-const styles = [...new Set(workshops.map((w) => w.style))]
+const styles = [...new Set(workshops.filter(w => isWorkshop(w.type)).flatMap(w => stylesOf(w.style)))]
 
 // Auth state (needed early for workshop persistence)
 const { isSignedIn, dancerId: myDancerId, danceStyles: myDanceStyles, role: myRole, city: myCity, onboardedAt, completeOnboarding, updateProfile } = useAuth()
@@ -1252,6 +1252,29 @@ useHead({
     <!-- v-show, not v-if: the hero holds the sign-up, whose poll the schedule reads on every tab. -->
     <div v-show="currentTab === 'overview'" ref="heroRef">
       <FestivalHero :festival="heroFestival" :image="festival.flyer" :presenters="festival.organizers" :description="festival.description" :picked="heroPicked" :cancelled="cancelled" :free-entry="freeEntry" :hide-going="!!rsvp && !cancelled" :venue-address="festival.venue?.address" :map-url="festival.venue?.coordinates?.lat != null ? `https://www.google.com/maps/search/?api=1&query=${festival.venue.coordinates.lat},${festival.venue.coordinates.lng}` : (festival.venue?.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(festival.venue.address)}` : undefined)" @pick="onPick">
+        <!-- What's inside, before the buttons (RAZ-1008): one compact card per tab, no header —
+             enough to see there's lots to explore; each opens its tab. -->
+        <template v-if="summaryCards.length" #before-cta>
+          <ul class="grid grid-cols-3 gap-2 max-w-xl" data-event-summary>
+            <li v-for="c in summaryCards" :key="c.tab">
+              <button
+                type="button"
+                class="group flex h-full w-full flex-col gap-1 rounded-xl border border-border bg-card/80 px-3 py-2 sm:py-2.5 text-left transition-colors hover:border-primary/40 hover:bg-card cursor-pointer"
+                :data-summary-card="c.tab"
+                @click="openTab(c.tab, 'summary')"
+              >
+                <div v-if="c.photos?.length" class="hidden sm:flex -space-x-1.5 mb-0.5">
+                  <img v-for="(src, i) in c.photos" :key="i" :src="sizedImage(src, IMG.avatar)" alt="" class="size-6 rounded-full object-cover ring-2 ring-card">
+                </div>
+                <span class="text-sm sm:text-base font-black leading-tight text-foreground font-display">{{ c.title }}</span>
+                <span class="hidden sm:block text-xs text-muted-foreground font-sans line-clamp-2">{{ c.line }}</span>
+                <span class="mt-auto hidden sm:inline-flex items-center gap-1 text-xs font-bold text-secondary font-sans">
+                  {{ tabLabels[c.tab] }} <ArrowRight class="size-3 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+                </span>
+              </button>
+            </li>
+          </ul>
+        </template>
         <!-- A dated event: the organiser's poll is the Going question. -->
         <template v-if="rsvp" #cta>
           <div id="rsvp" class="mt-4 max-w-xl scroll-mt-16">
@@ -1323,35 +1346,6 @@ useHead({
           <AboutTab :festival="festival" />
         </section>
 
-        <!-- What's inside: one card per tab, so it's clear there is lots to explore (RAZ-1008). -->
-        <section v-if="summaryCards.length" aria-labelledby="inside-title" data-event-summary>
-          <h2 id="inside-title" class="text-2xl font-black leading-tight mb-4 text-foreground">What’s <em class="italic text-primary">inside</em></h2>
-          <ul class="grid gap-3 sm:grid-cols-3">
-            <li v-for="c in summaryCards" :key="c.tab">
-              <button
-                type="button"
-                class="group flex h-full w-full flex-col gap-2 rounded-2xl border border-border bg-card p-4 text-left transition-colors hover:border-primary/40 hover:bg-white cursor-pointer"
-                :data-summary-card="c.tab"
-                @click="openTab(c.tab, 'summary')"
-              >
-                <div v-if="c.photos?.length" class="flex -space-x-2">
-                  <img
-                    v-for="(src, i) in c.photos"
-                    :key="i"
-                    :src="sizedImage(src, IMG.avatar)"
-                    alt=""
-                    class="size-8 rounded-full object-cover ring-2 ring-card"
-                  >
-                </div>
-                <span class="text-lg font-black leading-tight text-foreground font-display">{{ c.title }}</span>
-                <span class="text-sm text-muted-foreground font-sans line-clamp-2">{{ c.line }}</span>
-                <span class="mt-auto inline-flex items-center gap-1 text-xs font-bold text-secondary font-sans">
-                  {{ tabLabels[c.tab] }} <ArrowRight class="size-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
-                </span>
-              </button>
-            </li>
-          </ul>
-        </section>
 
         <!-- Verified ticket holders: the TicketTailor claim flow exists for Charanga only (/charanga/claim). -->
         <section v-if="festival.slug === 'charanga-habanera-munich-2026' && (inPlan || hasTicket)" aria-labelledby="verified-title">
