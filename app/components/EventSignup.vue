@@ -44,6 +44,8 @@ const props = defineProps<{
   eventType?: string | null
   /** A night's programme (RAZ-1007): each pass says what it includes. Empty = not a night. */
   programme?: { id: string; date: string; time: string; duration: number; type: any; title?: string }[]
+  /** The page already lists the whole programme above: a pass that covers all of it needs no "Includes" line. */
+  programmeShown?: boolean
   /** Programme items already on the dancer's plan: they pick the pass that fits. */
   plannedIds?: string[]
   /** A festival's pick: of these passes, the one covering the workshops on the dancer's plan. */
@@ -114,6 +116,12 @@ const phonePlaceholder = computed(() => (needsPhone.value ? 'Phone / WhatsApp' :
 // RAZ-1007: a night's passes say what they include; the one covering what you planned is suggested.
 const programmeItems = computed(() => props.programme ?? [])
 const includesOf = (p: FestivalPass | null) => programmeItems.value.length ? includesLine(p, programmeItems.value) : ''
+/** The "Includes" line under the button: left out when it would only repeat the programme card. */
+const includesUnderButton = computed(() => {
+  const p = priced.value[0] ?? null
+  if (props.programmeShown && passCovers(p, programmeItems.value).length === passCovers(null, programmeItems.value).length) return ''
+  return includesOf(p)
+})
 const fitsPlan = computed(() => {
   const want = (props.plannedIds ?? []).filter(id => programmeItems.value.some(s => s.id === id))
   if (!want.length) return props.recommend?.(fitting.value.filter(p => !p.soldOut)) ?? null
@@ -299,7 +307,7 @@ defineExpose({ start })
         <!-- A quieter option next to it, e.g. "+ My plan" (RAZ-1003). -->
         <slot name="beside" />
       </div>
-      <p v-if="priced.length <= 1 && includesOf(priced[0] ?? null)" class="mt-2 text-xs text-muted-foreground" data-signup-includes>Includes {{ includesOf(priced[0] ?? null) }}</p>
+      <p v-if="priced.length <= 1 && includesUnderButton" class="mt-2 text-xs text-muted-foreground" data-signup-includes>Includes {{ includesUnderButton }}</p>
       </template>
       <template v-else-if="state === 'booked'">
       <div class="rounded-2xl border border-success/30 bg-success/10 px-4 py-3 space-y-1" role="status" data-signup-in>
