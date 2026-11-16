@@ -356,7 +356,7 @@ defineExpose({ start })
       <div v-else class="rounded-2xl border border-warning/40 bg-warning/[12%] px-4 py-3 space-y-1" role="status" data-signup-sent>
         <p class="inline-flex items-center gap-1.5 font-bold text-foreground"><Mail class="size-4" aria-hidden="true" /> Almost there: open the link we sent{{ sentTo ? ` to ${sentTo}` : '' }}</p>
         <p class="text-sm text-muted-foreground">
-          It confirms your spot ({{ saved?.parts }}) and signs you in; new here, it makes your account, no password.
+          It confirms your spot{{ saved?.parts ? ` (${saved.parts})` : '' }} and signs you in; new here, it makes your account, no password.
           Until then {{ org }} sees you as unconfirmed for 48 hours.
         </p>
         <Button type="button" variant="link" size="sm" class="h-auto p-0" @click="start">Change</Button>
