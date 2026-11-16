@@ -610,10 +610,13 @@ export const planRouter = router({
    * 7 days, soonest first; a recurring event shows its next occurrence.
    * Includes a real count of friends (mutual follows) going.
    */
-  weekSocials: protectedProcedure.query(async ({ ctx }) => {
-    // Nights out and the week's classes: My plan's "Your week" shows both by day (RAZ-1006).
-    return weekSocials(ctx.db, ctx.dancerId, new Date(), 7, { classes: true })
-  }),
+  weekSocials: protectedProcedure
+    .input(z.object({ days: z.number().int().min(1).max(35).optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      // Nights out and classes, every class of a course included: My plan's Today / Week / Month
+      // tabs all read this one feed (Month asks for 30 days), RAZ-1006.
+      return weekSocials(ctx.db, ctx.dancerId, new Date(), input?.days ?? 7, { classes: true, everyClass: true })
+    }),
 
   /**
    * "Month · courses" — only the courses in the dancer's plan, backed by real

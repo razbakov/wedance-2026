@@ -88,6 +88,7 @@ describe.skipIf(!DATABASE_URL)('my-plan feeds', () => {
     // A weekly course: last week's class (planned) and the next one; plus a course that has ended.
     await addEvent('courseLast', { type: 'Course', seriesId: `course-${RUN}`, startDate: new Date(now - 3 * DAY), endDate: new Date(now - 3 * DAY + 3600_000) })
     await addEvent('courseNext', { type: 'Course', seriesId: `course-${RUN}`, startDate: new Date(now + 4 * DAY), endDate: new Date(now + 4 * DAY + 3600_000), organizerName: `School ${RUN}`, organizerUsername: `school-${RUN}` })
+    await addEvent('courseAfter', { type: 'Course', seriesId: `course-${RUN}`, startDate: new Date(now + 11 * DAY), endDate: new Date(now + 11 * DAY + 3600_000) })
     // A weekend workshop that started yesterday and runs until tomorrow (RAZ-891).
     await addEvent('workshop', { type: 'Workshop', styles: ['Zouk'], startDate: new Date(now - DAY), endDate: new Date(now + DAY) })
     await addEvent('courseEnded', { type: 'Course', startDate: new Date(now - 10 * DAY), endDate: new Date(now - 10 * DAY + 3600_000) })
@@ -225,6 +226,21 @@ describe.skipIf(!DATABASE_URL)('my-plan feeds', () => {
       await me.plan.remove({ itemType: 'event', itemId: ids.courseLast! })
       await me.plan.remove({ itemType: 'event', itemId: ids.courseNext! })
       expect(await courseIds()).toEqual([])
+    })
+
+    it('lists every class of a planned course in the month window, only this week\'s in the week (RAZ-1006)', async () => {
+      const me = caller(ids.me!)
+      await me.plan.add({ itemType: 'event', itemId: ids.courseLast! })
+      try {
+        const week = (await me.plan.weekSocials()).socials.filter(s => s.isClass).map(s => s.id)
+        const month = (await me.plan.weekSocials({ days: 30 })).socials.filter(s => s.isClass).map(s => s.id)
+        expect(week).toEqual([ids.courseNext])
+        expect(month).toEqual([ids.courseNext, ids.courseAfter])
+        expect((await me.plan.weekSocials({ days: 30 })).socials.find(s => s.id === ids.courseAfter)?.planItemId).toBe(ids.courseLast)
+      }
+      finally {
+        await me.plan.remove({ itemType: 'event', itemId: ids.courseLast! })
+      }
     })
 
     it('leaves out ended courses and nights out', async () => {

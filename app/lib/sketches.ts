@@ -63,6 +63,18 @@ export const SKETCHES: Sketch[] = [
     ticket: linear('RAZ-995', 'class-sign-up'),
   },
   {
+    slug: 'plan-zoom',
+    title: 'My plan: Today / Week / Month / Year',
+    what: 'My plan as zoom tabs, each a decision horizon: what happens in that span (every kind), the one plan to make at that scale, and the story to post. Plain tabs, smart tabs (opening tab and to-do numbers per dancer), a zoom calendar (year → month grid → day strip → tonight) and the recommended zoom + smart. Regular dancer / newcomer and full / empty toggles.',
+    why: 'People think about time and planning by zooming in and out, and each horizon is a story the dancer can post. A newcomer needs to think bigger (a taster this week, a course for the month); a regular needs help around tonight and the week.',
+    requestedBy: 'Alösha',
+    builtBy: 'Agent (Claude)',
+    created: '2026-11-16',
+    status: 'decided',
+    decision: 'A · Plain tabs: Today / Week / Month / Year, opening on Today',
+    ticket: linear('RAZ-1006', 'clarify-time-based-sections-and-displayed-content'),
+  },
+  {
     slug: 'plan-sections',
     title: 'My plan: Tonight, This week, This month',
     what: 'Four ways to set up My plan’s near-term sections: honest kind names (Hangouts tonight / Your nights out / Your courses / Your festivals), a pure agenda (Tonight / This week / Later, everything by date), the recommended agenda + what you have (Tonight and This week by date incl. classes, then Your courses and This year), and a day strip (one "Your week" block, one day at a time). Busy / nothing today / empty toggles.',

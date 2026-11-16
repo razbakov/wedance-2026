@@ -162,6 +162,7 @@ export function stylesForDancer(eventStyles: string[], myStyles: readonly string
  * "Where you're dancing" — ONLY the events the dancer put in their plan
  * (plan_items of type 'event', from any surface: RSVP, discover Yes, the
  * city or event page), happening in the next `days` days, soonest first.
+ * `everyClass` (with `classes`) lists each class of a planned course in the window, not just the next.
  * Courses and workshops (CLASS_TYPES, or metadata type 'class') are left out unless `classes` is set:
  * My plan's "Your week" shows each class on its day too (RAZ-1006); the plan badge counts nights only.
  * Suggestions never appear here; discovery lives on the city page.
@@ -171,7 +172,7 @@ export async function weekSocials(
   dancerId: string,
   now = new Date(),
   days = 7,
-  opts: { friends?: boolean; classes?: boolean } = {},
+  opts: { friends?: boolean; classes?: boolean; everyClass?: boolean } = {},
 ): Promise<{ socials: WeekSocial[]; citySlug: string }> {
   const [me] = await db.select({ danceStyles: dancers.danceStyles, city: dancers.city }).from(dancers).where(eq(dancers.id, dancerId))
   // The section's "Full week" link: the dancer's city page, by its real slug
@@ -229,6 +230,18 @@ export async function weekSocials(
     .limit(200)
 
   const picks = resolveWeekOccurrences(planned, rows)
+  // Every class of a planned course in the window, not only the next one (My plan's Month tab, RAZ-1006).
+  if (opts.classes && opts.everyClass) {
+    const used = new Set(picks.map(p => p.eventId))
+    for (const p of planned) {
+      if (!p.isClass || !p.seriesId) continue
+      for (const r of rows as WeekRow[]) {
+        if (r.seriesId !== p.seriesId || used.has(r.id)) continue
+        used.add(r.id)
+        picks.push({ eventId: r.id, planItemId: p.id })
+      }
+    }
+  }
   const byId = new Map<string, any>(rows.map((r: any) => [r.id, r]))
   const classItem = new Set(planned.filter(p => p.isClass).map(p => p.id))
 

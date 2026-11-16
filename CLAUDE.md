@@ -412,14 +412,16 @@ person undoing it; nobody once the event is over. Email: `sendEventBackOnEmail` 
 holders are asked to check with the organiser if they already asked for a refund). Nobody is emailed without the
 organiser's choice.
 
-## My plan: Your week (RAZ-1006)
+## My plan: Today / Week / Month / Year (RAZ-1006)
 
-`/my-plan` runs near → far: **Your week** → **Your courses** → **Your festivals** → goals. Your week is one block
-with a day strip (today + the next six days, a dot on days with something): the picked day lists the planned nights
-**and classes** (`plan.weekSocials` with `classes: true` → `isClass`), sorted by time; on today each night carries the
-hangouts posted for it, then "Also out tonight" and the "I'm out" form. A class row books on its event page but is
-removed under Your courses (the course card). The weekend story stays nights only (`weekend.share` / `planCounts` call
-`weekSocials` without classes). Sketch: `/sketches/plan-sections`.
+`/my-plan` is four tabs (sketch `/sketches/plan-zoom`, variant A; opens on Today). Each tab holds everything in its span,
+of every kind — a Sunday class is in Today on Sunday, in Week and in Month. **Today**: tonight's nights and classes, each
+with the hangouts posted for it, then "Also out tonight", and "I'm out". **Week**: the next seven days by day + the weekend
+story (nights only). **Month**: the next 30 days grouped this week / next week / later, then **Your courses**. **Year**:
+**Your festivals** (+ the year story) and **Your goals**. One feed: `plan.weekSocials({ days: 30 })` with classes
+(`isClass`), every class of a planned course (`everyClass`); `weekend.share` / `planCounts` still call `weekSocials`
+without classes. A class row books on its event page and is removed under Your courses (`MyPlanEventRow`). Old anchors
+open their tab (`#tonight`, `#socials`, `#courses`, `#festivals`, `#goals`; the tab writes `#today|week|month|year`).
 
 ## Your year in dance (RAZ-966)
 
@@ -499,6 +501,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `year_plan_add` / `year_plan_remove` | `useYearPlan` | `festival_slug`, `year_count`; add: `festival`, `surface` |
 | `workshop_plan_add` / `workshop_plan_remove` | `festival/FestivalView.vue` | `festival`, `workshop_id`, `workshop_type`, `partner_status` |
 | `discover_swipe` | `/meet` Meet new friends deck (on My plan until RAZ-989) | `direction`, `card_kind`, `added_festival`, `added_event` (always false since the deck is people only), `surface` (meet) |
+| `plan_zoom_opened` | My plan's Today / Week / Month / Year tabs (RAZ-1006): a tab clicked | `tab` (today / week / month / year), `from` |
 | `meet_friends_opened` | `MeetFriendsEntry` on My plan (the card leading to `/meet`, RAZ-989) · `EventMeetPrompt` under "You're in" after signing up to a night (RAZ-981) | `surface` (my_plan / my_plan_empty / `<event surface>_signup`), `people` (dancers waiting in the deck; null = not loaded) |
 | `dance_card_photo_added` | `/dance-card` (your card in Meet new friends, RAZ-1005): a photo picked on the card, uploaded and saved | `replaced` (there was one before), `surface` (back_link = came from a night's "Add a photo" / direct) |
 | `meet_empty_shared` | `MeetEmptyNext` (an empty /meet deck, RAZ-1002): "Ask" an organiser for their next night, "Send" a venue's page, "Invite a friend" | `what` (organiser / venue / friend), `stage` (nights / organisers / venues / nothing / no-city), `method` (native / copy / none) |
