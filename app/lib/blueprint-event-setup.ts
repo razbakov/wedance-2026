@@ -8,36 +8,14 @@
  * content plan, Instagram, admin claim review, emails (RAZ-931). Shown at
  * /docs/blueprints/event-setup.
  */
-import type { UxStatus } from './ux-map'
+import type { Blueprint, BpGap, BpLaneDef, BpPhaseDef, BpStep } from './blueprint'
 
 export const BLUEPRINT_UPDATED = '2026-11-14'
 
 export type BpLane = 'organizer' | 'system' | 'venue' | 'artist' | 'dancers'
 export type BpPhase = 'page' | 'draft' | 'venue' | 'lineup' | 'flyer' | 'promote' | 'publish' | 'night'
-/** wait: someone is blocked on someone else · manual: a person carries the link or the news · silent: a change or answer doesn't reach the side that needs it */
-export type BpMark = 'wait' | 'manual' | 'silent'
 
-export interface BpStep {
-  id: string
-  phase: BpPhase
-  lane: BpLane
-  name: string
-  status: UxStatus
-  note: string
-  marks: BpMark[]
-  route?: string
-  code?: string
-  refs?: string[]
-}
-
-export interface BpGap {
-  title: string
-  why: string
-  fix: string
-  steps: string[]
-}
-
-export const bpLanes: { key: BpLane, label: string, hint: string }[] = [
+export const bpLanes: BpLaneDef<BpLane>[] = [
   { key: 'organizer', label: 'Organiser', hint: 'Business → Events' },
   { key: 'system', label: 'WeDance', hint: 'Server, AI, emails' },
   { key: 'venue', label: 'Venue', hint: 'Through /ask/<token>' },
@@ -45,7 +23,7 @@ export const bpLanes: { key: BpLane, label: string, hint: string }[] = [
   { key: 'dancers', label: 'Dancers', hint: 'City page, event page' },
 ]
 
-export const bpPhases: { key: BpPhase, label: string }[] = [
+export const bpPhases: BpPhaseDef<BpPhase>[] = [
   { key: 'page', label: 'Get the page' },
   { key: 'draft', label: 'Draft' },
   { key: 'venue', label: 'Venue' },
@@ -56,13 +34,7 @@ export const bpPhases: { key: BpPhase, label: string }[] = [
   { key: 'night', label: 'The night' },
 ]
 
-export const bpMarkLabel: Record<BpMark, { icon: string, label: string, hint: string }> = {
-  wait: { icon: '⏳', label: 'Waits', hint: 'Someone is blocked on someone else, and nothing chases it.' },
-  manual: { icon: '✋', label: 'By hand', hint: 'A person carries the link or the news between lanes.' },
-  silent: { icon: '🔇', label: 'Silent', hint: 'An answer or change doesn’t reach the side that needs it.' },
-}
-
-export const bpSteps: BpStep[] = [
+export const bpSteps: BpStep<BpLane, BpPhase>[] = [
   // Get the page — most organisers already have an unclaimed page from the v3 sync
   { id: 'reach-out', phase: 'page', lane: 'system', name: 'Invite to the page', status: 'gap', marks: ['manual'], route: '/@[handle]',
     note: 'WeDance (in practice, an admin) messages the organiser by hand with their /@handle link. Unlike artist and venue invites there’s no personal link that hands the page over, so “claim it” is one more form to fill.' },
@@ -174,3 +146,12 @@ export const bpGaps: BpGap[] = [
     fix: 'A pre-publish check (answers, flyer up to date) and, on publish, a note to the line-up and venue with their promo kit, and to followers.',
     steps: ['publish', 'announce', 'told-live'] },
 ]
+
+export const eventSetupBlueprint: Blueprint = {
+  updated: BLUEPRINT_UPDATED,
+  lanes: bpLanes,
+  phases: bpPhases,
+  steps: bpSteps,
+  gaps: bpGaps,
+  systemLane: 'system',
+}
