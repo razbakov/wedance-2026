@@ -40,7 +40,7 @@ export const jobs: Job[] = [
     journeys: ['C6', 'C7', 'C8'],
     flows: [{ title: 'Event setup blueprint', to: '/docs/blueprints/event-setup' }],
   },
-  { id: 'J7', statement: 'Trust it\'s real — real people, real faces, no fakes', who: 'Everyone: dancers, artists and organisers deciding whether WeDance is worth their time', journeys: ['C4', 'C7', 'C8'], flows: [] },
+  { id: 'J7', statement: 'Trust it\'s real — real people, real faces, no fakes', who: 'Everyone: dancers, artists and organisers deciding whether WeDance is worth their time', journeys: ['C4', 'C7', 'C8'], flows: [{ title: 'Make a page real blueprint', to: '/docs/blueprints/make-it-real' }] },
 ]
 
 export const jobById = (id: JobId): Job => jobs.find(j => j.id === id)!
