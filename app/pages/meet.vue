@@ -6,7 +6,7 @@
  * a night out near you in the next two weeks — the card links to it — or going
  * to a festival with "Show me" on (plan.discover). Yes / Skip are stored
  * in discover_swipes; two yeses for the same festival become the "add it to
- * your year" nudge in My plan's This year.
+ * your year" nudge in My plan's Your year.
  *
  * ?preview=1 shows example dancers and never writes.
  */

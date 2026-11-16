@@ -4,7 +4,7 @@ import { sizedImage, IMG } from '#shared/utils/image'
  * /my-plan — signed-in dashboard: the whole planning cascade.
  * Sections run near → far (RAZ-1006): Your week (a day strip — today's nights,
  * classes and hangouts first, then each day of the coming week) -> Your courses
- * -> This year (festivals) -> Your goals.
+ * -> Your year (festivals) -> Your goals.
  * Every section uses the V3 tropical style + accordion / compact-list
  * pattern established by the Year cards. Week socials (plan.weekSocials)
  * and the Meet new friends entry (plan.discover; the deck is /meet) are DB-backed;
@@ -238,7 +238,7 @@ const picked = computed(() => {
 })
 
 // Share your festival year (RAZ-897, moved here from /my-year in RAZ-966): the
-// story of the festivals still ahead, in place under "This year" — like the
+// story of the festivals still ahead, in place under "Your year" — like the
 // weekend story under "This week". Its link opens /my-year?user=<you>.
 const yearStoryFestivals = computed<YearStoryFestival[]>(() => picked.value
   .filter(f => eventPhase(f.startDate, f.endDate) !== 'past')
@@ -678,7 +678,7 @@ function tracks(f: CatalogueEntry): Track[] {
 }
 
 // -----------------------------------------------------------------------
-// Cross-festival summary (the line under "This year"). Real math, no invented totals.
+// Cross-festival summary (the line under "Your year"). Real math, no invented totals.
 // -----------------------------------------------------------------------
 const summary = computed(() => {
   const list = picked.value
@@ -1363,7 +1363,7 @@ async function closeHangout(id: string) {
 
 // -----------------------------------------------------------------------
 // SECTION SUMMARIES · the line under each time-scale headline. The page runs
-// near → far (Your week, Your courses, This year, Your goals); what
+// near → far (Your week, Your courses, Your year, Your goals); what
 // needs doing (an early-bird, an unpaid course, an open invite) sits on its
 // own row in that section, not in a strip at the top.
 // -----------------------------------------------------------------------
@@ -1443,7 +1443,7 @@ const goalsSummary = computed(() => goalsList.value.length
 // DISCOVER · "Meet new friends" lives on its own page, /meet (RAZ-989).
 // My plan keeps two things from plan.discover: the entry card (first faces
 // waiting + how many) and the nudges built from earlier Yes swipes — "2
-// dancers you said yes to are heading to X — add it?" in This year.
+// dancers you said yes to are heading to X — add it?" in Your year.
 // -----------------------------------------------------------------------
 type FestivalNudge = { festivalSlug: string; festivalName: string; festivalColor: string; dancerNames: string[]; dismissed: boolean }
 const festivalNudges = ref<FestivalNudge[]>(isPreviewInitial
@@ -2114,7 +2114,7 @@ function cardSummary(f: CatalogueEntry) {
 
       <!-- YEAR · festivals section header -->
       <div id="festivals" class="mt-14 mb-4">
-        <h2 class="text-3xl leading-tight font-display text-foreground">This year</h2>
+        <h2 class="text-3xl leading-tight font-display text-foreground">Your year</h2>
         <p class="mt-1 text-sm text-muted-foreground font-sans">{{ yearSummary }}</p>
         <YearReviewEntry v-if="!showYearReviewBanner" variant="link" class="mt-2" />
       </div>
