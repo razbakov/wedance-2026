@@ -2,7 +2,7 @@
 import { CLASS_EVENT_TYPES } from '#shared/utils/eventSignup'
 import { sizedImage, IMG } from '#shared/utils/image'
 import type { Festival, Teacher, Workshop, PlanEntry, DanceRole, DancePartner, ExtraActivity, FreemiumState } from '~/types/festival'
-import { ArrowRight, Sparkles, Check, Plus, Pencil, Ticket, Share2 } from 'lucide-vue-next'
+import { ArrowRight, Sparkles, Check, Plus, Pencil, Ticket, Share2, Users } from 'lucide-vue-next'
 import { isWorkshop, isEveningItem } from '#shared/utils/programme'
 import { Button } from '~/components/ui/button'
 import { artistPlaces, artistLanguages } from '~/data/artists'
@@ -89,6 +89,28 @@ const { yearPlanIds, toggleFestival } = useYearPlan()
 const { weekPlanIds, toggleEvent } = useWeekPlan()
 const planAsEvent = props.planAs === 'event'
 const inPlan = computed(() => planAsEvent ? weekPlanIds.value.has(data.eventId) : yearPlanIds.value.has(festival.slug))
+
+// Festival-goers are in Meet new friends only once they say so (plan_items.share_going,
+// opt-in — ADR-008). The overview asks with "Show me" and offers "Hide me" after (RAZ-1008),
+// in place of the old "Shall we dance?" deck's Show me.
+const shareGoing = ref<boolean | null>(null)
+const shareBusy = ref(false)
+async function loadShareGoing() {
+  if (props.rsvp || !isSignedIn.value || !inPlan.value) { shareGoing.value = null; return }
+  try {
+    const r = await $trpc.plan.getShareGoing.query({ itemType: 'festival', itemId: festival.slug })
+    shareGoing.value = r.share
+  } catch { shareGoing.value = null }
+}
+async function setShareGoing(share: boolean) {
+  shareBusy.value = true
+  try {
+    await $trpc.plan.setShareGoing.mutate({ itemType: 'festival', itemId: festival.slug, share })
+    shareGoing.value = share
+    useTrack().track('going_visibility_changed', { share, item_type: 'festival', item_id: festival.slug, surface: 'festival_overview' })
+  } catch { /* stays as it was */ } finally { shareBusy.value = false }
+}
+onMounted(() => { watch([isSignedIn, inPlan], loadShareGoing, { immediate: true }) })
 
 // Shared plan view detection — supports both the new `?invite=<encoded>` token
 // and the legacy `?plan=shared` query for backward compatibility.
@@ -1305,7 +1327,23 @@ useHead({
         <!-- Meeting people: the same flow as any event (RAZ-1008, RAZ-981). Once it's on your plan
              (or you have a pass) you're in Meet new friends with everyone else going. -->
         <section v-if="!rsvp && (inPlan || hasTicket)" id="meet" aria-label="Meet who’s going">
-          <EventMeetPrompt :event-id="data.eventId" surface="festival" />
+          <template v-if="shareGoing">
+            <EventMeetPrompt :event-id="data.eventId" surface="festival" />
+            <Button type="button" variant="link" size="sm" class="mt-1 h-auto p-0 text-xs font-sans text-muted-foreground" :disabled="shareBusy" data-meet-hide @click="setShareGoing(false)">
+              Hide me from dancers going
+            </Button>
+          </template>
+          <div v-else-if="shareGoing === false" class="rounded-2xl border border-border bg-card px-4 py-3 space-y-2 font-sans" data-meet-show>
+            <p class="inline-flex items-center gap-1.5 font-bold text-foreground">
+              <Users class="size-4" aria-hidden="true" /> Meet who’s going
+            </p>
+            <p class="text-sm text-muted-foreground">
+              Dancers going to this {{ kind }} can’t see you yet. Show yourself and you’ll meet them in Meet new friends; you can hide again any time.
+            </p>
+            <Button type="button" variant="cta" size="pill-sm" :disabled="shareBusy" @click="setShareGoing(true)">
+              <Check aria-hidden="true" /> Show me
+            </Button>
+          </div>
           <!-- Verified ticket holders: the TicketTailor claim flow exists for Charanga only (/charanga/claim). -->
           <div v-if="festival.slug === 'charanga-habanera-munich-2026'" class="mt-6">
             <h3 class="mb-3 text-lg font-bold font-display">Verified attendees</h3>

@@ -497,7 +497,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `goal_added` | `useGoals.addGoal` | `style` |
 | `follow` / `unfollow` | `/@handle`, `PromoterProfile` (profiles); `FestivalView` shared plan (dancer) | `target`, `profile`, `profile_type`, `surface` |
 | `whos_going_profile_opened` | `GoingSection` face tap | `item_type`, `item_id` |
-| `going_visibility_changed` | `GoingSection` share toggle | `share`, `item_type`, `item_id` |
+| `going_visibility_changed` | `GoingSection` share toggle · festival Overview "Show me" / "Hide me" (RAZ-1008, `surface: festival_overview`) | `share`, `item_type`, `item_id` |
 | `wave_sent` / `wave_retracted` | `GoingSection`, `DiscoverDancers`, `EventWhosComing` pairing (sent only) | `festival`, `surface` |
 | `rsvp_answered` | `EventSignup` "Cancel my spot" → confirm (answer `next`, RAZ-1003; was "I can’t come after all"; signing up is `event_signed_up` since RAZ-995) | `answer` (partner / needLeader / needFollower / yes / next), `signed_in`, `surface`, `event_id` |
 | `rsvp_contact_shared` | (retired in RAZ-995: the sign-up's "Also tell me about next events" replaced "Let <page> keep in touch"; `rsvp.shareContact` stays for MCP) | `share`, `has_phone`, `surface`, `event_id` |
