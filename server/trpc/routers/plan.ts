@@ -611,7 +611,8 @@ export const planRouter = router({
    * Includes a real count of friends (mutual follows) going.
    */
   weekSocials: protectedProcedure.query(async ({ ctx }) => {
-    return weekSocials(ctx.db, ctx.dancerId)
+    // Nights out and the week's classes: My plan's "Your week" shows both by day (RAZ-1006).
+    return weekSocials(ctx.db, ctx.dancerId, new Date(), 7, { classes: true })
   }),
 
   /**

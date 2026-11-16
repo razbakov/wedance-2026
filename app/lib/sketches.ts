@@ -70,7 +70,8 @@ export const SKETCHES: Sketch[] = [
     requestedBy: 'Alösha',
     builtBy: 'Agent (Claude)',
     created: '2026-11-16',
-    status: 'deciding',
+    status: 'decided',
+    decision: 'D · Day strip: one "Your week" block (today first, hangouts under their night), then Your courses and This year',
     ticket: linear('RAZ-1006', 'clarify-time-based-sections-and-displayed-content'),
   },
   {

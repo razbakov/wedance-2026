@@ -325,7 +325,7 @@ Friends tap "I'm in" per party (`weekend_share_joins`): signed in → it goes on
 name + the RSVP guest token, mirrored as an unconfirmed "yes" on the event's poll. After a guest's tap the page offers an
 optional email: a magic link back to `/w/<code>?confirm=<event>&guest=<token>`, which (signed in) folds that
 browser's guest joins into the account — on their plan, confirmed "yes" on the poll, no second email to the
-sharer. Signed-in joins also add a confirmed "yes" on the poll. The sharer gets `sendWeekendJoinEmail` per new join. Entry points: My plan → "Where you're dancing" shows the story in place (`app/components/WeekendStory.vue`, shared with `/w/<code>`; the link is made when the list loads and again when its parties change — RAZ-895), MCP `share_my_weekend`
+sharer. Signed-in joins also add a confirmed "yes" on the poll. The sharer gets `sendWeekendJoinEmail` per new join. Entry points: My plan → "Your week" shows the story in place (nights only — classes stay off it) (`app/components/WeekendStory.vue`, shared with `/w/<code>`; the link is made when the list loads and again when its parties change — RAZ-895), MCP `share_my_weekend`
 (returns `storyUrl` = the link + `?story=1`, which shows the story maker to whoever opens it).
 Code: `server/trpc/routers/weekend.ts`, `shared/utils/weekendShare.ts`, `app/pages/w/[code].vue`.
 No auto-posting: Instagram's publishing API is Business/Creator-only and the Meta app is in dev mode.
@@ -411,6 +411,15 @@ count (`email_people`, default true). Recipients = `backOnRecipients`: `signupsO
 person undoing it; nobody once the event is over. Email: `sendEventBackOnEmail` ("Good news, it's on again"; ticket
 holders are asked to check with the organiser if they already asked for a refund). Nobody is emailed without the
 organiser's choice.
+
+## My plan: Your week (RAZ-1006)
+
+`/my-plan` runs near → far: **Your week** → **Your courses** → **This year** (festivals) → goals. Your week is one block
+with a day strip (today + the next six days, a dot on days with something): the picked day lists the planned nights
+**and classes** (`plan.weekSocials` with `classes: true` → `isClass`), sorted by time; on today each night carries the
+hangouts posted for it, then "Also out tonight" and the "I'm out" form. A class row books on its event page but is
+removed under Your courses (the course card). The weekend story stays nights only (`weekend.share` / `planCounts` call
+`weekSocials` without classes). Sketch: `/sketches/plan-sections`.
 
 ## Your year in dance (RAZ-966)
 
