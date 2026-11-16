@@ -99,9 +99,12 @@ async function load() {
         // A dated public event (wedance.vip mirror) — adapt to the booking shape.
         const e = await $trpc.events.get.query({ id: id.value, preview: previewToken.value })
         isPreview.value = !!e.preview
-        // A festival renders the festival page (programme, passes, line-up, dinners…).
-        if (e.festival) festivalData.value = await $trpc.events.festival.query({ id: e.id, preview: previewToken.value })
+        // Every event renders the festival page (RAZ-1007): one layout, sections only where there is
+        // content. A plain event has no colour of its own: its first style's.
         ev.value = fromSyncedEvent(e)
+        const fd = await $trpc.events.festival.query({ id: e.id, preview: previewToken.value })
+        if (!e.festival) fd.festival.accentColor = accent.value
+        festivalData.value = fd
         // An old /events/<id> link, or a name that changed since → the current
         // address, without a new history entry.
         const canonical = eventSlug(e)
@@ -120,7 +123,7 @@ async function load() {
 onMounted(load)
 
 // outbound_click on this page (ticket, venue site, map, …) is about this event.
-useTrackContext(() => ev.value?.id && { object_type: festivalData.value ? 'festival' : 'event', object_id: ev.value.id, city: ev.value.citySlug || null })
+useTrackContext(() => ev.value?.id && { object_type: ev.value.hasDetails ? 'festival' : 'event', object_id: ev.value.id, city: ev.value.citySlug || null })
 
 // One view per mount (trackOnce also drops the remount after the canonical-URL replace).
 function trackView() {
@@ -132,9 +135,9 @@ function trackView() {
     style: e.styles?.[0] || null,
     event_type: e.eventType || null,
     synced: !!e.synced,
-    is_festival: !!festivalData.value,
+    is_festival: !!e.hasDetails,
   }
-  if (festivalData.value) useTrack().trackOnce(e.id, 'festival_viewed', props)
+  if (e.hasDetails) useTrack().trackOnce(e.id, 'festival_viewed', props)
   else useTrack().trackOnce(e.id, 'event_viewed', props)
 }
 
@@ -196,6 +199,10 @@ function fromSyncedEvent(e: any) {
     // pass, pay, contact. A festival still lives in the year plan, not the week.
     pollable: true,
     isFestival: !!e.isFestival,
+    // Has festival details (programme, passes…): counted as festival_viewed, as before RAZ-1007.
+    hasDetails: !!e.festival,
+    // Nobody on WeDance takes its bookings (RAZ-1007): "Book my spot" says where it comes from.
+    notBookable: e.bookable ? null : { imported: e.source === 'wedance-v3', from: e.link || null, checkedAt: e.syncedAt || null },
   }
 }
 
@@ -211,6 +218,19 @@ const picked = computed(() => rsvpPoll.value
   ? !!rsvpPoll.value.mine && rsvpPoll.value.mine.answer !== 'next'
   : !!ev.value && weekPlanIds?.value?.has(ev.value.id))
 const parentFestival = computed(() => ev.value?.parentFestival ?? null)
+
+// What the old event page showed that FestivalView doesn't (RAZ-1007). A festival says these
+// through its passes, programme and links, so only plain events pass them.
+const eventExtras = computed(() => {
+  const e = ev.value
+  if (!e || e.hasDetails) return null
+  return {
+    facts: { type: e.eventType, styles: e.styles, price: e.price, link: e.link, agenda: e.agenda },
+    checked: e.editedAt ? { at: e.editedAt, by: e.checkedBy } : null,
+    archived: e.archived,
+    city: e.citySlug ? { slug: e.citySlug, name: e.venueCity || e.citySlug } : null,
+  }
+})
 
 // Live going count from plan items (replaces static headcount).
 // Keyed by the event's id — that's what "Going" stores, not the URL slug.
@@ -301,7 +321,11 @@ useHead(() => ({
       <p><b>Preview, not published yet.</b> The organiser shared this draft with you so you can see the plan. Dancers can't see it, and details may still change.</p>
     </div>
   </div>
-  <FestivalView v-if="festivalData && !pending" :data="festivalData" :type="ev?.eventType" :edit-to="canEdit ? `/business/events/${festivalData.eventId}` : undefined" :cancelled="ev?.cancelled ? { reason: ev.cancelReason } : null" :plan-as="ev?.isFestival ? 'festival' : 'event'" :rsvp="ev?.pollable && !ev.archived && !isPreview ? { eventId: ev.id, path: route.path, startDate: ev.startDate, endDate: ev.endDate, timezone: ev.timezone, organizerName: ev.organizerName || (ev.organizerHandle ? `@${ev.organizerHandle}` : null) } : null" />
+  <FestivalView
+    v-if="festivalData && !pending" :data="festivalData" :type="ev?.eventType" :edit-to="canEdit ? `/business/events/${festivalData.eventId}` : undefined" :cancelled="ev?.cancelled ? { reason: ev.cancelReason } : null" :plan-as="ev?.isFestival ? 'festival' : 'event'"
+    :rsvp="ev?.pollable && !ev.archived && !isPreview ? { eventId: ev.id, path: route.path, startDate: ev.startDate, endDate: ev.endDate, timezone: ev.timezone, organizerName: ev.organizerName || (ev.organizerHandle ? `@${ev.organizerHandle}` : null), notBookable: ev.notBookable } : null"
+    :date-label="ev?.isFestival ? undefined : ev?.when" :event="eventExtras"
+  />
   <div v-else class="min-h-screen bg-background text-foreground font-display">
     <SiteHeader />
 

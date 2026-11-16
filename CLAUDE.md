@@ -395,6 +395,14 @@ The pass step suggests ("Fits your plan", preselected) the pass covering the wor
 the Passes tab's buttons open the steps on that pass. Unset `workshopCount` / `includesParty` are read from the pass's
 words (`passCoverage`: "Party only", "no workshops", masterclass), else a party pass looked like it covered every workshop.
 Not yet: Stripe without an account, a 1,000-person Who's coming with search for festivals.
+**Nobody to book with (RAZ-1007):** an event takes bookings only when the page they go to (host, else organiser —
+`contactPageFor`) has a team (`events.get` → `bookable`). Otherwise "Book my spot" opens `EventImportedNotice` instead of
+the steps: "Imported by WeDance" (v3 sync) / "Added by WeDance", where from (`events.link`), last checked (`synced_at`),
+and a "Book on <site>" link. `rsvp.signUp` itself doesn't refuse yet (MCP).
+**One layout (RAZ-1007):** every `events` row renders through `FestivalView` (`events.festival` serves plain events too —
+`festivalView` keys them by `eventSlug`); a plain event adds `EventFacts` (type, styles, price, website, agenda), the
+"Checked by" badge, the archived note and "More dancing in <city>" via the `event` prop. Only booking requests, single
+programme sessions (`f~key~id`) and mock city events still use the old template in `events/[id].vue`.
 
 **One audience (RAZ-963):** Contacts also lists everyone else connected to the page — followers and accounts that went /
 are going to its events (`audienceOnly` in `shared/utils/contactSegments.ts`) — once each, as `isContact: false` rows
@@ -576,7 +584,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `wave_sent` / `wave_retracted` | `GoingSection`, `DiscoverDancers`, `EventWhosComing` pairing (sent only) | `festival`, `surface` |
 | `rsvp_answered` | `EventSignup` "Cancel my spot" → confirm (answer `next`, RAZ-1003; was "I can’t come after all"; signing up is `event_signed_up` since RAZ-995) | `answer` (partner / needLeader / needFollower / yes / next), `signed_in`, `surface`, `event_id` |
 | `rsvp_contact_shared` | (retired in RAZ-995: the sign-up's "Also tell me about next events" replaced "Let <page> keep in touch"; `rsvp.shareContact` stays for MCP) | `share`, `has_phone`, `surface`, `event_id` |
-| `event_signup_opened` | `EventSignup` (the one button on a class / event page, RAZ-995; or "Change") | `surface`, `event_id`, `changing` |
+| `event_signup_opened` | `EventSignup` (the one button on a class / event page, RAZ-995; or "Change") | `surface`, `event_id`, `changing`, `not_bookable` (nobody on WeDance takes its bookings: the button showed where it was imported from, RAZ-1007) |
 | `event_signed_up` | `EventSignup` last step ("Book my spot" / "Pay €N" / "Continue to payment"; RAZ-1003 renamed "Sign up" / "I’m coming" to "Book my spot") | `answer`, `signed_in`, `has_pass`, `pay` (now / door / null), `people` (1 / 2), `keep_in_touch`, `surface`, `event_id` |
 | `contacts_emailed` | `BusinessContactMailing` (Contacts → "Email N" → "Yes, send", RAZ-975) | `recipients`, `has_event` (invite with an event card), `filtered` (a segment, not everyone), `tested` (sent themselves a test first), `profile` |
 | `discover_deck_joined` | `DiscoverDancers` "show me" | `item_type`, `item_id`, `was_going` |

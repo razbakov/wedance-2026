@@ -8,6 +8,7 @@
 import { and, eq, inArray, like, sql } from 'drizzle-orm'
 import { profiles, planItems, profileInvites, profileMembers } from '../database/schema'
 import { eventLocalDate } from '../../shared/utils/eventTime'
+import { eventSlug } from '../../shared/utils/eventSlug'
 import type { Festival, Teacher, Workshop } from '../../app/types/festival'
 import { isWorkshop, sessionType } from '../../shared/utils/programme'
 import type { FestivalDetails } from '../../shared/types/festivalDetails'
@@ -17,7 +18,8 @@ import { cleanVenueInfo, type VenueInfo } from '../../shared/types/venueInfo'
 const weekday = (date: string) => new Date(`${date}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'long', timeZone: 'UTC' })
 
 export async function festivalView(db: any, ev: any): Promise<{ festival: Festival; workshops: Workshop[]; teachers: Teacher[]; eventId: string }> {
-  const f = ev.festival as FestivalDetails
+  // A plain event has no festival details: it's keyed by its own address.
+  const f = { ...(ev.festival ?? {}), key: ev.festival?.key || eventSlug(ev) } as FestivalDetails
   const tz = ev.timezone || 'Europe/Berlin'
   const handles: string[] = ev.artists ?? []
   const people = handles.length

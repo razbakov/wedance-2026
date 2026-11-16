@@ -131,6 +131,21 @@ Given('I am on an event page', async ({ page }) => {
        ON CONFLICT (id) DO NOTHING`,
       [testEventId, 'smoke-test-event', 'Smoke Test Salsa Night', 'Party', 'Munich'],
     )
+    // Run by a page with a team, so it takes bookings (RAZ-1007: without one, "Book my spot"
+    // says where the event was imported from instead of opening the steps).
+    await client.query(
+      `INSERT INTO profiles (username, type, name, city, status) VALUES ('smoke-test-host', 'organizer', 'Smoke Test Host', 'Munich', 'visible')
+       ON CONFLICT (username) DO NOTHING`,
+    )
+    await client.query(
+      `INSERT INTO dancers (name, email) VALUES ('Smoke Host', 'smoke-host@example.test') ON CONFLICT (email) DO NOTHING`,
+    )
+    await client.query(
+      `INSERT INTO profile_members (profile_id, dancer_id, role)
+       SELECT p.id, d.id, 'owner' FROM profiles p, dancers d WHERE p.username = 'smoke-test-host' AND d.email = 'smoke-host@example.test'
+       ON CONFLICT DO NOTHING`,
+    )
+    await client.query(`UPDATE events SET organizer_username = 'smoke-test-host', organizer_name = 'Smoke Test Host' WHERE id = $1`, [testEventId])
   } finally {
     await client.end()
   }
