@@ -64,8 +64,8 @@ export const SKETCHES: Sketch[] = [
   },
   {
     slug: 'practical-info',
-    title: 'Venue row: hints, no panel',
-    what: 'The venue row in an event’s hero, today (a toggle opening 12 lines of free text) vs no toggle: up to three short hints under the address — getting there, parking, what to bring — from the venue’s page; name opens the venue, address opens directions; empty state = name + address.',
+    title: 'Venue row: where you’ll be',
+    what: 'The venue row in an event’s hero, today (a toggle opening 12 lines of free text) vs an Airbnb-style "where you’ll be" panel: map, Directions, then getting there / parking / what to bring as icon rows from the venue’s page, and About the venue. A venue with no hints has no chevron.',
     why: 'Practical info is one free-text list under the venue: for DDF it mixes the venue, the nights (food, dress code, shoes, when Sunday ends) and booking rules (sold-out followers, refunds, fee) — a wall of text, mostly not about the venue.',
     requestedBy: 'Alösha',
     builtBy: 'Agent (Claude)',

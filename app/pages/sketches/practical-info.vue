@@ -9,7 +9,7 @@
  * every event there shows them; a venue with none shows just its name and address.
  * DDF's venue, meet & DANCE in Dachau, with its real details. Mock data, no API, no DB.
  */
-import { MapPin, CalendarDays, ChevronDown, ArrowUpRight, ArrowRight, TrainFront, Car, Footprints } from 'lucide-vue-next'
+import { MapPin, CalendarDays, ChevronDown, ChevronRight, ArrowUpRight, ArrowRight, TrainFront, Car, Footprints } from 'lucide-vue-next'
 
 definePageMeta({ layout: false })
 useHead({ title: 'WeDance — Venue row sketch', meta: [{ name: 'robots', content: 'noindex' }] })
@@ -17,7 +17,7 @@ useHead({ title: 'WeDance — Venue row sketch', meta: [{ name: 'robots', conten
 type Variant = 'today' | 'new'
 const VARIANTS: { id: Variant, name: string, idea: string }[] = [
   { id: 'today', name: 'Today', idea: 'The venue row opens DDF’s whole practical-info list: 12 lines about the venue, the nights and the tickets.' },
-  { id: 'new', name: 'New', idea: 'No toggle. Up to three short hints under the address (getting there, parking, what to bring), from the venue’s page. The address opens directions; the name opens the venue.' },
+  { id: 'new', name: 'New', idea: 'The row still expands, now only into the venue’s three hints (getting there, parking, what to bring) and its links. A venue with no hints has no chevron: the address opens directions.' },
 ]
 
 const variant = ref<Variant>('new')
@@ -32,12 +32,14 @@ const venue = {
   name: 'meet & DANCE – Die Tanzschule',
   address: 'Münchner Str. 87b, Dachau',
   mapUrl: 'https://www.google.com/maps/dir/?api=1&destination=48.2442085,11.4478376',
+  // OpenStreetMap embed: no key needed for the sketch.
+  mapEmbed: 'https://www.openstreetmap.org/export/embed.html?bbox=11.4378%2C48.2392%2C11.4578%2C48.2492&layer=mapnik&marker=48.2442085%2C11.4478376',
 }
-// The venue's three hints: one line each, the fact first, the detail after.
+// The venue's three hints: a title and one quiet line each.
 const HINTS = [
   { icon: TrainFront, text: 'Dachau Bahnhof (S2)', detail: '20 min walk or 5 min by bus' },
-  { icon: Car, text: 'Garage next door', detail: 'entrance by the Audi dealership' },
-  { icon: Footprints, text: 'Bring indoor dance shoes', detail: 'no cloakroom' },
+  { icon: Car, text: 'Garage next door', detail: 'Entrance by the Audi dealership' },
+  { icon: Footprints, text: 'Bring indoor dance shoes', detail: 'There’s no cloakroom' },
 ]
 const hints = computed(() => filled.value ? HINTS : [])
 
@@ -145,22 +147,70 @@ const TODAY = [
               </dd>
             </div>
 
-            <!-- New: no toggle. Name → the venue's page, address → directions, hints in plain sight. -->
-            <div v-else class="flex items-start gap-2.5" data-sketch-venue>
-              <MapPin class="mt-0.5 size-4 shrink-0 text-secondary" aria-hidden="true" />
-              <dd class="min-w-0">
-                <span class="inline-flex items-center gap-1 font-bold hover:underline cursor-pointer">
-                  {{ venue.name }} <ArrowRight class="size-3.5 text-secondary" aria-hidden="true" />
-                </span>
-                <a :href="venue.mapUrl" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1 text-muted-foreground hover:text-foreground hover:underline" data-sketch-directions>
-                  {{ venue.address }} <ArrowUpRight class="size-3.5 shrink-0" aria-hidden="true" />
-                </a>
-                <ul v-if="hints.length" class="mt-2 space-y-1" data-sketch-hints>
-                  <li v-for="h in hints" :key="h.text" class="flex items-start gap-2">
-                    <component :is="h.icon" class="mt-0.5 size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                    <span><span class="text-foreground">{{ h.text }}</span><span class="text-muted-foreground"> · {{ h.detail }}</span></span>
-                  </li>
-                </ul>
+            <!-- New: the row still expands, but only into the venue's hints. With no hints there is
+                 nothing to expand: no chevron, the address opens directions. -->
+            <div v-else>
+              <dd>
+                <button
+                  v-if="hints.length"
+                  type="button"
+                  class="group flex w-full items-start gap-2.5 text-left cursor-pointer"
+                  :aria-expanded="venueOpen"
+                  data-sketch-venue
+                  @click="venueOpen = !venueOpen"
+                >
+                  <MapPin class="mt-0.5 size-4 shrink-0 text-secondary" aria-hidden="true" />
+                  <span class="min-w-0">
+                    <span class="flex items-center gap-1 font-bold group-hover:underline">
+                      {{ venue.name }}
+                      <ChevronDown class="size-4 shrink-0 text-secondary transition-transform" :class="venueOpen ? 'rotate-180' : ''" aria-hidden="true" />
+                    </span>
+                    <span class="block text-muted-foreground">{{ venue.address }}</span>
+                  </span>
+                </button>
+                <div v-else class="flex items-start gap-2.5" data-sketch-venue>
+                  <MapPin class="mt-0.5 size-4 shrink-0 text-secondary" aria-hidden="true" />
+                  <span class="min-w-0">
+                    <span class="block font-bold">{{ venue.name }}</span>
+                    <a :href="venue.mapUrl" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground hover:underline">
+                      {{ venue.address }} <ArrowUpRight class="size-3.5 shrink-0" aria-hidden="true" />
+                    </a>
+                  </span>
+                </div>
+
+                <!-- Airbnb's "Where you'll be": the map first, then one row per fact (big outline
+                     icon, a title, a quiet line under it), plain underlined links, no colour. -->
+                <div
+                  v-if="hints.length && venueOpen"
+                  class="mt-3 max-w-xl overflow-hidden rounded-2xl border border-border bg-card shadow-[0_6px_16px_rgba(0,0,0,0.08)]"
+                  :class="isMobile ? '' : 'ml-6.5'"
+                  data-sketch-venue-panel
+                >
+                  <iframe
+                    :src="venue.mapEmbed"
+                    title="Map of the venue"
+                    class="block h-44 w-full border-0"
+                    loading="lazy"
+                  />
+                  <div class="px-5 py-4">
+                    <div class="flex items-baseline justify-between gap-3">
+                      <p class="font-semibold text-foreground">Dachau, Germany</p>
+                      <a :href="venue.mapUrl" target="_blank" rel="noopener noreferrer" class="shrink-0 font-semibold text-foreground underline underline-offset-2" data-sketch-directions>Directions</a>
+                    </div>
+                    <ul class="mt-4 space-y-4 border-t border-border pt-4" data-sketch-hints>
+                      <li v-for="h in hints" :key="h.text" class="flex items-start gap-4">
+                        <component :is="h.icon" class="size-6 shrink-0 text-foreground" :stroke-width="1.5" aria-hidden="true" />
+                        <span class="min-w-0">
+                          <span class="block font-semibold text-foreground">{{ h.text }}</span>
+                          <span class="block text-muted-foreground">{{ h.detail }}</span>
+                        </span>
+                      </li>
+                    </ul>
+                    <p class="mt-4 border-t border-border pt-4">
+                      <span class="inline-flex items-center gap-1 font-semibold text-foreground underline underline-offset-2 cursor-pointer">About the venue <ChevronRight class="size-4" aria-hidden="true" /></span>
+                    </p>
+                  </div>
+                </div>
               </dd>
             </div>
           </dl>
