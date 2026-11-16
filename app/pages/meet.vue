@@ -185,7 +185,8 @@ function undoSwipe() {
 }
 
 // RAZ-981: say who the deck shows, whether the dancer is in other people's
-// decks, and what to do after a Yes (it is private — nobody is told).
+// decks, and what to do after a Yes. A Yes back makes a match (RAZ-985): both
+// see it on My plan under "Your dance friends".
 const meVisible = computed(() => meetVisibility({
   profilePublic: previewMode.value ? true : dancerPublicReal.value,
   photo: previewMode.value ? 'preview' : dancerPhotoReal.value,
@@ -378,7 +379,7 @@ const lastYes = computed(() => {
           <details class="mt-8 text-sm text-muted-foreground font-sans" data-testid="meet-how">
             <summary class="cursor-pointer text-center font-bold text-foreground">How does this work?</summary>
             <ul class="mt-3 space-y-1.5">
-              <li><span class="font-bold text-wd-green-600">♥</span> — you’d like to dance with them. Only you know.</li>
+              <li><span class="font-bold text-wd-green-600">♥</span> — you’d like to dance with them. If they say yes too, we tell you both.</li>
               <li><span class="font-bold text-foreground">Their night</span> — tap it on the card and go. That’s where you meet.</li>
               <li><span class="font-bold text-primary">✕</span> — not for you. <span class="font-bold text-wd-amber-500">◷</span> — show again later.</li>
               <li><span class="font-bold text-foreground">You show up here</span> when you’re going to a night out, too.</li>

@@ -1,4 +1,3 @@
-import { TRPCError } from '@trpc/server'
 import { z } from 'zod'
 import { eq, and, ne, sql, inArray, gte, lt, asc, ilike, isNotNull, or } from 'drizzle-orm'
 import { router, publicProcedure, protectedProcedure } from '../trpc'
@@ -10,7 +9,7 @@ import { citySlugFor, discoverDeck, festivalPlanSlugs, myCourses, nonFestivalEve
 import { eventIdForFestival, recordLinkAction } from '../../utils/trackedLinks'
 import { planCounts } from '../../utils/planCounts'
 import { festivalEventsWhere, toFestivalRow } from '../../utils/festivalListing'
-import { meetMatches } from '../../utils/meetMatches'
+import { MEET_MATCHES_SINCE, meetMatches } from '../../utils/meetMatches'
 import { meetEmpty } from '../../utils/meetEmpty'
 import { yearReviewFor } from '../../utils/yearReview'
 import { lookBackYear } from '../../../shared/utils/yearReview'
@@ -574,13 +573,6 @@ export const planRouter = router({
     }),
 
   /**
-   * Meet new friends matches (RAZ-985): dancers who said yes to each other in
-   * the deck or waved at each other on a festival page, each with one next
-   * step (a night out both could go to). WeDance admins only while the product
-   * call is pending — My plan still promises "they aren't told", so nobody else
-   * may learn of a mutual yes yet. Shown on /sketches/meet-matches.
-   */
-  /**
    * An empty Meet deck's next step (RAZ-1002): the city's next nights, else the
    * organisers who run nights there, else its venues — or nothing yet.
    */
@@ -589,9 +581,15 @@ export const planRouter = router({
     return meetEmpty(ctx.db, await citySlugFor(ctx.db, me?.city))
   }),
 
+  /**
+   * Meet new friends matches (RAZ-985): dancers who said yes to each other in
+   * the deck or waved at each other on a festival page, each with one next
+   * step (a night out both could go to). Shown on My plan as "Your dance
+   * friends". Yeses before MEET_MATCHES_SINCE don't count: they were made while
+   * the deck said "Only you know".
+   */
   meetMatches: protectedProcedure.query(async ({ ctx }) => {
-    if (!ctx.isAdmin) throw new TRPCError({ code: 'FORBIDDEN', message: 'Matches are not open yet.' })
-    return { matches: await meetMatches(ctx.db, ctx.dancerId) }
+    return { matches: await meetMatches(ctx.db, ctx.dancerId, { since: MEET_MATCHES_SINCE }) }
   }),
 
   /** Undo a discover decision. */
