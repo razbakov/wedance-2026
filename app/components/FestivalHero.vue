@@ -96,6 +96,15 @@ const expanded = ref(false)
 // Practical info sits under the venue, opened from its name (RAZ-1008). Links in it are
 // clickable, shown as their host + file ("res.cloudinary.com/…/schedule-friday.png").
 const venueOpen = ref(false)
+// Google Maps for the venue: the parent's link, else built from name + address / coordinates.
+const venueMapUrl = computed(() => {
+  if (props.mapUrl) return props.mapUrl
+  const v = props.festival.venue
+  const q = [v?.name, props.venueAddress || v?.address].filter(Boolean).join(', ')
+  if (q) return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`
+  if (v?.coordinates?.lat != null) return `https://www.google.com/maps/search/?api=1&query=${v.coordinates.lat},${v.coordinates.lng}`
+  return ''
+})
 const practicalInfo = computed(() => (props.festival.venue?.practicalInfo ?? []).filter(i => i?.trim()))
 function linkParts(text: string): { text: string; href?: string }[] {
   const out: { text: string; href?: string }[] = []
@@ -201,32 +210,40 @@ const rays = Array.from({ length: 24 }, (_, i) => {
                 >{{ daysUntil }}</span>
               </dd>
             </div>
-            <div v-if="festival.venue?.name || venueAddress" class="flex items-start gap-2.5">
+            <!-- Where (RAZ-1008): the whole row opens the venue's details in place — practical info
+                 (getting there, parking, hotel, dress code…), Google Maps and the venue's page. -->
+            <div v-if="festival.venue?.name || venueAddress">
               <dt class="sr-only">Where</dt>
-              <MapPin class="mt-0.5 size-4 shrink-0 text-secondary" aria-hidden="true" />
-              <dd class="min-w-0">
-                <!-- With practical info, the venue name opens it in place; otherwise it links to the venue's page. -->
+              <dd>
                 <button
-                  v-if="festival.venue?.name && practicalInfo.length"
                   type="button"
-                  class="inline-flex items-center gap-1 text-left font-bold text-foreground hover:underline cursor-pointer"
+                  class="group flex w-full items-start gap-2.5 text-left cursor-pointer"
                   :aria-expanded="venueOpen"
                   aria-controls="hero-venue-info"
                   data-hero-venue
                   @click="venueOpen = !venueOpen"
                 >
-                  {{ festival.venue.name }}
-                  <ChevronDown class="size-4 shrink-0 text-secondary transition-transform" :class="venueOpen ? 'rotate-180' : ''" aria-hidden="true" />
+                  <MapPin class="mt-0.5 size-4 shrink-0 text-secondary" aria-hidden="true" />
+                  <span class="min-w-0">
+                    <span v-if="festival.venue?.name" class="flex items-center gap-1 font-bold text-foreground group-hover:underline">
+                      {{ festival.venue.name }}
+                      <ChevronDown class="size-4 shrink-0 text-secondary transition-transform" :class="venueOpen ? 'rotate-180' : ''" aria-hidden="true" />
+                    </span>
+                    <span v-if="venueAddress" class="block text-sm text-muted-foreground">{{ venueAddress }}</span>
+                  </span>
                 </button>
-                <NuxtLink v-else-if="festival.venue?.name && festival.venue.handle" :to="`/@${festival.venue.handle}`" class="block font-bold text-foreground hover:underline" data-hero-venue>{{ festival.venue.name }}</NuxtLink>
-                <span v-else-if="festival.venue?.name" class="block font-bold text-foreground">{{ festival.venue.name }}</span>
-                <template v-if="venueAddress">
-                  <a v-if="mapUrl" :href="mapUrl" target="_blank" rel="noopener noreferrer" class="block text-sm text-muted-foreground underline decoration-border underline-offset-2 hover:text-foreground">{{ venueAddress }}</a>
-                  <span v-else class="block text-sm text-muted-foreground">{{ venueAddress }}</span>
-                </template>
-                <!-- Practical info (getting there, parking, hotel, dress code…), opened from the venue name. -->
-                <div v-if="venueOpen" id="hero-venue-info" class="mt-2 max-w-xl rounded-xl border border-border bg-card/80 px-3 py-2.5" data-hero-venue-info>
-                  <ul class="space-y-1.5 text-sm text-muted-foreground">
+                <div v-if="venueOpen" id="hero-venue-info" class="mt-2 ml-6.5 max-w-xl rounded-xl border border-border bg-card/80 px-3 py-3 space-y-3" data-hero-venue-info>
+                  <div class="flex flex-wrap gap-2">
+                    <Button v-if="venueMapUrl" as-child variant="outline-pill" size="pill-sm">
+                      <a :href="venueMapUrl" target="_blank" rel="noopener noreferrer" data-outbound-kind="map" data-hero-map>
+                        <MapPin aria-hidden="true" /> Open in Google Maps
+                      </a>
+                    </Button>
+                    <Button v-if="festival.venue?.handle" as-child variant="outline-pill" size="pill-sm">
+                      <NuxtLink :to="`/@${festival.venue.handle}`">Venue page <ArrowRight aria-hidden="true" /></NuxtLink>
+                    </Button>
+                  </div>
+                  <ul v-if="practicalInfo.length" class="space-y-1.5 text-sm text-muted-foreground">
                     <li v-for="(info, i) in practicalInfo" :key="i">
                       <template v-for="(part, j) in linkParts(info)" :key="j">
                         <a v-if="part.href" :href="part.href" target="_blank" rel="noopener noreferrer" class="underline underline-offset-2 hover:text-foreground">{{ part.text }}</a>
@@ -234,9 +251,6 @@ const rays = Array.from({ length: 24 }, (_, i) => {
                       </template>
                     </li>
                   </ul>
-                  <NuxtLink v-if="festival.venue.handle" :to="`/@${festival.venue.handle}`" class="mt-2 inline-flex items-center gap-1 text-xs font-bold text-secondary hover:underline">
-                    Venue page <ArrowRight class="size-3" aria-hidden="true" />
-                  </NuxtLink>
                 </div>
               </dd>
             </div>
