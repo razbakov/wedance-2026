@@ -17,7 +17,9 @@ const props = withDefaults(defineProps<{
   city?: string | null
   style?: string | null
   dismissible?: boolean
-}>(), { variant: 'card', city: null, style: null, dismissible: false })
+  /** The hero's heading level: h1 unless something above it is the page's h1. */
+  heading?: 'h1' | 'h2'
+}>(), { variant: 'card', city: null, style: null, dismissible: false, heading: undefined })
 
 const emit = defineEmits<{ dismiss: [] }>()
 
@@ -54,7 +56,7 @@ const onClick = () => useTrack().track('ai_app_cta_click', { app: 'chatgpt', sur
         </div>
         <!-- As the hero of a landing it is the page's h1. -->
         <component
-          :is="variant === 'hero' ? 'h1' : 'h2'"
+          :is="heading ?? (variant === 'hero' ? 'h1' : 'h2')"
           class="mt-2 leading-tight font-display text-foreground"
           :class="variant === 'hero' ? 'text-4xl sm:text-5xl' : 'text-2xl sm:text-3xl'"
         >

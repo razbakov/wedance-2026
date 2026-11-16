@@ -17,6 +17,8 @@ import { meetVisibility } from '#shared/utils/meetFriends'
 import { toMeetCards, type MeetCard } from '~/lib/meetDeck'
 import { authPending } from '~/lib/planView'
 import { WD } from '~/lib/brand'
+import type { SwipeCard, DanceRole } from '~/types/festival'
+import type { LandingPerson } from '~/components/LandingFriendsDeck.vue'
 
 definePageMeta({ layout: false })
 
@@ -84,6 +86,24 @@ const view = computed<View>(() => {
 })
 
 const showAuth = ref(false)
+
+// Signed out (moved from the landing, RAZ-981): three example dancers to swipe —
+// two going to the same festival show the "for your year" nudge — then the
+// visitor's own dance card (DiscoverDancers' onboarding cards) and a prefilled sign-up.
+const LANDING_FRIENDS: LandingPerson[] = [
+  { id: 'd2', name: 'Emilia', city: 'Munich', photo: 'https://i.pravatar.cc/240?u=emilia', danceStyles: ['Timba', 'Salsa'], festivalName: 'Timba Fest London', festivalColor: WD.sky500, reason: 'She dances Timba in Munich — and heads to a Timba festival you haven\'t picked.' },
+  { id: 'd3', name: 'Klaus', city: 'Munich', photo: 'https://i.pravatar.cc/240?u=klaus', danceStyles: ['Salsa', 'Bachata'], night: 'Salsa Friday · La Rumba', reason: 'You both do Salsa — join him on Friday and you\'ll meet on the floor.' },
+  { id: 'd4', name: 'Sasha', city: 'Vienna', photo: 'https://i.pravatar.cc/240?u=sasha', danceStyles: ['Timba', 'Rumba'], festivalName: 'Timba Fest London', festivalColor: WD.sky500, reason: 'Timba dancer from Vienna heading to a festival not in your year yet.' },
+]
+const LANDING_DANCE_CARD: SwipeCard[] = [
+  { id: 'onboarding-dancecard', cardType: 'onboarding-dancecard', availableStyles: ['Salsa', 'Bachata', 'Kizomba', 'Zouk', 'Tango'] },
+  { id: 'onboarding-profile', cardType: 'onboarding-profile' },
+]
+const NO_PLAN = new Set<string>()
+const signUpPrefill = ref<{ name?: string; danceStyles?: string[]; role?: 'lead' | 'follow' | 'both'; city?: string }>({})
+function onLandingCardDone(role: DanceRole, styles: string[], name: string, city: string) {
+  signUpPrefill.value = { name: name || undefined, danceStyles: styles, role: role as 'lead' | 'follow' | 'both', city: city || undefined }
+}
 
 const deckCurrent = computed(() => deck.value[0] ?? null)
 const deckNext = computed(() => deck.value[1] ?? null)
@@ -210,18 +230,32 @@ const lastYes = computed(() => {
         </Button>
       </div>
 
-      <!-- SIGNED OUT -->
-      <section v-if="view === 'signed-out'" class="max-w-xl" data-testid="meet-signed-out">
-        <p class="text-sm sm:text-base text-muted-foreground font-sans">
-          People heading to your festivals, and locals who dance your styles. Say yes to the ones you'd like to dance with —
-          say yes to two going to the same festival and we'll suggest it for your year.
+      <!-- SIGNED OUT: an example deck to play, then your own dance card → a prefilled sign-up. -->
+      <section v-if="view === 'signed-out'" data-testid="meet-signed-out">
+        <LandingFriendsDeck :people="LANDING_FRIENDS" @join="showAuth = true">
+          <template #end="{ yeses }">
+            <div data-testid="landing-dance-card">
+              <p class="mb-3 text-center text-sm font-sans text-muted-foreground">
+                <template v-if="yeses.length">You said yes to {{ yeses.map((p: { name: string }) => p.name).join(', ') }}. </template>
+                <span class="font-bold text-foreground">Now you</span> — make your dance card so they can find you.
+              </p>
+              <DiscoverDancers
+                festival-slug=""
+                item-type="event"
+                :extra-cards="LANDING_DANCE_CARD"
+                :workshops="[]"
+                :plan-ids="NO_PLAN"
+                :is-signed-in="false"
+                @sign-in="showAuth = true"
+                @onboarding-complete="onLandingCardDone"
+              />
+            </div>
+          </template>
+        </LandingFriendsDeck>
+        <p class="mt-6 text-center text-sm text-muted-foreground font-sans">
+          These are examples. <button type="button" class="font-bold text-primary hover:underline" @click="showAuth = true">Join</button> to meet the real ones.
         </p>
-        <div class="mt-6 flex flex-col sm:flex-row gap-3 font-sans">
-          <Button variant="cta" size="lg" class="px-6" @click="showAuth = true">
-            Join to meet dancers <ArrowRight aria-hidden="true" />
-          </Button>
-        </div>
-        <SignUpModal v-model:open="showAuth" action="dashboard" />
+        <SignUpModal v-model:open="showAuth" action="dashboard" :prefill="signUpPrefill" />
       </section>
 
       <!-- LOADING -->
