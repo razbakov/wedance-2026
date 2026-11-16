@@ -51,6 +51,12 @@ const headlines: Record<string, string> = {
 
 type Mode = 'login' | 'register' | 'recovery'
 
+/** The two ways in, side by side; the hint says which one is yours. */
+const AUTH_TABS = [
+  { value: 'register', label: 'Join', hint: 'New to WeDance', testid: 'auth-tab-join' },
+  { value: 'login', label: 'Sign in', hint: 'I have an account', testid: 'auth-tab-signin' },
+] as const
+
 // signin action → start in login mode; every other action is a "join" prompt →
 // start in register mode. The user can flip to recovery via "Forgot password?".
 const mode = ref<Mode>('login')
@@ -318,10 +324,17 @@ async function handleRecovery() {
         <!-- ======================= LOGIN / REGISTER ======================= -->
         <template v-else>
           <!-- Join / Sign in as two tabs: you see both ways in at once. -->
-          <Tabs :model-value="isRegister ? 'register' : 'login'" class="mb-4 pr-8" @update:model-value="(v: string | number) => switchMode(v as Mode)">
-            <TabsList aria-label="Join or sign in" class="grid w-full grid-cols-2 rounded-full p-1">
-              <TabsTrigger value="register" class="rounded-full font-sans font-bold" data-testid="auth-tab-join">Join</TabsTrigger>
-              <TabsTrigger value="login" class="rounded-full font-sans font-bold" data-testid="auth-tab-signin">Sign in</TabsTrigger>
+          <Tabs :model-value="isRegister ? 'register' : 'login'" class="mb-5 pr-8" @update:model-value="(v: string | number) => switchMode(v as Mode)">
+            <TabsList aria-label="Join or sign in" class="grid h-auto w-full grid-cols-2 rounded-none border-b border-border bg-transparent p-0">
+              <TabsTrigger
+                v-for="t in AUTH_TABS"
+                :key="t.value"
+                :value="t.value"
+                class="-mb-px flex-col gap-0.5 rounded-none border-b-[3px] border-transparent px-2 pb-2.5 pt-1 font-sans text-foreground opacity-55 hover:opacity-90 data-[state=active]:opacity-100 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
+                :data-testid="t.testid"
+              >
+                <span class="block text-base font-bold leading-tight">{{ t.label }}</span>{{ ' ' }}<span class="block text-xs font-normal">{{ t.hint }}</span>
+              </TabsTrigger>
             </TabsList>
           </Tabs>
 
