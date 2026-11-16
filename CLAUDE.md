@@ -490,7 +490,8 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `year_plan_add` / `year_plan_remove` | `useYearPlan` | `festival_slug`, `year_count`; add: `festival`, `surface` |
 | `workshop_plan_add` / `workshop_plan_remove` | `festival/FestivalView.vue` | `festival`, `workshop_id`, `workshop_type`, `partner_status` |
 | `discover_swipe` | `/meet` Meet new friends deck (on My plan until RAZ-989) | `direction`, `card_kind`, `added_festival`, `added_event` (always false since the deck is people only), `surface` (meet) |
-| `meet_friends_opened` | `MeetFriendsEntry` on My plan (the card leading to `/meet`, RAZ-989) | `surface` (my_plan / my_plan_empty), `people` (dancers waiting in the deck; null = not loaded) |
+| `meet_friends_opened` | `MeetFriendsEntry` on My plan (the card leading to `/meet`, RAZ-989) · `EventMeetPrompt` under "You're in" after signing up to a night (RAZ-981) | `surface` (my_plan / my_plan_empty / `<event surface>_signup`), `people` (dancers waiting in the deck; null = not loaded) |
+| `meet_empty_shared` | `MeetEmptyNext` (an empty /meet deck, RAZ-1002): "Ask" an organiser for their next night, "Send" a venue's page, "Invite a friend" | `what` (organiser / venue / friend), `stage` (nights / organisers / venues / nothing / no-city), `method` (native / copy / none) |
 | `goal_added` | `useGoals.addGoal` | `style` |
 | `follow` / `unfollow` | `/@handle`, `PromoterProfile` (profiles); `FestivalView` shared plan (dancer) | `target`, `profile`, `profile_type`, `surface` |
 | `whos_going_profile_opened` | `GoingSection` face tap | `item_type`, `item_id` |

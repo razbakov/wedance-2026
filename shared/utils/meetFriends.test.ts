@@ -1,36 +1,38 @@
 import { describe, expect, it } from 'vitest'
 import { meetVisibility } from './meetFriends'
 
-const base = { profilePublic: true, photo: 'https://res.cloudinary.com/x.jpg', city: 'Munich' }
+const base = { profilePublic: true, photo: 'https://res.cloudinary.com/x.jpg' }
+const night = { eventName: 'Salsa Night', city: 'Munich' }
 
 describe('meetVisibility', () => {
-  it('a public profile with a photo is shown to dancers in the same city', () => {
-    const v = meetVisibility(base)
-    expect(v).toEqual({ shown: true, missing: [], text: 'Dancers in Munich see you in their deck too.' })
+  it('going out makes you visible, with the night', () => {
+    expect(meetVisibility({ ...base, nextNight: night })).toEqual({
+      shown: true, missing: [], text: 'You’re visible — others can see you’re going to Salsa Night.',
+    })
   })
 
-  it('without a city you are shown, but not as a local', () => {
-    const v = meetVisibility({ ...base, city: '  ' })
+  it('a festival alone shows you to its dancers, and asks for a night out', () => {
+    const v = meetVisibility({ ...base, festivalsShown: 1 })
     expect(v.shown).toBe(true)
-    expect(v.missing).toEqual(['city'])
-    expect(v.text).toContain('add your city in Settings')
+    expect(v.missing).toEqual(['night'])
   })
 
-  it('no photo keeps you out of every deck', () => {
-    const v = meetVisibility({ ...base, photo: '  ' })
+  it('going nowhere keeps you out of every deck', () => {
+    const v = meetVisibility(base)
     expect(v.shown).toBe(false)
-    expect(v.missing).toEqual(['photo'])
-    expect(v.text).toBe("Other dancers can't see you here yet: add a photo in Settings.")
+    expect(v.missing).toEqual(['night'])
+    expect(v.text).toBe('Others can’t see you yet. Go to a night out and you’ll show up here.')
+  })
+
+  it('no photo keeps you out, even when going — the photo comes first', () => {
+    const v = meetVisibility({ ...base, photo: '  ', profilePublic: false, nextNight: night })
+    expect(v.shown).toBe(false)
+    expect(v.missing).toEqual(['photo', 'public'])
+    expect(v.text).toBe('Add a photo so other dancers can see you here.')
   })
 
   it('a private profile keeps you out; null counts as public', () => {
-    expect(meetVisibility({ ...base, profilePublic: false }).missing).toEqual(['public'])
-    expect(meetVisibility({ ...base, profilePublic: null }).shown).toBe(true)
-  })
-
-  it('lists both fixes, photo first', () => {
-    const v = meetVisibility({ ...base, photo: null, profilePublic: false, city: null })
-    expect(v.missing).toEqual(['photo', 'public'])
-    expect(v.text).toBe("Other dancers can't see you here yet: add a photo and turn on Public profile in Settings.")
+    expect(meetVisibility({ ...base, profilePublic: false, nextNight: night }).missing).toEqual(['public'])
+    expect(meetVisibility({ ...base, profilePublic: null, nextNight: night }).shown).toBe(true)
   })
 })

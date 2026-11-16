@@ -6,10 +6,11 @@ import { planItems, dancers, festivals, festivalSignups, events, attendances, da
 import { getReferralDiscountPercent, getEarlyBirdInfo } from '../../utils/ticket-prices'
 import { eventPath } from '../../../shared/utils/eventSlug'
 import { festivalPath } from '../../../shared/utils/eventSlug'
-import { discoverDeck, festivalPlanSlugs, myCourses, nonFestivalEventId, recordSwipe, removeSwipe, weekSocials } from '../../utils/myPlanFeeds'
+import { citySlugFor, discoverDeck, festivalPlanSlugs, myCourses, nonFestivalEventId, recordSwipe, removeSwipe, weekSocials } from '../../utils/myPlanFeeds'
 import { eventIdForFestival, recordLinkAction } from '../../utils/trackedLinks'
 import { planCounts } from '../../utils/planCounts'
 import { meetMatches } from '../../utils/meetMatches'
+import { meetEmpty } from '../../utils/meetEmpty'
 import { yearReviewFor } from '../../utils/yearReview'
 import { lookBackYear } from '../../../shared/utils/yearReview'
 
@@ -663,6 +664,15 @@ export const planRouter = router({
    * call is pending — My plan still promises "they aren't told", so nobody else
    * may learn of a mutual yes yet. Shown on /sketches/meet-matches.
    */
+  /**
+   * An empty Meet deck's next step (RAZ-1002): the city's next nights, else the
+   * organisers who run nights there, else its venues — or nothing yet.
+   */
+  meetEmpty: protectedProcedure.query(async ({ ctx }) => {
+    const [me] = await ctx.db.select({ city: dancers.city }).from(dancers).where(eq(dancers.id, ctx.dancerId)).limit(1)
+    return meetEmpty(ctx.db, await citySlugFor(ctx.db, me?.city))
+  }),
+
   meetMatches: protectedProcedure.query(async ({ ctx }) => {
     if (!ctx.isAdmin) throw new TRPCError({ code: 'FORBIDDEN', message: 'Matches are not open yet.' })
     return { matches: await meetMatches(ctx.db, ctx.dancerId) }

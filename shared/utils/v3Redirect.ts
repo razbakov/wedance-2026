@@ -32,7 +32,7 @@ export const KNOWN_SEGMENTS = new Set([
   // server routes + framework
   'api', 'mcp', '_nuxt', '__nuxt', '__nuxt_error', '_vercel', '.well-known',
   // public/ folders
-  'people', 'updates',
+  'brand', 'people', 'updates',
   // routeRules redirects (nuxt.config.ts)
   'datenschutz', 'impressum', 'agb', 'styleguide', 'design', 'architecture',
 ])

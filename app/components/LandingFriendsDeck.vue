@@ -1,10 +1,10 @@
 <script setup lang="ts">
 /**
- * The "Meet new friends" deck on the signed-out My plan landing: the same
+ * The "Meet new friends" example deck for visitors (signed-out /meet): the same
  * swipe cards as the real deck, played with example dancers, all on the page —
  * nothing is saved. Yes on two dancers heading to the same festival shows the
  * "suggest it for your year" nudge the real deck shows. When the cards run out
- * the deck shows the `end` slot (on My plan: the dance card), else asks the
+ * the deck shows the `end` slot (on /meet: the dance card), else asks the
  * visitor to join (emits `join`).
  */
 import { Plane, MapPin, X, Heart, Undo2, Sparkles } from 'lucide-vue-next'
@@ -17,10 +17,10 @@ export type LandingPerson = {
   city: string
   photo: string
   danceStyles: readonly string[]
-  /** Going to a festival (chip + nudge), or a local regular. */
+  /** Going to a festival (chip + nudge), or to a night out near you (RAZ-981). */
   festivalName?: string
   festivalColor?: string
-  regularAt?: string
+  night?: string
   reason: string
 }
 
@@ -146,11 +146,11 @@ function undo() {
             <Plane class="w-3 h-3" style="stroke-width:1.5;" /> Going to {{ current.festivalName }}
           </div>
           <div
-            v-else-if="current.regularAt"
+            v-else-if="current.night"
             class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold text-wd-green-600"
             style="background:color-mix(in srgb, var(--wd-green-600) 9.4%, transparent);"
           >
-            <MapPin class="w-3 h-3" style="stroke-width:1.5;" /> Regular at {{ current.regularAt }}
+            <MapPin class="w-3 h-3" style="stroke-width:1.5;" /> Going to {{ current.night }}
           </div>
           <div class="mt-3 flex flex-wrap gap-1">
             <span

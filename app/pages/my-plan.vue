@@ -1388,7 +1388,7 @@ async function loadDiscoverDeck() {
   try {
     const result = await $trpc.plan.discover.query()
     festivalNudges.value = result.nudges.map(n => ({ ...n, dismissed: false }))
-    meetPeople.value = toMeetCards(result.cards, { city: dancerCity.value, styles: dancerStyles.value })
+    meetPeople.value = toMeetCards(result.cards, { styles: dancerStyles.value })
     meetLoaded.value = true
   } catch (err) {
     console.error('[discover] loadDiscoverDeck failed:', err)

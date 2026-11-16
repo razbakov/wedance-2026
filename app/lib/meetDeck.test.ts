@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { meetEntryLine, toMeetCards, type DiscoverCardIn } from './meetDeck'
 
-const dancer = (over: Partial<Extract<DiscoverCardIn, { targetKind: 'dancer' }>>): DiscoverCardIn => ({
-  kind: 'dancer-local', targetKind: 'dancer', targetId: 'd1',
+const dancer = (over: Record<string, unknown>): DiscoverCardIn => ({
+  kind: 'dancer-going-out', targetKind: 'dancer', targetId: 'd1',
   dancerName: 'Tanja', dancerPhoto: 'p.jpg', dancerCity: 'Munich', dancerStyles: ['Salsa'],
+  eventId: '0b8c7a52-1111-4222-8333-444455556666', eventName: 'Salsa Night', eventDateISO: '2026-11-20T20:00:00Z', eventTimezone: 'Europe/Berlin', eventVenue: 'La Rumba',
   ...over,
-})
+} as DiscoverCardIn)
 
 describe('toMeetCards', () => {
   it('keeps people only — festival and social cards live in My plan', () => {
@@ -13,7 +14,7 @@ describe('toMeetCards', () => {
       dancer({}),
       { kind: 'event-social', targetKind: 'event', targetId: 'e1' },
       { kind: 'event-festival', targetKind: 'festival', targetId: 'f1' },
-    ], { city: 'Munich', styles: ['Salsa'] })
+    ], { styles: ['Salsa'] })
     expect(cards.map(c => c.id)).toEqual(['dancer:d1'])
   })
 
@@ -23,10 +24,18 @@ describe('toMeetCards', () => {
     expect(card!.reason).toBe('Also going to Menéate — you\'ll be at the same festival.')
   })
 
-  it('says what a local shares with you, and the city only when it is yours', () => {
-    expect(toMeetCards([dancer({})], { city: 'munich', styles: ['Salsa'] })[0]!.reason).toBe('You both dance Salsa in Munich.')
-    expect(toMeetCards([dancer({ dancerCity: 'Berlin' })], { city: 'Munich', styles: ['Salsa'] })[0]!.reason).toBe('You both dance Salsa.')
-    expect(toMeetCards([dancer({ dancerStyles: ['Tango'] })], { city: 'Munich', styles: ['Salsa'] })[0]!.reason).toBe('')
+  it('a night out leads to the night, in its own zone', () => {
+    const [card] = toMeetCards([dancer({})], { styles: ['Salsa'] })
+    expect(card!.kind).toBe('dancer-going-out')
+    expect(card && 'night' in card ? card.night : null).toEqual({
+      path: '/events/salsa-night-0b8c7a52', name: 'Salsa Night', when: 'Fri 21:00', venue: 'La Rumba',
+    })
+    expect(card!.reason).toBe('Going to Salsa Night. Join them, and you\'ll meet there. You both dance Salsa.')
+  })
+
+  it('says when you are going to the same night', () => {
+    const [card] = toMeetCards([dancer({ kind: 'dancer-same-night', dancerStyles: ['Tango'] })], { styles: ['Salsa'] })
+    expect(card!.reason).toBe('You\'re both going to Salsa Night — say hi there.')
   })
 
   it('names a festival you have not picked', () => {
@@ -39,9 +48,9 @@ describe('toMeetCards', () => {
 
 describe('meetEntryLine', () => {
   it('counts who is waiting', () => {
-    expect(meetEntryLine(null)).toMatch(/^Dancers going where you go/)
-    expect(meetEntryLine(0)).toMatch(/^No one new right now/)
-    expect(meetEntryLine(1)).toMatch(/^1 dancer to meet/)
-    expect(meetEntryLine(13)).toMatch(/^13 dancers to meet/)
+    expect(meetEntryLine(null)).toMatch(/^Dancers going out near you/)
+    expect(meetEntryLine(0)).toMatch(/^Nobody new is going out yet/)
+    expect(meetEntryLine(1)).toMatch(/^1 dancer going out/)
+    expect(meetEntryLine(13)).toMatch(/^13 dancers going out/)
   })
 })
