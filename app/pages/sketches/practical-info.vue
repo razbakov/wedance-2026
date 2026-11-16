@@ -9,6 +9,7 @@
  * every event there shows them; a venue with none shows just its name and address.
  * DDF's venue, meet & DANCE in Dachau, with its real details. Mock data, no API, no DB.
  */
+import type { Component } from 'vue'
 import { MapPin, CalendarDays, ChevronDown, ChevronRight, ArrowUpRight, ArrowRight, TrainFront, Car, Footprints, Shirt } from 'lucide-vue-next'
 
 definePageMeta({ layout: false })
@@ -36,11 +37,12 @@ const venue = {
   mapEmbed: 'https://www.openstreetmap.org/export/embed.html?bbox=11.4378%2C48.2392%2C11.4578%2C48.2492&layer=mapnik&marker=48.2442085%2C11.4478376',
 }
 // The venue's three hints: a title and one quiet line each.
-const HINTS = [
+const HINTS: { icon: Component, text: string, detail: string, missing?: boolean }[] = [
   { icon: TrainFront, text: 'Dachau Bahnhof (S2)', detail: '20 min walk or 5 min by bus' },
   { icon: Car, text: 'Garage next door', detail: 'Entrance by the Audi dealership' },
   { icon: Footprints, text: 'Indoor dance shoes only', detail: 'Bring a pair to change into' },
-  { icon: Shirt, text: 'No cloakroom', detail: '' },
+  // Something the venue doesn't have: Airbnb's unavailable amenity — struck through, icon crossed.
+  { icon: Shirt, text: 'Cloakroom', detail: '', missing: true },
 ]
 const hints = computed(() => filled.value ? HINTS : [])
 
@@ -200,9 +202,13 @@ const TODAY = [
                     </div>
                     <ul class="mt-4 space-y-4 border-t border-border pt-4" data-sketch-hints>
                       <li v-for="h in hints" :key="h.text" class="flex items-start gap-4">
-                        <component :is="h.icon" class="size-6 shrink-0 text-foreground" :stroke-width="1.5" aria-hidden="true" />
+                        <span class="relative shrink-0" aria-hidden="true">
+                          <component :is="h.icon" class="size-6" :class="h.missing ? 'text-muted-foreground' : 'text-foreground'" :stroke-width="1.5" />
+                          <span v-if="h.missing" class="absolute left-1/2 top-1/2 h-[1.5px] w-7 -translate-x-1/2 -translate-y-1/2 -rotate-45 rounded-full bg-muted-foreground ring-2 ring-card" />
+                        </span>
                         <span class="min-w-0">
-                          <span class="block font-semibold text-foreground">{{ h.text }}</span>
+                          <span v-if="h.missing" class="block font-semibold text-muted-foreground line-through"><span class="sr-only">No </span>{{ h.text }}</span>
+                          <span v-else class="block font-semibold text-foreground">{{ h.text }}</span>
                           <span v-if="h.detail" class="block text-muted-foreground">{{ h.detail }}</span>
                         </span>
                       </li>
