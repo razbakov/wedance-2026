@@ -665,3 +665,44 @@ export async function sendContactMailing(params: {
   }
   return { sent, failed }
 }
+
+/**
+ * The morning after (RAZ-1011): "How was Thursday at La Timberia?" to everyone who signed up.
+ * Five star links open the event page with that rating picked (`?rate=N`); "Didn't make it?"
+ * opens it with a one-tap "don't ask again" (a GET never changes anything — mail scanners
+ * open links).
+ */
+export async function sendReviewAskEmail(params: {
+  to: string
+  name: string
+  subject: string
+  eventName: string
+  host: string | null
+  /** The event page; star links add `?rate=N`. */
+  link: string
+  /** The event page with the "didn't make it" step. */
+  missedLink: string
+}) {
+  const config = useRuntimeConfig()
+  if (!config.resendApiKey) {
+    console.log(`\n✉️  ${params.to}: ${params.subject} → ${params.link}?rate=5 · missed: ${params.missedLink}\n`)
+    return
+  }
+  const sep = params.link.includes('?') ? '&' : '?'
+  const stars = [1, 2, 3, 4, 5].map(n => `<a href="${params.link}${sep}rate=${n}" style="display: inline-block; width: 44px; margin-right: 6px; padding: 8px 0; border: 1px solid #ddd; border-radius: 8px; text-align: center; text-decoration: none; color: #333;"><span style="font-size: 22px; color: #f2a516;">★</span><br><span style="font-size: 11px; font-weight: bold;">${n}</span></a>`).join('')
+  const sender = (params.host || 'WeDance').replace(/[<>"]/g, '')
+  const from = (config.resendFromEmail || 'WeDance <noreply@wedance.vip>').replace(/^[^<]*</, `${params.host ? `${sender} via WeDance` : 'WeDance'} <`)
+  await getResend().emails.send({
+    from,
+    to: params.to,
+    subject: params.subject,
+    html: `<div style="font-family: sans-serif; max-width: 460px; margin: 0 auto; padding: 20px; color: #333;">
+      <h2 style="color: #333;">${escapeHtml(params.subject)}</h2>
+      <p>Hey ${escapeHtml(params.name || 'there')},</p>
+      <p style="color: #555;">You signed up for <strong>${escapeHtml(params.eventName)}</strong>. One tap tells ${params.host ? escapeHtml(params.host) : 'the organiser'} and other dancers how it went:</p>
+      <p style="margin: 16px 0;">${stars}</p>
+      <p style="color: #777; font-size: 13px;">Each star opens the event page with that rating picked — add a line if you like.</p>
+      <p style="color: #999; font-size: 12px; margin-top: 24px;">Didn’t make it? <a href="${params.missedLink}" style="color: #999;">Tell us</a> and we won’t ask again.</p>
+    </div>`,
+  })
+}

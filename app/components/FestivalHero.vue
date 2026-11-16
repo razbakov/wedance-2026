@@ -40,6 +40,8 @@ const props = withDefaults(defineProps<{
   presenters?: { username?: string | null; name: string }[] | null
   /** The description: its first sentence goes before the buttons; "More" opens the rest in place. */
   description?: string | null
+  /** Bump to reload the rating under the picture (after a review was posted). */
+  ratingVersion?: number
 }>(), { reviewTargetType: 'festival', entityLabel: 'festival', ctaAnchor: '#discover' })
 
 // `reviews`: the stars under the picture open the page's Reviews tab (RAZ-1011).
@@ -49,12 +51,15 @@ defineEmits<{ pick: []; reviews: [] }>()
 // mount; null until then so SSR + first client render match (no hydration jump).
 const { $trpc } = useNuxtApp()
 const rating = ref<{ average: number; count: number } | null>(null)
-onMounted(async () => {
+async function loadRating() {
   try {
     const r = await $trpc.review.list.query({ targetType: props.reviewTargetType, targetSlug: props.festival.slug })
     rating.value = { average: r.average, count: r.count }
-  } catch { /* leave null */ }
-})
+  } catch { /* leave as it was */ }
+}
+onMounted(loadRating)
+// A new review (the event's "How was it?", RAZ-1011) bumps this to refresh the stars.
+watch(() => props.ratingVersion, (v, old) => { if (v !== old) loadRating() })
 
 // Primary CTA: external tickets when we have a link, else scroll to the
 // in-page join/discover flow.

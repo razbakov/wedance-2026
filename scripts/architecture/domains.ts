@@ -55,7 +55,7 @@ export const DOMAINS: Domain[] = [
     id: 'engagement',
     title: 'Community engagement',
     summary: 'City video voting and battles, giveaways (and the ones promoters propose), reviews, "ask locals" recommendations, and promoters\' tracked links with what they brought.',
-    tables: ['cityVideos', 'videoVotes', 'cityBattleVotes', 'giveaways', 'giveawayEntries', 'giveawayProposals', 'reviews', 'recommendationRequests', 'trackedLinks', 'trackedLinkActions'],
+    tables: ['cityVideos', 'videoVotes', 'cityBattleVotes', 'giveaways', 'giveawayEntries', 'giveawayProposals', 'reviews', 'eventReviewAsks', 'recommendationRequests', 'trackedLinks', 'trackedLinkActions'],
   },
   {
     id: 'opportunities',

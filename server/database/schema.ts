@@ -293,10 +293,28 @@ export const reviews = pgTable('reviews', {
   text: text('text'),
   source: text('source').notNull().default('review').$type<'review' | 'recommendation'>(),
   status: text('status').notNull().default('visible').$type<'visible' | 'hidden'>(),
+  // An event review by someone who signed up and wrote it after the night (0075, RAZ-1011).
+  went: boolean('went').notNull().default(false),
   createdAt: timestamp('created_at').defaultNow(),
 }, (t) => [
   // One review per dancer per target (a recommend also upserts through this).
   unique('review_target_dancer_unique').on(t.targetType, t.targetSlug, t.dancerId),
+])
+
+// The morning-after "How was it?" email (0075, RAZ-1011): one row per event per address — the
+// unique key is the once-only guard (inserted before sending). `token` = the "didn't make it"
+// link; missed_at set = never asked again, on the page either.
+export const eventReviewAsks = pgTable('event_review_asks', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  eventId: uuid('event_id').notNull(),
+  email: text('email').notNull(),
+  token: text('token').notNull(),
+  sentAt: timestamp('sent_at'),
+  missedAt: timestamp('missed_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex('event_review_asks_event_email_uidx').on(t.eventId, t.email),
+  uniqueIndex('event_review_asks_token_uidx').on(t.token),
 ])
 
 // Community groups (WhatsApp / Telegram / …) per city — the cold-start
