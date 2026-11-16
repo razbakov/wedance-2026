@@ -101,7 +101,7 @@ export const travelSteps: BpStep<TravelLane, TravelPhase>[] = [
 
   // Share with friends
   { id: 'share-plan', phase: 'share', lane: 'me', name: 'Share my festival plan', status: 'live', marks: ['manual'], route: '/events/[id]', code: 'SharePlanModal · useSharePlan (plan in the link)',
-    note: '“Coming with friends? Share your plan”: your workshops encoded in the link (?invite=), plus a referral link (?ref=). You paste them into WhatsApp yourself.' },
+    note: '“Bring friends”: one link — your workshops encoded in it (?invite=) when you picked some, else the event itself; ?ref= only when the festival has a referral discount. Send to friends opens the share sheet.' },
   { id: 'open-shared', phase: 'share', lane: 'friends', name: 'Open a shared plan', status: 'live', marks: [], route: '/events/[id]?invite=…', code: 'SharedPlanView · follow.toggleDancer',
     note: 'Sees your picks and pass, can add the sharer as a friend and sign up.' },
   { id: 'year-story', phase: 'share', lane: 'me', name: 'Share the festival year', status: 'live', marks: ['manual'], route: '/my-plan', code: 'YearStory · shared/utils/yearStory.ts', refs: ['RAZ-897'],

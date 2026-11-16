@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { CLASS_EVENT_TYPES, passCoverage, passesFor } from '#shared/utils/eventSignup'
+import { eventNoun } from '~/lib/shareInvite'
 import { sizedImage, IMG } from '#shared/utils/image'
 import type { Festival, Teacher, Workshop, PlanEntry, DanceRole, DancePartner, ExtraActivity, FreemiumState } from '~/types/festival'
 import { ArrowRight, Sparkles, Check, Plus, Pencil, Ticket, Share2, Users } from 'lucide-vue-next'
@@ -809,8 +810,9 @@ function onSave() {
 // Share modal
 const showSharePlan = ref(false)
 
+// A workshop plan needs an account; the event's own link doesn't (RAZ-1001).
 function onShare() {
-  if (!isSignedIn.value) {
+  if (!isSignedIn.value && workshops.length > 1) {
     signUpAction.value = 'share'
     showSignUp.value = true
   } else {
@@ -1754,7 +1756,8 @@ useHead({
               class="h-auto p-0 gap-1 text-xs font-bold font-sans"
               @click="onShare"
             >
-              <Share2 class="w-3.5 h-3.5" aria-hidden="true" /> Coming with friends? Share your plan
+              <Share2 class="w-3.5 h-3.5" aria-hidden="true" />
+              {{ workshops.length > 1 ? 'Coming with friends? Share your plan' : `Bring friends to this ${eventNoun(props.type)}` }}
             </Button>
           </div>
           <ActivitiesTab
@@ -2113,6 +2116,7 @@ useHead({
       :plan-ids="planIds"
       :festival-name="festival.name"
       :festival-slug="festival.slug"
+      :event-type="props.type"
     />
 
 
