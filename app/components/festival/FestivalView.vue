@@ -1285,20 +1285,21 @@ useHead({
         <!-- What's inside, before the buttons (RAZ-1008): one compact card per tab, no header —
              enough to see there's lots to explore; each opens its tab. -->
         <template v-if="summaryCards.length" #before-cta>
-          <ul class="grid grid-cols-3 gap-2 max-w-xl" data-event-summary>
-            <li v-for="c in summaryCards" :key="c.tab">
+          <!-- Same cards on every screen: on a phone they scroll sideways instead of losing their faces and lines. -->
+          <ul class="-mx-4 flex snap-x snap-mandatory gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:grid sm:max-w-xl sm:grid-cols-3 sm:overflow-visible sm:px-0 sm:pb-0" data-event-summary>
+            <li v-for="c in summaryCards" :key="c.tab" class="w-[70%] shrink-0 snap-start sm:w-auto">
               <button
                 type="button"
-                class="group flex h-full w-full flex-col gap-1 rounded-xl border border-border bg-card/80 px-3 py-2 sm:py-2.5 text-left transition-colors hover:border-primary/40 hover:bg-card cursor-pointer"
+                class="group flex h-full w-full flex-col gap-1 rounded-xl border border-border bg-card/80 px-3 py-2.5 text-left transition-colors hover:border-primary/40 hover:bg-card cursor-pointer"
                 :data-summary-card="c.tab"
                 @click="openTab(c.tab, 'summary')"
               >
-                <div v-if="c.photos?.length" class="hidden sm:flex -space-x-1.5 mb-0.5">
+                <div v-if="c.photos?.length" class="flex -space-x-1.5 mb-0.5">
                   <img v-for="(src, i) in c.photos" :key="i" :src="sizedImage(src, IMG.avatar)" alt="" class="size-6 rounded-full object-cover ring-2 ring-card">
                 </div>
-                <span class="text-sm sm:text-base font-black leading-tight text-foreground font-display">{{ c.title }}</span>
-                <span class="hidden sm:block text-xs text-muted-foreground font-sans line-clamp-2">{{ c.line }}</span>
-                <span class="mt-auto hidden sm:inline-flex items-center gap-1 text-xs font-bold text-secondary font-sans">
+                <span class="text-base font-black leading-tight text-foreground font-display">{{ c.title }}</span>
+                <span class="block text-xs text-muted-foreground font-sans line-clamp-2">{{ c.line }}</span>
+                <span class="mt-auto inline-flex items-center gap-1 text-xs font-bold text-secondary font-sans">
                   {{ tabLabels[c.tab] }} <ArrowRight class="size-3 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
                 </span>
               </button>
