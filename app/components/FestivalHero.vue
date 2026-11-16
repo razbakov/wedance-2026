@@ -107,13 +107,12 @@ const venueMapUrl = computed(() => {
   if (v?.coordinates?.lat != null) return `https://www.google.com/maps/search/?api=1&query=${v.coordinates.lat},${v.coordinates.lng}`
   return ''
 })
-const practicalInfo = computed(() => (props.festival.venue?.practicalInfo ?? []).filter(i => i?.trim()))
-// The venue page's own hints (RAZ-1012), as Airbnb's "Where you'll be": one row each. The event's own
-// practical info stays under them until RAZ-1009 moves each line to where it's used.
+// The venue page's own hints (RAZ-1012), as Airbnb's "Where you'll be": one row each. Only venue things:
+// the event's own practical info is on Overview → "Good to know" (RAZ-1009).
 const hints = computed(() => venueHints(props.festival.venue?.info))
 const HINT_ICON = { transit: TrainFront, parking: Car, shoes: Footprints, cloakroom: Shirt } as const
 // Nothing to open: no chevron, the address opens directions.
-const venueExpands = computed(() => hints.value.length > 0 || practicalInfo.value.length > 0)
+const venueExpands = computed(() => hints.value.length > 0)
 const venuePlace = computed(() => props.festival.venue?.place || '')
 // OpenStreetMap's embed needs no key; only when we know where the venue is.
 const venueMapEmbed = computed(() => {
@@ -122,23 +121,6 @@ const venueMapEmbed = computed(() => {
   const bbox = [c.lng - 0.01, c.lat - 0.005, c.lng + 0.01, c.lat + 0.005].map(n => n.toFixed(4)).join('%2C')
   return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${c.lat}%2C${c.lng}`
 })
-function linkParts(text: string): { text: string; href?: string }[] {
-  const out: { text: string; href?: string }[] = []
-  let last = 0
-  for (const m of text.matchAll(/https?:\/\/[^\s,;)]+/g)) {
-    if (m.index! > last) out.push({ text: text.slice(last, m.index) })
-    const url = m[0]
-    let label = url
-    try {
-      const u = new URL(url)
-      label = /\.(png|jpe?g|webp|gif|avif)$/i.test(u.pathname) ? 'picture' : /\.pdf$/i.test(u.pathname) ? 'PDF' : u.host.replace(/^www\./, '')
-    } catch { /* keep the url */ }
-    out.push({ text: label, href: url })
-    last = m.index! + url.length
-  }
-  if (last < text.length) out.push({ text: text.slice(last) })
-  return out
-}
 
 const daysUntil = computed(() => formatDaysUntil(props.festival.startDate, props.festival.timezone, props.festival.endDate))
 
@@ -247,8 +229,8 @@ const rays = Array.from({ length: 24 }, (_, i) => {
               </dd>
             </div>
             <!-- Where (RAZ-1008, RAZ-1012): the row opens the venue's card in place — a map, directions,
-                 the venue page's own hints (nearest stop, parking, shoes, cloakroom), then the event's
-                 practical info and the venue's page. Nothing to open: the address links to directions. -->
+                 the venue page's own hints (nearest stop, parking, shoes, cloakroom) and the venue's page.
+                 No hints: nothing to open, the address links to directions. -->
             <div v-if="festival.venue?.name || venueAddress">
               <dt class="sr-only">Where</dt>
               <dd>
@@ -317,14 +299,6 @@ const rays = Array.from({ length: 24 }, (_, i) => {
                           <span v-else class="block font-semibold text-foreground">{{ h.title }}</span>
                           <span v-if="'detail' in h && h.detail" class="block text-muted-foreground">{{ h.detail }}</span>
                         </span>
-                      </li>
-                    </ul>
-                    <ul v-if="practicalInfo.length" class="mt-4 space-y-1.5 border-t border-border pt-4 text-sm text-muted-foreground" data-hero-practical>
-                      <li v-for="(info, i) in practicalInfo" :key="i">
-                        <template v-for="(part, j) in linkParts(info)" :key="j">
-                          <a v-if="part.href" :href="part.href" target="_blank" rel="noopener noreferrer" class="underline underline-offset-2 hover:text-foreground">{{ part.text }}</a>
-                          <template v-else>{{ part.text }}</template>
-                        </template>
                       </li>
                     </ul>
                     <p v-if="festival.venue?.handle" class="mt-4 border-t border-border pt-4">

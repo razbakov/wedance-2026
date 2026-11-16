@@ -1394,6 +1394,9 @@ useHead({
           <AboutTab :festival="festival" />
         </section>
 
+        <!-- The event's practical info (RAZ-1009): out of the venue card, which holds only the venue's hints. -->
+        <EventGoodToKnow :lines="festival.venue?.practicalInfo ?? []" />
+
 
         <!-- Verified ticket holders: the TicketTailor claim flow exists for Charanga only (/charanga/claim). -->
         <section v-if="festival.slug === 'charanga-habanera-munich-2026' && (inPlan || hasTicket)" aria-labelledby="verified-title">

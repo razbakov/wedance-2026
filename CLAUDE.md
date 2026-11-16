@@ -350,8 +350,8 @@ What is true about a venue for every event there — nearest stop (line badge + 
 venue's page: `profiles.venue_info` (0074, `shared/types/venueInfo.ts`: `cleanVenueInfo`, `venueHints`). The old
 `CoatCheck` amenity moved into `cloakroom` (one place only). Shown in the event hero's venue row (`FestivalHero`, both
 `festivalView` and `events.get` → `venueInfo`) as an Airbnb-style card: OpenStreetMap embed (no key) when the venue has
-coordinates, Directions, one row per hint, then the event's own practical info, then "About the venue". No hints and no
-practical info = no chevron, the address links to directions. Edited by the venue's team and admins (Business → the venue
+coordinates, Directions, one row per hint, then "About the venue". No hints = no chevron, the address links to
+directions. The event's own practical info is not in the venue card: it's on Overview → "Good to know" (`EventGoodToKnow`). Edited by the venue's team and admins (Business → the venue
 → "Getting there & house rules", `business.update` `venueInfo`), by the organiser of an event at an UNCLAIMED venue (the
 event editor's Where step, `BusinessEventVenueHints` → `listedProfiles.venueInfo` / `saveVenueInfo`, same rule as
 `requireListedEditor`), and by connected apps (`venue_info` on `update_listed_profile`, `add_venue`,
