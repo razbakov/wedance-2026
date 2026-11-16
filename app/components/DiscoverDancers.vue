@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { sizedImage, IMG } from '#shared/utils/image'
-import type { DiscoverDancer, DanceListEntry, DanceEndorsement, Workshop, SwipeCard, SwipeCardDinner, SwipeCardActivity, SwipeCardOnboardingDanceCard, SwipeCardOnboardingProfile, DanceRole } from '~/types/festival'
+import type { DiscoverDancer, DanceListEntry, DanceEndorsement, Workshop, SwipeCard, SwipeCardDinner, SwipeCardActivity, SwipeCardOnboardingDanceCard, SwipeCardOnboardingProfile, DanceRole, DanceCardPrefill, DanceCardResult } from '~/types/festival'
 import { Heart, X, Sparkles, Check, ChevronDown, ChevronUp, RotateCcw, Star, MessageCircle, UtensilsCrossed, Compass, Camera, Users, Share2 } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
 import { Badge } from '~/components/ui/badge'
@@ -19,6 +19,14 @@ const props = withDefaults(defineProps<{
   isSignedIn: boolean
   /** "festival", "weekender", "event"… — the wording of the empty state. */
   entityLabel?: string
+  /** Start the dance card from what the dancer already has (/dance-card, RAZ-1005). */
+  danceCardPrefill?: DanceCardPrefill | null
+  /**
+   * Save the finished dance card (signed in, /dance-card). The profile card stays
+   * until it resolves; a throw shows its message there. Without it the card asks
+   * to sign up (`sign-in`), as on the signed-out /meet.
+   */
+  saveDanceCard?: (card: DanceCardResult) => Promise<void>
 }>(), { itemType: 'festival', entityLabel: 'event' })
 
 const emit = defineEmits<{
@@ -237,9 +245,10 @@ const dinnerSpotsLeft = computed(() => {
 const currentActivityCard = computed(() => isActivityCard.value ? currentCard.value as SwipeCardActivity : null)
 const currentDanceCard = computed(() => isDanceCard.value ? currentCard.value as SwipeCardOnboardingDanceCard : null)
 
-// Onboarding state
+// Onboarding state. A style the dancer already dances without a level is
+// selected with `null`, so saving never drops it.
 const selectedRole = ref<DanceRole | null>(null)
-const selectedStyles = ref<Map<string, 'Beginner' | 'Intermediate' | 'Advanced'>>(new Map())
+const selectedStyles = ref<Map<string, 'Beginner' | 'Intermediate' | 'Advanced' | null>>(new Map())
 
 function toggleStyleLevel(style: string, level: 'Beginner' | 'Intermediate' | 'Advanced') {
   const next = new Map(selectedStyles.value)
@@ -267,26 +276,63 @@ const profileName = ref('')
 const profileCity = ref('')
 const profileBio = ref('')
 const profilePhotoUrl = ref('')
+const profilePhotoFile = ref<File | null>(null)
+const photoError = ref('')
+
+watch(() => props.danceCardPrefill, (p) => {
+  if (!p) return
+  selectedRole.value = p.role === 'lead' || p.role === 'follow' ? p.role : null
+  selectedStyles.value = new Map(p.styles.map(s => [s, p.levels[s] ?? null]))
+  profileName.value = p.name
+  profileCity.value = p.city
+  profileBio.value = p.bio
+  profilePhotoUrl.value = p.photo
+  profilePhotoFile.value = null
+}, { immediate: true })
 
 function onPhotoChange(e: Event) {
   const input = e.target as HTMLInputElement
   const file = input.files?.[0]
-  if (file) {
-    profilePhotoUrl.value = URL.createObjectURL(file)
-  }
+  input.value = ''
+  if (!file) return
+  photoError.value = ''
+  if (!file.type.startsWith('image/')) { photoError.value = 'That isn’t a picture. Pick a photo.'; return }
+  if (file.size > 10 * 1024 * 1024) { photoError.value = 'That photo is over 10 MB. Pick a smaller one.'; return }
+  profilePhotoUrl.value = URL.createObjectURL(file)
+  profilePhotoFile.value = file
 }
 
 const profile = computed(() => validateForm(DiscoverProfileSchema, { name: profileName.value, city: profileCity.value }))
 const canSubmitProfile = computed(() => profile.value.success)
 
-function submitProfile() {
-  if (!profile.value.success) return
+const savingCard = ref(false)
+const saveCardError = ref('')
+
+async function submitProfile() {
+  if (!profile.value.success || savingCard.value) return
+  const { name, city } = profile.value.data
+  if (props.saveDanceCard) {
+    const levels: DanceCardResult['levels'] = {}
+    for (const [s, l] of selectedStyles.value) if (l) levels[s] = l
+    savingCard.value = true
+    saveCardError.value = ''
+    try {
+      await props.saveDanceCard({
+        role: selectedRole.value!, styles: [...selectedStyles.value.keys()], levels,
+        name, city, bio: profileBio.value.trim(), photoFile: profilePhotoFile.value,
+      })
+    } catch (e) {
+      saveCardError.value = (e as Error)?.message || 'Could not save. Please try again.'
+      return
+    } finally {
+      savingCard.value = false
+    }
+  }
   if (currentCard.value) {
     liked.value = new Set([...liked.value, currentCard.value.id])
   }
-  const { name, city } = profile.value.data
   emit('onboarding-complete', selectedRole.value!, [...selectedStyles.value.keys()], name, city)
-  emit('sign-in', 'onboarding')
+  if (!props.saveDanceCard) emit('sign-in', 'onboarding')
 }
 
 const remainingCount = computed(() => {
@@ -663,7 +709,7 @@ function endorsementCount(dancer: DiscoverDancer, styleName: string): number {
                 <p v-else class="text-xs text-white/50 mt-0.5">Your city · Your bio</p>
               </div>
               <div v-if="selectedStyles.size > 0" class="flex flex-wrap gap-1.5">
-                <Badge v-for="[s, l] in selectedStyles" :key="s" class="bg-white/20 text-white border-white/30 text-xs">{{ s }} {{ chilis(l) }}</Badge>
+                <Badge v-for="[s, l] in selectedStyles" :key="s" class="bg-white/20 text-white border-white/30 text-xs">{{ s }}<template v-if="l"> {{ chilis(l) }}</template></Badge>
               </div>
             </div>
           </div>
@@ -825,10 +871,11 @@ function endorsementCount(dancer: DiscoverDancer, styleName: string): number {
           <label class="relative w-10 h-10 rounded-full bg-pink-100 border-2 border-dashed border-pink-300 flex items-center justify-center cursor-pointer hover:border-pink-400 transition-colors overflow-hidden shrink-0">
             <img v-if="profilePhotoUrl" :src="sizedImage(profilePhotoUrl, IMG.card)" class="w-full h-full object-cover" />
             <Camera v-else class="w-4 h-4 text-pink-400" />
-            <input type="file" accept="image/*" class="hidden" @change="onPhotoChange" />
+            <input type="file" accept="image/*" class="hidden" data-testid="dance-card-photo-input" @change="onPhotoChange" />
           </label>
           <span class="text-xs text-muted-foreground">{{ profilePhotoUrl ? 'Change photo' : 'Add a photo' }}</span>
         </div>
+        <p v-if="photoError" role="alert" class="text-xs font-bold text-primary">{{ photoError }}</p>
 
         <!-- Name + City row -->
         <div class="grid grid-cols-2 gap-2">
@@ -842,17 +889,20 @@ function endorsementCount(dancer: DiscoverDancer, styleName: string): number {
 
         <!-- Bio -->
         <Field id="discover-profile-bio" label="Short bio" optional>
-          <Textarea v-model="profileBio" :rows="2" :resize="false" class="min-h-16" />
+          <Textarea v-model="profileBio" :rows="2" maxlength="500" :resize="false" class="min-h-16" />
         </Field>
 
         <!-- Continue button -->
+        <p v-if="saveCardError" role="alert" class="text-xs font-bold text-primary">{{ saveCardError }}</p>
         <Button
           class="w-full"
           size="sm"
           :disabled="!canSubmitProfile"
+          :loading="savingCard"
+          data-testid="dance-card-save"
           @click="submitProfile"
         >
-          Save profile
+          {{ savingCard ? 'Saving…' : 'Save profile' }}
         </Button>
       </div>
 
