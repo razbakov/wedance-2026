@@ -6,14 +6,14 @@ definePageMeta({ layout: 'docs' })
 const principles = [
   { title: 'Say what’s missing', body: 'Name the thing, plainly: “No classes listed here yet”, not “Nothing to see”. The dancer should know exactly which list is empty.' },
   { title: 'Say why — if it helps', body: '“yet” does most of the work: the scene is young here, not dead. For filters and search, the why is the filter — repeat the query back.' },
-  { title: 'Offer one next action', body: 'One link or button that moves them forward: clear the search, ask the locals, tap “Going?”, enter the competition. Never two competing CTAs.' },
+  { title: 'Offer one next action', body: 'One link or button that moves them forward: clear the search, ask the locals, tap “+ My plan”, enter the competition. Never two competing CTAs.' },
   { title: 'Never fake it', body: 'No placeholder events, no invented winners, no “12k dancers” counters. An honest empty state beats fake fullness (the “no fake friends” rule).' },
 ]
 
 const copy = [
   { situation: 'Search returns nothing', pattern: 'Nothing matches “{query}” · Clear search', source: '/festivals, /cities, /artists' },
   { situation: 'Filters exclude everything', pattern: 'No {style} classes listed here yet — ask the locals where beginners start.', source: 'City taster' },
-  { situation: 'User hasn’t picked anything', pattern: 'Build your week · Tap “Going?” on classes and socials to plan your dance week in {city}.', source: 'WeekDrawer' },
+  { situation: 'User hasn’t picked anything', pattern: 'Build your week · Tap “+ My plan” on classes and socials to plan your dance week in {city}.', source: 'WeekDrawer' },
   { situation: 'Nobody has acted yet', pattern: 'No reviews yet. Be the first. · No Video of the Month yet · Be the first to enter', source: 'Reviews, VideoOfMonthCard' },
   { situation: 'Personal list, empty', pattern: 'No goals yet. One year, one arc, one reason to keep showing up.', source: '/my-plan' },
   { situation: 'City with no events', pattern: 'Local groups — community chats where the {city} scene organises. Join the locals.', source: 'CommunityGroupsSection' },
@@ -102,7 +102,7 @@ const a11y = [
             <div class="w-full text-center py-8 px-4 rounded-2xl border-2 border-dashed border-input bg-white/50">
               <CalendarDays class="w-8 h-8 mx-auto mb-3 text-secondary" aria-hidden="true" />
               <p class="text-sm font-bold font-display text-foreground">Build your week</p>
-              <p class="text-xs text-muted-foreground mt-1 font-sans">Tap “Going?” on classes and socials to plan your dance week in Munich.</p>
+              <p class="text-xs text-muted-foreground mt-1 font-sans">Tap “+ My plan” on classes and socials to plan your dance week in Munich.</p>
             </div>
           </DesignExample>
           <DesignExample title="No search results">

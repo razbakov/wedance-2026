@@ -37,7 +37,7 @@ const { weekPlanIds, toggleEvent } = useWeekPlan()
 // "N in your week" = what /my-plan lists for the next 7 days (RAZ-889).
 const { planWeek } = usePlanCounts()
 
-// Auth gate — "Going?" requires sign-in
+// Auth gate — "+ My plan" requires sign-in
 const { isSignedIn } = useAuth()
 const showSignUp = ref(false)
 

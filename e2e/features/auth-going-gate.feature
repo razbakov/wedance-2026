@@ -20,7 +20,7 @@ Feature: Signed-out user clicking "Going" is sent to sign-in
     And Munich has a weekly practica and a one-off social this week
     And the browser clock is the day before them
     When I open the "munich" city page
-    And I tap "Going?" on the one-off social
+    And I tap "+ My plan" on the one-off social
     Then the sign-up modal is visible
-    And the one-off social shows "Going?"
+    And the one-off social shows "+ My plan"
     And no Going is saved in the database for the one-off social

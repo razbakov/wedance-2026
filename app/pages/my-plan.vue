@@ -1115,7 +1115,7 @@ const { removeEvent: removeWeekEvent, addEvent: addWeekEvent } = useWeekPlan()
 // Last row taken out of the plan — the list offers a one-tap Undo for it.
 const removedSocial = ref<Social | null>(null)
 
-/** "✓ Going" off = out of the plan; the row leaves the list (Undo puts it back). */
+/** "✓ My plan" off = out of the plan; the row leaves the list (Undo puts it back). */
 function removeSocialFromPlan(id: string) {
   const s = socials.value.find(x => x.id === id)
   if (!s) return
@@ -1800,11 +1800,11 @@ function cardSummary(f: CatalogueEntry) {
               type="button"
               class="text-xs font-bold px-3 py-1.5 rounded-full whitespace-nowrap"
               style="background: var(--wd-green-600); color: white;"
-              :aria-label="`Going to ${s.name} — tap to remove from your plan`"
+              :aria-label="`${s.name} is in your plan — tap to remove it`"
               :title="'Tap to remove from your plan'"
               @click="removeSocialFromPlan(s.id)"
             >
-              ✓ Going
+              ✓ My plan
             </button>
           </div>
         </div>

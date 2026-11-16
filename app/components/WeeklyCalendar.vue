@@ -172,7 +172,7 @@ function eventHref(e: CityEvent): string | undefined {
       <div class="grid grid-cols-1 gap-2">
         <!-- Real events link to their event page. -->
         <!-- Stretched link: the title is the link (its ::after covers the card); the
-             person and Going? buttons sit above it — no <button> nested in an <a>. -->
+             person and My plan buttons sit above it — no <button> nested in an <a>. -->
         <div
           v-for="e in eventsForDay(day)"
           :key="e.id"
@@ -264,7 +264,7 @@ function eventHref(e: CityEvent): string | undefined {
               : { background: 'white', color: ink(styleAccent(e.style)), border: '1.5px solid ' + styleAccent(e.style) + '55' }"
             @click="emit('toggle', e.id)"
           >
-            <component :is="weekPlanIds?.has(e.id) ? Check : Plus" aria-hidden="true" />{{ weekPlanIds?.has(e.id) ? 'Going!' : 'Going?' }}
+            <component :is="weekPlanIds?.has(e.id) ? Check : Plus" aria-hidden="true" />My plan
           </Button>
         </div>
       </div>

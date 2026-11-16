@@ -16,16 +16,16 @@ Feature: C3 — Going: plan, share, discover
     And I am signed in as "Ana"
     And I watch the console for hydration warnings
     When I open the "munich" city page
-    And I tap "Going?" on the one-off social
-    Then the one-off social shows "Going!"
+    And I tap "+ My plan" on the one-off social
+    Then the one-off social shows "✓ My plan"
     When I open the one-off social
-    Then the event page shows "Going!" and 1 going
+    Then the event page shows "✓ My plan" and 1 going
     When I scroll through the page and reload it
-    Then the event page shows "Going!" and 1 going
+    Then the event page shows "✓ My plan" and 1 going
     And the database has one Going for "Ana" on the one-off social
-    When I tap "Going!" to undo
+    When I tap "✓ My plan" to undo
     And I reload the page
-    Then the event page shows "Going?" and 0 going
+    Then the event page shows "+ My plan" and 0 going
     And the database has no Going for "Ana" on the one-off social
     And there were no hydration warnings
 
@@ -53,8 +53,8 @@ Feature: C3 — Going: plan, share, discover
     When I open that event
     Then the event hero <tickets>
     And the event page never promises free entry
-    When I tap "Going?" in the event hero
-    Then the event hero shows "Going!"
+    When I tap "+ My plan" in the event hero
+    Then the event hero shows "✓ My plan"
     And the event hero <tickets>
     And the database shows "Ana" Going on that event, not as a ticket holder
 

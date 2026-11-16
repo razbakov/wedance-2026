@@ -63,6 +63,9 @@ function trackEventsCleanup(c3: C3World) {
   })
 }
 
+/** "+ My plan" / "✓ My plan" (RAZ-1003): one name, the state is aria-pressed (an icon or the ✓/+ shows it). */
+const planState = (label: string) => ({ name: /My plan$/, pressed: label.trim().startsWith('✓') })
+
 /** The nearest element around `text` that also holds a button with `button` in its label. */
 const cardButton = (page: Page, text: string, button: string): Locator =>
   page.locator(`xpath=//*[contains(normalize-space(.), "${text}") and not(*[contains(normalize-space(.), "${text}")])]/ancestor::*[.//button[contains(normalize-space(.), "${button}")]][1]//button[contains(normalize-space(.), "${button}")]`).first()
@@ -252,8 +255,8 @@ When('I open that event', async ({ page, c3 }) => {
 })
 
 When('I tap {string} on the one-off social', async ({ page, c3 }, label: string) => {
-  const button = cardButton(page, c3.data.oneOff, label.replace(/[?!]$/, ''))
-  await expect(button).toHaveText(new RegExp(label.replace('?', '\\?')))
+  const button = cardButton(page, c3.data.oneOff, 'My plan')
+  await expect(button).toHaveAttribute('aria-pressed', String(planState(label).pressed))
   const signedIn = Object.keys(c3.data).some(k => k.startsWith('token:'))
   const saved = signedIn ? page.waitForResponse(r => r.url().includes('plan.add')) : null
   await button.click()
@@ -268,7 +271,7 @@ When('I scroll through the page and reload it', async ({ page }) => {
 
 When('I tap {string} to undo', async ({ page }, label: string) => {
   const removed = page.waitForResponse(r => r.url().includes('plan.remove'))
-  await page.getByRole('button', { name: label, exact: true }).first().click()
+  await page.getByRole('button', planState(label)).first().click()
   expect((await removed).ok()).toBe(true)
 })
 
@@ -369,12 +372,12 @@ Then('the HTML carries BreadcrumbList and ItemList structured data for {string}'
 })
 
 Then('the event page shows {string} and {int} going', async ({ page }, label: string, n: number) => {
-  await expect(page.getByRole('button', { name: label, exact: true }).first()).toBeVisible()
+  await expect(page.getByRole('button', planState(label)).first()).toBeVisible()
   await expect(page.getByText(`${n} planning`).first()).toBeVisible()
 })
 
 Then('the one-off social shows {string}', async ({ page, c3 }, label: string) => {
-  await expect(cardButton(page, c3.data.oneOff, 'Going')).toHaveText(new RegExp(label.replace(/[?!]/, '\\$&')))
+  await expect(cardButton(page, c3.data.oneOff, 'My plan')).toHaveAttribute('aria-pressed', String(planState(label).pressed))
 })
 
 Then('the database has one Going for {string} on the one-off social', async ({ c3 }, who: string) => {
@@ -447,12 +450,12 @@ Then('the event page has no {string} section', async ({ page }, title: string) =
 
 When('I tap {string} in the event hero', async ({ page }, label: string) => {
   const saved = page.waitForResponse(r => r.url().includes('plan.add'))
-  await page.getByRole('button', { name: label, exact: true }).first().click()
+  await page.getByRole('button', planState(label)).first().click()
   expect((await saved).ok()).toBe(true)
 })
 
 Then('the event hero shows {string}', async ({ page }, label: string) => {
-  await expect(page.getByRole('button', { name: label, exact: true }).first()).toBeVisible()
+  await expect(page.getByRole('button', planState(label)).first()).toBeVisible()
 })
 
 Then('the event hero offers no ticket button and links the website as {string}', async ({ page, c3 }, label: string) => {
