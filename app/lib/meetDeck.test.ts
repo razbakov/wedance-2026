@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { meetEntryLine, toMeetCards, type DiscoverCardIn } from './meetDeck'
+import { meetEntryLine, myMeetCard, toMeetCards, type DiscoverCardIn } from './meetDeck'
 
 const dancer = (over: Record<string, unknown>): DiscoverCardIn => ({
   kind: 'dancer-going-out', targetKind: 'dancer', targetId: 'd1',
@@ -52,5 +52,25 @@ describe('meetEntryLine', () => {
     expect(meetEntryLine(0)).toMatch(/^Nobody new is going out yet/)
     expect(meetEntryLine(1)).toMatch(/^1 dancer going out/)
     expect(meetEntryLine(13)).toMatch(/^13 dancers going out/)
+  })
+})
+
+describe('myMeetCard (RAZ-1005)', () => {
+  const me = { name: ' Alex ', city: 'Munich', photo: 'p.jpg', danceStyles: ['Salsa', 'Timba'] }
+
+  it('is the card others see: on it for my next night, in its own zone', () => {
+    const card = myMeetCard({ ...me, nextNight: { eventId: '0b8c7a52-1111-4222-8333-444455556666', eventName: 'Salsa Night', eventDateISO: '2026-11-20T20:00:00Z', eventTimezone: 'Europe/Berlin' } })
+    expect(card.name).toBe('Alex')
+    expect(card.danceStyles).toEqual(['Salsa', 'Timba'])
+    expect('night' in card && card.night.when).toBe('Fri 21:00')
+    expect('night' in card && card.night.path).toMatch(/salsa-night/)
+    expect(card.reason).toBe('Going to Salsa Night. Join them, and you\'ll meet there.')
+  })
+
+  it('without a night: a placeholder chip, no reason, and a stand-in name', () => {
+    const card = myMeetCard({ ...me, name: '  ', nextNight: null })
+    expect(card.name).toBe('Your name')
+    expect('night' in card && card.night).toEqual({ path: '', name: 'your next night out', when: '', venue: '' })
+    expect(card.reason).toBe('')
   })
 })
