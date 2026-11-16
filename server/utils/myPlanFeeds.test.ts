@@ -4,7 +4,7 @@
  * week — is covered in server/trpc/routers/plan-myPlanFeeds.test.ts.
  */
 import { describe, it, expect } from 'vitest'
-import { cityNameSet, eventIdForNonFestival, isClaimableFestival, isClassType, pickFestivalSlugs, resolveWeekOccurrences, slugifyCity, stylesForDancer, stylesMatch } from './myPlanFeeds'
+import { eventIdForNonFestival, isClaimableFestival, isClassType, pickFestivalSlugs, resolveWeekOccurrences, slugifyCity, stylesForDancer, stylesMatch } from './myPlanFeeds'
 
 describe('stylesMatch', () => {
   it('matches the same style and its variants', () => {
@@ -133,17 +133,3 @@ describe('eventIdForNonFestival', () => {
   })
 })
 
-describe('cityNameSet', () => {
-  it('collects every name of a known city, lowercased, once each', () => {
-    expect(cityNameSet(' München ', { slug: 'munich', name: 'Munich', localName: 'München', altNames: ['Мюнхен', 'Munich'] }))
-      .toEqual(['münchen', 'munich', 'мюнхен'])
-  })
-  it('turns a multi-word slug into words', () => {
-    expect(cityNameSet('Frankfurt', { slug: 'frankfurt-am-main', name: 'Frankfurt am Main', altNames: ['Frankfurt'] }))
-      .toEqual(['frankfurt', 'frankfurt am main'])
-  })
-  it('keeps just the typed name for an unknown city, nothing for none', () => {
-    expect(cityNameSet('Testville')).toEqual(['testville'])
-    expect(cityNameSet('  ')).toEqual([])
-  })
-})

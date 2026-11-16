@@ -242,7 +242,8 @@ const payLabel = (p: FestivalPass) => passPriceLabel(p, people.value)
         <Ticket aria-hidden="true" /> {{ signupCta(passes) }}
       </Button>
 
-      <div v-else-if="mine?.confirmed" class="rounded-2xl border border-success/30 bg-success/10 px-4 py-3 space-y-1" role="status" data-signup-in>
+      <template v-else-if="mine?.confirmed">
+      <div class="rounded-2xl border border-success/30 bg-success/10 px-4 py-3 space-y-1" role="status" data-signup-in>
         <p class="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span class="inline-flex items-center gap-1.5 font-bold text-wd-green-700"><Check class="size-4" aria-hidden="true" /> You’re in<template v-if="saved?.parts"> · {{ saved.parts }}</template></span>
           <Button type="button" variant="link" size="sm" class="ml-auto h-auto p-0" data-signup-change @click="start">Change</Button>
@@ -256,6 +257,9 @@ const payLabel = (p: FestivalPass) => passPriceLabel(p, people.value)
           <Button type="button" variant="link" size="sm" class="h-auto p-0 text-xs" :disabled="busy" data-signup-cant @click="cantCome">I can’t come after all</Button>
         </p>
       </div>
+      <!-- RAZ-981: signing up is how you get into Meet new friends. -->
+      <EventMeetPrompt :answer="mine.answer" :surface="`${surface}_signup`" class="mt-3" />
+      </template>
 
       <div v-else class="rounded-2xl border border-warning/40 bg-warning/[12%] px-4 py-3 space-y-1" role="status" data-signup-sent>
         <p class="inline-flex items-center gap-1.5 font-bold text-foreground"><Mail class="size-4" aria-hidden="true" /> Almost there: open the link we sent{{ sentTo ? ` to ${sentTo}` : '' }}</p>
