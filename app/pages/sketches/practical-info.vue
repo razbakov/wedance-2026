@@ -18,7 +18,7 @@ useHead({ title: 'WeDance — Venue row sketch', meta: [{ name: 'robots', conten
 type Variant = 'today' | 'new'
 const VARIANTS: { id: Variant, name: string, idea: string }[] = [
   { id: 'today', name: 'Today', idea: 'The venue row opens DDF’s whole practical-info list: 12 lines about the venue, the nights and the tickets.' },
-  { id: 'new', name: 'New', idea: 'The venue row expands into the venue’s own hints (Airbnb-style). "What’s inside" keeps one card per tab: the Schedule card counts sessions and parties, its line is each night’s dress code.' },
+  { id: 'new', name: 'New', idea: 'The venue row expands into the venue’s own hints (Airbnb-style). "What’s inside" keeps one card per tab: the Schedule card counts workshops and parties, its line is each night’s dress code.' },
 ]
 
 const variant = ref<Variant>('new')
@@ -56,7 +56,7 @@ const CARDS_TODAY: Card[] = [
   { key: 'schedule', title: '42 sessions', line: '3 days · 13 styles · pick yours', link: 'Schedule' },
   { key: 'tickets', title: 'Passes from €10', line: 'We suggest the one for your plan', link: 'Passes' },
 ]
-// One card per tab: the Schedule card counts sessions and parties, and its line is the dress codes.
+// One card per tab: the Schedule card counts workshops and parties, and its line is the dress codes.
 const CARDS_NEW: Card[] = [
   CARDS_TODAY[0]!,
   { key: 'schedule', title: '42 workshops, 2 parties', line: 'Dress code: Fri red-black or black-white · Sat King & Queen', link: 'Schedule', isNew: true },
