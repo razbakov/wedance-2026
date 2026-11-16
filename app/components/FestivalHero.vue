@@ -167,11 +167,11 @@ const rays = Array.from({ length: 24 }, (_, i) => {
     <div class="relative max-w-4xl mx-auto px-4 pt-10 pb-12">
       <div class="grid gap-5 sm:gap-8" :class="image ? 'sm:grid-cols-[minmax(0,15rem)_1fr] sm:items-start' : ''">
         <!-- The event's picture: the whole flyer beside the text, at its own shape (RAZ-1015 — a 4:5 crop cut
-             off the flyer's bottom line), capped so a story-shaped one stays sane; a short band on top on
-             phones (the buttons stay in view), cropped from the top; tap for the whole thing. -->
-        <div v-if="image">
+             off the flyer's bottom line), capped so a story-shaped one stays sane. Phones get a small
+             whole-flyer thumbnail beside the title instead (in the text column below); tap for the full size. -->
+        <div v-if="image" class="hidden sm:block">
           <a :href="image" target="_blank" rel="noopener" class="block overflow-hidden rounded-2xl border border-border shadow-wd-card bg-wd-brown-900/[3.9%]" data-hero-image>
-            <img :src="sizedImage(image, IMG.large)" :alt="`${festival.name} — picture`" class="w-full h-36 object-cover object-top sm:h-auto sm:max-h-[36rem] sm:object-contain">
+            <img :src="sizedImage(image, IMG.large)" :alt="`${festival.name} — picture`" class="w-full h-auto max-h-[36rem] object-contain">
           </a>
           <!-- How it's rated, under the picture (RAZ-1011): the stars open the Reviews tab. -->
           <a
@@ -191,6 +191,18 @@ const rays = Array.from({ length: 24 }, (_, i) => {
         </div>
 
         <div class="min-w-0">
+          <!-- Phones (RAZ-1015): the whole flyer, small, floated beside the title and facts so nothing is
+               cropped and the buttons stay on the first screen. The cards and buttons clear it. -->
+          <a
+            v-if="image"
+            :href="image"
+            target="_blank"
+            rel="noopener"
+            class="sm:hidden float-left mr-3 mb-2 block w-[5.5rem] overflow-hidden rounded-xl border border-border shadow-wd-card bg-wd-brown-900/[3.9%]"
+            data-hero-image-thumb
+          >
+            <img :src="sizedImage(image, IMG.card)" :alt="`${festival.name} — picture`" class="w-full h-auto max-h-48 object-contain">
+          </a>
           <!-- Who presents it (RAZ-1008): the organiser's logo + name, linking to their page. -->
           <p v-if="presentersShown.length" class="mb-3 flex items-center gap-2 text-sm font-sans text-muted-foreground" data-hero-presents>
             <img v-if="festival.logo" :src="sizedImage(festival.logo, IMG.avatar)" alt="" class="size-7 rounded-full object-cover border border-border">
@@ -356,9 +368,11 @@ const rays = Array.from({ length: 24 }, (_, i) => {
             >
               Free entry
             </span>
-            <!-- Review rating (appears once loaded) when there's no picture to put it under; opens Reviews -->
+            <!-- Review rating (appears once loaded) when there's no picture to put it under (on phones the
+                 picture is a thumbnail with no room under it); opens Reviews -->
             <a
-              v-if="rating && rating.count && !image"
+              v-if="rating && rating.count"
+              :class="image ? 'sm:hidden' : ''"
               href="#reviews"
               @click.prevent="$emit('reviews')"
               class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-bold font-sans bg-wd-amber-500/12 text-wd-amber-700"
@@ -389,14 +403,14 @@ const rays = Array.from({ length: 24 }, (_, i) => {
           </div>
 
           <!-- What's inside (RAZ-1008): the parent's summary of its tabs, right before the buttons. -->
-          <div v-if="$slots['before-cta']" class="mt-4">
+          <div v-if="$slots['before-cta']" class="mt-4 clear-left">
             <slot name="before-cta" />
           </div>
 
           <!-- The one "am I coming?" control (RAZ-731). The parent can replace it
                (a dated event's poll, a festival's Get pass); the default is
                external tickets when linked, else + My plan (add to plan). -->
-          <div v-if="cancelled" class="mt-4 flex flex-wrap gap-2">
+          <div v-if="cancelled" class="mt-4 clear-left flex flex-wrap gap-2">
             <Button
               v-if="picked"
               type="button"
@@ -408,10 +422,10 @@ const rays = Array.from({ length: 24 }, (_, i) => {
               <X aria-hidden="true" /> Remove from my plan
             </Button>
           </div>
-          <div v-else-if="$slots.cta" >
+          <div v-else-if="$slots.cta" class="clear-left">
             <slot name="cta" />
           </div>
-          <div v-else class="mt-4 flex flex-wrap gap-2">
+          <div v-else class="mt-4 clear-left flex flex-wrap gap-2">
             <Button v-if="hasTickets" as-child variant="cta" :accent="buttonAccent" class="px-5">
               <a
                 :href="festival.ticketUrl"
