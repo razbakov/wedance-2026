@@ -63,6 +63,17 @@ export const SKETCHES: Sketch[] = [
     ticket: linear('RAZ-995', 'class-sign-up'),
   },
   {
+    slug: 'practical-info',
+    title: 'Event practical info, where it’s used',
+    what: 'DDF’s 12 lines of practical info placed four ways: where each piece is used (venue panel, schedule, passes, good to know, contact by the organiser), one "Know before you go" infographic card, the weekend as a day-by-day timeline, and the recommended placement + day cards in the schedule. The venue panel holds only venue things in all four.',
+    why: 'Practical info is one free-text list under the venue: for DDF it mixes the venue, the nights (food, dress code, shoes, when Sunday ends) and booking rules (sold-out followers, refunds, fee) — a wall of text, mostly not about the venue.',
+    requestedBy: 'Alösha',
+    builtBy: 'Agent (Claude)',
+    created: '2026-11-16',
+    status: 'deciding',
+    ticket: linear('RAZ-1009', 'show-each-piece-of-an-events-practical-info-where-its-used-not-as-one'),
+  },
+  {
     slug: 'plan-zoom',
     title: 'My plan: Today / Week / Month / Year',
     what: 'My plan as zoom tabs, each a decision horizon: what happens in that span (every kind), the one plan to make at that scale, and the story to post. Plain tabs, smart tabs (opening tab and to-do numbers per dancer), a zoom calendar (year → month grid → day strip → tonight) and the recommended zoom + smart. Regular dancer / newcomer and full / empty toggles.',
