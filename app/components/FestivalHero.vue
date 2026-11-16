@@ -270,6 +270,11 @@ const rays = Array.from({ length: 24 }, (_, i) => {
               <component :is="picked ? Check : Plus" aria-hidden="true" /> My plan
             </Button>
           </div>
+          <!-- Under the control, as on any event (RAZ-1008): what comes after "I'm going",
+               e.g. a festival's "Meet who's going" once it's on your plan. -->
+          <div v-if="!cancelled && $slots['after-cta']" class="-ml-[6.25rem] sm:ml-0">
+            <slot name="after-cta" />
+          </div>
         </div>
       </div>
     </div>

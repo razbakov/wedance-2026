@@ -1215,6 +1215,30 @@ useHead({
             </Button>
           </div>
         </template>
+        <!-- Meeting people sits where it does on any event: under the "am I coming?" control,
+             once it's on your plan or you have a pass (RAZ-1008, RAZ-981). Festival-goers
+             show only after "Show me" (plan_items.share_going, opt-in — ADR-008). -->
+        <template v-if="!rsvp && (inPlan || hasTicket) && shareGoing !== null" #after-cta>
+          <div class="mt-3 max-w-xl" data-festival-meet>
+            <template v-if="shareGoing">
+              <EventMeetPrompt :event-id="data.eventId" surface="festival" />
+              <Button type="button" variant="link" size="sm" class="mt-1 h-auto p-0 text-xs font-sans text-muted-foreground" :disabled="shareBusy" data-meet-hide @click="setShareGoing(false)">
+                Hide me from dancers going
+              </Button>
+            </template>
+            <div v-else-if="shareGoing === false" class="rounded-2xl border border-border bg-card px-4 py-3 space-y-2 font-sans" data-meet-show>
+              <p class="inline-flex items-center gap-1.5 font-bold text-foreground">
+                <Users class="size-4" aria-hidden="true" /> Meet who’s going
+              </p>
+              <p class="text-sm text-muted-foreground">
+                Dancers going to this {{ kind }} can’t see you yet. Show yourself and you’ll meet them in Meet new friends; you can hide again any time.
+              </p>
+              <Button type="button" variant="cta" size="pill-sm" :disabled="shareBusy" @click="setShareGoing(true)">
+                <Check aria-hidden="true" /> Show me
+              </Button>
+            </div>
+          </div>
+        </template>
       </FestivalHero>
     </div>
 
@@ -1324,31 +1348,10 @@ useHead({
           </ul>
         </section>
 
-        <!-- Meeting people: the same flow as any event (RAZ-1008, RAZ-981). Once it's on your plan
-             (or you have a pass) you're in Meet new friends with everyone else going. -->
-        <section v-if="!rsvp && (inPlan || hasTicket)" id="meet" aria-label="Meet who’s going">
-          <template v-if="shareGoing">
-            <EventMeetPrompt :event-id="data.eventId" surface="festival" />
-            <Button type="button" variant="link" size="sm" class="mt-1 h-auto p-0 text-xs font-sans text-muted-foreground" :disabled="shareBusy" data-meet-hide @click="setShareGoing(false)">
-              Hide me from dancers going
-            </Button>
-          </template>
-          <div v-else-if="shareGoing === false" class="rounded-2xl border border-border bg-card px-4 py-3 space-y-2 font-sans" data-meet-show>
-            <p class="inline-flex items-center gap-1.5 font-bold text-foreground">
-              <Users class="size-4" aria-hidden="true" /> Meet who’s going
-            </p>
-            <p class="text-sm text-muted-foreground">
-              Dancers going to this {{ kind }} can’t see you yet. Show yourself and you’ll meet them in Meet new friends; you can hide again any time.
-            </p>
-            <Button type="button" variant="cta" size="pill-sm" :disabled="shareBusy" @click="setShareGoing(true)">
-              <Check aria-hidden="true" /> Show me
-            </Button>
-          </div>
-          <!-- Verified ticket holders: the TicketTailor claim flow exists for Charanga only (/charanga/claim). -->
-          <div v-if="festival.slug === 'charanga-habanera-munich-2026'" class="mt-6">
-            <h3 class="mb-3 text-lg font-bold font-display">Verified attendees</h3>
-            <AttendeeRoster :festival-slug="festival.slug" />
-          </div>
+        <!-- Verified ticket holders: the TicketTailor claim flow exists for Charanga only (/charanga/claim). -->
+        <section v-if="festival.slug === 'charanga-habanera-munich-2026' && (inPlan || hasTicket)" aria-labelledby="verified-title">
+          <h3 id="verified-title" class="mb-3 text-lg font-bold font-display">Verified attendees</h3>
+          <AttendeeRoster :festival-slug="festival.slug" />
         </section>
         </template>
 
