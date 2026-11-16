@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { chosenPass, passCoverage, fullNameOk, noPassForRole, passFor, passesFor, signupNeedsPhone, passPriceLabel, passTotal, peopleFor, phoneOk, pricedPasses, signupCta, signupSteps } from './eventSignup'
+import { chosenPass, passCoverage, fullNameOk, noPassForRole, passFor, passesFor, signupNeedsPhone, passPriceLabel, passTotal, peopleFor, phoneOk, pricedPasses, signupCta, signupState, signupSteps } from './eventSignup'
 
 const drop = { name: 'This class', price: 10, days: [], couplePrice: 18 }
 const course = { name: 'Whole course', price: 60, days: [], couplePrice: 110 }
@@ -131,5 +131,19 @@ describe('passCoverage: what a pass covers, read from its words when unset', () 
   })
   it('leaves a plain pass unknown', () => {
     expect(cov('This class')).toEqual([undefined, undefined])
+  })
+})
+
+describe('signupState: the closed sign-up shows one thing', () => {
+  it('no answer → the button', () => {
+    expect(signupState(null)).toBe('book')
+  })
+  it('cancelled ("next") is the button, even on a confirmed row — never "Spot booked" beside it', () => {
+    expect(signupState({ answer: 'next', confirmed: true })).toBe('book')
+    expect(signupState({ answer: 'next', confirmed: false })).toBe('book')
+  })
+  it('confirmed → booked; not yet confirmed → the link was sent', () => {
+    expect(signupState({ answer: 'needLeader', confirmed: true })).toBe('booked')
+    expect(signupState({ answer: 'partner', confirmed: false })).toBe('sent')
   })
 })
