@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { sizedImage, IMG } from '#shared/utils/image'
+import { heroTagline } from '#shared/utils/heroTagline'
 /**
  * /events/<name>-<short id> (old /events/<id> links redirect here) — a single event, rendered through the SAME rich view as a
  * festival (an event is just a smaller festival). It reuses FestivalHero and the
  * festival section language; sections appear only when the event has that
  * content, so an event can grow into a full festival-grade page over time.
  */
-import { Check, ArrowLeft, MapPin, Globe, User, Euro, Pencil, ExternalLink, EyeOff } from 'lucide-vue-next'
+import { Check, ArrowLeft, Globe, User, Euro, Pencil, EyeOff } from 'lucide-vue-next'
 import { findMockEvent, festivalSessionEvent } from '~/lib/mockEvents'
 import { formatEventWhen, eventLocalDate } from '#shared/utils/eventTime'
 import { Button } from '~/components/ui/button'
@@ -223,19 +223,24 @@ const asFestival = computed(() => ({
   startDate: ev.value.startDate || ev.value.eventDate,
   endDate: ev.value.endDate || ev.value.eventDate,
   timezone: ev.value.timezone || null,
-  venue: { name: [ev.value.spaceName, ev.value.venueName].filter(Boolean).join(' · ') },
+  venue: { name: [ev.value.spaceName, ev.value.venueName].filter(Boolean).join(' · '), ...(ev.value.venueHandle ? { handle: ev.value.venueHandle } : {}) },
   attendeeCount: rsvpPoll.value ? rsvpPoll.value.coming : liveGoingCount.value,
   socialLinks: [] as any[],
   ticketUrl: ev.value.ticketUrl || undefined,
   tickets: [] as any[],
 })) as any
 
+// "Lionsnight presents" in the hero (RAZ-1008): the organiser, then the co-organisers.
+const heroPresenters = computed(() => [
+  ...(ev.value?.organizerName ? [{ username: ev.value.organizerHandle || null, name: ev.value.organizerName }] : []),
+  ...(ev.value?.coOrganizers ?? []).map((c: any) => ({ username: c.username, name: c.name })),
+])
+
 // Which sections have content (so nav + page grow with the event).
 const sections = computed(() => {
   const s: { id: string; label: string }[] = []
-  if (ev.value?.message || ev.value?.cover || ev.value?.link || ev.value?.price || ev.value?.agenda?.length) s.push({ id: 'about', label: 'About' })
+  if (ev.value?.message || ev.value?.link || ev.value?.price || ev.value?.agenda?.length) s.push({ id: 'about', label: 'About' })
   if (ev.value?.artists?.length) s.push({ id: 'lineup', label: 'Lineup' })
-  s.push({ id: 'venue', label: 'Venue' })
   s.push({ id: 'reviews', label: 'Reviews' })
   return s
 })
@@ -298,7 +303,7 @@ useHead(() => ({
       </div>
 
       <!-- Same hero as festivals -->
-      <FestivalHero :festival="asFestival" review-target-type="event" entity-label="event" cta-anchor="#rsvp" cta-fallback-label="I'm going" :hide-going="ev.pollable && !ev.archived && !isPreview && !ev.cancelled" :picked="picked" :cancelled="ev.cancelled ? { reason: ev.cancelReason } : null" :date-label="ev.when" :venue-address="ev.venueAddress" :map-url="ev.mapUrl" @pick="onPick">
+      <FestivalHero :festival="asFestival" :image="ev.cover" :presenters="heroPresenters" :description="ev.message" review-target-type="event" entity-label="event" cta-anchor="#rsvp" cta-fallback-label="I'm going" :picked="picked" :cancelled="ev.cancelled ? { reason: ev.cancelReason } : null" :date-label="ev.when" :venue-address="ev.venueAddress" :map-url="ev.mapUrl" @pick="onPick">
         <!-- The RSVP: the organiser's poll IS the hero's Going question (RAZ-731). -->
         <template v-if="ev.pollable && !ev.archived && !isPreview && !ev.cancelled" #cta>
           <div id="rsvp" class="mt-4 max-w-xl scroll-mt-16">
@@ -325,9 +330,8 @@ useHead(() => ({
 
       <div class="max-w-3xl mx-auto px-4 space-y-14 pt-8 pb-20 font-sans">
         <!-- About -->
-        <section v-if="ev.message || ev.cover || ev.link || ev.price || ev.agenda?.length || ev.coOrganizers?.length" id="about" class="scroll-mt-16">
+        <section v-if="(ev.message && !heroTagline(ev.message)) || ev.link || ev.price || ev.agenda?.length || ev.coOrganizers?.length" id="about" class="scroll-mt-16">
           <h2 class="text-2xl font-black leading-tight mb-3 font-display text-foreground">About</h2>
-          <img v-if="ev.cover" :src="sizedImage(ev.cover, IMG.hero)" :alt="ev.title" class="w-full max-h-[28rem] object-contain rounded-2xl mb-4 bg-wd-brown-900/[3.9%]" loading="lazy">
           <div class="flex flex-wrap items-center gap-2 mb-4">
             <span v-if="ev.eventType" class="text-eyebrow font-black uppercase tracking-widest px-2 py-1 rounded bg-secondary/[9.4%] text-secondary">{{ ev.eventType }}</span>
             <DanceStyleChips :styles="ev.styles || []" size="md" class="gap-2" />
@@ -354,7 +358,9 @@ useHead(() => ({
               <li v-for="(a, i) in ev.agenda" :key="i"><span class="font-bold tabular-nums">{{ a.time }}</span> {{ a.what }}</li>
             </ul>
           </div>
-          <p v-if="ev.message" class="text-sm leading-relaxed whitespace-pre-line break-words text-muted-foreground">{{ ev.message }}</p>
+          <!-- The description lives in the hero (RAZ-1008); About keeps it only when the hero has
+               nothing to show (a synced event's import notice and source link). -->
+          <p v-if="ev.message && !heroTagline(ev.message)" class="text-sm leading-relaxed whitespace-pre-line break-words text-muted-foreground">{{ ev.message }}</p>
         </section>
 
         <!-- Lineup -->
@@ -368,19 +374,8 @@ useHead(() => ({
           </div>
         </section>
 
-        <!-- Venue (Pick lives in the hero now) -->
-        <section id="venue" class="scroll-mt-16">
-          <h2 class="text-2xl font-black leading-tight mb-2 font-display text-foreground">Venue</h2>
-          <NuxtLink v-if="ev.venueHandle" :to="`/@${ev.venueHandle}`" class="inline-flex items-center gap-2 text-sm font-bold hover:underline text-foreground">
-            <MapPin class="w-4 h-4 text-secondary" /> <span>{{ ev.venueName }}<template v-if="ev.venueCity">, {{ ev.venueCity }}</template></span>
-          </NuxtLink>
-          <span v-else-if="ev.venueName" class="inline-flex items-center gap-2 text-sm font-bold text-foreground">
-            <MapPin class="w-4 h-4 text-secondary" /> <span>{{ ev.venueName }}<template v-if="ev.venueCity">, {{ ev.venueCity }}</template></span>
-          </span>
-          <a v-if="ev.venueAddress && ev.mapUrl" :href="ev.mapUrl" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 mt-1 text-xs hover:underline" :style="{ color: ink(accent) }">{{ ev.venueAddress }} <ExternalLink class="w-3 h-3 shrink-0" /></a>
-          <p v-else-if="ev.venueAddress" class="mt-1 text-xs text-secondary">{{ ev.venueAddress }}</p>
-          <p v-if="ev.citySlug" class="mt-3 text-xs"><NuxtLink :to="`/cities/${ev.citySlug}`" class="font-bold hover:underline text-secondary">More dancing in {{ ev.venueCity }} →</NuxtLink></p>
-        </section>
+        <!-- The venue is in the hero (RAZ-1008); only the way to more nights in the city stays. -->
+        <p v-if="ev.citySlug" class="text-sm"><NuxtLink :to="`/cities/${ev.citySlug}`" class="font-bold hover:underline text-secondary">More dancing in {{ ev.venueCity }} →</NuxtLink></p>
 
         <!-- Reviews (same component as venues/festivals) -->
         <section id="reviews" class="scroll-mt-16">

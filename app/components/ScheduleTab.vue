@@ -9,7 +9,7 @@
 import type { Workshop, Teacher } from '~/types/festival'
 import { MapPin, Music, Users, Check, Plus, Sparkles, MicVocal, DoorOpen, CalendarClock } from 'lucide-vue-next'
 import type { Component } from 'vue'
-import { SESSION_TYPE_LABEL, isWorkshop, sessionTimeRange, sessionType } from '#shared/utils/programme'
+import { SESSION_TYPE_LABEL, isWorkshop, sessionTimeRange, sessionType, stylesOf } from '#shared/utils/programme'
 import { chilis } from '~/lib/levels'
 import { WD } from '~/lib/brand'
 import { accentText, readableAccent } from '~/lib/accent'
@@ -54,7 +54,14 @@ const dayLabels = computed(() => {
 const selectedStyle = ref<string | null>(null)
 const selectedLevel = ref<string | null>(null)
 
-const levels = ['Beginner', 'Intermediate', 'Advanced']
+const LEVELS = ['Beginner', 'Intermediate', 'Advanced']
+// Filters come from the classes themselves (RAZ-1008): each style once ("A, B" counts as both),
+// never an empty one, only the levels a class has; a row with one choice filters nothing, so it's hidden.
+const classes = computed(() => props.workshops.filter(w => isWorkshop(w.type)))
+const styleChips = computed(() => [...new Set(classes.value.flatMap(w => stylesOf(w.style)))])
+const levels = computed(() => LEVELS.filter(l => classes.value.some(w => w.level === l)))
+const showStyles = computed(() => styleChips.value.length > 1)
+const showLevels = computed(() => levels.value.length > 1)
 
 function styleAccent(style: string): string {
   const map: Record<string, string> = {
@@ -77,7 +84,7 @@ function filteredForDay(day: string) {
       if (w.day !== day) return false
       if (!isWorkshop(w.type)) return false
       if (props.selectedTeacherId && w.teacherId !== props.selectedTeacherId && !w.withIds?.includes(props.selectedTeacherId)) return false
-      if (selectedStyle.value && w.style !== selectedStyle.value) return false
+      if (selectedStyle.value && !stylesOf(w.style).includes(selectedStyle.value)) return false
       if (selectedLevel.value && w.level !== selectedLevel.value) return false
       return true
     })
@@ -98,7 +105,7 @@ const iconOf = (w: Workshop) => TYPE_ICON[sessionType(w.type)] ?? CalendarClock
 const labelOf = (w: Workshop) => SESSION_TYPE_LABEL[sessionType(w.type)]
 const isDoors = (w: Workshop) => w.type === 'doors'
 // Style and level filters only apply to classes: no classes, no filter bar.
-const hasWorkshops = computed(() => props.workshops.some(w => isWorkshop(w.type)))
+const hasWorkshops = computed(() => classes.value.length > 0 && (showStyles.value || showLevels.value))
 
 function teacherFor(workshop: Workshop): Teacher | undefined {
   const main = props.teachers.find((t) => t.id === workshop.teacherId)
@@ -127,9 +134,9 @@ const levelColor: Record<string, string> = {
     <!-- Filters — V3 warm palette -->
     <div v-if="hasWorkshops" class="rounded-2xl bg-card border border-border p-4 sm:p-5">
       <div class="text-eyebrow uppercase tracking-[0.3em] font-bold mb-2 text-secondary">Filter</div>
-      <div class="flex flex-wrap gap-2 mb-3">
+      <div v-if="showStyles" class="flex flex-wrap gap-2" :class="showLevels ? 'mb-3' : ''">
         <Button
-          v-for="style in styles"
+          v-for="style in styleChips"
           :key="style"
           type="button"
           :variant="selectedStyle === style ? 'pill' : 'outline-pill'"
@@ -142,7 +149,7 @@ const levelColor: Record<string, string> = {
           {{ style }}
         </Button>
       </div>
-      <div class="flex flex-wrap gap-2">
+      <div v-if="showLevels" class="flex flex-wrap gap-2">
         <Button
           v-for="level in levels"
           :key="level"

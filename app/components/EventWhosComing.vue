@@ -53,9 +53,11 @@ const showSignIn = ref(false)
 </script>
 
 <template>
-  <section v-if="poll.coming || poll.mine" class="font-sans" aria-labelledby="whos-coming-title" data-whos-coming>
+  <!-- The count itself is the hero's "N going" chip, the same on every event page (RAZ-1008);
+       this section is the faces and the breakdown, so it only shows once someone is coming. -->
+  <section v-if="poll.coming > 0" class="font-sans" aria-labelledby="whos-coming-title" data-whos-coming>
     <h2 id="whos-coming-title" class="font-display text-2xl font-black text-foreground">
-      Who’s coming <span class="font-hand text-secondary text-lg">— {{ poll.coming.toLocaleString('en') }}</span>
+      Who’s coming
     </h2>
     <p v-if="breakdown" class="mt-1 text-sm text-muted-foreground">{{ breakdown }}</p>
 

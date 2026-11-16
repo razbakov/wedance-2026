@@ -35,6 +35,8 @@ export interface Festival {
 export interface Venue {
   name: string
   address: string
+  /** The venue's WeDance page (/@handle), when it has one. */
+  handle?: string
   coordinates?: { lat: number; lng: number }
   practicalInfo: string[]
 }

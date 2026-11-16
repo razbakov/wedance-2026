@@ -484,6 +484,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `city_viewed` | `pages/cities/[city]/index.vue` (once per mount) | `city`, `style` |
 | `event_viewed` | `pages/events/[id].vue` (non-festival, once per mount) | `event_id`, `city`, `style`, `event_type`, `synced`, `is_festival` |
 | `festival_viewed` | `pages/events/[id].vue` (festival) | same as `event_viewed` |
+| `event_tab_opened` | `FestivalView` (an event with sessions or a festival): Overview / Lineup / Schedule / Passes tabs (RAZ-1008; `?tab=`) | `tab`, `via` (nav / summary = a "What's inside" card / hero = Get pass / link), `event_id`, `is_festival` |
 | `filter_used` | city page style chip | `surface`, `city`, `filter_keys`, `style` |
 | `search_used` | `/festivals`, `/artists`, `/gigs` (`useTrackSearch`, debounced) | `surface`, `query_length`, `filter_keys`, `results` |
 | `week_plan_add` / `week_plan_remove` | `useWeekPlan` (Going! toggle), `my-plan` enroll / course X | `event_id`, `week_count` or `source`; add: `event_type`, `city`, `surface` |
@@ -496,7 +497,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `goal_added` | `useGoals.addGoal` | `style` |
 | `follow` / `unfollow` | `/@handle`, `PromoterProfile` (profiles); `FestivalView` shared plan (dancer) | `target`, `profile`, `profile_type`, `surface` |
 | `whos_going_profile_opened` | `GoingSection` face tap | `item_type`, `item_id` |
-| `going_visibility_changed` | `GoingSection` share toggle | `share`, `item_type`, `item_id` |
+| `going_visibility_changed` | `GoingSection` share toggle · festival Overview "Show me" / "Hide me" (RAZ-1008, `surface: festival_overview`) | `share`, `item_type`, `item_id` |
 | `wave_sent` / `wave_retracted` | `GoingSection`, `DiscoverDancers`, `EventWhosComing` pairing (sent only) | `festival`, `surface` |
 | `rsvp_answered` | `EventSignup` "Cancel my spot" → confirm (answer `next`, RAZ-1003; was "I can’t come after all"; signing up is `event_signed_up` since RAZ-995) | `answer` (partner / needLeader / needFollower / yes / next), `signed_in`, `surface`, `event_id` |
 | `rsvp_contact_shared` | (retired in RAZ-995: the sign-up's "Also tell me about next events" replaced "Let <page> keep in touch"; `rsvp.shareContact` stays for MCP) | `share`, `has_phone`, `surface`, `event_id` |
