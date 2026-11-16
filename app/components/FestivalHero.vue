@@ -229,7 +229,7 @@ const rays = Array.from({ length: 24 }, (_, i) => {
 
           <!-- The one "am I coming?" control (RAZ-731). The parent can replace it
                (a dated event's poll, a festival's Get pass); the default is
-               external tickets when linked, else I'm going (add to plan). -->
+               external tickets when linked, else + My plan (add to plan). -->
           <!-- A replaced control (the poll) takes the full width on phones,
                under the logo too: logo w-20 + gap-5 = 6.25rem. -->
           <div v-if="cancelled" class="mt-4 flex flex-wrap gap-2">
@@ -237,7 +237,7 @@ const rays = Array.from({ length: 24 }, (_, i) => {
               v-if="picked"
               type="button"
               variant="outline-pill"
-              class="px-5"
+              class="px-5 font-sans"
               data-testid="event-cancelled-remove"
               @click="$emit('pick')"
             >
@@ -263,11 +263,11 @@ const rays = Array.from({ length: 24 }, (_, i) => {
               type="button"
               :variant="picked ? 'pill' : 'outline-pill'"
               :accent="buttonAccent"
-              class="px-5"
+              class="px-5 font-sans"
               :aria-pressed="picked"
               @click="$emit('pick')"
             >
-              <component :is="picked ? Check : Plus" aria-hidden="true" /> {{ picked ? 'You’re going' : 'I’m going' }}
+              <component :is="picked ? Check : Plus" aria-hidden="true" /> My plan
             </Button>
           </div>
         </div>

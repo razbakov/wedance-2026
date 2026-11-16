@@ -13,6 +13,7 @@
 import { and, asc, eq, gte, inArray, isNotNull, isNull, lt, ne, notInArray, or, sql } from 'drizzle-orm'
 import { cities, dancers, discoverSwipes, eventRsvps, events, festivals, follows, planItems } from '../database/schema'
 import { relatedDanceStyles } from '../../shared/dance-styles'
+import { signupPrice } from '../../shared/utils/eventSignup'
 
 type Db = any
 
@@ -111,6 +112,12 @@ export type WeekSocial = {
   venueName: string
   city: string
   friendsGoing: number
+  /** Signed up on the event page (RAZ-1003): taking it off the plan means "Cancel my spot" there. */
+  signedUp: boolean
+  /** The event page takes a sign-up (any dated event but a festival): "Sign up →" until signed up. */
+  takesSignup: boolean
+  /** What signing up costs ("€10", "from €8"); null = free. */
+  price: string | null
 }
 
 type WeekRow = { id: string; seriesId: string | null; startDate: Date | string | null }
@@ -200,6 +207,8 @@ export async function weekSocials(
       timezone: events.timezone,
       venueName: events.venueName,
       city: events.city,
+      isFestival: events.isFestival,
+      festival: events.festival,
     })
     .from(events)
     .where(and(
@@ -220,6 +229,7 @@ export async function weekSocials(
   // The plan badge only needs the rows, not who else is going.
   const friendIds = opts.friends === false ? [] : await friendIdsOf(db, dancerId)
   const counts = await friendsGoingCounts(db, friendIds, 'event', picks.map(p => p.eventId))
+  const mine = await signedUpEventIds(db, dancerId, picks.map(p => p.eventId))
 
   const socials: WeekSocial[] = picks
     .map(({ eventId, planItemId }) => {
@@ -236,11 +246,22 @@ export async function weekSocials(
         venueName: r.venueName ?? '',
         city: r.city ?? '',
         friendsGoing: counts.get(eventId) ?? 0,
+        signedUp: mine.has(eventId),
+        takesSignup: !r.isFestival,
+        price: signupPrice(r.festival?.tickets),
       }
     })
     .sort((a, b) => a.startDate.localeCompare(b.startDate))
 
   return { socials, citySlug }
+}
+
+/** Of `eventIds`, the ones this dancer signed up for (an answer other than "next"). */
+export async function signedUpEventIds(db: Db, dancerId: string, eventIds: string[]): Promise<Set<string>> {
+  if (!eventIds.length) return new Set()
+  const rows = await db.select({ eventId: eventRsvps.eventId }).from(eventRsvps)
+    .where(and(eq(eventRsvps.dancerId, dancerId), inArray(eventRsvps.eventId, eventIds), ne(eventRsvps.answer, 'next')))
+  return new Set(rows.map((r: any) => r.eventId))
 }
 
 // ---------------------------------------------------------------------------
@@ -267,6 +288,10 @@ export type MyCourse = {
   venueName: string
   organizerName: string
   organizerUsername: string | null
+  /** Signed up on the event page (RAZ-1003). */
+  signedUp: boolean
+  /** What signing up costs ("€10", "from €8"); null = free. */
+  price: string | null
 }
 
 /**
@@ -298,6 +323,7 @@ export async function myCourses(db: Db, dancerId: string, now = new Date()): Pro
   const cols = {
     id: events.id, seriesId: events.seriesId, name: events.name, styles: events.styles, startDate: events.startDate,
     timezone: events.timezone, venueName: events.venueName, organizerName: events.organizerName, organizerUsername: events.organizerUsername,
+    festival: events.festival,
   }
   const upcoming = await db
     .select(cols)
@@ -329,9 +355,13 @@ export async function myCourses(db: Db, dancerId: string, now = new Date()): Pro
       venueName: next.venueName ?? '',
       organizerName: next.organizerName ?? '',
       organizerUsername: next.organizerUsername ?? null,
+      signedUp: false,
+      price: signupPrice((next.festival as any)?.tickets),
     })
   }
   courses.sort((a, b) => a.startDate.localeCompare(b.startDate))
+  const mine = await signedUpEventIds(db, dancerId, courses.map(c => c.eventId))
+  for (const c of courses) c.signedUp = mine.has(c.eventId)
   return { courses }
 }
 

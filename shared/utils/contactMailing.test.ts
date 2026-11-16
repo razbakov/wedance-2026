@@ -49,13 +49,13 @@ describe('rendering', () => {
     expect(renderMailingHtml(c, { name: null })).not.toContain('unsubscribe?id')
   })
 
-  it('shows the event card with an "I’m coming" link', () => {
+  it('shows the event card with a "Book my spot" link', () => {
     const event = { name: 'Casino Night', when: 'Sun, Nov 15, 2026 · 20:00', place: 'Rote Sonne', cover: null, url: 'https://x/events/casino-1' }
     const html = renderMailingHtml({ ...c, event }, { name: 'Rita' })
     expect(html).toContain('Casino Night')
     expect(html).toContain('Rote Sonne')
     expect(html).toContain('href="https://x/events/casino-1"')
-    expect(renderMailingText({ ...c, event }, { name: 'Rita', unsubscribeUrl: 'https://u' })).toContain('I’m coming: https://x/events/casino-1')
+    expect(renderMailingText({ ...c, event }, { name: 'Rita', unsubscribeUrl: 'https://u' })).toContain('Book my spot: https://x/events/casino-1')
   })
 
   it('writes an invite from the event', () => {

@@ -61,12 +61,20 @@ export function chosenPass(passes: readonly FestivalPass[], name: string | null 
   return priced.length === 1 ? priced[0]! : null
 }
 
-/** The button: "Sign up · €10", "Sign up · from €18", "I'm coming". */
+/** The button, always "Book my spot" (RAZ-1003; pairs with "Cancel my spot"): "Book my spot · €10", "… · from €18". */
 export function signupCta(passes: readonly FestivalPass[]): string {
   const priced = pricedPasses(passes)
-  if (!priced.length) return 'I’m coming'
+  if (!priced.length) return 'Book my spot'
   const min = Math.min(...priced.map(p => Number(p.price)))
-  return priced.length > 1 ? `Sign up · from €${min}` : `Sign up · €${min}`
+  return priced.length > 1 ? `Book my spot · from €${min}` : `Book my spot · €${min}`
+}
+
+/** The price a sign-up costs, for a link elsewhere ("Book · €10 →" on My plan, RAZ-1003); null = free. */
+export function signupPrice(passes: readonly FestivalPass[] | null | undefined): string | null {
+  const priced = pricedPasses(passes ?? [])
+  if (!priced.length) return null
+  const min = Math.min(...priced.map(p => Number(p.price)))
+  return priced.length > 1 ? `from €${min}` : `€${min}`
 }
 
 /** Event types that are classes (the organiser runs a group, sends changes). */

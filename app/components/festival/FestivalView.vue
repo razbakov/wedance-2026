@@ -2,7 +2,7 @@
 import { CLASS_EVENT_TYPES } from '#shared/utils/eventSignup'
 import { sizedImage, IMG } from '#shared/utils/image'
 import type { Festival, Teacher, Workshop, PlanEntry, DanceRole, DancePartner, ExtraActivity, SwipeCard, FreemiumState } from '~/types/festival'
-import { ArrowRight, Sparkles, Check, Pencil, Ticket, Share2 } from 'lucide-vue-next'
+import { ArrowRight, Sparkles, Check, Plus, Pencil, Ticket, Share2 } from 'lucide-vue-next'
 import { isWorkshop, isEveningItem } from '#shared/utils/programme'
 import { Button } from '~/components/ui/button'
 import { artistPlaces, artistLanguages } from '~/data/artists'
@@ -65,7 +65,7 @@ const sellsPasses = computed(() => (festival.tickets?.length ?? 0) > 0 && !freeE
 // one by one (RAZ-995). A festival, or a day of several workshops, keeps Save on each session.
 const hideSessionSave = computed(() => !!props.rsvp && (workshops.length <= 1 || (CLASS_EVENT_TYPES as readonly string[]).includes(String(props.type ?? '').toLowerCase())))
 
-// The sign-up (RAZ-995) answers "Going?" for a dated event, in the hero; Who's coming sits under it.
+// The sign-up (RAZ-995) answers "am I coming?" for a dated event, in the hero; Who's coming sits under it.
 const rsvpPoll = ref<any | null>(null)
 function onPoll(p: any) { rsvpPoll.value = p }
 const heroPicked = computed(() => rsvpPoll.value
@@ -270,7 +270,21 @@ function toggleWorkshop(id: string) {
     plan.value = next
   } else {
     const workshop = workshops.find((w) => w.id === id)
-    if (workshop && !isWorkshop(workshop.type)) {
+    if (workshop && props.rsvp) {
+      // An event with "Book my spot" (RAZ-1003): the booking asks how you come — lead,
+      // follow, with a partner — so "+ My plan" on a session just adds it. Booked
+      // already? Its answer carries over.
+      const a = rsvpPoll.value?.mine?.answer
+      const booked = a && a !== 'next'
+      next.set(id, {
+        workshopId: id,
+        role: a === 'needLeader' ? 'follow' : a === 'needFollower' ? 'lead' : null,
+        partnerStatus: !booked ? 'solo' : a === 'partner' ? 'with-partner' : a === 'yes' ? 'solo' : 'looking',
+      })
+      persistWorkshopAdd(id)
+      trackWorkshop('add', id, next.get(id)!.partnerStatus)
+      plan.value = next
+    } else if (workshop && !isWorkshop(workshop.type)) {
       // Parties, shows, concerts don't need role/partner — add directly
       next.set(id, { workshopId: id, role: null, partnerStatus: 'solo' })
       persistWorkshopAdd(id)
@@ -1155,7 +1169,15 @@ useHead({
               :event-id="rsvp.eventId" :path="rsvp.path" :start-date="rsvp.startDate" :end-date="rsvp.endDate" :timezone="rsvp.timezone" :organizer-name="rsvp.organizerName"
               :passes="festival.tickets" :pay-at-door="festival.payAtDoor" :pass-key="festival.slug" :has-ticket="hasTicket" :event-type="type"
               surface="event" @poll="onPoll"
-            />
+            >
+              <!-- Planning isn't signing up (RAZ-1003): "+ My plan" keeps it to decide later.
+                   Once you're in, the sign-up shows "On My plan" as a status instead. -->
+              <template #beside>
+                <Button type="button" :variant="inPlan ? 'pill' : 'outline-pill'" class="px-5 font-sans" :aria-pressed="inPlan" data-hero-my-plan @click="onPick">
+                  <component :is="inPlan ? Check : Plus" aria-hidden="true" /> My plan
+                </Button>
+              </template>
+            </EventSignup>
           </div>
         </template>
         <!-- A festival that sells passes: the pass is the Going. -->
@@ -1166,6 +1188,9 @@ useHead({
             </Button>
             <Button v-else type="button" variant="cta" class="px-5" data-hero-get-pass @click="scrollTo('tickets')">
               <Ticket aria-hidden="true" /> Get pass
+            </Button>
+            <Button type="button" :variant="inPlan ? 'pill' : 'outline-pill'" class="px-5 font-sans" :aria-pressed="inPlan" data-hero-my-plan @click="onPick">
+              <component :is="inPlan ? Check : Plus" aria-hidden="true" /> My plan
             </Button>
           </div>
         </template>

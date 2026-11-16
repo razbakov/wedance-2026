@@ -8,7 +8,7 @@
  *   ③ Pay                   now (Stripe), or at the door when the organiser allows it
  *   ④ Your contact          signed out: name, email, phone · signed in: a review card
  *
- * A finished step folds to one line with "Change"; afterwards the hero shows one line, "You're in · …".
+ * A finished step folds to one line with "Change"; afterwards the hero shows one line, "Spot booked · …".
  * The organiser gets name, email and phone for this event; "Also tell me about next ones" is a separate,
  * unticked opt-in. Signed out, the sign-up is saved unconfirmed and a magic link confirms it (and, for
  * "Pay now", comes back with ?pay=now to continue to checkout). Rules: shared/utils/eventSignup.ts;
@@ -100,6 +100,7 @@ const phoneKnown = computed(() => isSignedIn.value && !!me.value?.phone && !edit
 const phonePlaceholder = computed(() => (needsPhone.value ? 'Phone / WhatsApp' : 'Phone / WhatsApp (optional)'))
 
 function start() {
+  justCancelled.value = false
   const s = mine.value?.signup
   answer.value = coming.value ? mine.value!.answer : null
   passName.value = s?.pass ?? null
@@ -207,11 +208,29 @@ async function checkout(name: string, n: 1 | 2) {
   } finally { busy.value = false }
 }
 
-// "I can't come after all" — the poll's "next".
+// "Cancel my spot" (after its confirm) — the poll's "next".
+// "Cancel my spot" (RAZ-1003): one confirm that says what happens — the spot goes,
+// the organiser sees it, it leaves your plan, a paid pass isn't refunded by us.
+const confirmCancel = ref(false)
+const justCancelled = ref(false)
+const cancelNote = computed(() => {
+  const s = saved.value
+  if (!s) return []
+  const lines: string[] = []
+  if (s.pass && props.hasTicket && mine.value?.signup.pay !== 'door') lines.push(`You paid €${s.price}. Refunds are up to ${org.value}: ask them before you cancel.`)
+  else if (s.pass && mine.value?.signup.pay === 'door') lines.push(`You were paying €${s.price} at the door, so there’s nothing to refund.`)
+  else if (s.unpaid) lines.push('Your payment isn’t finished, so nothing was charged.')
+  if (s.people === 2) lines.push('This cancels both of you.')
+  lines.push(`${org.value} sees you’re not coming, your spot opens up, and the night comes off your plan.`)
+  return lines
+})
+
 async function cantCome() {
   busy.value = true
   try {
     setPoll(await $trpc.rsvp.answer.mutate({ event: props.eventId, answer: 'next', guestToken: guestToken() }))
+    confirmCancel.value = false
+    justCancelled.value = true
     if (isSignedIn.value) useWeekPlan().syncEvent(poll.value!.eventId, false)
     useTrack().track('rsvp_answered', { answer: 'next', signed_in: isSignedIn.value, surface: props.surface, event_id: poll.value?.eventId })
   } catch { error.value = 'Couldn’t save that. Please try again.' } finally { busy.value = false }
@@ -238,24 +257,41 @@ const payLabel = (p: FestivalPass) => passPriceLabel(p, people.value)
   <div v-if="poll && !ended" class="font-sans" data-event-signup>
     <!-- Closed: the one button, or the line that says you're in -->
     <template v-if="!open">
-      <Button v-if="!coming" variant="cta" class="px-6" data-signup-start @click="start">
-        <Ticket aria-hidden="true" /> {{ signupCta(passes) }}
-      </Button>
+      <p v-if="!coming && justCancelled" class="mb-2 text-sm text-muted-foreground" role="status" data-signup-cancelled>Spot cancelled. Changed your mind? Sign up again.</p>
+      <div v-if="!coming" class="flex flex-wrap items-center gap-2">
+        <Button variant="cta" class="px-6" data-signup-start @click="start">
+          <Ticket aria-hidden="true" /> {{ signupCta(passes) }}
+        </Button>
+        <!-- A quieter option next to it, e.g. "+ My plan" (RAZ-1003). -->
+        <slot name="beside" />
+      </div>
 
       <template v-else-if="mine?.confirmed">
       <div class="rounded-2xl border border-success/30 bg-success/10 px-4 py-3 space-y-1" role="status" data-signup-in>
         <p class="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span class="inline-flex items-center gap-1.5 font-bold text-wd-green-700"><Check class="size-4" aria-hidden="true" /> You’re in<template v-if="saved?.parts"> · {{ saved.parts }}</template></span>
-          <Button type="button" variant="link" size="sm" class="ml-auto h-auto p-0" data-signup-change @click="start">Change</Button>
+          <span class="inline-flex items-center gap-1.5 font-bold text-wd-green-700"><Check class="size-4" aria-hidden="true" /> Spot booked<template v-if="saved?.parts"> · {{ saved.parts }}</template></span>
+          <span v-if="!confirmCancel" class="ml-auto inline-flex items-center gap-4">
+            <Button type="button" variant="link" size="sm" class="h-auto p-0" data-signup-change @click="start">Change</Button>
+            <Button type="button" variant="link" size="sm" class="h-auto p-0 text-muted-foreground" data-signup-cancel @click="confirmCancel = true">Cancel my spot</Button>
+          </span>
         </p>
         <p v-if="saved?.unpaid" class="flex flex-wrap items-center gap-2 text-sm">
           <span class="text-muted-foreground">Payment not finished.</span>
           <Button type="button" variant="cta" size="pill-sm" :loading="busy" data-signup-pay @click="checkout(saved.pass!.name, saved.people)">Pay €{{ saved.price }} <ArrowRight aria-hidden="true" /></Button>
         </p>
-        <p class="text-xs text-muted-foreground">
+        <p v-if="!confirmCancel" class="text-xs text-muted-foreground">
           {{ org }} has your {{ mine?.signup.phone ? 'name, email and phone' : 'name and email' }} for this event.
-          <Button type="button" variant="link" size="sm" class="h-auto p-0 text-xs" :disabled="busy" data-signup-cant @click="cantCome">I can’t come after all</Button>
+          <!-- Signed up = on your plan (RAZ-1003): a status, not a switch. -->
+          <NuxtLink v-if="isSignedIn" to="/my-plan" class="ml-1 inline-flex items-center gap-1 font-bold text-wd-green-700 hover:underline" data-signup-on-plan><Check class="size-3" aria-hidden="true" /> On My plan</NuxtLink>
         </p>
+        <div v-else class="mt-2 rounded-xl bg-white/70 border border-border px-3 py-3 space-y-2" role="alertdialog" aria-labelledby="cancel-spot-title" data-signup-cancel-confirm>
+          <p id="cancel-spot-title" class="font-bold text-foreground">Cancel your spot?</p>
+          <p v-for="(l, i) in cancelNote" :key="i" class="text-sm text-muted-foreground">{{ l }}</p>
+          <div class="flex flex-wrap items-center gap-3 pt-1">
+            <Button type="button" variant="outline-pill" size="pill-sm" :loading="busy" data-signup-cant @click="cantCome">Cancel my spot</Button>
+            <Button type="button" variant="link" size="sm" class="h-auto p-0" @click="confirmCancel = false">Keep my spot</Button>
+          </div>
+        </div>
       </div>
       <!-- RAZ-981: signing up is how you get into Meet new friends. -->
       <EventMeetPrompt :answer="mine.answer" :surface="`${surface}_signup`" class="mt-3" />
@@ -275,7 +311,7 @@ const payLabel = (p: FestivalPass) => passPriceLabel(p, people.value)
     <!-- Open: the steps, in place -->
     <div v-else class="max-w-xl rounded-2xl border border-border bg-card shadow-wd-card divide-y divide-border" data-signup-card>
       <div class="px-4 py-3 flex items-center">
-        <p class="font-display text-lg font-black">{{ priced.length ? 'Sign up' : 'I’m coming' }}</p>
+        <p class="font-display text-lg font-black">Book my spot</p>
         <Button type="button" variant="ghost" size="icon-sm" class="ml-auto" aria-label="Close" @click="open = false"><X /></Button>
       </div>
 
@@ -370,7 +406,7 @@ const payLabel = (p: FestivalPass) => passPriceLabel(p, people.value)
               <label class="flex items-start gap-2 text-sm"><Checkbox v-model="keepInTouch" class="mt-0.5" /> <span>Also tell me about {{ org }}’s next events</span></label>
               <p v-if="error" role="alert" class="text-sm font-bold text-primary">{{ error }}</p>
               <Button type="submit" :variant="pay === 'now' ? 'cta' : 'pill'" class="w-full" :loading="busy" data-signup-submit>
-                {{ pay === 'now' && !hasTicket ? `Pay €${total}` : 'Save my spot' }} <ArrowRight aria-hidden="true" />
+                {{ pay === 'now' && !hasTicket ? `Pay €${total}` : 'Book my spot' }} <ArrowRight aria-hidden="true" />
               </Button>
               <p class="text-center text-xs text-muted-foreground">{{ org }} sees your name, email{{ phoneKnown || form.phone ? ' and phone' : '' }} for this event.</p>
             </form>
@@ -405,7 +441,7 @@ const payLabel = (p: FestivalPass) => passPriceLabel(p, people.value)
               <label class="flex items-start gap-2 text-sm"><Checkbox v-model="keepInTouch" class="mt-0.5" /> <span>Also tell me about {{ org }}’s next events</span></label>
               <p v-if="error" role="alert" class="text-sm font-bold text-primary">{{ error }}</p>
               <Button type="submit" :variant="pay === 'now' ? 'cta' : 'pill'" class="w-full" :loading="busy" data-signup-submit>
-                {{ pay === 'now' ? `Continue to payment · €${total}` : 'Save my spot' }} <ArrowRight aria-hidden="true" />
+                {{ pay === 'now' ? `Continue to payment · €${total}` : 'Book my spot' }} <ArrowRight aria-hidden="true" />
               </Button>
             </form>
           </template>

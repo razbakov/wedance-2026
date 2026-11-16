@@ -9,10 +9,12 @@ import { festivalPath } from '../../../shared/utils/eventSlug'
 import { citySlugFor, discoverDeck, festivalPlanSlugs, myCourses, nonFestivalEventId, recordSwipe, removeSwipe, weekSocials } from '../../utils/myPlanFeeds'
 import { eventIdForFestival, recordLinkAction } from '../../utils/trackedLinks'
 import { planCounts } from '../../utils/planCounts'
+import { festivalEventsWhere, toFestivalRow } from '../../utils/festivalListing'
 import { meetMatches } from '../../utils/meetMatches'
 import { meetEmpty } from '../../utils/meetEmpty'
 import { yearReviewFor } from '../../utils/yearReview'
 import { lookBackYear } from '../../../shared/utils/yearReview'
+
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -366,113 +368,27 @@ export const planRouter = router({
    * referral data — the "own view" of the year plan page.
    */
   myPlan: protectedProcedure.query(async ({ ctx }) => {
-    const items = await ctx.db
-      .select({ itemId: planItems.itemId })
+    const all = await ctx.db
+      .select({ itemId: planItems.itemId, itemType: planItems.itemType })
       .from(planItems)
       .where(
         and(
           eq(planItems.dancerId, ctx.dancerId),
-          eq(planItems.itemType, 'festival'),
+          inArray(planItems.itemType, ['festival', 'event']),
         ),
       )
-
-    if (items.length === 0) return []
+    const items = all.filter((i) => i.itemType === 'festival')
+    const eventIds = all.filter((i) => i.itemType === 'event').map((i) => i.itemId)
 
     // Only real festivals (RAZ-983): a workshop saved from its page is not one.
-    const slugs = [...await festivalPlanSlugs(ctx.db, items.map((i) => i.itemId))]
-    if (slugs.length === 0) return []
-
-    const festivalRows = await ctx.db
-      .select({
-        id: festivals.id,
-        slug: festivals.slug,
-        name: festivals.name,
-        startDate: festivals.startDate,
-        endDate: festivals.endDate,
-        city: festivals.city,
-        country: festivals.country,
-        logo: festivals.logo,
-        accentColor: festivals.accentColor,
-        styles: festivals.styles,
-        ticketUrl: festivals.ticketUrl,
-        earlyBirdDeadline: festivals.earlyBirdDeadline,
-        earlyBirdOfferName: festivals.earlyBirdOfferName,
-      })
-      .from(festivals)
-      .where(inArray(festivals.slug, slugs))
-
-    if (festivalRows.length === 0) return []
-
-    // Count workshop selections per festival. Workshop plan items use
-    // itemId = '{festivalSlug}:{workshopId}'.
-    const workshopItems = await ctx.db
-      .select({ itemId: planItems.itemId })
-      .from(planItems)
-      .where(
-        and(
-          eq(planItems.dancerId, ctx.dancerId),
-          eq(planItems.itemType, 'workshop'),
-        ),
-      )
-
-    const workshopCountBySlug = new Map<string, number>()
-    for (const w of workshopItems) {
-      const colonIdx = w.itemId.indexOf(':')
-      if (colonIdx === -1) continue
-      const slug = w.itemId.slice(0, colonIdx)
-      workshopCountBySlug.set(slug, (workshopCountBySlug.get(slug) ?? 0) + 1)
-    }
-
-    const signupRows = await ctx.db
-      .select({
-        festivalId: festivalSignups.festivalId,
-        verifiedTicketHolder: festivalSignups.verifiedTicketHolder,
-      })
-      .from(festivalSignups)
-      .where(
-        and(
-          eq(festivalSignups.dancerId, ctx.dancerId),
-          inArray(
-            festivalSignups.festivalId,
-            festivalRows.map((f) => f.id),
-          ),
-        ),
-      )
-
-    const ticketByFestivalId = new Map(
-      signupRows.map((s) => [s.festivalId, s.verifiedTicketHolder]),
-    )
-
-    return festivalRows
-      .map((f) => {
-        // DB columns take precedence; fall back to hardcoded config for
-        // festivals that haven't been migrated to DB-driven early-bird yet.
-        const dbDeadline = f.earlyBirdDeadline
-        const dbOffer = f.earlyBirdOfferName
-        const hardcoded = getEarlyBirdInfo(f.slug)
-        const deadline = dbDeadline ?? hardcoded?.deadline ?? ''
-        const offer = dbOffer ?? hardcoded?.offerName ?? ''
-        // Only surface deadlines that are still in the future.
-        const deadlineActive = deadline && new Date(deadline) > new Date()
-        return {
-          slug: f.slug,
-          name: f.name,
-          startDate: f.startDate ?? '',
-          endDate: f.endDate ?? '',
-          location: f.city ?? '',
-          country: f.country ?? '',
-          logo: f.logo ?? '',
-          accentColor: f.accentColor ?? '',
-          styles: (f.styles as string[]) ?? [],
-          workshopCount: workshopCountBySlug.get(f.slug) ?? 0,
-          ticketStatus: (ticketByFestivalId.get(f.id) ? 'purchased' : 'not-purchased') as 'purchased' | 'not-purchased',
-          referralDiscountPercent: getReferralDiscountPercent(f.slug),
-          ticketUrl: f.ticketUrl ?? '',
-          earlyBirdDeadline: deadlineActive ? deadline : '',
-          earlyBirdOffer: deadlineActive ? offer : '',
-        }
-      })
-      .sort((a, b) => a.startDate.localeCompare(b.startDate))
+    const slugs = items.length ? [...await festivalPlanSlugs(ctx.db, items.map((i) => i.itemId))] : []
+    const legacy = await legacyPlanFestivals(ctx, slugs)
+    // Festivals live in `events` (ADR-006); the legacy table above only knows some.
+    // "+ My plan" on /festivals saves a festival with details by its key, any other
+    // festival event by its id (RAZ-1003) — both belong in "This year".
+    const known = new Set(legacy.map((f) => f.slug))
+    const fromEvents = await eventPlanFestivals(ctx.db, slugs.filter((s) => !known.has(s)), eventIds)
+    return [...legacy, ...fromEvents].sort((a, b) => a.startDate.localeCompare(b.startDate))
   }),
 
   /**
@@ -1013,3 +929,169 @@ export const planRouter = router({
     }))
   }),
 })
+
+type PlanCtx = { db: any; dancerId: string }
+
+/** The dancer's festivals that still have a row in the legacy `festivals` table. */
+async function legacyPlanFestivals(ctx: PlanCtx, slugs: string[]) {
+    if (slugs.length === 0) return []
+
+    const festivalRows = await ctx.db
+      .select({
+        id: festivals.id,
+        slug: festivals.slug,
+        name: festivals.name,
+        startDate: festivals.startDate,
+        endDate: festivals.endDate,
+        city: festivals.city,
+        country: festivals.country,
+        logo: festivals.logo,
+        accentColor: festivals.accentColor,
+        styles: festivals.styles,
+        ticketUrl: festivals.ticketUrl,
+        earlyBirdDeadline: festivals.earlyBirdDeadline,
+        earlyBirdOfferName: festivals.earlyBirdOfferName,
+      })
+      .from(festivals)
+      .where(inArray(festivals.slug, slugs))
+
+    if (festivalRows.length === 0) return []
+
+    // Count workshop selections per festival. Workshop plan items use
+    // itemId = '{festivalSlug}:{workshopId}'.
+    const workshopItems = await ctx.db
+      .select({ itemId: planItems.itemId })
+      .from(planItems)
+      .where(
+        and(
+          eq(planItems.dancerId, ctx.dancerId),
+          eq(planItems.itemType, 'workshop'),
+        ),
+      )
+
+    const workshopCountBySlug = new Map<string, number>()
+    for (const w of workshopItems) {
+      const colonIdx = w.itemId.indexOf(':')
+      if (colonIdx === -1) continue
+      const slug = w.itemId.slice(0, colonIdx)
+      workshopCountBySlug.set(slug, (workshopCountBySlug.get(slug) ?? 0) + 1)
+    }
+
+    const signupRows = await ctx.db
+      .select({
+        festivalId: festivalSignups.festivalId,
+        verifiedTicketHolder: festivalSignups.verifiedTicketHolder,
+      })
+      .from(festivalSignups)
+      .where(
+        and(
+          eq(festivalSignups.dancerId, ctx.dancerId),
+          inArray(
+            festivalSignups.festivalId,
+            festivalRows.map((f) => f.id),
+          ),
+        ),
+      )
+
+    const ticketByFestivalId = new Map(
+      signupRows.map((s) => [s.festivalId, s.verifiedTicketHolder]),
+    )
+
+    return festivalRows
+      .map((f: any) => {
+        // DB columns take precedence; fall back to hardcoded config for
+        // festivals that haven't been migrated to DB-driven early-bird yet.
+        const dbDeadline = f.earlyBirdDeadline
+        const dbOffer = f.earlyBirdOfferName
+        const hardcoded = getEarlyBirdInfo(f.slug)
+        const deadline = dbDeadline ?? hardcoded?.deadline ?? ''
+        const offer = dbOffer ?? hardcoded?.offerName ?? ''
+        // Only surface deadlines that are still in the future.
+        const deadlineActive = deadline && new Date(deadline) > new Date()
+        return {
+          planType: 'festival' as 'festival' | 'event',
+          href: festivalPath(f.slug),
+          slug: f.slug,
+          name: f.name,
+          startDate: f.startDate ?? '',
+          endDate: f.endDate ?? '',
+          location: f.city ?? '',
+          country: f.country ?? '',
+          logo: f.logo ?? '',
+          accentColor: f.accentColor ?? '',
+          styles: (f.styles as string[]) ?? [],
+          workshopCount: workshopCountBySlug.get(f.slug) ?? 0,
+          ticketStatus: (ticketByFestivalId.get(f.id) ? 'purchased' : 'not-purchased') as 'purchased' | 'not-purchased',
+          referralDiscountPercent: getReferralDiscountPercent(f.slug),
+          ticketUrl: f.ticketUrl ?? '',
+          earlyBirdDeadline: deadlineActive ? deadline : '',
+          earlyBirdOffer: deadlineActive ? offer : '',
+        }
+      })
+      .sort((a: any, b: any) => a.startDate.localeCompare(b.startDate))
+}
+
+/**
+ * The dancer's festivals known only as events (RAZ-1003): a festival with details
+ * planned by its key whose legacy row is missing, and a festival event planned by
+ * its id from /festivals. Same shape as the legacy rows; `slug` = the plan item id.
+ */
+async function eventPlanFestivals(db: any, keys: string[], eventIds: string[]) {
+  const ids = eventIds.filter((id) => UUID_RE.test(id))
+  if (!keys.length && !ids.length) return []
+  const rows = await db
+    .select({
+      id: events.id,
+      slug: events.slug,
+      name: events.name,
+      startDate: events.startDate,
+      endDate: events.endDate,
+      timezone: events.timezone,
+      city: events.city,
+      country: events.country,
+      styles: events.styles,
+      ticketUrl: events.ticketUrl,
+      festival: events.festival,
+    })
+    .from(events)
+    .where(and(
+      festivalEventsWhere(),
+      or(
+        ids.length ? inArray(events.id, ids) : sql`false`,
+        keys.length ? inArray(sql`${events.festival}->>'key'`, keys) : sql`false`,
+        keys.length ? inArray(events.slug, keys) : sql`false`,
+      ),
+    ))
+  const wantedKeys = new Set(keys)
+  const wantedIds = new Set(ids)
+  const seen = new Set<string>()
+  const out = []
+  for (const e of rows) {
+    const key = (e.festival as any)?.key as string | undefined
+    const planId = wantedIds.has(e.id) ? e.id : key && wantedKeys.has(key) ? key : e.slug && wantedKeys.has(e.slug) ? e.slug : null
+    if (!planId || seen.has(planId)) continue
+    seen.add(planId)
+    const row = toFestivalRow(e, { signupCount: 0, publicGoingCount: 0, goingAvatars: [] })
+    out.push({
+      planType: (wantedIds.has(e.id) ? 'event' : 'festival') as 'festival' | 'event',
+      href: row.href,
+      slug: planId,
+      name: row.name,
+      startDate: row.startDate ?? '',
+      endDate: row.endDate ?? '',
+      location: row.city ?? '',
+      country: row.country ?? '',
+      logo: row.logo ?? '',
+      accentColor: row.accentColor ?? '',
+      styles: row.styles,
+      workshopCount: 0,
+      ticketStatus: 'not-purchased' as 'purchased' | 'not-purchased',
+      referralDiscountPercent: 0,
+      ticketUrl: row.ticketUrl ?? '',
+      earlyBirdDeadline: '',
+      earlyBirdOffer: '',
+    })
+  }
+  return out
+}
+

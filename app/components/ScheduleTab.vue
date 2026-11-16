@@ -7,7 +7,7 @@
  * whole column of mostly-empty cells.
  */
 import type { Workshop, Teacher } from '~/types/festival'
-import { MapPin, Music, Users, Star, Sparkles, MicVocal, DoorOpen, CalendarClock } from 'lucide-vue-next'
+import { MapPin, Music, Users, Check, Plus, Sparkles, MicVocal, DoorOpen, CalendarClock } from 'lucide-vue-next'
 import type { Component } from 'vue'
 import { SESSION_TYPE_LABEL, isWorkshop, sessionTimeRange, sessionType } from '#shared/utils/programme'
 import { chilis } from '~/lib/levels'
@@ -35,8 +35,8 @@ const emit = defineEmits<{
 
 // Each schedule item opens its own event page. Compound id (festival~workshop)
 // keeps it globally unique since workshop ids repeat across festivals. The
-// title is the link, stretched over the row, so Save isn't nested in an <a>.
-// A row SAVES the session to My plan; "Going?" is asked once, in the hero
+// title is the link, stretched over the row, so the My plan button isn't nested in an <a>.
+// A row adds the session to My plan ("+ My plan"); signing up is asked once, in the hero
 // (RAZ-731), so the rows don't ask it again.
 const eventHref = (wid: string) => (props.festivalSlug ? sessionPath(props.festivalSlug, wid) : undefined)
 
@@ -244,11 +244,11 @@ const levelColor: Record<string, string> = {
             :variant="planIds.has(w.id) ? 'pill' : 'outline-pill'"
             size="pill-sm"
             :accent="readableAccent(styleAccent(w.style))"
-            class="relative z-10 shrink-0 px-3 normal-case tracking-normal"
+            class="relative z-10 shrink-0 px-3 normal-case tracking-normal font-sans"
             :aria-pressed="planIds.has(w.id)"
             @click="emit('toggleWorkshop', w.id)"
           >
-            <Star :class="planIds.has(w.id) ? 'fill-current' : ''" aria-hidden="true" /> {{ planIds.has(w.id) ? 'Saved' : 'Save' }}
+            <component :is="planIds.has(w.id) ? Check : Plus" aria-hidden="true" /> My plan
           </Button>
         </div>
       </div>
@@ -307,11 +307,11 @@ const levelColor: Record<string, string> = {
           type="button"
           :variant="planIds.has(party.id) ? 'pill' : 'outline-pill'"
           size="pill-sm"
-          class="shrink-0 px-3 normal-case tracking-normal"
+          class="shrink-0 px-3 normal-case tracking-normal font-sans"
           :aria-pressed="planIds.has(party.id)"
           @click="emit('toggleWorkshop', party.id)"
         >
-          <Star :class="planIds.has(party.id) ? 'fill-current' : ''" aria-hidden="true" /> {{ planIds.has(party.id) ? 'Saved' : 'Save' }}
+          <component :is="planIds.has(party.id) ? Check : Plus" aria-hidden="true" /> My plan
         </Button>
       </div>
     </div>

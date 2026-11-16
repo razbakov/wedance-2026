@@ -50,6 +50,8 @@ const {
   authHint,
 } = useAuth()
 const { yearPlanIds, loaded: yearPlanLoaded, removeFestival, toggleFestival, addFestival } = useYearPlan()
+// /festivals saves a festival event without festival details in the week plan (RAZ-1003).
+const { weekPlanIds } = useWeekPlan()
 
 // ?preview=1 — dev shortcut. Fakes signed-in + seeds picks so we can
 // eyeball the strip + cards without running the real magic-link flow.
@@ -180,7 +182,11 @@ const catalogue = [
   ...previewOnlyFestivals,
 ]
 
-type CatalogueEntry = typeof catalogue[number]
+// A festival from the DB is planned by its key (year plan) or, a festival event
+// without festival details, by its event id (week plan) — as /festivals saves it
+// (RAZ-1003). `href` is its page; the mock catalogue has neither.
+type CatalogueEntry = typeof catalogue[number] & { planType?: 'festival' | 'event'; href?: string }
+const festivalHref = (f: CatalogueEntry) => f.href || festivalPath(f.slug)
 
 // Real festival data from the DB, fetched via plan.myPlan for signed-in users.
 // These are the user's actual picked festivals resolved against the festivals table.
@@ -207,6 +213,8 @@ async function loadMyPlanFestivals() {
       ticketFromPrice: undefined as number | undefined,
       earlyBirdDeadline: undefined as string | undefined,
       styles: (r.styles || []) as string[],
+      planType: r.planType,
+      href: r.href,
     }))
   } catch (err) {
     console.warn('[my-plan] loadMyPlanFestivals failed:', err)
@@ -225,7 +233,7 @@ const picked = computed(() => {
   // mock catalogue above is preview-only — it never fills a real plan.
   // Filtered by effectivePickIds so local removals show at once (RAZ-285).
   return dbFestivals.value
-    .filter(f => effectivePickIds.value.has(f.slug))
+    .filter(f => f.planType === 'event' ? weekPlanIds.value.has(f.slug) : effectivePickIds.value.has(f.slug))
     .sort((a, b) => a.startDate.localeCompare(b.startDate))
 })
 
@@ -255,7 +263,8 @@ watch([dancerUsername, dancerIdReal], () => {
 function onRemove(slug: string) {
   // In preview mode we don't mutate real state.
   if (previewMode.value) return
-  removeFestival(slug)
+  if (dbFestivals.value.find(f => f.slug === slug)?.planType === 'event') removeWeekEvent(slug)
+  else removeFestival(slug)
 }
 
 function formatDateRange(start: string, end: string) {
@@ -596,7 +605,7 @@ function tracks(f: CatalogueEntry): Track[] {
       // Tickets section, not on the organizer's own site.
       action: p.ticketBought
         ? null
-        : { label: f.ticketFromPrice ? `Buy ${priceText}` : 'Buy', href: `${festivalPath(f.slug)}#tickets`, external: false },
+        : { label: f.ticketFromPrice ? `Buy ${priceText}` : 'Buy', href: `${festivalHref(f)}#tickets`, external: false },
       toggleKey: 'ticketBought',
       done: !!p.ticketBought,
     },
@@ -632,7 +641,7 @@ function tracks(f: CatalogueEntry): Track[] {
       icon: Home,
       label: 'Stay',
       state: p.stayBooked ? { text: 'Booked', tone: 'done' } : { text: 'Not booked', tone: 'todo' },
-      action: p.stayBooked ? null : { label: 'Share a room', href: `${festivalPath(f.slug)}#activities`, external: false },
+      action: p.stayBooked ? null : { label: 'Share a room', href: `${festivalHref(f)}#activities`, external: false },
       altAction: p.stayBooked ? undefined : { label: 'or hotel', href: staysLink(f), external: true },
       toggleKey: 'stayBooked',
       done: !!p.stayBooked,
@@ -643,7 +652,7 @@ function tracks(f: CatalogueEntry): Track[] {
       icon: GraduationCap,
       label: 'Workshops',
       state: { text: `${f.workshopCount} on the schedule · ${getSelectedWorkshops(f.slug).size} picked`, tone: getSelectedWorkshops(f.slug).size > 0 ? 'done' : 'todo' },
-      action: getWorkshopsForFestival(f.slug).length === 0 ? { label: 'Browse workshops', href: `${festivalPath(f.slug)}#schedule`, external: false } : null,
+      action: getWorkshopsForFestival(f.slug).length === 0 ? { label: 'Browse workshops', href: `${festivalHref(f)}#schedule`, external: false } : null,
       done: getSelectedWorkshops(f.slug).size > 0,
     },
     // Partner
@@ -652,7 +661,7 @@ function tracks(f: CatalogueEntry): Track[] {
       icon: Heart,
       label: 'Partner',
       state: p.partnerFound ? { text: 'Matched', tone: 'done' } : { text: 'Not looking yet', tone: 'todo' },
-      action: p.partnerFound ? null : { label: 'Find one', href: `${festivalPath(f.slug)}#discover`, external: false },
+      action: p.partnerFound ? null : { label: 'Find one', href: `${festivalHref(f)}#discover`, external: false },
       toggleKey: 'partnerFound',
       done: !!p.partnerFound,
     },
@@ -662,7 +671,7 @@ function tracks(f: CatalogueEntry): Track[] {
       icon: Coffee,
       label: 'Community',
       state: { text: 'Rides, dinners, roommate', tone: 'muted' },
-      action: { label: 'Browse', href: `${festivalPath(f.slug)}#activities`, external: false },
+      action: { label: 'Browse', href: `${festivalHref(f)}#activities`, external: false },
       done: false,
     },
   ]
@@ -832,6 +841,10 @@ function stopEditingProgress() {
 type Course = {
   /** The plan item's event id — what the X removes. */
   id: string
+  /** Signed up on the event page (RAZ-1003): no Remove — cancelling the spot happens there. */
+  signedUp?: boolean
+  /** What signing up costs ("€10"); null = free. */
+  price?: string | null
   /** The next class's event (the card links there; "where it's edited"). */
   eventId?: string
   name?: string
@@ -979,6 +992,8 @@ async function loadCoursesFromDb() {
         venue: c.venueName,
         nextClassDate: eventLocalDate(c.startDate, tz),
         color: STYLE_COLORS_ENROLL[style] || WD.gray500,
+        signedUp: c.signedUp,
+        price: c.price,
       }
     })
   } catch (err) {
@@ -992,6 +1007,12 @@ async function loadCoursesFromDb() {
 // happening in the next 7 days. No suggestions here; discovery is "Full week".
 // -----------------------------------------------------------------------
 type Social = {
+  /** Signed up on the event page (RAZ-1003): not a plain plan toggle here. */
+  signedUp?: boolean
+  /** Only planned, and the event takes a sign-up: "Planned · Sign up →". */
+  takesSignup?: boolean
+  /** What signing up costs ("€10"); null = free. */
+  price?: string | null
   /** The occurrence shown this week. */
   id: string
   /** The plan item's event id (differs for a recurring event added on another date). */
@@ -1072,6 +1093,9 @@ async function loadWeekSocials() {
         friendsGoing: e.friendsGoing,
         planItemId: e.planItemId,
         color: STYLE_COLORS_ENROLL[style] || WD.gray500,
+        signedUp: e.signedUp,
+        takesSignup: e.takesSignup,
+        price: e.price,
       }
     })
   } catch (err) {
@@ -1346,7 +1370,10 @@ const tonightSummary = computed(() => {
 const weekSummary = computed(() => {
   const n = upcomingSocials.value.length
   const where = dancerCity.value ? ` in ${dancerCity.value}` : ''
-  return n ? `${plural(n, 'night')} out${where}` : `No nights picked yet${where}`
+  if (!n) return `No nights picked yet${where}`
+  // Planned, not signed up yet (RAZ-1003): say there's still something to do.
+  const toDecide = upcomingSocials.value.filter(s => s.takesSignup && !s.signedUp).length
+  return `${plural(n, 'night')} out${where}${toDecide ? ` · ${toDecide} to book` : ''}`
 })
 const monthSummary = computed(() => {
   const n = courses.value.length
@@ -1796,9 +1823,33 @@ function cardSummary(f: CatalogueEntry) {
                 {{ s.venue }}<template v-if="s.style"> · <span :style="{ color: s.color }">{{ s.style }}</span></template><template v-if="s.friendsGoing > 0"> · {{ s.friendsGoing }} friend{{ s.friendsGoing === 1 ? '' : 's' }} going</template>
               </div>
             </div>
+            <!-- Signed up (RAZ-1003): a commitment, cancelled on the event page, never here. -->
+            <NuxtLink
+              v-if="s.signedUp && !previewMode"
+              :to="eventPath({ id: s.id, name: s.name })"
+              class="text-xs font-bold px-3 py-1.5 rounded-full whitespace-nowrap font-sans"
+              style="background: var(--wd-green-600); color: white;"
+              :title="'You’re signed up — to cancel, open the event'"
+            >
+              ✓ Signed up
+            </NuxtLink>
+            <!-- Only planned (RAZ-1003): the state, the next step (with its price), and Remove —
+                 which only takes it off the plan; nothing is signed up yet. -->
+            <span v-else-if="s.takesSignup && !previewMode" class="inline-flex items-center gap-3 text-xs font-sans whitespace-nowrap">
+              <span class="text-muted-foreground">Planned</span>
+              <NuxtLink
+                :to="eventPath({ id: s.id, name: s.name })"
+                class="font-bold px-3 py-1.5 rounded-full border text-primary border-primary/40 hover:bg-primary/5"
+                data-plan-signup
+              >
+                Book{{ s.price ? ` · ${s.price}` : '' }} →
+              </NuxtLink>
+              <button type="button" class="text-muted-foreground hover:text-primary hover:underline" :aria-label="`Remove ${s.name} from your plan`" data-plan-remove @click="removeSocialFromPlan(s.id)">Remove</button>
+            </span>
             <button
+              v-else
               type="button"
-              class="text-xs font-bold px-3 py-1.5 rounded-full whitespace-nowrap"
+              class="text-xs font-bold px-3 py-1.5 rounded-full whitespace-nowrap font-sans"
               style="background: var(--wd-green-600); color: white;"
               :aria-label="`${s.name} is in your plan — tap to remove it`"
               :title="'Tap to remove from your plan'"
@@ -1904,7 +1955,7 @@ function cardSummary(f: CatalogueEntry) {
               <div class="min-w-0">
                 <NuxtLink
                   v-if="c.eventId && !previewMode"
-                  :to="eventPath({ id: c.eventId, name: c.name })"
+                  :to="eventPath({ id: c.eventId || c.id, name: c.name })"
                   class="block text-base font-bold leading-tight text-foreground hover:underline"
                 >{{ c.name || c.school }}</NuxtLink>
                 <div v-else class="text-base font-bold leading-tight text-foreground">
@@ -1944,15 +1995,36 @@ function cardSummary(f: CatalogueEntry) {
                     Paid
                   </span>
                 </template>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  class="size-7 rounded hover:bg-wd-red-50 text-primary hover:text-primary [&_svg]:size-3.5"
-                  :aria-label="`Remove from your plan: ${c.name || c.school}`"
+                <!-- Only planned (RAZ-1003): the next step is signing up for the class. -->
+                <template v-if="!c.signedUp && !previewMode">
+                  <span class="text-xs text-muted-foreground font-sans">Planned</span>
+                  <NuxtLink
+                    :to="eventPath({ id: c.eventId || c.id, name: c.name })"
+                    class="text-xs font-bold px-2.5 py-1 rounded-full whitespace-nowrap border font-sans text-primary border-primary/40 hover:bg-primary/5"
+                    data-plan-signup
+                  >
+                    Book{{ c.price ? ` · ${c.price}` : '' }} →
+                  </NuxtLink>
+                </template>
+                <NuxtLink
+                  v-if="c.signedUp"
+                  :to="eventPath({ id: c.eventId || c.id, name: c.name })"
+                  class="text-eyebrow font-bold uppercase tracking-widest px-2 py-1 rounded-full whitespace-nowrap hover:underline"
+                  :style="{ color: 'var(--wd-green-600)', background: 'color-mix(in srgb, var(--wd-green-600) 9.4%, transparent)' }"
+                  :title="'You’re signed up — to cancel, open the class'"
+                >
+                  Signed up
+                </NuxtLink>
+                <button
+                  v-else
+                  type="button"
+                  class="text-xs text-muted-foreground hover:text-primary hover:underline font-sans"
+                  :aria-label="`Remove ${c.name || c.school} from your plan`"
+                  data-plan-remove
                   @click="unenrollCourse(c.id)"
                 >
-                  <X aria-hidden="true" />
-                </Button>
+                  Remove
+                </button>
               </div>
             </div>
 
@@ -2021,7 +2093,7 @@ function cardSummary(f: CatalogueEntry) {
       </div>
 
       <div class="flex items-baseline justify-between mb-4">
-        <div class="text-xs uppercase tracking-[0.3em] text-secondary">Going</div>
+        <div class="text-xs uppercase tracking-[0.3em] text-secondary">Festivals</div>
         <span class="text-xs text-secondary font-hand" style="font-size:18px;">
           — {{ picked.length }} in your year
         </span>
@@ -2330,7 +2402,7 @@ function cardSummary(f: CatalogueEntry) {
 
             <div class="mt-4 flex items-center gap-4 text-xs">
               <NuxtLink
-                :to="`${festivalPath(f.slug)}`"
+                :to="`${festivalHref(f)}`"
                 class="italic hover:underline text-muted-foreground font-sans"
               >
                 Open festival page →
