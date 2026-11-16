@@ -92,6 +92,8 @@ async function load() {
         const fest = await $trpc.events.get.query({ id: session.key })
         ev.value = festivalSessionEvent(await $trpc.events.festival.query({ id: fest.id }), session.sessionId)
         if (!ev.value) throw new Error('no such session')
+        // Any event can have a programme (RAZ-1003): the banner names what it really is.
+        ev.value.parentFestival = { ...ev.value.parentFestival, kind: fest.isFestival || ['festival', 'weekender', 'congress'].includes(String(fest.type ?? '').toLowerCase()) ? 'Festival' : (fest.type ? String(fest.type).charAt(0).toUpperCase() + String(fest.type).slice(1) : 'Event') }
       } else {
         // A dated public event (wedance.vip mirror) — adapt to the booking shape.
         const e = await $trpc.events.get.query({ id: id.value, preview: previewToken.value })
@@ -270,12 +272,12 @@ useHead(() => ({
     </section>
 
     <template v-else>
-      <!-- Part-of-festival banner (workshops / festival schedule items) -->
+      <!-- Part-of banner (one item of a festival's or any event's programme) -->
       <NuxtLink v-if="parentFestival" :to="`${festivalPath(parentFestival.slug)}`" class="block border-b hover:brightness-95 transition-all bg-primary/[6.3%] border-border">
         <div class="max-w-3xl mx-auto px-4 py-2.5 flex items-center gap-2 text-sm text-muted-foreground font-sans">
-          <span class="text-eyebrow uppercase tracking-widest font-black shrink-0 text-primary">Festival</span>
+          <span class="text-eyebrow uppercase tracking-widest font-black shrink-0 text-primary">{{ parentFestival.kind || 'Festival' }}</span>
           <span class="truncate">Part of <b class="text-foreground">{{ parentFestival.name }}</b></span>
-          <span class="ml-auto font-bold whitespace-nowrap shrink-0 text-primary">View festival →</span>
+          <span class="ml-auto font-bold whitespace-nowrap shrink-0 text-primary">View {{ parentFestival.kind === 'Festival' || !parentFestival.kind ? 'festival' : 'event' }} →</span>
         </div>
       </NuxtLink>
 

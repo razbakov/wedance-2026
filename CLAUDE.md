@@ -497,10 +497,10 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `whos_going_profile_opened` | `GoingSection` face tap | `item_type`, `item_id` |
 | `going_visibility_changed` | `GoingSection` share toggle | `share`, `item_type`, `item_id` |
 | `wave_sent` / `wave_retracted` | `GoingSection`, `DiscoverDancers`, `EventWhosComing` pairing (sent only) | `festival`, `surface` |
-| `rsvp_answered` | `EventSignup` "I can’t come after all" (answer `next`; signing up is `event_signed_up` since RAZ-995) | `answer` (partner / needLeader / needFollower / yes / next), `signed_in`, `surface`, `event_id` |
+| `rsvp_answered` | `EventSignup` "Cancel my spot" → confirm (answer `next`, RAZ-1003; was "I can’t come after all"; signing up is `event_signed_up` since RAZ-995) | `answer` (partner / needLeader / needFollower / yes / next), `signed_in`, `surface`, `event_id` |
 | `rsvp_contact_shared` | (retired in RAZ-995: the sign-up's "Also tell me about next events" replaced "Let <page> keep in touch"; `rsvp.shareContact` stays for MCP) | `share`, `has_phone`, `surface`, `event_id` |
 | `event_signup_opened` | `EventSignup` (the one button on a class / event page, RAZ-995; or "Change") | `surface`, `event_id`, `changing` |
-| `event_signed_up` | `EventSignup` last step ("Save my spot" / "Pay €N" / "Continue to payment") | `answer`, `signed_in`, `has_pass`, `pay` (now / door / null), `people` (1 / 2), `keep_in_touch`, `surface`, `event_id` |
+| `event_signed_up` | `EventSignup` last step ("Book my spot" / "Pay €N" / "Continue to payment"; RAZ-1003 renamed "Sign up" / "I’m coming" to "Book my spot") | `answer`, `signed_in`, `has_pass`, `pay` (now / door / null), `people` (1 / 2), `keep_in_touch`, `surface`, `event_id` |
 | `contacts_emailed` | `BusinessContactMailing` (Contacts → "Email N" → "Yes, send", RAZ-975) | `recipients`, `has_event` (invite with an event card), `filtered` (a segment, not everyone), `tested` (sent themselves a test first), `profile` |
 | `discover_deck_joined` | `DiscoverDancers` "show me" | `item_type`, `item_id`, `was_going` |
 | `hangout_created` | `FestivalView`, `my-plan` | `kind`, `surface`, `event_id` / `event_linked` |

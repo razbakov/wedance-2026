@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * Email the contacts the Contacts list shows (RAZ-975 / RAZ-960): write, or start from
- * "Invite to <event>" (an event card with an "I'm coming" button), preview, send a test
+ * "Invite to <event>" (an event card with a "Book my spot" button), preview, send a test
  * to yourself, send. Only contacts the page may email get it — the rest are counted and
  * left out. Data: contactMailing.options / eventCard / sendTest / send.
  */
@@ -131,7 +131,7 @@ const sentWhen = (d: Date | string) => new Date(d).toLocaleString('en-GB', { day
         <div><Button type="button" variant="ghost" size="sm" @click="open = false">Done</Button></div>
       </div>
       <form v-else-if="opts" class="grid gap-4" novalidate data-mailing-form @submit.prevent="askToSend">
-        <Field id="mailing-event" label="Invite to an event" optional :hint="opts.events.length ? 'Adds the event with an “I’m coming” button, and writes an invite you can change.' : 'No published events coming up.'">
+        <Field id="mailing-event" label="Invite to an event" optional :hint="opts.events.length ? 'Adds the event with a “Book my spot” button, and writes an invite you can change.' : 'No published events coming up.'">
           <select id="mailing-event" :value="eventId ?? ''" class="w-full rounded-lg border bg-background px-3 py-2 text-sm" :disabled="!opts.events.length" @change="pickEvent(($event.target as HTMLSelectElement).value || null)">
             <option value="">No event</option>
             <option v-for="e in opts.events" :key="e.id" :value="e.id">{{ e.when.split(' · ')[0] }} · {{ e.name }}</option>

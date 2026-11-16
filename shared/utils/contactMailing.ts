@@ -5,7 +5,7 @@
  *
  * The text is plain: paragraphs, line breaks, bare links become links. `{first_name}` is
  * replaced per person ("there" when we don't know it). An event, when picked, comes as a
- * card under the text with an "I'm coming" button to the event page (its poll = the RSVP).
+ * card under the text with a "Book my spot" button to the event page (its poll = the RSVP).
  */
 import { emailBlock, type ContactSource } from './contactSegments'
 
@@ -58,7 +58,7 @@ export function renderMailingHtml(c: MailingContent, to: { name?: string | null,
         <div style="padding: 16px;">
           <p style="margin: 0; font-size: 18px; font-weight: bold;">${esc(ev.name)}</p>
           <p style="margin: 4px 0 0; color: #555;">${esc(ev.when)}${ev.place ? ` · ${esc(ev.place)}` : ''}</p>
-          <p style="margin: 14px 0 0;"><a href="${esc(ev.url)}" style="display: inline-block; background: #000; color: #fff; padding: 11px 22px; border-radius: 999px; text-decoration: none; font-weight: bold;">I’m coming</a></p>
+          <p style="margin: 14px 0 0;"><a href="${esc(ev.url)}" style="display: inline-block; background: #000; color: #fff; padding: 11px 22px; border-radius: 999px; text-decoration: none; font-weight: bold;">Book my spot</a></p>
         </div>
       </div>`
     : ''
@@ -78,7 +78,7 @@ export function renderMailingText(c: MailingContent, to: { name?: string | null,
   const ev = c.event
   return [
     personalise(c.body, to.name).trim(),
-    ev ? `${ev.name}\n${ev.when}${ev.place ? ` · ${ev.place}` : ''}\nI’m coming: ${ev.url}` : '',
+    ev ? `${ev.name}\n${ev.when}${ev.place ? ` · ${ev.place}` : ''}\nBook my spot: ${ev.url}` : '',
     `— ${c.profileName} · via WeDance${to.unsubscribeUrl ? `\nUnsubscribe: ${to.unsubscribeUrl}` : ''}`,
   ].filter(Boolean).join('\n\n')
 }
@@ -87,7 +87,7 @@ export function renderMailingText(c: MailingContent, to: { name?: string | null,
 export function inviteTemplate(event: { name: string, when: string }, profileName: string): { subject: string, body: string } {
   return {
     subject: `${event.name} · ${event.when.split(' · ')[0]}`,
-    body: `Hi ${FIRST_NAME_TOKEN},\n\nWe’d love to see you at ${event.name} — ${event.when}.\n\nTap “I’m coming” below so we know you’re there.\n\nSee you on the floor,\n${profileName}`,
+    body: `Hi ${FIRST_NAME_TOKEN},\n\nWe’d love to see you at ${event.name} — ${event.when}.\n\nTap “Book my spot” below so we know you’re there.\n\nSee you on the floor,\n${profileName}`,
   }
 }
 

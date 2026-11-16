@@ -40,6 +40,17 @@ const pr = (n: number): SketchLink => ({ label: `PR #${n}`, url: `https://github
 
 export const SKETCHES: Sketch[] = [
   {
+    slug: 'your-night',
+    title: 'Your night: booking an event with a programme',
+    what: 'One booking for a night with a programme (19:00 class → 20:00 party → 22:00 band). Before booking, "+ My plan" on the items picks the pass ("Fits your plan"); each pass says what it includes. After "Book my spot", "Your night" ticks what the pass covers, stays editable (skip the class → "Be there around 20:00"), and shows "Not in your pass · +€7" for the rest; Add to calendar. My plan shows one row for the night. The organiser sees counts per item (leaders / followers for the class) and when people arrive. Toggles: booked / not, dancer / organiser, desktop / mobile.',
+    why: 'A night with a programme asked lead / follow and partner again on every session row, though "Book my spot" already asks it; and nobody — dancer or organiser — could see who comes to which part.',
+    requestedBy: 'Alösha',
+    builtBy: 'Agent (Claude)',
+    created: '2026-11-16',
+    status: 'deciding',
+    ticket: linear('RAZ-1007', 'your-night-book-an-event-with-a-programme'),
+  },
+  {
     slug: 'class-signup',
     title: 'Class sign-up: one button, steps in place',
     what: 'Today’s page and five directions for signing up to a class, a course or a festival: one button and a sheet, a calm poll with the price, ticket first, two numbered steps, and the picked one (E) — one button that opens the steps in place: how you come (alone as leader / follower, or with your partner = couple price), which pass (only when there’s a choice; festival passes marked "Best for your plan" from saved workshops), pay now or at the door, then name, email and phone (signed in: a review card). Who’s coming shows counts to visitors and faces once signed in, at festival scale with search. Toggles: class / course / festival, paid / free, signed out / in / in without a phone.',

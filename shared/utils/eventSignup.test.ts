@@ -38,9 +38,9 @@ describe('eventSignup', () => {
   })
 
   it('labels the button with the price', () => {
-    expect(signupCta([])).toBe('I’m coming')
-    expect(signupCta([drop])).toBe('Sign up · €10')
-    expect(signupCta([course, drop])).toBe('Sign up · from €10')
+    expect(signupCta([])).toBe('Book my spot')
+    expect(signupCta([drop])).toBe('Book my spot · €10')
+    expect(signupCta([course, drop])).toBe('Book my spot · from €10')
   })
 
   it('asks for a phone for classes and anything paid, not for a party night', () => {

@@ -421,7 +421,7 @@ When('{string} signs up {string} for the event', async ({ page, c3 }, who: strin
   const saved = page.waitForResponse(r => r.url().includes('rsvp.signUp'))
   await poll(page).locator('[data-signup-submit]').click()
   expect((await saved).ok()).toBe(true)
-  await expect(poll(page).locator('[data-signup-in]')).toContainText('You’re in')
+  await expect(poll(page).locator('[data-signup-in]')).toContainText('Spot booked')
 })
 
 Then('{string} sees {string} under {string} in Who\'s coming', async ({ page, c3 }, viewer: string, who: string, answer: string) => {
