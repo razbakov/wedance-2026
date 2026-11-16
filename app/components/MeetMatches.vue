@@ -24,6 +24,7 @@ const emit = defineEmits<{ planned: [eventId: string] }>()
 const { $trpc } = useNuxtApp()
 const { track } = useTrack()
 const { syncEvent } = useWeekPlan()
+const route = useRoute()
 
 const matches = ref<Match[]>([])
 /** Nights added from a card this visit — shown as going before the reload. */
@@ -38,7 +39,14 @@ async function load() {
     console.warn('[meet-matches] load failed:', err)
   }
 }
-onMounted(load)
+onMounted(async () => {
+  await load()
+  // From the "said yes too" email / "It's a match" on /meet: land on the list once it's there.
+  if (route.hash === '#dance-friends' && matches.value.length) {
+    await nextTick()
+    document.getElementById('dance-friends')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+})
 
 const NEW_DAYS = 7
 const isNew = (m: Match) => Date.now() - new Date(m.matchedAt).getTime() < NEW_DAYS * 86400_000
@@ -100,7 +108,7 @@ async function undoNextTime() {
 </script>
 
 <template>
-  <section v-if="matches.length" class="font-sans" data-testid="meet-matches" aria-labelledby="meet-matches-title">
+  <section v-if="matches.length" id="dance-friends" class="scroll-mt-20 font-sans" data-testid="meet-matches" aria-labelledby="meet-matches-title">
     <h2 id="meet-matches-title" class="flex items-center gap-2 text-2xl leading-tight font-display text-foreground">
       <Users class="size-5 text-primary" aria-hidden="true" /> Your dance friends
       <span class="font-hand text-lg text-secondary">— {{ matches.length }}</span>

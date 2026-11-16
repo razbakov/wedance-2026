@@ -706,3 +706,39 @@ export async function sendReviewAskEmail(params: {
     </div>`,
   })
 }
+
+/**
+ * "<Name> said yes too" (RAZ-985): someone this dancer said yes to (Meet deck or a
+ * festival wave) said yes back. One per match, at most one a day; the link at the
+ * bottom (and List-Unsubscribe) turns these off.
+ */
+export async function sendMeetMatchEmail(params: {
+  to: string
+  name: string
+  other: string
+  night: { name: string; when: string; link: string } | null
+  link: string
+  unsubscribeUrl: string
+}) {
+  const config = useRuntimeConfig()
+  const subject = `${params.other} said yes too`
+  if (!config.resendApiKey) {
+    console.log(`\n✉️  ${params.to}: ${subject} → ${params.link}\n`)
+    return
+  }
+  const o = escapeHtml(params.other)
+  await getResend().emails.send({
+    from: config.resendFromEmail || 'WeDance <noreply@wedance.vip>',
+    to: params.to,
+    subject,
+    headers: { 'List-Unsubscribe': `<${params.unsubscribeUrl}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' },
+    html: `<div style="font-family: sans-serif; max-width: 460px; margin: 0 auto; padding: 20px;">
+      <h2 style="color: #333;">You and ${o} both said yes 💃</h2>
+      <p>Hey ${escapeHtml(params.name)}!</p>
+      <p style="color: #555;">You said yes to ${o} on WeDance, and ${o} just said yes to you. You’d both like to dance together.</p>
+      ${params.night ? `<p style="color: #555;">A night you could both go to: <a href="${params.night.link}" style="color: #333; font-weight: bold;">${escapeHtml(params.night.name)}</a>, ${escapeHtml(params.night.when)}.</p>` : ''}
+      <a href="${params.link}" style="display: inline-block; background: #000; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">See your dance friends</a>
+      <p style="color: #999; font-size: 12px; margin-top: 32px;">You get this because you said yes to ${o} in Meet new friends or on a festival page. At most one a day. <a href="${params.unsubscribeUrl}" style="color: #999;">Stop these emails</a> · or turn them off in Settings.</p>
+    </div>`,
+  })
+}
