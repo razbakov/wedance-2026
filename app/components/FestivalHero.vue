@@ -7,6 +7,7 @@ import { daysUntil as formatDaysUntil } from '#shared/utils/festivalDateFormatte
 import { accentText, readableAccent } from '~/lib/accent'
 import { Button } from '~/components/ui/button'
 import { initialOf } from '#shared/utils/initials'
+import { heroTagline } from '#shared/utils/heroTagline'
 
 // Shared hero for festivals AND events (an event is just a smaller festival).
 // `reviewTargetType` + `entityLabel` let the same hero serve either.
@@ -34,9 +35,15 @@ const props = withDefaults(defineProps<{
   // a "Cancelled" pill instead of the countdown, the date struck through, the reason
   // under it, no tickets / "I'm going"; someone who had it on their plan can take it off.
   cancelled?: { reason?: string | null } | null
+  /** The event's picture (its cover / flyer), on the left of the hero — on top on phones (RAZ-1008). */
+  image?: string | null
+  /** Who presents it: "[logo] Lionsnight presents" above the title (organiser first, co-organisers after). */
+  presenters?: { username?: string | null; name: string }[] | null
+  /** The description: its first sentence goes before the buttons, 2 lines at most; "More" opens About. */
+  description?: string | null
 }>(), { reviewTargetType: 'festival', entityLabel: 'festival', ctaAnchor: '#discover' })
 
-defineEmits<{ pick: [] }>()
+defineEmits<{ pick: []; more: [] }>()
 
 // Review rating (client-side — the tRPC client is client-only). Renders after
 // mount; null until then so SSR + first client render match (no hydration jump).
@@ -80,6 +87,13 @@ const platformIcon: Record<string, any> = {
   website: Globe,
 }
 
+// "Lionsnight presents" / "Lionsnight & meet & DANCE present" — only real names, never a guess.
+const presentersShown = computed(() => (props.presenters ?? []).filter(p => p.name?.trim()).slice(0, 2))
+const presentsVerb = computed(() => presentersShown.value.length > 1 ? 'present' : 'presents')
+// One sentence, ~160 characters: enough to say what it is without pushing the buttons down.
+const tagline = computed(() => heroTagline(props.description))
+const taglineCut = computed(() => !!tagline.value && tagline.value.length < (props.description ?? '').trim().length)
+
 const daysUntil = computed(() => formatDaysUntil(props.festival.startDate, props.festival.timezone, props.festival.endDate))
 
 // Accent text on its own tint / white-on-accent buttons, darkened only when the
@@ -116,26 +130,27 @@ const rays = Array.from({ length: 24 }, (_, i) => {
     </svg>
 
     <div class="relative max-w-4xl mx-auto px-4 pt-10 pb-12">
-      <div class="flex items-start gap-5">
-        <!-- Logo with V3 red drop-shadow border -->
-        <div class="shrink-0 relative">
-          <img
-            v-if="festival.logo"
-            :src="sizedImage(festival.logo, IMG.avatar)"
-            :alt="festival.name"
-            class="w-20 h-20 rounded-full border-4 border-background"
-            :style="{ boxShadow: '4px 5px 0 -1px ' + festival.accentColor }"
-          >
-          <div
-            v-else
-            class="w-20 h-20 rounded-full flex items-center justify-center text-3xl font-bold text-white border-4 border-background"
-            :style="{ background: festival.accentColor, boxShadow: '4px 5px 0 -1px ' + festival.accentColor }"
-          >
-            {{ initialOf(festival.name) }}
-          </div>
-        </div>
+      <div class="grid gap-5 sm:gap-8" :class="image ? 'sm:grid-cols-[minmax(0,15rem)_1fr] sm:items-start' : ''">
+        <!-- The event's picture: 4:5 beside the text, a short band on top on phones (the buttons stay in view).
+             Flyers are busy, so it's cropped from the top; tap for the whole thing. -->
+        <a v-if="image" :href="image" target="_blank" rel="noopener" class="block overflow-hidden rounded-2xl border border-border shadow-wd-card bg-wd-brown-900/[3.9%]" data-hero-image>
+          <img :src="sizedImage(image, IMG.large)" :alt="`${festival.name} — picture`" class="w-full h-36 sm:h-auto sm:aspect-[4/5] object-cover object-top">
+        </a>
 
-        <div class="flex-1 min-w-0">
+        <div class="min-w-0">
+          <!-- Who presents it (RAZ-1008): the organiser's logo + name, linking to their page. -->
+          <p v-if="presentersShown.length" class="mb-3 flex items-center gap-2 text-sm font-sans text-muted-foreground" data-hero-presents>
+            <img v-if="festival.logo" :src="sizedImage(festival.logo, IMG.avatar)" alt="" class="size-7 rounded-full object-cover border border-border">
+            <span>
+              <template v-for="(p, i) in presentersShown" :key="p.username || p.name">
+                <template v-if="i"> &amp; </template>
+                <NuxtLink v-if="p.username" :to="`/@${p.username}`" class="font-bold text-foreground hover:underline">{{ p.name }}</NuxtLink>
+                <b v-else class="text-foreground">{{ p.name }}</b>
+              </template>
+              {{ presentsVerb }}
+            </span>
+          </p>
+
           <!-- Eyebrow: days-until in Caveat, colored -->
           <p
             v-if="cancelled"
@@ -144,14 +159,6 @@ const rays = Array.from({ length: 24 }, (_, i) => {
           >
             <Ban class="size-3.5" aria-hidden="true" /> Cancelled
           </p>
-          <div
-            v-else
-            data-visual-mask
-            class="text-lg leading-none mb-2 font-hand"
-            :style="{ color: festival.accentColor }"
-          >
-            — {{ daysUntil }}
-          </div>
 
           <!-- Festival name in Playfair -->
           <h1
@@ -164,12 +171,20 @@ const rays = Array.from({ length: 24 }, (_, i) => {
           <p
             class="mt-2 text-sm sm:text-base italic font-display text-muted-foreground"
           >
-            <span :class="cancelled ? 'line-through decoration-destructive decoration-2' : ''">{{ dateRange }}</span> <span class="text-secondary">·</span> {{ festival.venue.name }}
+            <span :class="cancelled ? 'line-through decoration-destructive decoration-2' : ''">{{ dateRange }}</span>
+            <template v-if="!cancelled">{{ ' ' }}<span data-visual-mask class="not-italic font-hand text-lg leading-none" :style="{ color: festival.accentColor }">— {{ daysUntil }}</span></template>
+            {{ ' ' }}<span class="text-secondary">·</span> {{ festival.venue.name }}
             <template v-if="venueAddress">
-              <span class="text-secondary">·</span>
+              {{ ' ' }}<span class="text-secondary">·</span>{{ ' ' }}
               <a v-if="mapUrl" :href="mapUrl" target="_blank" rel="noopener noreferrer" class="underline hover:text-foreground">{{ venueAddress }}</a>
               <span v-else>{{ venueAddress }}</span>
             </template>
+          </p>
+
+          <!-- What it is, in a sentence, before the buttons (RAZ-1008). The rest is in About. -->
+          <p v-if="tagline" class="mt-3 max-w-xl text-sm sm:text-base leading-relaxed text-foreground font-sans" data-hero-tagline>
+            {{ tagline }}
+            <button v-if="taglineCut" type="button" class="ml-1 font-bold text-secondary hover:underline cursor-pointer" data-hero-more @click="$emit('more')">More</button>
           </p>
 
           <p v-if="cancelled" class="mt-3 max-w-xl text-sm text-foreground font-sans" data-testid="event-cancelled-reason">
@@ -230,8 +245,6 @@ const rays = Array.from({ length: 24 }, (_, i) => {
           <!-- The one "am I coming?" control (RAZ-731). The parent can replace it
                (a dated event's poll, a festival's Get pass); the default is
                external tickets when linked, else + My plan (add to plan). -->
-          <!-- A replaced control (the poll) takes the full width on phones,
-               under the logo too: logo w-20 + gap-5 = 6.25rem. -->
           <div v-if="cancelled" class="mt-4 flex flex-wrap gap-2">
             <Button
               v-if="picked"
@@ -244,7 +257,7 @@ const rays = Array.from({ length: 24 }, (_, i) => {
               <X aria-hidden="true" /> Remove from my plan
             </Button>
           </div>
-          <div v-else-if="$slots.cta" class="-ml-[6.25rem] sm:ml-0">
+          <div v-else-if="$slots.cta" >
             <slot name="cta" />
           </div>
           <div v-else class="mt-4 flex flex-wrap gap-2">
@@ -272,7 +285,7 @@ const rays = Array.from({ length: 24 }, (_, i) => {
           </div>
           <!-- Under the control, as on any event (RAZ-1008): what comes after "I'm going",
                e.g. a festival's "Meet who's going" once it's on your plan. -->
-          <div v-if="!cancelled && $slots['after-cta']" class="-ml-[6.25rem] sm:ml-0">
+          <div v-if="!cancelled && $slots['after-cta']" >
             <slot name="after-cta" />
           </div>
         </div>

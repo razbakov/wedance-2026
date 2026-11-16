@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { sizedImage, IMG } from '#shared/utils/image'
 /**
  * /events/<name>-<short id> (old /events/<id> links redirect here) — a single event, rendered through the SAME rich view as a
  * festival (an event is just a smaller festival). It reuses FestivalHero and the
@@ -230,10 +229,16 @@ const asFestival = computed(() => ({
   tickets: [] as any[],
 })) as any
 
+// "Lionsnight presents" in the hero (RAZ-1008): the organiser, then the co-organisers.
+const heroPresenters = computed(() => [
+  ...(ev.value?.organizerName ? [{ username: ev.value.organizerHandle || null, name: ev.value.organizerName }] : []),
+  ...(ev.value?.coOrganizers ?? []).map((c: any) => ({ username: c.username, name: c.name })),
+])
+
 // Which sections have content (so nav + page grow with the event).
 const sections = computed(() => {
   const s: { id: string; label: string }[] = []
-  if (ev.value?.message || ev.value?.cover || ev.value?.link || ev.value?.price || ev.value?.agenda?.length) s.push({ id: 'about', label: 'About' })
+  if (ev.value?.message || ev.value?.link || ev.value?.price || ev.value?.agenda?.length) s.push({ id: 'about', label: 'About' })
   if (ev.value?.artists?.length) s.push({ id: 'lineup', label: 'Lineup' })
   s.push({ id: 'venue', label: 'Venue' })
   s.push({ id: 'reviews', label: 'Reviews' })
@@ -298,7 +303,7 @@ useHead(() => ({
       </div>
 
       <!-- Same hero as festivals -->
-      <FestivalHero :festival="asFestival" review-target-type="event" entity-label="event" cta-anchor="#rsvp" cta-fallback-label="I'm going" :hide-going="ev.pollable && !ev.archived && !isPreview && !ev.cancelled" :picked="picked" :cancelled="ev.cancelled ? { reason: ev.cancelReason } : null" :date-label="ev.when" :venue-address="ev.venueAddress" :map-url="ev.mapUrl" @pick="onPick">
+      <FestivalHero :festival="asFestival" :image="ev.cover" :presenters="heroPresenters" :description="ev.message" review-target-type="event" entity-label="event" cta-anchor="#rsvp" cta-fallback-label="I'm going" :hide-going="ev.pollable && !ev.archived && !isPreview && !ev.cancelled" :picked="picked" :cancelled="ev.cancelled ? { reason: ev.cancelReason } : null" :date-label="ev.when" :venue-address="ev.venueAddress" :map-url="ev.mapUrl" @pick="onPick" @more="scrollTo('about')">
         <!-- The RSVP: the organiser's poll IS the hero's Going question (RAZ-731). -->
         <template v-if="ev.pollable && !ev.archived && !isPreview && !ev.cancelled" #cta>
           <div id="rsvp" class="mt-4 max-w-xl scroll-mt-16">
@@ -325,9 +330,8 @@ useHead(() => ({
 
       <div class="max-w-3xl mx-auto px-4 space-y-14 pt-8 pb-20 font-sans">
         <!-- About -->
-        <section v-if="ev.message || ev.cover || ev.link || ev.price || ev.agenda?.length || ev.coOrganizers?.length" id="about" class="scroll-mt-16">
+        <section v-if="ev.message || ev.link || ev.price || ev.agenda?.length || ev.coOrganizers?.length" id="about" class="scroll-mt-16">
           <h2 class="text-2xl font-black leading-tight mb-3 font-display text-foreground">About</h2>
-          <img v-if="ev.cover" :src="sizedImage(ev.cover, IMG.hero)" :alt="ev.title" class="w-full max-h-[28rem] object-contain rounded-2xl mb-4 bg-wd-brown-900/[3.9%]" loading="lazy">
           <div class="flex flex-wrap items-center gap-2 mb-4">
             <span v-if="ev.eventType" class="text-eyebrow font-black uppercase tracking-widest px-2 py-1 rounded bg-secondary/[9.4%] text-secondary">{{ ev.eventType }}</span>
             <DanceStyleChips :styles="ev.styles || []" size="md" class="gap-2" />

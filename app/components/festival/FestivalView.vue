@@ -840,6 +840,11 @@ function openTab(t: Tab, via: 'nav' | 'summary' | 'hero' | 'link' = 'link', base
   })
 }
 watch(() => route.query.tab, () => { activeTab.value = tabFromRoute() })
+// The hero's "More" under the one-line description: the full text in Overview → About.
+function openAbout() {
+  openTab('overview', 'link')
+  nextTick(() => document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' }))
+}
 
 // Overview summary: what's inside each tab, one card each, so the first page
 // shows there is a lot to explore without showing all of it.
@@ -1182,7 +1187,7 @@ useHead({
     </div>
 
     <div ref="heroRef">
-      <FestivalHero :festival="heroFestival" :picked="heroPicked" :cancelled="cancelled" :free-entry="freeEntry" :hide-going="!!rsvp && !cancelled" :venue-address="festival.venue?.address" :map-url="festival.venue?.coordinates?.lat != null ? `https://www.google.com/maps/search/?api=1&query=${festival.venue.coordinates.lat},${festival.venue.coordinates.lng}` : (festival.venue?.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(festival.venue.address)}` : undefined)" @pick="onPick">
+      <FestivalHero :festival="heroFestival" :image="festival.flyer" :presenters="festival.organizers" :description="festival.description" :picked="heroPicked" :cancelled="cancelled" :free-entry="freeEntry" :hide-going="!!rsvp && !cancelled" :venue-address="festival.venue?.address" :map-url="festival.venue?.coordinates?.lat != null ? `https://www.google.com/maps/search/?api=1&query=${festival.venue.coordinates.lat},${festival.venue.coordinates.lng}` : (festival.venue?.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(festival.venue.address)}` : undefined)" @pick="onPick" @more="openAbout">
         <!-- A dated event: the organiser's poll is the Going question. -->
         <template v-if="rsvp" #cta>
           <div id="rsvp" class="mt-4 max-w-xl scroll-mt-16">
