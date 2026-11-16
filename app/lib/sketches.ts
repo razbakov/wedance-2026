@@ -40,6 +40,18 @@ const pr = (n: number): SketchLink => ({ label: `PR #${n}`, url: `https://github
 
 export const SKETCHES: Sketch[] = [
   {
+    slug: 'event-review',
+    title: 'Event reviews: where the rating shows, who gets asked',
+    what: 'The event’s rating as stars under the picture; tapping them opens a Reviews tab next to Overview (the reviews leave the bottom of the page). And what changes after the night: people who went get "How was it?" in place of the Book button and a one-tap email the morning after; people who did not go get the next date. After 4–5★, a tip to the organiser, with a quiet "support WeDance". Toggles: before / after (went, did not go, reviewed), reviews / none, desktop / mobile.',
+    why: 'Reviews sat at the bottom of the page as "No reviews yet. Be the first." — anyone could write one before the night, nobody was asked after it, and the rating was not visible where people decide.',
+    requestedBy: 'Alösha',
+    builtBy: 'Agent (Claude)',
+    created: '2026-11-16',
+    status: 'decided',
+    decision: 'Under the picture (2026-11-16): the stars sit under the event’s picture and open a Reviews tab (next to Overview on a plain event; next to Line-up / Schedule / Passes on a festival). Built first; asking only people who went, the next-day email and the tip follow.',
+    ticket: linear('RAZ-1011', 'review-event'),
+  },
+  {
     slug: 'your-night',
     title: 'Your night: booking an event with a programme',
     what: 'One booking for a night with a programme (19:00 class → 20:00 party → 22:00 band). Before booking, "+ My plan" on the items picks the pass ("Fits your plan"); each pass says what it includes. After "Book my spot", "Your night" ticks what the pass covers, stays editable (skip the class → "Be there around 20:00"), and shows "Not in your pass · +€7" for the rest; Add to calendar. My plan shows one row for the night. The organiser sees counts per item (leaders / followers for the class) and when people arrive. Toggles: booked / not, dancer / organiser, desktop / mobile.',

@@ -42,7 +42,8 @@ const props = withDefaults(defineProps<{
   description?: string | null
 }>(), { reviewTargetType: 'festival', entityLabel: 'festival', ctaAnchor: '#discover' })
 
-defineEmits<{ pick: [] }>()
+// `reviews`: the stars under the picture open the page's Reviews tab (RAZ-1011).
+defineEmits<{ pick: []; reviews: [] }>()
 
 // Review rating (client-side — the tRPC client is client-only). Renders after
 // mount; null until then so SSR + first client render match (no hydration jump).
@@ -178,9 +179,26 @@ const rays = Array.from({ length: 24 }, (_, i) => {
       <div class="grid gap-5 sm:gap-8" :class="image ? 'sm:grid-cols-[minmax(0,15rem)_1fr] sm:items-start' : ''">
         <!-- The event's picture: 4:5 beside the text, a short band on top on phones (the buttons stay in view).
              Flyers are busy, so it's cropped from the top; tap for the whole thing. -->
-        <a v-if="image" :href="image" target="_blank" rel="noopener" class="block overflow-hidden rounded-2xl border border-border shadow-wd-card bg-wd-brown-900/[3.9%]" data-hero-image>
-          <img :src="sizedImage(image, IMG.large)" :alt="`${festival.name} — picture`" class="w-full h-36 sm:h-auto sm:aspect-[4/5] object-cover object-top">
-        </a>
+        <div v-if="image">
+          <a :href="image" target="_blank" rel="noopener" class="block overflow-hidden rounded-2xl border border-border shadow-wd-card bg-wd-brown-900/[3.9%]" data-hero-image>
+            <img :src="sizedImage(image, IMG.large)" :alt="`${festival.name} — picture`" class="w-full h-36 sm:h-auto sm:aspect-[4/5] object-cover object-top">
+          </a>
+          <!-- How it's rated, under the picture (RAZ-1011): the stars open the Reviews tab. -->
+          <a
+            v-if="rating && rating.count"
+            href="#reviews"
+            class="mt-2 inline-flex items-center gap-1.5 rounded-lg px-1 py-1 font-sans text-sm hover:bg-muted/60"
+            :aria-label="`Rated ${rating.average.toFixed(1)} out of 5 from ${rating.count} ${rating.count === 1 ? 'review' : 'reviews'} — read the reviews`"
+            data-hero-rating
+            @click.prevent="$emit('reviews')"
+          >
+            <span class="flex" aria-hidden="true">
+              <Star v-for="n in 5" :key="n" class="size-4" :class="n <= Math.round(rating.average) ? 'text-wd-amber-500 fill-wd-amber-500' : 'text-border'" />
+            </span>
+            <b class="text-foreground">{{ rating.average.toFixed(1) }}</b>
+            <span class="text-xs text-muted-foreground underline underline-offset-2">{{ rating.count }} {{ rating.count === 1 ? 'review' : 'reviews' }}</span>
+          </a>
+        </div>
 
         <div class="min-w-0">
           <!-- Who presents it (RAZ-1008): the organiser's logo + name, linking to their page. -->
@@ -356,10 +374,11 @@ const rays = Array.from({ length: 24 }, (_, i) => {
             >
               Free entry
             </span>
-            <!-- Review rating (appears once loaded), links to the reviews section -->
+            <!-- Review rating (appears once loaded) when there's no picture to put it under; opens Reviews -->
             <a
-              v-if="rating && rating.count"
+              v-if="rating && rating.count && !image"
               href="#reviews"
+              @click.prevent="$emit('reviews')"
               class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-bold font-sans bg-wd-amber-500/12 text-wd-amber-700"
             >
               <Star class="w-3 h-3 fill-wd-amber-500 text-wd-amber-500" aria-hidden="true" />
