@@ -28,35 +28,78 @@ export function peopleFor(answer: RsvpAnswer | null | undefined): 1 | 2 {
   return answer === 'partner' ? 2 : 1
 }
 
+/**
+ * Who a pass is for, read from its name: festivals sell "Full Pass — Leader", "… — Couple",
+ * "… — Leader couple (2 leaders)" as separate passes. null = anyone (a masterclass, a class's
+ * only pass). A couple pass is for two people and its price is for both.
+ */
+export type PassFor = 'leader' | 'follower' | 'couple'
+export function passFor(pass: Pick<FestivalPass, 'name'>): PassFor | null {
+  const n = String(pass.name ?? '').toLowerCase()
+  if (/\bcouples?\b|\bfor two\b|\bpaar\b|\bpareja\b|\(2 /.test(n)) return 'couple'
+  if (/\bleaders?\b/.test(n)) return 'leader'
+  if (/\bfollowers?\b/.test(n)) return 'follower'
+  return null
+}
+
+/**
+ * The passes that fit how the dancer is coming. Only when the organiser sells passes per role:
+ * with a partner → couple passes (and passes for anyone, ×2); alone → their role's passes (and
+ * passes for anyone). A class with plain passes keeps all of them.
+ */
+export function passesFor(passes: readonly FestivalPass[], answer: RsvpAnswer | null | undefined): FestivalPass[] {
+  const priced = pricedPasses(passes)
+  if (!answer || !priced.some(p => passFor(p))) return priced
+  const want: PassFor | null = answer === 'partner' ? 'couple' : answer === 'needLeader' ? 'follower' : answer === 'needFollower' ? 'leader' : null
+  return priced.filter((p) => {
+    const f = passFor(p)
+    if (!f) return true
+    if (want) return f === want
+    return f !== 'couple' // "I'm going" in a dance without roles: any single pass
+  })
+}
+
+/** The roles' passes the organiser sells but none of them is for this dancer ("no follower passes left"). */
+export function noPassForRole(passes: readonly FestivalPass[], answer: RsvpAnswer | null | undefined): boolean {
+  if (answer !== 'needLeader' && answer !== 'needFollower') return false
+  const priced = pricedPasses(passes)
+  const want: PassFor = answer === 'needLeader' ? 'follower' : 'leader'
+  const perRole = priced.some(p => passFor(p) === 'leader' || passFor(p) === 'follower')
+  return perRole && !priced.some(p => passFor(p) === want && !p.soldOut)
+}
+
 /** What a pass costs for the people coming, in euros. */
-export function passTotal(pass: Pick<FestivalPass, 'price' | 'couplePrice'>, people: 1 | 2): number {
+export function passTotal(pass: Pick<FestivalPass, 'name' | 'price' | 'couplePrice'>, people: 1 | 2): number {
   const price = Number(pass.price) || 0
-  if (people === 1) return price
+  if (people === 1 || passFor(pass) === 'couple') return price
   const couple = Number(pass.couplePrice)
   return pass.couplePrice != null && Number.isFinite(couple) && couple > 0 ? couple : price * 2
 }
 
 /** "€18 for two", "2 × €129", "€10". */
-export function passPriceLabel(pass: Pick<FestivalPass, 'price' | 'couplePrice'>, people: 1 | 2): string {
+export function passPriceLabel(pass: Pick<FestivalPass, 'name' | 'price' | 'couplePrice'>, people: 1 | 2): string {
   const total = passTotal(pass, people)
   if (people === 1) return `€${total}`
+  if (passFor(pass) === 'couple') return `€${total} for two`
   return pass.couplePrice != null && Number(pass.couplePrice) > 0 ? `€${total} for two` : `2 × €${Number(pass.price)}`
 }
 
 /** The steps, in order, for this event and this viewer. */
-export function signupSteps(o: { passes: readonly FestivalPass[] }): SignupStep[] {
-  const priced = pricedPasses(o.passes)
+export function signupSteps(o: { passes: readonly FestivalPass[], answer?: RsvpAnswer | null }): SignupStep[] {
+  const fitting = passesFor(o.passes, o.answer)
+  const priced = o.answer && fitting.length ? fitting : pricedPasses(o.passes)
+  // No pass left for their role: show the step anyway, so they see why (and what is left).
   return [
     'role',
-    ...(priced.length > 1 ? ['pass' as const] : []),
+    ...(priced.length > 1 || noPassForRole(o.passes, o.answer) ? ['pass' as const] : []),
     ...(priced.length ? ['pay' as const] : []),
     'you',
   ]
 }
 
 /** The pass the dancer means: the one they picked, or the only one there is. */
-export function chosenPass(passes: readonly FestivalPass[], name: string | null | undefined): FestivalPass | null {
-  const priced = pricedPasses(passes)
+export function chosenPass(passes: readonly FestivalPass[], name: string | null | undefined, answer?: RsvpAnswer | null): FestivalPass | null {
+  const priced = answer ? passesFor(passes, answer) : pricedPasses(passes)
   if (name) return priced.find(p => p.name.trim() === name.trim()) ?? null
   return priced.length === 1 ? priced[0]! : null
 }

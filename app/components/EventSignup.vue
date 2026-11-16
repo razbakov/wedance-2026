@@ -18,7 +18,7 @@ import { ArrowRight, Check, Mail, Ticket, X } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
 import { signupGuestSchema, signupMemberSchema } from '#shared/validation'
 import { rsvpOptions, type RsvpAnswer } from '#shared/utils/rsvp'
-import { chosenPass, passPriceLabel, passTotal, peopleFor, pricedPasses, signupCta, signupNeedsPhone, signupSteps, type PayMethod, type SignupStep } from '#shared/utils/eventSignup'
+import { chosenPass, noPassForRole, passFor, passPriceLabel, passTotal, passesFor, peopleFor, pricedPasses, signupCta, signupNeedsPhone, signupSteps, type PayMethod, type SignupStep } from '#shared/utils/eventSignup'
 import type { FestivalPass } from '#shared/types/festivalDetails'
 import { sizedImage, IMG } from '#shared/utils/image'
 import { includesLine, passCovers } from '#shared/utils/yourNight'
@@ -59,7 +59,9 @@ const router = useRouter()
 const poll = ref<Poll | null>(null)
 const passes = computed(() => props.passes ?? [])
 const priced = computed(() => pricedPasses(passes.value))
-const steps = computed(() => signupSteps({ passes: passes.value }))
+// The steps follow how you're coming: a festival sells passes per role, so a follower
+// on their own is offered follower passes, a couple the couple passes, priced once for both.
+const steps = computed(() => signupSteps({ passes: passes.value, answer: answer.value }))
 const mine = computed(() => poll.value?.mine ?? null)
 const coming = computed(() => !!mine.value && mine.value.answer !== 'next')
 const me = computed(() => poll.value?.me ?? null)
@@ -92,7 +94,9 @@ const pay = ref<PayMethod | null>(null)
 const keepInTouch = ref(false)
 const editingPhone = ref(false)
 const people = computed(() => peopleFor(answer.value))
-const pass = computed(() => chosenPass(passes.value, passName.value))
+const fitting = computed(() => (answer.value ? passesFor(passes.value, answer.value) : priced.value))
+const noneForRole = computed(() => noPassForRole(passes.value, answer.value))
+const pass = computed(() => chosenPass(passes.value, passName.value, answer.value))
 const total = computed(() => (pass.value ? passTotal(pass.value, people.value) : 0))
 const stepIndex = (s: SignupStep) => steps.value.indexOf(s)
 
@@ -110,7 +114,7 @@ const includesOf = (p: FestivalPass | null) => programmeItems.value.length ? inc
 const fitsPlan = computed(() => {
   const want = (props.plannedIds ?? []).filter(id => programmeItems.value.some(s => s.id === id))
   if (!want.length) return null
-  return priced.value.filter(p => !p.soldOut)
+  return fitting.value.filter(p => !p.soldOut)
     .filter(p => { const c = new Set(passCovers(p, programmeItems.value).map(s => s.id)); return want.every(id => c.has(id)) })
     .sort((a, b) => Number(a.price) - Number(b.price))[0]?.name ?? null
 })
@@ -136,7 +140,13 @@ function next() {
   const i = stepIndex(step.value)
   if (i < steps.value.length - 1) step.value = steps.value[i + 1]!
 }
-function pickRole(a: RsvpAnswer) { answer.value = a; next() }
+function pickRole(a: RsvpAnswer) {
+  answer.value = a
+  // A pass picked for another way of coming (or the only one left) is redone for this one.
+  if (passName.value && !fitting.value.some(p => p.name === passName.value)) passName.value = fitsPlan.value
+  if (!passName.value && fitting.value.length === 1 && !noneForRole.value) passName.value = fitting.value[0]!.name
+  next()
+}
 function pickPass(name: string) { passName.value = name; next() }
 function pickPay(p: PayMethod) { pay.value = p; next() }
 
@@ -373,8 +383,11 @@ defineExpose({ start })
 
             <!-- ② Pick your pass -->
             <div v-else-if="s === 'pass'" class="mt-3 space-y-2">
+              <p v-if="noneForRole" class="rounded-xl bg-muted px-3 py-2 text-xs text-muted-foreground" data-signup-no-role-pass>
+                No {{ answer === 'needLeader' ? 'follower' : 'leader' }} passes left on their own. Coming with a partner? Change how you're coming for the couple passes.
+              </p>
               <button
-                v-for="p in priced" :key="p.name" type="button"
+                v-for="p in fitting" :key="p.name" type="button"
                 class="w-full rounded-xl border px-3 py-2.5 text-left flex items-center gap-3 hover:border-primary transition-colors disabled:opacity-50"
                 :class="passName === p.name ? 'border-primary bg-primary/5' : 'border-border'"
                 :disabled="p.soldOut"
@@ -389,14 +402,14 @@ defineExpose({ start })
                 </span>
                 <span class="ml-auto text-right shrink-0">
                   <span class="block font-display text-lg font-black">€{{ passTotal(p, people) }}</span>
-                  <span v-if="people === 2" class="block text-xs text-muted-foreground">{{ p.couplePrice ? `for two · saves €${p.price * 2 - p.couplePrice}` : `2 × €${p.price}` }}</span>
+                  <span v-if="people === 2" class="block text-xs text-muted-foreground">{{ passFor(p) === 'couple' ? 'for two' : p.couplePrice ? `for two · saves €${p.price * 2 - p.couplePrice}` : `2 × €${p.price}` }}</span>
                 </span>
               </button>
             </div>
 
             <!-- ③ Pay -->
             <div v-else-if="s === 'pay'" class="mt-3">
-              <p v-if="priced.length === 1 && pass" class="mb-3 text-sm text-muted-foreground">{{ pass.name }}<template v-if="pass.description"> · {{ pass.description }}</template> · {{ payLabel(pass) }}</p>
+              <p v-if="fitting.length === 1 && pass" class="mb-3 text-sm text-muted-foreground">{{ pass.name }}<template v-if="pass.description"> · {{ pass.description }}</template> · {{ payLabel(pass) }}</p>
               <div class="flex flex-wrap gap-2">
                 <Button type="button" variant="cta" size="pill-sm" data-signup-pay-now @click="pickPay('now')">Pay now <ArrowRight aria-hidden="true" /></Button>
                 <Button v-if="payAtDoor" type="button" variant="outline-pill" size="pill-sm" data-signup-pay-door @click="pickPay('door')">At the door</Button>
