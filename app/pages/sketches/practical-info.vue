@@ -18,7 +18,7 @@ useHead({ title: 'WeDance — Venue row sketch', meta: [{ name: 'robots', conten
 type Variant = 'today' | 'new'
 const VARIANTS: { id: Variant, name: string, idea: string }[] = [
   { id: 'today', name: 'Today', idea: 'The venue row opens DDF’s whole practical-info list: 12 lines about the venue, the nights and the tickets.' },
-  { id: 'new', name: 'New', idea: 'The row still expands, now only into the venue’s three hints (getting there, parking, what to bring) and its links. A venue with no hints has no chevron: the address opens directions.' },
+  { id: 'new', name: 'New', idea: 'The venue row expands into the venue’s own hints (Airbnb-style). "What’s inside" gets a "party nights" card, second, its line = each night’s dress code; it opens the Schedule at the first party.' },
 ]
 
 const variant = ref<Variant>('new')
@@ -46,6 +46,22 @@ const HINTS: { icon: Component, line?: { name: string, color: string }, text: st
   { icon: Shirt, text: 'Cloakroom', detail: '', missing: true },
 ]
 const hints = computed(() => filled.value ? HINTS : [])
+
+// The Overview's "What's inside" cards (FestivalView `summaryCards`). New: "party nights" second,
+// its line = each night's dress code. DDF's real counts; the dress codes from its practical info.
+type Card = { key: string, title: string, line: string, link: string, isNew?: boolean }
+const CARDS_TODAY: Card[] = [
+  { key: 'lineup', title: '32 artists', line: 'George & Iva, Jeff Ghys, Chamalo & T-ZER and more', link: 'Line-up' },
+  { key: 'schedule', title: '42 sessions', line: '3 days · 13 styles · pick yours', link: 'Schedule' },
+  { key: 'tickets', title: 'Passes from €10', line: 'We suggest the one for your plan', link: 'Passes' },
+]
+const CARDS_NEW: Card[] = [
+  CARDS_TODAY[0]!,
+  { key: 'parties', title: '2 party nights', line: 'Fri red-black or black-white · Sat King & Queen', link: 'Schedule', isNew: true },
+  CARDS_TODAY[1]!,
+  CARDS_TODAY[2]!,
+]
+const cards = computed(() => variant.value === 'new' ? CARDS_NEW : CARDS_TODAY)
 
 // DDF's practicalInfo as it is stored today (the poster links shortened).
 const TODAY = [
@@ -228,6 +244,29 @@ const TODAY = [
               </dd>
             </div>
           </dl>
+
+          <!-- What's inside: a row of cards that opens each tab (as on the event page). -->
+          <ul
+            class="mt-5 gap-2"
+            :class="isMobile ? 'flex overflow-x-auto pb-1 snap-x' : 'grid max-w-3xl'"
+            :style="isMobile ? undefined : { gridTemplateColumns: `repeat(${cards.length}, minmax(0, 1fr))` }"
+            data-sketch-cards
+          >
+            <li v-for="c in cards" :key="c.key" :class="isMobile ? 'w-44 shrink-0 snap-start' : ''">
+              <button
+                type="button"
+                class="group flex h-full w-full flex-col gap-1 rounded-2xl border bg-card/80 px-4 py-3 text-left transition-colors hover:bg-card cursor-pointer"
+                :class="c.isNew ? 'border-primary/50' : 'border-border hover:border-primary/40'"
+                :data-sketch-card="c.key"
+              >
+                <span class="text-lg font-black leading-tight text-foreground font-display">{{ c.title }}</span>
+                <span class="text-sm text-muted-foreground line-clamp-3">{{ c.line }}</span>
+                <span class="mt-auto pt-2 inline-flex items-center gap-1 text-sm font-bold text-secondary">
+                  {{ c.link }} <ArrowRight class="size-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+                </span>
+              </button>
+            </li>
+          </ul>
         </div>
       </div>
     </div>
