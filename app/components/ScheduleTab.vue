@@ -25,6 +25,8 @@ const props = defineProps<{
   selectedTeacherId: string | null
   startDate: string
   festivalSlug?: string
+  /** A one-session class (RAZ-995): signing up in the hero already puts it on My plan, so no Save. */
+  hideSave?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -237,6 +239,7 @@ const levelColor: Record<string, string> = {
 
           <!-- Pick button -->
           <Button
+            v-if="!hideSave"
             type="button"
             :variant="planIds.has(w.id) ? 'pill' : 'outline-pill'"
             size="pill-sm"
@@ -300,7 +303,7 @@ const levelColor: Record<string, string> = {
           </div>
         </div>
         <Button
-          v-if="!isDoors(party)"
+          v-if="!isDoors(party) && !hideSave"
           type="button"
           :variant="planIds.has(party.id) ? 'pill' : 'outline-pill'"
           size="pill-sm"

@@ -6,6 +6,7 @@ export interface TicketOption {
   soldOut?: boolean
   workshopCount?: number // max workshops covered, undefined = unlimited
   includesParty?: boolean // whether party access is included
+  couplePrice?: number // price for two coming together; unset = 2 × price (RAZ-995)
 }
 
 export interface Festival {
@@ -25,6 +26,8 @@ export interface Festival {
   attendeeCount: number
   ticketUrl?: string
   tickets?: TicketOption[]
+  /** Dancers may sign up and pay at the door (RAZ-995). */
+  payAtDoor?: boolean
   /** Who runs it: the organiser first, then its co-organisers (#456), each with a role label. */
   organizers?: { username: string; name: string; role: string }[]
 }

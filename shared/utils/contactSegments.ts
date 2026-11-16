@@ -10,6 +10,10 @@
  * subscribers never asked for email from this page, so they're "can't email"
  * until they opt in (the one-time ask, RAZ-949 step 4).
  *
+ * Signing up for one of the page's events (RAZ-995) makes a contact with source `signup`: the page
+ * gets name, email and phone to run that event, but may not email them until they tick "tell me about
+ * next ones" (`source.opted_in`).
+ *
  * A dancer who ticks "Let <page> keep in touch" under an event's poll opts in
  * themselves: a new contact gets source `rsvp`, an existing one keeps its source
  * and gains `source.opted_in` (both mailable).
@@ -21,12 +25,13 @@
  * them (only name, photo, handle, city — what "Who's coming" already shows).
  */
 
-export const CONTACT_SOURCES = ['website', 'rsvp', 'hubspot_form', 'hubspot_import', 'hubspot_manual', 'wedance_v3', 'other', 'wedance'] as const
+export const CONTACT_SOURCES = ['website', 'rsvp', 'signup', 'hubspot_form', 'hubspot_import', 'hubspot_manual', 'wedance_v3', 'other', 'wedance'] as const
 export type ContactSourceKey = typeof CONTACT_SOURCES[number]
 
 export const SOURCE_LABEL: Record<ContactSourceKey, string> = {
   website: 'Your website',
   rsvp: 'Shared at an event',
+  signup: 'Signed up for an event',
   hubspot_form: 'HubSpot form',
   hubspot_import: 'HubSpot imported list',
   hubspot_manual: 'HubSpot by hand',
@@ -51,6 +56,9 @@ export function contactSourceKey(source: ContactSource): ContactSourceKey {
   }
   if (s.from === 'wedance-v3') return 'wedance_v3'
   if (s.from === 'rsvp') return 'rsvp'
+  // Signed up for one of the page's events (RAZ-995): name, email and phone for THAT event, not for emails —
+  // mailable only once they tick "tell me about next ones" (then `opted_in`).
+  if (s.from === 'signup') return 'signup'
   if (!s.from && (s.form || s.page || s.site || s.referrer || s.utm_source)) return 'website'
   return 'other'
 }

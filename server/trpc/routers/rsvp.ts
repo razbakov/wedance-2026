@@ -22,19 +22,21 @@ import {
   type RsvpAnswer,
 } from '../../../shared/utils/rsvp'
 import { mergeSignups } from '../../../shared/utils/rsvpPeople'
-import { CONTACT_PHONE_MAX, contactPageFor, contactState, setContactShared } from '../../utils/rsvpContact'
+import { CONTACT_PHONE_MAX, contactPageFor, contactState, recordSignupContact, setContactShared } from '../../utils/rsvpContact'
+import { PHONE_MAX, chosenPass, fullNameOk, phoneOk, pricedPasses, signupNeedsPhone } from '../../../shared/utils/eventSignup'
+import type { FestivalDetails } from '../../../shared/types/festivalDetails'
 
 const eventParam = z.string().min(1).max(160)
 const guestToken = z.string().uuid()
 /** Faces the poll lists at most; anyone past it is still in the counts. */
 const VOTERS_MAX = 60
 
-type Ev = { id: string; styles: string[] | null; organizerUsername: string | null; venueUsername: string | null; hostProfileId: string | null }
+type Ev = { id: string; styles: string[] | null; organizerUsername: string | null; venueUsername: string | null; hostProfileId: string | null; festival: FestivalDetails | null; type: string | null }
 
 async function findEvent(db: any, param: string): Promise<Ev> {
   for (const where of publicEventWhere(param)) {
     const [row] = await db
-      .select({ id: events.id, styles: events.styles, organizerUsername: events.organizerUsername, venueUsername: events.venueUsername, hostProfileId: events.hostProfileId })
+      .select({ id: events.id, styles: events.styles, organizerUsername: events.organizerUsername, venueUsername: events.venueUsername, hostProfileId: events.hostProfileId, festival: events.festival, type: events.type })
       .from(events).where(where).limit(1)
     if (row) return row
   }
@@ -61,8 +63,10 @@ async function pollFor(db: any, ev: Ev, viewer: { dancerId: string | null; guest
     ? eq(eventRsvps.dancerId, viewer.dancerId)
     : viewer.guestToken ? and(isNull(eventRsvps.dancerId), eq(eventRsvps.guestToken, viewer.guestToken)) : null
   const [mine] = mineWhere
-    ? await db.select({ answer: eventRsvps.answer, confirmedAt: eventRsvps.confirmedAt })
-        .from(eventRsvps).where(and(eq(eventRsvps.eventId, ev.id), mineWhere)).limit(1)
+    ? await db.select({
+        answer: eventRsvps.answer, confirmedAt: eventRsvps.confirmedAt, name: eventRsvps.name, phone: eventRsvps.phone,
+        partnerName: eventRsvps.partnerName, pass: eventRsvps.pass, pay: eventRsvps.pay, keepInTouch: eventRsvps.keepInTouch,
+      }).from(eventRsvps).where(and(eq(eventRsvps.eventId, ev.id), mineWhere)).limit(1)
     : []
 
   // Pairing: a confirmed "I need a leader" sees the confirmed "I need a follower"s (and back).
@@ -134,9 +138,45 @@ async function pollFor(db: any, ev: Ev, viewer: { dancerId: string | null; guest
     counts: s.counts,
     unconfirmed: s.unconfirmed,
     coming: s.coming,
-    mine: mine ? { answer: mine.answer as RsvpAnswer, confirmed: !!mine.confirmedAt } : null,
+    mine: mine
+      ? {
+          answer: mine.answer as RsvpAnswer, confirmed: !!mine.confirmedAt,
+          // The sign-up (RAZ-995) — the viewer's own row only.
+          signup: { name: mine.name ?? null, phone: mine.phone ?? null, partnerName: mine.partnerName ?? null, pass: mine.pass ?? null, pay: (mine.pay ?? null) as 'now' | 'door' | null, keepInTouch: !!mine.keepInTouch },
+        }
+      : null,
+    // A signed-in viewer's own account, for the sign-up's review card: it only asks for a missing phone.
+    me: viewer.dancerId ? await accountOf(db, viewer.dancerId) : null,
     matches,
     voters,
+  }
+}
+
+async function accountOf(db: any, dancerId: string): Promise<{ name: string, email: string, phone: string | null, photo: string | null } | null> {
+  const [d] = await db.select({ name: dancers.name, email: dancers.email, phone: dancers.phone, photo: dancers.photo }).from(dancers).where(eq(dancers.id, dancerId)).limit(1)
+  return d ? { name: d.name, email: d.email, phone: d.phone ?? null, photo: d.photo ?? null } : null
+}
+
+/**
+ * After a sign-up is confirmed: the phone goes on the account (asked once), a fresh magic-link account gets
+ * the name typed in the form (it was created with the email's first part), and the page that runs the
+ * event gets the contact (recordSignupContact). Best-effort: the sign-up itself is already saved.
+ */
+async function afterSignup(db: any, ev: Ev, dancerId: string, s: { name?: string | null, phone?: string | null, keepInTouch: boolean }) {
+  try {
+    const [d] = await db.select({ name: dancers.name, email: dancers.email, phone: dancers.phone }).from(dancers).where(eq(dancers.id, dancerId)).limit(1)
+    if (!d) return { created: false }
+    const set: Record<string, unknown> = {}
+    if (s.phone && s.phone !== d.phone) set.phone = s.phone
+    // Only a name we made up from the email is replaced: never a name the dancer chose.
+    if (s.name && fullNameOk(s.name) && d.name === String(d.email).split('@')[0]) set.name = s.name.trim()
+    if (Object.keys(set).length) await db.update(dancers).set(set).where(eq(dancers.id, dancerId))
+    const page = await contactPageFor(db, ev)
+    if (!page) return { created: false }
+    return await recordSignupContact(db, page, dancerId, { phone: s.phone, name: s.name, eventId: ev.id, keepInTouch: s.keepInTouch })
+  } catch (e) {
+    console.warn('[rsvp] after-signup failed', (e as Error)?.message ?? e)
+    return { created: false }
   }
 }
 
@@ -195,18 +235,26 @@ export const rsvpRouter = router({
 
       // The unconfirmed answer this browser (or this magic link) gave before signing in.
       const [guest] = input.guestToken
-        ? await ctx.db.select({ id: eventRsvps.id, createdAt: eventRsvps.createdAt }).from(eventRsvps)
+        ? await ctx.db.select({
+            id: eventRsvps.id, createdAt: eventRsvps.createdAt, name: eventRsvps.name, phone: eventRsvps.phone,
+            partnerName: eventRsvps.partnerName, pass: eventRsvps.pass, pay: eventRsvps.pay, keepInTouch: eventRsvps.keepInTouch,
+          }).from(eventRsvps)
             .where(and(eq(eventRsvps.eventId, ev.id), eq(eventRsvps.guestToken, input.guestToken), isNull(eventRsvps.dancerId))).limit(1)
         : []
       if (guest) await ctx.db.delete(eventRsvps).where(eq(eventRsvps.id, guest.id))
+      // A guest's sign-up (RAZ-995) comes along into the account: pass, how they pay, partner, phone.
+      const signup = guest?.name
+        ? { phone: guest.phone, partnerName: guest.partnerName, pass: guest.pass, pay: guest.pay, keepInTouch: !!guest.keepInTouch }
+        : {}
 
       await ctx.db.insert(eventRsvps)
-        .values({ eventId: ev.id, dancerId, answer: input.answer, confirmedAt: now })
+        .values({ eventId: ev.id, dancerId, answer: input.answer, confirmedAt: now, ...signup })
         .onConflictDoUpdate({
           target: [eventRsvps.eventId, eventRsvps.dancerId],
-          set: { answer: input.answer, updatedAt: now, confirmedAt: sql`coalesce(${eventRsvps.confirmedAt}, ${now})` },
+          set: { answer: input.answer, updatedAt: now, confirmedAt: sql`coalesce(${eventRsvps.confirmedAt}, ${now})`, ...signup },
         })
       await syncPlan(ctx.db, dancerId, ev, input.answer)
+      if (guest?.name && input.answer !== 'next') await afterSignup(ctx.db, ev, dancerId, { name: guest.name, phone: guest.phone, keepInTouch: !!guest.keepInTouch })
 
       if (guest) {
         const hours = guest.createdAt ? Math.round((now.getTime() - new Date(guest.createdAt).getTime()) / 360_000) / 10 : null
@@ -214,6 +262,81 @@ export const rsvpRouter = router({
       } else {
         trackServer(ctx, 'rsvp_answered', { event_id: ev.id, answer: input.answer, signed_in: true, confirmed: true, ...eventGroup(ev) })
       }
+      return pollFor(ctx.db, ev, { dancerId })
+    }),
+
+  /**
+   * Sign up (RAZ-995): the answer to "How are you coming?" plus the pass, pay now / at the door, and the
+   * contact the organiser gets for this event. Signed in: confirmed at once, the phone goes on the account
+   * and the page's Contacts. Signed out: saved against the browser's guest token, unconfirmed, with name
+   * and phone; the client then sends the magic link (auth.requestMagicLink with `guest`), which folds it
+   * into the account (rsvp.answer above). Payment itself is festivalSignup.ticketCheckout.
+   */
+  signUp: publicProcedure
+    .input(z.object({
+      event: eventParam,
+      answer: z.enum(RSVP_ANSWERS).refine(a => a !== 'next', 'Pick how you are coming.'),
+      guestToken: guestToken.optional(),
+      pass: z.string().trim().max(80).optional(),
+      pay: z.enum(['now', 'door']).optional(),
+      name: z.string().trim().max(120).optional(),
+      phone: z.string().trim().max(PHONE_MAX).default(''),
+      partnerName: z.string().trim().max(120).optional(),
+      keepInTouch: z.boolean().default(false),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const ev = await findEvent(ctx.db, input.event)
+      const bad = (message: string) => new TRPCError({ code: 'BAD_REQUEST', message })
+      let pass: string | null = null
+      let pay: 'now' | 'door' | null = null
+      if (pricedPasses(ev.festival?.passes).length) {
+        const p = chosenPass(ev.festival?.passes ?? [], input.pass)
+        if (!p) throw bad('Pick a pass.')
+        if (p.soldOut) throw bad('That pass is sold out.')
+        if (!input.pay) throw bad('Choose how you pay.')
+        if (input.pay === 'door' && !ev.festival?.payAtDoor) throw bad('This organiser takes payment online only.')
+        pass = p.name
+        pay = input.pay
+      }
+      if (signupNeedsPhone({ type: ev.type, passes: ev.festival?.passes }) ? !phoneOk(input.phone) : (!!input.phone && !phoneOk(input.phone))) {
+        throw bad('Enter your phone, so the organiser can reach you about this event.')
+      }
+      const fields = {
+        answer: input.answer,
+        phone: input.phone || null,
+        partnerName: input.answer === 'partner' ? (input.partnerName || null) : null,
+        pass,
+        pay,
+        keepInTouch: input.keepInTouch,
+      }
+      const dancerId = ctx.dancerId ?? null
+      const now = new Date()
+      const track = (signedIn: boolean) => trackServer(ctx, 'event_signed_up', {
+        event_id: ev.id, answer: input.answer, signed_in: signedIn, has_pass: !!pass, pay, people: input.answer === 'partner' ? 2 : 1,
+        keep_in_touch: input.keepInTouch, ...eventGroup(ev),
+      })
+
+      if (!dancerId) {
+        if (!input.guestToken) throw bad('Missing guest token')
+        if (!fullNameOk(input.name)) throw bad('Enter your first and last name.')
+        const [known] = await ctx.db.select({ email: eventRsvps.guestEmail }).from(eventRsvps)
+          .where(and(eq(eventRsvps.guestToken, input.guestToken), isNull(eventRsvps.dancerId), isNotNull(eventRsvps.guestEmail))).limit(1)
+        await ctx.db.insert(eventRsvps)
+          .values({ eventId: ev.id, guestToken: input.guestToken, guestEmail: known?.email ?? null, name: input.name!, ...fields })
+          .onConflictDoUpdate({ target: [eventRsvps.eventId, eventRsvps.guestToken], set: { name: input.name!, ...fields, updatedAt: now } })
+        track(false)
+        return pollFor(ctx.db, ev, { dancerId: null, guestToken: input.guestToken })
+      }
+
+      await ctx.db.insert(eventRsvps)
+        .values({ eventId: ev.id, dancerId, confirmedAt: now, ...fields })
+        .onConflictDoUpdate({
+          target: [eventRsvps.eventId, eventRsvps.dancerId],
+          set: { ...fields, updatedAt: now, confirmedAt: sql`coalesce(${eventRsvps.confirmedAt}, ${now})` },
+        })
+      await syncPlan(ctx.db, dancerId, ev, input.answer)
+      await afterSignup(ctx.db, ev, dancerId, { phone: input.phone, keepInTouch: input.keepInTouch })
+      track(true)
       return pollFor(ctx.db, ev, { dancerId })
     }),
 

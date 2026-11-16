@@ -29,18 +29,17 @@ Feature: C3 — Going: plan, share, discover
     And the database has no Going for "Ana" on the one-off social
     And there were no hydration warnings
 
-  # ── RAZ-974 — Who's coming, like a WhatsApp poll; inviting friends lives in My plan ──
+  # ── RAZ-974 / RAZ-995 — Who's coming under the sign-up ──
   # Ordinary events only: a festival keeps its "Shall we dance?" deck and its
   # verified-ticket rule (RAZ-314).
 
   @write
-  Scenario: A signed-in dancer sees who answered the event poll, and is led to My plan to invite friends
+  Scenario: A signed-in dancer sees who signed up for the event; a visitor sees only the counts
     Given the test environment is safe to write
     And an ordinary event with no attendees
     And synthetic dancers "Ana" and "Ben" with public profiles and photos
-    When "Ana" answers "With my partner" in the event's poll
-    Then "Ana" is led to share the week from My plan
-    And "Ben" sees "Ana" under "With my partner" in the event's poll
+    When "Ana" signs up "With my partner" for the event
+    Then "Ben" sees "Ana" under "With my partner" in Who's coming
     And a signed-out visitor sees the counts but nobody's name in the event's poll
     And the event page has no "Shall we dance?" section
 

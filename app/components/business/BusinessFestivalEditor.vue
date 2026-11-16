@@ -190,6 +190,9 @@ const LEVELS = ['Beginner', 'Intermediate', 'Advanced']
             <div class="flex flex-wrap items-end gap-2">
               <Field :id="`pass-name-${i}`" label="Name" class="min-w-[10rem] flex-1"><Input v-model="p.name" placeholder="Full Pass" /></Field>
               <Field :id="`pass-price-${i}`" label="Price (€)" class="w-28"><Input v-model.number="p.price" type="number" min="0" step="1" /></Field>
+              <Field :id="`pass-couple-${i}`" label="For two (€)" optional class="w-32" :hint="p.price ? `Empty = ${p.price * 2} €` : undefined">
+                <Input :model-value="p.couplePrice ?? ''" type="number" min="0" step="1" :placeholder="p.price ? String(p.price * 2) : ''" @update:model-value="(v: any) => (p.couplePrice = v === '' || v == null || Number.isNaN(Number(v)) ? undefined : Number(v))" />
+              </Field>
               <label class="mb-2 inline-flex items-center gap-2 text-sm"><Checkbox v-model="p.soldOut" /> Sold out</label>
               <Button type="button" variant="ghost" size="icon-sm" class="mb-1" :aria-label="`Remove pass ${p.name || i + 1}`" @click="passes.splice(i, 1); openPass = null"><X /></Button>
             </div>
@@ -202,6 +205,11 @@ const LEVELS = ['Beginner', 'Intermediate', 'Advanced']
           </div>
         </div>
         <Button type="button" variant="ghost" size="sm" class="justify-self-start" @click="addPass"><Plus /> Add a pass</Button>
+        <!-- RAZ-995: dancers can sign up now and pay when they arrive -->
+        <label v-if="passes.length" class="inline-flex items-start gap-2 text-sm" data-pay-at-door>
+          <Checkbox v-model="model.payAtDoor" class="mt-0.5" />
+          <span><span class="font-bold">Dancers can pay at the door</span> <span class="text-muted-foreground">— they sign up now and pay when they arrive. Off: passes are paid online.</span></span>
+        </label>
       </div>
   </div>
 

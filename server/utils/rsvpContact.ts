@@ -43,6 +43,35 @@ export async function contactState(db: any, page: ContactPage, dancerId: string)
   return { page: page.name, shared: !!row && !emailBlock(row), phone: (row?.phone as string | null) ?? null }
 }
 
+/**
+ * Signing up for one of the page's events (RAZ-995): the page gets the dancer's name, email and phone to
+ * run THAT event (changes, its WhatsApp group). A new contact gets source `signup`, which is not mailable;
+ * "tell me about next ones" (`keepInTouch`) opts them in. Never unsubscribes or downgrades a contact:
+ * an earlier opt-in stays.
+ */
+export async function recordSignupContact(db: any, page: ContactPage, dancerId: string, opts: { phone?: string | null, name?: string | null, eventId: string, keepInTouch: boolean }): Promise<{ created: boolean }> {
+  const d = await dancerOf(db, dancerId)
+  if (!d) return { created: false }
+  const row = await findRow(db, page.id, d)
+  const now = new Date()
+  const phone = opts.phone?.trim() || null
+  const optIn = opts.keepInTouch ? { opted_in: 'signup', opted_in_at: now.toISOString(), opted_in_event: opts.eventId } : {}
+  if (row) {
+    await db.update(profileContacts).set({
+      dancerId: row.dancerId ?? d.id,
+      ...(phone ? { phone } : {}),
+      ...(opts.keepInTouch ? { status: 'subscribed', source: { ...(row.source ?? {}), ...optIn } } : {}),
+      updatedAt: now,
+    }).where(eq(profileContacts.id, row.id))
+    return { created: false }
+  }
+  await db.insert(profileContacts).values({
+    profileId: page.id, dancerId: d.id, email: d.email, name: opts.name?.trim() || d.name || null, phone,
+    source: { from: 'signup', event: opts.eventId, ...optIn },
+  })
+  return { created: true }
+}
+
 /** Share (or stop sharing) the dancer's contact with the page. Returns whether a new contact was made. */
 export async function setContactShared(db: any, page: ContactPage, dancerId: string, share: boolean, opts: { phone?: string | null, eventId: string }): Promise<{ created: boolean }> {
   const d = await dancerOf(db, dancerId)

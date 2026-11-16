@@ -349,10 +349,26 @@ The organiser's event page shows **Who's coming** (`BusinessWhosComing`, `rsvp.p
 who signed up — poll, Going!, tickets — never email; organisers see them whatever the dancer's public visibility).
 Contact details live only in the host page's **Contacts** (`/business/network/<handle>/contacts`), which "See their
 contacts" opens filtered to the event (`?event=<id>&as=<needLeader|…>`; `businessSite.contactsOverview` → `events`,
-`activity.events` per contact, `shared/utils/contactSegments.ts` `ComingAs`). A dancer gets there by their own
-opt-in: under the poll, once confirmed and coming, "Let <page> keep in touch" (+ optional phone) →
-`rsvp.shareContact` → `server/utils/rsvpContact.ts` (host page, else organiser — never the venue): a new contact
-with source `rsvp`, or an existing one gains `source.opted_in` (mailable either way); "Stop sharing" = unsubscribed.
+`activity.events` per contact, `shared/utils/contactSegments.ts` `ComingAs`). A dancer gets there by signing up
+(RAZ-995, below): `recordSignupContact` (`server/utils/rsvpContact.ts`, host page, else organiser — never the venue)
+adds them with source `signup` — name, email, phone for that event, **not mailable** — and "Also tell me about next
+events" adds `source.opted_in`. `rsvp.shareContact` (source `rsvp`, mailable) stays for MCP.
+
+## Signing up for a class (RAZ-995)
+
+Dated events (`/events/[id]`, plain or with `events.festival` passes) have one button in the hero, `EventSignup`, which
+opens the steps in place: ① how you come (the poll answers; "with my partner" = two people) ② pass — only with more
+than one priced pass ③ pay now (Stripe `festivalSignup.ticketCheckout`, `people` 1|2) or at the door (organiser switch
+`festival.payAtDoor`, Business → event → Entry and tickets) ④ contact — signed out: name, email, phone; signed in: a
+review card asking only for a missing phone. Phone is required for classes / courses (`CLASS_EVENT_TYPES`) and anything
+paid, optional for a party night. A pass's `couplePrice` is what two pay (else 2 ×). Rules: `shared/utils/eventSignup.ts`;
+server `rsvp.signUp` (event_rsvps `name/phone/partner_name/pass/pay/keep_in_touch`, `dancers.phone` — 0073). Signed out
+it is saved unconfirmed with the guest token, the magic link (`do` + `guest`) folds it into the account (`rsvp.answer`),
+replaces only an email-derived placeholder name, and "Pay now" returns with `?pay=now` to continue to checkout.
+`EventWhosComing` sits under the hero: counts to visitors, faces to signed-in dancers, pairing with waves. A class or
+course hides per-session Save and the "Pick your pass" section; festivals keep both. Sketch: `/sketches/class-signup`.
+Not yet: Stripe without an account, E for festivals (role step, 1,000-person Who's coming with search, best pass inside
+the steps).
 
 **One audience (RAZ-963):** Contacts also lists everyone else connected to the page — followers and accounts that went /
 are going to its events (`audienceOnly` in `shared/utils/contactSegments.ts`) — once each, as `isContact: false` rows
@@ -479,9 +495,11 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `follow` / `unfollow` | `/@handle`, `PromoterProfile` (profiles); `FestivalView` shared plan (dancer) | `target`, `profile`, `profile_type`, `surface` |
 | `whos_going_profile_opened` | `GoingSection` face tap | `item_type`, `item_id` |
 | `going_visibility_changed` | `GoingSection` share toggle | `share`, `item_type`, `item_id` |
-| `wave_sent` / `wave_retracted` | `GoingSection`, `DiscoverDancers`, `EventRsvpPoll` pairing (sent only) | `festival`, `surface` |
-| `rsvp_answered` | `EventRsvpPoll` (event poll tap — signed out it's saved unconfirmed) | `answer` (partner / needLeader / needFollower / yes / next), `signed_in`, `surface`, `event_id` |
-| `rsvp_contact_shared` | `EventRsvpPoll` "Let <page> keep in touch" (confirmed + coming) / "Stop sharing" | `share`, `has_phone`, `surface`, `event_id` |
+| `wave_sent` / `wave_retracted` | `GoingSection`, `DiscoverDancers`, `EventWhosComing` pairing (sent only) | `festival`, `surface` |
+| `rsvp_answered` | `EventSignup` "I can’t come after all" (answer `next`; signing up is `event_signed_up` since RAZ-995) | `answer` (partner / needLeader / needFollower / yes / next), `signed_in`, `surface`, `event_id` |
+| `rsvp_contact_shared` | (retired in RAZ-995: the sign-up's "Also tell me about next events" replaced "Let <page> keep in touch"; `rsvp.shareContact` stays for MCP) | `share`, `has_phone`, `surface`, `event_id` |
+| `event_signup_opened` | `EventSignup` (the one button on a class / event page, RAZ-995; or "Change") | `surface`, `event_id`, `changing` |
+| `event_signed_up` | `EventSignup` last step ("Save my spot" / "Pay €N" / "Continue to payment") | `answer`, `signed_in`, `has_pass`, `pay` (now / door / null), `people` (1 / 2), `keep_in_touch`, `surface`, `event_id` |
 | `contacts_emailed` | `BusinessContactMailing` (Contacts → "Email N" → "Yes, send", RAZ-975) | `recipients`, `has_event` (invite with an event card), `filtered` (a segment, not everyone), `tested` (sent themselves a test first), `profile` |
 | `discover_deck_joined` | `DiscoverDancers` "show me" | `item_type`, `item_id`, `was_going` |
 | `hangout_created` | `FestivalView`, `my-plan` | `kind`, `surface`, `event_id` / `event_linked` |
@@ -555,6 +573,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `server_page_deleted` | `business.deletePage` (owners; only a page nothing uses — `server/utils/deleteProfile.ts`) | `profile`, `profile_type`, `followers`, `team`, `days_old`, `$groups` |
 | `server_rsvp_answered` | `rsvp.answer` (signed out → unconfirmed; signed in → confirmed at once) | `event_id`, `answer`, `signed_in`, `confirmed`, `$groups` |
 | `server_rsvp_confirmed` | `rsvp.answer` signed in, folding in this browser's / magic link's unconfirmed answer | `event_id`, `answer`, `hours_to_confirm`, `$groups` |
+| `server_event_signed_up` | `rsvp.signUp` (RAZ-995: how you come + pass + pay + contact; signed out = unconfirmed until the magic link) | `event_id`, `answer`, `signed_in`, `has_pass`, `pay`, `people`, `keep_in_touch`, `$groups` |
 | `server_rsvp_contact_shared` | `rsvp.shareContact` (the dancer shares / stops sharing their contact with the event's host, else organiser page) | `event_id`, `share`, `has_phone`, `new_contact`, `$groups` |
 | `server_contacts_emailed` | `contactMailing.send` (web only — connected apps can't send) | `recipients`, `sent`, `failed`, `skipped` (shown but not mailable), `has_event`, `filtered`, `profile`, `profile_type`, `$groups` |
 | `server_festival_joined` | `festivalSignup.join` | `festival` |

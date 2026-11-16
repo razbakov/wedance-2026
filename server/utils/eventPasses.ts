@@ -7,6 +7,7 @@
  */
 import { and, eq, sql } from 'drizzle-orm'
 import { events } from '../database/schema'
+import { passTotal } from '../../shared/utils/eventSignup'
 import type { FestivalPass } from '../../shared/types/festivalDetails'
 
 /**
@@ -27,11 +28,14 @@ export async function livePasses(db: any, key: string): Promise<FestivalPass[] |
   return (ev.festival?.passes ?? []) as FestivalPass[]
 }
 
-/** A pass's price in euro cents, by its exact name. `null` = no such pass. */
-export function passPriceCents(passes: FestivalPass[], name: string): { priceCents: number; soldOut: boolean } | null {
+/**
+ * A pass's price in euro cents, by its exact name. `null` = no such pass. Two people (RAZ-995) pay the
+ * pass's couple price, else twice the price (shared/utils/eventSignup.ts passTotal).
+ */
+export function passPriceCents(passes: FestivalPass[], name: string, people: 1 | 2 = 1): { priceCents: number; soldOut: boolean } | null {
   const pass = passes.find(p => p.name.trim() === name.trim())
   if (!pass) return null
   const euros = Number(pass.price)
   if (!Number.isFinite(euros) || euros < 0) return null
-  return { priceCents: Math.round(euros * 100), soldOut: !!pass.soldOut }
+  return { priceCents: Math.round(passTotal(pass, people) * 100), soldOut: !!pass.soldOut }
 }

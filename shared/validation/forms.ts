@@ -56,6 +56,29 @@ export const RsvpContactSchema = v.object({
   phone: optionalText(40, 'Keep the number under 40 characters.'),
 })
 
+// rsvp.signUp — the contact step of signing up for a class (RAZ-995). Signed out: name, email, phone;
+// signed in: just the phone (and only when the account has none). Limits mirror the zod input.
+// The phone is required for classes and anything paid (shared/utils/eventSignup.ts signupNeedsPhone).
+const signupPhone = (required: boolean) => v.pipe(
+  v.string(),
+  v.trim(),
+  v.maxLength(40, 'Keep the number under 40 characters.'),
+  v.check(s => (!required && !s) || s.replace(/\D/g, '').length >= 7, required ? 'Enter your phone, so the organiser can reach you about this event.' : 'Enter a full phone number.'),
+)
+export const signupGuestSchema = (phoneRequired: boolean) => v.object({
+  name: v.pipe(
+    v.string(), v.trim(), v.nonEmpty('Enter your first and last name.'), v.maxLength(120, 'Keep your name under 120 characters.'),
+    v.check(s => s.split(/\s+/).filter(Boolean).length >= 2, 'Enter your first and last name, as the organiser will see it.'),
+  ),
+  email: email(),
+  phone: signupPhone(phoneRequired),
+  partnerName: optionalText(120, 'Keep the name under 120 characters.'),
+})
+export const signupMemberSchema = (phoneRequired: boolean) => v.object({
+  phone: signupPhone(phoneRequired),
+  partnerName: optionalText(120, 'Keep the name under 120 characters.'),
+})
+
 export const ResetPasswordSchema = v.pipe(
   v.object({
     password: newPassword(),

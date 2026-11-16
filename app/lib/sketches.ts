@@ -40,6 +40,18 @@ const pr = (n: number): SketchLink => ({ label: `PR #${n}`, url: `https://github
 
 export const SKETCHES: Sketch[] = [
   {
+    slug: 'class-signup',
+    title: 'Class sign-up: one button, steps in place',
+    what: 'Today’s page and five directions for signing up to a class, a course or a festival: one button and a sheet, a calm poll with the price, ticket first, two numbered steps, and the picked one (E) — one button that opens the steps in place: how you come (alone as leader / follower, or with your partner = couple price), which pass (only when there’s a choice; festival passes marked "Best for your plan" from saved workshops), pay now or at the door, then name, email and phone (signed in: a review card). Who’s coming shows counts to visitors and faces once signed in, at festival scale with search. Toggles: class / course / festival, paid / free, signed out / in / in without a phone.',
+    why: 'A class asked three things in three places — "Going?", "Save" and "Get this pass" — and none said whether you still had to pay; the poll card had grown to seven blocks.',
+    requestedBy: 'Alösha',
+    builtBy: 'Agent (Claude)',
+    created: '2026-11-15',
+    status: 'decided',
+    decision: 'E (2026-11-16): one button that opens the steps in place, with name, email and phone part of signing up (not of "keep in touch"), a review card when signed in, one signed-out state, Who’s coming once (counts for visitors, faces once signed in), and best pass for your plan on festivals. Built for classes and courses first; festivals and paying without an account follow.',
+    ticket: linear('RAZ-995', 'class-sign-up'),
+  },
+  {
     slug: 'meet-matches',
     title: 'Meet new friends: when both say yes',
     what: 'Four ways a mutual yes shows up on My plan: a match card above the deck with a night out you could both go to, one "dance friends" list merging deck matches and festival waves with "Say hi", the match card plus an email to the other dancer, and the recommended list with the night as the one next step. Admins can switch to their real matches.',

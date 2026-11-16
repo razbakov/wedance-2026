@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { CLASS_EVENT_TYPES } from '#shared/utils/eventSignup'
 import { sizedImage, IMG } from '#shared/utils/image'
 import type { Festival, Teacher, Workshop, PlanEntry, DanceRole, DancePartner, ExtraActivity, SwipeCard, FreemiumState } from '~/types/festival'
 import { ArrowRight, Sparkles, Check, Pencil, Ticket, Share2 } from 'lucide-vue-next'
@@ -60,9 +61,13 @@ const heroFestival = computed(() => ({
 const freeEntry = computed(() => (festival.tickets?.length ?? 0) > 0 && festival.tickets!.every(t => !t.price))
 const sellsPasses = computed(() => (festival.tickets?.length ?? 0) > 0 && !freeEntry.value)
 
-// The poll answers "Going?" for a dated event, in the hero.
-const rsvpPoll = ref<{ coming: number; mine: { answer: string } | null } | null>(null)
-function onPoll(p: { coming: number; mine: { answer: string } | null }) { rsvpPoll.value = p }
+// A class or course (or a one-session event) is signed up for as a whole up top: its dates aren't saved
+// one by one (RAZ-995). A festival, or a day of several workshops, keeps Save on each session.
+const hideSessionSave = computed(() => !!props.rsvp && (workshops.length <= 1 || (CLASS_EVENT_TYPES as readonly string[]).includes(String(props.type ?? '').toLowerCase())))
+
+// The sign-up (RAZ-995) answers "Going?" for a dated event, in the hero; Who's coming sits under it.
+const rsvpPoll = ref<any | null>(null)
+function onPoll(p: any) { rsvpPoll.value = p }
 const heroPicked = computed(() => rsvpPoll.value
   ? !!rsvpPoll.value.mine && rsvpPoll.value.mine.answer !== 'next'
   : inPlan.value)
@@ -793,7 +798,7 @@ const sections = computed(() =>
   allSections.filter((s) => {
     if (s === 'schedule') return workshops.length > 0
     if (s === 'lineup') return teachers.length > 0
-    if (s === 'tickets') return sellsPasses.value
+    if (s === 'tickets') return sellsPasses.value && !props.rsvp
     // A dated event (it has the poll) has no swipe deck: meeting people lives
     // in My plan → Meet new friends, inviting them in My plan → Share (RAZ-974).
     if (s === 'discover') return !props.rsvp
@@ -1142,11 +1147,15 @@ useHead({
     </div>
 
     <div ref="heroRef">
-      <FestivalHero :festival="heroFestival" :picked="heroPicked" :cancelled="cancelled" :free-entry="freeEntry" :venue-address="festival.venue?.address" :map-url="festival.venue?.coordinates?.lat != null ? `https://www.google.com/maps/search/?api=1&query=${festival.venue.coordinates.lat},${festival.venue.coordinates.lng}` : (festival.venue?.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(festival.venue.address)}` : undefined)" @pick="onPick">
+      <FestivalHero :festival="heroFestival" :picked="heroPicked" :cancelled="cancelled" :free-entry="freeEntry" :hide-going="!!rsvp && !cancelled" :venue-address="festival.venue?.address" :map-url="festival.venue?.coordinates?.lat != null ? `https://www.google.com/maps/search/?api=1&query=${festival.venue.coordinates.lat},${festival.venue.coordinates.lng}` : (festival.venue?.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(festival.venue.address)}` : undefined)" @pick="onPick">
         <!-- A dated event: the organiser's poll is the Going question. -->
         <template v-if="rsvp" #cta>
           <div id="rsvp" class="mt-4 max-w-xl scroll-mt-16">
-            <EventRsvpPoll :event-id="rsvp.eventId" :path="rsvp.path" :start-date="rsvp.startDate" :end-date="rsvp.endDate" :timezone="rsvp.timezone" :organizer-name="rsvp.organizerName" surface="event" @poll="onPoll" />
+            <EventSignup
+              :event-id="rsvp.eventId" :path="rsvp.path" :start-date="rsvp.startDate" :end-date="rsvp.endDate" :timezone="rsvp.timezone" :organizer-name="rsvp.organizerName"
+              :passes="festival.tickets" :pay-at-door="festival.payAtDoor" :pass-key="festival.slug" :has-ticket="hasTicket" :event-type="type"
+              surface="event" @poll="onPoll"
+            />
           </div>
         </template>
         <!-- A festival that sells passes: the pass is the Going. -->
@@ -1161,6 +1170,11 @@ useHead({
           </div>
         </template>
       </FestivalHero>
+    </div>
+
+    <!-- Who's coming, under the sign-up (RAZ-995) -->
+    <div v-if="rsvp && rsvpPoll && !cancelled" class="max-w-4xl mx-auto px-4 pt-6">
+      <EventWhosComing :poll="rsvpPoll" />
     </div>
 
     <!-- Section anchor nav — V3 restyled. Festival identity slides in on
@@ -1308,11 +1322,13 @@ useHead({
             :selected-teacher-id="selectedTeacherId"
             :start-date="festival.startDate"
             :festival-slug="festival.slug"
+            :hide-save="hideSessionSave"
             @toggle-workshop="toggleWorkshop"
           />
         </section>
 
-        <section v-if="sellsPasses || (festival.tickets?.length && hasTicket)" id="tickets" class="scroll-mt-16">
+        <!-- A dated event's passes are in the sign-up up top (RAZ-995); festivals keep this section. -->
+        <section v-if="!rsvp && (sellsPasses || (festival.tickets?.length && hasTicket))" id="tickets" class="scroll-mt-16">
           <div class="mb-4">
             <div class="text-xs uppercase tracking-[0.3em] text-secondary">Passes</div>
             <h2 v-if="hasTicket" class="mt-2 text-2xl font-black leading-tight text-foreground">

@@ -12,6 +12,8 @@ export type FestivalPass = {
   soldOut?: boolean
   workshopCount?: number
   includesParty?: boolean
+  /** The price for two people coming together (RAZ-995); unset = 2 × price. */
+  couplePrice?: number
 }
 
 /**
@@ -54,6 +56,8 @@ export type FestivalDetails = {
   socialLinks?: { platform: string; url: string }[]
   practicalInfo?: string[]
   passes?: FestivalPass[]
+  /** Dancers may sign up and pay at the door instead of online (RAZ-995). */
+  payAtDoor?: boolean
   sessions?: FestivalSession[]
   /** Teacher videos: artist handle → YouTube embed URL. */
   videos?: Record<string, string>

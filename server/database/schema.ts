@@ -26,6 +26,8 @@ export const dancers = pgTable('dancers', {
   danceLevels: jsonb('dance_levels').$type<Record<string, string>>().notNull().default({}),
   role: text('role'),
   city: text('city'),
+  /** Phone / WhatsApp the dancer gave when signing up for a class (0073, RAZ-995); asked once, then confirmed. */
+  phone: text('phone'),
   neonAuthId: text('neon_auth_id').unique(),
   isAdmin: boolean('is_admin').default(false),
   // Public handle for the shareable profile URL (/u/<username>). Generated from
@@ -965,6 +967,14 @@ export const eventRsvps = pgTable('event_rsvps', {
   /** A guest's email from the confirm-link step (0069): they're told if the event is cancelled. */
   guestEmail: text('guest_email'),
   answer: text('answer').notNull().$type<'partner' | 'needLeader' | 'needFollower' | 'yes' | 'next'>(),
+  // The rest of a sign-up (0073, RAZ-995): name + phone for the organiser (this event only), the partner's
+  // name, the pass, pay now / at the door, and the separate "tell me about next ones" opt-in.
+  name: text('name'),
+  phone: text('phone'),
+  partnerName: text('partner_name'),
+  pass: text('pass'),
+  pay: text('pay').$type<'now' | 'door'>(),
+  keepInTouch: boolean('keep_in_touch').notNull().default(false),
   confirmedAt: timestamp('confirmed_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
