@@ -23,7 +23,11 @@ const DAY = 86400_000
 const OFF_PURPOSE = 'match-emails-off'
 const OFF_TTL = 3 * 365 * 24 * 3600
 
-const siteUrl = () => ((useRuntimeConfig().siteUrl as string | undefined) || 'https://2026.wedance.vip').replace(/\/$/, '')
+function siteUrl() {
+  let url: string | undefined
+  try { url = useRuntimeConfig().siteUrl as string | undefined } catch { /* outside Nuxt (tests, scripts) */ }
+  return (url || 'https://2026.wedance.vip').replace(/\/$/, '')
+}
 
 /** The link in the email that turns these emails off — signed, no sign-in needed. */
 export const matchEmailsOffSig = (dancerId: string) => signPayload(OFF_PURPOSE, { d: dancerId }, OFF_TTL)
