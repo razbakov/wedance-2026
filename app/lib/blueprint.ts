@@ -3,7 +3,8 @@
  * phases are when; each step says how well it is built and where it makes
  * someone wait, carry something by hand, or misses a change. Drawn by
  * `DocsBlueprint`; each blueprint keeps its data in its own file
- * (blueprint-event-setup.ts, blueprint-meet-friends.ts, blueprint-first-class.ts).
+ * (blueprint-event-setup.ts, blueprint-meet-friends.ts, blueprint-first-class.ts,
+ * blueprint-festival-travel.ts).
  */
 import type { UxStatus } from './ux-map'
 
