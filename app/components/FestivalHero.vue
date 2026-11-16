@@ -15,6 +15,8 @@ import { heroTagline } from '#shared/utils/heroTagline'
 const props = withDefaults(defineProps<{
   festival: Festival
   reviewTargetType?: 'festival' | 'event' | 'venue' | 'artist' | 'organizer'
+  /** The reviews' key when it isn't `festival.slug` (an event with a programme: its id, RAZ-1011). */
+  reviewTargetSlug?: string
   entityLabel?: string
   // Where the non-ticket CTA scrolls (festivals use the in-page #discover flow;
   // events point at their #discover section too). And an optional clearer label.
@@ -53,7 +55,7 @@ const { $trpc } = useNuxtApp()
 const rating = ref<{ average: number; count: number } | null>(null)
 async function loadRating() {
   try {
-    const r = await $trpc.review.list.query({ targetType: props.reviewTargetType, targetSlug: props.festival.slug })
+    const r = await $trpc.review.list.query({ targetType: props.reviewTargetType, targetSlug: props.reviewTargetSlug || props.festival.slug })
     rating.value = { average: r.average, count: r.count }
   } catch { /* leave as it was */ }
 }

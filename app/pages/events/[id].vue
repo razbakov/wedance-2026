@@ -14,7 +14,7 @@ import { WD } from '~/lib/brand'
 import { mixHex, readableOn } from '~/lib/contrast'
 import { isUuid, eventSlug, sessionKey } from '#shared/utils/eventSlug'
 import { festivalPath } from '#shared/utils/eventSlug'
-import { nightWeekday, rateFromQuery } from '#shared/utils/eventReview'
+import { nightWeekday } from '#shared/utils/eventReview'
 
 definePageMeta({ layout: false })
 
@@ -278,44 +278,15 @@ function openPageTab(t: PageTab, via: 'nav' | 'hero') {
 // "How was it?" (RAZ-1011): after the night, people who went rate it in the hero, in place of
 // the sign-up. The morning-after email's stars land here with ?rate=N; its "didn't make it"
 // with ?review=missed&t=<token>.
-type Ask = { open: boolean; opensAt: string | null; signedIn: boolean; went: boolean; missed: boolean; mine: { rating: number; text: string | null } | null }
-const ask = ref<Ask | null>(null)
-const rateParam = computed(() => rateFromQuery(route.query.rate))
-const missedToken = computed(() => (route.query.review === 'missed' && typeof route.query.t === 'string' ? route.query.t : null))
-async function loadAsk() {
-  const e = ev.value
-  if (!e?.id || !isUuid(e.id) || festivalData.value) { ask.value = null; return }
-  try { ask.value = await $trpc.review.eventAsk.query({ eventId: e.id }) } catch { /* stays as it was */ }
-}
-watch(() => ev.value?.id, loadAsk)
-watch(isSignedIn, loadAsk)
-const showAsk = computed(() => {
-  const a = ask.value
-  if (!a || !ev.value || ev.value.cancelled || isPreview.value) return false
-  if (missedToken.value) return true
-  if (!a.open || a.missed) return false
-  return a.went || (!a.signedIn && !!rateParam.value)
+// (An event with a programme renders FestivalView, which asks the same way.)
+const {
+  ask, load: loadAsk, show: showAsk, rateParam, missedToken, reviewsKey,
+  onPosted: onReviewPosted, note: reviewNote, notAllowed: rateNotAllowed,
+} = useEventReviewAsk({
+  eventId: () => (festivalData.value ? null : ev.value?.id),
+  blocked: () => !ev.value || !!ev.value.cancelled || isPreview.value,
+  openReviews: () => openPageTab('reviews', 'hero'),
 })
-// A star link from the email opened the page: once per mount.
-watch(showAsk, (v) => {
-  if (v && rateParam.value && ev.value) useTrack().trackOnce(`rate:${ev.value.id}`, 'review_ask_opened', { event_id: ev.value.id, rating: rateParam.value, signed_in: isSignedIn.value, went: !!ask.value?.went })
-})
-// Bumped after a post so the Reviews list loads again with the new review on top.
-const reviewsKey = ref(0)
-function onReviewPosted() {
-  loadAsk()
-  reviewsKey.value++
-  openPageTab('reviews', 'hero')
-}
-// What the Reviews tab says about who can write one (where the reader looks).
-const reviewNote = computed(() => {
-  const a = ask.value
-  if (!a || ev.value?.cancelled) return ''
-  if (!a.open) return 'Going? You can review it the day after — we’ll send you a link.'
-  if (a.went && !a.mine && !a.missed) return 'You went — rate it at the top of the page.'
-  return 'Reviews are from people who went.'
-})
-const rateNotAllowed = computed(() => !!ask.value?.signedIn && !!rateParam.value && !!ask.value.open && !ask.value.went && !missedToken.value)
 
 useHead(() => ({
   title: ev.value ? `${ev.value.title || 'Event'} — WeDance` : (failed.value ? 'Event not found — WeDance' : 'WeDance — Event'),
