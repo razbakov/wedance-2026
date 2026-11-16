@@ -170,6 +170,11 @@ function fromSyncedEvent(e: any) {
     venueName: e.venueName || '',
     venueAddress: e.venueAddress || '',
     venueCity: e.city || '',
+    venueCountry: e.country || '',
+    // The venue's page and its own hints (RAZ-1012) for the hero's venue row.
+    venueHandle: e.venueUsername || null,
+    venueInfo: e.venueInfo || null,
+    venueCoords: e.venueLat && e.venueLng ? { lat: e.venueLat, lng: e.venueLng } : undefined,
     citySlug: e.citySlug || '',
     mapUrl: (() => {
       const parts = [e.venueName, e.venueAddress].filter(Boolean).join(', ')
@@ -223,7 +228,13 @@ const asFestival = computed(() => ({
   startDate: ev.value.startDate || ev.value.eventDate,
   endDate: ev.value.endDate || ev.value.eventDate,
   timezone: ev.value.timezone || null,
-  venue: { name: [ev.value.spaceName, ev.value.venueName].filter(Boolean).join(' · '), ...(ev.value.venueHandle ? { handle: ev.value.venueHandle } : {}) },
+  venue: {
+    name: [ev.value.spaceName, ev.value.venueName].filter(Boolean).join(' · '),
+    ...(ev.value.venueHandle ? { handle: ev.value.venueHandle } : {}),
+    ...(ev.value.venueInfo ? { info: ev.value.venueInfo } : {}),
+    coordinates: ev.value.venueCoords,
+    place: [ev.value.venueCity, ev.value.venueCountry].filter(Boolean).join(', ') || undefined,
+  },
   attendeeCount: rsvpPoll.value ? rsvpPoll.value.coming : liveGoingCount.value,
   socialLinks: [] as any[],
   ticketUrl: ev.value.ticketUrl || undefined,

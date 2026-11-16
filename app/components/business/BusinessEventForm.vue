@@ -344,6 +344,8 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
           class="mt-4"
           @pick="v => { venueManual = false; pickedVenue = v.name }"
         />
+        <!-- The venue's own hints (RAZ-1012): saved on its page, shown by every event there. -->
+        <BusinessEventVenueHints v-if="!venueManual && form.venueUsername" :username="form.venueUsername" class="mt-4" />
         <BusinessFestivalEditor v-if="form.festival" v-model="form.festival" part="practical" :days="festivalDays" class="mt-4" />
       </div>
       <p v-else class="mt-1 text-sm">

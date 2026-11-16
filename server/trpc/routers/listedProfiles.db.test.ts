@@ -208,4 +208,47 @@ describe.skipIf(!DATABASE_URL)('completing unclaimed pages through the app (#454
       await expect(app.caller.businessEvents.create({ hostUsername: other.username, name: `${tag} x`, type: 'Party', date: '2031-03-02', startTime: '20:00' } as any)).rejects.toThrow(/wasn’t given access/)
     })
   })
+
+  describe('the venue’s own hints (RAZ-1012)', () => {
+    const DDF = { transit: { line: 'S2', color: '#76B82A', stop: 'Dachau Bahnhof', detail: '20 min walk or 5 min by bus' }, parking: { text: 'Garage next door', detail: 'Entrance by the Audi dealership' }, indoorShoesOnly: true, cloakroom: 'no' as const }
+
+    it('the organiser of an event at an unclaimed venue saves them on the web; every event there shows them', async () => {
+      const seen = await web(ids.mia).listedProfiles.venueInfo({ username: venue })
+      expect(seen).toMatchObject({ canEdit: true, team: false, info: {} })
+      await web(ids.mia).listedProfiles.saveVenueInfo({ username: venue, info: DDF })
+      expect((await row(venue)).venueInfo).toEqual({ ...DDF, transit: { ...DDF.transit, color: '#76b82a' } })
+      const [ev] = await db.select({ id: schema.events.id }).from(schema.events).where(eq(schema.events.name, `${tag} Mia night`))
+      await db.update(schema.events).set({ published: true }).where(eq(schema.events.id, ev.id))
+      const got: any = await appRouter.createCaller({ db } as any).events.get({ id: ev.id })
+      expect(got.venueInfo).toMatchObject({ indoorShoesOnly: true, cloakroom: 'no', transit: { line: 'S2', stop: 'Dachau Bahnhof' } })
+    })
+
+    it('a connected app changes one part, null clears a part, the rest stays', async () => {
+      const r = await callTool(tool('update_listed_profile'), { handle: venue, venue_info: { parking: null, cloakroom: 'yes' } }, await miaApp())
+      expect(r.isError).toBeFalsy()
+      const info = (await row(venue)).venueInfo
+      expect(info.parking).toBeUndefined()
+      expect(info).toMatchObject({ cloakroom: 'yes', indoorShoesOnly: true, transit: { stop: 'Dachau Bahnhof' } })
+    })
+
+    it('a stranger sees them read-only and can’t save', async () => {
+      const seen = await web(ids.sam).listedProfiles.venueInfo({ username: venue })
+      expect(seen.canEdit).toBe(false)
+      expect(seen.why).toMatch(/only if you added it/)
+      await expect(web(ids.sam).listedProfiles.saveVenueInfo({ username: venue, info: { cloakroom: 'no' } })).rejects.toThrow(/only if you added it/)
+    })
+
+    it('the venue’s team edits them from Business (business.update), the organiser no longer can once it’s claimed', async () => {
+      const [p] = await db.select({ id: schema.profiles.id }).from(schema.profiles).where(eq(schema.profiles.username, venue))
+      await db.insert(schema.profileMembers).values({ profileId: p.id, dancerId: ids.sam, role: 'owner' })
+      await db.update(schema.profiles).set({ claimed: true }).where(eq(schema.profiles.id, p.id))
+      await web(ids.sam).business.update({ username: venue, venueInfo: { transit: { stop: 'Dachau Bahnhof', line: 'S2', color: '', detail: '' }, indoorShoesOnly: false } })
+      const info = (await row(venue)).venueInfo
+      expect(info.transit).toEqual({ stop: 'Dachau Bahnhof', line: 'S2' })
+      expect(info.indoorShoesOnly).toBeUndefined()
+      expect((await web(ids.sam).listedProfiles.venueInfo({ username: venue }))).toMatchObject({ canEdit: true, team: true })
+      await expect(web(ids.mia).listedProfiles.saveVenueInfo({ username: venue, info: { cloakroom: 'no' } })).rejects.toThrow(/claimed/)
+      await expect(web(ids.sam).business.update({ username: pages.samOrg.username, venueInfo: { cloakroom: 'no' } })).rejects.toThrow(/Only venue pages/)
+    })
+  })
 })

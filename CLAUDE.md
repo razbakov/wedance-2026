@@ -343,6 +343,20 @@ time (`BusinessEventForm` `focus()`). A new draft opens on its first step to do.
 host's other events suggest (`pastEventHints`: artists booked before, last time's price). Same order as MCP
 `create_event`.
 
+## The venue's own hints (RAZ-1012)
+
+What is true about a venue for every event there — nearest stop (line badge + colour, stop, how to get from it), parking
+(text + detail), indoor dance shoes only, cloakroom (yes / no / not said; only "no" shows, struck through) — lives on the
+venue's page: `profiles.venue_info` (0074, `shared/types/venueInfo.ts`: `cleanVenueInfo`, `venueHints`). The old
+`CoatCheck` amenity moved into `cloakroom` (one place only). Shown in the event hero's venue row (`FestivalHero`, both
+`festivalView` and `events.get` → `venueInfo`) as an Airbnb-style card: OpenStreetMap embed (no key) when the venue has
+coordinates, Directions, one row per hint, then the event's own practical info, then "About the venue". No hints and no
+practical info = no chevron, the address links to directions. Edited by the venue's team and admins (Business → the venue
+→ "Getting there & house rules", `business.update` `venueInfo`), by the organiser of an event at an UNCLAIMED venue (the
+event editor's Where step, `BusinessEventVenueHints` → `listedProfiles.venueInfo` / `saveVenueInfo`, same rule as
+`requireListedEditor`), and by connected apps (`venue_info` on `update_listed_profile`, `add_venue`,
+`update_business_profile`). Only the parts given change; null clears a part. The v3 sync never writes it.
+
 ## Who's coming → Contacts
 
 The organiser's event page shows **Who's coming** (`BusinessWhosComing`, `rsvp.people`: names and photos of everyone

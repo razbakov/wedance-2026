@@ -8,6 +8,7 @@ import { sizedImage, IMG } from '#shared/utils/image'
 import { ExternalLink, Star, Trash2, Check, Users, Palette, Inbox, Globe, Contact, X } from 'lucide-vue-next'
 import { parseInstagramHandle } from '#shared/utils/instagram'
 import type { VenueDetailsValue } from '~/components/business/BusinessVenueDetails.vue'
+import { venueInfoToForm, venueInfoFromForm } from '#shared/types/venueInfo'
 import type { Room } from '~/components/business/BusinessVenueRooms.vue'
 
 definePageMeta({ layout: 'business' })
@@ -32,7 +33,7 @@ const form = reactive({
   influencer: false,
 })
 // Venues: their details and rooms.
-const venue = reactive<VenueDetailsValue>({ address: '', venueType: '', floorType: '', capacity: null, amenities: [], openingHours: [], floorPlan: null, contact: {} })
+const venue = reactive<VenueDetailsValue>({ address: '', venueType: '', floorType: '', capacity: null, amenities: [], openingHours: [], floorPlan: null, contact: {}, info: venueInfoToForm(null) })
 const rooms = ref<Room[]>([])
 const keptRooms = ref<string[]>([])
 const newPhoto = ref('')
@@ -79,6 +80,7 @@ async function load(quiet = false) {
     Object.assign(venue, {
       address: p.address, venueType: p.venueType, floorType: p.floorType, capacity: p.capacity,
       amenities: [...p.amenities], openingHours: p.openingHours.map(h => ({ ...h })), floorPlan: p.floorPlan, contact: { ...p.contact },
+      info: venueInfoToForm(p.venueInfo),
     })
     rooms.value = p.type === 'venue'
       ? (await $trpc.business.spaces.query({ username: username.value })).map((r: any) => ({ id: r.id, name: r.name, capacity: r.capacity, floorType: r.floorType ?? '', priceInfo: r.priceInfo ?? '', description: r.description ?? '', imageUrl: r.imageUrl }))
@@ -153,6 +155,7 @@ async function save() {
         address: venue.address, floorType: venue.floorType, venueType: venue.venueType,
         capacity: venue.capacity || null, amenities: venue.amenities, openingHours: venue.openingHours.filter(h => h.hours.trim()),
         floorPlan: venue.floorPlan || null,
+        venueInfo: venueInfoFromForm(venue.info),
         contact: Object.fromEntries(Object.entries(venue.contact).map(([k, v]) => [k, String(v ?? '').trim()]).filter(([, v]) => v)),
       } : {}),
     })

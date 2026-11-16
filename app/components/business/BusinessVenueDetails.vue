@@ -8,6 +8,7 @@
  */
 import { VENUE_TYPES, VENUE_AMENITIES, WEEKDAYS, type OpeningHours, type VenueContact } from '#shared/types/venueDetails'
 import { Lock } from 'lucide-vue-next'
+import type { VenueInfoForm } from '#shared/types/venueInfo'
 
 export type VenueDetailsValue = {
   address: string
@@ -18,6 +19,8 @@ export type VenueDetailsValue = {
   openingHours: OpeningHours
   floorPlan: string | null
   contact: VenueContact
+  /** Getting there & house rules (RAZ-1012), shown on every event held here. */
+  info: VenueInfoForm
 }
 const model = defineModel<VenueDetailsValue>({ required: true })
 
@@ -67,6 +70,12 @@ const contact = computed(() => model.value.contact)
       <div class="mt-1.5 flex flex-wrap gap-1.5" role="group" aria-label="Amenities">
         <Button v-for="a in VENUE_AMENITIES" :key="a.value" type="button" size="sm" :variant="model.amenities.includes(a.value) ? 'soft' : 'outline'" :aria-pressed="model.amenities.includes(a.value)" @click="toggleAmenity(a.value)">{{ a.label }}</Button>
       </div>
+    </section>
+
+    <section class="rounded-2xl border bg-card p-5 shadow-wd-card" data-venue-hints-section>
+      <h2 class="text-eyebrow font-bold uppercase tracking-[0.3em] text-secondary">Getting there &amp; house rules</h2>
+      <p class="mt-1 text-sm text-muted-foreground">Shown on every event held here, when dancers open the venue. Leave out what doesn’t apply.</p>
+      <BusinessVenueHints v-model="model.info" id-prefix="edit-hints" class="mt-4" />
     </section>
 
     <section class="rounded-2xl border bg-card p-5 shadow-wd-card">

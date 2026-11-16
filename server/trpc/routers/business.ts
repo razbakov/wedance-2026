@@ -4,6 +4,8 @@ import { TRPCError } from '@trpc/server'
 import { router, publicProcedure, protectedProcedure, adminProcedure } from '../trpc'
 import { profiles, profileMembers, profileClaims, dancers, cities, events, bookableSpaces, bookingRequests, profileMerges, profileSites } from '../../database/schema'
 import { WEEKDAYS } from '../../../shared/types/venueDetails'
+import { cleanVenueInfo, type VenueInfo } from '../../../shared/types/venueInfo'
+import { venueInfoInput, mergeVenueInfo } from '../../utils/venueInfo'
 import { slugify, randomSuffix } from '../../utils/slug'
 import { parseInstagramHandle, handleFromInstagram, instagramUrl } from '../../../shared/utils/instagram'
 import { handleError } from '../../../shared/utils/handle'
@@ -54,6 +56,8 @@ const editableFields = {
     whatsapp: z.string().trim().max(60).optional(),
     telegram: z.string().trim().max(100).optional(),
   }),
+  // The venue's own hints (RAZ-1012): only the parts given change.
+  venueInfo: venueInfoInput,
 }
 
 // Membership check shared by get/update. Admins may manage any profile.
@@ -481,6 +485,7 @@ export const businessRouter = router({
         openingHours: (p.openingHours ?? []) as { day: (typeof WEEKDAYS)[number]; hours: string }[],
         floorPlan: (p.floorPlan ?? null) as string | null,
         contact: (p.contact ?? {}) as { phone?: string; email?: string; whatsapp?: string; telegram?: string },
+        venueInfo: cleanVenueInfo(p.venueInfo) as VenueInfo,
         // An influencer is a promoter whose deliverable is content (MCP spec, decision 2).
         influencer: p.type === 'promoter' && ((p.roles ?? []) as string[]).includes('influencer'),
         // Owners (and admins) may delete the page (RAZ-944).
@@ -544,8 +549,12 @@ export const businessRouter = router({
     }))
     .mutation(async ({ ctx, input }) => {
       const p = await requireMember(ctx, input.username)
-      const { username: _u, influencer, instagramAliases, ...fields } = input
+      const { username: _u, influencer, instagramAliases, venueInfo, ...fields } = input
       const set: Record<string, unknown> = { ...fields }
+      if (venueInfo) {
+        if (p.type !== 'venue') throw new TRPCError({ code: 'BAD_REQUEST', message: 'Only venue pages have getting-there hints.' })
+        set.venueInfo = cleanVenueInfo(mergeVenueInfo(p.venueInfo, venueInfo))
+      }
       if (instagramAliases !== undefined || fields.socials !== undefined) {
         const socials = (fields.socials ?? p.socials ?? []) as { platform: string; url: string }[]
         const main = parseInstagramHandle(socials.find(s => s.platform.toLowerCase() === 'instagram')?.url ?? null)
