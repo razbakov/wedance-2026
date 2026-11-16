@@ -40,7 +40,7 @@ const HINTS = [
   { icon: TrainFront, text: 'Dachau Bahnhof (S2)', detail: '20 min walk or 5 min by bus' },
   { icon: Car, text: 'Garage next door', detail: 'Entrance by the Audi dealership' },
   { icon: Footprints, text: 'Indoor dance shoes only', detail: 'Bring a pair to change into' },
-  { icon: Shirt, text: 'No cloakroom', detail: 'Keep your coat and bag with you' },
+  { icon: Shirt, text: 'No cloakroom', detail: '' },
 ]
 const hints = computed(() => filled.value ? HINTS : [])
 
@@ -203,7 +203,7 @@ const TODAY = [
                         <component :is="h.icon" class="size-6 shrink-0 text-foreground" :stroke-width="1.5" aria-hidden="true" />
                         <span class="min-w-0">
                           <span class="block font-semibold text-foreground">{{ h.text }}</span>
-                          <span class="block text-muted-foreground">{{ h.detail }}</span>
+                          <span v-if="h.detail" class="block text-muted-foreground">{{ h.detail }}</span>
                         </span>
                       </li>
                     </ul>
