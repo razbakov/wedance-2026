@@ -14,6 +14,7 @@ import { and, asc, eq, gte, inArray, isNotNull, isNull, lt, ne, notInArray, or, 
 import { cities, dancers, discoverSwipes, eventRsvps, events, festivals, follows, planItems } from '../database/schema'
 import { relatedDanceStyles } from '../../shared/dance-styles'
 import { signupPrice } from '../../shared/utils/eventSignup'
+import { isNight, nightSummary } from '../../shared/utils/yourNight'
 
 type Db = any
 
@@ -118,6 +119,8 @@ export type WeekSocial = {
   takesSignup: boolean
   /** What signing up costs ("€10", "from €8"); null = free. */
   price: string | null
+  /** A night's programme (RAZ-1007): your pass, when to come, the parts you're at. Null = not a night. */
+  night: { pass: string | null; arrival: string | null; parts: string[] } | null
 }
 
 type WeekRow = { id: string; seriesId: string | null; startDate: Date | string | null }
@@ -230,6 +233,7 @@ export async function weekSocials(
   const friendIds = opts.friends === false ? [] : await friendIdsOf(db, dancerId)
   const counts = await friendsGoingCounts(db, friendIds, 'event', picks.map(p => p.eventId))
   const mine = await signedUpEventIds(db, dancerId, picks.map(p => p.eventId))
+  const nights = await nightRows(db, dancerId, picks.map(p => byId.get(p.eventId)).filter(Boolean))
 
   const socials: WeekSocial[] = picks
     .map(({ eventId, planItemId }) => {
@@ -248,12 +252,37 @@ export async function weekSocials(
         friendsGoing: counts.get(eventId) ?? 0,
         signedUp: mine.has(eventId),
         takesSignup: !r.isFestival,
-        price: signupPrice(r.festival?.tickets),
+        price: signupPrice(r.festival?.passes),
+        night: nights.get(eventId) ?? null,
       }
     })
     .sort((a, b) => a.startDate.localeCompare(b.startDate))
 
   return { socials, citySlug }
+}
+
+/**
+ * My plan's line for each night (RAZ-1007): the dancer's pass (their booking) and the
+ * programme items they ticked (`<key>:<session>` workshop plan items).
+ */
+async function nightRows(db: Db, dancerId: string, rows: { id: string; festival: any }[]) {
+  const out = new Map<string, ReturnType<typeof nightSummary>>()
+  const nights = rows.filter(r => r.festival?.key && isNight(r.festival.sessions))
+  if (!nights.length) return out
+  const [bookings, picks] = await Promise.all([
+    db.select({ eventId: eventRsvps.eventId, pass: eventRsvps.pass, answer: eventRsvps.answer }).from(eventRsvps)
+      .where(and(eq(eventRsvps.dancerId, dancerId), inArray(eventRsvps.eventId, nights.map(n => n.id)))),
+    db.select({ itemId: planItems.itemId }).from(planItems)
+      .where(and(eq(planItems.dancerId, dancerId), eq(planItems.itemType, 'workshop'),
+        or(...nights.map(n => sql`${planItems.itemId} like ${`${n.festival.key}:%`}`)))),
+  ])
+  for (const n of nights) {
+    const b = (bookings as any[]).find(x => x.eventId === n.id && x.answer !== 'next')
+    const prefix = `${n.festival.key}:`
+    const ticked = (picks as any[]).map(p => String(p.itemId)).filter(id => id.startsWith(prefix)).map(id => id.slice(prefix.length))
+    out.set(n.id, nightSummary(n.festival.sessions, n.festival.passes, b?.pass ?? null, ticked))
+  }
+  return out
 }
 
 /** Of `eventIds`, the ones this dancer signed up for (an answer other than "next"). */
@@ -356,7 +385,7 @@ export async function myCourses(db: Db, dancerId: string, now = new Date()): Pro
       organizerName: next.organizerName ?? '',
       organizerUsername: next.organizerUsername ?? null,
       signedUp: false,
-      price: signupPrice((next.festival as any)?.tickets),
+      price: signupPrice((next.festival as any)?.passes),
     })
   }
   courses.sort((a, b) => a.startDate.localeCompare(b.startDate))

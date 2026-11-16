@@ -57,6 +57,8 @@ export interface Workshop {
   time: string
   duration: number
   day: string
+  /** Local date, yyyy-mm-dd (real events; mock data has only `day`). */
+  date?: string
   room: string
   style: string
   /** Workshops only. */

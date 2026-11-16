@@ -83,6 +83,7 @@ export async function festivalView(db: any, ev: any): Promise<{ festival: Festiv
       time: s.time,
       duration: s.duration,
       day: weekday(s.date),
+      date: s.date,
       room: s.room ?? '',
       style: s.style,
       // A level only on a workshop (older data put "Beginner" on parties).

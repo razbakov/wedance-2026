@@ -67,6 +67,17 @@ const tooLong = (v: string | undefined, max: number) => (v ?? '').trim().length 
 // --- passes
 const passes = computed(() => model.value.passes!)
 const openPass = ref<number | null>(null)
+// Programme items a pass can cover (doors are a moment, not a part of the night).
+const coverable = computed(() => (model.value.sessions ?? []).filter(x => x.type !== 'doors')
+  .slice().sort((a, b) => a.date.localeCompare(b.date) || (a.time || '').localeCompare(b.time || '')))
+function toggleCovers(p: { sessions?: string[] }, id: string) {
+  // None ticked means "all"; the first untick lists the rest explicitly.
+  const all = coverable.value.map(x => x.id)
+  const now = new Set(p.sessions?.length ? p.sessions : all)
+  now.has(id) ? now.delete(id) : now.add(id)
+  const list = all.filter(x => now.has(x))
+  p.sessions = list.length === all.length ? undefined : list
+}
 function addPass() { passes.value.push({ name: '', price: 0, days: [] }); openPass.value = passes.value.length - 1 }
 function toggleDay(p: FestivalPass, d: string) {
   const i = p.days.indexOf(d)
@@ -201,6 +212,18 @@ const LEVELS = ['Beginner', 'Intermediate', 'Advanced']
               <span class="text-xs text-muted-foreground">Days:</span>
               <label v-for="d in weekdays" :key="d" class="inline-flex items-center gap-1.5"><Checkbox :model-value="p.days.includes(d)" @update:model-value="toggleDay(p, d)" /> {{ d }}</label>
               <span class="text-xs text-muted-foreground">{{ p.days.length ? '' : '(none ticked = all days)' }}</span>
+            </div>
+            <!-- RAZ-1007: which programme items this pass gets you into ("Party only" = 20:00 + 22:00).
+                 None ticked = everything on its days. Dancers see "Includes …" and get them on their plan. -->
+            <div v-if="coverable.length" class="mt-2 text-sm" :data-pass-covers="i">
+              <span class="text-xs text-muted-foreground">Gets you into:</span>
+              <div class="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                <label v-for="it in coverable" :key="it.id" class="inline-flex items-center gap-1.5">
+                  <Checkbox :model-value="!p.sessions?.length || p.sessions.includes(it.id)" @update:model-value="toggleCovers(p, it.id)" />
+                  <span class="tabular-nums">{{ it.time }}</span> {{ it.title || 'Untitled' }}
+                </label>
+              </div>
+              <span v-if="!p.sessions?.length" class="text-xs text-muted-foreground">(all of the programme on its days)</span>
             </div>
           </div>
         </div>

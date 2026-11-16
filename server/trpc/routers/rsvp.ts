@@ -25,6 +25,7 @@ import { mergeSignups } from '../../../shared/utils/rsvpPeople'
 import { CONTACT_PHONE_MAX, contactPageFor, contactState, recordSignupContact, setContactShared } from '../../utils/rsvpContact'
 import { PHONE_MAX, chosenPass, fullNameOk, phoneOk, pricedPasses, signupNeedsPhone } from '../../../shared/utils/eventSignup'
 import type { FestivalDetails } from '../../../shared/types/festivalDetails'
+import { findPass, isNight, nightCounts, nightPlanChanges, passCovers, plannable, sessionPlanId } from '../../../shared/utils/yourNight'
 
 const eventParam = z.string().min(1).max(160)
 const guestToken = z.string().uuid()
@@ -180,8 +181,36 @@ async function afterSignup(db: any, ev: Ev, dancerId: string, s: { name?: string
   }
 }
 
+/** This dancer's booking as it was before this write — for nightPlanChanges. */
+async function bookingBefore(db: any, eventId: string, dancerId: string): Promise<{ answer: string | null; pass: string | null } | null> {
+  const [row] = await db.select({ answer: eventRsvps.answer, pass: eventRsvps.pass }).from(eventRsvps)
+    .where(and(eq(eventRsvps.eventId, eventId), eq(eventRsvps.dancerId, dancerId))).limit(1)
+  return row ?? null
+}
+
+/**
+ * A night's programme follows the booking (RAZ-1007): booking puts what the pass covers
+ * on the plan (as the schedule saves it, `<key>:<session>`), a new pass adds only what
+ * it newly covers (unticks survive "Change"), cancelling takes them all off.
+ */
+async function syncNight(db: any, dancerId: string, ev: Ev, before: { answer: string | null; pass: string | null } | null) {
+  const f = ev.festival
+  if (!f?.key || !isNight(f.sessions)) return
+  const [after] = await db.select({ answer: eventRsvps.answer, pass: eventRsvps.pass }).from(eventRsvps)
+    .where(and(eq(eventRsvps.eventId, ev.id), eq(eventRsvps.dancerId, dancerId))).limit(1)
+  if (!after) return
+  const { add, remove } = nightPlanChanges(f.sessions, f.passes, before, { answer: after.answer, pass: after.pass })
+  if (remove.length) {
+    await db.delete(planItems).where(and(eq(planItems.dancerId, dancerId), eq(planItems.itemType, 'workshop'),
+      inArray(planItems.itemId, remove.map(id => sessionPlanId(f.key, id)))))
+  }
+  if (add.length) {
+    await db.insert(planItems).values(add.map(id => ({ dancerId, itemType: 'workshop', itemId: sessionPlanId(f.key, id) }))).onConflictDoNothing()
+  }
+}
+
 /** A dancer's answer also keeps their plan in step: yes → on the plan, next → off it + follow the organiser. */
-async function syncPlan(db: any, dancerId: string, ev: Ev, answer: RsvpAnswer) {
+async function syncPlan(db: any, dancerId: string, ev: Ev, answer: RsvpAnswer, before: { answer: string | null; pass: string | null } | null = null) {
   try {
     if (answer === 'next') {
       await db.delete(planItems).where(and(eq(planItems.dancerId, dancerId), eq(planItems.itemType, 'event'), eq(planItems.itemId, ev.id)))
@@ -194,6 +223,7 @@ async function syncPlan(db: any, dancerId: string, ev: Ev, answer: RsvpAnswer) {
       await db.insert(planItems).values({ dancerId, itemType: 'event', itemId: ev.id }).onConflictDoNothing()
       await db.insert(attendances).values({ eventId: ev.id, dancerId, status: 'going', source: 'click', visibility: 'hidden' }).onConflictDoNothing()
     }
+    await syncNight(db, dancerId, ev, before)
   } catch (e) {
     // The answer itself is saved; the plan mirror is best-effort.
     console.warn('[rsvp] plan sync failed', (e as Error)?.message ?? e)
@@ -247,13 +277,14 @@ export const rsvpRouter = router({
         ? { phone: guest.phone, partnerName: guest.partnerName, pass: guest.pass, pay: guest.pay, keepInTouch: !!guest.keepInTouch }
         : {}
 
+      const before = await bookingBefore(ctx.db, ev.id, dancerId)
       await ctx.db.insert(eventRsvps)
         .values({ eventId: ev.id, dancerId, answer: input.answer, confirmedAt: now, ...signup })
         .onConflictDoUpdate({
           target: [eventRsvps.eventId, eventRsvps.dancerId],
           set: { answer: input.answer, updatedAt: now, confirmedAt: sql`coalesce(${eventRsvps.confirmedAt}, ${now})`, ...signup },
         })
-      await syncPlan(ctx.db, dancerId, ev, input.answer)
+      await syncPlan(ctx.db, dancerId, ev, input.answer, before)
       if (guest?.name && input.answer !== 'next') await afterSignup(ctx.db, ev, dancerId, { name: guest.name, phone: guest.phone, keepInTouch: !!guest.keepInTouch })
 
       if (guest) {
@@ -328,13 +359,14 @@ export const rsvpRouter = router({
         return pollFor(ctx.db, ev, { dancerId: null, guestToken: input.guestToken })
       }
 
+      const before = await bookingBefore(ctx.db, ev.id, dancerId)
       await ctx.db.insert(eventRsvps)
         .values({ eventId: ev.id, dancerId, confirmedAt: now, ...fields })
         .onConflictDoUpdate({
           target: [eventRsvps.eventId, eventRsvps.dancerId],
           set: { ...fields, updatedAt: now, confirmedAt: sql`coalesce(${eventRsvps.confirmedAt}, ${now})` },
         })
-      await syncPlan(ctx.db, dancerId, ev, input.answer)
+      await syncPlan(ctx.db, dancerId, ev, input.answer, before)
       await afterSignup(ctx.db, ev, dancerId, { phone: input.phone, keepInTouch: input.keepInTouch })
       track(true)
       return pollFor(ctx.db, ev, { dancerId })
@@ -368,6 +400,40 @@ export const rsvpRouter = router({
       const partner = isPartnerEvent(ev.styles)
       // Festivals keep their ticket flow; the poll is for dated events.
       return { ...s, partner, festival: !!ev.isFestival, line: rsvpSummaryLine(s, partner) }
+    }),
+
+  /**
+   * A night's programme for the organiser (RAZ-1007): how many come to each item
+   * (bookings × what each dancer ticked; a guest counts for what their pass covers),
+   * leaders / followers, and when they arrive. Null when the programme isn't a night.
+   * Event managers only; counts, never names.
+   */
+  night: protectedProcedure
+    .input(z.object({ eventId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const ev = await requireEventManager(ctx, input.eventId)
+      const f = ev.festival as FestivalDetails | null
+      if (!f?.key || !isNight(f.sessions)) return null
+      const rows = await ctx.db.select({ dancerId: eventRsvps.dancerId, answer: eventRsvps.answer, pass: eventRsvps.pass })
+        .from(eventRsvps).where(and(countedWhere(ev.id), ne(eventRsvps.answer, 'next')))
+      const dancerIds = rows.map((r: any) => r.dancerId).filter(Boolean) as string[]
+      const picks = dancerIds.length
+        ? await ctx.db.select({ dancerId: planItems.dancerId, itemId: planItems.itemId }).from(planItems)
+            .where(and(eq(planItems.itemType, 'workshop'), inArray(planItems.dancerId, dancerIds), sql`${planItems.itemId} like ${`${f.key}:%`}`))
+        : []
+      const prefix = `${f.key}:`
+      const byDancer = new Map<string, string[]>()
+      for (const p of picks as any[]) byDancer.set(p.dancerId, [...(byDancer.get(p.dancerId) ?? []), String(p.itemId).slice(prefix.length)])
+      const bookings = rows.map((r: any) => ({
+        answer: r.answer,
+        items: r.dancerId ? (byDancer.get(r.dancerId) ?? []) : passCovers(findPass(f.passes, r.pass), f.sessions).map(x => x.id),
+      }))
+      const counts = nightCounts(f.sessions, bookings)
+      const items = plannable(f.sessions)
+      return {
+        items: counts.items.map(c => { const s = items.find(x => x.id === c.id)!; return { ...c, time: s.time, title: s.title, type: s.type } }),
+        arrivals: counts.arrivals,
+      }
     }),
 
   /**
