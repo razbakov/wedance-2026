@@ -28,7 +28,7 @@ export interface Job {
 }
 
 export const jobs: Job[] = [
-  { id: 'J1', statement: 'Start dancing without feeling lost', who: 'Someone who has never danced, or only once, looking for a first class', journeys: ['C1'], flows: [] },
+  { id: 'J1', statement: 'Start dancing without feeling lost', who: 'Someone who has never danced, or only once, looking for a first class', journeys: ['C1'], flows: [{ title: 'First class blueprint', to: '/docs/blueprints/first-class' }] },
   { id: 'J2', statement: 'Get better and keep momentum', who: 'A student taking classes who wants the right teacher and steady progress', journeys: ['C2', 'C3'], flows: [] },
   { id: 'J3', statement: 'Never dance alone — go with people I know', who: 'A regular going out to socials, who wants friends and partners on the floor', journeys: ['C3', 'C8'], flows: [{ title: 'Meet new friends blueprint', to: '/docs/blueprints/meet-friends' }] },
   { id: 'J4', statement: 'Plan and afford my dance travel', who: 'A traveller choosing festivals for the year, with tickets, rides and rooms', journeys: ['C4'], flows: [] },
