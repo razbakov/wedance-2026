@@ -10,6 +10,7 @@ import { eventIdForFestival, recordLinkAction } from '../../utils/trackedLinks'
 import { planCounts } from '../../utils/planCounts'
 import { festivalEventsWhere, toFestivalRow } from '../../utils/festivalListing'
 import { MEET_MATCHES_SINCE, meetMatches } from '../../utils/meetMatches'
+import { afterYes } from '../../utils/meetMatchNotify'
 import { meetEmpty } from '../../utils/meetEmpty'
 import { yearReviewFor } from '../../utils/yearReview'
 import { lookBackYear } from '../../../shared/utils/yearReview'
@@ -570,6 +571,21 @@ export const planRouter = router({
     }))
     .mutation(async ({ ctx, input }) => {
       await recordSwipe(ctx.db, ctx.dancerId, input)
+      // A Yes back makes a match (RAZ-985): the swiper sees it now, the other one gets an email.
+      if (input.targetKind === 'dancer' && input.decision === 'yes') return afterYes(ctx as any, input.targetId, { kind: 'deck' })
+      return { match: false }
+    }),
+
+  /** The "said yes too" email switch (RAZ-985) — Settings → Emails. */
+  emailPrefs: protectedProcedure.query(async ({ ctx }) => {
+    const [me] = await ctx.db.select({ matchEmails: dancers.matchEmails }).from(dancers).where(eq(dancers.id, ctx.dancerId)).limit(1)
+    return { matchEmails: me?.matchEmails ?? true }
+  }),
+  setEmailPrefs: protectedProcedure
+    .input(z.object({ matchEmails: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db.update(dancers).set({ matchEmails: input.matchEmails }).where(eq(dancers.id, ctx.dancerId))
+      return { matchEmails: input.matchEmails }
     }),
 
   /**

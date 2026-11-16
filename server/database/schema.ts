@@ -45,6 +45,8 @@ export const dancers = pgTable('dancers', {
   // Privacy: when false the public profile is hidden from everyone but the
   // owner (getByUsername 404s for other viewers). Default public.
   profilePublic: boolean('profile_public').default(true),
+  // "Dance friends" emails (0075, RAZ-985): tell me when someone I said yes to says yes back. Default on.
+  matchEmails: boolean('match_emails').notNull().default(true),
   // The page that IS this person (0059, #474): one of their own artist/organiser
   // pages. When set, that /@handle is their public identity — /u/<username> and
   // /@<username> forward to it, and it shows their dancer side.
@@ -1260,6 +1262,20 @@ export const festivalWaves = pgTable('festival_waves', {
  * put a dancer on the card — Yes on two or more dancers heading to the same
  * festival raises the "add it to your year?" nudge.
  */
+/**
+ * A "you both said yes" email that went out (0075, RAZ-985): once per (recipient,
+ * other dancer), and its sent_at caps a recipient at one such email a day.
+ */
+export const meetMatchEmails = pgTable('meet_match_emails', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  recipientId: uuid('recipient_id').notNull().references(() => dancers.id, { onDelete: 'cascade' }),
+  otherId: uuid('other_id').notNull().references(() => dancers.id, { onDelete: 'cascade' }),
+  sentAt: timestamp('sent_at').notNull().defaultNow(),
+}, (t) => [
+  unique('meet_match_emails_pair').on(t.recipientId, t.otherId),
+  index('meet_match_emails_recipient_idx').on(t.recipientId, t.sentAt),
+])
+
 export const discoverSwipes = pgTable('discover_swipes', {
   id: uuid('id').primaryKey().defaultRandom(),
   dancerId: uuid('dancer_id').notNull().references(() => dancers.id, { onDelete: 'cascade' }),

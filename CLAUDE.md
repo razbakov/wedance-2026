@@ -470,7 +470,14 @@ sketch `/sketches/meet-matches` variant D), newest first, "New" for 7 days. Each
 days (both going › they're going › I'm going › a social in my city that suits both): **I'm going too** adds it with
 `plan_items.metadata.with = <their id>` (that match sees "<name> is going" even without `share_going`), **Next time** is
 an event Skip in `discover_swipes` (never suggested again; Undo). Yeses count from `MEET_MATCHES_SINCE` (2026-11-16
-19:00 UTC, when the deck's copy became "If they say yes too, we tell you both"). In-app only — no email yet.
+19:00 UTC, when the deck's copy became "If they say yes too, we tell you both").
+
+**Telling both:** the Yes (or wave) that completes a match returns `{ match: true }` — /meet shows "It's a match" under the
+deck — and the other dancer gets one email, "<name> said yes too" (`server/utils/meetMatchNotify.ts` `afterYes` →
+`sendMeetMatchEmail`, link to `/my-plan#dance-friends`, with the night out when there is one). Once per pair
+(`meet_match_emails`, 0075), at most one a day per recipient, never about a private / photo-less dancer, and never when
+`dancers.match_emails` is off: Settings → Emails (`SettingsEmails`, `plan.emailPrefs` / `setEmailPrefs`) or the signed
+"Stop these emails" link + List-Unsubscribe (`/api/match-emails/off`).
 
 ## Your year in dance (RAZ-966)
 
@@ -675,6 +682,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `server_weekend_join_confirmed` | `weekend.join` signed in with a guest token (the magic link came back; guest joins folded into the account) | `parties`, `hours_to_confirm` |
 | `server_member_role_set` | `businessTeam.setRole` (role actually changed) | `profile`, `profile_type`, `from_role`, `role`, `self`, `$groups` |
 | `server_mcp_tool_called` | every MCP tool call (`server/mcp/server.ts` `callTool`), signed in or anonymous | `tool`, `result` (ok / error / preview / denied), `error_code`, `client_app` (chatgpt / claude / cursor / … — `server/mcp/caller.ts`; not `app`, which is the project filter), `country` (Vercel geo, ISO-2), `anonymous`, `latency_ms`, `channel: mcp` |
+| `server_meet_matched` | `plan.discoverSwipe` (a deck Yes) / `wave.send` (a festival wave) that meets a Yes back (RAZ-985) | `via` (deck / festival), `emailed` (the other dancer got "said yes too"), `email_skip` (off / no_email / not_shown / already / today / error) |
 | `server_account_deleted` | `auth.deleteAccount` — **anonymous**, no person profile | `days_since_signup` |
 | `server_ticket_purchased` | Stripe webhook `checkout.session.completed` (festival checkout; not on redelivery) · TicketTailor webhook, first of `order.created`/`order.completed` per order | `festival`, `provider` (stripe / tickettailor), `product` (ticket / social_unlock), `tickets`, `amount` (cents), `currency`, `$revenue` (major units), `$currency`, `referral`, `referral_code` (promoter tracked-link code), `discount` (cents) |
 | `server_ticket_checkout_expired` | Stripe webhook `checkout.session.expired` (festival checkout) | `festival`, `provider`, `product`, `tickets`, `referral`, `referral_code` |

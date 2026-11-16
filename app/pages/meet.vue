@@ -54,6 +54,8 @@ const PREVIEW_DECK: MeetCard[] = [
 const deck = ref<MeetCard[]>(route.query.preview === '1' ? [...PREVIEW_DECK] : [])
 const deckLoaded = ref(route.query.preview === '1')
 const swipeHistory = ref<Array<{ card: MeetCard; direction: 'yes' | 'skip' | 'later' }>>([])
+/** Cards whose Yes turned out mutual (RAZ-985) — "It's a match" under the deck. */
+const matchedIds = ref(new Set<string>())
 /** Where I am shown myself: my next night out and the festivals I chose "Show me" for. */
 const me = ref<{ citySlug: string; nextNight: { eventId: string; eventName: string; city: string } | null; festivalsShown: number } | null>(null)
 
@@ -158,6 +160,10 @@ function commitSwipe(direction: 'yes' | 'skip' | 'later') {
   if ((direction === 'yes' || direction === 'skip') && !previewMode.value && card.target) {
     $trpc.plan.discoverSwipe
       .mutate({ targetKind: card.target.kind, targetId: card.target.id, decision: direction, festivalSlug: card.target.festivalSlug })
+      .then((r) => {
+        // They'd said yes to me already: it's a match (RAZ-985) — they get an email, I see it here.
+        if (direction === 'yes' && r?.match) matchedIds.value = new Set([...matchedIds.value, card.id])
+      })
       .catch(err => console.warn('[meet] swipe not saved:', err))
   }
   // added_festival / added_event stay for insights made before the deck was people only.
@@ -363,6 +369,11 @@ const lastYes = computed(() => {
 
           <!-- After a Yes: the next step toward actually meeting them (RAZ-981). -->
           <p v-if="lastYes" class="mt-4 text-sm text-center text-muted-foreground font-sans" data-testid="meet-next-step" aria-live="polite">
+            <template v-if="matchedIds.has(lastYes.id)">
+              <span class="font-bold text-wd-green-700" data-testid="meet-its-a-match">It’s a match — {{ lastYes.name }} said yes to you too.</span>
+              They’ll see it too. <NuxtLink to="/my-plan#dance-friends" class="font-bold text-primary hover:underline">Pick a night together</NuxtLink>.
+            </template>
+            <template v-else>
             <span class="font-bold text-foreground">Yes to {{ lastYes.name }}.</span>
             <template v-if="previewMode" />
             <template v-else-if="lastYes.kind === 'dancer-your-fest' || lastYes.kind === 'dancer-new-fest'">
@@ -373,6 +384,7 @@ const lastYes = computed(() => {
             </template>
             <template v-else-if="isNightCard(lastYes)">
               Next: <NuxtLink :to="lastYes.night.path" class="font-bold text-primary hover:underline">join {{ lastYes.night.name }}</NuxtLink> {{ lastYes.night.when }} — you'll meet on the floor.
+            </template>
             </template>
           </p>
 

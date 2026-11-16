@@ -314,6 +314,10 @@ async function submitDelete() {
         </form>
       </template>
 
+      <!-- EMAILS (RAZ-985) -->
+      <h2 class="mt-12 text-lg font-bold text-foreground font-display">Emails</h2>
+      <SettingsEmails class="mt-4" />
+
       <!-- CONNECTED APPS -->
       <h2 class="mt-12 text-lg font-bold text-foreground font-display">Connected apps</h2>
       <NuxtLink
