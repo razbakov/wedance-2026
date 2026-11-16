@@ -1645,10 +1645,7 @@ useHead({
           </div>
         </section>
 
-        <section v-if="currentTab === 'overview'" id="venue" class="scroll-mt-16">
-          <h2 class="text-2xl font-black leading-tight mb-4 text-foreground">Venue</h2>
-          <VenueTab :venue="festival.venue" />
-        </section>
+        <!-- The venue, its address and its practical info live in the hero (RAZ-1008). -->
 
         <section v-if="currentTab === 'overview'" id="activities" class="scroll-mt-16">
           <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 mb-1">

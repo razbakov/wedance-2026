@@ -47,6 +47,8 @@ export async function festivalView(db: any, ev: any): Promise<{ festival: Festiv
     venue: {
       name: ev.venueName || [ev.city, ev.country].filter(Boolean).join(', ') || 'TBA',
       address: ev.venueAddress || '',
+      // The venue's page, so the hero's venue name links to it (RAZ-1008).
+      ...(ev.venueUsername ? { handle: ev.venueUsername } : {}),
       coordinates: ev.venueLat && ev.venueLng ? { lat: ev.venueLat, lng: ev.venueLng } : undefined,
       practicalInfo: f.practicalInfo ?? [],
     },

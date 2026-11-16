@@ -2,7 +2,7 @@
 import { sizedImage, IMG } from '#shared/utils/image'
 import { ticketProvider } from '~/lib/outbound'
 import type { Festival } from '~/types/festival'
-import { Instagram, Globe, Facebook, Users, Star, Ticket, Check, Plus, Ban, X, CalendarDays, MapPin } from 'lucide-vue-next'
+import { Instagram, Globe, Facebook, Users, Star, Ticket, Check, Plus, Ban, X, CalendarDays, MapPin, ChevronDown, ArrowRight } from 'lucide-vue-next'
 import { daysUntil as formatDaysUntil } from '#shared/utils/festivalDateFormatter'
 import { accentText, readableAccent } from '~/lib/accent'
 import { Button } from '~/components/ui/button'
@@ -92,6 +92,25 @@ const presentsVerb = computed(() => presentersShown.value.length > 1 ? 'present'
 const tagline = computed(() => heroTagline(props.description))
 const taglineCut = computed(() => !!tagline.value && tagline.value.length < (props.description ?? '').trim().length)
 const expanded = ref(false)
+
+// Practical info sits under the venue, opened from its name (RAZ-1008). Links in it are
+// clickable, shown as their host + file ("res.cloudinary.com/…/schedule-friday.png").
+const venueOpen = ref(false)
+const practicalInfo = computed(() => (props.festival.venue?.practicalInfo ?? []).filter(i => i?.trim()))
+function linkParts(text: string): { text: string; href?: string }[] {
+  const out: { text: string; href?: string }[] = []
+  let last = 0
+  for (const m of text.matchAll(/https?:\/\/[^\s,;)]+/g)) {
+    if (m.index! > last) out.push({ text: text.slice(last, m.index) })
+    const url = m[0]
+    let label = url
+    try { const u = new URL(url); const file = u.pathname.split('/').filter(Boolean).pop(); label = file && u.pathname.length > 1 ? `${u.host}/…/${file}` : u.host } catch { /* keep the url */ }
+    out.push({ text: label, href: url })
+    last = m.index! + url.length
+  }
+  if (last < text.length) out.push({ text: text.slice(last) })
+  return out
+}
 
 const daysUntil = computed(() => formatDaysUntil(props.festival.startDate, props.festival.timezone, props.festival.endDate))
 
@@ -186,11 +205,39 @@ const rays = Array.from({ length: 24 }, (_, i) => {
               <dt class="sr-only">Where</dt>
               <MapPin class="mt-0.5 size-4 shrink-0 text-secondary" aria-hidden="true" />
               <dd class="min-w-0">
-                <span v-if="festival.venue?.name" class="block font-bold text-foreground">{{ festival.venue.name }}</span>
+                <!-- With practical info, the venue name opens it in place; otherwise it links to the venue's page. -->
+                <button
+                  v-if="festival.venue?.name && practicalInfo.length"
+                  type="button"
+                  class="inline-flex items-center gap-1 text-left font-bold text-foreground hover:underline cursor-pointer"
+                  :aria-expanded="venueOpen"
+                  aria-controls="hero-venue-info"
+                  data-hero-venue
+                  @click="venueOpen = !venueOpen"
+                >
+                  {{ festival.venue.name }}
+                  <ChevronDown class="size-4 shrink-0 text-secondary transition-transform" :class="venueOpen ? 'rotate-180' : ''" aria-hidden="true" />
+                </button>
+                <NuxtLink v-else-if="festival.venue?.name && festival.venue.handle" :to="`/@${festival.venue.handle}`" class="block font-bold text-foreground hover:underline" data-hero-venue>{{ festival.venue.name }}</NuxtLink>
+                <span v-else-if="festival.venue?.name" class="block font-bold text-foreground">{{ festival.venue.name }}</span>
                 <template v-if="venueAddress">
                   <a v-if="mapUrl" :href="mapUrl" target="_blank" rel="noopener noreferrer" class="block text-sm text-muted-foreground underline decoration-border underline-offset-2 hover:text-foreground">{{ venueAddress }}</a>
                   <span v-else class="block text-sm text-muted-foreground">{{ venueAddress }}</span>
                 </template>
+                <!-- Practical info (getting there, parking, hotel, dress code…), opened from the venue name. -->
+                <div v-if="venueOpen" id="hero-venue-info" class="mt-2 max-w-xl rounded-xl border border-border bg-card/80 px-3 py-2.5" data-hero-venue-info>
+                  <ul class="space-y-1.5 text-sm text-muted-foreground">
+                    <li v-for="(info, i) in practicalInfo" :key="i">
+                      <template v-for="(part, j) in linkParts(info)" :key="j">
+                        <a v-if="part.href" :href="part.href" target="_blank" rel="noopener noreferrer" class="underline underline-offset-2 hover:text-foreground">{{ part.text }}</a>
+                        <template v-else>{{ part.text }}</template>
+                      </template>
+                    </li>
+                  </ul>
+                  <NuxtLink v-if="festival.venue.handle" :to="`/@${festival.venue.handle}`" class="mt-2 inline-flex items-center gap-1 text-xs font-bold text-secondary hover:underline">
+                    Venue page <ArrowRight class="size-3" aria-hidden="true" />
+                  </NuxtLink>
+                </div>
               </dd>
             </div>
           </dl>
