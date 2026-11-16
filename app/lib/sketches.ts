@@ -63,6 +63,17 @@ export const SKETCHES: Sketch[] = [
     ticket: linear('RAZ-995', 'class-sign-up'),
   },
   {
+    slug: 'plan-sections',
+    title: 'My plan: Tonight, This week, This month',
+    what: 'Four ways to set up My plan’s near-term sections: honest kind names (Hangouts tonight / Your nights out / Your courses / Your festivals), a pure agenda (Tonight / This week / Later, everything by date), the recommended agenda + what you have (Tonight and This week by date incl. classes, then Your courses and This year), and a day strip (one "Your week" block, one day at a time). Busy / nothing today / empty toggles.',
+    why: 'The headings name a time but each section holds one kind: Tonight shows only hangouts (tonight’s party sits under This week), This month holds every course whatever its date (a class this Sunday sits there).',
+    requestedBy: 'Alösha',
+    builtBy: 'Agent (Claude)',
+    created: '2026-11-16',
+    status: 'deciding',
+    ticket: linear('RAZ-1006', 'clarify-time-based-sections-and-displayed-content'),
+  },
+  {
     slug: 'meet-matches',
     title: 'Meet new friends: when both say yes',
     what: 'Four ways a mutual yes shows up on My plan: a match card above the deck with a night out you could both go to, one "dance friends" list merging deck matches and festival waves with "Say hi", the match card plus an email to the other dancer, and the recommended list with the night as the one next step. Admins can switch to their real matches.',
