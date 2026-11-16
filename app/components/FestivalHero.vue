@@ -2,7 +2,8 @@
 import { sizedImage, IMG } from '#shared/utils/image'
 import { ticketProvider } from '~/lib/outbound'
 import type { Festival } from '~/types/festival'
-import { Instagram, Globe, Facebook, Users, Star, Ticket, Check, Plus, Ban, X, CalendarDays, MapPin, ChevronDown, ArrowRight, ArrowUpRight } from 'lucide-vue-next'
+import { Instagram, Globe, Facebook, Users, Star, Ticket, Check, Plus, Ban, X, CalendarDays, MapPin, ChevronDown, ChevronRight, ArrowUpRight, TrainFront, Car, Footprints, Shirt } from 'lucide-vue-next'
+import { venueHints, lineBadgeInk } from '#shared/types/venueInfo'
 import { daysUntil as formatDaysUntil } from '#shared/utils/festivalDateFormatter'
 import { accentText, readableAccent } from '~/lib/accent'
 import { Button } from '~/components/ui/button'
@@ -106,6 +107,20 @@ const venueMapUrl = computed(() => {
   return ''
 })
 const practicalInfo = computed(() => (props.festival.venue?.practicalInfo ?? []).filter(i => i?.trim()))
+// The venue page's own hints (RAZ-1012), as Airbnb's "Where you'll be": one row each. The event's own
+// practical info stays under them until RAZ-1009 moves each line to where it's used.
+const hints = computed(() => venueHints(props.festival.venue?.info))
+const HINT_ICON = { transit: TrainFront, parking: Car, shoes: Footprints, cloakroom: Shirt } as const
+// Nothing to open: no chevron, the address opens directions.
+const venueExpands = computed(() => hints.value.length > 0 || practicalInfo.value.length > 0)
+const venuePlace = computed(() => props.festival.venue?.place || '')
+// OpenStreetMap's embed needs no key; only when we know where the venue is.
+const venueMapEmbed = computed(() => {
+  const c = props.festival.venue?.coordinates
+  if (c?.lat == null || c?.lng == null) return ''
+  const bbox = [c.lng - 0.01, c.lat - 0.005, c.lng + 0.01, c.lat + 0.005].map(n => n.toFixed(4)).join('%2C')
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${c.lat}%2C${c.lng}`
+})
 function linkParts(text: string): { text: string; href?: string }[] {
   const out: { text: string; href?: string }[] = []
   let last = 0
@@ -213,12 +228,14 @@ const rays = Array.from({ length: 24 }, (_, i) => {
                 >{{ daysUntil }}</span>
               </dd>
             </div>
-            <!-- Where (RAZ-1008): the whole row opens the venue's details in place — practical info
-                 (getting there, parking, hotel, dress code…), Google Maps and the venue's page. -->
+            <!-- Where (RAZ-1008, RAZ-1012): the row opens the venue's card in place — a map, directions,
+                 the venue page's own hints (nearest stop, parking, shoes, cloakroom), then the event's
+                 practical info and the venue's page. Nothing to open: the address links to directions. -->
             <div v-if="festival.venue?.name || venueAddress">
               <dt class="sr-only">Where</dt>
               <dd>
                 <button
+                  v-if="venueExpands"
                   type="button"
                   class="group flex w-full items-start gap-2.5 text-left cursor-pointer"
                   :aria-expanded="venueOpen"
@@ -228,31 +245,76 @@ const rays = Array.from({ length: 24 }, (_, i) => {
                 >
                   <MapPin class="mt-0.5 size-4 shrink-0 text-secondary" aria-hidden="true" />
                   <span class="min-w-0">
-                    <span v-if="festival.venue?.name" class="flex items-center gap-1 font-bold text-foreground group-hover:underline">
-                      {{ festival.venue.name }}
+                    <span class="flex items-center gap-1 font-bold text-foreground group-hover:underline">
+                      {{ festival.venue?.name || venueAddress }}
                       <ChevronDown class="size-4 shrink-0 text-secondary transition-transform" :class="venueOpen ? 'rotate-180' : ''" aria-hidden="true" />
                     </span>
-                    <span v-if="venueAddress" class="block text-sm text-muted-foreground">{{ venueAddress }}</span>
+                    <span v-if="venueAddress && festival.venue?.name" class="block text-sm text-muted-foreground">{{ venueAddress }}</span>
                   </span>
                 </button>
-                <div v-if="venueOpen" id="hero-venue-info" class="mt-2 ml-6.5 max-w-xl rounded-xl border border-border bg-card/80 px-3 py-3 space-y-2.5" data-hero-venue-info>
-                  <ul v-if="practicalInfo.length" class="space-y-1.5 text-sm text-muted-foreground">
-                    <li v-for="(info, i) in practicalInfo" :key="i">
-                      <template v-for="(part, j) in linkParts(info)" :key="j">
-                        <a v-if="part.href" :href="part.href" target="_blank" rel="noopener noreferrer" class="underline underline-offset-2 hover:text-foreground">{{ part.text }}</a>
-                        <template v-else>{{ part.text }}</template>
-                      </template>
-                    </li>
-                  </ul>
-                  <!-- Plain links, not buttons: directions and the venue's own page. -->
-                  <p class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm font-bold">
-                    <a v-if="venueMapUrl" :href="venueMapUrl" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-secondary hover:underline" data-outbound-kind="map" data-hero-map>
-                      Directions <ArrowUpRight class="size-3.5" aria-hidden="true" />
+                <div v-else class="flex items-start gap-2.5" data-hero-venue>
+                  <MapPin class="mt-0.5 size-4 shrink-0 text-secondary" aria-hidden="true" />
+                  <span class="min-w-0">
+                    <NuxtLink v-if="festival.venue?.name && festival.venue?.handle" :to="`/@${festival.venue.handle}`" class="block font-bold text-foreground hover:underline">{{ festival.venue.name }}</NuxtLink>
+                    <span v-else-if="festival.venue?.name" class="block font-bold text-foreground">{{ festival.venue.name }}</span>
+                    <a v-if="venueAddress && venueMapUrl" :href="venueMapUrl" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground hover:underline" data-outbound-kind="map" data-hero-map>
+                      {{ venueAddress }} <ArrowUpRight class="size-3.5 shrink-0" aria-hidden="true" />
                     </a>
-                    <NuxtLink v-if="festival.venue?.handle" :to="`/@${festival.venue.handle}`" class="inline-flex items-center gap-1 text-secondary hover:underline">
-                      About the venue <ArrowRight class="size-3.5" aria-hidden="true" />
-                    </NuxtLink>
-                  </p>
+                    <span v-else-if="venueAddress" class="block text-sm text-muted-foreground">{{ venueAddress }}</span>
+                  </span>
+                </div>
+
+                <!-- Airbnb's "Where you'll be": the map first, then one row per fact (big outline icon, a
+                     bold title, a quiet line under it), plain underlined links. -->
+                <div
+                  v-if="venueExpands && venueOpen"
+                  id="hero-venue-info"
+                  class="mt-3 max-w-xl overflow-hidden rounded-2xl border border-border bg-card shadow-[0_6px_16px_rgba(0,0,0,0.08)] sm:ml-6.5"
+                  data-hero-venue-info
+                >
+                  <iframe v-if="venueMapEmbed" :src="venueMapEmbed" :title="`Map of ${festival.venue?.name || 'the venue'}`" class="block h-44 w-full border-0" loading="lazy" />
+                  <div class="px-5 py-4 text-sm sm:text-base">
+                    <div class="flex items-baseline justify-between gap-3">
+                      <p class="font-semibold text-foreground">{{ venuePlace || venueAddress || festival.venue?.name }}</p>
+                      <a v-if="venueMapUrl" :href="venueMapUrl" target="_blank" rel="noopener noreferrer" class="shrink-0 font-semibold text-foreground underline underline-offset-2" data-outbound-kind="map" data-hero-map>Directions</a>
+                    </div>
+                    <ul v-if="hints.length" class="mt-4 space-y-4 border-t border-border pt-4" data-hero-hints>
+                      <li v-for="h in hints" :key="h.kind" class="flex items-start gap-3" :data-hint="h.kind">
+                        <!-- One fixed-width column, so every title lines up whatever the badge's length. -->
+                        <span class="flex w-8 shrink-0 justify-center">
+                          <span
+                            v-if="h.kind === 'transit' && h.line"
+                            class="flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-[11px] font-bold leading-none"
+                            :class="h.color ? '' : 'bg-foreground text-background'"
+                            :style="h.color ? { background: h.color, color: lineBadgeInk(h.color) } : undefined"
+                            data-hero-line
+                          >{{ h.line }}</span>
+                          <span v-else class="relative" aria-hidden="true">
+                            <component :is="HINT_ICON[h.kind]" class="size-6" :class="h.kind === 'cloakroom' ? 'text-muted-foreground' : 'text-foreground'" :stroke-width="1.5" />
+                            <span v-if="h.kind === 'cloakroom'" class="absolute left-1/2 top-1/2 h-[1.5px] w-7 -translate-x-1/2 -translate-y-1/2 -rotate-45 rounded-full bg-muted-foreground ring-2 ring-card" />
+                          </span>
+                        </span>
+                        <span class="min-w-0">
+                          <span v-if="h.kind === 'cloakroom'" class="block font-semibold text-muted-foreground line-through"><span class="sr-only">No </span>{{ h.title }}</span>
+                          <span v-else class="block font-semibold text-foreground">{{ h.title }}</span>
+                          <span v-if="'detail' in h && h.detail" class="block text-muted-foreground">{{ h.detail }}</span>
+                        </span>
+                      </li>
+                    </ul>
+                    <ul v-if="practicalInfo.length" class="mt-4 space-y-1.5 border-t border-border pt-4 text-sm text-muted-foreground" data-hero-practical>
+                      <li v-for="(info, i) in practicalInfo" :key="i">
+                        <template v-for="(part, j) in linkParts(info)" :key="j">
+                          <a v-if="part.href" :href="part.href" target="_blank" rel="noopener noreferrer" class="underline underline-offset-2 hover:text-foreground">{{ part.text }}</a>
+                          <template v-else>{{ part.text }}</template>
+                        </template>
+                      </li>
+                    </ul>
+                    <p v-if="festival.venue?.handle" class="mt-4 border-t border-border pt-4">
+                      <NuxtLink :to="`/@${festival.venue.handle}`" class="inline-flex items-center gap-1 font-semibold text-foreground underline underline-offset-2">
+                        About the venue <ChevronRight class="size-4" aria-hidden="true" />
+                      </NuxtLink>
+                    </p>
+                  </div>
                 </div>
               </dd>
             </div>

@@ -461,6 +461,9 @@ export const profiles = pgTable('profiles', {
   openingHours: jsonb('opening_hours').$type<import('../../shared/types/venueDetails').OpeningHours>().notNull().default([]),
   floorPlan: text('floor_plan'),
   contact: jsonb('contact').$type<import('../../shared/types/venueDetails').VenueContact>().notNull().default({}),
+  // The venue's own hints (0074, shared/types/venueInfo.ts): nearest stop, parking, indoor shoes, cloakroom.
+  // Typed in on WeDance only — the v3 sync never writes it.
+  venueInfo: jsonb('venue_info').$type<import('../../shared/types/venueInfo').VenueInfo>().notNull().default({}),
   // Where the venue is (0036), from its Google listing.
   lat: doublePrecision('lat'),
   lng: doublePrecision('lng'),

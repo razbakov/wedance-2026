@@ -38,6 +38,10 @@ export interface Venue {
   /** The venue's WeDance page (/@handle), when it has one. */
   handle?: string
   coordinates?: { lat: number; lng: number }
+  /** The venue page's own hints (RAZ-1012): nearest stop, parking, indoor shoes, cloakroom. */
+  info?: import('../../shared/types/venueInfo').VenueInfo
+  /** Where it is, for the venue card: "Dachau, Germany". */
+  place?: string
   practicalInfo: string[]
 }
 

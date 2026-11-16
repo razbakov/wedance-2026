@@ -3,7 +3,7 @@ import { and, asc, eq, gte, lt, ne, or, sql, type SQL } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { router, publicProcedure } from '../trpc'
 import { events, cities } from '../../database/schema'
-import { festivalView } from '../../utils/festivalView'
+import { festivalView, venueInfoOf } from '../../utils/festivalView'
 import { festivalEventsWhere, listFestivals } from '../../utils/festivalListing'
 import { inviteEventId, previewEventWhere, publicEventWhere } from '../../utils/eventLookup'
 import { resolveCoOrganizers } from '../../utils/coOrganizers'
@@ -159,7 +159,7 @@ export const eventsRouter = router({
       }
       if (!ev) throw new TRPCError({ code: 'NOT_FOUND', message: 'Event not found.' })
       // Named next to the organiser on the event page.
-      return { ...ev, preview: !ev.published, coOrganizers: await resolveCoOrganizers(ctx.db, ev.coOrganizers) }
+      return { ...ev, preview: !ev.published, coOrganizers: await resolveCoOrganizers(ctx.db, ev.coOrganizers), venueInfo: await venueInfoOf(ctx.db, ev.venueUsername) }
     }),
 
   // Upcoming festivals, congresses and weekenders, soonest first (the

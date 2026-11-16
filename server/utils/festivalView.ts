@@ -12,6 +12,7 @@ import type { Festival, Teacher, Workshop } from '../../app/types/festival'
 import { isWorkshop, sessionType } from '../../shared/utils/programme'
 import type { FestivalDetails } from '../../shared/types/festivalDetails'
 import { resolveCoOrganizers } from './coOrganizers'
+import { cleanVenueInfo, type VenueInfo } from '../../shared/types/venueInfo'
 
 const weekday = (date: string) => new Date(`${date}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'long', timeZone: 'UTC' })
 
@@ -27,6 +28,7 @@ export async function festivalView(db: any, ev: any): Promise<{ festival: Festiv
   // The round badge is a logo: the festival's own, else the brand running it
   // (host profile, then the organizer). Never the flyer: that goes in About.
   const brand = f.logo ? null : await brandLogo(db, ev)
+  const venueInfo = await venueInfoOf(db, ev.venueUsername)
 
   // "N going" per workshop: dancers' picks, stored as `<key>:<workshop id>`.
   const picks = await db.select({ itemId: planItems.itemId, n: sql<number>`count(*)::int` }).from(planItems)
@@ -50,6 +52,8 @@ export async function festivalView(db: any, ev: any): Promise<{ festival: Festiv
       // The venue's page, so the hero's venue name links to it (RAZ-1008).
       ...(ev.venueUsername ? { handle: ev.venueUsername } : {}),
       coordinates: ev.venueLat && ev.venueLng ? { lat: ev.venueLat, lng: ev.venueLng } : undefined,
+      ...(venueInfo ? { info: venueInfo } : {}),
+      place: [ev.city, ev.country].filter(Boolean).join(', ') || undefined,
       practicalInfo: f.practicalInfo ?? [],
     },
     attendeeCount: 0, // the page loads the live count
@@ -141,4 +145,12 @@ async function brandLogo(db: any, ev: any): Promise<string | null> {
     if (p?.photo) return p.photo
   }
   return null
+}
+
+/** The venue page's own hints (RAZ-1012), or null when it has none (or the event has no venue page). */
+export async function venueInfoOf(db: any, venueUsername: string | null | undefined): Promise<VenueInfo | null> {
+  if (!venueUsername) return null
+  const [v] = await db.select({ info: profiles.venueInfo }).from(profiles).where(eq(profiles.username, venueUsername)).limit(1)
+  const info = cleanVenueInfo(v?.info)
+  return Object.keys(info).length ? info : null
 }

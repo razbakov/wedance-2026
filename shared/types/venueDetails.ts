@@ -29,7 +29,7 @@ export const VENUE_AMENITIES = [
   { value: 'AirConditioning', label: 'Air conditioning' },
   { value: 'Heating', label: 'Heating' },
   { value: 'Restrooms', label: 'Restrooms' },
-  { value: 'CoatCheck', label: 'Coat check' },
+  // Coat check moved to venue_info.cloakroom (0074): yes / no / not said.
   { value: 'Lockers', label: 'Lockers' },
   { value: 'Parking', label: 'Parking' },
   { value: 'WheelchairAccessibility', label: 'Wheelchair access' },
