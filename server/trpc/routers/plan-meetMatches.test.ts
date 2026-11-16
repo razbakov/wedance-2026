@@ -2,7 +2,8 @@
  * Integration tests for plan.meetMatches (RAZ-985): a mutual yes in the My plan
  * deck or a mutual wave on a festival page is a match; one-way yeses, skips,
  * private profiles and dancers without a photo are not. Each match carries the
- * next night out both could go to. Admin-only while the product call is open.
+ * next night out both could go to; "Next time" skips a night, "I'm going too"
+ * shows the match that you're going. Yeses before MEET_MATCHES_SINCE don't count.
  *
  * Runs against a local Postgres only (see server/test-setup.ts); fixture rows
  * live in a throwaway city and are removed in afterAll.
@@ -13,6 +14,7 @@ import { drizzle } from 'drizzle-orm/neon-http'
 import { inArray } from 'drizzle-orm'
 import * as schema from '../../database/schema'
 import { appRouter } from '../index'
+import { MEET_MATCHES_SINCE } from '../../utils/meetMatches'
 
 const DATABASE_URL = process.env.DATABASE_URL
 const db: any = DATABASE_URL ? drizzle(neon(DATABASE_URL), { schema }) : null
@@ -108,7 +110,37 @@ describe.skipIf(!DATABASE_URL)('plan.meetMatches', () => {
     expect(matches.map(m => m.dancerId)).toEqual([ids.me])
   })
 
-  it('is closed to non-admins while the decision is pending', async () => {
-    await expect(caller(ids.me, false).plan.meetMatches()).rejects.toThrow(/not open yet/)
+  it('is open to every signed-in dancer', async () => {
+    const { matches } = await caller(ids.me, false).plan.meetMatches()
+    expect(matches.length).toBe(2)
+  })
+
+  it("'Next time' on a night suggests the next one instead", async () => {
+    await caller(ids.me).plan.discoverSwipe({ targetKind: 'event', targetId: ids.later, decision: 'skip' })
+    const { matches } = await caller(ids.me).plan.meetMatches()
+    expect(matches.find(m => m.dancerId === ids.gila)!.night).toMatchObject({ eventId: ids.party })
+    await caller(ids.me).plan.discoverUnswipe({ targetKind: 'event', targetId: ids.later })
+  })
+
+  it("'I'm going too' tells that match, without sharing the plan publicly", async () => {
+    // A plain, unshared plan item: Gila isn't told — her own night stays the pick.
+    await caller(ids.me).plan.add({ itemType: 'event', itemId: ids.party })
+    expect((await caller(ids.gila).plan.meetMatches()).matches[0].night).toMatchObject({ eventId: ids.later })
+    await caller(ids.me).plan.remove({ itemType: 'event', itemId: ids.party })
+    // Added from the match card (with: Gila) → for Gila, "Me is going" beats her own.
+    await caller(ids.me).plan.add({ itemType: 'event', itemId: ids.party, metadata: { with: ids.gila } })
+    expect((await caller(ids.gila).plan.meetMatches()).matches[0].night).toMatchObject({ eventId: ids.party, theyGoing: true })
+    await caller(ids.me).plan.remove({ itemType: 'event', itemId: ids.party })
+  })
+
+  it('leaves out yeses made before the deck said "we tell you both"', async () => {
+    const before = new Date(MEET_MATCHES_SINCE.getTime() - DAY)
+    await addDancer('early')
+    await db.insert(schema.discoverSwipes).values([
+      { ...yes('me', 'early'), createdAt: before },
+      { ...yes('early', 'me'), createdAt: before },
+    ])
+    const { matches } = await caller(ids.me).plan.meetMatches()
+    expect(matches.map(m => m.dancerId)).not.toContain(ids.early)
   })
 })

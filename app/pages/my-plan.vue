@@ -1672,6 +1672,8 @@ function cardSummary(f: CatalogueEntry) {
       </div>
       <!-- Nothing picked yet is no reason not to meet people (RAZ-989). -->
       <MeetFriendsEntry :faces="meetFaces" :count="meetCount" surface="my_plan_empty" class="mt-6" />
+      <!-- YOUR DANCE FRIENDS · mutual yeses, each with a night out (RAZ-985). -->
+      <MeetMatches v-if="!previewMode" class="mt-6" />
     </section>
 
     <!-- SIGNED IN, WITH PICKS -->
@@ -1689,6 +1691,8 @@ function cardSummary(f: CatalogueEntry) {
 
       <!-- MEET NEW FRIENDS · its own page (/meet, RAZ-989); first thing in the plan. -->
       <MeetFriendsEntry :faces="meetFaces" :count="meetCount" surface="my_plan" class="mt-2" />
+      <!-- YOUR DANCE FRIENDS · mutual yeses, each with a night out (RAZ-985). -->
+      <MeetMatches v-if="!previewMode" class="mt-6" @planned="loadWeekSocials" />
 
       <!-- ZOOM TABS (RAZ-1006): Today / Week / Month / Year — each holds everything in its span. -->
       <div class="mt-12 sticky top-0 z-20 -mx-4 px-4 py-2 bg-background/95 backdrop-blur" data-testid="plan-zoom">

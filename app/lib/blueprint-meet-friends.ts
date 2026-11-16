@@ -4,7 +4,7 @@
  * and the other dancer, whose side of every step is the part most often
  * missing. Hand-maintained from the code (procedures named in `code`):
  * /meet (plan.discover, discover_swipes), the festival page's "Shall we
- * dance?" (wave.*, festival_waves), meetMatches (RAZ-985, only on a sketch).
+ * dance?" (wave.*, festival_waves), meetMatches (RAZ-985, My plan → Your dance friends).
  * Not run end to end with two test dancers yet. Shown at
  * /docs/blueprints/meet-friends.
  */
@@ -69,16 +69,16 @@ export const meetSteps: BpStep<MeetLane, MeetPhase>[] = [
     note: 'Never — and they can’t act on it unless they happen to swipe you too.' },
 
   // Match
-  { id: 'mutual', phase: 'match', lane: 'system', name: 'Find mutual yeses', status: 'partial', marks: [], code: 'plan.meetMatches → server/utils/meetMatches.ts', refs: ['RAZ-985'],
-    note: 'Merges deck Yeses and waves both ways into one list per dancer, each with a night out both could go to in the next 14 days. Built and tested, but only /sketches/meet-matches calls it.' },
-  { id: 'match-me', phase: 'match', lane: 'me', name: 'See “you both said yes”', status: 'missing', marks: ['silent'], refs: ['RAZ-985'],
-    note: 'Not on /meet or My plan. The one place a match shows today is a festival page’s “My Dance List” (mutual waves for that festival).' },
-  { id: 'match-them', phase: 'match', lane: 'other', name: 'Told about the match', status: 'missing', marks: ['silent'], refs: ['RAZ-985'],
-    note: 'No email or notification to either side when a Yes becomes mutual.' },
+  { id: 'mutual', phase: 'match', lane: 'system', name: 'Find mutual yeses', status: 'live', marks: [], code: 'plan.meetMatches → server/utils/meetMatches.ts', refs: ['RAZ-985'],
+    note: 'Merges deck Yeses and waves both ways into one list per dancer, each with a night out both could go to in the next 14 days. Counts yeses from 2026-11-16 (when the deck started saying “we tell you both”).' },
+  { id: 'match-me', phase: 'match', lane: 'me', name: 'See “you both said yes”', status: 'live', marks: [], route: '/my-plan', code: 'MeetMatches.vue', refs: ['RAZ-985'],
+    note: 'My plan → “Your dance friends”: every mutual yes (deck + festival waves), newest first, “New” for a week.' },
+  { id: 'match-them', phase: 'match', lane: 'other', name: 'Told about the match', status: 'partial', marks: ['silent'], route: '/my-plan', refs: ['RAZ-985'],
+    note: 'Both see the match on My plan the next time they open it. No email or notification yet.' },
 
   // Meet on the floor
-  { id: 'night', phase: 'floor', lane: 'system', name: 'Suggest a night', status: 'partial', marks: [], code: 'meetMatches MatchNight',
-    note: 'Picks both going › they’re going › you’re going › a social in your city that suits both. Computed, not shown (see Match).' },
+  { id: 'night', phase: 'floor', lane: 'system', name: 'Suggest a night', status: 'live', marks: [], route: '/my-plan', code: 'meetMatches MatchNight · MeetMatches.vue',
+    note: 'Picks both going › they’re going › you’re going › a social in your city that suits both. “I’m going too” adds it and tells that match; “Next time” skips it and shows the next one.' },
   { id: 'contact', phase: 'floor', lane: 'me', name: 'Reach them', status: 'missing', marks: ['manual'],
     note: 'No message, no contact swap, no “see you Friday?”. Only their /u profile, if they have a handle. Agreeing on a night happens outside WeDance or not at all.' },
   { id: 'same-night', phase: 'floor', lane: 'other', name: 'Go the same night', status: 'live', marks: [], route: '/events/[id]', code: 'EventWhosComing · rsvp.people', refs: ['#608'],

@@ -12,8 +12,16 @@
  * city whose styles suit both. "They're going" only counts when they share that
  * they're going (plan_items.share_going), the same opt-in as "Who's going".
  *
+ * "Next time" on a match's night (something came up) is a Skip on that event
+ * in discover_swipes: it is never suggested again, the next one is. "I'm going
+ * too" adds the night to the plan with metadata.with = the match's dancer id, so
+ * that one match sees "<name> is going" even when the dancer doesn't share their
+ * plan publicly.
+ *
  * Only public profiles with a photo are returned (the deck's own rule). Nobody
- * is notified from here — this only reads.
+ * is notified from here — this only reads. Shown on My plan ("Your dance
+ * friends", MeetMatches.vue); counted from MEET_MATCHES_SINCE (the day the deck
+ * started saying "if they say yes too, we tell you both").
  */
 import { and, asc, eq, gte, inArray, lt, sql } from 'drizzle-orm'
 import { dancers, discoverSwipes, events, festivals, festivalWaves, planItems } from '../database/schema'
@@ -26,6 +34,11 @@ const DAY = 86400_000
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 /** How far ahead the next-step night is looked for. */
 export const MATCH_NIGHT_DAYS = 14
+/**
+ * Yeses count from when the deck's copy changed to "If they say yes too, we
+ * tell you both" (RAZ-985). Earlier ones were made under "Only you know".
+ */
+export const MEET_MATCHES_SINCE = new Date('2026-11-16T19:00:00Z')
 
 export type MatchNight = {
   eventId: string
@@ -233,8 +246,8 @@ export async function meetMatches(db: Db, dancerId: string, opts: { now?: Date; 
   // 5. Next-step night: plans of both sides + my city's socials, next 14 days.
   const myCitySlug = await citySlugFor(db, me?.city)
   const myStyles = (me?.danceStyles as string[] | null) ?? []
-  const planRows: Array<{ dancerId: string; itemId: string; shareGoing: boolean }> = await db
-    .select({ dancerId: planItems.dancerId, itemId: planItems.itemId, shareGoing: planItems.shareGoing })
+  const planRows: Array<{ dancerId: string; itemId: string; shareGoing: boolean; metadata: Record<string, string> | null }> = await db
+    .select({ dancerId: planItems.dancerId, itemId: planItems.itemId, shareGoing: planItems.shareGoing, metadata: planItems.metadata })
     .from(planItems)
     .where(and(eq(planItems.itemType, 'event'), inArray(planItems.dancerId, [dancerId, ...shown.map(p => p.other)])))
   const mine = new Set<string>()
@@ -242,8 +255,14 @@ export async function meetMatches(db: Db, dancerId: string, opts: { now?: Date; 
   for (const r of planRows) {
     if (!UUID_RE.test(r.itemId)) continue
     if (r.dancerId === dancerId) mine.add(r.itemId)
-    else if (r.shareGoing) theirs.set(r.dancerId, (theirs.get(r.dancerId) ?? new Set()).add(r.itemId))
+    else if (r.shareGoing || r.metadata?.with === dancerId) theirs.set(r.dancerId, (theirs.get(r.dancerId) ?? new Set()).add(r.itemId))
   }
+  // Nights I said "Next time" to (an event Skip) — never suggested again.
+  const skipped = new Set<string>((await db
+    .select({ id: discoverSwipes.targetId })
+    .from(discoverSwipes)
+    .where(and(eq(discoverSwipes.dancerId, dancerId), eq(discoverSwipes.targetKind, 'event'), eq(discoverSwipes.decision, 'skip')))
+  ).map((r: { id: string }) => r.id))
   const planned = [...new Set([...mine, ...[...theirs.values()].flatMap(s => [...s])])]
   const window = and(
     eq(events.published, true),
@@ -262,7 +281,7 @@ export async function meetMatches(db: Db, dancerId: string, opts: { now?: Date; 
   ])
   const candidates = new Map<string, NightCandidate>()
   for (const e of [...plannedEvents, ...cityEvents] as any[]) {
-    if (!e.startDate) continue
+    if (!e.startDate || (skipped.has(e.id) && !mine.has(e.id))) continue
     candidates.set(e.id, { ...e, name: e.name ?? '', startDate: new Date(e.startDate), styles: (e.styles as string[] | null) ?? [] })
   }
   const list = [...candidates.values()]

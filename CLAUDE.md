@@ -457,6 +457,17 @@ story (nights only). **Month**: the next 30 days grouped this week / next week /
 without classes. A class row books on its event page and is removed under Your courses (`MyPlanEventRow`). Old anchors
 open their tab (`#tonight`, `#socials`, `#courses`, `#festivals`, `#goals`; the tab writes `#today|week|month|year`).
 
+## Dance friends: mutual yeses (RAZ-985)
+
+A Yes in Meet new friends (`/meet`, `discover_swipes`) or a wave on a festival page (`festival_waves`, paired per
+festival) that comes back is a **match**: `plan.meetMatches` → `server/utils/meetMatches.ts`, one list per other dancer
+(public profiles with a photo only). Shown on My plan under the Meet entry as **Your dance friends** (`MeetMatches.vue`,
+sketch `/sketches/meet-matches` variant D), newest first, "New" for 7 days. Each match has one night out in the next 14
+days (both going › they're going › I'm going › a social in my city that suits both): **I'm going too** adds it with
+`plan_items.metadata.with = <their id>` (that match sees "<name> is going" even without `share_going`), **Next time** is
+an event Skip in `discover_swipes` (never suggested again; Undo). Yeses count from `MEET_MATCHES_SINCE` (2026-11-16
+19:00 UTC, when the deck's copy became "If they say yes too, we tell you both"). In-app only — no email yet.
+
 ## Your year in dance (RAZ-966)
 
 `/my-year` is only the look back at the dancer's year, told as a story (Wrapped style) to post at New Year, ending on
@@ -538,6 +549,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `discover_swipe` | `/meet` Meet new friends deck (on My plan until RAZ-989) | `direction`, `card_kind`, `added_festival`, `added_event` (always false since the deck is people only), `surface` (meet) |
 | `plan_zoom_opened` | My plan's Today / Week / Month / Year tabs (RAZ-1006): a tab clicked | `tab` (today / week / month / year), `from` |
 | `meet_friends_opened` | `MeetFriendsEntry` on My plan (the card leading to `/meet`, RAZ-989) · `EventMeetPrompt` under "You're in" after signing up to a night (RAZ-981) | `surface` (my_plan / my_plan_empty / `<event surface>_signup`), `people` (dancers waiting in the deck; null = not loaded) |
+| `meet_match_answered` | `MeetMatches` ("Your dance friends" on My plan, RAZ-985): a match's night → "I’m going too" / "I’m going" (added to the plan with `metadata.with` = the match) or "Next time" (an event Skip) | `answer` (going / next_time), `they_going`, `source` (deck / festival), `event_id` |
 | `dance_card_saved` | `/dance-card` (RAZ-1005): a signed-in dancer saves the deck's dance card (Lead / Follow + levels, then photo, name, city, bio — the same cards as signed-out /meet) to their profile | `photo_added` (first photo), `photo_replaced`, `styles` (count), `surface` (back_link = came from a night's "Add a photo" / direct) |
 | `meet_empty_shared` | `MeetEmptyNext` (an empty /meet deck, RAZ-1002): "Ask" an organiser for their next night, "Send" a venue's page, "Invite a friend" | `what` (organiser / venue / friend), `stage` (nights / organisers / venues / nothing / no-city), `method` (native / copy / none) |
 | `goal_added` | `useGoals.addGoal` | `style` |
