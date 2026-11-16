@@ -827,8 +827,9 @@ watch(() => plan.value.size, (n) => setCartCount(n), { immediate: true })
 // inside, who's going, the venue, going together); line-up, schedule and
 // passes are their own tabs, so a first visit plans instead of drowning.
 // The tab lives in ?tab= (deep links, Back); old #tickets / #schedule /
-// #lineup anchors still open their tab.
-const ALL_TABS = ['overview', 'lineup', 'schedule', 'tickets'] as const
+// #lineup anchors still open their tab. Reviews is a tab too, opened from the hero's stars
+// (RAZ-1011), so it no longer sits under every tab at the bottom of the page.
+const ALL_TABS = ['overview', 'lineup', 'schedule', 'tickets', 'reviews'] as const
 type Tab = typeof ALL_TABS[number]
 const showTickets = computed(() => !props.rsvp && (sellsPasses.value || (!!festival.tickets?.length && hasTicket.value)))
 const tabs = computed<Tab[]>(() =>
@@ -844,6 +845,7 @@ const tabLabels: Record<Tab, string> = {
   lineup: 'Lineup',
   schedule: 'Schedule',
   tickets: 'Passes',
+  reviews: 'Reviews',
 }
 function tabFromRoute(): Tab {
   const q = String(route.query.tab ?? '')
@@ -1281,7 +1283,7 @@ useHead({
 
     <!-- v-show, not v-if: the hero holds the sign-up, whose poll the schedule reads on every tab. -->
     <div v-show="currentTab === 'overview'" ref="heroRef">
-      <FestivalHero :festival="heroFestival" :image="festival.flyer" :presenters="festival.organizers" :description="festival.description" :picked="heroPicked" :cancelled="cancelled" :free-entry="freeEntry" :venue-address="festival.venue?.address" :map-url="festival.venue?.coordinates?.lat != null ? `https://www.google.com/maps/search/?api=1&query=${festival.venue.coordinates.lat},${festival.venue.coordinates.lng}` : (festival.venue?.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(festival.venue.address)}` : undefined)" @pick="onPick">
+      <FestivalHero :festival="heroFestival" :image="festival.flyer" :presenters="festival.organizers" :description="festival.description" :picked="heroPicked" :cancelled="cancelled" :free-entry="freeEntry" :venue-address="festival.venue?.address" :map-url="festival.venue?.coordinates?.lat != null ? `https://www.google.com/maps/search/?api=1&query=${festival.venue.coordinates.lat},${festival.venue.coordinates.lng}` : (festival.venue?.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(festival.venue.address)}` : undefined)" @pick="onPick" @reviews="openTab('reviews', 'hero')">
         <!-- What's inside, before the buttons (RAZ-1008): one compact card per tab, no header —
              enough to see there's lots to explore; each opens its tab. -->
         <template v-if="summaryCards.length" #before-cta>
@@ -1722,6 +1724,12 @@ useHead({
             @sign-in="onSignIn"
           />
         </section>
+
+        <section v-if="currentTab === 'reviews'" id="reviews" class="scroll-mt-16">
+          <ClientOnly>
+            <ReviewsSection target-type="festival" :target-slug="festival.slug" :target-name="festival.name" class="!mt-0" />
+          </ClientOnly>
+        </section>
     </div>
 
     <!-- Soft dashboard nudge — only when the user has picks in this
@@ -2052,12 +2060,6 @@ useHead({
       :festival-slug="festival.slug"
     />
 
-
-    <ClientOnly>
-      <section id="reviews" class="max-w-4xl mx-auto px-4 pb-10 scroll-mt-16">
-        <ReviewsSection target-type="festival" :target-slug="festival.slug" :target-name="festival.name" />
-      </section>
-    </ClientOnly>
 
     <SiteFooter />
   </div>

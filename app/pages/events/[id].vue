@@ -247,16 +247,29 @@ const heroPresenters = computed(() => [
   ...(ev.value?.coOrganizers ?? []).map((c: any) => ({ username: c.username, name: c.name })),
 ])
 
-// Which sections have content (so nav + page grow with the event).
-const sections = computed(() => {
-  const s: { id: string; label: string }[] = []
-  if (ev.value?.message || ev.value?.link || ev.value?.price || ev.value?.agenda?.length) s.push({ id: 'about', label: 'About' })
-  if (ev.value?.artists?.length) s.push({ id: 'lineup', label: 'Lineup' })
-  s.push({ id: 'reviews', label: 'Reviews' })
-  return s
-})
-function scrollTo(anchor: string) {
-  document.getElementById(anchor)?.scrollIntoView({ behavior: 'smooth' })
+// Two tabs under the hero (RAZ-1011): Overview (about, line-up) and Reviews, which the
+// hero's stars open. The tab lives in ?tab=reviews; an old #reviews link opens it too.
+// (An event with sessions renders FestivalView, which has its own tabs.)
+type PageTab = 'overview' | 'reviews'
+const PAGE_TABS: { id: PageTab; label: string }[] = [{ id: 'overview', label: 'Overview' }, { id: 'reviews', label: 'Reviews' }]
+const tabFromRoute = (): PageTab => (route.query.tab === 'reviews' || route.hash === '#reviews' ? 'reviews' : 'overview')
+const pageTab = ref<PageTab>(tabFromRoute())
+watch(() => route.query.tab, () => { pageTab.value = tabFromRoute() })
+const tabsNav = ref<HTMLElement | null>(null)
+function openPageTab(t: PageTab, via: 'nav' | 'hero') {
+  if (t !== pageTab.value) useTrack().track('event_tab_opened', { tab: t, via, event_id: ev.value?.id ?? null, is_festival: false })
+  pageTab.value = t
+  const query = { ...route.query }
+  if (t === 'overview') delete query.tab
+  else query.tab = t
+  router.replace({ query, hash: '' })
+  // From the stars: bring the tab into view; from the bar: back to its top if scrolled past.
+  nextTick(() => {
+    const el = tabsNav.value
+    if (!el) return
+    const top = el.getBoundingClientRect().top + window.scrollY
+    if (via === 'hero' || window.scrollY > top) window.scrollTo({ top, behavior: 'smooth' })
+  })
 }
 
 useHead(() => ({
@@ -314,7 +327,7 @@ useHead(() => ({
       </div>
 
       <!-- Same hero as festivals -->
-      <FestivalHero :festival="asFestival" :image="ev.cover" :presenters="heroPresenters" :description="ev.message" review-target-type="event" entity-label="event" cta-anchor="#rsvp" cta-fallback-label="I'm going" :picked="picked" :cancelled="ev.cancelled ? { reason: ev.cancelReason } : null" :date-label="ev.when" :venue-address="ev.venueAddress" :map-url="ev.mapUrl" @pick="onPick">
+      <FestivalHero :festival="asFestival" :image="ev.cover" :presenters="heroPresenters" :description="ev.message" review-target-type="event" entity-label="event" cta-anchor="#rsvp" cta-fallback-label="I'm going" :picked="picked" :cancelled="ev.cancelled ? { reason: ev.cancelReason } : null" :date-label="ev.when" :venue-address="ev.venueAddress" :map-url="ev.mapUrl" @pick="onPick" @reviews="openPageTab('reviews', 'hero')">
         <!-- The RSVP: the organiser's poll IS the hero's Going question (RAZ-731). -->
         <template v-if="ev.pollable && !ev.archived && !isPreview && !ev.cancelled" #cta>
           <div id="rsvp" class="mt-4 max-w-xl scroll-mt-16">
@@ -332,14 +345,28 @@ useHead(() => ({
         <p class="rounded-xl px-4 py-3 text-sm bg-warning/[12.2%] text-wd-amber-800">This event is no longer listed by its organiser — it may have been cancelled or moved.</p>
       </div>
 
-      <!-- Section anchor nav (festival-style) -->
-      <nav class="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur-sm" aria-label="Event sections">
-        <div class="max-w-3xl mx-auto flex items-center gap-1 px-4 overflow-x-auto">
-          <Button v-for="s in sections" :key="s.id" type="button" variant="ghost" class="h-auto rounded-none px-3 py-3 text-sm italic font-normal whitespace-nowrap text-muted-foreground font-display hover:bg-transparent hover:text-foreground" @click="scrollTo(s.id)">{{ s.label }}</Button>
+      <!-- Tabs (festival-style): Overview / Reviews (RAZ-1011) -->
+      <nav ref="tabsNav" class="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur-sm" aria-label="Event sections">
+        <div class="max-w-3xl mx-auto flex items-center gap-1 px-4 overflow-x-auto" role="tablist">
+          <button
+            v-for="t in PAGE_TABS"
+            :key="t.id"
+            type="button"
+            role="tab"
+            :aria-selected="pageTab === t.id"
+            :data-event-tab="t.id"
+            class="relative px-3 py-3 text-sm italic whitespace-nowrap font-display cursor-pointer transition-colors"
+            :class="pageTab === t.id ? 'font-bold text-foreground' : 'font-normal text-muted-foreground hover:text-foreground'"
+            @click="openPageTab(t.id, 'nav')"
+          >
+            {{ t.label }}
+            <span v-if="pageTab === t.id" class="absolute left-3 right-3 bottom-0 h-[2px] rounded-full" :style="{ background: accent }" />
+          </button>
         </div>
       </nav>
 
       <div class="max-w-3xl mx-auto px-4 space-y-14 pt-8 pb-20 font-sans">
+        <template v-if="pageTab === 'overview'">
         <!-- About -->
         <section v-if="(ev.message && !heroTagline(ev.message)) || ev.link || ev.price || ev.agenda?.length || ev.coOrganizers?.length" id="about" class="scroll-mt-16">
           <h2 class="text-2xl font-black leading-tight mb-3 font-display text-foreground">About</h2>
@@ -388,9 +415,11 @@ useHead(() => ({
         <!-- The venue is in the hero (RAZ-1008); only the way to more nights in the city stays. -->
         <p v-if="ev.citySlug" class="text-sm"><NuxtLink :to="`/cities/${ev.citySlug}`" class="font-bold hover:underline text-secondary">More dancing in {{ ev.venueCity }} →</NuxtLink></p>
 
-        <!-- Reviews (same component as venues/festivals) -->
-        <section id="reviews" class="scroll-mt-16">
-          <ReviewsSection target-type="event" :target-slug="ev.id" :target-name="ev.title || 'Event'" />
+        </template>
+
+        <!-- Reviews (same component as venues/festivals), its own tab -->
+        <section v-else id="reviews" class="scroll-mt-16">
+          <ReviewsSection target-type="event" :target-slug="ev.id" :target-name="ev.title || 'Event'" class="!mt-0" />
         </section>
       </div>
     </template>
