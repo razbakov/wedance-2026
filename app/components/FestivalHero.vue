@@ -39,11 +39,11 @@ const props = withDefaults(defineProps<{
   image?: string | null
   /** Who presents it: "[logo] Lionsnight presents" above the title (organiser first, co-organisers after). */
   presenters?: { username?: string | null; name: string }[] | null
-  /** The description: its first sentence goes before the buttons, 2 lines at most; "More" opens About. */
+  /** The description: its first sentence goes before the buttons; "More" opens the rest in place. */
   description?: string | null
 }>(), { reviewTargetType: 'festival', entityLabel: 'festival', ctaAnchor: '#discover' })
 
-defineEmits<{ pick: []; more: [] }>()
+defineEmits<{ pick: [] }>()
 
 // Review rating (client-side — the tRPC client is client-only). Renders after
 // mount; null until then so SSR + first client render match (no hydration jump).
@@ -93,6 +93,7 @@ const presentsVerb = computed(() => presentersShown.value.length > 1 ? 'present'
 // One sentence, ~160 characters: enough to say what it is without pushing the buttons down.
 const tagline = computed(() => heroTagline(props.description))
 const taglineCut = computed(() => !!tagline.value && tagline.value.length < (props.description ?? '').trim().length)
+const expanded = ref(false)
 
 const daysUntil = computed(() => formatDaysUntil(props.festival.startDate, props.festival.timezone, props.festival.endDate))
 
@@ -181,11 +182,17 @@ const rays = Array.from({ length: 24 }, (_, i) => {
             </template>
           </p>
 
-          <!-- What it is, in a sentence, before the buttons (RAZ-1008). The rest is in About. -->
-          <p v-if="tagline" class="mt-3 max-w-xl text-sm sm:text-base leading-relaxed text-foreground font-sans" data-hero-tagline>
-            {{ tagline }}
-            <button v-if="taglineCut" type="button" class="ml-1 font-bold text-secondary hover:underline cursor-pointer" data-hero-more @click="$emit('more')">More</button>
-          </p>
+          <!-- What it is, in a sentence, before the buttons (RAZ-1008). "More" opens the whole text right here. -->
+          <div v-if="tagline" class="mt-3 max-w-xl text-sm sm:text-base leading-relaxed text-foreground font-sans" data-hero-tagline>
+            <p v-if="!expanded">
+              {{ tagline }}
+              <button v-if="taglineCut" type="button" class="ml-1 font-bold text-secondary hover:underline cursor-pointer" :aria-expanded="false" data-hero-more @click="expanded = true">More</button>
+            </p>
+            <template v-else>
+              <p class="whitespace-pre-line">{{ description?.trim() }}</p>
+              <button type="button" class="mt-1 font-bold text-secondary hover:underline cursor-pointer" :aria-expanded="true" data-hero-less @click="expanded = false">Less</button>
+            </template>
+          </div>
 
           <p v-if="cancelled" class="mt-3 max-w-xl text-sm text-foreground font-sans" data-testid="event-cancelled-reason">
             <b class="text-destructive">Cancelled by the organiser.</b>
