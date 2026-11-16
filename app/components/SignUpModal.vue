@@ -234,9 +234,10 @@ async function handleRecovery() {
 </script>
 
 <template>
+  <!-- Full screen on phones (it scrolls, so the keyboard never hides a field or the button); a centred window from sm up. -->
   <Dialog :open="open" @update:open="emit('update:open', $event)">
     <DialogContent
-      class="sm:max-w-md border-0 p-0 gap-0 overflow-hidden [&>button]:top-4 [&>button]:right-4 bg-background text-foreground font-display"
+      class="block left-0 top-0 translate-x-0 translate-y-0 h-dvh max-w-none overflow-y-auto overscroll-contain rounded-none sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:h-auto sm:max-h-[90dvh] sm:max-w-md sm:rounded-lg border-0 p-0 gap-0 [&>button]:top-4 [&>button]:right-4 bg-background text-foreground font-display"
     >
       <!-- Join / Sign in: real tabs across the top. The open one sits on the form's
            background with a red top edge; the other is shaded behind it. The
