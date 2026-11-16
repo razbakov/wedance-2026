@@ -44,7 +44,7 @@ const anatomy = [
   { n: 5, part: 'Title', spec: 'font-display bold, text-lg, brown-900. One line on desktop, wraps on mobile — never truncate a name.' },
   { n: 6, part: 'Meta row', spec: 'font-sans text-xs, brown-700, Lucide icons w-3 h-3 in amber-600. Date · place · count.' },
   { n: 7, part: 'Chips', spec: 'Style chips: 10px caps, rounded-full, accent text on accent·9% (accent + "18"). Max 3–4, then "+N".' },
-  { n: 8, part: 'Action', spec: 'One secondary pill (Going? → Going!) on the right. The card itself is the primary action (navigate).' },
+  { n: 8, part: 'Action', spec: 'One secondary pill (+ My plan → ✓ My plan) on the right. The card itself is the primary action (navigate).' },
 ]
 
 const variants = [
@@ -68,7 +68,7 @@ const recipe = `<div
       <NuxtLink :to="\`/festivals/\${f.slug}\`" class="outline-none after:absolute after:inset-0">{{ f.name }}</NuxtLink>
     </h3>
     <p class="mt-1 font-sans text-xs text-muted-foreground">…meta…</p>
-    <button type="button" class="relative z-10 …" @click="onPick(f.slug)">Going?</button>
+    <button type="button" class="relative z-10 …" @click="onPick(f.slug)">+ My plan</button>
   </div>
 </div>
 
@@ -85,7 +85,7 @@ const eventCode = `<EventSchedule :events="events" />
 
 const a11y = [
   '<strong>One link per card.</strong> A card with no inner controls can be the <code>&lt;a&gt;</code> (NuxtLink) itself — ArtistCard does this.',
-  '<strong>Card with an inner button</strong> (Going?): a <code>&lt;button&gt;</code> inside an <code>&lt;a&gt;</code> is invalid HTML and screen readers announce it as one blob. Use the <em>stretched link</em> instead — root <code>relative</code>, the title is the link with <code>after:absolute after:inset-0</code>, the button sits above it with <code>relative z-10</code>. The anatomy example above is built this way.',
+  '<strong>Card with an inner button</strong> (+ My plan): a <code>&lt;button&gt;</code> inside an <code>&lt;a&gt;</code> is invalid HTML and screen readers announce it as one blob. Use the <em>stretched link</em> instead — root <code>relative</code>, the title is the link with <code>after:absolute after:inset-0</code>, the button sits above it with <code>relative z-10</code>. The anatomy example above is built this way.',
   '<strong>Selectable cards use the stretched pattern</strong> (ArtistCard <code>selectable</code>): the name is a <code>&lt;button&gt;</code> stretched over the card, and the profile link sits above it — never a link inside a button.',
   '<strong>Never make a <code>&lt;div @click&gt;</code> card.</strong> It can’t be reached by keyboard. Use a link or button root.',
   '<strong>Accent text on accent tint</strong> (chips) is decorative only for light accents (amber, yellow, sky): the chip text repeats information that is also in the title or filter, so it may sit below 4.5:1 — anything essential goes in brown.',
@@ -144,7 +144,7 @@ const a11y = [
                         class="relative z-10 ml-auto text-xs font-bold px-3 py-1.5 rounded-full bg-white transition-all"
                         :style="{ color: accent, border: '1.5px solid ' + accent + '55' }"
                       >
-                        Going?
+                        + My plan
                       </button>
                       <sup class="text-[10px]">8</sup>
                     </div>
@@ -210,7 +210,7 @@ const a11y = [
       </div>
     </DesignSection>
 
-    <DesignSection id="event" title="Event row" lead="Live EventSchedule component with mock events. Time column in the style accent, type badge, style chips, place, then Going?. (Interaction is disabled here so the docs never write to your plan.)">
+    <DesignSection id="event" title="Event row" lead="Live EventSchedule component with mock events. Time column in the style accent, type badge, style chips, place, then + My plan. (Interaction is disabled here so the docs never write to your plan.)">
       <DesignExample :code="eventCode">
         <div class="w-full max-w-2xl" inert>
           <EventSchedule :events="events" />
@@ -218,7 +218,7 @@ const a11y = [
       </DesignExample>
     </DesignSection>
 
-    <DesignSection id="festival" title="Festival card" lead="Use the FestivalCard component (app/components/FestivalCard.vue) — stretched-link title, Going? above it, accent-aware chips and an avatar row. Recipe:">
+    <DesignSection id="festival" title="Festival card" lead="Use the FestivalCard component (app/components/FestivalCard.vue) — stretched-link title, + My plan above it, accent-aware chips and an avatar row. Recipe:">
       <DesignCode :code="recipe" />
     </DesignSection>
 
@@ -298,9 +298,9 @@ const a11y = [
             <div class="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center text-[10px] text-muted-foreground text-center p-1">random avatar</div>
           </template>
         </DesignDoDont>
-        <DesignDoDont do-text="the card is the link; one small pill action inside (Going?)." dont-text="several buttons and links inside one card — the tap target becomes a guessing game on mobile.">
+        <DesignDoDont do-text="the card is the link; one small pill action inside (+ My plan)." dont-text="several buttons and links inside one card — the tap target becomes a guessing game on mobile.">
           <template #do>
-            <div class="w-44 rounded-xl bg-white border border-border p-3 flex items-center justify-between text-xs font-sans"><span class="font-bold">Timba Thursday</span><span class="px-2 py-1 rounded-full border border-primary/40 text-primary font-bold">Going?</span></div>
+            <div class="w-44 rounded-xl bg-white border border-border p-3 flex items-center justify-between text-xs font-sans"><span class="font-bold">Timba Thursday</span><span class="px-2 py-1 rounded-full border border-primary/40 text-primary font-bold">+ My plan</span></div>
           </template>
           <template #dont>
             <div class="w-44 rounded-xl bg-white border border-border p-3 flex flex-wrap gap-1 text-[10px] font-sans"><span class="font-bold w-full">Timba Thursday</span><span class="underline text-primary">Venue</span><span class="underline text-primary">DJ</span><span class="px-1.5 rounded-full bg-primary text-white">Book</span><span class="px-1.5 rounded-full border">Share</span></div>

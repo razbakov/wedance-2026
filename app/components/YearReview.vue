@@ -149,7 +149,7 @@ function planNext(to: 'plan' | 'festivals') {
     <div v-else-if="!hasYear" class="mt-4 rounded-2xl border bg-card p-6 font-sans" data-testid="year-review-empty">
       <p class="font-bold text-foreground">Nothing to look back at for {{ review.year }} yet.</p>
       <p class="mt-1 text-muted-foreground">
-        Your story builds itself: tap <b>Going!</b> on nights out, answer event polls, add festivals to your plan.
+        Your story builds itself: tap <b>+ My plan</b> on nights out, answer event polls, add festivals to your plan.
         Next New Year you’ll have a year to celebrate.
       </p>
       <div class="mt-4 flex flex-wrap gap-2">

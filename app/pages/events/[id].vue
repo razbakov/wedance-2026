@@ -22,7 +22,7 @@ const router = useRouter()
 const { $trpc } = useNuxtApp()
 const { weekPlanIds, toggleEvent } = useWeekPlan()
 
-// Auth gate — "Going?" requires sign-in
+// Auth gate — "+ My plan" requires sign-in
 const { isSignedIn } = useAuth()
 const showSignUp = ref(false)
 const signUpAction = ref('plan')

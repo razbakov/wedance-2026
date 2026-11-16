@@ -346,7 +346,7 @@ const googleMapsUrl = computed(() => {
             </div>
             <span class="text-sm font-medium flex-1 text-left" :class="workshopsDone ? '' : 'text-muted-foreground'">
               Workshops
-              <span class="text-xs text-muted-foreground font-normal ml-1">{{ count > 0 ? `${count} going` : 'Tap Going? in schedule' }}</span>
+              <span class="text-xs text-muted-foreground font-normal ml-1">{{ count > 0 ? `${count} going` : 'Tap + My plan in the schedule' }}</span>
             </span>
             <ChevronDown
               v-if="count > 0"
