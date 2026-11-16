@@ -883,9 +883,8 @@ const summaryCards = computed(() => {
 })
 
 // ── Sticky nav behaviour ──────────────────────────────────────────
-// The festival name only appears in the sticky bar once the hero has
-// scrolled out of view, so a deep link straight to ?tab=tickets still
-// shows which festival you're on.
+// The festival name appears in the sticky tab bar whenever the hero isn't in view —
+// scrolled past, or on another tab (the hero is only on Overview, RAZ-1008).
 const heroRef = ref<HTMLElement | null>(null)
 const heroVisible = ref(true)
 function scrollToTop() { window.scrollTo({ top: 0, behavior: 'smooth' }) }
@@ -1186,7 +1185,72 @@ useHead({
       </div>
     </div>
 
-    <div ref="heroRef">
+    <!-- The tabs come first, above the hero (RAZ-1008): the hero is the Overview's top, the other
+         tabs start right here. The festival's name slides into the bar whenever the hero isn't in
+         view (another tab, or scrolled past it), so a deep link always shows which festival it is. -->
+    <!-- Where the tab bar sits before it sticks: switching tabs scrolls back up to here. -->
+    <div ref="tabsRef" aria-hidden="true" />
+    <nav class="sticky top-0 z-20 border-b" style="background:rgba(251, 245, 234, 0.95); backdrop-filter: blur(8px); border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);">
+      <div class="max-w-4xl mx-auto flex items-center gap-2 px-4 min-w-0">
+        <Transition
+          enter-active-class="transition-all duration-200 ease-out"
+          enter-from-class="opacity-0 -translate-x-2"
+          enter-to-class="opacity-100 translate-x-0"
+          leave-active-class="transition-all duration-150 ease-in"
+          leave-from-class="opacity-100 translate-x-0"
+          leave-to-class="opacity-0 -translate-x-2"
+        >
+          <NuxtLink
+            v-if="!heroVisible || currentTab !== 'overview'"
+            :to="`/events/${festival.slug}`"
+            class="flex items-center gap-2 shrink-0 pr-3 mr-1 border-r"
+            style="border-color:color-mix(in srgb, var(--wd-brown-900) 8.2%, transparent);"
+            @click.prevent="openTab('overview', 'nav'); scrollToTop()"
+          >
+            <img
+              v-if="festival.logo"
+              :src="sizedImage(festival.logo, IMG.avatar)"
+              :alt="festival.name"
+              class="w-6 h-6 rounded-full shrink-0"
+            >
+            <div
+              v-else
+              class="w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-eyebrow font-bold text-white"
+              :style="{ background: festival.accentColor }"
+            >
+              {{ initialOf(festival.name) }}
+            </div>
+            <span class="text-sm font-bold whitespace-nowrap hidden sm:inline font-display text-foreground">
+              {{ festival.name }}
+            </span>
+          </NuxtLink>
+        </Transition>
+        <div class="flex gap-0 overflow-x-auto min-w-0" role="tablist" aria-label="Sections">
+          <button
+            v-for="tab in tabs"
+            :key="tab"
+            type="button"
+            role="tab"
+            :aria-selected="currentTab === tab"
+            :data-event-tab="tab"
+            class="relative px-3 py-3 text-sm italic whitespace-nowrap transition-colors font-display cursor-pointer"
+            :class="currentTab === tab ? 'font-bold' : 'font-normal text-muted-foreground'"
+            :style="currentTab === tab ? { color: festival.accentColor } : undefined"
+            @click="openTab(tab, 'nav')"
+          >
+            {{ tabLabels[tab] }}
+            <span
+              v-if="currentTab === tab"
+              class="absolute left-3 right-3 bottom-0 h-[2px] rounded-full"
+              :style="{ background: festival.accentColor }"
+            />
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <!-- v-show, not v-if: the hero holds the sign-up, whose poll the schedule reads on every tab. -->
+    <div v-show="currentTab === 'overview'" ref="heroRef">
       <FestivalHero :festival="heroFestival" :image="festival.flyer" :presenters="festival.organizers" :description="festival.description" :picked="heroPicked" :cancelled="cancelled" :free-entry="freeEntry" :hide-going="!!rsvp && !cancelled" :venue-address="festival.venue?.address" :map-url="festival.venue?.coordinates?.lat != null ? `https://www.google.com/maps/search/?api=1&query=${festival.venue.coordinates.lat},${festival.venue.coordinates.lng}` : (festival.venue?.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(festival.venue.address)}` : undefined)" @pick="onPick">
         <!-- A dated event: the organiser's poll is the Going question. -->
         <template v-if="rsvp" #cta>
@@ -1248,74 +1312,10 @@ useHead({
     </div>
 
     <!-- Who's coming, under the sign-up (RAZ-995) -->
-    <div v-if="rsvp && rsvpPoll && !cancelled" class="max-w-4xl mx-auto px-4 pt-6">
+    <div v-if="rsvp && rsvpPoll && !cancelled && currentTab === 'overview'" class="max-w-4xl mx-auto px-4 pt-6">
       <EventWhosComing :poll="rsvpPoll" />
     </div>
 
-    <!-- Section anchor nav — V3 restyled. Festival identity slides in on
-         the left once the hero has scrolled out of view, so a deep-link
-         (Buy Tickets from the official site) always shows which festival
-         you're on. The active section is highlighted and tracks scroll. -->
-    <!-- Where the tab bar sits before it sticks: switching tabs scrolls back up to here. -->
-    <div ref="tabsRef" aria-hidden="true" />
-    <nav class="sticky top-0 z-20 border-b" style="background:rgba(251, 245, 234, 0.95); backdrop-filter: blur(8px); border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);">
-      <div class="max-w-4xl mx-auto flex items-center gap-2 px-4 min-w-0">
-        <Transition
-          enter-active-class="transition-all duration-200 ease-out"
-          enter-from-class="opacity-0 -translate-x-2"
-          enter-to-class="opacity-100 translate-x-0"
-          leave-active-class="transition-all duration-150 ease-in"
-          leave-from-class="opacity-100 translate-x-0"
-          leave-to-class="opacity-0 -translate-x-2"
-        >
-          <NuxtLink
-            v-if="!heroVisible"
-            :to="`/events/${festival.slug}`"
-            class="flex items-center gap-2 shrink-0 pr-3 mr-1 border-r"
-            style="border-color:color-mix(in srgb, var(--wd-brown-900) 8.2%, transparent);"
-            @click.prevent="openTab('overview', 'nav'); scrollToTop()"
-          >
-            <img
-              v-if="festival.logo"
-              :src="sizedImage(festival.logo, IMG.avatar)"
-              :alt="festival.name"
-              class="w-6 h-6 rounded-full shrink-0"
-            >
-            <div
-              v-else
-              class="w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-eyebrow font-bold text-white"
-              :style="{ background: festival.accentColor }"
-            >
-              {{ initialOf(festival.name) }}
-            </div>
-            <span class="text-sm font-bold whitespace-nowrap hidden sm:inline font-display text-foreground">
-              {{ festival.name }}
-            </span>
-          </NuxtLink>
-        </Transition>
-        <div class="flex gap-0 overflow-x-auto min-w-0" role="tablist" aria-label="Sections">
-          <button
-            v-for="tab in tabs"
-            :key="tab"
-            type="button"
-            role="tab"
-            :aria-selected="currentTab === tab"
-            :data-event-tab="tab"
-            class="relative px-3 py-3 text-sm italic whitespace-nowrap transition-colors font-display cursor-pointer"
-            :class="currentTab === tab ? 'font-bold' : 'font-normal text-muted-foreground'"
-            :style="currentTab === tab ? { color: festival.accentColor } : undefined"
-            @click="openTab(tab, 'nav')"
-          >
-            {{ tabLabels[tab] }}
-            <span
-              v-if="currentTab === tab"
-              class="absolute left-3 right-3 bottom-0 h-[2px] rounded-full"
-              :style="{ background: festival.accentColor }"
-            />
-          </button>
-        </div>
-      </div>
-    </nav>
 
     <div class="max-w-3xl mx-auto px-4 space-y-14 pt-8 pb-20">
         <template v-if="currentTab === 'overview'">
