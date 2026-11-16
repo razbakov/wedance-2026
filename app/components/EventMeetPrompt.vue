@@ -45,19 +45,16 @@ function open() {
       <Users class="size-4" aria-hidden="true" /> Meet who’s going
     </p>
     <p v-if="shown" class="text-sm text-muted-foreground">
-      Dancers going out near you now see you’re going to this night, in Meet new friends. Say yes to the ones you’d like to dance with —
-      each of them is going out too, so you’ll know where to find them.
+      Dancers going out near you can see you’re going. Say yes to the ones you’d like to dance with.
     </p>
     <p v-else-if="!hasPhoto" class="text-sm text-muted-foreground" data-meet-prompt-photo>
-      Add a photo and dancers going out near you will see you’re going to this night — in Meet new friends and in Who’s coming.
-      Without one, nobody can recognise you. Then meet who’s going.
+      Add a photo so dancers going out near you can see you’re going.
     </p>
     <p v-else class="text-sm text-muted-foreground" data-meet-prompt-private>
-      Your profile is private, so nobody sees you’re going. Make it public and dancers going out near you can find you in Meet new friends,
-      then meet who’s going.
+      Your profile is private, so nobody sees you’re going.
     </p>
     <p v-if="lookingFor" class="text-sm text-muted-foreground">
-      Looking for {{ lookingFor }}? The ones going are under Who’s coming below<template v-if="shown">, and in the deck</template>.
+      Need {{ lookingFor }}? See Who’s coming below<template v-if="shown"> and the deck</template>.
     </p>
     <div class="flex flex-wrap items-center gap-2">
       <Button v-if="shown" as-child variant="cta" size="pill-sm">
