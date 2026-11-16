@@ -73,10 +73,7 @@ const onPlan = computed(() => under('/my-plan') || under('/my-year'))
           <AccountMenu mode="dance" />
         </template>
         <template v-else>
-          <!-- Visible on phones too (shorter label): the business pages' way in. -->
-          <NuxtLink to="/for-organizers" class="text-sm text-muted-foreground hover:text-foreground">
-            <span class="sm:hidden">Organizers</span><span class="hidden sm:inline">For organizers</span>
-          </NuxtLink>
+          <!-- Organisers come in through the footer's "For organizers" and their own page's claim (RAZ-981). -->
           <Button
             type="button"
             variant="pill"
