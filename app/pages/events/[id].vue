@@ -192,8 +192,10 @@ function fromSyncedEvent(e: any) {
     cancelled: !!e.cancelledAt,
     cancelReason: e.cancelReason || '',
     synced: e.source === 'wedance-v3',
-    // A dated event (not a festival) gets the RSVP poll.
-    pollable: !e.isFestival,
+    // Every event, festivals too, is booked through the same steps (RAZ-995): how you come,
+    // pass, pay, contact. A festival still lives in the year plan, not the week.
+    pollable: true,
+    isFestival: !!e.isFestival,
   }
 }
 
@@ -328,7 +330,7 @@ useHead(() => ({
       <p><b>Preview, not published yet.</b> The organiser shared this draft with you so you can see the plan. Dancers can't see it, and details may still change.</p>
     </div>
   </div>
-  <FestivalView v-if="festivalData && !pending" :data="festivalData" :type="ev?.eventType" :edit-to="canEdit ? `/business/events/${festivalData.eventId}` : undefined" :cancelled="ev?.cancelled ? { reason: ev.cancelReason } : null" :plan-as="ev?.pollable ? 'event' : 'festival'" :rsvp="ev?.pollable && !ev.archived && !isPreview ? { eventId: ev.id, path: route.path, startDate: ev.startDate, endDate: ev.endDate, timezone: ev.timezone, organizerName: ev.organizerName || (ev.organizerHandle ? `@${ev.organizerHandle}` : null) } : null" />
+  <FestivalView v-if="festivalData && !pending" :data="festivalData" :type="ev?.eventType" :edit-to="canEdit ? `/business/events/${festivalData.eventId}` : undefined" :cancelled="ev?.cancelled ? { reason: ev.cancelReason } : null" :plan-as="ev?.isFestival ? 'festival' : 'event'" :rsvp="ev?.pollable && !ev.archived && !isPreview ? { eventId: ev.id, path: route.path, startDate: ev.startDate, endDate: ev.endDate, timezone: ev.timezone, organizerName: ev.organizerName || (ev.organizerHandle ? `@${ev.organizerHandle}` : null) } : null" />
   <div v-else class="min-h-screen bg-background text-foreground font-display">
     <SiteHeader />
 

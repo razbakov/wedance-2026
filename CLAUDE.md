@@ -381,8 +381,12 @@ it is saved unconfirmed with the guest token, the magic link (`do` + `guest`) fo
 replaces only an email-derived placeholder name, and "Pay now" returns with `?pay=now` to continue to checkout.
 `EventWhosComing` sits under the hero: counts to visitors, faces to signed-in dancers, pairing with waves. A class or
 course hides per-session Save and the "Pick your pass" section; festivals keep both. Sketch: `/sketches/class-signup`.
-Not yet: Stripe without an account, E for festivals (role step, 1,000-person Who's coming with search, best pass inside
-the steps).
+**Festivals book the same way**: every event gets the steps (`pollable: true`); a festival keeps its Passes
+tab and its year plan (`plan-as="festival"`; booking also adds `plan_items` `festival`/`<key>`). Passes sold per role are
+read from their names (`passFor`: couple / leader / follower, else for anyone) and `passesFor(passes, answer)` offers only
+the ones that fit how you come; a couple pass is priced once for both (`passTotal`), and when a role has none left the
+pass step says so (`noPassForRole`). The server checks the pass against the answer (`chosenPass(…, answer)`).
+Not yet: Stripe without an account, a 1,000-person Who's coming with search for festivals.
 
 **One audience (RAZ-963):** Contacts also lists everyone else connected to the page — followers and accounts that went /
 are going to its events (`audienceOnly` in `shared/utils/contactSegments.ts`) — once each, as `isContact: false` rows

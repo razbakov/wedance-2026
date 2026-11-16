@@ -32,12 +32,12 @@ const guestToken = z.string().uuid()
 /** Faces the poll lists at most; anyone past it is still in the counts. */
 const VOTERS_MAX = 60
 
-type Ev = { id: string; styles: string[] | null; organizerUsername: string | null; venueUsername: string | null; hostProfileId: string | null; festival: FestivalDetails | null; type: string | null }
+type Ev = { id: string; styles: string[] | null; organizerUsername: string | null; venueUsername: string | null; hostProfileId: string | null; festival: FestivalDetails | null; type: string | null; isFestival: boolean | null }
 
 async function findEvent(db: any, param: string): Promise<Ev> {
   for (const where of publicEventWhere(param)) {
     const [row] = await db
-      .select({ id: events.id, styles: events.styles, organizerUsername: events.organizerUsername, venueUsername: events.venueUsername, hostProfileId: events.hostProfileId, festival: events.festival, type: events.type })
+      .select({ id: events.id, styles: events.styles, organizerUsername: events.organizerUsername, venueUsername: events.venueUsername, hostProfileId: events.hostProfileId, festival: events.festival, type: events.type, isFestival: events.isFestival })
       .from(events).where(where).limit(1)
     if (row) return row
   }
@@ -214,6 +214,9 @@ async function syncPlan(db: any, dancerId: string, ev: Ev, answer: RsvpAnswer, b
   try {
     if (answer === 'next') {
       await db.delete(planItems).where(and(eq(planItems.dancerId, dancerId), eq(planItems.itemType, 'event'), eq(planItems.itemId, ev.id)))
+      if (ev.isFestival && ev.festival?.key) {
+        await db.delete(planItems).where(and(eq(planItems.dancerId, dancerId), eq(planItems.itemType, 'festival'), eq(planItems.itemId, ev.festival.key)))
+      }
       await db.delete(attendances).where(and(eq(attendances.eventId, ev.id), eq(attendances.dancerId, dancerId), ne(attendances.status, 'ticket_holder')))
       if (ev.organizerUsername) {
         const [org] = await db.select({ id: profiles.id }).from(profiles).where(eq(profiles.username, ev.organizerUsername)).limit(1)
@@ -221,6 +224,10 @@ async function syncPlan(db: any, dancerId: string, ev: Ev, answer: RsvpAnswer, b
       }
     } else {
       await db.insert(planItems).values({ dancerId, itemType: 'event', itemId: ev.id }).onConflictDoNothing()
+      // A festival is planned by the year (My plan → Year), so a booking puts it there too.
+      if (ev.isFestival && ev.festival?.key) {
+        await db.insert(planItems).values({ dancerId, itemType: 'festival', itemId: ev.festival.key }).onConflictDoNothing()
+      }
       await db.insert(attendances).values({ eventId: ev.id, dancerId, status: 'going', source: 'click', visibility: 'hidden' }).onConflictDoNothing()
     }
     await syncNight(db, dancerId, ev, before)
@@ -321,8 +328,8 @@ export const rsvpRouter = router({
       let pass: string | null = null
       let pay: 'now' | 'door' | null = null
       if (pricedPasses(ev.festival?.passes).length) {
-        const p = chosenPass(ev.festival?.passes ?? [], input.pass)
-        if (!p) throw bad('Pick a pass.')
+        const p = chosenPass(ev.festival?.passes ?? [], input.pass, input.answer)
+        if (!p) throw bad(input.pass ? 'That pass isn’t for how you’re coming. Pick another.' : 'Pick a pass.')
         if (p.soldOut) throw bad('That pass is sold out.')
         if (!input.pay) throw bad('Choose how you pay.')
         if (input.pay === 'door' && !ev.festival?.payAtDoor) throw bad('This organiser takes payment online only.')
@@ -398,7 +405,6 @@ export const rsvpRouter = router({
       const ev = await requireEventManager(ctx, input.eventId)
       const s = await summary(ctx.db, ev.id)
       const partner = isPartnerEvent(ev.styles)
-      // Festivals keep their ticket flow; the poll is for dated events.
       return { ...s, partner, festival: !!ev.isFestival, line: rsvpSummaryLine(s, partner) }
     }),
 

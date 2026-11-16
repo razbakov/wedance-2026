@@ -831,7 +831,8 @@ watch(() => plan.value.size, (n) => setCartCount(n), { immediate: true })
 // (RAZ-1011), so it no longer sits under every tab at the bottom of the page.
 const ALL_TABS = ['overview', 'lineup', 'schedule', 'tickets', 'reviews'] as const
 type Tab = typeof ALL_TABS[number]
-const showTickets = computed(() => !props.rsvp && (sellsPasses.value || (!!festival.tickets?.length && hasTicket.value)))
+// A class or course is booked in the steps alone (RAZ-995); a festival keeps its Passes tab to compare them.
+const showTickets = computed(() => (!props.rsvp || !planAsEvent) && (sellsPasses.value || (!!festival.tickets?.length && hasTicket.value)))
 const tabs = computed<Tab[]>(() =>
   ALL_TABS.filter((t) => {
     if (t === 'lineup') return teachers.length > 0
@@ -859,7 +860,7 @@ const tabsRef = ref<HTMLElement | null>(null)
 
 function openTab(t: Tab, via: 'nav' | 'summary' | 'hero' | 'link' = 'link', base: Record<string, any> = route.query) {
   if (t !== currentTab.value) {
-    useTrack().track('event_tab_opened', { tab: t, via, event_id: data.eventId, is_festival: !props.rsvp })
+    useTrack().track('event_tab_opened', { tab: t, via, event_id: data.eventId, is_festival: !planAsEvent })
   }
   activeTab.value = t
   const query = { ...base }
@@ -903,8 +904,8 @@ const summaryCards = computed(() => {
       line: [days.length > 1 ? `${days.length} days` : null, styles.length ? `${styles.length} ${styles.length === 1 ? 'style' : 'styles'}` : null, 'pick yours'].filter(Boolean).join(' · '),
     })
   }
-  // A festival that sells passes already has Get pass (with the price) right under these cards.
-  if (tabs.value.includes('tickets') && !(sellsPasses.value && !props.rsvp)) {
+  // Passes on sale: the button right under these cards (Book my spot / Get pass) picks the pass, with the price.
+  if (tabs.value.includes('tickets') && !sellsPasses.value) {
     const n = festival.tickets?.length ?? 0
     cards.push({
       tab: 'tickets',
