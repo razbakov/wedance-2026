@@ -168,11 +168,11 @@ When('I confirm sign out', async ({ page }) => {
 // ── Modal interactions ──────────────────────────────────────────────
 
 When(
-  'I click "Create an account" in the modal',
+  'I click the "Join" tab in the modal',
   async ({ page }) => {
     await page
       .locator('[role="dialog"]')
-      .getByRole('button', { name: 'Create an account' })
+      .getByRole('tab', { name: 'Join' })
       .click()
   },
 )

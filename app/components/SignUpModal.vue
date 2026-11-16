@@ -317,12 +317,17 @@ async function handleRecovery() {
 
         <!-- ======================= LOGIN / REGISTER ======================= -->
         <template v-else>
+          <!-- Join / Sign in as two tabs: you see both ways in at once. -->
+          <Tabs :model-value="isRegister ? 'register' : 'login'" class="mb-4 pr-8" @update:model-value="(v: string | number) => switchMode(v as Mode)">
+            <TabsList aria-label="Join or sign in" class="grid w-full grid-cols-2 rounded-full p-1">
+              <TabsTrigger value="register" class="rounded-full font-sans font-bold" data-testid="auth-tab-join">Join</TabsTrigger>
+              <TabsTrigger value="login" class="rounded-full font-sans font-bold" data-testid="auth-tab-signin">Sign in</TabsTrigger>
+            </TabsList>
+          </Tabs>
+
           <DialogHeader class="text-left space-y-1">
-            <div class="text-eyebrow uppercase tracking-[0.3em] font-bold text-secondary">
-              {{ isRegister ? 'Join the floor' : 'Welcome back' }}
-            </div>
             <DialogTitle class="text-2xl leading-tight text-foreground font-display">
-              {{ isRegister ? (action === 'signin' ? 'Join WeDance' : headlines[action] || 'Join WeDance') : 'Sign in to WeDance' }}
+              {{ isRegister ? (action === 'signin' ? 'Join WeDance' : headlines[action] || 'Join WeDance') : 'Welcome back' }}
             </DialogTitle>
             <DialogDescription class="text-muted-foreground font-sans">
               {{ isRegister ? 'Create your account with email and password.' : 'Enter your email and password.' }}
@@ -399,22 +404,6 @@ async function handleRecovery() {
                 ? (isRegister ? 'Creating account…' : 'Signing in…')
                 : (isRegister ? 'Create account' : 'Sign in') }}
             </Button>
-
-            <!-- Mode toggle -->
-            <p class="text-center text-sm pt-1 text-muted-foreground font-sans">
-              <template v-if="isRegister">
-                Already have an account?
-                <Button type="button" variant="link" class="h-auto p-0 font-bold underline" @click="switchMode('login')">
-                  Sign in
-                </Button>
-              </template>
-              <template v-else>
-                New to WeDance?
-                <Button type="button" variant="link" class="h-auto p-0 font-bold underline" @click="switchMode('register')">
-                  Create an account
-                </Button>
-              </template>
-            </p>
           </form>
         </template>
       </div>
