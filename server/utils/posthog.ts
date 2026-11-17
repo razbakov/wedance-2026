@@ -11,7 +11,7 @@
  *   every server event is `server_<name>` where `<name>` is the matching client
  *   event (if any), e.g. client `signup_completed` ↔ server `server_signup_completed`.
  *   Count conversions on the `server_*` event; use the un-prefixed client event
- *   for in-session funnels. The full catalogue lives in CLAUDE.md → "Analytics (PostHog)".
+ *   for in-session funnels. The full catalogue lives in docs/analytics/events.md.
  *
  * Every event carries `app: 'wedance-2026'` (the shared-project filter, same as
  * the client super-property) and `$lib: 'wedance-server'`.
