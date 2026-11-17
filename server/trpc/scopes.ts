@@ -132,6 +132,8 @@ export const PROCEDURE_SCOPES: Record<string, Scope | null> = {
   'businessFlyers.make': 'business:write',
   'businessFlyers.directions': 'business:write',
   'businessFlyers.fix': 'business:write',
+  // The flyer page's work in progress (uploads, step, the look it read). Nothing is published.
+  'businessFlyers.saveDraft': 'business:write',
   'businessPosts.writeCaptions': 'business:write',
   'businessPosts.propose': 'business:write',
   'inquiries.setStatus': 'business:write',
