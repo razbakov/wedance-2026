@@ -60,6 +60,12 @@ const props = defineProps({
   hints: { type: Object as PropType<{ artists: string[]; price: string | null }>, default: () => ({ artists: [], price: null }) },
   /** The last save the server refused (RAZ-991): shown in the save bar, its fields' cards opened. */
   saveError: { type: Object as PropType<SaveError | null>, default: null },
+  /**
+   * The save bar's Published checkbox. Off for a draft in the stepped editor:
+   * that event publishes from the Publish step (RAZ-1026). On once it's live
+   * (to take it offline) and for synced or archived events, which have no steps.
+   */
+  publishedBox: { type: Boolean, default: true },
 })
 const emit = defineEmits<{ submit: [values: BusinessEventValues] }>()
 
@@ -194,14 +200,18 @@ function submit() {
   })
   return true
 }
-// The editor's "Publish" step: saves what's in the form and makes it live.
+// The editor's Publish step (RAZ-1026): one click saves what's in the form and makes it live.
 function publish() {
   form.published = true
   if (submit()) return true
   form.published = false
   return false
 }
-defineExpose({ dirty, submit, publish, focus })
+/** A failed save of a draft must not leave it marked for publishing (the checkbox is hidden). */
+function revertPublished() {
+  form.published = !!props.initial.published
+}
+defineExpose({ dirty, submit, publish, revertPublished, focus })
 
 // Read-only summaries.
 const fmtDate = (d: string) => d ? new Date(`${d}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) : ''
@@ -456,18 +466,18 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
     </section>
 
     <!--
-      Publish + save: one bar that sticks to the bottom of the screen (above the
-      phone tab bar) while the form is on screen, so it's never lost on a long
-      event (RAZ-987). Left padding on small screens clears the "Talk to us" button.
+      Save: one bar that sticks to the bottom of the screen (above the phone
+      tab bar) while the form is on screen, so it's never lost on a long event
+      (RAZ-987). Publishing a draft is the Publish step, not this bar (RAZ-1026).
+      Left padding on small screens clears the "Talk to us" button.
     -->
     <div
-      :id="mode === 'edit' ? 'ev-step-publish' : undefined"
-      class="sticky bottom-[calc(0.5rem+var(--wd-tabbar-h,0px))] z-20 mt-3 scroll-mt-20 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border bg-card/95 py-3 pl-16 pr-3 shadow-wd-float backdrop-blur sm:pl-40 md:pl-4"
+      class="sticky bottom-[calc(0.5rem+var(--wd-tabbar-h,0px))] z-20 mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border bg-card/95 py-3 pl-16 pr-3 shadow-wd-float backdrop-blur sm:pl-40 md:pl-4"
       role="region"
-      aria-label="Publish and save"
+      :aria-label="mode === 'create' || publishedBox ? 'Publish and save' : 'Save'"
       data-testid="event-save-bar"
     >
-      <label class="inline-flex items-center gap-2 text-sm font-bold">
+      <label v-if="mode === 'create' || publishedBox" class="inline-flex items-center gap-2 text-sm font-bold">
         <Checkbox v-model="form.published" :data-publish-now="mode === 'create' ? '' : undefined" />
         {{ mode === 'create' ? 'Publish it now' : 'Published' }}
       </label>

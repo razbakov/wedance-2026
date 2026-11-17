@@ -8,7 +8,9 @@
  *
  * Steps (RAZ-939): the details are worked through in order — what and when →
  * venue → line-up → entry → flyer → publish — one card open at a time. A new
- * draft (?created=…) opens on its first step still to do.
+ * draft (?created=…) opens on its first step still to do. Publish (RAZ-1026)
+ * is a big button on that step while the event is a draft: one click publishes,
+ * then a dialog confirms it, with the event's link.
  */
 import { Check, ExternalLink, Repeat, Archive, ArchiveRestore, Sparkles, FileText, Copy, Ban } from 'lucide-vue-next'
 import type { BusinessEventValues } from '~/components/business/BusinessEventForm.vue'
@@ -70,7 +72,11 @@ function goStep(k: EventStepKey) {
   tab.value = 'details'
   const card = STEP_CARD[k]
   if (card) formRef.value?.focus(card)
-  else nextTick(() => document.getElementById(`ev-step-${k}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  else nextTick(() => document.getElementById(`ev-step-${k}`)?.scrollIntoView({
+    behavior: 'smooth',
+    // Publish opens under the step just chosen. Don't jump down the form (RAZ-1026).
+    block: k === 'publish' ? 'nearest' : 'start',
+  }))
 }
 // What the host's other events suggest: artists they booked, last time's price.
 const hints = ref<{ artists: string[]; price: string | null }>({ artists: [], price: null })
@@ -138,13 +144,16 @@ async function save(v: BusinessEventValues) {
       ...(hostChanged ? input : (() => { const { hostUsername: _h, ...rest } = input; return rest })()),
     })
     // Draft → live is the publish moment (re-saving a live event is not).
-    if (input.published && !wasPublished) useTrack().track('event_published', { event_id: id.value, is_festival: !!input.festival, city: input.city || null, style: input.styles?.[0] ?? null })
+    const wentLive = input.published && !wasPublished
+    if (wentLive) useTrack().track('event_published', { event_id: id.value, is_festival: !!input.festival, city: input.city || null, style: input.styles?.[0] ?? null })
     await load()
     panelRef.value?.reload()
     captionRef.value?.reload()
     planRef.value?.reload()
     teaserRef.value?.reload()
-    notice.value = input.published && !wasPublished ? 'Published. Dancers can see it now.' : 'Saved.'
+    notice.value = wentLive ? 'Published. Dancers can see it now.' : 'Saved.'
+    // The dialog is the clear end of the setup; the notice stays once it's closed.
+    if (wentLive) publishedOpen.value = true
     if (hostChanged && oldHost && input.hostUsername) {
       const oldName = hosts.value.find(h => h.username === oldHost)?.name ?? oldHost
       const newName = hosts.value.find(h => h.username === input.hostUsername)?.name ?? input.hostUsername
@@ -155,6 +164,8 @@ async function save(v: BusinessEventValues) {
   } catch (e: any) {
     pending.value = null
     saveError.value = readableSaveError(e, 'Could not save.')
+    // Publish sets the flag before the request. If it was refused, a draft goes back to a draft.
+    if (!ev.value?.published) formRef.value?.revertPublished()
   } finally {
     saving.value = false
   }
@@ -177,7 +188,15 @@ async function repeat() {
   }
 }
 
-const formRef = ref<{ dirty: boolean; submit: () => boolean; publish: () => boolean; focus: (card: string) => void } | null>(null)
+const formRef = ref<{ dirty: boolean; submit: () => boolean; publish: () => boolean; revertPublished: () => void; focus: (card: string) => void } | null>(null)
+const origin = useRequestURL().origin
+const publicUrl = computed(() => (ev.value ? `${origin}${eventPath({ id: ev.value.id, name: ev.value.name })}` : ''))
+// Opens after a draft goes live, once the save has landed and the link is real.
+const publishedOpen = ref(false)
+function publishNow() {
+  if (saving.value) return
+  formRef.value?.publish()
+}
 const planRef = ref<{ reload: () => Promise<void> } | null>(null)
 const teaserRef = ref<{ reload: () => Promise<void> } | null>(null)
 // Line-up names for "Add a post · artist".
@@ -321,7 +340,20 @@ async function archive(series = false) {
         <span class="text-muted-foreground"> What’s here goes on it word for word. The panel shows exactly which words.</span>
       </p>
 
-      <BusinessEventSteps v-if="!ev.synced && !ev.archived" v-model="step" :steps="steps" class="mt-4" @go="goStep" />
+      <BusinessEventSteps v-if="!ev.synced && !ev.archived" v-model="step" :steps="steps" class="mt-4" @go="goStep">
+        <template #publish="{ hint }">
+          <BusinessEventPublish
+            :hint="hint"
+            :published="!!ev.published"
+            :saving="saving"
+            :dirty="!!formRef?.dirty"
+            :url="publicUrl"
+            :name="ev.name"
+            v-model:confirm="publishedOpen"
+            @publish="publishNow"
+          />
+        </template>
+      </BusinessEventSteps>
 
       <BusinessWhosComing id="whos-coming" :event-id="ev.id" :contacts-page="ev.host?.username" class="mt-4 scroll-mt-20" />
 
@@ -335,6 +367,7 @@ async function archive(series = false) {
           :hints="hints"
           :saving="saving"
           :save-error="saveError"
+          :published-box="!!(ev.published || ev.synced || ev.archived)"
           submit-label="Save changes"
           @submit="save"
         />
