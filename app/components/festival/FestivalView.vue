@@ -56,8 +56,11 @@ const props = defineProps<{
     archived?: boolean
     city?: { slug: string; name: string } | null
   } | null
+  /** Where Back goes when the page was opened directly (RAZ-1020). Festivals pass it here; a plain event's is on `event`. */
+  city?: { slug: string; name: string } | null
 }>()
 const kind = computed(() => (props.type || 'festival').toLowerCase())
+const backCity = computed(() => props.city ?? props.event?.city ?? null)
 const data = props.data
 const festival = data.festival
 const workshops = data.workshops
@@ -1286,11 +1289,16 @@ useHead({
 
     <!-- The tabs come first, above the hero (RAZ-1008): the hero is the Overview's top, the other
          tabs start right here. The festival's name slides into the bar whenever the hero isn't in
-         view (another tab, or scrolled past it), so a deep link always shows which festival it is. -->
+         view (another tab, or scrolled past it), so a deep link always shows which festival it is.
+         Back sits in the same sticky bar (RAZ-1020): it leaves the event, and ?tab= is not a step. -->
     <!-- Where the tab bar sits before it sticks: switching tabs scrolls back up to here. -->
     <div ref="tabsRef" aria-hidden="true" />
-    <nav class="sticky top-0 z-20 border-b" style="background:rgba(251, 245, 234, 0.95); backdrop-filter: blur(8px); border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);">
-      <div class="max-w-4xl mx-auto flex items-center gap-2 px-4 min-w-0">
+    <div class="sticky top-0 z-20 border-b" style="background:rgba(251, 245, 234, 0.95); backdrop-filter: blur(8px); border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);">
+      <div class="max-w-4xl mx-auto px-4 pt-2.5 pb-1">
+        <EventBackLink :city="backCity" />
+      </div>
+      <nav>
+        <div class="max-w-4xl mx-auto flex items-center gap-2 px-4 min-w-0">
         <Transition
           enter-active-class="transition-all duration-200 ease-out"
           enter-from-class="opacity-0 -translate-x-2"
@@ -1345,8 +1353,9 @@ useHead({
             />
           </button>
         </div>
-      </div>
-    </nav>
+        </div>
+      </nav>
+    </div>
 
     <!-- v-show, not v-if: the hero holds the sign-up, whose poll the schedule reads on every tab. -->
     <div v-show="currentTab === 'overview'" ref="heroRef">
