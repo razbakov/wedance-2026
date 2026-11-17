@@ -1,0 +1,101 @@
+---
+paths:
+  - "scripts/migrate/**"
+  - "scripts/*v3*.ts"
+  - "scripts/import-page-owner-suggestions.ts"
+  - "server/utils/v3*.ts"
+  - "server/middleware/v3-redirect.ts"
+  - "e2e/synced-*.ts"
+---
+
+# v4 migration and the wedance.vip (v3) sync
+
+## Data (migrated from v4 — 2026-07-15)
+
+Real production data lives in Neon (replacing the old mock-only state). Migrated
+from wedance-v4 (Postgres) via `scripts/migrate/`, idempotent + reversible
+(every row carries `source_ref`; rollback = `DELETE … WHERE source_ref IS NOT NULL`):
+- **3,910 users → `dancers`** (2,339 with passwords; auth continuity verified —
+  v4's Firebase-scrypt hashes verify unchanged in 2026).
+- **6,426 profiles → `profiles`** (venue/artist/organizer; v4 "FanPage" → organizer).
+- **9,580 events → `events`** — all `archived=true`/hidden. NOTE: the source is a
+  historical snapshot (newest ~2026-04); there are **no upcoming events** in any
+  source (v3 Firestore ends 2022), so "this week"/upcoming feeds have no real data
+  until organizers create events going forward.
+- **667 follow edges → `follows`**.
+- **Page teams were NOT migrated** (only 8 of 6,426 v4 pages have one). Leads live in
+  `profile_owner_suggestions` (0058), read from wedance.vip (v3, live — v4 was only the import
+  snapshot) with v3's own edit rule (`use/auth.js` `can`): `v3-own` (the page is their account),
+  `v3-team` (Team Members), `v3-creator` (created it, only if they created ≤5 pages — heavy
+  creators list other people's venues). `scripts/import-page-owner-suggestions.ts` (dry-run default,
+  `--write`, `:runQuery` only). Shown in Admin → Users ("Make owner" → `admin.addPageOwner`, emails
+  "You now manage …"; "Not them" → `admin.dismissSuggestion`). Never in the claims queue.
+**Update 2026-10-04:** the "no upcoming events" note above is obsolete — wedance.vip
+(v3 Firestore `posts`, type `event`) is actively maintained (~1,300 upcoming events,
+~1,000 of them in Munich). They are mirrored into `events` by the v3 sync below.
+
+Live DB-backed surfaces: sign-in, `/@handle` profiles, `/cities` + `/cities/[city]`,
+`/artists`, `/venues`, city video vote, ask-locals, community groups, festival
+submit-draft. Festivals list + my-plan/my-year remain partly mock/preview.
+
+
+## wedance.vip → 2026 event sync
+
+`bun run sync:v3-events` mirrors every **upcoming** wedance.vip event (Firestore
+`posts` where `type == "event"`, `startDate >= now`, all cities) into the `events`
+table. **Read-only against v3** — the only Firestore call is `:runQuery` (REST, no
+firebase-admin). Code: `scripts/sync-v3-events.ts` (CLI) + `server/utils/v3EventSync.ts`
+(mapping, Firestore client, upsert; unit-tested).
+
+- **Dry-run is the default.** `--write` applies migration `0021_events_v3_sync.sql`
+  (idempotent, additive) then upserts. `--json` prints a machine-readable summary.
+- **Key:** `source='wedance-v3'`, `source_id=<v3 post id>`; rows go `archived=false,
+  published=true`. Still-upcoming rows that v3 no longer lists → `archived=true`.
+  Re-running is a no-op (reports `unchanged`). Rollback: `DELETE FROM events WHERE source='wedance-v3'`.
+- **Mapping:** city = venue locality (→ 2026 `city_slug` via profiles + `city-images.json`
+  altNames, e.g. München→munich); styles = v3 StyleKeys → 2026 labels (`STYLE_MAP`);
+  times stored UTC + IANA `timezone`, always rendered in the event's zone
+  (`shared/utils/eventTime.ts`). Festival/Congress/Weekender → `is_festival`.
+- **Shown on:** `/cities/[city]` (this-week calendar, "Coming up", festivals) and
+  `/events/[id]` via the `events` tRPC router.
+- **Profiles (since 0022):** the same run also syncs **every visible v3 business page** — venues,
+  organisers, fan pages (→ organizer), artists, in any city, with or without events
+  (`--events-only` = just the pages behind events) — (`server/utils/v3ProfileSync.ts`) and links each event
+  (`venue_username`, `organizer_username`, `artists[]`), which feeds the city page's
+  "Who's on the floor" tabs and the schedule on `/@handle`. Dedupe order — people:
+  v3 profile id (`source_ref.firebaseId` from the v4 migration) → handle → name+city;
+  venues: Google place id (the v4 venue-handle convention) → name+city → contained
+  name → street+number → the organiser's own profile when the school hosts its
+  classes → ≤75 m from a venue this sync created. Unmatched venues are created
+  (address-only ones are named after the street). Claimed profiles are never
+  written; other unclaimed rows only get EMPTY fields filled; rows this sync created
+  (`source_ref.source='wedance-v3'`) follow v3. As on wedance.vip, only `Members` /
+  `Unlisted` hide a v3 page (no visibility = public); only public fields (name, handle, photo, bio, social links, city,
+  styles, venue address) — never email/phone. Rollback:
+  `DELETE FROM profiles WHERE source_ref->>'source'='wedance-v3'` (after clearing the
+  event links: `UPDATE events SET venue_username=NULL, artists='[]' WHERE source='wedance-v3'`).
+  Display check: `bun e2e/synced-profiles.check.ts <venueHandle> <organiserHandle>`.
+  Instagram accounts (main in `socials` + `profiles.instagram_aliases`) also match people.
+
+## wedance.vip → 2026 user sync
+
+`bun run sync:v3-users` (dry-run default, `--write`, `--json`) mirrors wedance.vip accounts into
+`dancers` — the v4 migration stopped ~April 2026. Code: `scripts/sync-v3-users.ts` +
+`server/utils/v3UserSync.ts` (`planUsers`, unit-tested). Read only: Firebase Auth `accounts:batchGet`
++ Firestore `:runQuery`. Match by v3 id (`source_ref.firebaseId`) then email; new people get name /
+photo / bio / city / Instagram from their v3 profile, their v3 sign-up date, no handle, and
+`source_ref.source='wedance-v3'`; existing people only get EMPTY fields + their v3 id (never the
+`source` tag, never a new name or password). **Passwords:** Google returns `REDACTED` hashes unless
+the service account has the "Firebase Authentication Admin" role — until then new people sign in by
+magic link; re-running fills hashes only where a dancer has none. Rollback (new people only):
+`DELETE FROM dancers WHERE source_ref->>'source'='wedance-v3' AND NOT EXISTS (SELECT 1 FROM sessions s WHERE s.dancer_id=dancers.id)`.
+
+
+## Env and display check
+
+- **Env:** `DATABASE_URL` (target — check it before `--write`; the Vercel-pulled `.env`
+  is PRODUCTION), `WEDANCE_V3_SERVICE_ACCOUNT` (JSON) or `WEDANCE_V3_SERVICE_ACCOUNT_FILE`
+  (default `~/Secrets/wedance.json`).
+- **Display check:** `BASE_URL=http://localhost:3000 bun e2e/synced-events.check.ts <eventId:HH:MM>…`
+  (asserts no digit-only style tags / epoch numbers / timezone shifts; screenshots →
+  `docs/screenshots/v3-sync/`).

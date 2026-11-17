@@ -137,7 +137,7 @@ describe.skipIf(!DATABASE_URL)('C3 v3 mirror — write path (rolled back)', () =
     const syncedProfiles = await db.select().from(schema.profiles).where(sql`${schema.profiles.sourceRef}->>'source' = ${V3_SOURCE} and ${schema.profiles.citySlug} = ${TOWN_SLUG}`)
     expect(syncedProfiles.length).toBeGreaterThan(0)
 
-    // CLAUDE.md "wedance.vip → 2026 event sync": profile rollback (links first), then events.
+    // .claude/rules/v3-sync.md: profile rollback (links first), then events.
     await db.execute(sql`UPDATE events SET venue_username=NULL, artists='[]' WHERE source='wedance-v3'`)
     await db.execute(sql`DELETE FROM profiles WHERE source_ref->>'source'='wedance-v3'`)
     await db.execute(sql`DELETE FROM events WHERE source='wedance-v3'`)

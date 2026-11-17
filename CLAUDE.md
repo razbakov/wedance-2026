@@ -1,204 +1,52 @@
 # WeDance 2026 — Code Repository
 
+Dance community platform. Nuxt 4 + tRPC + Drizzle ORM + Neon (PostgreSQL), Bun.
+
 ## Framework
 
 @/Users/razbakov/Projects/ikigai-team/CLAUDE.md
 
----
-
-Dance community platform. Nuxt 4 + tRPC + Drizzle ORM + Neon (PostgreSQL).
-
 ## Links
 
-- **Live:** https://2026.wedance.vip
-- **Vercel project:** `wedance-2026` (team: `wedance`)
-- **Org governance:** `~/Orgs/WeDance/`
+- **Live:** https://2026.wedance.vip · **Vercel project:** `wedance-2026` (team `wedance`)
 - **GitHub:** `razbakov/wedance-2026` — open source, **AGPL-3.0-only** (`LICENSE`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`)
-- **Docs (public, indexed):** https://2026.wedance.vip/docs — hub + quick start (`app/pages/docs/`),
-  design system `/docs/design/**`, generated architecture `/docs/architecture/**` (ADR-000).
-  Old `/design/**`, `/architecture/**`, `/styleguide` 301 there (`nuxt.config.ts` routeRules).
-  Shell/nav: `app/components/docs/Shell.vue`, `app/lib/docs-nav.ts`; pages use `layout: 'docs'`.
-
-## Structure
-
-```
-app/                  # Nuxt app (pages, components, composables)
-server/               # Backend (tRPC, database, API routes)
-e2e/                  # Playwright tests
-public/               # Static assets
-```
+- **Org governance:** `~/Orgs/WeDance/` · work board `~/Orgs/WeDance/03_Coordination/Work_Board.md`
+- **Docs (public, indexed):** https://2026.wedance.vip/docs — hub + quick start (`app/pages/docs/`), design system
+  `/docs/design/**`, generated architecture `/docs/architecture/**` (ADR-000). Old `/design/**`, `/architecture/**`,
+  `/styleguide` 301 there (`nuxt.config.ts` routeRules). Shell/nav: `app/components/docs/Shell.vue`,
+  `app/lib/docs-nav.ts`; pages use `layout: 'docs'`.
 
 ## Commands
 
-- `bun install` — install deps
-- `bun run dev` — dev server
-- `bun run build` — production build
-- `bun run test` — unit tests (vitest)
-- `bun run test:e2e` — e2e tests (playwright)
+- `bun install` — install deps · `bun run dev` — dev server · `bun run build` — production build
+- `bun run test` — unit tests (vitest; CI job `unit`). One file: `bunx vitest run path/to/file.test.ts`
+- `*.db.test.ts` / `*.integration.test.ts` skip unless `DATABASE_URL` is localhost (`server/test-setup.ts` drops a
+  remote one). Run them against the local Postgres below (`NEON_FETCH_ENDPOINT` set); CI job `integration` does the
+  same against a throwaway Postgres (`.github/workflows/test.yml`)
+- `bun run test:e2e` — e2e (playwright-bdd; the full BDD suite runs nightly, PRs run `e2e-smoke`)
 
-## Deployment
+## Deployment and merging
 
-Auto-deploys on push to `main` via Vercel + GitHub integration.
+- Auto-deploys on push to `main` via Vercel + GitHub. All agent work is delivered via PRs; code ownership: Engineer
+  agent (dispatched from `~/Orgs/WeDance/`).
+- **Merge gate (ADR-013, `docs/architecture/adr/013-merge-gate.md`):** `main` is protected — a PR merges only when
+  the required checks `unit`, `integration` and `e2e-smoke / e2e` are green (admins included, branch need not be up
+  to date, no reviews). Wait, then merge:
+  `gh pr checks <pr> --watch --fail-fast && gh pr merge <pr> --squash --delete-branch`.
+  Renaming a required job blocks every PR until branch protection is updated; never put an `if:` on a required job
+  (skipped counts as passed).
+- **PR previews are not built (RAZ-886)** — `vercel.json` `ignoreCommand` → `scripts/vercel-ignore-build.sh` builds
+  only `main` (previews were half of all build minutes). Need one? Put `[preview]` in a commit message on the branch.
+  A preview shares the production `DATABASE_URL` and runs `db-migrate --deploy` against it. (A self-hosted dev
+  server on the Hetzner box was weighed and parked: it can't build this app.)
 
-**Merge gate (ADR-013, `docs/architecture/adr/013-merge-gate.md`):** `main` is protected — a PR merges
-only when the required checks `unit`, `integration` and `e2e-smoke / e2e` are green (admins included,
-branch need not be up to date, no reviews). Wait, then merge:
-`gh pr checks <pr> --watch --fail-fast && gh pr merge <pr> --squash --delete-branch`. The full BDD suite
-runs nightly (`.github/workflows/nightly.yml`), not on PRs. Renaming a required job blocks every PR until
-branch protection is updated; never put an `if:` on a required job (skipped counts as passed).
+## Database — there is only one, and it is production
 
-## Conventions
-
-- All agent work delivered via PRs
-- Code ownership: Engineer agent (dispatched from `~/Orgs/WeDance/`)
-- Work items tracked on org work board: `~/Orgs/WeDance/03_Coordination/Work_Board.md`
-- Client form validation uses **valibot**: add the form's schema to `shared/validation/forms.ts`
-  (field builders in `fields.ts`, limits mirroring the tRPC zod input), then
-  `const { errors, validate, fieldAttrs } = useFormValidation(schema, state)`. On submit,
-  `const result = validate(); if (!result.success) return` and send `result.data`. Each input
-  gets `v-bind="fieldAttrs('field', 'x-field-error')"` plus `<FieldError id="x-field-error" :message="errors.field" />`,
-  so a failed submit flags every invalid field at once. `<form>`s get `novalidate`.
-- Images: every `<img>` showing a stored photo/flyer/cover uses
-  `:src="sizedImage(url, IMG.avatar|card|large|hero)"` (`shared/utils/image.ts`; `AvatarImage` does it
-  itself). Raw Cloudinary originals (3.5 MB flyer PNGs) used 64 GB/month and got the account switched off
-  (Nov 2026). Download buttons keep the original URL.
-
-## Data (migrated from v4 — 2026-07-15)
-
-Real production data lives in Neon (replacing the old mock-only state). Migrated
-from wedance-v4 (Postgres) via `scripts/migrate/`, idempotent + reversible
-(every row carries `source_ref`; rollback = `DELETE … WHERE source_ref IS NOT NULL`):
-- **3,910 users → `dancers`** (2,339 with passwords; auth continuity verified —
-  v4's Firebase-scrypt hashes verify unchanged in 2026).
-- **6,426 profiles → `profiles`** (venue/artist/organizer; v4 "FanPage" → organizer).
-- **9,580 events → `events`** — all `archived=true`/hidden. NOTE: the source is a
-  historical snapshot (newest ~2026-04); there are **no upcoming events** in any
-  source (v3 Firestore ends 2022), so "this week"/upcoming feeds have no real data
-  until organizers create events going forward.
-- **667 follow edges → `follows`**.
-- **Page teams were NOT migrated** (only 8 of 6,426 v4 pages have one). Leads live in
-  `profile_owner_suggestions` (0058), read from wedance.vip (v3, live — v4 was only the import
-  snapshot) with v3's own edit rule (`use/auth.js` `can`): `v3-own` (the page is their account),
-  `v3-team` (Team Members), `v3-creator` (created it, only if they created ≤5 pages — heavy
-  creators list other people's venues). `scripts/import-page-owner-suggestions.ts` (dry-run default,
-  `--write`, `:runQuery` only). Shown in Admin → Users ("Make owner" → `admin.addPageOwner`, emails
-  "You now manage …"; "Not them" → `admin.dismissSuggestion`). Never in the claims queue.
-**Update 2026-10-04:** the "no upcoming events" note above is obsolete — wedance.vip
-(v3 Firestore `posts`, type `event`) is actively maintained (~1,300 upcoming events,
-~1,000 of them in Munich). They are mirrored into `events` by the v3 sync below.
-
-Live DB-backed surfaces: sign-in, `/@handle` profiles, `/cities` + `/cities/[city]`,
-`/artists`, `/venues`, city video vote, ask-locals, community groups, festival
-submit-draft. Festivals list + my-plan/my-year remain partly mock/preview.
-
-## Product backlog (landing-promise audit — 2026-07-16)
-
-125 user stories derived from every landing-page promise/feature/use-case, each
-linking **P-id · CUJ (journey) · JTBD · status (built/partial/not-built) · WSJF**.
-Kept in sync across three surfaces:
-- **Repo:** `docs/issues/<Pxxx>-*.md` (source of truth for story content; taxonomy
-  in `docs/issues/_reference-cuj-jtbd.md`).
-- **Linear:** team **WED** — 125 issues, 8 CUJ projects (C1–C8), label taxonomy
-  (`status:*`, `cuj:C#`, `jtbd:J#`, `aud:*`, `landing-audit`), WSJF-based priority,
-  cycle 1 loaded. Titles are short handles (e.g. "Who's Going"), detail in the body.
-- **Sheet:** "WeDance 2026 UX" (`12YiUIcBd02hIIj2ua1w2bMFJSJSuIf8a64CQP7E60mg`) →
-  "Landing Promises" tab (index + a Linear-link column per row).
-Split: 43 built · 60 partial (Todo) · 22 not-built (Backlog). Biggest gap = the
-flagship "see who's going / real faces" attendee roster (not built).
-
-## wedance.vip → 2026 event sync
-
-`bun run sync:v3-events` mirrors every **upcoming** wedance.vip event (Firestore
-`posts` where `type == "event"`, `startDate >= now`, all cities) into the `events`
-table. **Read-only against v3** — the only Firestore call is `:runQuery` (REST, no
-firebase-admin). Code: `scripts/sync-v3-events.ts` (CLI) + `server/utils/v3EventSync.ts`
-(mapping, Firestore client, upsert; unit-tested).
-
-- **Dry-run is the default.** `--write` applies migration `0021_events_v3_sync.sql`
-  (idempotent, additive) then upserts. `--json` prints a machine-readable summary.
-- **Key:** `source='wedance-v3'`, `source_id=<v3 post id>`; rows go `archived=false,
-  published=true`. Still-upcoming rows that v3 no longer lists → `archived=true`.
-  Re-running is a no-op (reports `unchanged`). Rollback: `DELETE FROM events WHERE source='wedance-v3'`.
-- **Mapping:** city = venue locality (→ 2026 `city_slug` via profiles + `city-images.json`
-  altNames, e.g. München→munich); styles = v3 StyleKeys → 2026 labels (`STYLE_MAP`);
-  times stored UTC + IANA `timezone`, always rendered in the event's zone
-  (`shared/utils/eventTime.ts`). Festival/Congress/Weekender → `is_festival`.
-- **Shown on:** `/cities/[city]` (this-week calendar, "Coming up", festivals) and
-  `/events/[id]` via the `events` tRPC router.
-- **Profiles (since 0022):** the same run also syncs **every visible v3 business page** — venues,
-  organisers, fan pages (→ organizer), artists, in any city, with or without events
-  (`--events-only` = just the pages behind events) — (`server/utils/v3ProfileSync.ts`) and links each event
-  (`venue_username`, `organizer_username`, `artists[]`), which feeds the city page's
-  "Who's on the floor" tabs and the schedule on `/@handle`. Dedupe order — people:
-  v3 profile id (`source_ref.firebaseId` from the v4 migration) → handle → name+city;
-  venues: Google place id (the v4 venue-handle convention) → name+city → contained
-  name → street+number → the organiser's own profile when the school hosts its
-  classes → ≤75 m from a venue this sync created. Unmatched venues are created
-  (address-only ones are named after the street). Claimed profiles are never
-  written; other unclaimed rows only get EMPTY fields filled; rows this sync created
-  (`source_ref.source='wedance-v3'`) follow v3. As on wedance.vip, only `Members` /
-  `Unlisted` hide a v3 page (no visibility = public); only public fields (name, handle, photo, bio, social links, city,
-  styles, venue address) — never email/phone. Rollback:
-  `DELETE FROM profiles WHERE source_ref->>'source'='wedance-v3'` (after clearing the
-  event links: `UPDATE events SET venue_username=NULL, artists='[]' WHERE source='wedance-v3'`).
-  Display check: `bun e2e/synced-profiles.check.ts <venueHandle> <organiserHandle>`.
-  Instagram accounts (main in `socials` + `profiles.instagram_aliases`) also match people.
-
-## wedance.vip → 2026 user sync
-
-`bun run sync:v3-users` (dry-run default, `--write`, `--json`) mirrors wedance.vip accounts into
-`dancers` — the v4 migration stopped ~April 2026. Code: `scripts/sync-v3-users.ts` +
-`server/utils/v3UserSync.ts` (`planUsers`, unit-tested). Read only: Firebase Auth `accounts:batchGet`
-+ Firestore `:runQuery`. Match by v3 id (`source_ref.firebaseId`) then email; new people get name /
-photo / bio / city / Instagram from their v3 profile, their v3 sign-up date, no handle, and
-`source_ref.source='wedance-v3'`; existing people only get EMPTY fields + their v3 id (never the
-`source` tag, never a new name or password). **Passwords:** Google returns `REDACTED` hashes unless
-the service account has the "Firebase Authentication Admin" role — until then new people sign in by
-magic link; re-running fills hashes only where a dancer has none. Rollback (new people only):
-`DELETE FROM dancers WHERE source_ref->>'source'='wedance-v3' AND NOT EXISTS (SELECT 1 FROM sessions s WHERE s.dancer_id=dancers.id)`.
-
-## Duplicate profiles (#458)
-
-- **Merge:** Business → a page → "Duplicates" (`BusinessDuplicates.vue`) or MCP `merge_profiles` →
-  `business.merge` (owners of both pages, or admins). `server/utils/mergeProfiles.ts` `mergeProfile`
-  moves every profile reference (`PROFILE_REFS` — a unit test fails when a new profile FK isn't listed;
-  rows that would clash stay on the copy, nothing is deleted), handle refs (events venue/organizer/
-  line-up, reviews), fills the kept page's empty fields, turns the copy's Instagram into an alias, and
-  hides the copy with `source_ref.mergedInto` (`entity.movedTo` → `/@old` 301s to `/@kept`).
-  Audit + undo: `profile_merges` (moved row ids, kept page before) → `business.undoMerge`.
-- **Instagram aliases:** `profiles.instagram_aliases` (lowercased handles; main stays in `socials`).
-  `linksInstagram()` (business.ts) matches both and skips merged copies — used by create,
-  `addFromInstagram`, `addVenue`, search; the v3 sync indexes them too.
-- **Duplicate warning:** `server/utils/profileDupes.ts` `findLikelyDuplicates` (same Instagram,
-  handle, similar name in the same city — "Bar Buena Vista" ≈ "Buena Vista Bar" — same address or
-  ≤75 m for venues) behind `business.findExisting` (Create form), `business.duplicates`, `addVenue`
-  and MCP `create_my_page` (returns `possible_duplicates` unless `create_anyway`).
-- Bulk clean-up of obvious copies: `scripts/merge-duplicate-profiles.ts` (dry-run default).
-- **Handles = Instagram:** a chosen page handle follows `shared/utils/handle.ts` `handleError` — `[a-z0-9._-]`,
-  3–40, no dot/dash at either end, no "..", not `RESERVED_HANDLES`, not ending like a file (`.png`, `.js`…). Used by
-  `business.create` / `business.renameHandle` (zod) and the forms (valibot `optionalHandle` / `requiredHandle`).
-  `handleFromInstagram` keeps the Instagram handle as is. Rename (Business → page → Handle, owners) keeps the old
-  handle in `source_ref.oldHandles` (→ `entity.movedTo` redirect) and moves handle refs via `moveHandleRefs`.
-- **Env:** `DATABASE_URL` (target — check it before `--write`; the Vercel-pulled `.env`
-  is PRODUCTION), `WEDANCE_V3_SERVICE_ACCOUNT` (JSON) or `WEDANCE_V3_SERVICE_ACCOUNT_FILE`
-  (default `~/Secrets/wedance.json`).
-- **Display check:** `BASE_URL=http://localhost:3000 bun e2e/synced-events.check.ts <eventId:HH:MM>…`
-  (asserts no digit-only style tags / epoch numbers / timezone shifts; screenshots →
-  `docs/screenshots/v3-sync/`).
-
-### Vercel Preview environment
-
-**PR previews are not built (RAZ-886)** — `vercel.json` `ignoreCommand` → `scripts/vercel-ignore-build.sh` builds
-only production (`main`); they were half of all Vercel build minutes. Need a preview link? Put `[preview]` in a
-commit message on the branch (that push builds one). A preview shares the production `DATABASE_URL` — and runs
-`db-migrate --deploy` against it — so DB-backed pages render; there is only one Neon database (Neon branching later
-if write isolation is needed). A self-hosted dev server (Dokploy on Hetzner) was weighed and parked: the Hetzner box
-(2 vCPU / 4 GB, runs Brievcase) can't build this app.
-
-### Local Postgres (never test writes against prod)
-
-There is only one Neon database (production). For local work, restore a copy into
-Docker and point the Neon HTTP driver at a local stand-in:
+- Real production data lives in Neon (migrated from v4 on 2026-07-15, plus the live wedance.vip sync — see
+  `.claude/rules/v3-sync.md`). **The Vercel-pulled `.env` is PRODUCTION**: check `DATABASE_URL` before any `--write`
+  script, migration or write test. Scripts that write are dry-run by default; rows they create carry `source_ref` /
+  `source` so they can be rolled back.
+- Local work: restore a copy into Docker and point the Neon HTTP driver at a local stand-in:
 
 ```
 docker run -d --name wedance-2026-dev-db -e POSTGRES_USER=dev -e POSTGRES_PASSWORD=dev \
@@ -210,516 +58,45 @@ bun run dev:db-proxy          # Neon-HTTP-compatible proxy on :4444
 #       NEON_FETCH_ENDPOINT=http://localhost:4444/sql
 ```
 
-## City channels — weekly post, official channels, local groups (0067)
+## Conventions
 
-A city's own WeDance accounts (e.g. Instagram @wedancemunich) are run from a **city page**: an ordinary
-business page linked in `city_pages` (Admin → Cities, `/admin/cities`: "Create @wedance<city>" → `cityChannels.createCityPage` makes an organizer page "WeDance <City>" with the admin as owner and links it; or link an existing page → `cityChannels.setCityPage`). Its team
-(`profile_members`) are the **city admins** (`server/utils/cityAccess.ts` `requireCityAdmin`; WeDance admins pass
-everywhere). Tools: Business → the page → "WeDance <city>" → `/business/network/<handle>/city`.
-
-- **Weekly post** (`citySchedule` router, `city_schedules`): the city's live events of a week (Mon 06:00 → Mon 06:00,
-  city zone); nights out picked by default, weekly courses not (`shared/utils/citySchedule.ts`). Text is generated
-  from the picks until edited by hand. Picture = SVG (`server/utils/scheduleImage.ts`) rasterised by Cloudinary
-  (`wedance-2026/schedules/<city>-<week>`, JPEG). Post once per week per place: Instagram feed / story through the
-  page's #501 connection; Telegram via the WeDance bot (`server/utils/telegram.ts`) to every official Telegram
-  channel with a chat id. Nothing is posted without a click; MCP tokens can't publish.
-- **Plan** (RAZ-970, `cityOccasions` router, `city_occasion_posts` 0070): the next 12 months of occasions worth a post,
-  computed in `shared/utils/cityOccasions.ts` — Bavarian silent days (BayFTG Art. 3: 02:00–24:00, Good Friday / Holy
-  Saturday from 00:00, Christmas Eve from 14:00; only for Bavarian cities, by `cities.region` or slug), Fasching (DE/AT),
-  Halloween, New Year's Eve, open-air season, Oktoberfest (Munich). Each has a post: silent days → the Tanzverbot
-  explainer (facts in code, EN/ES/RU/DE); parties → the city's parties on WeDance in those days. The admin picks
-  languages (first one on the picture), edits, draws the picture (same poster as the weekly post), posts to Instagram /
-  Telegram once each. "Ask organisers" emails owners/editors of pages with events in the city (last 180 days), each
-  page once per occasion; emails stay server-side. MCP tokens can't post or send.
-- **Official channels** = `community_groups` with `kind='official'` (+ `telegram_chat_id` for the bot). Shown on the
-  city page under the weekly calendar (`CityOfficialChannels`, `cityChannels.official`, which also adds the page's
-  Instagram). "Check bot" = `getChat` + `getChatMember`.
-- **Local groups grow with the community**: `communityGroup.submit` (any signed-in dancer, "Share a group" in
-  `CommunityGroupsSection`) → `status='pending'` → city admins approve/decline (`pending` / `review`); listed with
-  "added by <first name>". Dedupe on `invite_key` (`shared/utils/communityGroups.ts` `inviteKey`, unique index).
-  `checkLinks` fetches only chat.whatsapp.com / t.me invite pages (`server/utils/groupLinkCheck.ts`): a dead link is
-  hidden from the city page (`link_status='dead'`); a batch that comes back >80% dead changes nothing. WhatsApp is
-  'dead' only when BOTH `og:title` and `invite_link_type_v2` are empty (any mix = 'unknown'); checked on real working
-  invites in RAZ-862.
-- **Admin → Community groups** (`/admin/community-groups`) is where WeDance admins run "Check links" and see its result:
-  each group's state (listed / dead link / waiting / hidden / declined — `shared/utils/communityGroupAdmin.ts`), when its
-  link was last checked, "Show again" / approve / decline. Filters (search, `CityCombobox`, platform, `DanceStyleFilter`,
-  state) live in the URL; Admin → Cities group counts link there (`?city=<slug>&state=dead`).
-- **Group admins** (RAZ-967, 0071): `community_groups.admin_name` / `admin_contact` — who runs a group and one contact
-  (phone / wa.me / @handle / email; `adminContactHref` in `shared/utils/communityGroupAdmin.ts` makes it a link). Personal
-  data: selected only by `communityGroup.listAll` (WeDance admins) and `forCity` / `pending` (city admins), edited via
-  `setAdmin` (`AdminGroupContact`, `ph-no-capture`); never in `listByCity`, `cityChannels.official`, MCP or PostHog.
-  The import fills them: new rows carry the sheet's Admin / Admin Number; `--fill-admins` (dry-run default, `--write`)
-  fills EMPTY admin fields of groups already listed, never overwrites, prints no numbers.
-- **Organisers' group list** (RAZ-861): `bun scripts/import-community-groups.ts` (dry-run default, `--write`, `--json`,
-  `--csv <file>`) reads the "Groups" tab of the "Outreach CRM" sheet (CSV export) → `community_groups` (`source='import'`,
-  visible, unverified). Rules in `server/utils/communityGroupImport.ts`: link from the "Whatsapp" column (platform from
-  the link), known cities only (first of a list; regions are reported, never guessed), rows marked private / invalid /
-  inactive left out, insert-only, skips any `invite_key` already in the table. Rollback: `DELETE … WHERE source='import'`.
-- **Env:** `TELEGRAM_BOT_TOKEN` (create the bot with @BotFather; add it to each channel as an admin allowed to post).
-  Unset = Telegram posting is off, the UI says so. Instagram needs the page's #501 connection.
-
-## Instagram profile import (Apify, #452)
-
-Pages added from an Instagram handle (`businessEvents.addFromInstagram`, `addVenue` with
-`instagram`, `business.create` / MCP `create_my_page`) are filled from that account's public
-profile **after the response** (`ctx.waitUntil`): name (only while it is still the handle),
-photo (re-hosted on Cloudinary `wedance-2026/profiles`, never hot-linked), bio, bio link as a
-`website`/social link, city (when it matches `cities`) and, for venues, the business address.
-Empty fields only; claimed/managed pages are never written (except the dancer's own new page from
-`business.create`). Handles added within ~1.5 s share one actor run. Each attempt is stored in
-`source_ref.instagram_import = { at, ok, handle, fields | error }`.
-
-- Code: `server/utils/instagram/apify.ts` (generic `runActor(actorId, input)` + `fetchInstagramProfiles`,
-  per-handle cache — reuse it for post imports), `server/utils/instagram/profileImport.ts`
-  (fill rules, batching), `server/utils/rehostImage.ts` (Cloudinary, shared with `update_listed_profile`).
-- **Env:** `APIFY_TOKEN` (Vercel production). Unset = silent no-op (logged once). Actor:
-  `apify~instagram-profile-scraper` via `run-sync-get-dataset-items`.
-- **Backfill:** `bun scripts/backfill-instagram-profiles.ts` (lists candidates) → `--fetch` (calls
-  Apify, writes nothing) → `--write [--limit N] [--handles a,b]`. Needs `APIFY_TOKEN`, the Cloudinary
-  keys and `DATABASE_URL` — check the target before `--write`.
-
-## Event from an Instagram post (#453)
-
-Paste the link of an organiser's post or reel → a complete DRAFT: MCP `import_from_instagram` and the
-"I have a post" start on `/business/events/new`, both → `eventImport.fromInstagram`
-(`server/trpc/routers/eventImport.ts`). Post via Apify `apify~instagram-scraper`
-(`server/utils/instagram/post.ts`, `APIFY_TOKEN`) → Gemini reads the caption into fields
-(`server/utils/instagram/eventExtract.ts`, `GEMINI_API_KEY`) → line-up / venue through
-`addFromInstagram` / `addVenue` (so #452 fills them) → `businessEvents.create`; cover = the post's
-picture re-hosted. The caption is untrusted: quoted to the model as data, the answer bounded by a JSON
-schema and checked again (handles must be in the post, links written in the caption). The post's
-organisers are kept in `events.source_ref.instagram.organizers` — TODO(#456) link them as co-organisers.
-The same post for the same page returns the existing draft. Missing env → a clear error, no crash.
-
-## Connect Instagram — official Meta app (#501)
-
-Meta app **WeDance** (`2207322860205270`, business portfolio WeDance — unverified) → developers.facebook.com/apps/2207322860205270.
-New Meta apps get **Instagram API with Unified login** only (the plain "Instagram Login" setup is gone): a Facebook
-Login for Business configuration **"Connect Instagram"** (`1134955742345614`) — system-user token, never expires,
-asset Instagram account (required), permissions `instagram_basic`, `instagram_content_publish`,
-`instagram_manage_comments`, `instagram_manage_messages`, `business_management` (without it
-`/me/assigned_instagram_accounts` is empty). Dialog uses `config_id`, never `scope`. All calls on graph.facebook.com.
-
-- Owners connect on Business → page → Instagram (`BusinessInstagram.vue`) → `instagram.connectUrl` (signed `state`,
-  15 min — sessions are bearer tokens, so the redirect carries none) → `/api/meta/instagram/callback` (code →
-  token → account picked by the page's Instagram link → `instagram_connections`, token AES-GCM, `server/utils/meta/`).
-- Content plan "Post to feed" / "Add to story" → `instagram.publishPost({ to })`: the organiser picks, whatever shape
-  the post was painted in. `server/utils/meta/image.ts` pads the kept flyer on a blurred copy of itself (feed: 4:5 —
-  a 9:16 flyer would be refused; story: 9:16) as a Cloudinary JPEG. Feed = picture + caption (`ig_media_id`), story =
-  picture only (`ig_story_media_id`, 0064); each goes once. Web only, one click each; posts from the host page, else
-  organiser, else venue.
-- `/api/meta/webhook` (GET verify, POST `X-Hub-Signature-256`) stores comments / messages for connected accounts in
-  `instagram_webhook_events`. `/api/meta/data-deletion` answers Meta's `signed_request`.
-- **Env:** `META_APP_SECRET` (required — App settings → Basic), `META_WEBHOOK_VERIFY_TOKEN`; optional `META_TOKEN_KEY`
-  (else derived from `OAUTH_SIGNING_SECRET`), `META_APP_ID`, `META_INSTAGRAM_CONFIG_ID`, `META_GRAPH_VERSION` (v25.0).
-- **Dev mode:** only people with a role on the app (and Instagram testers) can connect. Others need business
-  verification + App Review (screencast per permission).
-
-## Share my weekend (#527)
-
-A dancer shares this week's parties as `/w/<code>` (`weekend_shares`, migration 0066 — a snapshot of event ids;
-the same parties within 6 days reuse the link) plus a 1080×1920 Instagram story drawn on a canvas in the browser
-(`app/lib/weekendStory.ts` — a bold poster, no photos (flyers are too busy): the first party's dance colour as the
-background, Anton (Google Fonts, loaded only when used) for the type, each party a black band; a short line of
-our own per style from `shared/utils/storyLines.ts`, which the sharer can shuffle or rewrite) and shared through the phone's share sheet, the link copied for the link sticker.
-Friends tap "I'm in" per party (`weekend_share_joins`): signed in → it goes on their plan; signed out → a first
-name + the RSVP guest token, mirrored as an unconfirmed "yes" on the event's poll. After a guest's tap the page offers an
-optional email: a magic link back to `/w/<code>?confirm=<event>&guest=<token>`, which (signed in) folds that
-browser's guest joins into the account — on their plan, confirmed "yes" on the poll, no second email to the
-sharer. Signed-in joins also add a confirmed "yes" on the poll. The sharer gets `sendWeekendJoinEmail` per new join. Entry points: My plan → "Your week" shows the story in place (nights only — classes stay off it) (`app/components/WeekendStory.vue`, shared with `/w/<code>`; the link is made when the list loads and again when its parties change — RAZ-895), MCP `share_my_weekend`
-(returns `storyUrl` = the link + `?story=1`, which shows the story maker to whoever opens it).
-Code: `server/trpc/routers/weekend.ts`, `shared/utils/weekendShare.ts`, `app/pages/w/[code].vue`.
-**One event (RAZ-1001):** an event page's "Bring friends" (`SharePlanModal`) shows the same `WeekendStory` card for
-that event alone (`weekend.share({ eventIds: [id], surface: 'event' })`; the picture says "<NAME> IS GOING", not
-"WEEKEND"). Signed out, or an event the share refuses (past, not an `events` row), gets the plain link instead; a picked
-workshop plan stays a separate `?invite=` link under the story.
-No auto-posting: Instagram's publishing API is Business/Creator-only and the Meta app is in dev mode.
-
-## New event: one question, then steps (RAZ-939)
-
-`/business/events/new` asks "Where are you starting from?": **I have a post** (Instagram link →
-`eventImport.fromInstagram`), **Like my last event** (one of my events + a new date, optionally N more weeks →
-`businessEvents.copy`: drafts only, same local start time, one series when repeated) or **From scratch** (Run by,
-type, music, date, start time; city from the host; name suggested by `shared/utils/eventStart.ts`
-`suggestEventName`, e.g. "Salsa Party · Thursday", editable). Each makes a draft ("Publish it now" stays) and
-opens the editor, which shows **Steps** (`BusinessEventSteps`, `app/lib/eventSteps.ts`): what and when → venue →
-line-up → entry → flyer → publish, done/to do from the saved event's gaps/flyer/published, one card open at a
-time (`BusinessEventForm` `focus()`). A new draft opens on its first step to do. Line-up and entry show what the
-host's other events suggest (`pastEventHints`: artists booked before, last time's price). Same order as MCP
-`create_event`.
-
-## The venue's own hints (RAZ-1012)
-
-What is true about a venue for every event there — nearest stop (line badge + colour, stop, how to get from it), parking
-(text + detail), indoor dance shoes only, cloakroom (yes / no / not said; only "no" shows, struck through) — lives on the
-venue's page: `profiles.venue_info` (0074, `shared/types/venueInfo.ts`: `cleanVenueInfo`, `venueHints`). The old
-`CoatCheck` amenity moved into `cloakroom` (one place only). Shown in the event hero's venue row (`FestivalHero`, both
-`festivalView` and `events.get` → `venueInfo`) as an Airbnb-style card: OpenStreetMap embed (no key) when the venue has
-coordinates, Directions, one row per hint, then "About the venue". No hints = no chevron, the address links to
-directions. The event's own practical info is not in the venue card: it's on Overview → "Good to know" (`EventGoodToKnow`). Edited by the venue's team and admins (Business → the venue
-→ "Getting there & house rules", `business.update` `venueInfo`), by the organiser of an event at an UNCLAIMED venue (the
-event editor's Where step, `BusinessEventVenueHints` → `listedProfiles.venueInfo` / `saveVenueInfo`, same rule as
-`requireListedEditor`), and by connected apps (`venue_info` on `update_listed_profile`, `add_venue`,
-`update_business_profile`). Only the parts given change; null clears a part. The v3 sync never writes it.
-
-## Who's coming → Contacts
-
-The organiser's event page shows **Who's coming** (`BusinessWhosComing`, `rsvp.people`: names and photos of everyone
-who signed up — poll, Going!, tickets — never email; organisers see them whatever the dancer's public visibility).
-Contact details live only in the host page's **Contacts** (`/business/network/<handle>/contacts`), which "See their
-contacts" opens filtered to the event (`?event=<id>&as=<needLeader|…>`; `businessSite.contactsOverview` → `events`,
-`activity.events` per contact, `shared/utils/contactSegments.ts` `ComingAs`). A dancer gets there by signing up
-(RAZ-995, below): `recordSignupContact` (`server/utils/rsvpContact.ts`, host page, else organiser — never the venue)
-adds them with source `signup` — name, email, phone for that event, **not mailable** — and "Also tell me about next
-events" adds `source.opted_in`. `rsvp.shareContact` (source `rsvp`, mailable) stays for MCP.
-
-## Signing up for a class (RAZ-995)
-
-Dated events (`/events/[id]`, plain or with `events.festival` passes) have one button in the hero, `EventSignup`, which
-opens the steps in place: ① how you come (the poll answers; "with my partner" = two people) ② pass — only with more
-than one priced pass ③ pay now (Stripe `festivalSignup.ticketCheckout`, `people` 1|2) or at the door (organiser switch
-`festival.payAtDoor`, Business → event → Entry and tickets) ④ contact — signed out: name, email, phone; signed in: a
-review card asking only for a missing phone. Phone is required for classes / courses (`CLASS_EVENT_TYPES`) and anything
-paid, optional for a party night. A pass's `couplePrice` is what two pay (else 2 ×). Rules: `shared/utils/eventSignup.ts`;
-server `rsvp.signUp` (event_rsvps `name/phone/partner_name/pass/pay/keep_in_touch`, `dancers.phone` — 0073). Signed out
-it is saved unconfirmed with the guest token, the magic link (`do` + `guest`) folds it into the account (`rsvp.answer`),
-replaces only an email-derived placeholder name, and "Pay now" returns with `?pay=now` to continue to checkout.
-`EventWhosComing` sits under the hero: counts to visitors, faces to signed-in dancers, pairing with waves. A class or
-course hides per-session Save and the "Pick your pass" section; festivals keep both. Sketch: `/sketches/class-signup`.
-**Festivals book the same way**: every event gets the steps (`pollable: true`); a festival keeps its Passes
-tab and its year plan (`plan-as="festival"`; booking also adds `plan_items` `festival`/`<key>`). Passes sold per role are
-read from their names (`passFor`: couple / leader / follower, else for anyone) and `passesFor(passes, answer)` offers only
-the ones that fit how you come; a couple pass is priced once for both (`passTotal`), and when a role has none left the
-pass step says so (`noPassForRole`). The server checks the pass against the answer (`chosenPass(…, answer)`).
-The pass step suggests ("Fits your plan", preselected) the pass covering the workshops picked on the Schedule — the same
-`recommendFor` as the Passes tab's "Best value for your plan", among the passes for that way of coming (`recommend` prop);
-the Passes tab's buttons open the steps on that pass. Unset `workshopCount` / `includesParty` are read from the pass's
-words (`passCoverage`: "Party only", "no workshops", masterclass), else a party pass looked like it covered every workshop.
-Not yet: Stripe without an account, a 1,000-person Who's coming with search for festivals.
-**Nobody to book with (RAZ-1007):** an event takes bookings only when the page they go to (host, else organiser —
-`contactPageFor`) has a team (`events.get` → `bookable`). Otherwise "Book my spot" opens `EventImportedNotice` instead of
-the steps: "Imported by WeDance" (v3 sync) / "Added by WeDance", where from (`events.link`), last checked (`synced_at`),
-and a "Book on <site>" link. `rsvp.signUp` itself doesn't refuse yet (MCP).
-**One layout (RAZ-1007):** every `events` row renders through `FestivalView` (`events.festival` serves plain events too —
-`festivalView` keys them by `eventSlug`); a plain event adds `EventFacts` (type, styles, price, website, agenda), the
-"Checked by" badge, the archived note and "More dancing in <city>" via the `event` prop. Only booking requests, single
-programme sessions (`f~key~id`) and mock city events still use the old template in `events/[id].vue`.
-
-**One audience (RAZ-963):** Contacts also lists everyone else connected to the page — followers and accounts that went /
-are going to its events (`audienceOnly` in `shared/utils/contactSegments.ts`) — once each, as `isContact: false` rows
-(source `wedance`, email block `not_a_contact`). Like `rsvp.people`, they show name / photo / handle / city whatever their
-attendee visibility, never email or phone; never mailed, not in the CSV, no note / unsubscribe / delete. "Who" in the rail
-= contacts / not contacts. Guests and buyers without an account aren't listed.
-
-## Email to contacts (RAZ-975)
-
-Contacts → **Email N** (`BusinessContactMailing`) writes to the contacts the list's filter shows: N = those the page
-may email (`shared/utils/contactMailing.ts` `mailingRecipients` → `emailBlock`, each address once — unsubscribed and
-imported lists never get it). Optional "Invite to an event" (the page's published, not-cancelled events still to come)
-fills an invite and adds an event card with an "I'm coming" button to `/events/<slug>` (its poll = the RSVP). Write /
-Preview (the same `renderMailingHtml` the server sends, `{first_name}` per person), "Send me a test" (to the sender's
-account email, `[Test]` subject), then "Send to N" → confirm. `contactMailing` router (owners/editors; not in
-`PROCEDURE_SCOPES`, so MCP tokens can't send): `options`, `eventCard`, `sendTest`, `send` (re-checks every id against the
-page, refuses the same subject within 10 min). Resend batch (`sendContactMailing`), from the page's name, reply-to the
-sender, `List-Unsubscribe` + one-click POST (`/api/contacts/unsubscribe`). Every send is logged in `contact_mailings`
-(0072: who, when, segment in words + filter, subject/body, event, contact ids, sent/failed), shown as "Sent before".
-
-## Cancelling an event (RAZ-948)
-
-Business → event → **Cancel** (or Business → Events: tick events / "Select today's" → cancel them at once), MCP
-`cancel_event` (preview with how many people will be emailed → `confirm_token`; `undo`). `businessEvents.cancel`
-sets `events.cancelled_at` / `cancel_reason` / `cancelled_by` (0068); the event stays published and listed, crossed
-out with the reason on `/events/[id]`, the city page and `/@handle`, and in the profile feed
-(`/api/profiles/<u>/site` and `/events`: `cancelled`, `cancelReason` — contract `SiteEvent` in
-`shared/types/profileSite.ts`, mirrored by wedance-site-kit `WeDanceEvent`). Everyone who signed up is emailed once
-(`server/utils/eventCancel.ts` `signupsOf`: plan items, confirmed poll answers other than "next", attendances incl.
-ticket stubs, festival sign-ups / TicketTailor buyers, and guests' unconfirmed answers other than "next" when they left an
-email — `auth.requestMagicLink` with `guest` keeps it on that browser's `event_rsvps.guest_email` (0069), from the poll and
-the weekend page; one email per address, never the canceller). Ticket holders
-are told to contact the organiser — refunds stay manual.
-Only published, not-yet-over events can be cancelled.
-
-**It's on again (RAZ-969):** the editor's "It's on again" (`BusinessUncancelEvent`) first asks
-`businessEvents.uncancelPreview` how many people got the cancellation email, then offers "On again + email N people"
-or "Just remove the mark" → `businessEvents.uncancel({ notify })`. MCP `cancel_event` with `undo` previews the same
-count (`email_people`, default true). Recipients = `backOnRecipients`: `signupsOf` now, minus the canceller and the
-person undoing it; nobody once the event is over. Email: `sendEventBackOnEmail` ("Good news, it's on again"; ticket
-holders are asked to check with the organiser if they already asked for a refund). Nobody is emailed without the
-organiser's choice.
-
-## Event reviews: only people who went, after the night (RAZ-1011)
-
-The rating sits under the hero picture; the stars open the page's Reviews tab (plain events: Overview / Reviews in
-`events/[id].vue`; an event with a programme: FestivalView's fifth tab, reviewed as the event; real festivals
-(`is_festival`): the same tab, festival reviews, still open to anyone signed in). An **event** is reviewed only
-by someone who signed up — `wentTo` in `server/utils/eventCancel.ts`, the same sources as `signupsOf` (plan, confirmed
-poll answer other than "next", attendances / tickets, matched by id or email) — and only once the night is over
-(`shared/utils/eventReview.ts` `reviewOpen`: its end, else start + 3 h). Enforced in `review.create`; such reviews carry
-`reviews.went` (0075) and show "Went". **How was it?** (`EventHowWasIt`, state in `useEventReviewAsk`, shared by
-`events/[id].vue` and `FestivalView` with `planAs: 'event'`) replaces the sign-up in the hero for a dancer
-who went (`review.eventAsk`): tap a star, an optional line, post → Reviews tab. Before the night the tab says you can
-review it the day after. **Morning-after email**: a daily Vercel cron (`vercel.json` → `/api/cron/review-asks`, 09:00
-UTC, `Authorization: Bearer $CRON_SECRET` — unset = 503, nothing sent) emails everyone who went to nights over 4–30 h
-ago (`server/utils/reviewAsk.ts`; events with a programme too; not festivals, cancelled, archived or drafts): "How was Thursday at <host>?", five
-star links (`/events/<slug>?rate=N`) and "Didn't make it?" (`?review=missed&t=<token>` → a "Don't ask me again" tap →
-`review.missed`; a GET never changes anything). Once per event per address: `event_review_asks` (unique event + email,
-inserted before sending). Not yet: tips to the organiser after a good review (RAZ-1013, needs a Stripe payout decision).
-
-## My plan: Today / Week / Month / Year (RAZ-1006)
-
-`/my-plan` is four tabs (sketch `/sketches/plan-zoom`, variant A; opens on Today). Each tab holds everything in its span,
-of every kind — a Sunday class is in Today on Sunday, in Week and in Month. **Today**: tonight's nights and classes, each
-with the hangouts posted for it, then "Also out tonight", and "I'm out". **Week**: the next seven days by day + the weekend
-story (nights only). **Month**: the next 30 days grouped this week / next week / later, then **Your courses**. **Year**:
-**Your festivals** (+ the year story) and **Your goals**. One feed: `plan.weekSocials({ days: 30 })` with classes
-(`isClass`), every class of a planned course (`everyClass`); `weekend.share` / `planCounts` still call `weekSocials`
-without classes. A class row books on its event page and is removed under Your courses (`MyPlanEventRow`). Old anchors
-open their tab (`#tonight`, `#socials`, `#courses`, `#festivals`, `#goals`; the tab writes `#today|week|month|year`).
-
-## Dance friends: mutual yeses (RAZ-985)
-
-A Yes in Meet new friends (`/meet`, `discover_swipes`) or a wave on a festival page (`festival_waves`, paired per
-festival) that comes back is a **match**: `plan.meetMatches` → `server/utils/meetMatches.ts`, one list per other dancer
-(public profiles with a photo only). Shown on My plan under the Meet entry as **Your dance friends** (`MeetMatches.vue`,
-sketch `/sketches/meet-matches` variant D), newest first, "New" for 7 days. Each match has one night out in the next 14
-days (both going › they're going › I'm going › a social in my city that suits both): **I'm going too** adds it with
-`plan_items.metadata.with = <their id>` (that match sees "<name> is going" even without `share_going`), **Next time** is
-an event Skip in `discover_swipes` (never suggested again; Undo). Yeses count from `MEET_MATCHES_SINCE` (2026-11-16
-19:00 UTC, when the deck's copy became "If they say yes too, we tell you both").
-
-**Telling both:** the Yes (or wave) that completes a match returns `{ match: true }` — /meet shows "It's a match" under the
-deck — and the other dancer gets one email, "<name> said yes too" (`server/utils/meetMatchNotify.ts` `afterYes` →
-`sendMeetMatchEmail`, link to `/my-plan#dance-friends`, with the night out when there is one). Once per pair
-(`meet_match_emails`, 0075), at most one a day per recipient, never about a private / photo-less dancer, and never when
-`dancers.match_emails` is off: Settings → Emails (`SettingsEmails`, `plan.emailPrefs` / `setEmailPrefs`) or the signed
-"Stop these emails" link + List-Unsubscribe (`/api/match-emails/off`).
-
-## Your year in dance (RAZ-966)
-
-`/my-year` is only the look back at the dancer's year, told as a story (Wrapped style) to post at New Year, ending on
-"Plan <next year>" (→ My plan's "Your festivals"). The festival year is planned and shared in My plan: the year story
-(`YearStory`, RAZ-897) sits in place under "Your festivals", for the festivals still ahead. Found in My plan only (`YearReviewEntry`): a
-banner at the top in December and January (`isYearTurn`), a quiet link under "Your festivals" (and on an empty plan) the rest
-of the year; not in the footer or account menu. Year = `lookBackYear` (last year in January, else this one).
-A "night" = a past, not-cancelled event of that year the dancer was going to — Going! (plan_items), a confirmed poll
-answer other than "next", an attendance, a weekend they shared or joined — plus real festivals in their year plan;
-intent, not proof, so the copy says "nights you were going to". Mock ids never resolve (only real `events` / `festivals`
-rows are joined). A thin year just drops screens (no filling in with the city's year).
-Code: `server/utils/yearReview.ts` (`plan.yearReview`), `shared/utils/yearReview.ts` (`buildYearReview`, screens),
-`app/lib/yearReviewStory.ts` (one 1080×1920 picture per screen, `storyCanvas.ts`), `app/components/YearReview.vue`.
-`/my-year?user=<handle or id>` (a friend's festival year, `SharedYearPlan`) stays: the year story's link leads there.
+- Client form validation uses **valibot**: add the form's schema to `shared/validation/forms.ts`
+  (field builders in `fields.ts`, limits mirroring the tRPC zod input), then
+  `const { errors, validate, fieldAttrs } = useFormValidation(schema, state)`. On submit,
+  `const result = validate(); if (!result.success) return` and send `result.data`. Each input
+  gets `v-bind="fieldAttrs('field', 'x-field-error')"` plus `<FieldError id="x-field-error" :message="errors.field" />`,
+  so a failed submit flags every invalid field at once. `<form>`s get `novalidate`.
+- Images: every `<img>` showing a stored photo/flyer/cover uses
+  `:src="sizedImage(url, IMG.avatar|card|large|hero)"` (`shared/utils/image.ts`; `AvatarImage` does it
+  itself). Raw Cloudinary originals (3.5 MB flyer PNGs) used 64 GB/month and got the account switched off
+  (Nov 2026). Download buttons keep the original URL.
+- Page handles follow Instagram's rules (`shared/utils/handle.ts` `handleError`); a page is never duplicated
+  silently — see `.claude/rules/profiles.md`.
+- Nothing reaches other people without a click: posting (Instagram, Telegram), emailing contacts and cancelling
+  events are web-only or preview → `confirm_token` on MCP; MCP tokens can't publish or send.
+- Personal data (emails, phones, group admin contacts) never goes to PostHog, MCP or public endpoints.
 
 ## Analytics (PostHog)
 
-**Setup.** Client: `app/plugins/03.posthog.client.ts` (posthog-js, EU host, manual `$pageview`
-on route change, `person_profiles: 'identified_only'`). Call sites use `useTrack()`
-(`app/composables/useTrack.ts`: `track`, `trackOnce`, `identify`, `reset`, `sessionReplayUrl`) —
-never import posthog directly; everything is a no-op without `NUXT_PUBLIC_POSTHOG_KEY` (tests).
-Server: `server/utils/posthog.ts` → `trackServer(ctx, name, props)` from tRPC procedures
-(dependency-free `fetch` to `/i/v0/e/`, handed to `ctx.waitUntil`, never throws, off under vitest);
-`trackServerEvent(h3Event, name, distinctId, props, { dedupeKey })` from webhooks / plain API routes
-(no tRPC ctx: `distinctId` = the buyer's dancer id when known, else anonymous; `channel: 'webhook'`;
-`dedupeKey` → deterministic event `uuid` so redeliveries collapse).
-`server/utils/posthog.catalogue.test.ts` fails when a `server_*` event in code is missing from the table below.
+- Client: `useTrack()` (`app/composables/useTrack.ts`) — never import posthog directly. Server:
+  `trackServer(ctx, name, props)` from tRPC, `trackServerEvent(...)` from webhooks (`server/utils/posthog.ts`).
+- Local dev never sends (the `.env` key is production; the plugin is off on dev builds and local hosts).
+- Every event carries `app: 'wedance-2026'` (shared PostHog project with v4) — **always filter on `app = wedance-2026`**.
+- Conversions fire twice: client `x` and server `server_x`. **Count conversions on `server_*`**; never mix the two.
+- Props are non-PII only: never names, emails or raw search text.
+- **Adding or renaming an event:** snake_case, one per user intent, and add a row to `docs/analytics/events.md`
+  (setup details, identity, groups, revenue). `server/utils/posthog.catalogue.test.ts` fails otherwise.
 
-**Local dev never sends.** The Vercel-pulled `.env` holds the PRODUCTION key. The client plugin is a
-no-op on a dev build (`import.meta.dev`) and on local hosts (`app/lib/analytics-host.ts`: localhost,
-127.x, ::1, `*.localhost`, `*.test`); the server helper is off under `nuxt dev`. To debug PostHog
-locally, use a separate test project key, and still expect nothing from localhost — test on a preview.
+## Feature notes (path-scoped rules)
 
-**The `app` filter rule.** 2026 shares the WeDance v4 PostHog project (EU free plan = one project).
-Every event — client super-property and server payload — carries `app: 'wedance-2026'`.
-**Always filter insights/funnels on `app = wedance-2026`.**
+Detail per feature lives in `.claude/rules/` and loads automatically when you touch matching files. Read the
+relevant one before working on a feature from another entry point (MCP tools, scripts):
 
-**Identity.** `identify(dancerId)` runs on sign-in (`setSession`) and on every session restore
-(`auth.me` → `_applyMe`), idempotently (skipped when `get_distinct_id()` already is the dancer; only
-person props are refreshed). Person props are non-PII only: `city`, `is_admin`, `role`, `intent`,
-`onboarded`, `dance_styles_count`, `has_username`. Never send names, emails or raw search text.
-`reset()` on sign-out. Server events use `distinct_id = dancerId`; anonymous server calls get a random
-id + `$process_person_profile: false`.
-
-**Client vs server convention.** Conversions fire twice: the client event (in-session context:
-pageviews, replay, UTM) and a `server_<same name>` copy from the router (survives ad blockers).
-**Count conversions on `server_*`**; use the un-prefixed client event for in-session funnels. Never
-mix the two in one count. Server events also carry `$lib: 'wedance-server'` and `channel: web|mcp`.
-
-### Client events (`useTrack().track`)
-
-| Event | Fired in | Props |
-|---|---|---|
-| `$pageview` | `plugins/03.posthog.client.ts` (route change) | `path` |
-| `signup_completed` | `useAuth.register`, `useAuth.verifyMagicLink` (server says `isNew`, rule below), `useAuth.confirmInviteEmail` | `method` (password / magic_link / invite_email) |
-| `login_completed` | `useAuth.login`, `useAuth.verifyMagicLink` | `method` |
-| `onboarding_completed` | `useAuth.completeOnboarding` | `intent` |
-| `profile_updated` | `useAuth.updateProfile` | `fields_changed` (field NAMES only, `app/lib/changed-fields.ts`) |
-| `onboarding_step_completed` | `onboarding.vue` (intent picked · details saved · skipped) | `step` (intent / details / skip), `intent`, `repeat` (already onboarded), `has_details` · `has_city`, `styles_count`, `has_role` |
-| `landing_cta_click` | `about.vue` (the homepage until 2026-11-15) | `cta` (find_festival / seeker … / see_attendees / private_events / festival_organizers), `section` (hero / journey / proof / business / footer) |
-| `find_your_dance_started` / `find_your_dance_completed` | `find-your-dance.vue` (first video watched or choice · a style or the taster chosen; not a quiz) | `style`, `via` · `style_chosen`, `taster`, `answers_count` (videos watched), `styles_suggested` |
-| `profile_viewed` | `/@handle` (business profiles, `trackOnce`), `/u/<handle>` (dancers — no handle sent) | `profile` (business only), `profile_type`, `city`, `claimed`, `own`, `surface` |
-| `outbound_click` | delegated listener `plugins/06.outbound-click.client.ts` (every external link) | `kind` (ticket / website / instagram / map / whatsapp / telegram / community_group / email / phone / ai_app / …; `data-outbound-kind` overrides), `platform`, `host` (never path/query), `object_type`, `object_id` (`data-object-*` or the page's `useTrackContext`), `city`, `surface` (route name) |
-| `plan_shared` | `SharePlanModal` "Bring friends" (RAZ-1001: the plain link — signed out or no story for the event — or "Or send your workshop plan" under the story; the festival year is shared as a story, `year_story_shared`) | `object` (festival = a workshop plan / event = just the link / year), `method` (copy / native), `festival` / `workshops` / `festivals`, `referral` (the link carried `?ref=`, only when the festival has a referral discount), `surface` |
-| `shared_plan_viewed` | `FestivalView` (`?invite=` / `?plan=shared`), `my-year?user=` | `object`, `festival`, `signed_in`, `workshops` / `festivals`, `has_referral` |
-| `referral_link_shared` | (retired in RAZ-1001: the referral code rides on the one "Bring friends" link — `plan_shared` `referral`) | `method`, `festival`, `surface` |
-| `tracked_link_visit` | `plugins/05.tracked-link.client.ts` (`?via=` promoter link) | `code_type`, `referral_code` (promoter link code), `counted`, `landing` |
-| `organizer_insights_viewed` | `organizers/insights.vue` (once per festival per 30 min) | `festival`, `profile_type`, `festivals` |
-| `venue_cta_click` | `for-venues.vue` | `surface`, `cta` (list_venue / for_organizers / booking_terms) |
-| `city_viewed` | `pages/cities/[city]/index.vue` (once per mount) | `city`, `style` |
-| `event_viewed` | `pages/events/[id].vue` (non-festival, once per mount) | `event_id`, `city`, `style`, `event_type`, `synced`, `is_festival` |
-| `festival_viewed` | `pages/events/[id].vue` (festival) | same as `event_viewed` |
-| `event_tab_opened` | `FestivalView` (an event with sessions or a festival): Overview / Lineup / Schedule / Passes / Reviews tabs (RAZ-1008, RAZ-1011; `?tab=`) · `events/[id]` (a plain event): Overview / Reviews | `tab`, `via` (nav / summary = a "What's inside" card / hero = Get pass or the stars under the picture / link), `event_id`, `is_festival` |
-| `filter_used` | city page style chip · All / Parties / Classes (`CityKindFilter`, RAZ-1018) | `surface`, `city`, `filter_keys` (style / type), `style`, `type` (party / class) |
-| `search_used` | `/festivals`, `/artists`, `/gigs` (`useTrackSearch`, debounced) | `surface`, `query_length`, `filter_keys`, `results` |
-| `week_plan_add` / `week_plan_remove` | `useWeekPlan` (Going! toggle), `my-plan` enroll / course X | `event_id`, `week_count` or `source`; add: `event_type`, `city`, `surface` |
-| `year_plan_add` / `year_plan_remove` | `useYearPlan` | `festival_slug`, `year_count`; add: `festival`, `surface` |
-| `workshop_plan_add` / `workshop_plan_remove` | `festival/FestivalView.vue` | `festival`, `workshop_id`, `workshop_type`, `partner_status` |
-| `discover_swipe` | `/meet` Meet new friends deck (on My plan until RAZ-989) | `direction`, `card_kind`, `added_festival`, `added_event` (always false since the deck is people only), `surface` (meet) |
-| `plan_zoom_opened` | My plan's Today / Week / Month / Year tabs (RAZ-1006): a tab clicked | `tab` (today / week / month / year), `from` |
-| `meet_friends_opened` | `MeetFriendsEntry` on My plan (the card leading to `/meet`, RAZ-989) · `EventMeetPrompt` under "You're in" after signing up to a night (RAZ-981) | `surface` (my_plan / my_plan_empty / `<event surface>_signup`), `people` (dancers waiting in the deck; null = not loaded) |
-| `meet_match_answered` | `MeetMatches` ("Your dance friends" on My plan, RAZ-985): a match's night → "I’m going too" / "I’m going" (added to the plan with `metadata.with` = the match) or "Next time" (an event Skip) | `answer` (going / next_time), `they_going`, `source` (deck / festival), `event_id` |
-| `dance_card_saved` | `/dance-card` (RAZ-1005): a signed-in dancer saves the deck's dance card (Lead / Follow + levels, then photo, name, city, bio — the same cards as signed-out /meet) to their profile | `photo_added` (first photo), `photo_replaced`, `styles` (count), `surface` (back_link = came from a night's "Add a photo" / direct) |
-| `meet_empty_shared` | `MeetEmptyNext` (an empty /meet deck, RAZ-1002): "Ask" an organiser for their next night, "Send" a venue's page, "Invite a friend" | `what` (organiser / venue / friend), `stage` (nights / organisers / venues / nothing / no-city), `method` (native / copy / none) |
-| `goal_added` | `useGoals.addGoal` | `style` |
-| `follow` / `unfollow` | `/@handle`, `PromoterProfile` (profiles); `FestivalView` shared plan (dancer) | `target`, `profile`, `profile_type`, `surface` |
-| `whos_going_profile_opened` | `GoingSection` face tap | `item_type`, `item_id` |
-| `going_visibility_changed` | `GoingSection` share toggle · festival Overview "Show me" / "Hide me" (RAZ-1008, `surface: festival_overview`) | `share`, `item_type`, `item_id` |
-| `wave_sent` / `wave_retracted` | `GoingSection`, `DiscoverDancers`, `EventWhosComing` pairing (sent only) | `festival`, `surface` |
-| `rsvp_answered` | `EventSignup` "Cancel my spot" → confirm (answer `next`, RAZ-1003; was "I can’t come after all"; signing up is `event_signed_up` since RAZ-995) | `answer` (partner / needLeader / needFollower / yes / next), `signed_in`, `surface`, `event_id` |
-| `rsvp_contact_shared` | (retired in RAZ-995: the sign-up's "Also tell me about next events" replaced "Let <page> keep in touch"; `rsvp.shareContact` stays for MCP) | `share`, `has_phone`, `surface`, `event_id` |
-| `event_signup_opened` | `EventSignup` (the one button on a class / event page, RAZ-995; or "Change") | `surface`, `event_id`, `changing`, `not_bookable` (nobody on WeDance takes its bookings: the button showed where it was imported from, RAZ-1007) |
-| `event_signed_up` | `EventSignup` last step ("Book my spot" / "Pay €N" / "Continue to payment"; RAZ-1003 renamed "Sign up" / "I’m coming" to "Book my spot") | `answer`, `signed_in`, `has_pass`, `pay` (now / door / null), `people` (1 / 2), `keep_in_touch`, `surface`, `event_id` |
-| `contacts_emailed` | `BusinessContactMailing` (Contacts → "Email N" → "Yes, send", RAZ-975) | `recipients`, `has_event` (invite with an event card), `filtered` (a segment, not everyone), `tested` (sent themselves a test first), `profile` |
-| `discover_deck_joined` | `DiscoverDancers` "show me" | `item_type`, `item_id`, `was_going` |
-| `hangout_created` | `FestivalView`, `my-plan` | `kind`, `surface`, `event_id` / `event_linked` |
-| `hangout_rsvp` | `FestivalView`, `my-plan` | `going`, `surface`, `hangout_id` |
-| `dinner_joined` · `ride_share_posted` · `roommate_search_toggled` | `useDinners` · `useRideShares` · `useRoommates` | `dinner_id` · `festival`, `type` · `festival`, `looking` |
-| `shared_plan_signup` | `FestivalView`, `my-year` ("add friend" from a shared plan) | `surface`, `slug` |
-| `ask_locals_post` · `video_submit` · `video_vote` · `city_battle_vote` | city components | `city`, … |
-| `review_submitted` · `giveaway_entered` · `election_nominated` | `ReviewsSection`, `EventHowWasIt` (an event's hero after the night, RAZ-1011) · `GiveawayCard` · `elections/[handle]` | target ids; event hero: `target_type`, `target`, `rating`, `has_text`, `updated`, `via` (email / page), `surface` (event_hero) |
-| `review_ask_opened` | `events/[id]` opened from a star in the morning-after email (`?rate=N`, once per mount, RAZ-1011) | `event_id`, `rating`, `signed_in`, `went` |
-| `review_ask_missed` | `EventHowWasIt` "Don’t ask me again" (the email's "Didn’t make it?" link) | `event_id`, `signed_in` |
-| `event_form_opened` | `business/events/new.vue` — the organiser answers "Where are you starting from?" (RAZ-939) | `start` (post / copy / scratch) |
-| `event_created` / `event_published` | `business/events/new.vue` ("From scratch" or "Like my last event"; starts a draft; `event_published` only when "Publish it now" is ticked); publish = draft→live in `business/events/[id]` (checklist "Publish" button or the Published box) | `event_id`, `is_festival`, `city`, `style`, `published`, `source` (scratch / copy), `dates` (copy) |
-| `event_cancelled` | `BusinessCancelEvents` (event editor → Cancel, or Business → Events → tick events / "Select today's", RAZ-948) | `event_id` (one event, else null), `events`, `notified`, `has_reason`, `bulk` |
-| `event_uncancelled` | `BusinessUncancelEvent` (event editor → "It's on again", RAZ-969) | `event_id`, `notify` (email the people told it was off), `notified` |
-| `event_link_shared` | Business → Home (RAZ-973): the share button on a Today card, or "Share it" in a quiet week's Last 7 days | `event_id`, `method` (native / copy), `surface` (business_home) |
-| `event_imported` | `business/events/new.vue` "I have a post" (#453) | `event_id`, `source` (instagram), `created` (false = this post's draft already existed), `lineup`, `has_cover` |
-| `business_profile_created` | `business/new.vue` | `profile`, `profile_type`, `from_instagram` |
-| `public_page_set` | `settings/index.vue` "Your public page" (one handle per person, #474) | `cleared`, `profile_type` |
-| `profile_merged` | `BusinessDuplicates` (Business → page → Duplicates) | `profile` (kept), `merged_profile`, `moved` |
-| `page_deleted` | `BusinessDeletePage` (Business → page → Delete page, RAZ-944) | `profile` |
-| `profile_claim_started` / `team_join_started` | `business/claim.vue` (form opened) | `profile`, `kind` |
-| `profile_claim_requested` / `team_join_requested` | `business/claim.vue` (sent) | `profile`, `kind`, `evidence_type` |
-| `profile_claimed` | `confirm/[token].vue` (invite link) | `via`, `new_account` |
-| `invite_email_confirmed` | `useAuth.confirmInviteEmail` ("That's me" in the answer email → `/confirm/<token>?that=`) | `owner`, `new_account` |
-| `tickets_claimed` | `charanga/claim.vue` | `count`, `festivals` |
-| `booking_inquiry_sent` · `booking_join_offered` · `booking_request_submitted` | `BookingInquiryForm`, `PromoterProfile`, `/@handle`, `book/[handle]` | `profile`, … |
-| `booking_added_to_event` | `book/[handle]` "Add <artist> to an event's line-up" picker under the request form (RAZ-964: same styles, one row per series, ≤5) | `profile`, `series` (the row was a series' next date), `rows` (events the picker showed) |
-| `event_inquiry_submitted` | `for-events.vue` | `event_type`, `city` |
-| `gig_posted` · `gig_cta_click` | `gigs/index.vue` | `kind`, `category` · `action`, `gig_id` |
-| `ticket_cta_click` | `FestivalHero` (external shop), `FestivalView` (Stripe checkout) | `slug` / `festival`, `provider` (stripe / tickettailor / external), `tickets`, … |
-| `organizer_cta_click` · `sponsor_cta_click` · `press_cta_click` · `whats_new_*_click` | marketing pages | `surface`, `kind` |
-| `app_connected` | `oauth/authorize.vue` | `scopes`, `business` |
-| `ai_app_cta_click` | `AiAppCta` ("Use WeDance in ChatGPT": docs connect-ai, Settings → Connected apps, new event, Business dashboard, for-organizers, my-plan bottom line) · `ChatgptPlanPitch` (top of My plan until ChatGPT is connected; the landing `MyPlanLanding` on `/` and signed-out `/my-plan`) | `app` (chatgpt), `surface` (docs_connect_ai / settings_connections / business_event_new / business_dashboard_empty / business_dashboard_needs / for_organizers / my_plan / my_plan_top / my_plan_landing / home) |
-| `instagram_connect_started` | `BusinessInstagram` (Business → page → Instagram, before Meta's dialog) | `profile`, `reconnect` |
-| `instagram_post_published` | `BusinessContentPlan` "Post to feed" / "Add to story" | `event_id`, `post_kind`, `format`, `to` (feed / story) |
-| `weekend_plan_viewed` | `w/[code].vue` (Share my weekend page, once per mount) | `own`, `parties`, `friends`, `story` (opened with `?story=1`) |
-| `weekend_joined` | `w/[code].vue` "I'm in" | `signed_in`, `surface` |
-| `weekend_reminder_requested` | `w/[code].vue` email step after a guest's "I'm in" (magic link sent) | `surface` |
-| `weekend_story_shared` | `WeekendStory` story panel (`w/[code].vue`, My plan → "Where you're dancing", an event page's "Bring friends" — one event, RAZ-1001) | `method` (native / download / copy), `parties`, `own_line` (the sharer wrote their own line), `surface` (weekend-page / my_plan / event) |
-| `year_story_shared` | `YearStory` story panel in My plan under "Your festivals" (RAZ-897; moved from /my-year in RAZ-966; the link opens `/my-year?user=`) | `method` (native / download / copy), `festivals`, `own_line` (the sharer wrote their own line), `surface` (my_plan; year-modal before RAZ-966) |
-| `year_review_viewed` | `YearReview` on /my-year (your year in dance, RAZ-966; once per year per session) | `year`, `nights`, `screens`, `festivals` |
-| `year_review_shared` | `YearReview` "Share this one" / "Share all" / "Save picture" / "Save all" | `method` (native / download), `screens` (pictures shared), `screen` (kind on screen), `year` |
-| `year_review_plan_clicked` | `YearReview` last step "Plan <next year>" (→ My plan's "Your festivals") / "Find festivals" | `to` (plan / festivals), `year`, `nights` |
-| `year_review_entry_clicked` | `YearReviewEntry` in My plan (banner in Dec/Jan, else the link under "Your festivals" / the empty plan) | `variant` (banner / link), `year`, `year_turn` |
-| `problem_report_opened` / `problem_report_submitted` / `problem_report_screenshot` / `problem_report_failed` | `ReportProblem` | `type` · `has_screenshot`, `screenshot_dropped` (submitted: sent only after leaving the shot out) · `captured`, `retake` (screenshot) · `reason` (failed: blocked / timeout / forbidden / no_client / other — `feedbackFailure` in `app/lib/sentry-feedback.ts`). Sentry's traffic goes through our own `/api/m` tunnel (`server/utils/sentryTunnel.ts`) so blockers of `*.sentry.io` don't drop reports |
-| `community_group_submitted` | `SubmitGroupDialog` ("Share a group" on a city's Local groups) | `city`, `platform`, `duplicate` |
-| `city_schedule_published` | `BusinessCitySchedule` (city page → Weekly post: Post to feed / story / Telegram) | `city`, `to` (instagram_feed / instagram_story / telegram) |
-| `city_occasion_published` | `BusinessCityOccasion` (city page → Plan → an occasion: Post to feed / story / Telegram, RAZ-970) | `city`, `occasion` (e.g. buss-und-bettag), `to` |
-| `city_occasion_asked` | `BusinessCityOccasion` → Ask organisers (email sent) | `city`, `occasion`, `pages` |
-
-### Server events (`trackServer`, all prefixed `server_`)
-
-| Event | Procedure | Props |
-|---|---|---|
-| `server_signup_completed` | `auth.register`, `auth.verifyMagicLink` (account created by this flow, see note), `artistInvites.confirmEmail` (method `invite_email`) | `method`, `has_city`, `via_link` |
-| `server_login_completed` | `auth.login`, `auth.verifyMagicLink` | `method` |
-| `server_onboarding_completed` | `auth.completeOnboarding` | `intent` |
-| `server_event_created` | `businessEvents.create`, `businessEvents.createSeries`, `businessEvents.copy` ("Like my last event", always drafts) | `event_id`, `is_festival`, `host_type`, `city`, `published`, `series_id`, `dates`, `copied_from` (copy) |
-| `server_event_uncancelled` | `businessEvents.uncancel` ("It's on again", web + MCP `cancel_event` `undo`; only when it was cancelled) | `event_id`, `notify` (organiser chose to email), `notified` (people emailed), `hours_cancelled`, `is_festival`, `host_type`, `$groups` |
-| `server_event_cancelled` | `businessEvents.cancel` (web + MCP `cancel_event`; once per event — re-cancelling only edits the reason) | `event_id`, `notified` (people emailed), `has_reason`, `bulk`, `is_festival`, `host_type`, `$groups` |
-| `server_event_imported` | `eventImport.fromInstagram` (web + MCP `import_from_instagram`; the draft itself also fires `server_event_created`) | `event_id`, `source` (instagram), `kind` (post / reel), `lineup`, `organizers`, `has_venue_page`, `has_cover`, `has_ticket`, `sessions`, `$groups` |
-| `server_event_published` | `create`/`createSeries` with `published`, `update` draft→live, `publishSeries` | `event_id`, `is_festival`, `series_id`, `dates` |
-| `server_booking_request_submitted` | `booking.request` (was server_booking_requested until 2026-10-20) | `booking_id`, `signed_in` |
-| `server_booking_inquiry_sent` | `inquiries.send` (was server_inquiry_sent until 2026-10-20) | `inquiry_id`, `profile`, `delivered`, `signed_in` |
-| `server_event_inquiry_submitted` | `feedback.inquiry` | `event_type`, `city` |
-| `server_festival_draft_submitted` | `festival.submitDraft` (server only) | `submission_id`, `festival`, `signed_in` |
-| `server_profile_claim_requested` / `server_team_join_requested` | `businessTeam.requestAccess`, `business.requestClaim` | `profile`, `profile_type`, `kind`, `evidence_type` |
-| `server_profile_claimed` | `business.decideClaim` approve (claimant's id), `artistInvites.claim`, `artistInvites.confirmEmail`, `admin.addPageOwner` | `profile`, `via` (review / invite / invite_email / admin — an admin made them owner in Admin → Users) |
-| `server_invite_answered` | `artistInvites.respond` with an answer (artist in / can't · venue can host / another date / can't) | `kind` (artist / venue), `answer`, `changed`, `has_email`, `signed_in`, `member`, `has_terms`, `event_id`, `$groups` |
-| `server_invite_email_confirmed` | `artistInvites.confirmEmail` ("That's me" in the answer email, first time per invite) | `kind`, `answer`, `new_account`, `owner`, `event_id`, `$groups` |
-| `server_business_profile_created` | `business.create` | `profile`, `profile_type` |
-| `server_profile_merged` | `business.merge` (web + MCP `merge_profiles`) | `profile` (kept), `merged_profile`, `profile_type`, `same_type`, `moved`, `$groups` |
-| `server_page_deleted` | `business.deletePage` (owners; only a page nothing uses — `server/utils/deleteProfile.ts`) | `profile`, `profile_type`, `followers`, `team`, `days_old`, `$groups` |
-| `server_review_submitted` | `review.create` (web + MCP `write_review`; events only from people who went, after the night — RAZ-1011) | `target_type`, `rating`, `has_text`, `updated`, `went`, `event_id`, `$groups` (events) |
-| `server_review_ask_missed` | `review.missed` ("Didn’t make it?" in the morning-after email, first time per ask) | `event_id`, `signed_in` |
-| `server_review_asks_sent` | `/api/cron/review-asks` (daily Vercel cron) — **anonymous**, one per event asked | `event_id`, `asked`, `failed`, `channel: cron` |
-| `server_rsvp_answered` | `rsvp.answer` (signed out → unconfirmed; signed in → confirmed at once) | `event_id`, `answer`, `signed_in`, `confirmed`, `$groups` |
-| `server_rsvp_confirmed` | `rsvp.answer` signed in, folding in this browser's / magic link's unconfirmed answer | `event_id`, `answer`, `hours_to_confirm`, `$groups` |
-| `server_event_signed_up` | `rsvp.signUp` (RAZ-995: how you come + pass + pay + contact; signed out = unconfirmed until the magic link) | `event_id`, `answer`, `signed_in`, `has_pass`, `pay`, `people`, `keep_in_touch`, `$groups` |
-| `server_rsvp_contact_shared` | `rsvp.shareContact` (the dancer shares / stops sharing their contact with the event's host, else organiser page) | `event_id`, `share`, `has_phone`, `new_contact`, `$groups` |
-| `server_contacts_emailed` | `contactMailing.send` (web only — connected apps can't send) | `recipients`, `sent`, `failed`, `skipped` (shown but not mailable), `has_event`, `filtered`, `profile`, `profile_type`, `$groups` |
-| `server_festival_joined` | `festivalSignup.join` | `festival` |
-| `server_ticket_checkout_started` | `festivalSignup.ticketCheckout`, `festivalSignup.createCheckoutSession` | `festival`, `tickets`, `referral` |
-| `server_subscription_checkout_started` | `organizerSubscription.createCheckout` | `plan`, `profile_type` |
-| `server_gig_applied` | `gigs.applyTo` | `gig_id`, `category`, `as_profile`, `reapplied`, `$groups` |
-| `server_gig_application_decided` | `gigs.decideApplication` | `gig_id`, `category`, `decision`, `hours_to_decide` |
-| `server_booking_decided` | `election.moderateBooking` (free spaces; commercial venues decide off-platform) | `booking_id`, `decision`, `hours_to_decide`, `redecided`, `free` |
-| `server_inquiry_replied` | `inquiries.setStatus` (first move out of `new`) | `inquiry_id`, `status` (answered / declined), `hours_to_reply`, `profile`, `profile_type`, `$groups` |
-| `server_flyer_generated` | `businessFlyers.make` / `directions` / `again` / `feed` / `fix` / `refresh` (each is an AI paint) | `event_id`, `mode`, `variant_count`, `saved_look`, `references`, `feelings`, `from_kept`, `$groups` |
-| `server_flyer_kept` | `businessFlyers.keep` | `event_id`, `mode`, `post_kind`, `new_look`, `$groups` |
-| `server_caption_written` | `businessFlyers.writeCaption`, `businessPosts.writeCaption` / `writeCaptions` | `event_id`, `language`, `scope` (event / post / plan), `count`, `failed`, `post_kind`, `$groups` |
-| `server_post_proposed` | `businessPosts.propose` (content plan) | `event_id`, `added`, `total`, `is_festival`, `$groups` |
-| `server_promo_kit_opened` | `referral.promoKit` | `event_id`, `profile_type`, `manager`, `has_link`, `has_flyer`, `painting`, `language`, `$groups` |
-| `server_venue_ask_sent` / `server_venue_ask_booked` / `server_venue_ask_unbooked` | `venueAsks.ask` / `book` / `unbook` | `event_id`, `venue`, `updated`, `guests`, `needs_count`, `venue_managed`, `has_offer`, `plan_items` (ask only), `$groups` |
-| `server_checked_in` | `attendance.checkIn` (door, organiser's id) | `event_id`, `is_festival`, `$groups` |
-| `server_site_saved` | `businessSite.save`, `businessSite.restore` (not when nothing changed) | `profile`, `profile_type`, `first_save`, `sections`, `locales`, `restored`, `$groups` |
-| `server_instagram_connected` | `/api/meta/instagram/callback` (Meta's redirect, account saved) | `profile`, `profile_type`, `accounts_granted`, `$groups` |
-| `server_instagram_disconnected` | `instagram.disconnect` | `profile`, `profile_type`, `$groups` |
-| `server_instagram_post_published` | `instagram.publishPost` | `event_id`, `post_kind`, `format`, `to` (feed / story), `profile`, `$groups` |
-| `server_community_group_submitted` | `communityGroup.submit` (a dancer shares a local group) | `city`, `platform`, `duplicate` |
-| `server_community_group_reviewed` | `communityGroup.review` (a city admin approves / declines) | `city`, `platform`, `decision` (approved / rejected), `hours_to_review` |
-| `server_city_schedule_published` | `citySchedule.publishInstagram` / `publishTelegram` | `city`, `to` (instagram_feed / instagram_story / telegram), `events`, `channels`, `with_picture`, `$groups` |
-| `server_city_occasion_published` | `cityOccasions.publishInstagram` / `publishTelegram` (RAZ-970) | `city`, `occasion`, `kind` (silent / party / season), `to`, `langs`, `channels`, `$groups` |
-| `server_city_occasion_asked` | `cityOccasions.ask` (organisers with events in the city emailed) | `city`, `occasion`, `kind`, `pages`, `emails`, `$groups` |
-| `server_city_admin_added` | `cityChannels.addAdmin` (Admin → Cities) | `city`, `role`, `$groups` |
-| `server_weekend_shared` | `weekend.share` (new link only; My plan makes it on its own to show the story, MCP `share_my_weekend`) | `events`, `replaced_previous`, `surface` (my_plan / mcp / web / event = an event page's "Bring friends", RAZ-1001) — `my_plan` is not a share intent; count intent on `weekend_story_shared` |
-| `server_weekend_joined` | `weekend.join` (a friend's first "I'm in" on a party) | `signed_in`, `coming`, `friends` |
-| `server_weekend_join_confirmed` | `weekend.join` signed in with a guest token (the magic link came back; guest joins folded into the account) | `parties`, `hours_to_confirm` |
-| `server_member_role_set` | `businessTeam.setRole` (role actually changed) | `profile`, `profile_type`, `from_role`, `role`, `self`, `$groups` |
-| `server_mcp_tool_called` | every MCP tool call (`server/mcp/server.ts` `callTool`), signed in or anonymous | `tool`, `result` (ok / error / preview / denied), `error_code`, `client_app` (chatgpt / claude / cursor / … — `server/mcp/caller.ts`; not `app`, which is the project filter), `country` (Vercel geo, ISO-2), `anonymous`, `latency_ms`, `channel: mcp` |
-| `server_meet_matched` | `plan.discoverSwipe` (a deck Yes) / `wave.send` (a festival wave) that meets a Yes back (RAZ-985) | `via` (deck / festival), `emailed` (the other dancer got "said yes too"), `email_skip` (off / no_email / not_shown / already / today / error) |
-| `server_account_deleted` | `auth.deleteAccount` — **anonymous**, no person profile | `days_since_signup` |
-| `server_ticket_purchased` | Stripe webhook `checkout.session.completed` (festival checkout; not on redelivery) · TicketTailor webhook, first of `order.created`/`order.completed` per order | `festival`, `provider` (stripe / tickettailor), `product` (ticket / social_unlock), `tickets`, `amount` (cents), `currency`, `$revenue` (major units), `$currency`, `referral`, `referral_code` (promoter tracked-link code), `discount` (cents) |
-| `server_ticket_checkout_expired` | Stripe webhook `checkout.session.expired` (festival checkout) | `festival`, `provider`, `product`, `tickets`, `referral`, `referral_code` |
-| `server_subscription_activated` | Stripe webhook `checkout.session.completed` (`mode=subscription`, first delivery) | `plan`, `profile_id`, `provider`, `amount` (cents), `currency`, `interval`, `$revenue`, `$currency` |
-| `server_subscription_cancelled` | Stripe webhook `customer.subscription.deleted` (or `updated` → canceled), once per subscription | `plan`, `profile_id`, `provider`, `amount`, `currency`, `interval`, `reason` (Stripe enum), `days_active` |
-
-**Groups.** PostHog group type `profile` = a business profile's username. Client:
-`useTrack().group('profile', username)` on Business mode pages (`/business/network/<username>/…`,
-via the posthog plugin) and on `/@handle` for its managers. Server: `...profileGroup(username)` /
-`...eventGroup(ev)` (organiser, else venue) add `$groups` to events where a business profile is in
-scope (event created/published, claims, flyers, captions, inquiries, team, site, venue asks,
-promo kit, gig applications as a page). Use group-based insights to count organisations, not people.
-
-Webhook events (`channel: 'webhook'`) use the buyer's dancer id as `distinct_id` (Stripe metadata;
-TicketTailor by buyer-email match, else anonymous). **Revenue = sum of `$revenue` on
-`server_ticket_purchased` + `server_subscription_activated`** (first period only — renewals are not
-yet tracked).
-
-**Magic-link sign-up rule** (`server/utils/magicLinkSignup.ts`): a magic-link sign-in counts as a
-sign-up only when the account was created by the magic-link flow — created < 24 h ago, no `source_ref`
-(migrated v4 dancers never count), no password, never email-verified, and no earlier session.
-Anything else is `login_completed`.
-
-Adding an event: snake_case, one per user intent, non-PII props, and add a row above.
+- `v3-sync.md` — v4 migration, wedance.vip → 2026 event / profile / user sync, page-owner suggestions
+- `profiles.md` — duplicate profiles, merging, Instagram aliases, handles
+- `city-channels.md` — city pages, weekly post, occasion plan, official channels, local groups
+- `instagram.md` — Apify profile import, event from an Instagram post, Meta app connection
+- `events.md` — new event flow, venue hints, signing up / booking, cancelling, reviews
+- `contacts.md` — Who's coming, Contacts, audience, email to contacts
+- `my-plan.md` — My plan tabs, Share my weekend, dance friends, year in dance
+- `backlog.md` — landing-promise backlog (`docs/issues/`, Linear, sheet)
