@@ -2,10 +2,6 @@
 
 Dance community platform. Nuxt 4 + tRPC + Drizzle ORM + Neon (PostgreSQL), Bun.
 
-## Framework
-
-@/Users/razbakov/Projects/ikigai-team/CLAUDE.md
-
 ## Links
 
 - **Live:** https://2026.wedance.vip · **Vercel project:** `wedance-2026` (team `wedance`)
