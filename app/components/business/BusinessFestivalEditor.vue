@@ -13,6 +13,7 @@
 import type { PropType } from 'vue'
 import { Plus, X, ChevronDown, ChevronUp, Pencil, Check } from 'lucide-vue-next'
 import type { FestivalDetails, FestivalPass, FestivalSession, SessionType } from '#shared/types/festivalDetails'
+import { entryWords, type EntryNoun } from '#shared/utils/entryWord'
 import { PASS_DESCRIPTION_MAX, PRACTICAL_INFO_LINE_MAX } from '#shared/utils/eventLimits'
 import { SESSION_TYPES, SESSION_TYPE_LABEL, DEFAULT_DURATION, inferDurations, isWorkshop, sessionKindLabel, sessionTimeRange } from '#shared/utils/programme'
 
@@ -29,7 +30,10 @@ const props = defineProps({
   /** The event's end, for the last session's length: last day ('' = single-day, as saved) + time. */
   endDate: { type: String, default: '' },
   endTime: { type: String, default: '' },
+  /** A festival sells passes; a party or class sells tickets (RAZ-1029). The stored field stays `passes`. */
+  word: { type: String as PropType<EntryNoun>, default: 'pass' },
 })
+const words = computed(() => entryWords(props.word === 'ticket' ? 'ticket' : 'pass'))
 
 // Lists always exist, so rows can be added straight away.
 model.value.socialLinks ??= []
@@ -178,10 +182,10 @@ const LEVELS = ['Beginner', 'Intermediate', 'Advanced']
       </div>
   </div>
 
-  <!-- Passes -->
+  <!-- Passes for a festival, tickets for a party or class (RAZ-1029). -->
   <div v-else-if="part === 'passes'" class="min-w-0">
-      <p class="text-sm font-bold">Passes</p>
-      <p class="text-xs text-muted-foreground">What dancers can buy. The page recommends the best-value pass for the sessions they pick.</p>
+      <p class="text-sm font-bold">{{ words.Many }}</p>
+      <p class="text-xs text-muted-foreground">What dancers can buy. The page recommends the best-value {{ words.one }} for the sessions they pick.</p>
       <!-- min-w-0 everywhere: a grid/flex child is otherwise as wide as its
            longest unbroken line, and the rows pushed the card open (RAZ-991). -->
       <div class="mt-3 grid min-w-0 grid-cols-1 gap-3">
@@ -189,7 +193,7 @@ const LEVELS = ['Beginner', 'Intermediate', 'Advanced']
           <div class="flex items-center gap-3 px-3 py-2 text-sm">
             <span class="min-w-0 flex-1">
               <span class="flex min-w-0 items-center gap-1.5">
-                <span class="min-w-0 truncate font-bold">{{ p.name || 'Untitled pass' }}</span>
+                <span class="min-w-0 truncate font-bold">{{ p.name || `Untitled ${words.one}` }}</span>
                 <span class="shrink-0 whitespace-nowrap tabular-nums">· {{ p.price }} €</span>
                 <Badge v-if="p.soldOut" variant="outline" class="shrink-0">Sold out</Badge>
               </span>
@@ -199,13 +203,13 @@ const LEVELS = ['Beginner', 'Intermediate', 'Advanced']
           </div>
           <div v-if="openPass === i" class="border-t p-3">
             <div class="flex flex-wrap items-end gap-2">
-              <Field :id="`pass-name-${i}`" label="Name" class="min-w-[10rem] flex-1"><Input v-model="p.name" placeholder="Full Pass" /></Field>
+              <Field :id="`pass-name-${i}`" label="Name" class="min-w-[10rem] flex-1"><Input v-model="p.name" :placeholder="words.one === 'pass' ? 'Full Pass' : 'Early bird'" /></Field>
               <Field :id="`pass-price-${i}`" label="Price (€)" class="w-28"><Input v-model.number="p.price" type="number" min="0" step="1" /></Field>
               <Field :id="`pass-couple-${i}`" label="For two (€)" optional class="w-32" :hint="p.price ? `Empty = ${p.price * 2} €` : undefined">
                 <Input :model-value="p.couplePrice ?? ''" type="number" min="0" step="1" :placeholder="p.price ? String(p.price * 2) : ''" @update:model-value="(v: any) => (p.couplePrice = v === '' || v == null || Number.isNaN(Number(v)) ? undefined : Number(v))" />
               </Field>
               <label class="mb-2 inline-flex items-center gap-2 text-sm"><Checkbox v-model="p.soldOut" /> Sold out</label>
-              <Button type="button" variant="ghost" size="icon-sm" class="mb-1" :aria-label="`Remove pass ${p.name || i + 1}`" @click="passes.splice(i, 1); openPass = null"><X /></Button>
+              <Button type="button" variant="ghost" size="icon-sm" class="mb-1" :aria-label="`Remove ${words.one} ${p.name || i + 1}`" @click="passes.splice(i, 1); openPass = null"><X /></Button>
             </div>
             <Field :id="`pass-desc-${i}`" label="What’s included" optional class="mt-2" :error="tooLong(p.description, PASS_DESCRIPTION_MAX) ? `Keep it under ${PASS_DESCRIPTION_MAX} characters.` : undefined"><Input v-model="p.description" placeholder="All workshops + all parties" /></Field>
             <div class="mt-2 flex flex-wrap items-center gap-2 text-sm">
@@ -227,11 +231,11 @@ const LEVELS = ['Beginner', 'Intermediate', 'Advanced']
             </div>
           </div>
         </div>
-        <Button type="button" variant="ghost" size="sm" class="justify-self-start" @click="addPass"><Plus /> Add a pass</Button>
+        <Button type="button" variant="ghost" size="sm" class="justify-self-start" @click="addPass"><Plus /> Add a {{ words.one }}</Button>
         <!-- RAZ-995: dancers can sign up now and pay when they arrive -->
         <label v-if="passes.length" class="inline-flex items-start gap-2 text-sm" data-pay-at-door>
           <Checkbox v-model="model.payAtDoor" class="mt-0.5" />
-          <span><span class="font-bold">Dancers can pay at the door</span> <span class="text-muted-foreground">— they sign up now and pay when they arrive. Off: passes are paid online.</span></span>
+          <span><span class="font-bold">Dancers can pay at the door</span> <span class="text-muted-foreground">— they sign up now and pay when they arrive. Off: {{ words.many }} are paid online.</span></span>
         </label>
       </div>
   </div>
