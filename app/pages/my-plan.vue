@@ -1543,7 +1543,6 @@ function cardSummary(f: CatalogueEntry) {
                   <div v-if="r.h.event && !r.nested" class="text-xs truncate font-sans">
                     <span class="text-muted-foreground">For </span>
                     <NuxtLink :to="eventPath({ id: r.h.event.id, name: r.h.event.name })" class="font-bold text-primary hover:underline">{{ r.h.event.name }}</NuxtLink>
-                    <span v-else class="font-bold text-primary">{{ r.h.event.name }}</span>
                     <span v-if="r.h.event.startDate" class="text-muted-foreground"> · {{ eventLocalTime(r.h.event.startDate, r.h.event.timezone || undefined) }}</span>
                     <span v-if="r.h.inMyPlan" class="ml-1 text-eyebrow font-bold uppercase tracking-widest text-wd-green-600">in your plan</span>
                   </div>
