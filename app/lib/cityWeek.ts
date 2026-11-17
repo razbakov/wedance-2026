@@ -8,6 +8,7 @@
  */
 import { sameDanceStyle } from '#shared/dance-styles'
 import { eventLocalDate } from '#shared/utils/eventTime'
+import { CLASS_EVENT_TYPES } from '#shared/utils/eventSignup'
 
 // Local YYYY-MM-DD (never toISOString — that shifts to UTC and, in a positive
 // offset like CEST, moves every day back by one, so "this week" ends up a day off).
@@ -26,6 +27,23 @@ export function weekDateKeys(now: Date = new Date()): Set<string> {
 /** Style filter for the "Coming up" list: no style picked keeps everything. */
 export const matchesStyle = (styles: string[] | null | undefined, style: string) =>
   !style || (styles || []).some((s: string) => sameDanceStyle(s, style))
+
+/**
+ * Parties / classes filter (RAZ-1018), kept in the URL as `?type=party|class`.
+ * Classes are CLASS_EVENT_TYPES (class, course, practica, workshop — the same list
+ * as the sign-up, RAZ-995); everything else (social, party, concert, show) is a party.
+ */
+export type EventKind = 'party' | 'class'
+export const EVENT_KINDS: { key: EventKind; label: string }[] = [
+  { key: 'party', label: 'Parties' },
+  { key: 'class', label: 'Classes' },
+]
+export const parseEventKind = (v: unknown): EventKind | '' => (v === 'party' || v === 'class' ? v : '')
+export const isClassType = (type: string | null | undefined) =>
+  (CLASS_EVENT_TYPES as readonly string[]).includes(String(type ?? '').trim().toLowerCase())
+/** No kind picked keeps everything. */
+export const matchesKind = (type: string | null | undefined, kind: EventKind | '') =>
+  !kind || (kind === 'class') === isClassType(type)
 
 /**
  * Splits the city's booked + synced events into this week and later. Festivals
