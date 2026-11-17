@@ -14,7 +14,7 @@ import type { PropType } from 'vue'
 import { Plus, X, ChevronDown, ChevronUp, Pencil, Check } from 'lucide-vue-next'
 import type { FestivalDetails, FestivalPass, FestivalSession, SessionType } from '#shared/types/festivalDetails'
 import { PASS_DESCRIPTION_MAX, PRACTICAL_INFO_LINE_MAX } from '#shared/utils/eventLimits'
-import { SESSION_TYPES, SESSION_TYPE_LABEL, DEFAULT_DURATION, inferDurations, isWorkshop, sessionKindLabel, sessionTimeRange } from '#shared/utils/programme'
+import { SESSION_TYPES, SESSION_TYPE_LABEL, DEFAULT_DURATION, hasArtist, inferDurations, isWorkshop, sessionKindLabel, sessionTimeRange } from '#shared/utils/programme'
 
 type Editable = Omit<FestivalDetails, 'key'>
 const model = defineModel<Editable>({ required: true })
@@ -115,11 +115,17 @@ const settled = computed(() => {
   return new Map(out.map(s => [s.id, s]))
 })
 const rangeOf = (s: FestivalSession) => sessionTimeRange(settled.value.get(s.id) ?? s)
-// Changing the type: a level only on a workshop; an untouched length follows the new type.
+// Changing the type: a level only on a workshop; an artist, style and partner only
+// where someone performs. An untouched length follows the new type.
 function setType(s: FestivalSession, t: SessionType) {
   s.type = t
   if (!isWorkshop(t)) delete s.level
   else s.level ??= 'Beginner'
+  if (!hasArtist(t)) {
+    s.artist = ''
+    s.style = ''
+    delete s.with
+  }
 }
 const autoHint = (s: FestivalSession) => (typeof s.duration === 'number' && Number.isFinite(s.duration)) ? undefined : `Empty = until the next item, the event’s end, or ${DEFAULT_DURATION[s.type] || 0} min.`
 function removeSession(id: string) {
@@ -248,7 +254,7 @@ const LEVELS = ['Beginner', 'Intermediate', 'Advanced']
               <span class="w-24 shrink-0 font-bold tabular-nums">{{ rangeOf(s) }}</span>
               <span class="min-w-0 flex-1 truncate">
                 <span class="font-bold">{{ s.title || 'Untitled' }}</span>
-                <span class="text-muted-foreground">{{ [sessionKindLabel(s), s.artist && [s.artist, ...(s.with ?? [])].map(nameOf).join(' & '), s.room].filter(Boolean).map(x => ` · ${x}`).join('') }}</span>
+                <span class="text-muted-foreground">{{ [sessionKindLabel(s), hasArtist(s.type) && s.artist && [s.artist, ...(s.with ?? [])].map(nameOf).join(' & '), s.room].filter(Boolean).map(x => ` · ${x}`).join('') }}</span>
               </span>
               <ChevronUp v-if="open === s.id" class="size-4 shrink-0" aria-hidden="true" /><ChevronDown v-else class="size-4 shrink-0" aria-hidden="true" />
             </button>
@@ -258,10 +264,10 @@ const LEVELS = ['Beginner', 'Intermediate', 'Advanced']
               <Field :id="`s-date-${s.id}`" label="Day"><Select v-model="s.date" :options="(days.includes(s.date) ? days : [...days, s.date]).map(x => ({ label: fmtDay(x), value: x }))" /></Field>
               <Field :id="`s-time-${s.id}`" label="Starts"><Input v-model="s.time" type="time" /></Field>
               <Field :id="`s-dur-${s.id}`" label="Minutes" :hint="autoHint(s)"><Input :model-value="s.duration ?? ''" type="number" min="0" step="5" :placeholder="`${settled.get(s.id)?.duration ?? ''} (auto)`" @update:model-value="(v: any) => (s.duration = v === '' || v == null || Number.isNaN(Number(v)) ? (undefined as any) : Number(v))" /></Field>
-              <Field :id="`s-artist-${s.id}`" label="Artist" class="sm:col-span-2" hint="From the line-up.">
+              <Field v-if="hasArtist(s.type)" :id="`s-artist-${s.id}`" label="Artist" class="sm:col-span-2" hint="From the line-up.">
                 <Select v-model="s.artist" :options="[{ label: 'Nobody', value: '' }, ...lineup.map(h => ({ label: nameOf(h), value: h }))]" />
               </Field>
-              <div v-if="lineup.length > 1" class="sm:col-span-4">
+              <div v-if="hasArtist(s.type) && lineup.length > 1" class="sm:col-span-4">
                 <p class="text-sm font-bold">{{ isWorkshop(s.type) ? 'Teaching with' : 'With' }} <span class="font-normal text-muted-foreground">(optional)</span></p>
                 <div class="mt-1 flex flex-wrap gap-1.5">
                   <Button
@@ -275,7 +281,7 @@ const LEVELS = ['Beginner', 'Intermediate', 'Advanced']
                   >{{ nameOf(h) }}</Button>
                 </div>
               </div>
-              <Field :id="`s-style-${s.id}`" label="Style" class="sm:col-span-4" :hint="styles.length ? 'From the event’s music.' : undefined">
+              <Field v-if="hasArtist(s.type)" :id="`s-style-${s.id}`" label="Style" class="sm:col-span-4" :hint="styles.length ? 'From the event’s music.' : undefined">
                 <DanceStylePicker
                   :model-value="s.style ? [s.style] : []"
                   single
