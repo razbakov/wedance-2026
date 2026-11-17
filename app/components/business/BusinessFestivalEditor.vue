@@ -11,10 +11,10 @@
  * Session ids are kept as they are: dancers' picks are stored by them.
  */
 import type { PropType } from 'vue'
-import { Plus, X, ChevronDown, ChevronUp, Pencil, Check } from 'lucide-vue-next'
+import { Plus, X, ChevronDown, ChevronUp, Pencil, Check, AlertTriangle } from 'lucide-vue-next'
 import type { FestivalDetails, FestivalPass, FestivalSession, SessionType } from '#shared/types/festivalDetails'
 import { PASS_DESCRIPTION_MAX, PRACTICAL_INFO_LINE_MAX } from '#shared/utils/eventLimits'
-import { SESSION_TYPES, SESSION_TYPE_LABEL, DEFAULT_DURATION, inferDurations, isWorkshop, sessionKindLabel, sessionTimeRange } from '#shared/utils/programme'
+import { SESSION_TYPES, SESSION_TYPE_LABEL, DEFAULT_DURATION, inferDurations, isWorkshop, outsideHoursNote, sessionKindLabel, sessionTimeRange } from '#shared/utils/programme'
 
 type Editable = Omit<FestivalDetails, 'key'>
 const model = defineModel<Editable>({ required: true })
@@ -29,6 +29,8 @@ const props = defineProps({
   /** The event's end, for the last session's length: last day ('' = single-day, as saved) + time. */
   endDate: { type: String, default: '' },
   endTime: { type: String, default: '' },
+  /** The event's start, so a programme time outside its hours can be flagged (not refused). */
+  startTime: { type: String, default: '' },
 })
 
 // Lists always exist, so rows can be added straight away.
@@ -115,6 +117,11 @@ const settled = computed(() => {
   return new Map(out.map(s => [s.id, s]))
 })
 const rangeOf = (s: FestivalSession) => sessionTimeRange(settled.value.get(s.id) ?? s)
+// RAZ-1027: warn, don't block. A night past midnight (20:00–02:00) already counts
+// 01:00 as inside; this only flags a time that really sits outside those hours.
+const hoursNote = (s: { date: string; time: string }) => outsideHoursNote(s, {
+  date: props.days[0], startTime: props.startTime, endDate: props.endDate || null, endTime: props.endTime || null,
+})
 // Changing the type: a level only on a workshop; an untouched length follows the new type.
 function setType(s: FestivalSession, t: SessionType) {
   s.type = t
@@ -246,9 +253,15 @@ const LEVELS = ['Beginner', 'Intermediate', 'Advanced']
           <li v-for="s in d.items" :key="s.id" class="min-w-0 rounded-xl border">
             <button type="button" class="flex w-full items-center gap-3 px-3 py-2 text-left text-sm" :aria-expanded="open === s.id" @click="open = open === s.id ? null : s.id">
               <span class="w-24 shrink-0 font-bold tabular-nums">{{ rangeOf(s) }}</span>
-              <span class="min-w-0 flex-1 truncate">
-                <span class="font-bold">{{ s.title || 'Untitled' }}</span>
-                <span class="text-muted-foreground">{{ [sessionKindLabel(s), s.artist && [s.artist, ...(s.with ?? [])].map(nameOf).join(' & '), s.room].filter(Boolean).map(x => ` · ${x}`).join('') }}</span>
+              <span class="min-w-0 flex-1">
+                <span class="block truncate">
+                  <span class="font-bold">{{ s.title || 'Untitled' }}</span>
+                  <span class="text-muted-foreground">{{ [sessionKindLabel(s), s.artist && [s.artist, ...(s.with ?? [])].map(nameOf).join(' & '), s.room].filter(Boolean).map(x => ` · ${x}`).join('') }}</span>
+                </span>
+                <span v-if="open !== s.id && hoursNote(s)" class="mt-1 flex items-start gap-1 rounded-lg bg-warning/15 px-2 py-1 text-xs font-bold leading-snug text-wd-amber-800" data-outside-hours>
+                  <AlertTriangle class="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                  {{ hoursNote(s) }}
+                </span>
               </span>
               <ChevronUp v-if="open === s.id" class="size-4 shrink-0" aria-hidden="true" /><ChevronDown v-else class="size-4 shrink-0" aria-hidden="true" />
             </button>
@@ -256,8 +269,12 @@ const LEVELS = ['Beginner', 'Intermediate', 'Advanced']
               <Field :id="`s-title-${s.id}`" label="Title" class="sm:col-span-4"><Input v-model="s.title" placeholder="Bootcamp Son" /></Field>
               <Field :id="`s-type-${s.id}`" label="Type"><Select :model-value="s.type" :options="TYPE_OPTIONS" @update:model-value="(v: any) => setType(s, v)" /></Field>
               <Field :id="`s-date-${s.id}`" label="Day"><Select v-model="s.date" :options="(days.includes(s.date) ? days : [...days, s.date]).map(x => ({ label: fmtDay(x), value: x }))" /></Field>
-              <Field :id="`s-time-${s.id}`" label="Starts"><Input v-model="s.time" type="time" /></Field>
+              <Field :id="`s-time-${s.id}`" label="Starts"><Input v-model="s.time" type="time" :aria-describedby="hoursNote(s) ? `s-hours-${s.id}` : undefined" /></Field>
               <Field :id="`s-dur-${s.id}`" label="Minutes" :hint="autoHint(s)"><Input :model-value="s.duration ?? ''" type="number" min="0" step="5" :placeholder="`${settled.get(s.id)?.duration ?? ''} (auto)`" @update:model-value="(v: any) => (s.duration = v === '' || v == null || Number.isNaN(Number(v)) ? (undefined as any) : Number(v))" /></Field>
+              <p v-if="hoursNote(s)" :id="`s-hours-${s.id}`" class="flex items-start gap-1.5 rounded-lg bg-warning/15 px-2.5 py-1.5 text-xs font-bold leading-snug text-wd-amber-800 sm:col-span-4" role="status" data-outside-hours>
+                <AlertTriangle class="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                {{ hoursNote(s) }}
+              </p>
               <Field :id="`s-artist-${s.id}`" label="Artist" class="sm:col-span-2" hint="From the line-up.">
                 <Select v-model="s.artist" :options="[{ label: 'Nobody', value: '' }, ...lineup.map(h => ({ label: nameOf(h), value: h }))]" />
               </Field>
