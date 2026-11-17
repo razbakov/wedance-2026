@@ -177,7 +177,7 @@ Rules:
 
 1. **Never add per-page font links.** No `useHead({ link: [...fonts.googleapis.com...] })` in pages, layouts or components — the global link already covers them, and duplicates just add head noise.
 2. Never add another Google Font without a design-system PR.
-3. Exception: festival-specific brand fonts in `app/pages/sketches/**` and `app/data/mock-*.ts` are content, not design system, and stay where they are.
+3. Exception: festival-specific brand fonts in `app/pages/sketches/**` are content, not design system, and stay where they are.
 
 ## Inline style inventory
 
@@ -191,7 +191,6 @@ Phase 2 (2026-10-10) migrated all product pages and components (sketches exclude
 What still holds a literal hex (by design or below the token threshold):
 
 - `app/pages/sketches/**` — frozen design explorations, not product.
-- `app/data/mock-*.ts` — festival accent colours are content, not design.
 - ~30 one-off colours used ≤3 times (e.g. `#166534`, `#f5f0e8`, `#1f0f06`). Promote to a token the second time someone needs one.
 - `rgba(...)` shadows — left inline; the five common recipes are now tokens (`shadow-wd-*`, see Tokens §6). Migrate when a page is next touched.
 

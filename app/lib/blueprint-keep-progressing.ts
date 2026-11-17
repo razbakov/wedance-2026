@@ -73,7 +73,7 @@ export const keepSteps: BpStep<KeepLane, KeepPhase>[] = [
   { id: 'go-class', phase: 'weekly', lane: 'student', name: 'Go to class', status: 'gap', marks: [],
     note: 'Happens off the platform. Nothing records that you were there: attendance.checkIn exists, but no live page calls it (only a legacy sketch).' },
   { id: 'school-attend', phase: 'weekly', lane: 'school', name: 'Track who comes and pays', status: 'partial', marks: ['manual'], route: '/business/network/[username]/contacts', code: 'contactActivity (wentTo, checkedIn)',
-    note: 'Contacts counts “went to N” per student from sign-ups — who said they’d come, not who came. Monthly payment isn’t tracked: “paid through month” exists only in My plan’s preview data. Register and payments stay on paper or WhatsApp.' },
+    note: 'Contacts counts “went to N” per student from sign-ups — who said they’d come, not who came. Monthly payment isn’t tracked on the course card. Register and payments stay on paper or WhatsApp.' },
   { id: 'course-ends', phase: 'weekly', lane: 'system', name: 'Course runs out', status: 'partial', marks: ['silent'], code: 'myCourses (series with nothing upcoming is left out)',
     note: 'When the last date passes, the card just disappears from My plan. Neither side is told the course ended.' },
 

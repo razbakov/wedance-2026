@@ -109,7 +109,7 @@ onMounted(async () => {
   try {
     const count = await $trpc.plan.count.query(planAsEvent ? { itemType: 'event', itemId: data.eventId } : { itemType: 'festival', itemId: festival.slug })
     liveAttendeeCount.value = count
-  } catch { /* keep mock fallback */ }
+  } catch { /* keep the count the page already has */ }
 })
 
 // Festival-level "Pick" — adds the whole festival to the year plan (distinct
@@ -815,14 +815,6 @@ function onPick() {
   liveAttendeeCount.value = Math.max(0, liveAttendeeCount.value + (wasGoing ? -1 : 1))
   if (planAsEvent) toggleEvent(data.eventId, { event_type: props.type ?? null, surface: 'festival' })
   else toggleFestival(festival.slug, { surface: 'festival' })
-}
-
-function onSave() {
-  if (!isSignedIn.value) {
-    signUpAction.value = 'save'
-    showSignUp.value = true
-  }
-  // When signed in, save is a no-op (mock — would persist to backend)
 }
 
 // Share modal

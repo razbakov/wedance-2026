@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { WD } from '~/lib/brand'
-import { mockFestival } from '~/data/mock-meneate'
+import type { Festival } from '~/types/festival'
 import cityImages from '~~/server/data/city-images.json'
 import { sizedImage, IMG } from '#shared/utils/image'
 
@@ -8,6 +8,20 @@ definePageMeta({ layout: 'docs' })
 
 // Real data: the Munich landmark the city page uses (Wikimedia, CC licensed).
 const munich = (cityImages as Record<string, { image: string, credit?: string, license?: string, source?: string }>).munich!
+
+// Sample content for this page only — not a product data source.
+const sampleFestival: Festival = {
+  name: '¡Menéate Viena! 2026',
+  slug: 'docs-sample-festival',
+  startDate: '2026-11-26',
+  endDate: '2026-11-29',
+  description: 'Four days of Timba, Salsa, Son and parties.',
+  logo: '',
+  accentColor: WD.amber600,
+  socialLinks: [],
+  venue: { name: 'wolke19', address: 'Vienna, Austria', practicalInfo: [] },
+  attendeeCount: 12,
+}
 
 const photoCode = `<section class="relative">
   <div class="relative w-full h-64 sm:h-96 overflow-hidden">
@@ -112,10 +126,10 @@ const a11y = [
       </div>
     </DesignSection>
 
-    <DesignSection id="identity" title="Identity hero (festival & event)" lead="Live FestivalHero with ¡Menéate Viena! data. The accent tints the sun rays, the countdown, the planning chip and both CTAs.">
+    <DesignSection id="identity" title="Identity hero (festival & event)" lead="Live FestivalHero. The accent tints the sun rays, the countdown, the planning chip and both CTAs.">
       <DesignExample :code="festivalCode" :padded="false">
         <div class="w-full">
-          <FestivalHero :festival="mockFestival" />
+          <FestivalHero :festival="sampleFestival" />
         </div>
       </DesignExample>
     </DesignSection>

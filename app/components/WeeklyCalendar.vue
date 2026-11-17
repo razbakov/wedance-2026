@@ -123,7 +123,7 @@ function styleAccent(style: string): string {
 
 const today = new Date().toLocaleDateString('en-US', { weekday: 'long' }) as DayOfWeek
 
-// Real events link to their event page; mock weekly events don't link.
+// A stored event (uuid) links to its page. Anything else has no page.
 const isRealEvent = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(String(id))
 function eventHref(e: CityEvent): string | undefined {
   if (!isRealEvent(e.id)) return undefined

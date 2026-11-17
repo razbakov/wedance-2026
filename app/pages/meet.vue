@@ -8,7 +8,8 @@
  * in discover_swipes; two yeses for the same festival become the "add it to
  * your year" nudge in My plan's Your festivals.
  *
- * ?preview=1 shows example dancers and never writes.
+ * Signed out, the page shows three labeled example cards, then the dance card
+ * that prefills sign-up. The deck itself is only people from the database.
  */
 import { ArrowLeft, ArrowRight, Heart, X, Clock, Undo2 } from 'lucide-vue-next'
 import { festivalPath } from '#shared/utils/eventSlug'
@@ -26,11 +27,10 @@ useHead({
   meta: [{ name: 'robots', content: 'noindex' }],
 })
 
-const route = useRoute()
 const { $trpc } = useNuxtApp()
 const {
-  isSignedIn: isSignedInReal,
-  city: dancerCityReal,
+  isSignedIn,
+  city: dancerCity,
   danceStyles: dancerStylesReal,
   photo: dancerPhotoReal,
   profilePublic: dancerPublicReal,
@@ -38,21 +38,8 @@ const {
   authHint,
 } = useAuth()
 
-const previewMode = computed(() => route.query.preview === '1')
-const isSignedIn = computed(() => isSignedInReal.value || previewMode.value)
-const dancerCity = computed(() => previewMode.value ? 'Munich' : (dancerCityReal.value || null))
-
-const PREVIEW_DECK: MeetCard[] = [
-  { id: 'd1', kind: 'dancer-your-fest', name: 'Ivana', city: 'Berlin', photo: 'https://i.pravatar.cc/240?u=ivana', danceStyles: ['Timba', 'Son'], festivalSlug: 'meneate-viena-2026', festivalName: 'Menéate Viena', festivalColor: WD.red600, reason: 'You both dance Timba — and she\'s at Menéate Viena too.' },
-  { id: 'd2', kind: 'dancer-new-fest', name: 'Emilia', city: 'Munich', photo: 'https://i.pravatar.cc/240?u=emilia', danceStyles: ['Timba', 'Salsa'], festivalSlug: 'timba-fest-london-2026', festivalName: 'Timba Fest London', festivalColor: WD.sky500, reason: 'She dances Timba in Munich — and heads to a Timba festival you haven\'t picked.' },
-  { id: 'd3', kind: 'dancer-same-night', name: 'Klaus', city: 'Munich', photo: 'https://i.pravatar.cc/240?u=klaus', danceStyles: ['Salsa', 'Bachata'], night: { path: '', name: 'Salsa Friday', when: 'Fri 21:00', venue: 'La Rumba' }, reason: 'You\'re both going to Salsa Friday — say hi there. You both dance Salsa.' },
-  { id: 'd4', kind: 'dancer-new-fest', name: 'Sasha', city: 'Vienna', photo: 'https://i.pravatar.cc/240?u=sasha', danceStyles: ['Timba', 'Rumba'], festivalSlug: 'timba-fest-london-2026', festivalName: 'Timba Fest London', festivalColor: WD.sky500, reason: 'Timba dancer from Vienna heading to a festival not in your year yet.' },
-  { id: 'd5', kind: 'dancer-your-fest', name: 'Silvio', city: 'Havana', photo: 'https://i.pravatar.cc/240?u=silvio', danceStyles: ['Bachata', 'Salsa'], festivalSlug: 'bachata-stars-barcelona-2026', festivalName: 'Bachata Stars Barcelona', festivalColor: WD.violet600, reason: 'Bachata dancer from Havana — also going to Bachata Stars Barcelona.' },
-  { id: 'd6', kind: 'dancer-going-out', name: 'Barbara', city: 'Munich', photo: 'https://i.pravatar.cc/240?u=barbara', danceStyles: ['Rumba', 'Son'], night: { path: '', name: 'Cuban Sunday practica', when: 'Sun 19:00', venue: 'Bar Tropical' }, reason: 'Going to Cuban Sunday practica. Join them, and you\'ll meet there.' },
-]
-
-const deck = ref<MeetCard[]>(route.query.preview === '1' ? [...PREVIEW_DECK] : [])
-const deckLoaded = ref(route.query.preview === '1')
+const deck = ref<MeetCard[]>([])
+const deckLoaded = ref(false)
 const swipeHistory = ref<Array<{ card: MeetCard; direction: 'yes' | 'skip' | 'later' }>>([])
 /** Cards whose Yes turned out mutual (RAZ-985) — "It's a match" under the deck. */
 const matchedIds = ref(new Set<string>())
@@ -60,7 +47,7 @@ const matchedIds = ref(new Set<string>())
 const me = ref<{ citySlug: string; nextNight: { eventId: string; eventName: string; city: string } | null; festivalsShown: number } | null>(null)
 
 async function loadDeck() {
-  if (previewMode.value || !isSignedInReal.value) return
+  if (!isSignedIn.value) return
   try {
     const result = await $trpc.plan.discover.query()
     deck.value = toMeetCards(result.cards, { styles: dancerStylesReal.value })
@@ -73,12 +60,12 @@ async function loadDeck() {
 }
 // The deck needs the session, so it loads after hydration; again on sign-in here.
 onMounted(loadDeck)
-watch(isSignedInReal, (signedIn) => { if (signedIn) loadDeck() })
+watch(isSignedIn, (signedIn) => { if (signedIn) loadDeck() })
 
 type View = 'signed-out' | 'loading' | 'deck'
 const view = computed<View>(() => {
   if (!isSignedIn.value) {
-    const pending = !previewMode.value && authPending({ server: import.meta.server, hasHint: !!authHint.value, authLoading: authLoading.value })
+    const pending = authPending({ server: import.meta.server, hasHint: !!authHint.value, authLoading: authLoading.value })
     return pending ? 'loading' : 'signed-out'
   }
   return deckLoaded.value ? 'deck' : 'loading'
@@ -157,7 +144,7 @@ function commitSwipe(direction: 'yes' | 'skip' | 'later') {
   if (!card || cardExitDir.value) return
   cardExitDir.value = direction
 
-  if ((direction === 'yes' || direction === 'skip') && !previewMode.value && card.target) {
+  if ((direction === 'yes' || direction === 'skip') && card.target) {
     $trpc.plan.discoverSwipe
       .mutate({ targetKind: card.target.kind, targetId: card.target.id, decision: direction, festivalSlug: card.target.festivalSlug })
       .then((r) => {
@@ -167,7 +154,7 @@ function commitSwipe(direction: 'yes' | 'skip' | 'later') {
       .catch(err => console.warn('[meet] swipe not saved:', err))
   }
   // added_festival / added_event stay for insights made before the deck was people only.
-  if (!previewMode.value) useTrack().track('discover_swipe', { direction, card_kind: card.kind, added_festival: false, added_event: false, surface: 'meet' })
+  useTrack().track('discover_swipe', { direction, card_kind: card.kind, added_festival: false, added_event: false, surface: 'meet' })
 
   // Animate out then advance
   setTimeout(() => {
@@ -184,7 +171,7 @@ function undoSwipe() {
   swipeHistory.value = swipeHistory.value.slice(0, -1)
   const card = last.card
   deck.value = [card, ...(last.direction === 'later' ? deck.value.filter(c => c.id !== card.id) : deck.value)]
-  if (last.direction === 'later' || previewMode.value || !card.target) return
+  if (last.direction === 'later' || !card.target) return
   $trpc.plan.discoverUnswipe
     .mutate({ targetKind: card.target.kind, targetId: card.target.id })
     .catch(err => console.warn('[meet] undo not saved:', err))
@@ -194,10 +181,10 @@ function undoSwipe() {
 // decks, and what to do after a Yes. A Yes back makes a match (RAZ-985): both
 // see it on My plan under "Your dance friends".
 const meVisible = computed(() => meetVisibility({
-  profilePublic: previewMode.value ? true : dancerPublicReal.value,
-  photo: previewMode.value ? 'preview' : dancerPhotoReal.value,
-  nextNight: previewMode.value ? { eventName: 'Salsa Friday', city: 'Munich' } : me.value?.nextNight,
-  festivalsShown: previewMode.value ? 1 : me.value?.festivalsShown,
+  profilePublic: dancerPublicReal.value,
+  photo: dancerPhotoReal.value,
+  nextNight: me.value?.nextNight,
+  festivalsShown: me.value?.festivalsShown,
 }))
 /** Nights to go to: the dancer's city page, else My plan's this week. */
 const nightsLink = computed(() => me.value?.citySlug ? `/cities/${me.value.citySlug}` : '/my-plan#socials')
@@ -294,7 +281,7 @@ const lastYes = computed(() => {
 
         <div class="relative mx-auto max-w-md">
           <!-- RAZ-1002: an empty deck is one thing to do about it. -->
-          <MeetEmptyNext v-if="!deckCurrent" :preview="previewMode" :city="dancerCity" />
+          <MeetEmptyNext v-if="!deckCurrent" :city="dancerCity" />
 
           <!-- min-height, not a fixed height: the card grows with its text. -->
           <div v-else class="relative min-h-[400px]">
@@ -327,7 +314,7 @@ const lastYes = computed(() => {
                 :style="{ opacity: Math.min(1, Math.max(0, dragDx / 100)) }"
               >Yes</div>
 
-              <MeetDeckCard :card="deckCurrent" :preview="previewMode" />
+              <MeetDeckCard :card="deckCurrent" />
             </div>
           </div>
 
@@ -375,8 +362,7 @@ const lastYes = computed(() => {
             </template>
             <template v-else>
             <span class="font-bold text-foreground">Yes to {{ lastYes.name }}.</span>
-            <template v-if="previewMode" />
-            <template v-else-if="lastYes.kind === 'dancer-your-fest' || lastYes.kind === 'dancer-new-fest'">
+            <template v-if="lastYes.kind === 'dancer-your-fest' || lastYes.kind === 'dancer-new-fest'">
               Next: <NuxtLink :to="`${festivalPath(lastYes.festivalSlug)}#discover`" class="font-bold text-primary hover:underline">wave at them on {{ lastYes.festivalName }}</NuxtLink>.
             </template>
             <template v-else-if="isNightCard(lastYes) && lastYes.kind === 'dancer-same-night'">

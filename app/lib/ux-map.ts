@@ -39,7 +39,7 @@ export const UX_UPDATED = '2026-11-17'
 
 export const uxStatusLabel: Record<UxStatus, string> = {
   live: 'Live, real data',
-  partial: 'Partial or mock data',
+  partial: 'Partial',
   missing: 'Promised, not built',
   gap: 'Gap: nothing planned',
 }
@@ -84,7 +84,7 @@ const IT: [UxJourneyId, UxStageKey, string, string, UxStatus, string, string][] 
 ['C2','commit','Follow a teacher','/@handle','partial','Follow is on artist pages (not on venue pages), but nothing comes of it: no feed or notification when they teach.','P220'],
 ['C2','commit','Request a private class','/@handle/book','live','"Book <name>" on the artist\'s page: a form that works signed out; also an MCP tool.',''],
 ['C2','attend','Workshop plan at a festival','festival page','live','Pick workshops from a festival schedule.','P228'],
-['C2','return','My courses this month','/my-plan','live','Real courses you added (plan.myCourses, #387), on the Today / Week / Month tabs (#618). A signed-in plan does not use the mock catalogue; that is only ?preview=1.','P230 #387 #618'],
+['C2','return','My courses this month','/my-plan','live','Real courses you added (plan.myCourses, #387), on the Today / Week / Month tabs (#618).','P230 #387 #618'],
 ['C2','return','Progress / level tracking','','gap','Nothing records what you have learned or what level you are at.',''],
 ['C2','spread','Share my plan','/my-plan','live','',''],
 // C3 Regular
@@ -96,7 +96,7 @@ const IT: [UxJourneyId, UxStageKey, string, string, UxStatus, string, string][] 
 ['C3','commit','+ My plan / Book my spot','/events/[id]','live','Book my spot is the sign-up (a class is one button, #605 #612). + My plan saves it without booking (#610). The organiser\'s poll is still partner / need a leader / need a follower; signed-out answers show as unconfirmed and survive sign-up.','RAZ-718 RAZ-731 #605 #610 #612'],
 ['C3','attend','Hangouts tonight','/my-plan','live','Event-linked hangouts.','P232 RAZ-439'],
 ['C3','attend','Door check-in','','missing','The server can record a check-in, but no page or AI-app tool lets the organiser do it.','RAZ-928'],
-['C3','return','This week\'s socials','/my-plan','live','The nights and classes you added, on Today / Week / Month (#618). A signed-in plan is only your own events; mock socials are ?preview=1.','P231 RAZ-907 #618'],
+['C3','return','This week\'s socials','/my-plan','live','The nights and classes you added, on Today / Week / Month (#618).','P231 RAZ-907 #618'],
 ['C3','return','Reminders / new events from people I follow','','partial','Dancers do get email: a review the morning after (#632), a mutual dance friend (#636), and a cancellation or "it\'s on again" (#569 #575 #578). Nothing tells you when someone you follow announces a new event, and there is no push.','#632 #636 #569 #575 #578'],
 ['C3','return','City video vote · City Battle','/cities/[city]','live','',''],
 ['C3','spread','Wave / partner pairing','/events/[id]','live','Waves and leader/follower pairing from the RSVP poll.',''],
@@ -104,7 +104,7 @@ const IT: [UxJourneyId, UxStageKey, string, string, UxStatus, string, string][] 
 // C4 Traveler
 ['C4','discover','Festival list + search','/festivals','partial','Search by city, style and name. The list is festivals, congresses and weekenders (#609): parties and classes with passes stay off it. A running multi-day event is not labelled Past (#550). Few synced festivals have a logo, line-up or passes.','P214 P213 P301 RAZ-893 RAZ-925 #609 #550'],
 ['C4','discover','Europe-wide map','','missing','"Every festival mapped" is promised on the landing and /festivals, but neither has a map.','P209 P303'],
-['C4','evaluate','Festival page','/events/[id]','partial','Line-up, schedule and planning count where we have them; synced festivals show only dates, styles and a link. Still has a mock fallback.','P306'],
+['C4','evaluate','Festival page','/events/[id]','partial','Line-up, schedule and planning count where we have them; synced festivals show only dates, styles and a link. An unknown address is 404.','P306'],
 ['C4','evaluate','See who\'s going before booking','festival page','partial','Signed-in viewers see faces under Who\'s coming (#605); Meet who\'s going opens /meet (#615). The old swipe deck is gone. Most synced festivals still show few or no people going.','P302 P306 #605 #615'],
 ['C4','commit','Buy a ticket','festival page','partial','Passes an organiser adds in the editor sell through Stripe (#562). Festivals book through the same steps as classes (#633), and the steps suggest a pass for the workshops you picked (#635). Most synced festivals are not ticketed here.','P210 P309 RAZ-205 #562 #633 #635'],
 ['C4','commit','Add to year plan','/festivals','live','"+ My plan" toggle.','P215 P237'],

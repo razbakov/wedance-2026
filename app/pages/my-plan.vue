@@ -7,20 +7,14 @@ import { sizedImage, IMG } from '#shared/utils/image'
  * -> Your festivals -> Your goals.
  * Every section uses the V3 tropical style + accordion / compact-list
  * pattern established by the Year cards. Week socials (plan.weekSocials)
- * and the Meet new friends entry (plan.discover; the deck is /meet) are DB-backed;
- * ?preview=1 swaps in the preview* demo arrays and never writes.
+ * and the Meet new friends entry (plan.discover; the deck is /meet) are DB-backed.
  */
-import { ArrowRight, MapPin, Calendar, Search, Ticket, Plane, Home, GraduationCap, Heart, Coffee, CalendarPlus, Check, ExternalLink, ChevronDown, Target, Flame, Sparkles, MoonStar, UtensilsCrossed, GlassWater, Car, X, Users as UsersIcon, Plus } from 'lucide-vue-next'
-import * as salsaOpen from '~/data/mock-festival'
-import * as meneate from '~/data/mock-meneate'
+import { ArrowRight, MapPin, Calendar, Search, Ticket, Plane, Home, GraduationCap, Heart, Coffee, CalendarPlus, Check, ExternalLink, ChevronDown, Target, Sparkles, MoonStar, UtensilsCrossed, GlassWater, Car, X, Users as UsersIcon, Plus } from 'lucide-vue-next'
 import type { CityEvent } from '~/types/city'
 import { eventLocalDate, eventLocalTime, eventLocalWeekday, eventPhase } from '#shared/utils/eventTime'
 import { detectDanceStyle, relatedDanceStyles } from '#shared/dance-styles'
-import * as cubanFire from '~/data/mock-cuban-fire'
-import * as caribbeanUrbanFire from '~/data/mock-caribbean-urban-fire'
 import { WD } from '~/lib/brand'
 import { toMeetCards, type MeetCard } from '~/lib/meetDeck'
-import { previewOnlyFestivals } from '~/data/mock-preview-festivals'
 import { eventPath, festivalPath } from '#shared/utils/eventSlug'
 import { weekendKey } from '#shared/utils/weekendShare'
 import { citySlug as toCitySlug } from '#shared/utils/citySearch'
@@ -53,21 +47,12 @@ const { yearPlanIds, loaded: yearPlanLoaded, removeFestival, toggleFestival, add
 // /festivals saves a festival event without festival details in the week plan (RAZ-1003).
 const { weekPlanIds } = useWeekPlan()
 
-// ?preview=1 — dev shortcut. Fakes signed-in + seeds picks so we can
-// eyeball the strip + cards without running the real magic-link flow.
-// Doesn't mutate real auth or year-plan state.
 const route = useRoute()
 const { $trpc } = useNuxtApp()
-const previewMode = computed(() => route.query.preview === '1')
-const PREVIEW_PICK_SLUGS = new Set([
-  'meneate-viena-2026',
-  'bachata-stars-barcelona-2026',
-  'kizomba-prague-2026',
-])
 
-const isSignedIn = computed(() => isSignedInReal.value || previewMode.value)
-const dancerName = computed(() => previewMode.value ? 'Alex' : dancerNameReal.value)
-const effectivePickIds = computed(() => previewMode.value ? PREVIEW_PICK_SLUGS : yearPlanIds.value)
+const isSignedIn = isSignedInReal
+const dancerName = dancerNameReal
+const effectivePickIds = yearPlanIds
 
 // Signed-out state: "Join" opens the modal in register mode, "Sign in" in login
 // mode. Once auth lands, isSignedIn flips and the dashboard renders in place.
@@ -81,15 +66,14 @@ function openAuth(action: 'dashboard' | 'signin') {
 // What the dashboard holds — shown to signed-out visitors as the promise.
 
 
-// Personalization from the signed-in profile (via `me`). Preview fakes Munich +
-// the big three so the personalized copy is visible without a real session.
-const dancerCity = computed(() => previewMode.value ? 'Munich' : (dancerCityReal.value || null))
-const dancerStyles = computed(() => previewMode.value ? ['Salsa', 'Bachata', 'Kizomba'] : [...(dancerStylesReal.value || [])])
+// Personalization from the signed-in profile (via `me`).
+const dancerCity = computed(() => dancerCityReal.value || null)
+const dancerStyles = computed(() => [...(dancerStylesReal.value || [])])
 
 // Onboarding state: guard banner when signed-in but not onboarded; first-run
 // hint right after a fresh signup + onboarding this session.
-const isOnboarded = computed(() => previewMode.value ? true : !!onboardedAtReal.value)
-const needsOnboarding = computed(() => isSignedIn.value && !previewMode.value && !onboardedAtReal.value)
+const isOnboarded = computed(() => !!onboardedAtReal.value)
+const needsOnboarding = computed(() => isSignedIn.value && !onboardedAtReal.value)
 const showFirstRunHint = computed(() => isSignedIn.value && isOnboarded.value && justRegistered.value)
 
 // Human-readable style list for scoped headings ("Salsa & Bachata in Munich").
@@ -103,7 +87,7 @@ const stylesLabel = computed(() => {
 
 // The dancer's city page — every city has one (/cities/[city] is DB-backed).
 // plan.weekSocials returns the slug the server resolves via the cities table
-// ("München" → munich); until it lands (and in preview) slug the typed name.
+// ("München" → munich); until it lands, slug the typed name.
 const resolvedCitySlug = ref('')
 const dancerCitySlug = computed(() => resolvedCitySlug.value || toCitySlug(dancerCity.value || ''))
 // Upcoming classes in the city ("Your first class" list on the city page).
@@ -111,81 +95,26 @@ const cityClassesLink = computed(() => dancerCitySlug.value ? `/cities/${dancerC
 // "Full week" → the city's week.
 const citySocialsLink = computed(() => dancerCitySlug.value ? `/cities/${dancerCitySlug.value}` : '/cities')
 
-// Catalogue of festivals — same source /festivals uses. Extract to a
-// composable once this data starts to matter.
-function cheapestPrice(tickets: Array<{ price: number; soldOut?: boolean }>) {
-  const available = tickets.filter(t => !t.soldOut).map(t => t.price)
-  return available.length ? Math.min(...available) : undefined
-}
-
-const catalogue = [
-  {
-    slug: meneate.mockFestival.slug,
-    name: meneate.mockFestival.name,
-    startDate: meneate.mockFestival.startDate,
-    endDate: meneate.mockFestival.endDate,
-    location: 'Vienna, Austria',
-    venue: meneate.mockFestival.venue.name,
-    logo: meneate.mockFestival.logo,
-    accentColor: meneate.mockFestival.accentColor,
-    workshopCount: meneate.mockWorkshops.filter(w => w.type !== 'party').length,
-    ticketUrl: meneate.mockFestival.ticketUrl,
-    ticketFromPrice: cheapestPrice(meneate.mockFestival.tickets),
-    earlyBirdDeadline: undefined as string | undefined,
-    styles: ['Salsa', 'Bachata', 'Kizomba'] as string[],
-  },
-  {
-    slug: cubanFire.mockFestival.slug,
-    name: cubanFire.mockFestival.name,
-    startDate: cubanFire.mockFestival.startDate,
-    endDate: cubanFire.mockFestival.endDate,
-    location: 'Munich, Germany',
-    venue: cubanFire.mockFestival.venue.name,
-    logo: '',
-    accentColor: cubanFire.mockFestival.accentColor,
-    workshopCount: cubanFire.mockWorkshops.filter(w => w.type !== 'party').length,
-    ticketUrl: (cubanFire.mockFestival as any).ticketUrl,
-    ticketFromPrice: cheapestPrice(cubanFire.mockFestival.tickets),
-    earlyBirdDeadline: undefined as string | undefined,
-    styles: ['Salsa', 'Timba', 'Afro-Cuban'] as string[],
-  },
-  {
-    slug: caribbeanUrbanFire.mockFestival.slug,
-    name: caribbeanUrbanFire.mockFestival.name,
-    startDate: caribbeanUrbanFire.mockFestival.startDate,
-    endDate: caribbeanUrbanFire.mockFestival.endDate,
-    location: 'Munich, Germany',
-    venue: caribbeanUrbanFire.mockFestival.venue.name,
-    logo: '',
-    accentColor: caribbeanUrbanFire.mockFestival.accentColor,
-    workshopCount: caribbeanUrbanFire.mockWorkshops.filter(w => w.type !== 'party').length,
-    ticketUrl: (caribbeanUrbanFire.mockFestival as any).ticketUrl,
-    ticketFromPrice: cheapestPrice(caribbeanUrbanFire.mockFestival.tickets),
-    earlyBirdDeadline: undefined as string | undefined,
-    styles: ['Salsa', 'Bachata', 'Reggaeton'] as string[],
-  },
-  {
-    slug: salsaOpen.mockFestival.slug,
-    name: salsaOpen.mockFestival.name,
-    startDate: salsaOpen.mockFestival.startDate,
-    endDate: salsaOpen.mockFestival.endDate,
-    location: 'Berlin, Germany',
-    venue: salsaOpen.mockFestival.venue.name,
-    logo: salsaOpen.mockFestival.logo,
-    accentColor: salsaOpen.mockFestival.accentColor,
-    workshopCount: salsaOpen.mockWorkshops.length,
-    ticketUrl: (salsaOpen.mockFestival as any).ticketUrl,
-    ticketFromPrice: cheapestPrice((salsaOpen.mockFestival as any).tickets || []),
-    earlyBirdDeadline: '2026-06-01',
-    styles: ['Salsa', 'Bachata'] as string[],
-  },
-  ...previewOnlyFestivals,
-]
-
 // A festival from the DB is planned by its key (year plan) or, a festival event
 // without festival details, by its event id (week plan) — as /festivals saves it
-// (RAZ-1003). `href` is its page; the mock catalogue has neither.
-type CatalogueEntry = typeof catalogue[number] & { planType?: 'festival' | 'event'; href?: string }
+// (RAZ-1003). `href` is its page. Price and the programme are on that page.
+type CatalogueEntry = {
+  slug: string
+  name: string
+  startDate: string
+  endDate: string
+  location: string
+  venue: string
+  logo: string
+  accentColor: string
+  workshopCount: number
+  ticketUrl: string
+  ticketFromPrice?: number
+  earlyBirdDeadline?: string
+  styles: string[]
+  planType?: 'festival' | 'event'
+  href?: string
+}
 const festivalHref = (f: CatalogueEntry) => f.href || festivalPath(f.slug)
 
 // Real festival data from the DB, fetched via plan.myPlan for signed-in users.
@@ -222,16 +151,8 @@ async function loadMyPlanFestivals() {
 }
 
 const picked = computed(() => {
-  // Preview mode: use mock catalogue only.
-  if (previewMode.value) {
-    return catalogue
-      .filter(f => effectivePickIds.value.has(f.slug))
-      .sort((a, b) => a.startDate.localeCompare(b.startDate))
-  }
-
-  // Real mode: only the dancer's festivals from the DB (plan.myPlan). The
-  // mock catalogue above is preview-only — it never fills a real plan.
-  // Filtered by effectivePickIds so local removals show at once (RAZ-285).
+  // The dancer's festivals from the DB (plan.myPlan). Filtered by the plan
+  // stores so a removal shows at once (RAZ-285).
   return dbFestivals.value
     .filter(f => f.planType === 'event' ? weekPlanIds.value.has(f.slug) : effectivePickIds.value.has(f.slug))
     .sort((a, b) => a.startDate.localeCompare(b.startDate))
@@ -256,13 +177,9 @@ watch([dancerUsername, dancerIdReal], () => {
   if (import.meta.client) yearShareLink.value = yearShareUrl(window.location.origin, dancerUsername.value, dancerIdReal.value)
 })
 
-// Nothing is ever added to a real plan without the dancer's own action:
-// onboarding used to auto-fill festivals (by name match against the mock
-// catalogue) and courses (from mock city data) — removed.
+// Nothing is added to a plan without the dancer's own action.
 
 function onRemove(slug: string) {
-  // In preview mode we don't mutate real state.
-  if (previewMode.value) return
   if (dbFestivals.value.find(f => f.slug === slug)?.planType === 'event') removeWeekEvent(slug)
   else removeFestival(slug)
 }
@@ -292,19 +209,18 @@ function daysUntilLabel(dateStr: string, endStr?: string | null) {
 }
 
 onMounted(() => {
-  // Fetch real hangouts data and city events for signed-in users with a city
-  if (isSignedIn.value && !previewMode.value && dancerCity.value) {
+  // Fetch hangouts and city events for signed-in users with a city
+  if (isSignedIn.value && dancerCity.value) {
     fetchHangouts()
     loadCityEvents()
   }
-  // Load persisted goals, enrolled courses, socials, and real festivals from DB
-  if (isSignedIn.value && !previewMode.value) loadOwnPlan()
+  // Load persisted goals, enrolled courses, socials, and festivals from DB
+  if (isSignedIn.value) loadOwnPlan()
 })
 
 // Signed in on this page (the Join / Sign in modal): load the plan now — the
 // onMounted load above only runs for a session that was already there.
 watch(isSignedInReal, (signedIn) => {
-  if (previewMode.value) return
   if (signedIn) loadOwnPlan()
   else ownPlanLoaded.value = false
 })
@@ -312,7 +228,7 @@ watch(isSignedInReal, (signedIn) => {
 // RAZ-890: the plan only arrives after hydration, so until every query that
 // fills it has settled the page shows a loading state — never "You haven't
 // picked anything yet" for a dancer whose plan is simply still in flight.
-const ownPlanLoaded = ref(route.query.preview === '1')
+const ownPlanLoaded = ref(false)
 function loadOwnPlan() {
   loadGoalsFromDb()
   loadDiscoverDeck()
@@ -339,16 +255,16 @@ function hideChatgptPitch() {
   chatgptHidden.value = true
   try { localStorage.setItem(CHATGPT_HIDE_KEY, '1') } catch { /* storage blocked */ }
 }
-const showChatgptPitch = computed(() => !chatgptHidden.value && (previewMode.value || chatgptConnected.value === false))
+const showChatgptPitch = computed(() => !chatgptHidden.value && chatgptConnected.value === false)
 
 // Your year in dance (RAZ-966): a banner at the top around the turn of the
 // year (December, January) for signed-in dancers; a quiet link the rest of it.
-const showYearReviewBanner = computed(() => isSignedIn.value && !previewMode.value && isYearTurn() && viewState.value !== 'loading')
+const showYearReviewBanner = computed(() => isSignedIn.value && isYearTurn() && viewState.value !== 'loading')
 
 const viewState = computed(() => planView({
   signedIn: isSignedIn.value,
-  authPending: !previewMode.value && authPending({ server: import.meta.server, hasHint: !!authHint.value, authLoading: authLoading.value }),
-  loaded: previewMode.value || (ownPlanLoaded.value && yearPlanLoaded.value),
+  authPending: authPending({ server: import.meta.server, hasHint: !!authHint.value, authLoading: authLoading.value }),
+  loaded: ownPlanLoaded.value && yearPlanLoaded.value,
   empty: picked.value.length === 0 && courses.value.length === 0 && socials.value.length === 0,
 }))
 
@@ -357,7 +273,7 @@ watch(() => dancerCity.value, () => {
   // The old city's slug no longer applies; weekSocials re-resolves the new one
   // (and refetches city events if it differs from the typed-name guess).
   resolvedCitySlug.value = ''
-  if (isSignedIn.value && !previewMode.value && dancerCity.value) {
+  if (isSignedIn.value && dancerCity.value) {
     fetchHangouts()
     loadCityEvents()
     loadWeekSocials()
@@ -374,66 +290,19 @@ type TrackKey = 'ticketBought' | 'travelBooked' | 'stayBooked' | 'partnerFound' 
 type Progress = Partial<Record<TrackKey, boolean>>
 const STORAGE_KEY = 'wedance-plan-progress'
 
-// -----------------------------------------------------------------------
-// Workshop picker store — per-festival workshop selections in localStorage.
-// Maps festival slug to a set of selected workshop IDs.
-// -----------------------------------------------------------------------
-const WORKSHOPS_STORAGE_KEY = 'wedance-plan-workshops'
-type WorkshopSelections = Record<string, Set<string>>
-const workshopSelections = ref<WorkshopSelections>({})
-
-// Preview seed — applied synchronously during setup so the SSR paint
-// already shows a rich mix of done/urgent/todo states in demo mode.
-const PREVIEW_SEED: Record<string, Progress> = {
-  'meneate-viena-2026':          { ticketBought: true, travelBooked: true, vacationBooked: true },
-  'bachata-stars-barcelona-2026': {},
-  'kizomba-prague-2026':          {},
-}
-
-const isPreviewInitial = route.query.preview === '1'
-const progressStore = ref<Record<string, Progress>>(isPreviewInitial ? PREVIEW_SEED : {})
+const progressStore = ref<Record<string, Progress>>({})
 
 function persistProgress() {
   if (typeof localStorage === 'undefined') return
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(progressStore.value)) } catch { /* quota */ }
 }
 
-function loadWorkshopSelections() {
-  if (typeof localStorage === 'undefined') return
-  try {
-    const raw = localStorage.getItem(WORKSHOPS_STORAGE_KEY)
-    if (raw) {
-      const parsed = JSON.parse(raw)
-      // Convert arrays back to Sets
-      workshopSelections.value = Object.fromEntries(
-        Object.entries(parsed).map(([key, val]) => [key, new Set(val as string[])])
-      )
-    }
-  } catch { /* corrupt payload — will be overwritten on next toggle */ }
-}
-
-function persistWorkshopSelections() {
-  if (typeof localStorage === 'undefined') return
-  try {
-    // Convert Sets to arrays for JSON serialization
-    const toSave = Object.fromEntries(
-      Object.entries(workshopSelections.value).map(([key, set]) => [key, Array.from(set)])
-    )
-    localStorage.setItem(WORKSHOPS_STORAGE_KEY, JSON.stringify(toSave))
-  } catch { /* quota */ }
-}
-
 onMounted(async () => {
-  // Real user: load persisted state. Preview mode skips localStorage.
-  if (previewMode.value) return
   if (typeof localStorage === 'undefined') return
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) progressStore.value = JSON.parse(raw)
   } catch { /* corrupt payload — will be overwritten on next toggle */ }
-
-  // Load workshop selections
-  loadWorkshopSelections()
 
   // Sync ticket status from backend — a purchased ticket overrides localStorage
   if (isSignedIn.value) {
@@ -457,80 +326,13 @@ function getProgress(slug: string): Progress {
   return progressStore.value[slug] ?? {}
 }
 
-// Get workshops for a festival by slug
-function getWorkshopsForFestival(slug: string): typeof meneate.mockWorkshops {
-  if (slug === 'meneate-viena-2026') return meneate.mockWorkshops
-  if (slug === 'salsa-open-berlin-2026') return salsaOpen.mockWorkshops
-  if (slug === 'cuban-fire-munich-2026') return cubanFire.mockWorkshops
-  if (slug === 'caribbean-urban-fire-munich-2026') return caribbeanUrbanFire.mockWorkshops
-  return []
-}
-
-function getTeacherName(slug: string, teacherId: string): string {
-  const teachers = {
-    'meneate-viena-2026': meneate.mockTeachers,
-    'salsa-open-berlin-2026': salsaOpen.mockTeachers,
-    'cuban-fire-munich-2026': cubanFire.mockTeachers,
-    'caribbean-urban-fire-munich-2026': caribbeanUrbanFire.mockTeachers,
-  }
-  const festivalTeachers = teachers[slug as keyof typeof teachers]
-  if (!festivalTeachers) return ''
-  const teacher = festivalTeachers.find((t: any) => t.id === teacherId)
-  return teacher?.name || ''
-}
-
-function getSelectedWorkshops(slug: string): Set<string> {
-  return workshopSelections.value[slug] ?? new Set()
-}
-
-function removeConflicting(slug: string, newWorkshopId: string) {
-  // Remove any existing pick at the same day+time (different room)
-  const allWorkshops = getWorkshopsForFestival(slug)
-  const newWorkshop = allWorkshops.find((w: any) => w.id === newWorkshopId)
-  if (!newWorkshop || newWorkshop.type === 'party') return
-
-  const selected = getSelectedWorkshops(slug)
-  const toRemove: string[] = []
-  for (const existingId of selected) {
-    const existing = allWorkshops.find((w: any) => w.id === existingId)
-    if (existing && existing.id !== newWorkshop.id && existing.type !== 'party' && existing.day === newWorkshop.day && existing.time === newWorkshop.time) {
-      toRemove.push(existingId)
-    }
-  }
-  toRemove.forEach(id => selected.delete(id))
-}
-
-function toggleWorkshop(slug: string, workshopId: string) {
-  if (!workshopSelections.value[slug]) {
-    workshopSelections.value[slug] = new Set()
-  }
-  const selected = workshopSelections.value[slug]
-  if (selected.has(workshopId)) {
-    selected.delete(workshopId)
-  } else {
-    removeConflicting(slug, workshopId)
-    selected.add(workshopId)
-  }
-  workshopSelections.value = { ...workshopSelections.value }
-  if (!previewMode.value) persistWorkshopSelections()
-}
-
-function removeSelectedWorkshop(slug: string, workshopId: string) {
-  const selected = getSelectedWorkshops(slug)
-  if (selected.has(workshopId)) {
-    selected.delete(workshopId)
-    workshopSelections.value = { ...workshopSelections.value }
-    if (!previewMode.value) persistWorkshopSelections()
-  }
-}
-
 function toggleTrack(slug: string, key: TrackKey) {
   const current = getProgress(slug)
   progressStore.value = {
     ...progressStore.value,
     [slug]: { ...current, [key]: !current[key] },
   }
-  if (!previewMode.value) persistProgress()
+  persistProgress()
 }
 
 // -----------------------------------------------------------------------
@@ -651,9 +453,9 @@ function tracks(f: CatalogueEntry): Track[] {
       key: 'workshops',
       icon: GraduationCap,
       label: 'Workshops',
-      state: { text: `${f.workshopCount} on the schedule · ${getSelectedWorkshops(f.slug).size} picked`, tone: getSelectedWorkshops(f.slug).size > 0 ? 'done' : 'todo' },
-      action: getWorkshopsForFestival(f.slug).length === 0 ? { label: 'Browse workshops', href: `${festivalHref(f)}#schedule`, external: false } : null,
-      done: getSelectedWorkshops(f.slug).size > 0,
+      state: { text: f.workshopCount ? `${f.workshopCount} on the schedule` : 'Pick them on the schedule', tone: 'todo' as const },
+      action: { label: 'Browse workshops', href: `${festivalHref(f)}#schedule`, external: false },
+      done: false,
     },
     // Partner
     {
@@ -707,11 +509,8 @@ const toneStyle = (tone: 'done' | 'urgent' | 'todo' | 'muted') => {
 
 // -----------------------------------------------------------------------
 // Accordion — collapsed by default; click any card header to expand.
-// Preview mode expands the "urgent" festival so both states are visible.
 // -----------------------------------------------------------------------
-const expandedSlugs = ref<Set<string>>(new Set(
-  isPreviewInitial ? ['bachata-stars-barcelona-2026'] : [],
-))
+const expandedSlugs = ref<Set<string>>(new Set())
 
 // Which festivals have the "Find a ride" panel open (toggled from the Travel track).
 const rideOpenSlugs = ref<Set<string>>(new Set())
@@ -729,24 +528,11 @@ function toggleExpanded(slug: string) {
 }
 
 // -----------------------------------------------------------------------
-// GOALS · long arcs above the year. Editing not yet wired — content is
-// user-owned data that will live server-side. Preview seeds a mix.
+// GOALS · long arcs above the year, stored on the dancer's plan.
 // -----------------------------------------------------------------------
-// Preview goals for ?preview=1 mode.
-type PreviewGoal = { id: string; title: string; why: string; progress: number; style: string; nudge?: string; icon: any; color: string }
-const previewGoals: PreviewGoal[] = [
-  { id: 'g1', title: 'Learn timba (advanced)',   why: 'Feel at home in a Cuban rueda.',             progress: 55, style: 'Timba', nudge: 'Book 2 more privates before Cuban Fire.', icon: Flame,     color: WD.red600 },
-  { id: 'g2', title: 'Perform at Cuban Fire',    why: 'Duet with Emilia — 3-minute son piece.',    progress: 20, style: 'Salsa', nudge: 'Choose the song this week.',                icon: Sparkles,  color: WD.amber500 },
-  { id: 'g3', title: 'Teach my first class',     why: 'Kids salsa Saturdays at 15x4.',              progress: 10, style: 'Salsa', nudge: 'Sit in on Anna\'s lesson Sunday.',           icon: GraduationCap, color: WD.green600 },
-]
-
-// Real goals — persisted via TRPC plan router.
 const { goals: dbGoals, addGoal, removeGoal, updateGoal, hasGoal, loadFromDb: loadGoalsFromDb } = useGoals()
 
-
-// Unified view: preview mode shows hard-coded preview goals; real mode shows DB goals.
 const goalsList = computed(() => {
-  if (previewMode.value) return previewGoals
   return dbGoals.value.map(g => ({
     id: g.id,
     title: g.title,
@@ -829,7 +615,7 @@ async function onProgressChange(goalId: string, value: number) {
   await updateGoal(goalId, { progress: value })
 }
 function startEditingProgress(goalId: string) {
-  if (!previewMode.value) editingProgressGoalId.value = goalId
+  editingProgressGoalId.value = goalId
 }
 function stopEditingProgress() {
   editingProgressGoalId.value = null
@@ -854,36 +640,12 @@ type Course = {
   teacher: string; style: string; level: string
   weekday: string; time: string; venue: string
   nextClassDate: string
-  /** Payment / attendance only when real data exists — never 0/0 placeholders. Preview only today. */
+  /** Payment / attendance only when the enrolment actually has them. */
   attended?: number; total?: number
   paidThroughMonth?: boolean
   color: string
 }
-const previewCourses: Course[] = [
-  {
-    id: 'c1',
-    school: 'Cubaila Munich', teacher: 'Yordana + Alexei',
-    style: 'Timba', level: 'Beginner+',
-    weekday: 'Wed', time: '19:00',
-    venue: 'La Rumba',
-    nextClassDate: '2026-07-08',
-    attended: 6, total: 8,
-    paidThroughMonth: true,
-    color: WD.red600,
-  },
-  {
-    id: 'c2',
-    school: '15x4 Munich', teacher: 'Emilia',
-    style: 'Cuban Son', level: 'Intermediate',
-    weekday: 'Mon', time: '20:00',
-    venue: 'Buena Vista',
-    nextClassDate: '2026-07-06',
-    attended: 3, total: 4,
-    paidThroughMonth: false,
-    color: WD.cyan600,
-  },
-]
-const courses = ref<Course[]>(isPreviewInitial ? previewCourses : [])
+const courses = ref<Course[]>([])
 
 // Enrollment picker — shows available classes from real DB events.
 const showEnrollPicker = ref(false)
@@ -938,7 +700,7 @@ function formatShortDate(iso: string): string {
   return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })
 }
 
-// Real upcoming classes in the dancer's city (never mock data).
+// Upcoming classes in the dancer's city.
 const availableClasses = computed(() => {
   const enrolledIds = new Set(courses.value.flatMap(c => [c.id, c.eventId].filter(Boolean) as string[]))
   return realCityEvents.value
@@ -947,7 +709,6 @@ const availableClasses = computed(() => {
 })
 
 async function enrollClass(e: CityEvent) {
-  if (previewMode.value) return
   useTrack().track('week_plan_add', { event_id: e.id, source: 'enroll_picker' })
   try {
     await $trpc.plan.add.mutate({ itemType: 'event', itemId: e.id, metadata: { type: 'class' } })
@@ -962,7 +723,6 @@ async function enrollClass(e: CityEvent) {
 async function unenrollCourse(id: string) {
   const before = courses.value
   courses.value = courses.value.filter(c => c.id !== id)
-  if (previewMode.value) return
   try {
     await $trpc.plan.remove.mutate({ itemType: 'event', itemId: id })
     useTrack().track('week_plan_remove', { event_id: id, source: 'my_plan_course' })
@@ -974,7 +734,7 @@ async function unenrollCourse(id: string) {
 
 // The dancer's courses: class plan items backed by real events (plan.myCourses).
 async function loadCoursesFromDb() {
-  if (previewMode.value || !isSignedIn.value) return
+  if (!isSignedIn.value) return
   try {
     const { courses: rows } = await $trpc.plan.myCourses.query()
     courses.value = rows.map((c) => {
@@ -1026,25 +786,8 @@ type Social = {
   friendsGoing: number
   color: string
 }
-// Preview dates are relative to today so the demo always shows a live week.
-function previewDay(offset: number): { dayLabel: string; dateISO: string } {
-  const d = new Date(Date.now() + offset * 86400_000)
-  return {
-    dayLabel: d.toLocaleDateString('en-US', { weekday: 'short' }),
-    dateISO: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
-  }
-}
-const previewSocials: Social[] = [
-  { id: 'preview', planItemId: 'preview', name: 'La Rumba Friday', ...previewDay(0), time: '22:00', venue: 'La Rumba', city: 'Munich', style: 'Salsa', friendsGoing: 6, color: WD.red600 },
-  { id: 's1', planItemId: 's1', name: 'La Rumba night',         ...previewDay(1), time: '21:00', venue: 'La Rumba',   city: 'Munich', style: 'Cuban',   friendsGoing: 5, color: WD.red600 },
-  { id: 's2', planItemId: 's2', name: 'Rueda flashmob',         ...previewDay(2), time: '14:00', venue: 'Diana Tempel', city: 'Munich', style: 'Rueda',   friendsGoing: 12, color: WD.amber500 },
-  { id: 's3', planItemId: 's3', name: 'Bailala night',          ...previewDay(2), time: '22:00', venue: 'Bailala',   city: 'Munich', style: 'Bachata', friendsGoing: 3, color: WD.purple500 },
-  { id: 'c1', planItemId: 'c1', name: 'Casino Partnerwork',   ...previewDay(3), time: '20:00', venue: 'Buena Vista Bar', city: 'Munich', style: 'Salsa', friendsGoing: 1, color: WD.amber600, isClass: true },
-  { id: 's4', planItemId: 's4', name: 'Cuban practica',         ...previewDay(3), time: '19:00', venue: 'Buena Vista', city: 'Munich', style: 'Practica', friendsGoing: 4, color: WD.green600 },
-  { id: 's5', planItemId: 's5', name: 'Warm-up social',         ...previewDay(6), time: '20:30', venue: 'La Rumba',   city: 'Munich', style: 'All',     friendsGoing: 2, color: WD.cyan600 },
-]
-const socials = ref<Social[]>(isPreviewInitial ? previewSocials : [])
-const weekSocialsLoaded = ref(isPreviewInitial)
+const socials = ref<Social[]>([])
+const weekSocialsLoaded = ref(false)
 
 /** 'YYYY-MM-DD' → 'Sat 18 Oct' for the day chip's second line. */
 function shortDayDate(iso: string): string {
@@ -1079,7 +822,7 @@ async function loadWeekendStory(key: string) {
 /** How far ahead the plan feed reaches: My plan's Month tab (RAZ-1006). */
 const MONTH_DAYS = 30
 async function loadWeekSocials() {
-  if (previewMode.value || !isSignedIn.value) return
+  if (!isSignedIn.value) return
   try {
     // One feed for Today, Week and Month: the next 30 days, every class of a course included.
     const { socials: rows, citySlug } = await $trpc.plan.weekSocials.query({ days: MONTH_DAYS })
@@ -1131,7 +874,7 @@ const weekPlans = computed(() => upcomingSocials.value.filter(s => !s.dateISO ||
 const upcomingNights = computed(() => weekPlans.value.filter(s => !s.isClass))
 
 watch(
-  () => (isSignedIn.value && !previewMode.value && weekSocialsLoaded.value ? weekendKey(upcomingNights.value.map(x => x.id)) : ''),
+  () => (isSignedIn.value && weekSocialsLoaded.value ? weekendKey(upcomingNights.value.map(x => x.id)) : ''),
   (key) => {
     if (key === weekendFor) return
     weekendFor = key
@@ -1163,7 +906,7 @@ function removeSocialFromPlan(id: string) {
   if (!s) return
   socials.value = socials.value.filter(x => x.id !== id)
   removedSocial.value = s
-  if (!previewMode.value) removeWeekEvent(s.planItemId)
+  removeWeekEvent(s.planItemId)
 }
 
 function undoRemoveSocial() {
@@ -1171,7 +914,7 @@ function undoRemoveSocial() {
   if (!s) return
   removedSocial.value = null
   socials.value = [...socials.value, s].sort((a, b) => (a.dateISO + a.time).localeCompare(b.dateISO + b.time))
-  if (!previewMode.value) addWeekEvent(s.planItemId)
+  addWeekEvent(s.planItemId)
 }
 
 // -----------------------------------------------------------------------
@@ -1198,20 +941,13 @@ const hangoutColors: Record<string, string> = {
   ride: WD.cyan600,
 }
 
-const previewHangouts: Hangout[] = [
-  { id: 'h1', kind: 'dinner', title: 'Dinner before La Rumba', time: '19:00', host: 'Mark + Klaus', venue: 'Xoco', people: 6,  going: false, color: WD.amber500, mine: false, event: { id: 'preview', name: 'La Rumba Friday', startDate: null, timezone: null }, inMyPlan: true },
-  { id: 'h2', kind: 'floor',  title: 'La Rumba floor',         time: '22:00', venue: 'La Rumba',   people: 40, going: true,  color: WD.red600, mine: true, event: { id: 'preview', name: 'La Rumba Friday', startDate: null, timezone: null }, inMyPlan: true },
-  { id: 'h3', kind: 'bar',    title: 'Post-social mojitos',    time: '02:30', venue: 'Café con Leche', people: 8,  going: false, color: WD.purple500, mine: false },
-  { id: 'h4', kind: 'ride',   title: 'Ride to Diana Tempel',   time: '13:30', host: 'Egor',        people: 3,  going: false, color: WD.cyan600, mine: false },
-]
-
-const hangouts = ref<Hangout[]>(isPreviewInitial ? previewHangouts : [])
+const hangouts = ref<Hangout[]>([])
 const loadingHangouts = ref(false)
 const userRsvpedHangouts = ref<Set<string>>(new Set())
 
 // Fetch tonight's hangouts from backend
 async function fetchHangouts() {
-  if (previewMode.value || !isSignedIn.value || !dancerCity.value) return
+  if (!isSignedIn.value || !dancerCity.value) return
 
   loadingHangouts.value = true
   try {
@@ -1245,11 +981,6 @@ async function fetchHangouts() {
 }
 
 async function toggleHangout(id: string) {
-  if (previewMode.value) {
-    hangouts.value = hangouts.value.map(h => h.id === id ? { ...h, going: !h.going } : h)
-    return
-  }
-
   try {
     const res = await $trpc.hangouts.toggleRsvp.mutate({ hangoutId: id })
     useTrack().track('hangout_rsvp', { going: !!res?.rsvpd, surface: 'my_plan', hangout_id: id })
@@ -1292,7 +1023,7 @@ const pickedHangoutEvent = computed(() =>
 )
 async function openHangoutForm() {
   showHangoutForm.value = !showHangoutForm.value
-  if (!showHangoutForm.value || previewMode.value || !dancerCity.value) return
+  if (!showHangoutForm.value || !dancerCity.value) return
   try {
     hangoutEventOptions.value = await $trpc.hangouts.eventOptions.query({ citySlug: dancerCity.value })
     // Default to the dancer's own (first) planned event tonight.
@@ -1305,25 +1036,6 @@ const creatingHangout = ref(false)
 const hangoutError = ref('')
 
 async function createHangout() {
-  if (previewMode.value) {
-    const fake: Hangout = {
-      id: `h-${Date.now()}`,
-      kind: newHangout.value.kind,
-      title: newHangout.value.title || `${newHangout.value.kind.charAt(0).toUpperCase() + newHangout.value.kind.slice(1)} hangout`,
-      time: newHangout.value.time,
-      venue: newHangout.value.venue || undefined,
-      people: 1,
-      going: true,
-      color: hangoutColors[newHangout.value.kind] || WD.brown900,
-      mine: true,
-    }
-    hangouts.value.unshift(fake)
-    showHangoutForm.value = false
-    newHangout.value = emptyHangout()
-    newHangoutPlace.value = null
-    return
-  }
-
   if (!newHangout.value.title.trim()) return
   hangoutError.value = ''
   creatingHangout.value = true
@@ -1360,10 +1072,6 @@ async function createHangout() {
 }
 
 async function closeHangout(id: string) {
-  if (previewMode.value) {
-    hangouts.value = hangouts.value.filter(h => h.id !== id)
-    return
-  }
   try {
     await $trpc.hangouts.close.mutate({ id })
     hangouts.value = hangouts.value.filter(h => h.id !== id)
@@ -1481,25 +1189,15 @@ const goalsSummary = computed(() => goalsList.value.length
 // dancers you said yes to are heading to X — add it?" in Your festivals.
 // -----------------------------------------------------------------------
 type FestivalNudge = { festivalSlug: string; festivalName: string; festivalColor: string; dancerNames: string[]; dismissed: boolean }
-const festivalNudges = ref<FestivalNudge[]>(isPreviewInitial
-  ? [
-      // Preview: prime the "add Timba Fest London" nudge so the loop is visible.
-      { festivalSlug: 'timba-fest-london-2026', festivalName: 'Timba Fest London', festivalColor: WD.sky500, dancerNames: ['Emilia', 'Sasha'], dismissed: false },
-    ]
-  : [])
-const PREVIEW_MEET_FACES = [
-  { id: 'ivana', name: 'Ivana', photo: 'https://i.pravatar.cc/240?u=ivana' },
-  { id: 'emilia', name: 'Emilia', photo: 'https://i.pravatar.cc/240?u=emilia' },
-  { id: 'klaus', name: 'Klaus', photo: 'https://i.pravatar.cc/240?u=klaus' },
-]
+const festivalNudges = ref<FestivalNudge[]>([])
 const meetPeople = ref<MeetCard[]>([])
 const meetLoaded = ref(false)
-const meetFaces = computed(() => previewMode.value ? PREVIEW_MEET_FACES : meetPeople.value.slice(0, 3))
-const meetCount = computed<number | null>(() => previewMode.value ? 13 : (meetLoaded.value ? meetPeople.value.length : null))
+const meetFaces = computed(() => meetPeople.value.slice(0, 3))
+const meetCount = computed<number | null>(() => meetLoaded.value ? meetPeople.value.length : null)
 
 /** Load the entry card's people and the festival nudges for signed-in users. */
 async function loadDiscoverDeck() {
-  if (previewMode.value || !isSignedIn.value) return
+  if (!isSignedIn.value) return
   try {
     const result = await $trpc.plan.discover.query()
     festivalNudges.value = result.nudges.map(n => ({ ...n, dismissed: false }))
@@ -1515,7 +1213,7 @@ const activeFestivalNudges = computed(() =>
 )
 
 function acceptFestivalNudge(n: FestivalNudge) {
-  if (!previewMode.value) addFestival(n.festivalSlug, { surface: 'nudge' })
+  addFestival(n.festivalSlug, { surface: 'nudge' })
   n.dismissed = true
   festivalNudges.value = [...festivalNudges.value]
 }
@@ -1524,11 +1222,9 @@ function acceptFestivalNudge(n: FestivalNudge) {
 function dismissFestivalNudge(n: FestivalNudge) {
   n.dismissed = true
   festivalNudges.value = [...festivalNudges.value]
-  if (!previewMode.value) {
-    $trpc.plan.discoverSwipe
-      .mutate({ targetKind: 'festival', targetId: n.festivalSlug, decision: 'skip' })
-      .catch(err => console.warn('[discover] dismiss not saved:', err))
-  }
+  $trpc.plan.discoverSwipe
+    .mutate({ targetKind: 'festival', targetId: n.festivalSlug, decision: 'skip' })
+    .catch(err => console.warn('[discover] dismiss not saved:', err))
 }
 
 // -----------------------------------------------------------------------
@@ -1673,7 +1369,7 @@ function cardSummary(f: CatalogueEntry) {
       <!-- Nothing picked yet is no reason not to meet people (RAZ-989). -->
       <MeetFriendsEntry :faces="meetFaces" :count="meetCount" surface="my_plan_empty" class="mt-6" />
       <!-- YOUR DANCE FRIENDS · mutual yeses, each with a night out (RAZ-985). -->
-      <MeetMatches v-if="!previewMode" class="mt-6" />
+      <MeetMatches class="mt-6" />
     </section>
 
     <!-- SIGNED IN, WITH PICKS -->
@@ -1692,7 +1388,7 @@ function cardSummary(f: CatalogueEntry) {
       <!-- MEET NEW FRIENDS · its own page (/meet, RAZ-989); first thing in the plan. -->
       <MeetFriendsEntry :faces="meetFaces" :count="meetCount" surface="my_plan" class="mt-2" />
       <!-- YOUR DANCE FRIENDS · mutual yeses, each with a night out (RAZ-985). -->
-      <MeetMatches v-if="!previewMode" class="mt-6" @planned="loadWeekSocials" />
+      <MeetMatches class="mt-6" @planned="loadWeekSocials" />
 
       <!-- ZOOM TABS (RAZ-1006): Today / Week / Month / Year — each holds everything in its span. -->
       <div class="mt-12 sticky top-0 z-20 -mx-4 px-4 py-2 bg-background/95 backdrop-blur" data-testid="plan-zoom">
@@ -1779,7 +1475,7 @@ function cardSummary(f: CatalogueEntry) {
               </Field>
               <Field id="hangout-venue" label="Where?" optional>
                 <HangoutsPlaceAutocomplete
-                  v-if="!previewMode && dancerCity"
+                  v-if="dancerCity"
                   v-model="newHangout.venue"
                   :city-slug="dancerCity"
                   size="sm"
@@ -1827,7 +1523,6 @@ function cardSummary(f: CatalogueEntry) {
             <MyPlanEventRow
               v-else-if="r.kind === 'plan'"
               :s="r.s"
-              :preview="previewMode"
               :class="i > 0 ? 'border-t' : ''"
               style="border-color:color-mix(in srgb, var(--wd-brown-900) 5.1%, transparent);"
               @remove="removeSocialFromPlan"
@@ -1847,7 +1542,7 @@ function cardSummary(f: CatalogueEntry) {
                   <div class="text-sm font-bold truncate text-foreground">{{ r.h.title }}</div>
                   <div v-if="r.h.event && !r.nested" class="text-xs truncate font-sans">
                     <span class="text-muted-foreground">For </span>
-                    <NuxtLink v-if="!previewMode" :to="eventPath({ id: r.h.event.id, name: r.h.event.name })" class="font-bold text-primary hover:underline">{{ r.h.event.name }}</NuxtLink>
+                    <NuxtLink :to="eventPath({ id: r.h.event.id, name: r.h.event.name })" class="font-bold text-primary hover:underline">{{ r.h.event.name }}</NuxtLink>
                     <span v-else class="font-bold text-primary">{{ r.h.event.name }}</span>
                     <span v-if="r.h.event.startDate" class="text-muted-foreground"> · {{ eventLocalTime(r.h.event.startDate, r.h.event.timezone || undefined) }}</span>
                     <span v-if="r.h.inMyPlan" class="ml-1 text-eyebrow font-bold uppercase tracking-widest text-wd-green-600">in your plan</span>
@@ -1921,7 +1616,6 @@ function cardSummary(f: CatalogueEntry) {
             :key="s.id"
             :s="s"
             :chip="dayChip(s)"
-            :preview="previewMode"
             :class="i > 0 ? 'border-t' : ''"
             style="border-color:color-mix(in srgb, var(--wd-brown-900) 5.1%, transparent);"
             @remove="removeSocialFromPlan"
@@ -1963,7 +1657,6 @@ function cardSummary(f: CatalogueEntry) {
               :key="s.id"
               :s="s"
               :chip="dayChip(s)"
-              :preview="previewMode"
               @remove="removeSocialFromPlan"
             />
           </template>
@@ -2045,7 +1738,7 @@ function cardSummary(f: CatalogueEntry) {
               <div class="flex items-start justify-between gap-3 mb-2">
                 <div class="min-w-0">
                   <NuxtLink
-                    v-if="c.eventId && !previewMode"
+                    v-if="c.eventId"
                     :to="eventPath({ id: c.eventId || c.id, name: c.name })"
                     class="block text-base font-bold leading-tight text-foreground hover:underline"
                   >{{ c.name || c.school }}</NuxtLink>
@@ -2054,7 +1747,7 @@ function cardSummary(f: CatalogueEntry) {
                   </div>
                   <div class="text-xs mt-0.5 text-muted-foreground font-sans">
                     <template v-if="c.name && c.school">
-                      <NuxtLink v-if="c.schoolUsername && !previewMode" :to="`/@${c.schoolUsername}`" class="hover:underline">{{ c.school }}</NuxtLink>
+                      <NuxtLink v-if="c.schoolUsername" :to="`/@${c.schoolUsername}`" class="hover:underline">{{ c.school }}</NuxtLink>
                       <span v-else>{{ c.school }}</span>
                     </template>
                     <span v-else-if="c.teacher">{{ c.teacher }}</span>
@@ -2087,7 +1780,7 @@ function cardSummary(f: CatalogueEntry) {
                     </span>
                   </template>
                   <!-- Only planned (RAZ-1003): the next step is signing up for the class. -->
-                  <template v-if="!c.signedUp && !previewMode">
+                  <template v-if="!c.signedUp">
                     <span class="text-xs text-muted-foreground font-sans">Planned</span>
                     <NuxtLink
                       :to="eventPath({ id: c.eventId || c.id, name: c.name })"
@@ -2399,94 +2092,10 @@ function cardSummary(f: CatalogueEntry) {
                 :festival-location="f.location"
                 :festival-start-date="f.startDate"
                 :accent-color="f.accentColor"
-                :is-signed-in="isSignedIn && !previewMode"
+                :is-signed-in="isSignedIn"
                 class="mt-4"
                 @sign-in="openAuth('signin')"
               />
-
-              <!-- WORKSHOP PICKER -->
-              <div v-if="getWorkshopsForFestival(f.slug).length > 0" class="mt-6 pt-6 border-t" style="border-color:color-mix(in srgb, var(--wd-brown-900) 5.1%, transparent);">
-                <div class="mb-4">
-                  <h4 class="text-sm font-bold mb-3 text-foreground">
-                    Pick workshops ({{ getSelectedWorkshops(f.slug).size }} selected)
-                  </h4>
-
-                  <!-- Group workshops by day -->
-                  <div
-                    v-for="day in ['Friday', 'Saturday', 'Sunday', 'Monday', 'Tuesday']"
-                    :key="day"
-                    class="mb-4"
-                  >
-                    <div
-                      v-if="getWorkshopsForFestival(f.slug).filter(w => w.day === day).length > 0"
-                    >
-                      <div class="text-xs font-bold uppercase tracking-widest mb-2 text-secondary">
-                        {{ day }}
-                      </div>
-                      <div class="space-y-2">
-                        <label
-                          v-for="w in getWorkshopsForFestival(f.slug).filter(ws => ws.day === day && ws.type !== 'party')"
-                          :key="w.id"
-                          class="flex items-start gap-3 p-2.5 rounded-lg hover:bg-black/[0.02] cursor-pointer"
-                          @click.stop
-                        >
-                          <input
-                            type="checkbox"
-                            :checked="getSelectedWorkshops(f.slug).has(w.id)"
-                            class="mt-0.5 size-4 shrink-0 cursor-pointer accent-primary"
-                            @change="toggleWorkshop(f.slug, w.id)"
-                          >
-                          <div class="flex-1 min-w-0">
-                            <div class="text-sm font-bold leading-tight text-foreground">
-                              {{ w.time }} · {{ w.title }}
-                            </div>
-                            <div class="text-xs mt-0.5 text-muted-foreground font-sans">
-                              <template v-if="w.teacherId">
-                                {{ getTeacherName(f.slug, w.teacherId) }}
-                              </template>
-                              {{ w.level }}
-                              <template v-if="w.room">
-                                · {{ w.room }}
-                              </template>
-                            </div>
-                          </div>
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Selected workshops summary -->
-                <div v-if="getSelectedWorkshops(f.slug).size > 0" class="mt-4 pt-4 border-t" style="border-color:color-mix(in srgb, var(--wd-brown-900) 5.1%, transparent);">
-                  <div class="text-xs font-bold uppercase tracking-widest mb-3 text-secondary">
-                    Your picks
-                  </div>
-                  <div class="space-y-2">
-                    <div
-                      v-for="w in getWorkshopsForFestival(f.slug).filter(ws => getSelectedWorkshops(f.slug).has(ws.id))"
-                      :key="w.id"
-                      class="flex items-start gap-2 p-2.5 rounded-lg bg-green-50"
-                    >
-                      <Check class="w-4 h-4 mt-0.5 shrink-0 text-wd-green-600" />
-                      <div class="flex-1 min-w-0">
-                        <div class="text-sm font-bold leading-tight text-foreground">
-                          {{ w.time }} · {{ w.title }}
-                        </div>
-                        <div class="text-xs text-muted-foreground font-sans">
-                          {{ w.day }} · {{ w.level }}
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        class="text-xs font-bold italic hover:underline shrink-0 text-primary"
-                        @click.stop="removeSelectedWorkshop(f.slug, w.id)"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
 
               <div class="mt-4 flex items-center gap-4 text-xs">
                 <NuxtLink
@@ -2505,7 +2114,7 @@ function cardSummary(f: CatalogueEntry) {
 
         <!-- The festival-year story, ready to post (RAZ-897 → here in RAZ-966). -->
         <YearStory
-          v-if="!previewMode && yearStoryFestivals.length && yearShareLink"
+          v-if="yearStoryFestivals.length && yearShareLink"
           :festivals="yearStoryFestivals"
           :sharer-name="(dancerName || '').split(' ')[0] || ''"
           :url="yearShareLink"
@@ -2595,7 +2204,6 @@ function cardSummary(f: CatalogueEntry) {
                   </span>
                 </div>
                 <Button
-                  v-if="!previewMode"
                   variant="ghost"
                   size="icon-sm"
                   class="size-7 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity shrink-0 rounded hover:bg-wd-red-50 text-primary hover:text-primary [&_svg]:size-3.5"
@@ -2610,7 +2218,6 @@ function cardSummary(f: CatalogueEntry) {
                 <div class="flex items-baseline justify-between mb-1">
                   <span class="text-eyebrow uppercase tracking-widest font-bold text-secondary">Progress</span>
                   <button
-                    v-if="!previewMode"
                     type="button"
                     class="text-xs font-black cursor-pointer hover:underline"
                     :style="{ color: goalProgressColor(g.progress), fontFamily: 'var(--wd-font-display)' }"
@@ -2619,7 +2226,6 @@ function cardSummary(f: CatalogueEntry) {
                   >
                     {{ g.progress }}%
                   </button>
-                  <span v-else class="text-xs font-black" :style="{ color: goalProgressColor(g.progress), fontFamily: 'var(--wd-font-display)' }">{{ g.progress }}%</span>
                 </div>
                 <input
                   v-if="editingProgressGoalId === g.id"
