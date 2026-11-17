@@ -59,10 +59,20 @@ Change a file here → copy it to the box (`scp ops/hetzner/wedance-preview root
 
 ## TLS
 
-Now: one Let's Encrypt certificate per preview host (HTTP challenge) — fine for a few PRs, but Let's
-Encrypt allows 50 new certificates a week per wedance.vip. To switch to one `*.dev.wedance.vip`
-wildcard: give Traefik a DNS-challenge resolver for wedance.vip's DNS (Netlify DNS), then set
-`"cert_resolver": "<that resolver>", "wildcard": true` in `config.json`.
+Every preview uses one `*.dev.wedance.vip` Let's Encrypt certificate (`config.json`:
+`"cert_resolver": "netlify", "wildcard": true`), so new PRs don't count against Let's Encrypt's
+50 certificates a week per wedance.vip.
+
+- wedance.vip's DNS is **Netlify DNS** (not Vercel). Traefik's `netlify` resolver in
+  `/etc/dokploy/traefik/traefik.yml` proves ownership with a DNS (TXT) challenge and renews on its own.
+- It uses a Netlify personal access token (no expiry), named `traefik-dns`: `~/Secrets/netlify-traefik-dns.token`
+  locally, `/etc/wedance-preview/netlify.token` on the box. Traefik gets it as `NETLIFY_TOKEN`, set
+  through Dokploy (`settings.writeTraefikEnv`, which recreates the Traefik container, a few seconds
+  of downtime for every site). If the token is revoked, renewals fail silently: create a new one,
+  then write it again the same way.
+- Brievcase keeps its Cloudflare origin certificate (`dynamic/brievcase-cert.yml`).
+- If Dokploy's panel ever rewrites `traefik.yml`, the `netlify` resolver block must be added back
+  (backup in `/root/backups/traefik.yml.*`).
 
 ## Commands (on the box)
 
