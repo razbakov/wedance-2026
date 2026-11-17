@@ -48,7 +48,7 @@ Steps marked Commander need you (signatures, appointments, accounts). Agent step
 
 ### Forge · 2026-10-14 11:03 UTC
 
-### 👀 Merged — ready for your review — WeDance governance updated: Alex as sole founder, Kirill retired
+### 👀 Merged — ready for your review — WeDance governance updated: Alex as sole founder, previous founder role retired
 
 **Live:** https://org.wedance.vip
 **PR:** https://github.com/razbakov/wedance-org/pull/19
@@ -56,4 +56,4 @@ Steps marked Commander need you (signatures, appointments, accounts). Agent step
 **Try it**
 1. Open https://org.wedance.vip
 2. Navigate to any governance doc (roles, policies)
-3. You should see Alex as sole founder, UG planned, Kirill's role marked Retired
+3. You should see Alex as sole founder, UG planned, previous founder role marked Retired
