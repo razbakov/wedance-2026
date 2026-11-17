@@ -35,10 +35,13 @@ Dance community platform. Nuxt 4 + tRPC + Drizzle ORM + Neon (PostgreSQL), Bun.
   `gh pr checks <pr> --watch --fail-fast && gh pr merge <pr> --squash --delete-branch`.
   Renaming a required job blocks every PR until branch protection is updated; never put an `if:` on a required job
   (skipped counts as passed).
-- **PR previews are not built (RAZ-886)** — `vercel.json` `ignoreCommand` → `scripts/vercel-ignore-build.sh` builds
-  only `main` (previews were half of all build minutes). Need one? Put `[preview]` in a commit message on the branch.
-  A preview shares the production `DATABASE_URL` and runs `db-migrate --deploy` against it. (A self-hosted dev
-  server on the Hetzner box was weighed and parked: it can't build this app.)
+- **PR previews run on the Hetzner dev server, not Vercel (RAZ-886).** Vercel builds only `main` (`vercel.json`
+  `ignoreCommand` → `scripts/vercel-ignore-build.sh`; `[preview]` in a commit message still forces a Vercel preview,
+  which shares the production database). Every PR gets `https://pr-<n>.dev.wedance.vip`: `.github/workflows/preview.yml`
+  builds `Dockerfile` on GitHub and runs it via Dokploy (`ops/hetzner/wedance-preview`) with **its own database**
+  `pr_<n>`, cloned from a nightly copy of production (sessions/tokens left out, every dancer's email, phone and
+  password scrubbed — sign up fresh; no emails sent). The branch's migrations run on that copy only. Closing the PR
+  removes it. Not a merge gate. Box (Brievcase runs there too), TLS, commands: `ops/hetzner/README.md`.
 
 ## Database — there is only one, and it is production
 

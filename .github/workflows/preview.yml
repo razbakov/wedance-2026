@@ -1,0 +1,108 @@
+# PR previews on the Hetzner dev server (RAZ-886) — never a merge gate.
+# Every push to a PR builds a Docker image here (the server is too small to build
+# the app), pushes it to ghcr.io and asks the server to run it at
+# https://pr-<n>.dev.wedance.vip, with its own copy of production's database
+# (ops/hetzner/README.md). Closing the PR removes the preview.
+# Vercel builds only main (vercel.json ignoreCommand), so this replaces Vercel previews.
+name: Preview
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: write
+  pull-requests: write
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: ${{ github.event.action != 'closed' }}
+
+env:
+  PR: ${{ github.event.pull_request.number }}
+  IMAGE: ghcr.io/razbakov/wedance-2026:pr-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
+
+jobs:
+  deploy:
+    # Forks get no secrets (and must never run on our server).
+    if: github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push the preview image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          provenance: false
+          tags: ${{ env.IMAGE }}
+          build-args: COMMIT_SHA=${{ github.event.pull_request.head.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run it on the dev server
+        id: up
+        env:
+          SSH_KEY: ${{ secrets.HETZNER_PREVIEW_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.HETZNER_PREVIEW_KNOWN_HOSTS }}
+          HOST: ${{ vars.HETZNER_PREVIEW_HOST }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/preview && chmod 600 ~/.ssh/preview
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          # The key's forced command on the server only allows `up <pr> <image>` / `down <pr>`.
+          ssh -i ~/.ssh/preview -o IdentitiesOnly=yes "deploy@$HOST" "up $PR $IMAGE" | tee up.log
+          echo "url=$(tail -1 up.log)" >> "$GITHUB_OUTPUT"
+
+      - name: Link the preview on the PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          URL: ${{ steps.up.outputs.url }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          body="<!-- wedance-preview -->
+          **Preview:** $URL
+
+          Commit \`${SHA:0:7}\` · its own copy of production's data (refreshed nightly; dancers' emails, phones and passwords scrubbed, so sign up with a new account) · emails are not sent."
+          id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate --jq '.[] | select(.body | startswith("<!-- wedance-preview -->")) | .id' | head -1)
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -f body="$body" >/dev/null
+          else
+            gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -f body="$body" >/dev/null
+          fi
+
+  remove:
+    if: github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Remove the preview
+        env:
+          SSH_KEY: ${{ secrets.HETZNER_PREVIEW_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.HETZNER_PREVIEW_KNOWN_HOSTS }}
+          HOST: ${{ vars.HETZNER_PREVIEW_HOST }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/preview && chmod 600 ~/.ssh/preview
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/preview -o IdentitiesOnly=yes "deploy@$HOST" "down $PR"
+
+      - name: Delete this PR's images from ghcr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api "/users/razbakov/packages/container/wedance-2026/versions" --paginate \
+            --jq ".[] | select(any(.metadata.container.tags[]; startswith(\"pr-$PR-\"))) | .id" \
+          | while read -r id; do gh api -X DELETE "/users/razbakov/packages/container/wedance-2026/versions/$id" || true; done
