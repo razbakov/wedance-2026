@@ -196,23 +196,23 @@ const refUrl = (r: string) =>
       <ul class="space-y-4 max-w-2xl">
         <li>
           <p class="font-bold">“Come back” is the weakest stage.</p>
-          <p class="text-muted-foreground">{{ returnWeak }} of {{ returnItems.length }} return items are partial, missing or gaps. Dancers get no email or notification; every email sent today goes to businesses or is about signing in. Someone who RSVPs has no reason to return next week.</p>
+          <p class="text-muted-foreground">{{ returnWeak }} of {{ returnItems.length }} return items are partial, missing or gaps. Dancers get a few emails (a review the morning after, a mutual dance friend, a cancellation) and still have no inbox, no push, and no note when someone they follow posts a new night.</p>
         </li>
         <li>
           <p class="font-bold">The business side is ahead of the dancer side.</p>
-          <p class="text-muted-foreground">Organizer and Artist are mostly green: event setup, flyers, Instagram, websites, invites. Seeker and Traveler are mostly amber. Tools for organisers are growing faster than the dancer demand that makes them worth paying for.</p>
+          <p class="text-muted-foreground">Organizer and Artist are mostly green: event setup, flyers, Instagram, websites, invites, and email to contacts. Seeker and Traveler are mostly amber. Tools for organisers are growing faster than the dancer demand that makes them worth paying for.</p>
         </li>
         <li>
           <p class="font-bold">Nothing turns a Seeker into a Regular.</p>
-          <p class="text-muted-foreground">The Seeker row has gaps from “Commit” on: no beginner filter, no first-class guide, no follow-up after a first class.</p>
+          <p class="text-muted-foreground">There is still no beginner-level filter, and the taster list still does not say what to wear. A review email goes out the morning after a class (#632). It does not lead to the weekly social at the same school.</p>
         </li>
         <li>
           <p class="font-bold">Traveler features are built but empty.</p>
-          <p class="text-muted-foreground">Ride shares, roommates, dinners and who's going only work with several real people on the same festival.</p>
+          <p class="text-muted-foreground">Ride shares, roommates, dinners and who's going only work with several real people on the same festival. Mutual dance friends now show on My plan, and the other dancer gets an email (#634 #636).</p>
         </li>
         <li>
           <p class="font-bold">Using the site found what reading the code missed.</p>
-          <p class="text-muted-foreground">Walked on 2026-11-14: door check-in has no screen, the promo kit lives only in the AI app, the “Who's going” faces left the pages in #327, there is no festival map, and a new event from the form goes live before it has a venue or line-up. On a phone, the answer buttons for venues and artists hide under the tab bar.</p>
+          <p class="text-muted-foreground">From the 2026-11-14 walk, still true: door check-in has no screen, the promo kit lives only in the AI app, and there is no festival map. Since then: Who's going faces are back on the event page (#605), a new event from the form stays a draft (#559), and the venue and artist answer bar sits above the phone tab bar (#551).</p>
         </li>
       </ul>
     </DesignSection>
@@ -235,7 +235,7 @@ const refUrl = (r: string) =>
         The routes in <code class="font-mono text-[13px]">app/pages</code> (docs, sketches and admin left out), the landing-promise stories in
         <code class="font-mono text-[13px]">docs/issues/P*.md</code> with statuses corrected against merged PRs, and the email senders in
         <code class="font-mono text-[13px]">server/utils/email.ts</code>, then checked by using the site on 2026-11-14: signed out on 2026.wedance.vip, and as a dancer, an organiser,
-        a venue and an artist on a local copy of the database, on desktop and a phone (RAZ-898; what couldn't be run is in RAZ-931). Data lives in <code class="font-mono text-[13px]">app/lib/ux-map.ts</code>: update an item when you ship or change it.
+        a venue and an artist on a local copy of the database, on desktop and a phone (RAZ-898; what couldn't be run is in RAZ-931). Re-read against the code on 2026-11-17, from #518 through #652 (RAZ-1035). Data lives in <code class="font-mono text-[13px]">app/lib/ux-map.ts</code>: update an item when you ship or change it.
         The job each journey serves is on <NuxtLink to="/docs/jobs" class="text-secondary hover:underline">Jobs to be done</NuxtLink>.
         For stories mapped to tables and procedures, see <NuxtLink to="/docs/architecture/stories" class="text-secondary hover:underline">User stories</NuxtLink>.
       </p>
