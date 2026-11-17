@@ -150,6 +150,8 @@ const a11y = [
       </DesignExample>
     </DesignSection>
 
+    <DesignSection id="image-size" title="Image size" lead="Pass the stored URL as is: AvatarImage runs it through sizedImage(url, IMG.avatar) itself, so a 3 MB upload arrives as a ~20 KB thumbnail. A plain <img> showing a face or logo must call sizedImage by hand — see Cards → Images." />
+
     <DesignSection id="props" title="Props">
       <DesignProps :rows="propRows" />
     </DesignSection>
