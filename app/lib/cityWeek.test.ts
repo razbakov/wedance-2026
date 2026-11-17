@@ -7,7 +7,7 @@
  * process.env.TZ; Node re-reads it on assignment.
  */
 import { describe, it, expect, afterEach } from 'vitest'
-import { weekDateKeys, localDateKey, cityFeed, matchesKind, parseEventKind, isClassType } from './cityWeek'
+import { weekDateKeys, localDateKey, cityFeed, matchesKind, parseEventKind, isClassType, addDays, mondayOnOrBefore, parseDateKey, formatJumpDate, jumpPageStarts, jumpDays, countByDate, pickEventsOnDate, JUMP_WEEKS } from './cityWeek'
 
 const ORIGINAL_TZ = process.env.TZ
 afterEach(() => { process.env.TZ = ORIGINAL_TZ })
@@ -107,5 +107,65 @@ describe('parties / classes filter (RAZ-1018)', () => {
     expect(matchesKind('workshop', 'party')).toBe(false)
     expect(matchesKind('workshop', 'class')).toBe(true)
     expect(matchesKind('social', 'class')).toBe(false)
+  })
+})
+
+describe('jump to a date (RAZ-1021)', () => {
+  // Tuesday. Three weeks later is also a Tuesday, and it falls in December —
+  // the case a month grid would hide behind "next month".
+  const today = '2026-11-17'
+  const night = '2026-12-08'
+
+  it('reads ?date= and ignores the past, garbage and impossible days', () => {
+    expect(parseDateKey('2026-12-08', today)).toBe('2026-12-08')
+    expect(parseDateKey(today, today)).toBe(today)
+    expect(parseDateKey('2026-11-16', today)).toBe('')
+    expect(parseDateKey('2026-02-31', today)).toBe('')
+    expect(parseDateKey('08-12-2026', today)).toBe('')
+    expect(parseDateKey('December', today)).toBe('')
+    expect(parseDateKey(['2026-12-08'], today)).toBe('')
+    expect(parseDateKey(undefined, today)).toBe('')
+  })
+
+  it('puts a night three weeks away on the first calendar page', () => {
+    expect(mondayOnOrBefore(today)).toBe('2026-11-16')
+    expect(addDays(today, 21)).toBe(night)
+    const pages = jumpPageStarts(today, [night])
+    expect(pages[0]).toBe('2026-11-16')
+    const first = jumpDays(pages[0]!, { [night]: 2, '2026-12-03': 1 }, today)
+    expect(first).toHaveLength(JUMP_WEEKS * 7)
+    const cell = first.find(d => d.date === night)!
+    expect(cell.isPast).toBe(false)
+    expect(cell.isToday).toBe(false)
+    expect(cell.count).toBe(2)
+    expect(cell.showMonth).toBe(false)
+    expect(first.find(d => d.date === '2026-12-01')!.showMonth).toBe(true)
+    expect(first[0]!.isPast).toBe(true) // Monday, the day before today
+    expect(first.find(d => d.date === today)!.isToday).toBe(true)
+    // Six weeks out is the next page, not this one.
+    const later = '2026-12-29'
+    expect(first.some(d => d.date === later)).toBe(false)
+    expect(jumpPageStarts(today, [later])[1]).toBe('2026-12-21')
+    expect(jumpDays(jumpPageStarts(today, [later])[1]!, {}, today).some(d => d.date === later)).toBe(true)
+  })
+
+  it('names the chosen day the way the page headings do', () => {
+    expect(formatJumpDate(night)).toBe('Tuesday, Dec 8')
+  })
+
+  it('lists that day soonest first, and a party filter drops the class first', () => {
+    const items = [
+      { id: 'late', date: night, time: '22:00', type: 'social', name: 'La Rumba' },
+      { id: 'early', date: night, time: '19:00', type: 'class', name: 'Casino' },
+      { id: 'dup', date: night, time: '19:00', type: 'social', name: 'Again' },
+      { id: 'dup', date: night, time: '23:00', type: 'social', name: 'Again later' },
+      { id: 'other', date: '2026-12-09', time: '21:00', type: 'social', name: 'Tomorrow' },
+    ]
+    expect(pickEventsOnDate(items, night).map(e => e.id)).toEqual(['dup', 'early', 'late'])
+    expect(pickEventsOnDate(items, '')).toEqual([])
+    const parties = items.filter(e => matchesKind(e.type, 'party'))
+    expect(pickEventsOnDate(parties, night).map(e => e.id)).toEqual(['dup', 'late'])
+    expect(countByDate(parties)).toEqual({ [night]: 2, '2026-12-09': 1 })
+    expect(countByDate(items.filter(e => matchesKind(e.type, 'class')))).toEqual({ [night]: 1 })
   })
 })

@@ -13,6 +13,7 @@ import { Button } from '~/components/ui/button'
 import { WD } from '~/lib/brand'
 import { mixHex, readableOn } from '~/lib/contrast'
 import { eventPath } from '#shared/utils/eventSlug'
+import { localDateKey } from '~/lib/cityWeek'
 
 const props = defineProps<{
   events: CityEvent[]
@@ -20,6 +21,8 @@ const props = defineProps<{
   teachers?: Teacher[]
   /** A filter (style, person) is narrowing the list — the empty state then offers "Clear filters". */
   filtered?: boolean
+  /** YYYY-MM-DD chosen on the city page (RAZ-1021). That day is marked. */
+  focusDate?: string
 }>()
 
 const emit = defineEmits<{
@@ -34,22 +37,28 @@ const ink = (c: string) => readableOn(c)
 
 const days: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
-// Day labels: e.g. "Monday, Jan 8" for the current week.
-const dayLabels = computed(() => {
-  const now = new Date()
-  const currentDay = now.getDay()
-  const mondayOffset = currentDay === 0 ? -6 : 1 - currentDay
+function weekMonday(now = new Date()) {
   const monday = new Date(now)
-  monday.setDate(now.getDate() + mondayOffset)
+  monday.setDate(now.getDate() - (now.getDay() + 6) % 7)
+  monday.setHours(0, 0, 0, 0)
+  return monday
+}
 
-  const map: Record<string, string> = {}
+// Day labels: e.g. "Monday, Jan 8" for the current week, plus the YYYY-MM-DD key.
+const weekMeta = computed(() => {
+  const monday = weekMonday()
+  const labels: Record<string, string> = {}
+  const dates: Record<string, string> = {}
   days.forEach((day, i) => {
     const date = new Date(monday)
     date.setDate(monday.getDate() + i)
-    map[day] = `${day}, ${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+    labels[day] = `${day}, ${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+    dates[day] = localDateKey(date)
   })
-  return map
+  return { labels, dates }
 })
+const dayLabels = computed(() => weekMeta.value.labels)
+const dayDateKeys = computed(() => weekMeta.value.dates)
 
 const peopleMap = computed(() => {
   const map = new Map<string, Teacher>()
@@ -149,10 +158,17 @@ function eventHref(e: CityEvent): string | undefined {
     </div>
 
     <!-- Per-day sections -->
-    <div v-for="day in daysWithEvents" :key="day" class="space-y-3">
+    <div
+      v-for="day in daysWithEvents"
+      :id="`city-day-${dayDateKeys[day]}`"
+      :key="day"
+      :data-date="dayDateKeys[day]"
+      class="space-y-3 scroll-mt-4"
+    >
       <!-- Sticky day header -->
       <div
         class="sticky top-0 z-10 pt-2 pb-3 flex items-baseline gap-3 backdrop-blur-sm border-b border-border bg-background/95"
+        :class="focusDate && focusDate === dayDateKeys[day] ? 'rounded-lg ring-2 ring-foreground/40' : ''"
       >
         <h3
           class="text-xl font-black leading-none font-display"
