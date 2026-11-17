@@ -219,6 +219,13 @@ const picked = computed(() => rsvpPoll.value
   : !!ev.value && weekPlanIds?.value?.has(ev.value.id))
 const parentFestival = computed(() => ev.value?.parentFestival ?? null)
 
+// Back on a direct open goes to this event's city (RAZ-1020), festivals included.
+const eventCity = computed(() => {
+  const e = ev.value
+  if (!e?.citySlug) return null
+  return { slug: e.citySlug, name: e.venueCity || e.citySlug }
+})
+
 // What the old event page showed that FestivalView doesn't (RAZ-1007). A festival says these
 // through its passes, programme and links, so only plain events pass them.
 const eventExtras = computed(() => {
@@ -324,10 +331,16 @@ useHead(() => ({
   <FestivalView
     v-if="festivalData && !pending" :data="festivalData" :type="ev?.eventType" :edit-to="canEdit ? `/business/events/${festivalData.eventId}` : undefined" :cancelled="ev?.cancelled ? { reason: ev.cancelReason } : null" :plan-as="ev?.isFestival ? 'festival' : 'event'"
     :rsvp="ev?.pollable && !ev.archived && !isPreview ? { eventId: ev.id, path: route.path, startDate: ev.startDate, endDate: ev.endDate, timezone: ev.timezone, organizerName: ev.organizerName || (ev.organizerHandle ? `@${ev.organizerHandle}` : null), notBookable: ev.notBookable } : null"
-    :date-label="ev?.isFestival ? undefined : ev?.when" :event="eventExtras"
+    :date-label="ev?.isFestival ? undefined : ev?.when" :event="eventExtras" :city="eventCity"
   />
   <div v-else class="min-h-screen bg-background text-foreground font-display">
     <SiteHeader />
+
+    <div class="border-b border-border bg-background">
+      <div class="max-w-3xl mx-auto px-4 py-2.5">
+        <EventBackLink :city="eventCity" />
+      </div>
+    </div>
 
     <main>
 

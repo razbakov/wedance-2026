@@ -15,8 +15,8 @@ import type { CityEvent } from '~/types/city'
 import { SESSION_TYPE_LABEL, sessionEnd, sessionType } from '#shared/utils/programme'
 
 const CITIES = [
-  { data: munich, cityName: munich.city.name },
-  { data: berlin, cityName: berlin.city.name },
+  { data: munich, cityName: munich.city.name, citySlug: munich.city.slug },
+  { data: berlin, cityName: berlin.city.name, citySlug: berlin.city.slug },
 ]
 
 const FESTIVALS = [fSalsaOpen, fMeneate, fCubanFire, fCaribbean, fAguaPichi].map((m: any) => ({
@@ -74,7 +74,7 @@ function thisWeekDateFor(dayName: string): string {
   return d.toISOString().slice(0, 10)
 }
 
-function mapEvent(e: CityEvent, cityName: string) {
+function mapEvent(e: CityEvent, cityName: string, citySlug: string) {
   return {
     id: e.id,
     title: e.name,
@@ -94,6 +94,7 @@ function mapEvent(e: CityEvent, cityName: string) {
     venueHandle: null as string | null,
     venueAddress: e.address || null,
     venueCity: cityName,
+    citySlug,
   }
 }
 
@@ -112,9 +113,9 @@ export function findMockEvent(id: string) {
     const w = fest?.workshops.find((x: any) => x.id === wid)
     return fest && w ? mapWorkshop(w, fest) : null
   }
-  for (const { data, cityName } of CITIES) {
+  for (const { data, cityName, citySlug } of CITIES) {
     const e = (data.events as CityEvent[]).find(ev => ev.id === id)
-    if (e) return mapEvent(e, cityName)
+    if (e) return mapEvent(e, cityName, citySlug)
   }
   return null
 }

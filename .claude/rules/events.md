@@ -69,6 +69,10 @@ and a "Book on <site>" link. `rsvp.signUp` itself doesn't refuse yet (MCP).
 `festivalView` keys them by `eventSlug`); a plain event adds `EventFacts` (type, styles, price, website, agenda), the
 "Checked by" badge, the archived note and "More dancing in <city>" via the `event` prop. Only booking requests, single
 programme sessions (`f~key~id`) and mock city events still use the old template in `events/[id].vue`.
+**Back (RAZ-1020):** the sticky bar on `FestivalView` (and the old template, under the header) starts with a back
+link. It returns to the in-app page the dancer opened the event from — My plan, the city, a profile — and ignores
+`?tab=` (a tab change stays on this page). Opened directly, it goes to the event's city (`/cities/<slug>`), or
+`/cities` when the event has none.
 
 ## Cancelling an event (RAZ-948)
 
