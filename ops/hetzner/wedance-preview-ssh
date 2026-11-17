@@ -1,0 +1,12 @@
+#!/bin/sh
+# Forced command for the GitHub Actions key in ~deploy/.ssh/authorized_keys (RAZ-886):
+#   command="/usr/local/bin/wedance-preview-ssh",no-pty,no-port-forwarding,no-agent-forwarding,no-X11-forwarding ssh-ed25519 …
+# That key can only create/update/remove a PR preview — nothing else on the box.
+set -eu
+set -- $SSH_ORIGINAL_COMMAND
+case "${1:-}" in
+  up)   [ $# -eq 3 ] || { echo "usage: up <pr> <image>" >&2; exit 2; } ;;
+  down) [ $# -eq 2 ] || { echo "usage: down <pr>" >&2; exit 2; } ;;
+  *)    echo "only 'up <pr> <image>' and 'down <pr>' are allowed" >&2; exit 2 ;;
+esac
+exec /usr/local/bin/wedance-preview "$@"
