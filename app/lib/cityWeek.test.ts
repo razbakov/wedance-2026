@@ -7,7 +7,7 @@
  * process.env.TZ; Node re-reads it on assignment.
  */
 import { describe, it, expect, afterEach } from 'vitest'
-import { weekDateKeys, localDateKey, cityFeed } from './cityWeek'
+import { weekDateKeys, localDateKey, cityFeed, matchesKind, parseEventKind, isClassType } from './cityWeek'
 
 const ORIGINAL_TZ = process.env.TZ
 afterEach(() => { process.env.TZ = ORIGINAL_TZ })
@@ -85,5 +85,27 @@ describe('cityFeed — which events count as this week (RAZ-683)', () => {
     const feed = cityFeed([], [synced('fest', '2026-10-22T18:00:00Z', { isFestival: true }), synced('fest-later', '2026-11-22T18:00:00Z', { isFestival: true })], wk)
     expect(feed.syncedThisWeek).toHaveLength(0)
     expect(feed.syncedLater).toHaveLength(0)
+  })
+})
+
+describe('parties / classes filter (RAZ-1018)', () => {
+  it('reads ?type= and ignores anything else', () => {
+    expect(parseEventKind('party')).toBe('party')
+    expect(parseEventKind('class')).toBe('class')
+    expect(parseEventKind('Party')).toBe('')
+    expect(parseEventKind(['class'])).toBe('')
+    expect(parseEventKind(undefined)).toBe('')
+  })
+  it('classes are the sign-up class types, whatever the casing', () => {
+    for (const t of ['class', 'Course', 'workshop', 'Practica']) expect(isClassType(t)).toBe(true)
+    for (const t of ['social', 'Party', 'Concert', 'Show', '', null]) expect(isClassType(t)).toBe(false)
+  })
+  it('no kind keeps everything; party and class split the rest', () => {
+    expect(matchesKind('social', '')).toBe(true)
+    expect(matchesKind('class', '')).toBe(true)
+    expect(matchesKind('social', 'party')).toBe(true)
+    expect(matchesKind('workshop', 'party')).toBe(false)
+    expect(matchesKind('workshop', 'class')).toBe(true)
+    expect(matchesKind('social', 'class')).toBe(false)
   })
 })

@@ -13,6 +13,8 @@ import { sizedImage, IMG } from '#shared/utils/image'
  * ?style=<Style> preselects the style filter; ?taster=1 (from the
  * /find-your-dance "free taster class" pick) shows a "Your first class"
  * section of upcoming classes, free-priced ones first (P1006).
+ * ?type=party|class shows only parties or only classes in "This week" and
+ * "Coming up" (RAZ-1018); the page keeps ?style= and ?type= in the URL.
  */
 import { sameDanceStyle, sortDanceStyles } from '#shared/dance-styles'
 import { MapPin, Calendar, ArrowRight, Sparkles } from 'lucide-vue-next'
@@ -24,7 +26,7 @@ import { WD } from '~/lib/brand'
 import { readableOn } from '~/lib/contrast'
 import { eventPath } from '#shared/utils/eventSlug'
 import { initialOf } from '#shared/utils/initials'
-import { weekDateKeys, cityFeed, matchesStyle, activeThisWeek, isActiveThisWeek, groupUpcoming, type PeopleTab } from '~/lib/cityWeek'
+import { weekDateKeys, cityFeed, matchesStyle, matchesKind, parseEventKind, activeThisWeek, isActiveThisWeek, groupUpcoming, type PeopleTab } from '~/lib/cityWeek'
 
 definePageMeta({ layout: false })
 
@@ -142,11 +144,12 @@ const toCityEvent = (e: any) => ({
 const syncedThisWeek = computed(() => feed.value.syncedThisWeek.map(toCityEvent))
 // After this week: the next weeks, grouped by local date (capped; "show more").
 const upcomingLimit = ref(24)
-const syncedLater = computed(() => feed.value.syncedLater.filter(e => matchesStyle(e.styles, selectedStyle.value)))
+const syncedLater = computed(() => feed.value.syncedLater
+  .filter(e => matchesStyle(e.styles, selectedStyle.value) && matchesKind(syncedTypeMap[e.type] || 'social', selectedKind.value)))
 // Booked events beyond this week (same shape as toCityEvent output).
 const bookedLater = computed(() => {
   return feed.value.bookedLater
-    .filter(b => matchesStyle(b.styles, selectedStyle.value))
+    .filter(b => matchesStyle(b.styles, selectedStyle.value) && matchesKind(bookedTypeMap[b.eventType] || 'social', selectedKind.value))
     .map(b => {
       const date = String(b.eventDate).slice(0, 10)
       return {
@@ -207,6 +210,9 @@ useHead(() => ({
 
 // Style filter — preselected from ?style= (the /find-your-dance quick picks).
 const selectedStyle = ref(typeof route.query.style === 'string' ? route.query.style.trim() : '')
+// Parties / classes — preselected from ?type= (RAZ-1018; My plan links here with it).
+const selectedKind = ref(parseEventKind(route.query.type))
+const kindWord = computed(() => (selectedKind.value === 'class' ? 'classes' : selectedKind.value === 'party' ? 'parties' : ''))
 
 // People tabs (now also includes Venues — same Lineup shape with auto-generated avatars).
 // Order: Venues first, then Organisers, then Artists.
@@ -281,6 +287,7 @@ const seeAllHref = computed(() => `/cities/${slug}/${roleSlugFor(activeTab.value
 
 const filteredEvents = computed(() => {
   let result: any[] = [...events, ...bookedThisWeek.value, ...syncedThisWeek.value]
+  if (selectedKind.value) result = result.filter(e => matchesKind(e.type, selectedKind.value))
   if (selectedStyle.value) {
     result = result.filter(e => e.style === selectedStyle.value || (e.styles || []).some((s: string) => sameDanceStyle(s, selectedStyle.value)))
   }
@@ -360,6 +367,7 @@ const ink = (c: string, bg = '#fff') => readableOn(c, bg)
 
 function clearFilters() {
   selectedStyle.value = ''
+  selectedKind.value = ''
   clearPersonFilter()
 }
 
@@ -419,9 +427,15 @@ onMounted(() => {
 // unless the link's card names its own object (data-object-type/-id).
 useTrackContext(() => ({ object_type: 'city', object_id: slug, city: slug }))
 
-// Style filter use (a click on a style chip — one event per change).
-watch(selectedStyle, (style) => {
-  useTrack().track('filter_used', { surface: 'city', city: slug, filter_keys: style ? ['style'] : [], style: style || null })
+// Style / type filter use (a click on a chip — one event per change).
+watch([selectedStyle, selectedKind], ([style, kind]) => {
+  const filterKeys = [...(style ? ['style'] : []), ...(kind ? ['type'] : [])]
+  useTrack().track('filter_used', { surface: 'city', city: slug, filter_keys: filterKeys, style: style || null, type: kind || null })
+})
+// Keep both in the URL, so a link opens the page already filtered (RAZ-1018).
+const router = useRouter()
+watch([selectedStyle, selectedKind], ([style, kind]) => {
+  router.replace({ query: { ...route.query, style: style || undefined, type: kind || undefined }, hash: route.hash })
 })
 </script>
 
@@ -640,6 +654,7 @@ watch(selectedStyle, (style) => {
           <h2 class="mt-2 text-2xl leading-tight font-display text-foreground">
             Where you're <em class="italic text-primary">dancing.</em>
           </h2>
+          <CityKindFilter v-model="selectedKind" class="mt-4" />
         </div>
         <div v-if="filterLabel" class="flex items-center gap-2 text-xs text-muted-foreground font-sans">
           <span>
@@ -660,7 +675,7 @@ watch(selectedStyle, (style) => {
         :events="filteredEvents"
         :week-plan-ids="weekPlanIds"
         :teachers="[...teachers, ...djs, ...organisers]"
-        :filtered="!!selectedStyle || !!selectedPersonId"
+        :filtered="!!selectedStyle || !!selectedKind || !!selectedPersonId"
         @toggle="onToggleEvent"
         @select-teacher="onSelectPerson"
         @clear-filters="clearFilters"
@@ -685,6 +700,12 @@ watch(selectedStyle, (style) => {
         <h2 class="mt-2 text-2xl leading-tight font-display text-foreground">
           Coming <em class="italic" :style="{ color: accent }">up.</em>
         </h2>
+        <p v-if="kindWord" class="mt-2 text-xs text-muted-foreground font-sans" data-testid="upcoming-kind-note">
+          Only {{ kindWord }}.
+          <Button type="button" variant="link" class="h-auto p-0 align-baseline text-xs font-bold underline font-sans" :style="{ color: ink(accent, WD.cream) }" @click="selectedKind = ''">
+            Show everything
+          </Button>
+        </p>
       </div>
       <div class="space-y-6">
         <div v-for="g in upcomingGroups" :key="g.date">
