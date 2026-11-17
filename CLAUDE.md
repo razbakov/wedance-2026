@@ -188,10 +188,12 @@ magic link; re-running fills hashes only where a dancer has none. Rollback (new 
 
 ### Vercel Preview environment
 
-Preview deployments share the production `DATABASE_URL` so that DB-backed pages
-(e.g. `/gigs`, `/cities/[city]`, `/@handle`) render correctly on PR previews.
-There is only one Neon database — Neon branching can be added later if write
-isolation becomes necessary.
+**PR previews are not built (RAZ-886)** — `vercel.json` `ignoreCommand` → `scripts/vercel-ignore-build.sh` builds
+only production (`main`); they were half of all Vercel build minutes. Need a preview link? Put `[preview]` in a
+commit message on the branch (that push builds one). A preview shares the production `DATABASE_URL` — and runs
+`db-migrate --deploy` against it — so DB-backed pages render; there is only one Neon database (Neon branching later
+if write isolation is needed). A self-hosted dev server (Dokploy on Hetzner) was weighed and parked: the Hetzner box
+(2 vCPU / 4 GB, runs Brievcase) can't build this app.
 
 ### Local Postgres (never test writes against prod)
 
