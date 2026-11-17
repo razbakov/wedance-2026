@@ -58,7 +58,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `event_viewed` | `pages/events/[id].vue` (non-festival, once per mount) | `event_id`, `city`, `style`, `event_type`, `synced`, `is_festival` |
 | `festival_viewed` | `pages/events/[id].vue` (festival) | same as `event_viewed` |
 | `event_tab_opened` | `FestivalView` (an event with sessions or a festival): Overview / Lineup / Schedule / Passes / Reviews tabs (RAZ-1008, RAZ-1011; `?tab=`) · `events/[id]` (a plain event): Overview / Reviews | `tab`, `via` (nav / summary = a "What's inside" card / hero = Get pass or the stars under the picture / link), `event_id`, `is_festival` |
-| `filter_used` | city page style chip · All / Parties / Classes (`CityKindFilter`, RAZ-1018) | `surface`, `city`, `filter_keys` (style / type), `style`, `type` (party / class) |
+| `filter_used` | city page style chip · All / Parties / Classes (`CityKindFilter`, RAZ-1018) · Pick a date (`CityDateJump`, RAZ-1021) | `surface`, `city`, `filter_keys` (style / type / date), `style`, `type` (party / class), `date` (YYYY-MM-DD) |
 | `search_used` | `/festivals`, `/artists`, `/gigs` (`useTrackSearch`, debounced) | `surface`, `query_length`, `filter_keys`, `results` |
 | `week_plan_add` / `week_plan_remove` | `useWeekPlan` (Going! toggle), `my-plan` enroll / course X | `event_id`, `week_count` or `source`; add: `event_type`, `city`, `surface` |
 | `year_plan_add` / `year_plan_remove` | `useYearPlan` | `festival_slug`, `year_count`; add: `festival`, `surface` |

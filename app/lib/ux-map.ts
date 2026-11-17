@@ -88,7 +88,7 @@ const IT: [UxJourneyId, UxStageKey, string, string, UxStatus, string, string][] 
 ['C2','return','Progress / level tracking','','gap','Nothing records what you have learned or what level you are at.',''],
 ['C2','spread','Share my plan','/my-plan','live','',''],
 // C3 Regular
-['C3','discover','City page this week','/cities/[city]','live','Real week and "Coming up", with a parties / classes filter (#648). The going counts fail to load on big cities: plan.countBatch accepts 100 ids and the page sends every event at once (RAZ-923).','P216 P217 P601 RAZ-923 #648'],
+['C3','discover','City page this week','/cities/[city]','live','Real week and "Coming up", with a parties / classes filter (#648) and Pick a date to jump to one day (RAZ-1021). The going counts fail to load on big cities: plan.countBatch accepts 100 ids and the page sends every event at once (RAZ-923).','P216 P217 P601 RAZ-923 #648 RAZ-1021'],
 ['C3','discover','Venues & organisers tabs','/cities/[city]/venues','live','"Who\'s on the floor" tabs.','RAZ-168'],
 ['C3','evaluate','Event page','/events/[id]','live','One layout for every event (#645): time in the event\'s zone, venue, line-up, organiser, Overview and Reviews tabs (#615 #629). Practical notes sit under Good to know (#631).','#615 #629 #631 #645'],
 ['C3','evaluate','Who\'s going (opt-in faces)','/events/[id]','live','Signed-in viewers see faces and first names of people who answered and have a public profile (#605). Everyone else sees the counts. Meet who\'s going opens /meet (#615).','P205 P207 P211 RAZ-19 #605 #615'],
