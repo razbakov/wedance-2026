@@ -23,6 +23,13 @@ time (`BusinessEventForm` `focus()`). A new draft opens on its first step to do.
 host's other events suggest (`pastEventHints`: artists booked before, last time's price). Same order as MCP
 `create_event`.
 
+**Back and the unfinished form (RAZ-1024):** choosing a path puts `?start=post|copy|scratch` on the URL
+(`router.push`), so the browser's Back and Forward move between the choice and that path, and a Back
+button on the path does the same. What was typed is kept in this browser (`localStorage`,
+`wedance-new-event`, `app/lib/newEventDraft.ts`) and filled in again when that path is opened. It is
+cleared once a draft is created. A link that already says what to make (`?type=` / `?artist=`) still
+opens From scratch, and leaves a different unfinished draft in place until the organiser types in it.
+
 ## The venue's own hints (RAZ-1012)
 
 What is true about a venue for every event there — nearest stop (line badge + colour, stop, how to get from it), parking
