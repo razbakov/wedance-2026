@@ -1279,6 +1279,31 @@ export const meetMatchEmails = pgTable('meet_match_emails', {
   index('meet_match_emails_recipient_idx').on(t.recipientId, t.sentAt),
 ])
 
+/**
+ * A booked color-and-shape meetup for one dancer of a match (0077, RAZ-1071).
+ * The other dancer has their own row. The symbol is not stored: both phones
+ * derive it from the two ids and the event. The morning-after email is one row's
+ * email_sent_at, so a re-run of the cron doesn't send twice.
+ */
+export const meetRituals = pgTable('meet_rituals', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  dancerId: uuid('dancer_id').notNull().references(() => dancers.id, { onDelete: 'cascade' }),
+  otherId: uuid('other_id').notNull().references(() => dancers.id, { onDelete: 'cascade' }),
+  eventId: uuid('event_id').notNull().references(() => events.id, { onDelete: 'cascade' }),
+  bookedAt: timestamp('booked_at'),
+  revealedAt: timestamp('revealed_at'),
+  problem: text('problem'),
+  note: text('note'),
+  reportedAt: timestamp('reported_at'),
+  how: text('how'),
+  emailSentAt: timestamp('email_sent_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => [
+  unique('meet_rituals_pair_event').on(t.dancerId, t.otherId, t.eventId),
+  index('meet_rituals_due_idx').on(t.eventId, t.emailSentAt),
+])
+
 export const discoverSwipes = pgTable('discover_swipes', {
   id: uuid('id').primaryKey().defaultRandom(),
   dancerId: uuid('dancer_id').notNull().references(() => dancers.id, { onDelete: 'cascade' }),

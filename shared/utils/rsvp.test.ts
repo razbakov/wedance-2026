@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isPartnerEvent, isRsvpAnswer, pairingAnswer, rsvpOptions, rsvpSummaryLine, summarizeRsvps } from './rsvp'
+import { heroGoingCount, isPartnerEvent, isRsvpAnswer, pairingAnswer, rsvpOptions, rsvpSummaryLine, summarizeRsvps } from './rsvp'
 
 describe('isPartnerEvent', () => {
   it('knows couple dances from solo ones', () => {
@@ -44,6 +44,16 @@ describe('summarizeRsvps / rsvpSummaryLine', () => {
       .toBe('1 coming · 0 with a partner · 0 need a leader · 1 need a follower · 0 next time → 1 follower short')
     expect(rsvpSummaryLine(summarizeRsvps([{ answer: 'yes', confirmed: true }, { answer: 'partner', confirmed: true }]), false))
       .toBe('3 coming · 1 alone · 1 with a friend · 0 next time')
+  })
+})
+
+describe('heroGoingCount', () => {
+  it('counts people who only added the night to their plan', () => {
+    expect(heroGoingCount(2, 0)).toBe(2)
+    expect(heroGoingCount(2, null)).toBe(2)
+  })
+  it('keeps a partner counted twice when that is more than the plan rows', () => {
+    expect(heroGoingCount(1, 2)).toBe(2)
   })
 })
 

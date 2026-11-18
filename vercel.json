@@ -4,6 +4,7 @@
   "ignoreCommand": "sh scripts/vercel-ignore-build.sh",
   "buildCommand": "bun scripts/db-migrate.ts --deploy && nuxt build",
   "crons": [
-    { "path": "/api/cron/review-asks", "schedule": "0 9 * * *" }
+    { "path": "/api/cron/review-asks", "schedule": "0 9 * * *" },
+    { "path": "/api/cron/ritual-followup", "schedule": "15 9 * * *" }
   ]
 }
