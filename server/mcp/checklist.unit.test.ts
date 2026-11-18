@@ -4,6 +4,7 @@ import { setupChecklist, setupNext } from './checklist'
 import { eventGaps } from '../../shared/utils/eventChecklist'
 import { TOOLS, visibleTools } from './tools'
 import { PROCEDURE_SCOPES } from '../trpc/scopes'
+import { callTool } from './server'
 
 const EDITOR = 'https://x/business/events/e1'
 const items = (e: any, programme: any[] = []) => setupChecklist({ id: 'e1', ...e }, programme, EDITOR)
@@ -130,6 +131,57 @@ describe('create_event / update_event / get_my_event return the checklist', () =
     for (const k of ['gaps', 'flyer', 'missing']) expect(calls[0]).not.toHaveProperty(k)
     expect(r).toMatchObject({ saved: true, published: false })
     expect(Array.isArray(r.missing)).toBe(true)
+  })
+
+  it('co_organizers round-trip after the MCP SDK has already stored them as {username} (RAZ-1056)', () => {
+    const schema = z.object(tool('update_event').input)
+    const event_id = draft.id
+    const payloads = [
+      ['corazoncubano'],
+      ['@corazoncubano'],
+      [{ handle: 'corazoncubano', role: 'co-organiser' }],
+      [{ handle: 'corazoncubano' }],
+      ['@corazoncubano', { handle: 'aslihan.dans', role: '  Host  ' }],
+    ]
+    for (const co_organizers of payloads) {
+      const once = schema.parse({ event_id, co_organizers })
+      // registerTool parses first and hands callTool the transformed value.
+      expect(schema.parse(once).co_organizers).toEqual(once.co_organizers)
+    }
+    expect(schema.parse({ event_id, co_organizers: ['@corazoncubano', { handle: 'aslihan.dans', role: '  Host  ' }] }).co_organizers)
+      .toEqual([{ username: 'corazoncubano' }, { username: 'aslihan.dans', role: 'Host' }])
+    expect(schema.parse({
+      event_id,
+      co_organizers: [{ username: 'corazoncubano' }, { username: 'aslihan.dans', role: 'Host' }],
+    }).co_organizers).toEqual([{ username: 'corazoncubano' }, { username: 'aslihan.dans', role: 'Host' }])
+    expect(() => schema.parse({ event_id, co_organizers: [{ nope: 'x' }] })).toThrow()
+
+    const published = z.toJSONSchema(schema, { unrepresentable: 'any', io: 'input' }) as {
+      properties: { co_organizers: { items: { anyOf: Array<{ type?: string; required?: string[]; properties?: Record<string, unknown> }> } } }
+    }
+    const items = published.properties.co_organizers.items
+    expect(items.anyOf.map(b => b.type)).toEqual(['string', 'object'])
+    expect(items.anyOf[1]!.required).toEqual(['handle'])
+    expect(JSON.stringify(items)).not.toContain('username')
+  })
+
+  it('a live update_event previews co_organizers the SDK already transformed', async () => {
+    const schema = z.object(tool('update_event').input)
+    const stored = { ...draft, published: true, coOrganizers: [] as { username: string; role?: string }[] }
+    const { calls, t } = fake(stored)
+    t.ctx = { scopes: ['business:publish'], grantedProfileIds: ['p1'], isAdmin: false, dancerId: 'd1', oauthGrantId: 'g1', db: null } as any
+    const once = schema.parse({ event_id: draft.id, co_organizers: ['corazoncubano', { handle: 'aslihan.dans', role: 'Host' }] })
+    const preview = await callTool(tool('update_event'), once, t)
+    expect(preview.isError).toBeFalsy()
+    const text = preview.content[0]!.text
+    const body = JSON.parse(text.slice(text.indexOf('\n<wedance-data>\n') + 16, text.lastIndexOf('\n</wedance-data>')))
+    expect(body.status).toBe('needs_confirmation')
+    expect(body.preview.changes.coOrganizers).toEqual({
+      from: [],
+      to: [{ username: 'corazoncubano' }, { username: 'aslihan.dans', role: 'Host' }],
+    })
+    expect(typeof body.confirm_token).toBe('string')
+    expect(calls).toEqual([])
   })
 
   it('co_organizers (#456): handles or {handle, role} reach the router as coOrganizers; update_event keeps them when left out', async () => {

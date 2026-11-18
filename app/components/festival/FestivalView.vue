@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { CLASS_EVENT_TYPES, passCoverage, passesFor } from '#shared/utils/eventSignup'
+import { heroGoingCount } from '#shared/utils/rsvp'
 import { eventNoun } from '~/lib/shareInvite'
 import { sizedImage, IMG } from '#shared/utils/image'
 import type { Festival, Teacher, Workshop, PlanEntry, DanceRole, DancePartner, ExtraActivity, FreemiumState } from '~/types/festival'
@@ -71,7 +72,7 @@ const slug = festival.slug
 const liveAttendeeCount = ref(festival.attendeeCount)
 const heroFestival = computed(() => ({
   ...festival,
-  attendeeCount: rsvpPoll.value ? rsvpPoll.value.coming : liveAttendeeCount.value,
+  attendeeCount: heroGoingCount(liveAttendeeCount.value, rsvpPoll.value ? rsvpPoll.value.coming : null),
   // A dated event knows its real start/end times (festival data carries dates
   // only), so a night running past midnight reads as one date, not two.
   ...(props.rsvp?.startDate ? { startDate: props.rsvp.startDate, endDate: props.rsvp.endDate || props.rsvp.startDate, timezone: props.rsvp.timezone || festival.timezone } : {}),

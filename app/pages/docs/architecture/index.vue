@@ -12,13 +12,19 @@ const c = meta.counts
 // remove an integration from the code, remove it here too.
 const integrations = [
   { name: 'Neon Postgres', role: 'The one production database, via the Neon HTTP driver + Drizzle ORM.', where: 'server/utils/db.ts' },
-  { name: 'Vercel', role: 'Hosting: Nitro `vercel` preset, auto-deploy from main, preview deploys share the prod DB.', where: 'nuxt.config.ts' },
-  { name: 'Stripe (test mode)', role: 'Festival ticket checkout sessions; webhook confirms payment, completes referrals.', where: 'server/trpc/routers/festivalSignup.ts · server/api/stripe/webhook.post.ts' },
+  { name: 'Vercel', role: 'Production hosting: Nitro `vercel` preset, builds and deploys only `main`; runs the daily review-asks cron.', where: 'vercel.json · scripts/vercel-ignore-build.sh' },
+  { name: 'Hetzner (Dokploy)', role: 'PR previews at pr-<n>.dev.wedance.vip, each with its own scrubbed copy of production (`pr_<n>`).', where: '.github/workflows/preview.yml · ops/hetzner/README.md' },
+  { name: 'Stripe', role: 'Festival ticket checkout and organiser subscriptions; webhook confirms payment, completes referrals, activates subscriptions.', where: 'server/trpc/routers/festivalSignup.ts · server/trpc/routers/organizerSubscription.ts · server/api/stripe/webhook.lib.ts' },
   { name: 'TicketTailor', role: 'HMAC-signed order webhook marks verified ticket holders for the attendee roster.', where: 'server/api/webhooks/tickettailor.post.ts' },
-  { name: 'wedance.vip (v3 Firestore)', role: 'Read-only mirror of upcoming events and their venue/organiser/artist profiles.', where: 'scripts/sync-v3-events.ts · server/utils/v3EventSync.ts · server/utils/v3ProfileSync.ts' },
-  { name: 'Resend', role: 'Transactional email: magic links, password reset, ticket confirmations.', where: 'server/utils/email.ts' },
+  { name: 'wedance.vip (v3 Firestore)', role: 'Read-only mirror of upcoming events and their venue/organiser/artist profiles (run with `bun run sync:v3-events`; no scheduler in this repo).', where: 'scripts/sync-v3-events.ts · server/utils/v3EventSync.ts · server/utils/v3ProfileSync.ts' },
+  { name: 'Resend', role: 'Email: magic links, password reset, ticket confirmations, review asks, dance-friend matches, organiser emails to contacts.', where: 'server/utils/email.ts' },
   { name: 'Google Places', role: 'City search and resolution into the canonical `cities` table.', where: 'server/utils/cities/google.ts' },
-  { name: 'Cloudinary', role: 'Image uploads (profile photo in settings).', where: 'server/api/media/image.post.ts' },
+  { name: 'Cloudinary', role: 'Image storage: uploads, painted flyers, schedule images, re-hosted Instagram images. Always served resized via `sizedImage`.', where: 'server/api/media/image.post.ts · server/utils/rehostImage.ts · server/utils/flyer/paint.ts' },
+  { name: 'Gemini', role: 'Flyers: paints the image, reads text off a flyer, writes captions.', where: 'server/utils/flyer/gemini.ts' },
+  { name: 'Apify', role: 'Instagram profile and post scraping: profile import, event from an Instagram post.', where: 'server/utils/instagram/apify.ts' },
+  { name: 'Meta Graph API', role: 'Instagram publishing for pages that connect their account (Unified login).', where: 'server/utils/meta/graph.ts · server/utils/meta/instagramConnection.ts' },
+  { name: 'Telegram Bot API', role: 'Posts a city\'s weekly schedule and occasion posts to its official channels and groups.', where: 'server/utils/telegram.ts' },
+  { name: 'AI assistants (MCP)', role: 'WeDance is an MCP server: ChatGPT, Claude and others connect via OAuth and call WeDance tools.', where: 'server/routes/mcp.ts · server/oauth/' },
   { name: 'Linear', role: 'In-app problem reports and event inquiries become Linear issues.', where: 'server/trpc/routers/feedback.ts' },
   { name: 'PostHog', role: 'Product analytics (EU), no-op until a key is set.', where: 'app/plugins/03.posthog.client.ts' },
   { name: 'Sentry', role: 'Error monitoring + session replay, no-op until a DSN is set.', where: 'sentry.client.config.ts · sentry.server.config.ts' },
@@ -47,9 +53,15 @@ const context = `flowchart LR
   tt[TicketTailor] -->|order webhook| api
   api -->|email| resend[Resend]
   api -->|places| google[Google Places]
-  api -->|uploads| cloudinary[Cloudinary]
+  api -->|images| cloudinary[Cloudinary]
+  api -->|flyers| gemini[Gemini]
+  api -->|instagram import| apify[Apify]
+  api -->|instagram posts| meta[Meta Graph API]
+  api -->|city posts| telegram[Telegram]
+  ai([AI assistants]) -->|MCP + OAuth| api
+  cron[[Vercel cron<br/>review-asks daily]] --> api
   api -->|reports| linear[Linear]
-  sync[[sync-v3-events<br/>daily]] -->|read-only| v3[(wedance.vip<br/>v3 Firestore)]
+  sync[[sync-v3-events<br/>manual]] -->|read-only| v3[(wedance.vip<br/>v3 Firestore)]
   sync --> db
   web -.->|analytics| posthog[PostHog]
   web -.->|errors + replay| sentry[Sentry]
@@ -87,7 +99,7 @@ const sections = architectureNav.filter(s => s.title !== 'Getting started')
     </DesignSection>
 
     <DesignSection id="context" title="System context" lead="Who uses WeDance and which outside systems it talks to. Solid lines are runtime calls, dotted lines are client-side telemetry.">
-      <ArchMermaid :code="context" label="System context diagram: dancers, organisers and admins use the Nuxt app on Vercel, whose server talks to Neon, Stripe, TicketTailor, Resend, Google Places, Cloudinary and Linear; a daily job mirrors events from wedance.vip." />
+      <ArchMermaid :code="context" label="System context diagram: dancers, organisers and admins use the Nuxt app on Vercel, whose server talks to Neon, Stripe, TicketTailor, Resend, Google Places, Cloudinary, Gemini, Apify, Meta, Telegram and Linear; AI assistants connect over MCP; a manually run script mirrors events from wedance.vip." />
     </DesignSection>
 
     <DesignSection id="contexts" title="Bounded contexts" lead="The domains the data model splits into today. One Nuxt app and one database hold all of them — the boundaries are conventions in the schema and the router files, not separate services.">

@@ -3,6 +3,7 @@ import { Calendar, MapPin, Users, ChevronRight, Ticket } from 'lucide-vue-next'
 import { WD } from '~/lib/brand'
 import { mockFestival, mockTeachers } from '~/data/mock-meneate'
 import { daysUntil } from '#shared/utils/festivalDateFormatter'
+import { sizedImage, IMG } from '#shared/utils/image'
 
 definePageMeta({ layout: 'docs' })
 
@@ -83,6 +84,15 @@ const artistCode = `<ArtistCard :artist="teacher" :accent="festival.accentColor"
 const eventCode = `<EventSchedule :events="events" />
 // events: { id, title, eventType?, styles?, artists?, eventDate, startTime?, endTime?, location?, href? }[]`
 
+const imageCode = `<script setup lang="ts">
+import { sizedImage, IMG } from '#shared/utils/image'
+<\/script>
+
+<!-- Logo or face (up to ~96px): IMG.avatar -->
+<img :src="sizedImage(festival.logo, IMG.avatar)" :alt="festival.name" class="w-14 h-14 rounded-full object-cover">
+<!-- Flyer or photo in a grid: IMG.card -->
+<img :src="sizedImage(event.flyer, IMG.card)" :alt="event.name" class="w-full aspect-[4/5] object-cover">`
+
 const a11y = [
   '<strong>One link per card.</strong> A card with no inner controls can be the <code>&lt;a&gt;</code> (NuxtLink) itself — ArtistCard does this.',
   '<strong>Card with an inner button</strong> (+ My plan): a <code>&lt;button&gt;</code> inside an <code>&lt;a&gt;</code> is invalid HTML and screen readers announce it as one blob. Use the <em>stretched link</em> instead — root <code>relative</code>, the title is the link with <code>after:absolute after:inset-0</code>, the button sits above it with <code>relative z-10</code>. The anatomy example above is built this way.',
@@ -112,7 +122,7 @@ const a11y = [
               <span class="absolute top-2.5 left-2 size-5 rounded-full bg-foreground text-background text-[10px] font-bold flex items-center justify-center">3</span>
               <div class="p-5">
                 <div class="flex items-start gap-4">
-                  <img :src="festival.logo" :alt="festival.name" class="w-14 h-14 rounded-full shrink-0 shadow-sm object-cover bg-muted">
+                  <img :src="sizedImage(festival.logo, IMG.avatar)" :alt="festival.name" class="w-14 h-14 rounded-full shrink-0 shadow-sm object-cover bg-muted">
                   <div class="flex-1 min-w-0">
                     <div class="flex items-start justify-between gap-2">
                       <h3 class="font-display font-bold text-lg leading-tight text-foreground">
@@ -249,7 +259,7 @@ const a11y = [
           @click.prevent
         >
           <div class="px-4 py-3 flex items-center gap-3" :style="{ background: accent + '0d' }">
-            <img :src="festival.logo" :alt="festival.name" class="w-10 h-10 rounded-lg object-cover shrink-0 bg-muted">
+            <img :src="sizedImage(festival.logo, IMG.avatar)" :alt="festival.name" class="w-10 h-10 rounded-lg object-cover shrink-0 bg-muted">
             <div class="flex-1 min-w-0">
               <h3 class="text-sm font-bold leading-tight font-display text-foreground">{{ festival.name }}</h3>
               <div class="flex flex-wrap items-center gap-x-2 mt-0.5 text-xs text-secondary font-sans">
@@ -271,6 +281,10 @@ const a11y = [
           </div>
         </a>
       </DesignExample>
+    </DesignSection>
+
+    <DesignSection id="images" title="Images at their shown size" lead="Every <img> showing an uploaded photo, logo, flyer or cover goes through sizedImage(url, IMG.avatar | card | large | hero) from shared/utils/image.ts. Cloudinary originals are up to 3.5 MB each; serving them as is used 64 GB in a month and got the account switched off (Nov 2026). Other hosts, static files and previews come back unchanged, so it is safe on any src. Download buttons keep the original URL. AvatarImage does it for you.">
+      <DesignCode :code="imageCode" />
     </DesignSection>
 
     <DesignSection id="guidance" title="Do and don't">

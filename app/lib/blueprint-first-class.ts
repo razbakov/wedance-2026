@@ -73,8 +73,8 @@ export const firstClassSteps: BpStep<FirstClassLane, FirstClassPhase>[] = [
     note: 'Nothing runs on a schedule (no cron in vercel.json): no reminder the day before, no “what to bring”, no directions. Only a cancellation reaches you (sendEventCancelledEmail).' },
   { id: 'whatsapp', phase: 'before', lane: 'school', name: 'Add to the class group', status: 'gap', marks: ['manual'], route: '/business/network/[handle]/contacts',
     note: 'The phone was asked for “its WhatsApp group”, but the school has to open Contacts, find the person and add them by hand — and only if they look.' },
-  { id: 'door', phase: 'before', lane: 'school', name: 'Welcome at the door', status: 'partial', marks: [], code: 'attendance.checkIn',
-    note: 'Door check-in exists for the organiser. Nothing marks someone as a first-timer, so the teacher can’t spot the newcomer who needs a hand.' },
+  { id: 'door', phase: 'before', lane: 'school', name: 'Welcome at the door', status: 'partial', marks: [], route: '/business/events/[id]/door', code: 'attendance.door · attendance.checkIn', refs: ['RAZ-928'],
+    note: 'The door list checks guests in. Nothing marks someone as a first-timer, so the teacher can’t spot the newcomer who needs a hand.' },
   { id: 'attend', phase: 'before', lane: 'newcomer', name: 'Dance the first class', status: 'gap', marks: [],
     note: 'Happens off the platform. Pay at the door if that was the choice.' },
 

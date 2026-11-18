@@ -1,0 +1,55 @@
+---
+description: "City channels — weekly post, official channels, local groups (0067)"
+globs: **/citySchedule*,**/cityOccasion*,**/cityChannel*,**/cityAccess*,**/communityGroup*,**/CommunityGroup*,**/BusinessCity*,**/CityOfficial*,**/SubmitGroup*,**/AdminGroup*,**/groupLinkCheck*,**/scheduleImage*,**/telegram*,app/pages/admin/cities*,app/pages/admin/community-groups*,scripts/import-community-groups.ts
+alwaysApply: false
+---
+<!-- Generated from .claude/rules/city-channels.md by scripts/ci/agent-context.ts. Edit the source, not this file. -->
+## City channels — weekly post, official channels, local groups (0067)
+
+A city's own WeDance accounts (e.g. Instagram @wedancemunich) are run from a **city page**: an ordinary
+business page linked in `city_pages` (Admin → Cities, `/admin/cities`: "Create @wedance<city>" → `cityChannels.createCityPage` makes an organizer page "WeDance <City>" with the admin as owner and links it; or link an existing page → `cityChannels.setCityPage`). Its team
+(`profile_members`) are the **city admins** (`server/utils/cityAccess.ts` `requireCityAdmin`; WeDance admins pass
+everywhere). Tools: Business → the page → "WeDance <city>" → `/business/network/<handle>/city`.
+
+- **Weekly post** (`citySchedule` router, `city_schedules`): the city's live events of a week (Mon 06:00 → Mon 06:00,
+  city zone); nights out picked by default, weekly courses not (`shared/utils/citySchedule.ts`). Text is generated
+  from the picks until edited by hand. Picture = SVG (`server/utils/scheduleImage.ts`) rasterised by Cloudinary
+  (`wedance-2026/schedules/<city>-<week>`, JPEG). Post once per week per place: Instagram feed / story through the
+  page's #501 connection; Telegram via the WeDance bot (`server/utils/telegram.ts`) to every official Telegram
+  channel with a chat id. Nothing is posted without a click; MCP tokens can't publish.
+- **Plan** (RAZ-970, `cityOccasions` router, `city_occasion_posts` 0070): the next 12 months of occasions worth a post,
+  computed in `shared/utils/cityOccasions.ts` — Bavarian silent days (BayFTG Art. 3: 02:00–24:00, Good Friday / Holy
+  Saturday from 00:00, Christmas Eve from 14:00; only for Bavarian cities, by `cities.region` or slug), Fasching (DE/AT),
+  Halloween, New Year's Eve, open-air season, Oktoberfest (Munich). Each has a post: silent days → the Tanzverbot
+  explainer (facts in code, EN/ES/RU/DE); parties → the city's parties on WeDance in those days. The admin picks
+  languages (first one on the picture), edits, draws the picture (same poster as the weekly post), posts to Instagram /
+  Telegram once each. "Ask organisers" emails owners/editors of pages with events in the city (last 180 days), each
+  page once per occasion; emails stay server-side. MCP tokens can't post or send.
+- **Official channels** = `community_groups` with `kind='official'` (+ `telegram_chat_id` for the bot). Shown on the
+  city page under the weekly calendar (`CityOfficialChannels`, `cityChannels.official`, which also adds the page's
+  Instagram). "Check bot" = `getChat` + `getChatMember`.
+- **Local groups grow with the community**: `communityGroup.submit` (any signed-in dancer, "Share a group" in
+  `CommunityGroupsSection`) → `status='pending'` → city admins approve/decline (`pending` / `review`); listed with
+  "added by <first name>". Dedupe on `invite_key` (`shared/utils/communityGroups.ts` `inviteKey`, unique index).
+  `checkLinks` fetches only chat.whatsapp.com / t.me invite pages (`server/utils/groupLinkCheck.ts`): a dead link is
+  hidden from the city page (`link_status='dead'`); a batch that comes back >80% dead changes nothing. WhatsApp is
+  'dead' only when BOTH `og:title` and `invite_link_type_v2` are empty (any mix = 'unknown'); checked on real working
+  invites in RAZ-862.
+- **Admin → Community groups** (`/admin/community-groups`) is where WeDance admins run "Check links" and see its result:
+  each group's state (listed / dead link / waiting / hidden / declined — `shared/utils/communityGroupAdmin.ts`), when its
+  link was last checked, "Show again" / approve / decline. Filters (search, `CityCombobox`, platform, `DanceStyleFilter`,
+  state) live in the URL; Admin → Cities group counts link there (`?city=<slug>&state=dead`).
+- **Group admins** (RAZ-967, 0071): `community_groups.admin_name` / `admin_contact` — who runs a group and one contact
+  (phone / wa.me / @handle / email; `adminContactHref` in `shared/utils/communityGroupAdmin.ts` makes it a link). Personal
+  data: selected only by `communityGroup.listAll` (WeDance admins) and `forCity` / `pending` (city admins), edited via
+  `setAdmin` (`AdminGroupContact`, `ph-no-capture`); never in `listByCity`, `cityChannels.official`, MCP or PostHog.
+  The import fills them: new rows carry the sheet's Admin / Admin Number; `--fill-admins` (dry-run default, `--write`)
+  fills EMPTY admin fields of groups already listed, never overwrites, prints no numbers.
+- **Organisers' group list** (RAZ-861): `bun scripts/import-community-groups.ts` (dry-run default, `--write`, `--json`,
+  `--csv <file>`) reads the "Groups" tab of the "Outreach CRM" sheet (CSV export) → `community_groups` (`source='import'`,
+  visible, unverified). Rules in `server/utils/communityGroupImport.ts`: link from the "Whatsapp" column (platform from
+  the link), known cities only (first of a list; regions are reported, never guessed), rows marked private / invalid /
+  inactive left out, insert-only, skips any `invite_key` already in the table. Rollback: `DELETE … WHERE source='import'`.
+- **Env:** `TELEGRAM_BOT_TOKEN` (create the bot with @BotFather; add it to each channel as an admin allowed to post).
+  Unset = Telegram posting is off, the UI says so. Instagram needs the page's #501 connection.
+

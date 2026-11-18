@@ -4,13 +4,13 @@
  * and the other dancer, whose side of every step is the part most often
  * missing. Hand-maintained from the code (procedures named in `code`):
  * /meet (plan.discover, discover_swipes), the festival page's "Shall we
- * dance?" (wave.*, festival_waves), meetMatches (RAZ-985, My plan → Your dance friends).
- * Not run end to end with two test dancers yet. Shown at
+ * dance?" (wave.*, festival_waves), meetMatches (RAZ-985, My plan → Your dance friends),
+ * and the in-app match card, toast and bell (RAZ-1071). Shown at
  * /docs/blueprints/meet-friends.
  */
 import type { Blueprint, BpGap, BpLaneDef, BpPhaseDef, BpStep } from './blueprint'
 
-export const MEET_BLUEPRINT_UPDATED = '2026-11-16'
+export const MEET_BLUEPRINT_UPDATED = '2026-11-18'
 
 export type MeetLane = 'me' | 'system' | 'other'
 export type MeetPhase = 'join' | 'findable' | 'browse' | 'yes' | 'match' | 'floor' | 'after'
@@ -71,10 +71,10 @@ export const meetSteps: BpStep<MeetLane, MeetPhase>[] = [
   // Match
   { id: 'mutual', phase: 'match', lane: 'system', name: 'Find mutual yeses', status: 'live', marks: [], code: 'plan.meetMatches → server/utils/meetMatches.ts', refs: ['RAZ-985'],
     note: 'Merges deck Yeses and waves both ways into one list per dancer, each with a night out both could go to in the next 14 days. Counts yeses from 2026-11-16 (when the deck started saying “we tell you both”).' },
-  { id: 'match-me', phase: 'match', lane: 'me', name: 'See “you both said yes”', status: 'live', marks: [], route: '/my-plan', code: 'MeetMatches.vue', refs: ['RAZ-985'],
-    note: 'My plan → “Your dance friends”: every mutual yes (deck + festival waves), newest first, “New” for a week.' },
-  { id: 'match-them', phase: 'match', lane: 'other', name: 'Told about the match', status: 'partial', marks: ['silent'], route: '/my-plan', refs: ['RAZ-985'],
-    note: 'Both see the match on My plan the next time they open it. No email or notification yet.' },
+  { id: 'match-me', phase: 'match', lane: 'me', name: 'See “you both said yes”', status: 'live', marks: [], route: '/meet', code: 'MatchNoticeCard.vue · plan.notices', refs: ['RAZ-985', 'RAZ-1071'],
+    note: 'On /meet the match is a card: their photo, name, city, role and dances, then the night (picture, title, date and time, venue, how many are going). Before they book, the action is Book the night. After they book, the card stays and the action is See when and where you’ll meet. The deck can move on underneath. My plan still lists them under “Your dance friends”, and My plan’s own icon has no count.' },
+  { id: 'match-them', phase: 'match', lane: 'other', name: 'Told about the match', status: 'live', marks: [], route: '/meet', code: 'NoticeCenter.vue · plan.notices', refs: ['RAZ-1071'],
+    note: 'The other dancer hears it the next time they open WeDance: the same card on /meet, one small toast at the bottom right (once per match on that browser), and a row under the header bell. The bell badge is the only count, and it clears once they open the meetup. The card and the bell row stay, including after they book. No email and no push.' },
 
   // Meet on the floor
   { id: 'night', phase: 'floor', lane: 'system', name: 'Suggest a night', status: 'live', marks: [], route: '/my-plan', code: 'meetMatches MatchNight · MeetMatches.vue',
@@ -83,8 +83,8 @@ export const meetSteps: BpStep<MeetLane, MeetPhase>[] = [
     note: 'No message, no contact swap, no “see you Friday?”. Only their /u profile, if they have a handle. Agreeing on a night happens outside WeDance or not at all.' },
   { id: 'same-night', phase: 'floor', lane: 'other', name: 'Go the same night', status: 'live', marks: [], route: '/events/[id]', code: 'EventWhosComing · rsvp.people', refs: ['#608'],
     note: 'Every card in the deck is a night someone is going to, and links to it (#608). Going too is one sign-up; the event page then shows them under Who’s coming, with pairing for leaders and followers.' },
-  { id: 'dance', phase: 'floor', lane: 'me', name: 'Dance together', status: 'gap', marks: [],
-    note: 'Happens off the platform. The festival “My Dance List” can tick “danced”, per festival only.' },
+  { id: 'dance', phase: 'floor', lane: 'me', name: 'Dance together', status: 'live', marks: [], route: '/meet/ritual', code: 'ritual.vue · nightCopy', refs: ['RAZ-1071'],
+    note: 'Where you’ll meet explains the clock (the night’s start, then 23:15 once the floor is going, near the DJ booth), shows the event’s picture and how many are going, and three first-person ticks (I can leave, I’m in a public spot, I’m 18+). The next step is a sentence, not a button: open the screen and turn the phone. The screen is the shared color, shape and number, with no name. Couldn’t meet, including Report someone, is on that screen. The morning-after email is not a link in the app.' },
 
   // After
   { id: 'remember', phase: 'after', lane: 'me', name: 'Keep the friend', status: 'missing', marks: [],

@@ -23,6 +23,13 @@ time (`BusinessEventForm` `focus()`). A new draft opens on its first step to do.
 host's other events suggest (`pastEventHints`: artists booked before, last time's price). Same order as MCP
 `create_event`.
 
+**Back and the unfinished form (RAZ-1024):** choosing a path puts `?start=post|copy|scratch` on the URL
+(`router.push`), so the browser's Back and Forward move between the choice and that path, and a Back
+button on the path does the same. What was typed is kept in this browser (`localStorage`,
+`wedance-new-event`, `app/lib/newEventDraft.ts`) and filled in again when that path is opened. It is
+cleared once a draft is created. A link that already says what to make (`?type=` / `?artist=`) still
+opens From scratch, and leaves a different unfinished draft in place until the organiser types in it.
+
 ## The venue's own hints (RAZ-1012)
 
 What is true about a venue for every event there — nearest stop (line badge + colour, stop, how to get from it), parking
@@ -86,6 +93,9 @@ the event (to fix the title) restores it. Painted versions were already rows in
 lines have changed, including a version that was never kept (`refresh` with
 `fromFlyerId`). Keeping a flyer clears the draft. "Continue your flyer" on the
 editor's panel is that same return.
+## Door check-in (RAZ-928)
+
+Business → event → **Door** (`/business/events/[id]/door`), built for a phone: search by name, then one tap. The list is who is actually coming — an RSVP other than “next time” (a signed-out guest keeps the name they typed), Going!, a ticket, and a festival pass when the event is that festival. `attendance.checkIn` writes `attendances.checked_in_at` (a signed-out RSVP is `event_rsvps.checked_in_at` until the magic link confirms it, then the tick moves onto the attendance). Doing it again changes nothing; Undo clears the tick and leaves the ticket or Going! row. Who’s coming shows “N checked in”. The AI app uses `door_list` and `check_in` (names only, nothing is sent). Emails and phones stay in Contacts.
 
 ## Cancelling an event (RAZ-948)
 

@@ -12,6 +12,7 @@ paths:
 
 The organiser's event page shows **Who's coming** (`BusinessWhosComing`, `rsvp.people`: names and photos of everyone
 who signed up — poll, Going!, tickets — never email; organisers see them whatever the dancer's public visibility).
+The same card shows how many are checked in and opens the door list (`/business/events/<id>/door`, RAZ-928).
 Contact details live only in the host page's **Contacts** (`/business/network/<handle>/contacts`), which "See their
 contacts" opens filtered to the event (`?event=<id>&as=<needLeader|…>`; `businessSite.contactsOverview` → `events`,
 `activity.events` per contact, `shared/utils/contactSegments.ts` `ComingAs`). A dancer gets there by signing up
