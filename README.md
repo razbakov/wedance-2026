@@ -12,7 +12,7 @@ city, the teachers, venues and organisers behind them, and who else is going.
 - **License:** [GNU AGPL-3.0-only](LICENSE)
 
 Nuxt 4 · tRPC · Drizzle ORM · Postgres (Neon) · Tailwind 4. Developer notes live in
-[CLAUDE.md](CLAUDE.md).
+[AGENTS.md](AGENTS.md).
 
 ## License
 

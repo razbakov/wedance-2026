@@ -167,7 +167,7 @@ Data-hygiene problems (fix before trusting any number):
 - Client event `x` ↔ server `server_x` (identical suffix). Count conversions on `server_*`.
 - Standard props where applicable: `city`, `style`, `event_id`, `festival`, `profile_type`, `surface`, `channel`.
 - Never send names, emails, free text, or search queries. Money: `amount` (cents), `currency`, plus `$revenue` (major units) on purchase events.
-- Every new event goes into the catalogue in `CLAUDE.md → Analytics (PostHog)` in the same PR.
+- Every new event goes into the catalogue in `AGENTS.md → Analytics (PostHog)` in the same PR.
 
 ## 5. Execution order
 

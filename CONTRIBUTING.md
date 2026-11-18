@@ -39,7 +39,7 @@ Postgres. The DB tests refuse to run against anything but `localhost`.
      hex colour. See [`docs/design-system.md`](docs/design-system.md) and
      <https://2026.wedance.vip/docs/design>.
    - **Forms:** client validation uses valibot, as described in
-     [`CLAUDE.md`](CLAUDE.md) → Conventions.
+     [`AGENTS.md`](AGENTS.md) → Conventions.
    - **Data model / API:** the architecture docs are generated from the code
      ([ADR-000](docs/architecture/adr/000-generated-architecture-docs.md)). A new
      table must be assigned to a context in `scripts/architecture/domains.ts`, or

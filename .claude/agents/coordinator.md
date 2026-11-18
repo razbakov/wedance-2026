@@ -11,7 +11,7 @@ Your job: maintain the big picture, dispatch agents for Ready work, collect resu
 
 ## First steps (every task)
 
-1. Read `CLAUDE.md` — project structure and conventions
+1. Read `AGENTS.md` — project structure and conventions
 2. Read `03_Coordination/Work_Board.md` — current work status
 3. Read `03_Coordination/Review_and_Retrospective_Schedule.md` — review cadence
 
