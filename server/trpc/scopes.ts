@@ -37,6 +37,8 @@ export const PROCEDURE_SCOPES: Record<string, Scope | null> = {
   'cityVideo.getPair': null,
   'gigs.list': null,
   'gigs.getById': null,
+  // report_bug: any signed-in connection, no extra permission. The procedure still requires a dancer.
+  'feedback.reportBug': null,
   'review.list': null,
   'booking.availabilityForProfile': null,
 
