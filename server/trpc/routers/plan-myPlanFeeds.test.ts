@@ -414,6 +414,39 @@ describe.skipIf(!DATABASE_URL)('my-plan feeds', () => {
       expect(cards.find(c => c.targetKind === 'dancer' && c.targetId === ids.quiet)).toBeUndefined()
     })
 
+    it('tells both dancers about a mutual yes, and stops asking once the night is booked', async () => {
+      await addDancer('noteA', { photo: 'https://example.com/a.jpg', name: `Anna Note ${RUN}` })
+      await addDancer('noteB', { photo: 'https://example.com/b.jpg', name: `Ben Note ${RUN}` })
+      const now = Date.now()
+      await addEvent('noteNight', { startDate: new Date(now + 4 * DAY), endDate: new Date(now + 4 * DAY + 3 * 3600_000), venueName: 'Stachus' })
+      const pair = [ids.noteA!, ids.noteB!]
+      try {
+        await caller(ids.noteA!).plan.discoverSwipe({ targetKind: 'dancer', targetId: ids.noteB!, decision: 'yes' })
+        const second = await caller(ids.noteB!).plan.discoverSwipe({ targetKind: 'dancer', targetId: ids.noteA!, decision: 'yes' })
+        expect(second.match).toBe(true)
+        const anna = await caller(ids.noteA!).plan.notices()
+        const ben = await caller(ids.noteB!).plan.notices()
+        expect(anna.notices.find(n => n.id === `match:${ids.noteB}`)).toMatchObject({
+          booked: false,
+          href: `/meet/ritual?with=${ids.noteB}`,
+        })
+        expect(anna.notices.find(n => n.id === `match:${ids.noteB}`)?.action).toContain('Book the night')
+        expect(ben.notices.find(n => n.id === `match:${ids.noteA}`)?.title).toContain('Anna')
+        await db.insert(schema.meetRituals).values({
+          dancerId: ids.noteB!, otherId: ids.noteA!, eventId: ids.noteNight!, bookedAt: new Date(),
+        })
+        const booked = (await caller(ids.noteB!).plan.notices()).notices.find(n => n.id === `match:${ids.noteA}`)
+        expect(booked?.booked).toBe(true)
+        expect(booked?.body).toContain('Stachus')
+        expect(booked?.action).not.toContain('Book the night')
+      } finally {
+        await db.delete(schema.meetRituals).where(inArray(schema.meetRituals.dancerId, pair))
+        await db.delete(schema.discoverSwipes).where(inArray(schema.discoverSwipes.dancerId, pair))
+        await db.delete(schema.events).where(eq(schema.events.id, ids.noteNight!))
+        await db.delete(schema.dancers).where(inArray(schema.dancers.id, pair))
+      }
+    })
+
     it('a Skip is stored and the card does not come back; undo brings it back', async () => {
       const me = caller(ids.me!)
       await me.plan.discoverSwipe({ targetKind: 'dancer', targetId: ids.withPhoto!, decision: 'skip' })

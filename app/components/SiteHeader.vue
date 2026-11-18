@@ -55,7 +55,8 @@ const onPlan = computed(() => under('/my-plan') || under('/my-year'))
         </NuxtLink>
       </nav>
 
-      <div class="ml-auto flex items-center gap-4">
+      <div class="ml-auto flex items-center gap-2 sm:gap-4">
+        <NoticeCenter />
         <template v-if="appearsSignedIn">
           <NuxtLink
             to="/my-plan"

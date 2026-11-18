@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { eq, and, ne, sql, inArray, gte, lt, asc, ilike, isNotNull, or } from 'drizzle-orm'
 import { router, publicProcedure, protectedProcedure } from '../trpc'
-import { planItems, dancers, festivals, festivalSignups, events, attendances, dancerGoals } from '../../database/schema'
+import { planItems, dancers, festivals, festivalSignups, events, attendances, dancerGoals, meetRituals } from '../../database/schema'
 import { getReferralDiscountPercent, getEarlyBirdInfo } from '../../utils/ticket-prices'
 import { eventPath } from '../../../shared/utils/eventSlug'
 import { festivalPath } from '../../../shared/utils/eventSlug'
@@ -10,6 +10,7 @@ import { eventIdForFestival, recordLinkAction } from '../../utils/trackedLinks'
 import { planCounts } from '../../utils/planCounts'
 import { festivalEventsWhere, toFestivalRow } from '../../utils/festivalListing'
 import { MEET_MATCHES_SINCE, meetMatches } from '../../utils/meetMatches'
+import { matchNotice, nightWhenLabel } from '../../../shared/utils/notices'
 import { afterYes } from '../../utils/meetMatchNotify'
 import { meetEmpty } from '../../utils/meetEmpty'
 import { yearReviewFor } from '../../utils/yearReview'
@@ -606,6 +607,35 @@ export const planRouter = router({
    */
   meetMatches: protectedProcedure.query(async ({ ctx }) => {
     return { matches: await meetMatches(ctx.db, ctx.dancerId, { since: MEET_MATCHES_SINCE }) }
+  }),
+
+  /**
+   * In-app notices derived from matches that already exist (no email, no push).
+   * A mutual yes from before this screen existed still shows: nothing is written
+   * when the match happens. "Booked" is the ritual booking, not the plan.
+   */
+  notices: protectedProcedure.query(async ({ ctx }) => {
+    const matches = await meetMatches(ctx.db, ctx.dancerId, { since: MEET_MATCHES_SINCE })
+    let booked = new Set<string>()
+    try {
+      const rows = await ctx.db
+        .select({ otherId: meetRituals.otherId, bookedAt: meetRituals.bookedAt })
+        .from(meetRituals)
+        .where(eq(meetRituals.dancerId, ctx.dancerId))
+      booked = new Set(rows.filter((r: { bookedAt: Date | null }) => r.bookedAt).map((r: { otherId: string }) => r.otherId))
+    } catch { /* rituals table not migrated yet */ }
+    return {
+      notices: matches.map(m => matchNotice({
+        dancerId: m.dancerId,
+        name: m.name,
+        photo: m.photo,
+        matchedAt: m.matchedAt,
+        booked: booked.has(m.dancerId),
+        night: m.night
+          ? { name: m.night.name, whenLabel: nightWhenLabel(m.night.startISO, m.night.timezone), venue: m.night.venue }
+          : null,
+      })),
+    }
   }),
 
   /** Undo a discover decision. */
