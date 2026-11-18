@@ -79,6 +79,9 @@ describe.skipIf(!DATABASE_URL)('businessLaunch router', () => {
 
   it('kickoff answers land in the step fields, and the name is never marked free by us', async () => {
     const me = as(ids.owner).businessLaunch
+    // The test above chose 'La Prueba'; a chosen name wins over placeName, so start unnamed.
+    const chosen = (await me.get({ username })).names.find(n => n.decision === 'chosen')
+    if (chosen) await me.decideName({ username, id: chosen.id, decision: 'candidate' })
     let d = await me.answerKickoff({ username, question: 'call', custom: 'La Prueba Noche' })
     expect(d.values.placeName).toBe('La Prueba Noche')
     expect(d.kickoff.status).not.toBe('done')
