@@ -616,25 +616,55 @@ export const planRouter = router({
    */
   notices: protectedProcedure.query(async ({ ctx }) => {
     const matches = await meetMatches(ctx.db, ctx.dancerId, { since: MEET_MATCHES_SINCE })
-    let booked = new Set<string>()
+    // The night they booked, not whatever night the match would suggest next.
+    // A later booking of the same friend replaces an earlier one.
+    const bookedEventByOther = new Map<string, string>()
     try {
-      const rows = await ctx.db
-        .select({ otherId: meetRituals.otherId, bookedAt: meetRituals.bookedAt })
+      const rows: Array<{ otherId: string, eventId: string, bookedAt: Date | null }> = await ctx.db
+        .select({ otherId: meetRituals.otherId, eventId: meetRituals.eventId, bookedAt: meetRituals.bookedAt })
         .from(meetRituals)
         .where(eq(meetRituals.dancerId, ctx.dancerId))
-      booked = new Set(rows.filter((r: { bookedAt: Date | null }) => r.bookedAt).map((r: { otherId: string }) => r.otherId))
+      const latest = new Map<string, { eventId: string, at: number }>()
+      for (const r of rows) {
+        if (!r.bookedAt) continue
+        const at = new Date(r.bookedAt).getTime()
+        const cur = latest.get(r.otherId)
+        if (!cur || at >= cur.at) latest.set(r.otherId, { eventId: r.eventId, at })
+      }
+      for (const [other, v] of latest) bookedEventByOther.set(other, v.eventId)
     } catch { /* rituals table not migrated yet */ }
+
+    const bookedNights = new Map<string, { name: string, whenLabel: string, venue: string }>()
+    const eventIds = [...bookedEventByOther.values()]
+    if (eventIds.length) {
+      const evs: Array<{ id: string, name: string | null, startDate: Date | null, timezone: string | null, venueName: string | null }> = await ctx.db
+        .select({ id: events.id, name: events.name, startDate: events.startDate, timezone: events.timezone, venueName: events.venueName })
+        .from(events)
+        .where(inArray(events.id, eventIds))
+      for (const e of evs) {
+        if (!e.startDate) continue
+        bookedNights.set(e.id, {
+          name: e.name || 'the night',
+          whenLabel: nightWhenLabel(new Date(e.startDate).toISOString(), e.timezone),
+          venue: e.venueName || '',
+        })
+      }
+    }
+
     return {
-      notices: matches.map(m => matchNotice({
-        dancerId: m.dancerId,
-        name: m.name,
-        photo: m.photo,
-        matchedAt: m.matchedAt,
-        booked: booked.has(m.dancerId),
-        night: m.night
-          ? { name: m.night.name, whenLabel: nightWhenLabel(m.night.startISO, m.night.timezone), venue: m.night.venue }
-          : null,
-      })),
+      notices: matches.map(m => {
+        const bookedNight = bookedNights.get(bookedEventByOther.get(m.dancerId) ?? '')
+        return matchNotice({
+          dancerId: m.dancerId,
+          name: m.name,
+          photo: m.photo,
+          matchedAt: m.matchedAt,
+          booked: bookedEventByOther.has(m.dancerId),
+          night: bookedNight ?? (m.night
+            ? { name: m.night.name, whenLabel: nightWhenLabel(m.night.startISO, m.night.timezone), venue: m.night.venue }
+            : null),
+        })
+      }),
     }
   }),
 
