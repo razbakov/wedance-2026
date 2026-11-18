@@ -1,7 +1,9 @@
 <script setup lang="ts">
 /**
- * Header bell + live toasts. A match toast is the large one. Closing it, or
- * letting it age out, leaves the row under the bell until they open it.
+ * Header bell + live toasts. Toasts are small and sit at the bottom right.
+ * The match itself is the card on /meet. Closing a toast, or letting it age
+ * out, leaves the row under the bell until they open it. The bell badge is
+ * the only count.
  */
 import { Bell, X } from 'lucide-vue-next'
 import { sizedImage, IMG } from '#shared/utils/image'
@@ -90,28 +92,26 @@ function open(id: string, via: 'toast' | 'bell') {
   <Teleport to="body">
     <div
       v-if="mounted"
-      class="pointer-events-none fixed inset-x-0 bottom-24 z-50 flex flex-col items-center gap-3 px-4 sm:bottom-6"
+      class="pointer-events-none fixed bottom-24 right-4 z-40 flex w-72 flex-col items-stretch gap-2 sm:bottom-6"
+      data-testid="notice-toasts"
+      data-position="bottom-right"
       aria-live="polite"
     >
       <article
         v-for="n in openToasts"
         :key="n.id"
-        class="pointer-events-auto w-full rounded-3xl border bg-card shadow-wd-card"
-        :class="n.prominent ? 'max-w-md p-5' : 'max-w-sm p-3'"
+        class="pointer-events-auto rounded-2xl border bg-card p-3 shadow-wd-card"
         style="border-color: color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);"
         role="status"
         data-testid="notice-toast"
-        :data-prominent="n.prominent ? 'true' : 'false'"
       >
-        <div class="flex items-start gap-3">
-          <img v-if="n.photo" :src="sizedImage(n.photo, IMG.avatar)" alt="" :class="n.prominent ? 'size-14' : 'size-10'" class="shrink-0 rounded-full object-cover">
+        <div class="flex items-start gap-2">
+          <img v-if="n.photo" :src="sizedImage(n.photo, IMG.avatar)" alt="" class="size-8 shrink-0 rounded-full object-cover">
           <div class="min-w-0 flex-1">
-            <p :class="n.prominent ? 'font-display text-2xl leading-tight' : 'text-sm font-bold'">{{ n.title }}</p>
-            <p class="mt-1 text-sm text-muted-foreground">{{ n.body }}</p>
+            <p class="text-sm font-bold leading-snug">{{ n.title }}</p>
             <NuxtLink
               :to="n.href"
-              class="mt-3 inline-flex font-bold text-primary hover:underline"
-              :class="n.prominent ? 'text-base' : 'text-sm'"
+              class="mt-1 inline-flex text-xs font-bold text-primary hover:underline"
               data-testid="notice-toast-action"
               @click="open(n.id, 'toast')"
             >{{ n.action }}</NuxtLink>

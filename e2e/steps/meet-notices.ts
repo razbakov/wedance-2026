@@ -61,13 +61,18 @@ When('I open the home page', async ({ page }) => {
 })
 
 Then('Meet shows the match with {string}', async ({ page }, who: string) => {
-  await expect(page.getByTestId('meet-match-banner').getByRole('heading', { name: new RegExp(`with ${who}`) })).toBeVisible()
+  const card = page.getByTestId('meet-match-card')
+  await expect(card.getByTestId('meet-match-photo')).toBeVisible()
+  await expect(card.getByTestId('meet-match-name')).toContainText(who)
+  await expect(card.getByTestId('meet-match-styles')).toBeVisible()
+  await expect(card.getByTestId('meet-match-event')).toBeVisible()
+  await expect(card.getByTestId('meet-match-going')).toContainText('going')
+  await expect(page.getByRole('link', { name: 'My plan' }).first()).not.toHaveText(/\d/)
 })
 
 Then('I see a match toast for {string}', async ({ page }, who: string) => {
-  const toast = page.getByTestId('notice-toast').filter({ hasText: who })
-  await expect(toast).toBeVisible()
-  await expect(toast).toHaveAttribute('data-prominent', 'true')
+  await expect(page.getByTestId('notice-toasts')).toHaveAttribute('data-position', 'bottom-right')
+  await expect(page.getByTestId('notice-toast').filter({ hasText: who })).toBeVisible()
 })
 
 Then('the notification bell shows {int}', async ({ page }, n: number) => {

@@ -1,9 +1,11 @@
 @c3
 Feature: A match tells both dancers, in the app
 
-  The yes that completes a match is a notice for both people. It shows as a
-  toast and stays under the bell until they open it. No email and no push.
-  Every step is a click.
+  The yes that completes a match is a notice for both people. On Meet it is a
+  card: their photo, name and dances, and the night (title, when, venue, how
+  many are going). A small toast sits at the bottom right and the header bell
+  is the only count. My plan shows no number. No email and no push. Every
+  step is a click.
 
   @write
   Scenario: Both dancers see the match, and the bell opens the meetup

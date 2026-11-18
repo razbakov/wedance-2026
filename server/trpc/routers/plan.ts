@@ -10,7 +10,7 @@ import { eventIdForFestival, recordLinkAction } from '../../utils/trackedLinks'
 import { planCounts } from '../../utils/planCounts'
 import { festivalEventsWhere, toFestivalRow } from '../../utils/festivalListing'
 import { MEET_MATCHES_SINCE, meetMatches } from '../../utils/meetMatches'
-import { matchNotice, nightWhenLabel } from '../../../shared/utils/notices'
+import { matchNotice, nightCardWhen, type DanceRole } from '../../../shared/utils/notices'
 import { afterYes } from '../../utils/meetMatchNotify'
 import { meetEmpty } from '../../utils/meetEmpty'
 import { yearReviewFor } from '../../utils/yearReview'
@@ -633,36 +633,70 @@ export const planRouter = router({
       }
       for (const [other, v] of latest) bookedEventByOther.set(other, v.eventId)
     } catch { /* rituals table not migrated yet */ }
-
-    const bookedNights = new Map<string, { name: string, whenLabel: string, venue: string }>()
-    const eventIds = [...bookedEventByOther.values()]
-    if (eventIds.length) {
-      const evs: Array<{ id: string, name: string | null, startDate: Date | null, timezone: string | null, venueName: string | null }> = await ctx.db
-        .select({ id: events.id, name: events.name, startDate: events.startDate, timezone: events.timezone, venueName: events.venueName })
-        .from(events)
-        .where(inArray(events.id, eventIds))
-      for (const e of evs) {
-        if (!e.startDate) continue
-        bookedNights.set(e.id, {
-          name: e.name || 'the night',
-          whenLabel: nightWhenLabel(new Date(e.startDate).toISOString(), e.timezone),
-          venue: e.venueName || '',
-        })
+    const otherIds = matches.map(m => m.dancerId)
+    const eventIds = [...new Set([
+      ...bookedEventByOther.values(),
+      ...matches.map(m => m.night?.eventId).filter((id): id is string => !!id),
+    ])]
+    const roleOf = new Map<string, DanceRole | null>()
+    const coverOf = new Map<string, string | null>()
+    const goingOf = new Map<string, number>()
+    const bookedNights = new Map<string, { name: string, path: string, whenLabel: string, venue: string }>()
+    try {
+      if (otherIds.length) {
+        const rows = await ctx.db.select({ id: dancers.id, role: dancers.role }).from(dancers).where(inArray(dancers.id, otherIds))
+        for (const r of rows) roleOf.set(r.id, r.role === 'lead' || r.role === 'follow' || r.role === 'both' ? r.role : null)
       }
-    }
+      if (eventIds.length) {
+        const [evs, counts] = await Promise.all([
+          ctx.db.select({
+            id: events.id, name: events.name, cover: events.cover,
+            startDate: events.startDate, timezone: events.timezone, venueName: events.venueName,
+          }).from(events).where(inArray(events.id, eventIds)),
+          ctx.db.select({ itemId: planItems.itemId, n: sql<number>`count(*)::int` }).from(planItems)
+            .where(and(eq(planItems.itemType, 'event'), inArray(planItems.itemId, eventIds)))
+            .groupBy(planItems.itemId),
+        ])
+        for (const e of evs) {
+          coverOf.set(e.id, e.cover || null)
+          if (!e.startDate) continue
+          bookedNights.set(e.id, {
+            name: e.name || 'the night',
+            path: eventPath({ id: e.id, name: e.name }),
+            whenLabel: nightCardWhen(new Date(e.startDate).toISOString(), e.timezone),
+            venue: e.venueName || '',
+          })
+        }
+        for (const r of counts) goingOf.set(r.itemId, Number(r.n) || 0)
+      }
+    } catch { /* cover and count are extras; the match still shows */ }
 
     return {
       notices: matches.map(m => {
-        const bookedNight = bookedNights.get(bookedEventByOther.get(m.dancerId) ?? '')
+        const bookedId = bookedEventByOther.get(m.dancerId)
+        const bookedNight = bookedId ? bookedNights.get(bookedId) : undefined
+        const night = bookedNight
+          ? { ...bookedNight, cover: coverOf.get(bookedId!) ?? null, going: goingOf.get(bookedId!) ?? 0 }
+          : m.night
+            ? {
+                name: m.night.name,
+                path: m.night.path,
+                whenLabel: nightCardWhen(m.night.startISO, m.night.timezone),
+                venue: m.night.venue,
+                cover: coverOf.get(m.night.eventId) ?? null,
+                going: goingOf.get(m.night.eventId) ?? 0,
+              }
+            : null
         return matchNotice({
           dancerId: m.dancerId,
           name: m.name,
           photo: m.photo,
+          city: m.city,
+          role: roleOf.get(m.dancerId) ?? null,
+          styles: m.styles,
           matchedAt: m.matchedAt,
           booked: bookedEventByOther.has(m.dancerId),
-          night: bookedNight ?? (m.night
-            ? { name: m.night.name, whenLabel: nightWhenLabel(m.night.startISO, m.night.timezone), venue: m.night.venue }
-            : null),
+          night,
         })
       }),
     }
@@ -701,9 +735,10 @@ export const planRouter = router({
   }),
 
   /**
-   * The "My plan" badge and the city page's "N in your week" pill (RAZ-889):
-   * counts of what /my-plan actually lists — upcoming festivals, courses and
-   * this week's socials — from the same feeds, never the raw plan_items size.
+   * Counts of what /my-plan actually lists — upcoming festivals, courses and
+   * this week's socials — from the same feeds, never the raw plan_items size
+   * (RAZ-889). The city page's "N in your week" pill reads this. The header
+   * shows no number on My plan; the bell is the only badge.
    */
   /**
    * Your year in dance (RAZ-966): the story of the dancer's past year — the

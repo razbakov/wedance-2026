@@ -171,9 +171,11 @@ function commitSwipe(direction: 'yes' | 'skip' | 'later') {
             name: card.name,
             photo: card.photo,
             matchedAt: new Date().toISOString(),
+            city: card.city,
+            styles: card.danceStyles,
             booked: false,
             night: card.kind === 'dancer-same-night' || card.kind === 'dancer-going-out'
-              ? { name: card.night.name, whenLabel: card.night.when, venue: card.night.venue }
+              ? { name: card.night.name, whenLabel: card.night.when, venue: card.night.venue, path: card.night.path }
               : null,
           }))
           void refreshNotices()
@@ -312,19 +314,13 @@ const matchBanners = computed(() => unacted.value.filter(n => n.kind === 'match'
 
         <div class="relative mx-auto max-w-md">
           <!-- A match leads to the night, above whatever card comes next. -->
-          <section v-if="matchBanners.length" class="mb-6 space-y-3" data-testid="meet-match-banner">
-            <article
+          <section v-if="matchBanners.length" class="mb-6 space-y-4" data-testid="meet-match-banner">
+            <MatchNoticeCard
               v-for="n in matchBanners"
               :key="n.id"
-              class="rounded-3xl border bg-card p-6 text-center shadow-wd-card"
-              style="border-color: color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);"
-            >
-              <h2 class="font-display text-4xl leading-tight text-foreground">{{ n.title }}</h2>
-              <p class="mt-2 text-base text-muted-foreground font-sans">{{ n.body }}</p>
-              <Button as-child variant="cta" size="lg" class="mt-5 w-full">
-                <NuxtLink :to="n.href" data-testid="meet-match-action" @click="act(n.id, 'meet')">{{ n.action }}</NuxtLink>
-              </Button>
-            </article>
+              :notice="n"
+              @open="act(n.id, 'meet')"
+            />
           </section>
 
           <!-- RAZ-1002: an empty deck is one thing to do about it. -->

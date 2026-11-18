@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { matchNotice, unactedNotices, type Notice } from './notices'
+import { matchNotice, roleLabel, unactedNotices, type Notice } from './notices'
 
 const anna = {
   dancerId: 'anna-id',
@@ -27,6 +27,20 @@ describe('matchNotice', () => {
     expect(n.body).toBe("You'll meet Anna at Hello Weekend am Stachus, Friday 19:00 · Stachus.")
     expect(n.action).toBe('See when and where you’ll meet')
     expect(n.href).toBe('/meet/ritual?with=anna-id')
+  })
+
+  it('carries the face, the dances and the night for the match card', () => {
+    const n = matchNotice({
+      ...anna,
+      city: 'Munich',
+      role: 'follow',
+      styles: ['Salsa', 'Bachata'],
+      night: { ...anna.night, path: '/events/hello', cover: 'https://example.com/flyer.jpg', going: 2 },
+    })
+    expect(roleLabel(n.person.role)).toBe('Follower')
+    expect(n.person.styles).toEqual(['Salsa', 'Bachata'])
+    expect(n.person.city).toBe('Munich')
+    expect(n.event).toMatchObject({ name: 'Hello Weekend am Stachus', going: 2, cover: 'https://example.com/flyer.jpg' })
   })
 
   it('still asks them to book when there is no night to point at', () => {
