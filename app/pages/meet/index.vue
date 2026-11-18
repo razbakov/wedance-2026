@@ -371,7 +371,8 @@ const lastYes = computed(() => {
           <p v-if="lastYes" class="mt-4 text-sm text-center text-muted-foreground font-sans" data-testid="meet-next-step" aria-live="polite">
             <template v-if="matchedIds.has(lastYes.id)">
               <span class="font-bold text-wd-green-700" data-testid="meet-its-a-match">It’s a match — {{ lastYes.name }} said yes to you too.</span>
-              They’ll see it too. <NuxtLink to="/my-plan#dance-friends" class="font-bold text-primary hover:underline">Pick a night together</NuxtLink>.
+              They’ll see it too.
+              <NuxtLink v-if="lastYes.target" :to="`/meet/ritual?with=${lastYes.target.id}`" class="font-bold text-primary hover:underline" data-testid="meet-ritual-link">Book the night and see where you’ll meet</NuxtLink>.
             </template>
             <template v-else>
             <span class="font-bold text-foreground">Yes to {{ lastYes.name }}.</span>

@@ -1,6 +1,12 @@
 ---
 paths:
-  - "app/pages/{my-plan,my-year,meet,dance-card}.vue"
+  - "app/pages/{my-plan,my-year,dance-card}.vue"
+  - "app/pages/meet/**"
+  - "app/components/RitualSymbol.vue"
+  - "shared/utils/ritual.ts"
+  - "server/utils/ritual.ts"
+  - "server/trpc/routers/ritual.ts"
+  - "server/api/cron/ritual-followup.get.ts"
   - "app/pages/w/**"
   - "server/trpc/routers/{plan,weekend,wave}*.ts"
   - "server/api/match-emails/**"
@@ -73,3 +79,7 @@ rows are joined). A thin year just drops screens (no filling in with the city's 
 Code: `server/utils/yearReview.ts` (`plan.yearReview`), `shared/utils/yearReview.ts` (`buildYearReview`, screens),
 `app/lib/yearReviewStory.ts` (one 1080×1920 picture per screen, `storyCanvas.ts`), `app/components/YearReview.vue`.
 `/my-year?user=<handle or id>` (a friend's festival year, `SharedYearPlan`) stays: the year story's link leads there.
+
+## Meetup after a match (RAZ-1071)
+
+`/meet/ritual?with=<dancer id>` is the night two dancers who said yes actually meet. It reads the real match (`plan.meetMatches`): book the suggested night (a plan item, `metadata.with` = them), then the time and place — 23:15 near the DJ booth when that clock time falls during the event, otherwise a little after the start. At the venue they tap and turn the phone toward the other person. The screen is a shared color, shape and number (derived from the two ids and the event, same on both phones) plus the holder's own first name. No scan and no follow on that screen. Safety lines (leave any time, public spot, 18+) are optional ticks. "Couldn't meet?" saves a problem on `meet_rituals` and does not notify the other dancer. The morning after the event, `/api/cron/ritual-followup` emails both; that mail is the only follow suggestion, and its link opens `/meet/ritual?with=<id>&morning=1` where one tap follows. Open `/meet/ritual` in each dancer's browser — one match opens straight into it. Entry points: the "It's a match" line on `/meet`, and "How you'll meet" on My plan's dance friends.
