@@ -9,6 +9,9 @@
  * your year" nudge in My plan's Your festivals.
  *
  * ?preview=1 shows example dancers and never writes.
+ *
+ * The color-and-shape ritual (RAZ-1060) is a labeled prototype at /meet/ritual.
+ * It does not read or write this deck.
  */
 import { ArrowLeft, ArrowRight, Heart, X, Clock, Undo2 } from 'lucide-vue-next'
 import { festivalPath } from '#shared/utils/eventSlug'
@@ -222,6 +225,11 @@ const lastYes = computed(() => {
         <div>
           <h1 class="text-4xl sm:text-5xl leading-tight font-display text-foreground">Meet new friends</h1>
           <p class="mt-1 text-sm text-muted-foreground font-sans">Dancers going out soon. Like someone? Meet them there.</p>
+          <p class="mt-3 text-sm font-sans" data-testid="meet-ritual-prototype">
+            <span class="mr-1.5 inline-flex items-center rounded-full bg-wd-amber-100 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-wd-amber-800">Prototype</span>
+            <NuxtLink to="/meet/ritual" class="font-bold text-primary hover:underline">Color and shape at the event</NuxtLink>
+            <span class="text-muted-foreground"> — an example night, nothing is saved.</span>
+          </p>
         </div>
         <Button
           v-if="view === 'deck'"

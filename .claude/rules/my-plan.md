@@ -1,6 +1,8 @@
 ---
 paths:
-  - "app/pages/{my-plan,my-year,meet,dance-card}.vue"
+  - "app/pages/{my-plan,my-year,dance-card}.vue"
+  - "app/pages/meet/**"
+  - "app/{lib/ritualPrototype,components/RitualPrototypeSymbol}*"
   - "app/pages/w/**"
   - "server/trpc/routers/{plan,weekend,wave}*.ts"
   - "server/api/match-emails/**"
@@ -73,3 +75,7 @@ rows are joined). A thin year just drops screens (no filling in with the city's 
 Code: `server/utils/yearReview.ts` (`plan.yearReview`), `shared/utils/yearReview.ts` (`buildYearReview`, screens),
 `app/lib/yearReviewStory.ts` (one 1080×1920 picture per screen, `storyCanvas.ts`), `app/components/YearReview.vue`.
 `/my-year?user=<handle or id>` (a friend's festival year, `SharedYearPlan`) stays: the year story's link leads there.
+
+## Color-and-shape ritual prototype (RAZ-1060)
+
+`/meet/ritual` is a front-end click-through of the at-the-event step, linked from `/meet` and labeled Prototype. Example names, the orange star and both languages live in `app/lib/ritualPrototype.ts`. Nothing is seeded, scanned or written. German is the default; EN switches the copy. The last screen returns to the Meet deck.
