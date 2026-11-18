@@ -70,6 +70,14 @@ describe('setupChecklist', () => {
     expect(setupNext([])).toMatch(/publish_event only when/)
   })
 
+  it('doors open is not missing an artist; a show without one still is', () => {
+    const done = { venueUsername: 'v', description: 'd', gaps: [], flyer: { ...noFlyer, kept: true } }
+    expect(names(done, [{ title: 'Open doors', type: 'doors' }, { title: 'Burlesque show', type: 'show', artist: 'ana' }])).not.toContain('Programme items without an artist')
+    const flagged = items(done, [{ title: 'Open doors', type: 'doors' }, { title: 'Burlesque show', type: 'show' }])
+    expect(flagged.map(i => i.item)).toEqual(['Programme items without an artist'])
+    expect(flagged[0]!.detail).toBe('“Burlesque show”')
+  })
+
   it('programme items without an artist are named (a "with" counts)', () => {
     const n = names({ venueUsername: 'v', description: 'd', gaps: [], flyer: { ...noFlyer, kept: true } }, [
       { title: 'Burlesque show' }, { title: 'Belly dance', with: ['leyla'] }, { title: 'Afterparty', artist: 'djx' },

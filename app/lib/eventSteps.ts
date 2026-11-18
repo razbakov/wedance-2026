@@ -8,6 +8,7 @@
  * flyer and published state), so the editor and the checklist always agree.
  */
 import type { EventGapKey } from '#shared/utils/eventChecklist'
+import { entryNoun } from '#shared/utils/entryWord'
 
 export type EventStepKey = 'when' | 'where' | 'lineup' | 'entry' | 'flyer' | 'publish'
 /** Which editor card a step opens (`null` = not a form card). */
@@ -27,6 +28,9 @@ export interface StepEvent {
   date?: string | null
   startTime?: string | null
   published?: boolean
+  /** Party, Class, Festival… — a festival's entry step says passes, anything else tickets. */
+  type?: string | null
+  isFestival?: boolean | null
   gaps?: { key: EventGapKey | string }[]
   flyer?: { ready: number; kept: boolean } | null
 }
@@ -37,7 +41,7 @@ export function eventSteps(ev: StepEvent): EventStep[] {
     { key: 'when', label: 'What and when', hint: 'Type, music, date. See what else is on that night.', done: !!ev.date && !!ev.startTime },
     { key: 'where', label: 'Venue', hint: 'Venues for this music in your city. Ask one to host it.', done: !gap.has('venue') },
     { key: 'lineup', label: 'Line-up', hint: 'Artists from your past events. Send them a link to confirm.', done: !gap.has('lineup') },
-    { key: 'entry', label: 'Entry and tickets', hint: 'Last time’s price, passes and the ticket link.', done: !gap.has('ticket') },
+    { key: 'entry', label: 'Entry and tickets', hint: entryNoun(ev) === 'pass' ? 'Last time’s price, passes and the ticket link.' : 'Last time’s price, tickets and the ticket link.', done: !gap.has('ticket') },
     { key: 'flyer', label: 'Flyer', hint: 'Painted from these details, in your style.', done: !!ev.flyer && (ev.flyer.kept || ev.flyer.ready > 0) },
     { key: 'publish', label: 'Publish', hint: 'Put it on WeDance when you’re ready.', done: !!ev.published },
   ]
