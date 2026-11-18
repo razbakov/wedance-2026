@@ -78,6 +78,10 @@ If you changed something visible, run `bun run test:design` locally too, and
 - In the description, say what changed and why, and link the issue
   (`Closes #123`). Add screenshots for anything a user can see — phone width
   (375px) and desktop.
+- Agents opening a PR load `.cursor/skills/pr-checklist/SKILL.md` and run
+  `bun scripts/ci/pr-checklist.ts` before the PR is ready for review. A failing
+  check blocks review. A change with no user-visible screen records why, and
+  the demo checks do not apply.
 - Keep the branch up to date with `main`. PRs are squash-merged once they are
   green and reviewed.
 

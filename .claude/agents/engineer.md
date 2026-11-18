@@ -111,6 +111,7 @@ After completing each task, briefly assess your work against your role's key met
 
 1. Commit all changes with descriptive messages
 2. Push the branch
-3. Create a PR with: summary, what was changed, how to test
-4. Update the backlog item status to "In Review"
-5. If you have a Notion card URL, update it to "To review"
+3. Load `.cursor/skills/pr-checklist/SKILL.md` and run `bun scripts/ci/pr-checklist.ts` before the PR goes up for review. Open a draft if the preview is needed to finish the checks. A failing check blocks review: leave the draft, do not move the work to "In Review".
+4. Create a PR with: summary, what was changed, how to test, and the checklist report. Mark it ready only when the script exits 0.
+5. Update the backlog item status to "In Review"
+6. If you have a Notion card URL, update it to "To review"
