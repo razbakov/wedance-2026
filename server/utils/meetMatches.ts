@@ -25,6 +25,7 @@
  */
 import { and, asc, eq, gte, inArray, lt, sql } from 'drizzle-orm'
 import { dancers, discoverSwipes, events, festivals, festivalWaves, planItems } from '../database/schema'
+import { asDanceRole, asStyleList, type DanceRole } from '../../shared/utils/notices'
 import { eventPath } from '../../shared/utils/eventSlug'
 import { NON_SOCIAL_TYPES, citySlugFor, claimableFestivals, stylesMatch } from './myPlanFeeds'
 
@@ -58,6 +59,7 @@ export type MeetMatch = {
   photo: string | null
   username: string | null
   city: string
+  role: DanceRole | null
   styles: string[]
   instagram: string | null
   /** When the second yes landed — the moment it became a match. */
@@ -224,7 +226,8 @@ export async function meetMatches(db: Db, dancerId: string, opts: { now?: Date; 
   const people: any[] = await db
     .select({
       id: dancers.id, name: dancers.name, photo: dancers.photo, username: dancers.username,
-      city: dancers.city, danceStyles: dancers.danceStyles, instagram: dancers.instagram, profilePublic: dancers.profilePublic,
+      city: dancers.city, danceStyles: dancers.danceStyles, danceLevels: dancers.danceLevels,
+      role: dancers.role, instagram: dancers.instagram, profilePublic: dancers.profilePublic,
     })
     .from(dancers)
     .where(inArray(dancers.id, otherIds))
@@ -288,13 +291,14 @@ export async function meetMatches(db: Db, dancerId: string, opts: { now?: Date; 
 
   return shown.map((p) => {
     const d = byId.get(p.other)
-    const theirStyles = (d.danceStyles as string[] | null) ?? []
+    const theirStyles = asStyleList(d.danceStyles, d.danceLevels)
     return {
       dancerId: d.id,
       name: d.name ?? '',
       photo: d.photo ?? null,
       username: d.username ?? null,
       city: d.city ?? '',
+      role: asDanceRole(d.role),
       styles: theirStyles,
       instagram: d.instagram ?? null,
       matchedAt: p.matchedAt.toISOString(),

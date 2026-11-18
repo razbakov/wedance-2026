@@ -46,8 +46,8 @@ export const bpSteps: BpStep<BpLane, BpPhase>[] = [
     note: 'An admin approves, rejects or asks for more in /admin/claims, and the organiser gets an email either way. No one is alerted when a claim comes in, so it waits until an admin looks. When the organiser already has an account, admin.addPageOwner skips the claim.' },
 
   // Draft
-  { id: 'start', phase: 'draft', lane: 'organizer', name: 'Start an event', status: 'live', marks: [], route: '/business/events/new', code: 'businessEvents.create · businessEvents.copy · eventImport.fromInstagram · MCP create_event', refs: ['#453', 'RAZ-939'],
-    note: 'One question: “I have a post” (Gemini reads the Instagram caption into a draft), “Like my last event” (a draft copy on a new date, or a weekly series of drafts) or “From scratch” (Run by, type and music, date and time; the name is suggested). All make a draft (“Publish it now” is there for a simple weekly social) and open the editor on its steps: venue, line-up, entry, flyer, publish. An assistant over MCP follows the same order (RAZ-939).' },
+  { id: 'start', phase: 'draft', lane: 'organizer', name: 'Start an event', status: 'live', marks: [], route: '/business/events/new', code: 'businessEvents.create · businessEvents.copy · eventImport.fromInstagram · MCP create_event', refs: ['#453', 'RAZ-939', 'RAZ-1024'],
+    note: 'One question: “I have a post” (Gemini reads the Instagram caption into a draft), “Like my last event” (a draft copy on a new date, or a weekly series of drafts) or “From scratch” (Run by, type and music, date and time; the name is suggested). All make a draft (“Publish it now” is there for a simple weekly social) and open the editor on its steps: venue, line-up, entry, flyer, publish. An assistant over MCP follows the same order (RAZ-939). Back and the browser’s Back return to the choice without losing what was typed; it stays in this browser until the draft exists (RAZ-1024).' },
   { id: 'gaps', phase: 'draft', lane: 'system', name: 'Draft + what’s missing', status: 'live', marks: [], code: 'shared/utils/eventChecklist.ts · server/mcp/checklist.ts',
     note: 'One checklist: cover, ticket or “free”, venue, line-up, artist Instagram, artist photo. Shown in the editor, events list and Business inbox; MCP adds the tool that fixes each one. It checks that fields are filled, not that anyone agreed.' },
 
@@ -118,8 +118,8 @@ export const bpSteps: BpStep<BpLane, BpPhase>[] = [
   // Night
   { id: 'remind', phase: 'night', lane: 'dancers', name: 'Reminder before', status: 'missing', marks: ['silent'],
     note: 'Dancers who answered or pressed Going! get no reminder. See “Come back” on the UX map.' },
-  { id: 'door', phase: 'night', lane: 'organizer', name: 'Door check-in', status: 'missing', marks: [], code: 'attendance.checkIn — no caller', refs: ['RAZ-928'],
-    note: 'The server can record a check-in, but no page or AI-app tool calls it, so the organiser can’t check anyone in.' },
+  { id: 'door', phase: 'night', lane: 'organizer', name: 'Door check-in', status: 'live', marks: [], route: '/business/events/[id]/door', code: 'attendance.door · attendance.checkIn · MCP door_list, check_in', refs: ['RAZ-928'],
+    note: 'Phone list of RSVPs, Going! and tickets. One tap checks a guest in; Who’s coming shows how many. The AI app uses the same procedures. Nothing is emailed.' },
   { id: 'after', phase: 'night', lane: 'dancers', name: 'After the night', status: 'missing', marks: [],
     note: 'No review, photo or “next date” prompt for the people who came; the venue and artists get no recap.' },
 ]

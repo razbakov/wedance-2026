@@ -52,6 +52,8 @@ const chips = computed(() => {
 const shown = computed(() => filter.value === null
   ? people.value
   : filter.value === 'plan' ? planOnly.value : people.value.filter(p => p.answer === filter.value))
+const checkedIn = computed(() => people.value.filter(p => p.checkedIn).length)
+const doorTo = computed(() => `/business/events/${props.eventId}/door`)
 
 function toggle(id: Filter) { filter.value = filter.value === id ? null : id }
 
@@ -65,9 +67,26 @@ const pairs = computed(() => {
 </script>
 
 <template>
-  <section v-if="poll && !poll.festival" class="rounded-2xl border bg-card p-4" data-rsvp-summary>
-    <h2 class="text-eyebrow font-bold uppercase tracking-[0.3em] text-secondary">Who’s coming</h2>
-    <p class="mt-2 text-sm font-bold">{{ poll.line }}</p>
+  <div>
+  <!-- Festivals keep the long name list off this card (it can be a thousand people). The count and the door list stay. -->
+  <section v-if="poll?.festival" class="rounded-2xl border bg-card p-4" data-rsvp-summary>
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h2 class="text-eyebrow font-bold uppercase tracking-[0.3em] text-secondary">Who’s coming</h2>
+        <p class="mt-2 text-sm" data-checked-in><span class="font-bold tabular-nums">{{ checkedIn }}</span> checked in</p>
+      </div>
+      <Button as-child variant="pill" size="pill-sm"><NuxtLink :to="doorTo">Door list</NuxtLink></Button>
+    </div>
+  </section>
+  <section v-else-if="poll" class="rounded-2xl border bg-card p-4" data-rsvp-summary>
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <h2 class="text-eyebrow font-bold uppercase tracking-[0.3em] text-secondary">Who’s coming</h2>
+        <p class="mt-2 text-sm font-bold">{{ poll.line }}</p>
+        <p v-if="people.length" class="mt-1 text-sm" data-checked-in><span class="font-bold tabular-nums">{{ checkedIn }}</span> checked in</p>
+      </div>
+      <Button as-child variant="pill" size="pill-sm"><NuxtLink :to="doorTo">Door list</NuxtLink></Button>
+    </div>
     <ul class="mt-2 flex flex-wrap gap-2 text-sm">
       <li v-for="c in chips" :key="String(c.id)">
         <button
@@ -135,4 +154,5 @@ const pairs = computed(() => {
       </div>
     </div>
   </section>
+  </div>
 </template>

@@ -118,8 +118,8 @@ export const travelSteps: BpStep<TravelLane, TravelPhase>[] = [
     note: 'On the Overview, “Show me” puts you in Meet new friends for the festival (see the meet new friends blueprint); the per-festival deck is gone. The verified-ticket roster shows on one festival only.' },
   { id: 'my-schedule', phase: 'festival', lane: 'me', name: 'My workshops on the day', status: 'partial', marks: [], route: '/events/[id]?tab=schedule',
     note: 'Your picks are marked on the festival schedule. No day view of just your plan, no change alerts if the organiser moves a workshop.' },
-  { id: 'check-in', phase: 'festival', lane: 'organiser', name: 'Door check-in', status: 'missing', marks: [], code: 'attendance.checkIn (no caller)',
-    note: 'The procedure marks an attendances row, but no page calls it, and festival passes are festival_signups rows it doesn’t read. The organiser checks names on their own list.' },
+  { id: 'check-in', phase: 'festival', lane: 'organiser', name: 'Door check-in', status: 'live', marks: [], route: '/business/events/[id]/door', code: 'attendance.door · attendance.checkIn', refs: ['RAZ-928'],
+    note: 'The door list includes festival passes (festival_signups) as well as RSVPs, Going! and event tickets. Checking a pass in records it on attendances, and Who’s coming counts it.' },
 
   // After
   { id: 'review', phase: 'after', lane: 'me', name: 'Review the festival', status: 'live', marks: [], route: '/events/[id]', code: 'ReviewsSection (festival)',
