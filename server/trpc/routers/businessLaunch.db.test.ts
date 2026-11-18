@@ -65,14 +65,32 @@ describe.skipIf(!DATABASE_URL)('businessLaunch router', () => {
     expect(d.progress.find(p => p.key === 'name')!.state).toBe('done')
   })
 
-  it('a proof step can’t be ticked done without an evidence link', async () => {
+  it('a login step can’t be ticked done without an evidence link; approving a text can', async () => {
     const me = as(ids.owner).businessLaunch
-    await expect(me.setStatus({ username, stepKey: 'listing.inmuenchen', status: 'done' })).rejects.toThrow(/link/)
-    await me.addEvidence({ username, stepKey: 'listing.inmuenchen', note: 'Submitted, waiting' })
-    await expect(me.setStatus({ username, stepKey: 'listing.inmuenchen', status: 'done' })).rejects.toThrow(/link/)
-    await me.addEvidence({ username, stepKey: 'listing.inmuenchen', url: 'https://www.in-muenchen.de/example' })
-    const d = await me.setStatus({ username, stepKey: 'listing.inmuenchen', status: 'done' })
+    await expect(me.setStatus({ username, stepKey: 'maps.name', status: 'done' })).rejects.toThrow(/link/)
+    await me.addEvidence({ username, stepKey: 'maps.name', note: 'Submitted, waiting' })
+    await expect(me.setStatus({ username, stepKey: 'maps.name', status: 'done' })).rejects.toThrow(/link/)
+    await me.addEvidence({ username, stepKey: 'maps.name', url: 'https://maps.google.com/example' })
+    let d = await me.setStatus({ username, stepKey: 'maps.name', status: 'done' })
+    expect(d.steps.find(s => s.key === 'maps.name')!.status).toBe('done')
+    d = await me.setStatus({ username, stepKey: 'listing.inmuenchen', status: 'done' })
     expect(d.steps.find(s => s.key === 'listing.inmuenchen')!.status).toBe('done')
+  })
+
+  it('kickoff answers land in the step fields, and the name is never marked free by us', async () => {
+    const me = as(ids.owner).businessLaunch
+    let d = await me.answerKickoff({ username, question: 'call', custom: 'La Prueba Noche' })
+    expect(d.values.placeName).toBe('La Prueba Noche')
+    expect(d.kickoff.status).not.toBe('done')
+    for (const question of ['room', 'when', 'dances', 'door', 'friend', 'who', 'why']) {
+      d = await me.answerKickoff({ username, question, skip: true })
+    }
+    expect(d.kickoff.status).toBe('done')
+    expect(d.kickoff.at).toBe('done')
+    const candidate = d.names.find(n => n.name === 'La Prueba Noche')
+    expect(candidate).toBeTruthy()
+    expect(candidate!.verdict).not.toBe('free')
+    expect(d.values.price ?? '').toBe('')
   })
 
   it('a corrected link sticks', async () => {

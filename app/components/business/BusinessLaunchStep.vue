@@ -1,14 +1,13 @@
 <script setup lang="ts">
 /**
- * One step of the launch workspace (Business → page → Launch), shown on its own:
- * why it matters, what to fill in, the text to paste, the one button that opens
- * the right screen, the proof link when the step needs one, and "Done — next".
- * Everything secondary (correcting a link, notes, AI redraft) sits one tap away.
+ * One step of the launch workspace (Business → page → Launch).
+ * The result is on screen first: "Looks good", or "Change something" for the form.
+ * Steps that need the organiser's login stay short: the text to paste, the link, the proof.
  *
  *   <BusinessLaunchStep :username="u" :data="data" :step-key="'maps.name'" @loaded="d => data = d" @next="…" @back="…" />
  */
 import { Check, Copy, ExternalLink, Link2, RotateCcw, Sparkles, Trash2, Plus, ArrowLeft, ArrowRight, CircleCheck } from 'lucide-vue-next'
-import { stepByKey } from '#shared/utils/launch'
+import { ACTORS, stepByKey } from '#shared/utils/launch'
 
 type Data = Awaited<ReturnType<ReturnType<typeof useNuxtApp>['$trpc']['businessLaunch']['get']['query']>>
 const props = defineProps<{ username: string; data: Data; stepKey: string; position: number; total: number; stageTitle: string; hasBack: boolean }>()
@@ -16,7 +15,9 @@ const emit = defineEmits<{ loaded: [Data]; next: []; back: [] }>()
 const { $trpc } = useNuxtApp()
 
 const meta = computed(() => stepByKey(props.stepKey)!)
+const actor = computed(() => ACTORS[meta.value.actor])
 const state = computed(() => props.data.steps.find(s => s.key === props.stepKey)!)
+const editing = ref(false)
 const error = ref<string | null>(null)
 const busy = ref<string | null>(null)
 
@@ -66,23 +67,52 @@ const needsProof = computed(() => meta.value.proof === 'link' && meta.value.kind
 const links = computed(() => state.value.evidence.filter(e => e.url))
 const notes = computed(() => state.value.evidence.filter(e => !e.url))
 
-watch(() => props.stepKey, () => { error.value = null; editingLink.value = null; proofUrl.value = ''; note.value = '' })
+watch(() => props.stepKey, () => { error.value = null; editing.value = false; editingLink.value = null; proofUrl.value = ''; note.value = '' })
+
+async function closeEdit() {
+  if (fieldsDirty.value && !(await saveFields())) return
+  for (const c of state.value.copy) {
+    if (textDirty(c.key) && !(await saveText(c.key))) return
+  }
+  editingLink.value = null
+  editing.value = false
+}
+
+const freeNames = computed(() => props.data.names.filter(n => n.decision !== 'dropped' && n.verdict === 'free'))
 
 // --- done
 async function done() {
-  if (fieldsDirty.value && !(await saveFields())) return
+  if (editing.value && fieldsDirty.value && !(await saveFields())) return
+  if (meta.value.kind === 'names' && !props.data.chosenName) {
+    if (freeNames.value.length !== 1) {
+      error.value = freeNames.value.length > 1 ? 'More than one name looks free. Choose one of them.' : (state.value.blocker || 'We need one check with a link that shows the name is free.')
+      return
+    }
+    if (!(await run('status', () => $trpc.businessLaunch.decideName.mutate({ username: props.username, id: freeNames.value[0]!.id, decision: 'chosen' })))) return
+  }
   if (!(await run('status', () => $trpc.businessLaunch.setStatus.mutate({ username: props.username, stepKey: props.stepKey, status: 'done' })))) return
   useTrack().track('launch_step_completed', { profile: props.username, step: props.stepKey, stage: meta.value.stage })
   emit('next')
 }
 const reopen = () => run('status', () => $trpc.businessLaunch.setStatus.mutate({ username: props.username, stepKey: props.stepKey, status: 'doing' }))
+const nothingToApprove = computed(() => meta.value.actor === 'approve' && meta.value.copy.length > 0 && state.value.copy.every(c => !c.text.trim()))
 // Unsaved fields don't block "done": they're saved first. The blocker is about proof / a chosen name.
-const blocker = computed(() => state.value.status === 'done' ? null : state.value.blocker)
+const blocker = computed(() => {
+  if (state.value.status === 'done') return null
+  if (meta.value.kind === 'names' && !props.data.chosenName) {
+    if (freeNames.value.length === 1) return null
+    if (freeNames.value.length > 1) return 'More than one name looks free. Choose one of them.'
+  }
+  if (nothingToApprove.value) return 'Nothing to approve yet. Answer the questions, or change something.'
+  return state.value.blocker
+})
+const primaryLabel = computed(() => state.value.status === 'done' ? 'Next step' : meta.value.actor === 'you' ? 'I did it — next' : 'Looks good')
 </script>
 
 <template>
   <article :id="`step-${stepKey}`" class="rounded-3xl border bg-card p-5 sm:p-7">
     <p class="text-eyebrow font-bold uppercase tracking-[0.25em] text-secondary">Step {{ position }} of {{ total }} · {{ stageTitle }}</p>
+    <p class="mt-2 inline-flex rounded-full bg-muted px-2.5 py-0.5 text-xs font-bold">{{ actor.label }}</p>
     <h2 class="mt-2 font-display text-2xl font-bold leading-tight sm:text-3xl">{{ meta.title }}</h2>
     <p class="mt-1.5 text-muted-foreground">{{ meta.why }}</p>
 
@@ -91,11 +121,19 @@ const blocker = computed(() => state.value.status === 'done' ? null : state.valu
     <div class="mt-6 grid grid-cols-1 gap-6">
       <AdminState v-if="error" kind="error" :message="error" />
 
-      <!-- The name step's own body -->
-      <slot />
+      <!-- The result, as it will read. The form stays behind "Change something". -->
+      <BusinessLaunchPreview v-if="!editing && meta.kind !== 'names'" :step-key="stepKey" :copy="state.copy" :aside="meta.aside" />
+      <div v-if="!editing && meta.actor === 'you' && state.copy.length" class="flex flex-wrap gap-2">
+        <Button v-for="c in state.copy" :key="c.key" type="button" variant="outline" size="sm" :disabled="!texts[c.key]" @click="copy(c.key)">
+          <Check v-if="copied === c.key" /><Copy v-else /> {{ copied === c.key ? 'Copied' : `Copy ${c.label.toLowerCase()}` }}
+        </Button>
+      </div>
+
+      <!-- The name step: we check it; the full editor is "Change something". -->
+      <BusinessLaunchNames v-if="meta.kind === 'names'" :username="username" :data="data" :full="editing" @loaded="d => emit('loaded', d)" />
 
       <!-- Fill in -->
-      <form v-if="meta.fields.length" novalidate class="grid grid-cols-1 gap-3 sm:grid-cols-2" @submit.prevent="saveFields">
+      <form v-if="editing && meta.fields.length" novalidate class="grid grid-cols-1 gap-3 sm:grid-cols-2" @submit.prevent="saveFields">
         <Field v-for="f in meta.fields" :id="`${stepKey}-${f.key}`" :key="f.key" :label="f.label" :hint="f.hint" :class="f.kind === 'textarea' ? 'sm:col-span-2' : ''">
           <Textarea v-if="f.kind === 'textarea'" v-model="form[f.key]" :rows="3" :maxlength="f.max" />
           <Input v-else v-model="form[f.key]" :type="f.kind === 'url' ? 'url' : 'text'" />
@@ -105,8 +143,8 @@ const blocker = computed(() => state.value.status === 'done' ? null : state.valu
         </div>
       </form>
 
-      <!-- Text to paste -->
-      <div v-for="c in state.copy" :key="c.key">
+      <!-- Text to paste, once they want to change it -->
+      <div v-for="c in (editing ? state.copy : [])" :key="c.key">
         <div class="flex items-baseline justify-between gap-2">
           <p class="text-sm font-bold">{{ c.label }}</p>
           <span v-if="c.max" class="text-xs tabular-nums" :class="(texts[c.key]?.length ?? 0) > c.max ? 'font-bold text-destructive' : 'text-muted-foreground'">{{ texts[c.key]?.length ?? 0 }} / {{ c.max }}</span>
@@ -122,7 +160,7 @@ const blocker = computed(() => state.value.status === 'done' ? null : state.valu
         </div>
       </div>
 
-      <!-- Where to do it -->
+      <!-- Where to do it. Login steps lead with the link; approving can still open it. -->
       <div v-if="state.links.length" class="grid grid-cols-1 gap-2">
         <div v-for="(l, i) in state.links" :key="i">
           <div v-if="editingLink === i" class="flex flex-wrap items-center gap-2">
@@ -131,12 +169,12 @@ const blocker = computed(() => state.value.status === 'done' ? null : state.valu
             <Button type="button" size="sm" variant="ghost" @click="editingLink = null">Cancel</Button>
           </div>
           <div v-else class="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <Button :variant="i === 0 ? 'default' : 'outline'" :size="i === 0 ? 'default' : 'sm'" as-child>
+            <Button :variant="i === 0 && editing ? 'default' : 'outline'" :size="i === 0 && editing ? 'default' : 'sm'" as-child>
               <NuxtLink :to="l.url" :target="isInternal(l.url) ? undefined : '_blank'" :rel="isInternal(l.url) ? undefined : 'noopener'" data-outbound-kind="launch">
                 {{ l.label }} <ExternalLink v-if="!isInternal(l.url)" /><Link2 v-else />
               </NuxtLink>
             </Button>
-            <button type="button" class="text-xs text-muted-foreground underline" @click="editLink(i, l.url)">{{ l.checked ? 'Wrong link?' : 'Not sure this link is right — correct it' }}</button>
+            <button v-if="editing" type="button" class="text-xs text-muted-foreground underline" @click="editLink(i, l.url)">{{ l.checked ? 'Wrong link?' : 'Not sure this link is right — correct it' }}</button>
           </div>
         </div>
       </div>
@@ -158,8 +196,12 @@ const blocker = computed(() => state.value.status === 'done' ? null : state.valu
         </li>
       </ul>
 
+      <div v-if="editing">
+        <button type="button" class="text-sm text-muted-foreground underline" :disabled="!!busy" @click="closeEdit">Back to the result</button>
+      </div>
+
       <!-- Notes, optional -->
-      <details v-if="meta.kind !== 'names'" class="text-sm" :open="notes.length > 0">
+      <details v-if="editing && meta.kind !== 'names'" class="text-sm" :open="notes.length > 0">
         <summary class="cursor-pointer text-muted-foreground">Add a note</summary>
         <ul v-if="notes.length" class="mt-2 grid grid-cols-1 gap-1.5">
           <li v-for="e in notes" :key="e.id" class="flex items-start gap-2 rounded-lg bg-muted/40 px-3 py-2">
@@ -181,11 +223,12 @@ const blocker = computed(() => state.value.status === 'done' ? null : state.valu
         <div class="flex items-center gap-3 sm:contents">
           <Button v-if="hasBack" type="button" variant="ghost" size="sm" @click="emit('back')"><ArrowLeft /> Back</Button>
           <span class="flex-1" />
+          <button v-if="!editing" type="button" class="text-sm text-muted-foreground underline" @click="editing = true">Change something</button>
           <button v-if="state.status === 'done'" type="button" class="text-sm text-muted-foreground underline" :disabled="busy === 'status'" @click="reopen">Not done after all</button>
           <button v-else type="button" class="text-sm text-muted-foreground underline" @click="emit('next')">Skip for now</button>
         </div>
-        <Button v-if="state.status === 'done'" type="button" variant="cta" class="w-full sm:w-auto" @click="emit('next')">Next step <ArrowRight /></Button>
-        <Button v-else type="button" variant="cta" class="w-full sm:w-auto" :disabled="!!blocker" :loading="busy === 'status'" @click="done"><Check /> Done — next step</Button>
+        <Button v-if="state.status === 'done'" type="button" variant="cta" class="w-full sm:w-auto" @click="emit('next')">{{ primaryLabel }} <ArrowRight /></Button>
+        <Button v-else type="button" variant="cta" class="w-full sm:w-auto" :disabled="!!blocker" :loading="busy === 'status'" @click="done"><Check /> {{ primaryLabel }}</Button>
       </div>
     </div>
   </article>

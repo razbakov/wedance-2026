@@ -1,20 +1,36 @@
 /**
  * Launch workspace (Business → page → Launch): the path an organiser walks to
- * set up a new night or business, by doing the real work. Most steps happen
- * outside WeDance (Google Maps, Instagram, listing sites, a sign at the door),
- * so each step gives ready-to-paste text, a link to the right screen, a place
- * for evidence and a done tick. The catalogue is code; the organiser's answers
- * live in `launch_steps` / `launch_names` / `launch_evidence` (migration 0068).
+ * set up a new night or business. An agency doesn't hand the client eight
+ * forms. It asks a few plain questions (shared/utils/launchKickoff.ts), writes
+ * the drafts from those answers, and lets the client approve the result. The
+ * organiser only does the steps that need their own login.
+ *
+ * Each step says which kind it is (`actor`):
+ * - `we` — WeDance writes it or checks it.
+ * - `approve` — the result, as it will look. "Looks good" or "Change something".
+ * - `you` — only the organiser can do it (their Google or Instagram login).
+ *
+ * The catalogue is code; the organiser's answers live in `launch_steps` /
+ * `launch_names` / `launch_evidence` (migration 0068).
  *
  * Rules that came out of the chat this was built from (2026-11-12):
  * - Never show a check result without evidence: a name is "free" only when an
  *   evidence entry with a link says so, and no entry says "taken".
  * - The organiser knows the scene better than the AI: every draft, field and
  *   link is editable, and an edit sticks (it is stored, not re-derived).
+ * - Drafts use only what was answered or already on the page. An empty fact
+ *   is left out, never invented.
  * - Every step says in one line why it matters.
  */
 
 export type LaunchStatus = 'todo' | 'doing' | 'done'
+/** Who acts on a step. Shown on the step so the organiser knows what is being asked of them. */
+export type LaunchActor = 'we' | 'approve' | 'you'
+export const ACTORS: Record<LaunchActor, { label: string; line: string }> = {
+  we: { label: 'We do this', line: 'We write it or check it.' },
+  approve: { label: 'You approve', line: 'This is the result. It goes ahead when you say so.' },
+  you: { label: 'Only you can do this', line: 'This needs your login. The text is ready to paste.' },
+}
 export type Verdict = 'free' | 'taken' | 'unclear'
 /** A name's standing, computed from its evidence. */
 export type NameVerdict = Verdict | 'unchecked'
@@ -49,10 +65,16 @@ export interface LaunchStep {
   fields: LaunchField[]
   copy: LaunchCopy[]
   links: LaunchLink[]
+  /** Who does this step: we write or check it, the organiser approves the result, or only they can (their login). */
+  actor: LaunchActor
   /** 'link' = it can only be marked done with at least one evidence link (the live listing, the profile…). */
   proof?: 'link'
   /** The name step has its own body: candidates with evidence. */
   kind?: 'names'
+  /** Not part of the step list. The kickoff keeps its place in `launch_steps` under this key. */
+  hidden?: boolean
+  /** One line under an approve result, when approving isn't the whole job. */
+  aside?: string
 }
 
 export const STAGES = [
@@ -111,18 +133,18 @@ export function igBio(v: Values) {
   return clip(t(v.searchWords), 150)
 }
 
+const LISTING_ASIDE = 'Approving keeps the text. Who submits it to the site is still an open question.'
 const listing = (key: string, title: string, why: string, home: string, checked: boolean): LaunchStep => ({
-  key, stage: 'channels', title, why,
+  key, stage: 'channels', actor: 'approve', aside: LISTING_ASIDE, title, why,
   fields: [],
   copy: [{ key: 'text', label: 'Event text', draft: listingText }],
   links: [{ label: `Open ${title.replace(/^List on /, '')}`, url: () => home, checked }],
-  proof: 'link',
 })
 
 export const STEPS: LaunchStep[] = [
   // ── 1 · Brand ──────────────────────────────────────────────────────────
   {
-    key: 'brand.why', stage: 'brand', title: 'Why: who is behind it',
+    key: 'brand.why', stage: 'brand', actor: 'approve', title: 'Why: who is behind it',
     why: 'A brand with a reason is easier to post about every week than a party with a date.',
     fields: [
       { key: 'brandName', label: 'Organiser brand', hint: 'The “why”: the community or brand that presents the night.' },
@@ -134,7 +156,7 @@ export const STEPS: LaunchStep[] = [
     links: [],
   },
   {
-    key: 'brand.where', stage: 'brand', title: 'Where: the place',
+    key: 'brand.where', stage: 'brand', actor: 'approve', title: 'Where: the place',
     why: 'People search for a place, not an organiser. The place name is what goes on Maps and on the door.',
     fields: [
       { key: 'placeName', label: 'Place name (working)', hint: 'Stage 2 replaces it with the name you decide on.' },
@@ -153,7 +175,7 @@ export const STEPS: LaunchStep[] = [
     links: [],
   },
   {
-    key: 'brand.pitch', stage: 'brand', title: 'The pitch',
+    key: 'brand.pitch', stage: 'brand', actor: 'approve', title: 'The pitch',
     why: 'One sentence you can paste anywhere, so every channel says the same thing.',
     fields: [
       { key: 'searchWords', label: 'Search words', hint: 'What people type when they look for a night like this, most important first.' },
@@ -166,7 +188,7 @@ export const STEPS: LaunchStep[] = [
 
   // ── 2 · Name ───────────────────────────────────────────────────────────
   {
-    key: 'name.pick', stage: 'name', kind: 'names', title: 'Pick a name nobody here uses',
+    key: 'name.pick', stage: 'name', kind: 'names', actor: 'we', title: 'Pick a name nobody here uses',
     why: 'If the name is already taken nearby, searches send your people to someone else’s event.',
     fields: [{ key: 'nameArea', label: 'Where to check', hint: 'City or region the name must be free in.' }],
     copy: [],
@@ -177,7 +199,7 @@ export const STEPS: LaunchStep[] = [
 
   // ── 3 · Channels: Google Maps ──────────────────────────────────────────
   {
-    key: 'maps.name', stage: 'channels', title: 'Google Maps: name matches the sign',
+    key: 'maps.name', stage: 'channels', actor: 'you', title: 'Google Maps: name matches the sign',
     why: 'Google suspends listings whose name isn’t what people see at the door. A sign on the night keeps it safe.',
     fields: [
       { key: 'mapsUrl', label: 'Your Maps listing link', kind: 'url' },
@@ -194,7 +216,7 @@ export const STEPS: LaunchStep[] = [
     proof: 'link',
   },
   {
-    key: 'maps.basics', stage: 'channels', title: 'Google Maps: category and hours',
+    key: 'maps.basics', stage: 'channels', actor: 'you', title: 'Google Maps: category and hours',
     why: 'Category and opening hours decide which searches show you, and “open now” only works with the right hours.',
     fields: [
       { key: 'mapsCategory', label: 'Primary category', hint: 'Pick from what Google offers when you type it.' },
@@ -204,7 +226,7 @@ export const STEPS: LaunchStep[] = [
     links: [{ label: 'Edit profile in Google Business Profile', url: () => 'https://business.google.com/locations', checked: true }],
   },
   {
-    key: 'maps.description', stage: 'channels', title: 'Google Maps: description',
+    key: 'maps.description', stage: 'channels', actor: 'approve', title: 'Google Maps: description',
     why: 'Start with the words people search for; Google and people read the first line first.',
     fields: [],
     copy: [{
@@ -220,14 +242,14 @@ export const STEPS: LaunchStep[] = [
     links: [{ label: 'Edit profile in Google Business Profile', url: () => 'https://business.google.com/locations', checked: true }],
   },
   {
-    key: 'maps.weekly_post', stage: 'channels', title: 'Google Maps: a post every week',
+    key: 'maps.weekly_post', stage: 'channels', actor: 'approve', title: 'Google Maps: a post every week',
     why: 'A fresh post each week tells Google the place is alive and shows this week’s night to people who find you.',
     fields: [],
     copy: [{ key: 'post', label: 'Weekly post', max: 1500, draft: v => join([`This week at ${fullName(v) || 'our place'}`, whenLine(v), has(v.music) && t(v.music), has(v.price) && t(v.price), has(v.address) && `📍 ${t(v.address)}`], '\n') }],
     links: [{ label: 'Add update in Google Business Profile', url: () => 'https://business.google.com/locations', checked: true }],
   },
   {
-    key: 'maps.reviews', stage: 'channels', title: 'Google Maps: reviews from a QR code',
+    key: 'maps.reviews', stage: 'channels', actor: 'you', title: 'Google Maps: reviews from a QR code',
     why: 'Reviews move you up in Maps; a QR code at the bar turns a good night into a review on the spot.',
     fields: [{ key: 'reviewLink', label: 'Your review link', kind: 'url', hint: 'Google Business Profile → Ask for reviews → copy the link.' }],
     copy: [{ key: 'card', label: 'Text next to the QR code', draft: v => join([`Danced with us at ${fullName(v) || 'our place'}?`, 'Tell Google about it — it takes 30 seconds.', t(v.reviewLink)], '\n') }],
@@ -236,7 +258,7 @@ export const STEPS: LaunchStep[] = [
 
   // ── 3 · Channels: Instagram ────────────────────────────────────────────
   {
-    key: 'ig.handle', stage: 'channels', title: 'Instagram: the handle',
+    key: 'ig.handle', stage: 'channels', actor: 'you', title: 'Instagram: the handle',
     why: 'The handle is how people tag you and find you; one that matches the name is easy to remember.',
     fields: [{ key: 'igHandle', label: 'Handle' }],
     copy: [{ key: 'handle', label: 'Handle', draft: v => t(v.igHandle).replace(/^@/, '') }],
@@ -247,7 +269,7 @@ export const STEPS: LaunchStep[] = [
     proof: 'link',
   },
   {
-    key: 'ig.profile', stage: 'channels', title: 'Instagram: name, category and bio',
+    key: 'ig.profile', stage: 'channels', actor: 'you', title: 'Instagram: name, category and bio',
     why: 'Instagram search reads the name field, not just the handle — put your search words there.',
     fields: [{ key: 'igCategory', label: 'Category', hint: 'Set in the app: Edit profile → Category.' }],
     copy: [
@@ -257,7 +279,7 @@ export const STEPS: LaunchStep[] = [
     links: [{ label: 'Edit profile', url: () => 'https://www.instagram.com/accounts/edit/', checked: true }],
   },
   {
-    key: 'ig.habits', stage: 'channels', title: 'Instagram: collab and geotag, every post',
+    key: 'ig.habits', stage: 'channels', actor: 'approve', title: 'Instagram: collab and geotag, every post',
     why: 'A collab post shows on both accounts; a geotag puts you on the place’s map page. Both cost nothing.',
     fields: [],
     copy: [{ key: 'checklist', label: 'Before you post', draft: v => join([
@@ -271,19 +293,18 @@ export const STEPS: LaunchStep[] = [
 
   // ── 3 · Channels: WeDance ──────────────────────────────────────────────
   {
-    key: 'site.page', stage: 'channels', title: 'Your page on WeDance',
+    key: 'site.page', stage: 'channels', actor: 'approve', title: 'Your page on WeDance',
     why: 'One link that always has the next date, the address and the line-up — for the bio, Maps and listings.',
     fields: [],
     copy: [{ key: 'link', label: 'Link for your bio', draft: v => t(v.pageUrl) }],
     links: [{ label: 'Edit your website on WeDance', url: (_v, c) => `/business/network/${c.username}/website`, checked: true }],
   },
   {
-    key: 'wedance.series', stage: 'channels', title: 'The weekly event series on WeDance',
+    key: 'wedance.series', stage: 'channels', actor: 'approve', title: 'The weekly event series on WeDance',
     why: 'A series puts every week on the city calendar automatically, so dancers can plan it and say they’re going.',
     fields: [],
     copy: [{ key: 'title', label: 'Event title', draft: fullName }, { key: 'description', label: 'Description', draft: listingText }],
     links: [{ label: 'Create the event series', url: () => '/business/events/new', checked: true }],
-    proof: 'link',
   },
 
   // ── 3 · Channels: free listings ────────────────────────────────────────
@@ -292,9 +313,16 @@ export const STEPS: LaunchStep[] = [
   listing('listing.inmuenchen', 'List on in-muenchen.de', 'The city magazine’s free calendar; a repeating night can be entered as a series.', 'https://www.in-muenchen.de/eintragsformular', true),
   listing('listing.gonedancing', 'List on Gone Dancing', 'Another place travelling dancers look for a night out.', 'https://www.gone-dancing.com/', false),
   listing('listing.latindancecalendar', 'List on Latin Dance Calendar', 'A Latin dance calendar dancers search by city.', 'https://www.latindancecalendar.com/', false),
+  {
+    key: 'kickoff', stage: 'brand', actor: 'we', hidden: true, title: 'Kickoff',
+    why: 'Eight short questions, so the drafts can be written from what the organiser actually said.',
+    fields: [], copy: [], links: [],
+  },
 ]
 
 export const STEP_KEYS = STEPS.map(s => s.key)
+/** The steps an organiser sees. The kickoff row is stored, not listed. */
+export const VISIBLE_STEPS = STEPS.filter(s => !s.hidden)
 export const stepByKey = (key: string) => STEPS.find(s => s.key === key)
 
 /** A step's own link overrides (`link:<i>` in its fields) win over the defaults. */
@@ -361,7 +389,7 @@ export function nameChecks(name: string, area = ''): { source: string; url: stri
 /** Steps per stage with how many are done — the progress path. */
 export function stageProgress(statuses: Record<string, LaunchStatus | undefined>) {
   return STAGES.map((s) => {
-    const steps = STEPS.filter(x => x.stage === s.key)
+    const steps = VISIBLE_STEPS.filter(x => x.stage === s.key)
     const done = steps.filter(x => statuses[x.key] === 'done').length
     const started = steps.some(x => statuses[x.key] && statuses[x.key] !== 'todo')
     return { ...s, total: steps.length, done, state: !s.live ? 'next' as const : steps.length && done === steps.length ? 'done' as const : started ? 'doing' as const : 'todo' as const }

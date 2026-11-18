@@ -8,7 +8,7 @@
 import { ExternalLink, Plus, Trash2, Crown, Instagram } from 'lucide-vue-next'
 
 type Data = Awaited<ReturnType<ReturnType<typeof useNuxtApp>['$trpc']['businessLaunch']['get']['query']>>
-const props = defineProps<{ username: string; data: Data }>()
+const props = defineProps<{ username: string; data: Data; full?: boolean }>()
 const emit = defineEmits<{ loaded: [Data] }>()
 const { $trpc } = useNuxtApp()
 const STEP = 'name.pick'
@@ -47,7 +47,21 @@ const answerFor = (n: Data['names'][number], source: string) => n.evidence.filte
 async function clearAnswers(n: Data['names'][number], source: string) {
   for (const e of n.evidence.filter(x => x.source === source)) if (!(await remove(e.id))) return
 }
-const otherEvidence = (n: Data['names'][number]) => n.evidence.filter(e => !n.checks.some(c => c.source === e.source))
+const otherEvidence = (n: Data['names'][number]) => n.evidence.filter(e => e.via !== 'instagram-check' && !n.checks.some(c => c.source === e.source))
+const autoOf = (n: Data['names'][number]) => n.evidence.filter(e => e.via === 'instagram-check').at(-1)
+
+// We run the Instagram check ourselves, once per name. It never comes back "free".
+const tried = new Set<string>()
+watch(() => props.data.names.map(n => n.id).join(','), async () => {
+  if (!props.data.instagramCheck) return
+  for (const n of props.data.names) {
+    if (n.decision === 'dropped' || tried.has(n.id) || n.evidence.some(e => e.via === 'instagram-check')) continue
+    const handle = n.checks.find(c => c.handle)?.handle
+    if (!handle) continue
+    tried.add(n.id)
+    await checkIg(n.id, handle)
+  }
+}, { immediate: true })
 </script>
 
 <template>
@@ -65,7 +79,8 @@ const otherEvidence = (n: Data['names'][number]) => n.evidence.filter(e => !n.ch
 
       <!-- The checks: open, look, answer -->
       <details class="mt-3" :open="n.decision !== 'chosen'">
-        <summary class="cursor-pointer text-sm text-muted-foreground">{{ n.decision === 'chosen' ? 'How it was checked' : 'Search for it, then say what you saw' }}</summary>
+        <summary class="cursor-pointer text-sm text-muted-foreground">{{ n.decision === 'chosen' ? 'How it was checked' : (full ? 'Search for it, then say what you saw' : 'We checked what we can. Open the rest and tap what you see.') }}</summary>
+        <p v-if="autoOf(n)" class="mt-2 text-sm text-muted-foreground">{{ autoOf(n)!.note }}</p>
         <ul class="mt-2 grid grid-cols-1 gap-2">
           <li v-for="c in n.checks" :key="c.source" class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
             <a :href="c.url" target="_blank" rel="noopener" class="inline-flex min-w-28 items-center gap-1 font-bold text-secondary underline">{{ c.source }} <ExternalLink class="size-3.5" aria-hidden="true" /></a>
@@ -75,7 +90,7 @@ const otherEvidence = (n: Data['names'][number]) => n.evidence.filter(e => !n.ch
             </template>
             <template v-else>
               <Button v-for="v in (['free', 'taken', 'unclear'] as const)" :key="v" type="button" size="sm" variant="outline" class="h-7 px-2.5 text-xs" :disabled="busy === `log:${n.id}:${c.source}`" @click="log(n.id, c.source, c.url, v)">{{ answerLabel[v] }}</Button>
-              <button v-if="c.handle && data.instagramCheck" type="button" class="inline-flex items-center gap-1 text-xs text-muted-foreground underline" :disabled="busy === `ig:${n.id}`" @click="checkIg(n.id, c.handle)"><Instagram class="size-3" aria-hidden="true" /> check for me</button>
+              <button v-if="c.handle && data.instagramCheck && !autoOf(n)" type="button" class="inline-flex items-center gap-1 text-xs text-muted-foreground underline" :disabled="busy === `ig:${n.id}`" @click="checkIg(n.id, c.handle)"><Instagram class="size-3" aria-hidden="true" /> check for me</button>
             </template>
           </li>
           <li v-for="e in otherEvidence(n)" :key="e.id" class="flex items-start gap-2 text-sm">
@@ -88,7 +103,7 @@ const otherEvidence = (n: Data['names'][number]) => n.evidence.filter(e => !n.ch
           </li>
         </ul>
 
-        <details class="mt-3 text-sm">
+        <details v-if="full" class="mt-3 text-sm">
           <summary class="cursor-pointer text-xs text-muted-foreground">Found it somewhere else?</summary>
           <form novalidate class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_8rem_auto]" @submit.prevent="addCustom(n.id)">
             <Input v-model="draftFor(n.id).url" type="url" placeholder="Link to what you found" aria-label="Link" />
@@ -99,7 +114,7 @@ const otherEvidence = (n: Data['names'][number]) => n.evidence.filter(e => !n.ch
           </form>
         </details>
 
-        <div class="mt-3 flex gap-3 text-xs">
+        <div v-if="full" class="mt-3 flex gap-3 text-xs">
           <button v-if="n.decision === 'chosen'" type="button" class="text-muted-foreground underline" @click="decide(n.id, 'candidate')">Undo choice</button>
           <button v-else type="button" class="text-muted-foreground underline" @click="decide(n.id, 'dropped')">Drop this name</button>
           <button v-if="!n.evidence.length" type="button" class="text-muted-foreground underline" @click="removeName(n.id)">Delete</button>
@@ -107,13 +122,13 @@ const otherEvidence = (n: Data['names'][number]) => n.evidence.filter(e => !n.ch
       </details>
     </article>
 
-    <p v-if="!live.length" class="text-sm text-muted-foreground">Write down a name you like. Then we check it together.</p>
-    <form novalidate class="flex gap-2" @submit.prevent="add">
+    <p v-if="!live.length" class="text-sm text-muted-foreground">{{ full ? 'Write down a name you like. Then we check it together.' : 'Tell us what you call the night, and we’ll check that name.' }}</p>
+    <form v-if="full || !live.length" novalidate class="flex gap-2" @submit.prevent="add">
       <Input v-model="newName" :placeholder="live.length ? 'Another name to check' : 'A name you like'" aria-label="Name to check" class="max-w-sm" />
       <Button type="submit" variant="outline" size="sm" :disabled="!newName.trim()" :loading="busy === 'add'"><Plus /> Add</Button>
     </form>
 
-    <details v-if="dropped.length" class="text-sm">
+    <details v-if="full && dropped.length" class="text-sm">
       <summary class="cursor-pointer text-muted-foreground">Dropped ({{ dropped.length }})</summary>
       <ul class="mt-2 grid grid-cols-1 gap-1">
         <li v-for="n in dropped" :key="n.id" class="flex items-center gap-2">
