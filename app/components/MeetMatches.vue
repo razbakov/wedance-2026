@@ -150,6 +150,7 @@ async function undoNextTime() {
               <p v-if="m.night.venue" class="truncate text-xs text-muted-foreground">
                 <MapPin class="inline size-3 -mt-0.5" aria-hidden="true" /> {{ m.night.venue }}
               </p>
+              <NuxtLink :to="`/meet/ritual?with=${m.dancerId}`" class="mt-1 inline-block text-xs font-bold text-primary hover:underline" data-testid="meet-match-ritual">How you’ll meet</NuxtLink>
             </div>
             <div v-if="!m.night.youGoing" class="mt-2 flex shrink-0 items-center gap-3 sm:mt-0">
               <span

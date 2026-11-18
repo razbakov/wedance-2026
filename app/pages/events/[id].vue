@@ -15,6 +15,7 @@ import { mixHex, readableOn } from '~/lib/contrast'
 import { isUuid, eventSlug, sessionKey } from '#shared/utils/eventSlug'
 import { festivalPath } from '#shared/utils/eventSlug'
 import { nightWeekday } from '#shared/utils/eventReview'
+import { heroGoingCount } from '#shared/utils/rsvp'
 
 definePageMeta({ layout: false })
 
@@ -265,7 +266,7 @@ const asFestival = computed(() => ({
     coordinates: ev.value.venueCoords,
     place: [ev.value.venueCity, ev.value.venueCountry].filter(Boolean).join(', ') || undefined,
   },
-  attendeeCount: rsvpPoll.value ? rsvpPoll.value.coming : liveGoingCount.value,
+  attendeeCount: heroGoingCount(liveGoingCount.value, rsvpPoll.value ? rsvpPoll.value.coming : null),
   socialLinks: [] as any[],
   ticketUrl: ev.value.ticketUrl || undefined,
   tickets: [] as any[],

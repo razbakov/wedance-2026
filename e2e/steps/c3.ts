@@ -377,7 +377,7 @@ Then('the HTML carries BreadcrumbList and ItemList structured data for {string}'
 
 Then('the event page shows {string} and {int} going', async ({ page }, label: string, n: number) => {
   await expect(page.getByRole('button', planState(label)).first()).toBeVisible()
-  await expect(page.getByText(`${n} planning`).first()).toBeVisible()
+  await expect(page.getByText(new RegExp(`\\b${n} going\\b`)).first()).toBeVisible()
 })
 
 Then('the one-off social shows {string}', async ({ page, c3 }, label: string) => {

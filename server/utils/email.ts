@@ -742,3 +742,30 @@ export async function sendMeetMatchEmail(params: {
     </div>`,
   })
 }
+
+/**
+ * The morning after a booked meetup (RAZ-1071): "How was it with Mary?"
+ * The HTML is built in shared/utils/ritual.ts so the on-screen preview and the
+ * sent mail say the same thing. Logged instead of sent when Resend isn't configured.
+ */
+export async function sendRitualFollowupEmail(params: {
+  to: string
+  subject: string
+  html: string
+  text: string
+  unsubscribeUrl: string
+}) {
+  const config = useRuntimeConfig()
+  if (!config.resendApiKey) {
+    console.log(`\n✉️  ${params.to}: ${params.subject}\n${params.text}\n`)
+    return
+  }
+  await getResend().emails.send({
+    from: config.resendFromEmail || 'WeDance <noreply@wedance.vip>',
+    to: params.to,
+    subject: params.subject,
+    text: params.text,
+    html: params.html,
+    headers: { 'List-Unsubscribe': `<${params.unsubscribeUrl}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' },
+  })
+}

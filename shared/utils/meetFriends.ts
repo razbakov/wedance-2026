@@ -4,9 +4,9 @@
  *
  * Mirrors the deck query in `server/utils/myPlanFeeds.ts` (`discoverDeck`):
  * a dancer is in other people's decks only while they are going somewhere —
- * signed up to a night out in the next two weeks (shown to everyone going out
- * in that city), or going to a festival they chose "Show me" for — and only
- * with a public profile AND a photo.
+ * signed up to a night out in the next two weeks, or with that night on their
+ * plan (shown to everyone going out in that city), or going to a festival they
+ * chose "Show me" for — and only with a public profile AND a photo.
  */
 
 export type MeetVisibilityInput = {
