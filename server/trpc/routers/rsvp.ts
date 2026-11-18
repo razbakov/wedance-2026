@@ -45,7 +45,7 @@ async function findEvent(db: any, param: string): Promise<Ev> {
 }
 
 /** Answers that count: every confirmed one, plus unconfirmed ones younger than the TTL. */
-function countedWhere(eventId: string) {
+export function countedRsvpWhere(eventId: string) {
   const fresh = new Date(Date.now() - UNCONFIRMED_TTL_HOURS * 3600_000)
   return and(eq(eventRsvps.eventId, eventId), or(isNotNull(eventRsvps.confirmedAt), gt(eventRsvps.updatedAt, fresh)))
 }
@@ -53,7 +53,7 @@ function countedWhere(eventId: string) {
 async function summary(db: any, eventId: string) {
   const rows = await db
     .select({ answer: eventRsvps.answer, confirmedAt: eventRsvps.confirmedAt })
-    .from(eventRsvps).where(countedWhere(eventId))
+    .from(eventRsvps).where(countedRsvpWhere(eventId))
   return summarizeRsvps(rows.map((r: any) => ({ answer: r.answer, confirmed: !!r.confirmedAt })))
 }
 
@@ -275,6 +275,7 @@ export const rsvpRouter = router({
         ? await ctx.db.select({
             id: eventRsvps.id, createdAt: eventRsvps.createdAt, name: eventRsvps.name, phone: eventRsvps.phone,
             partnerName: eventRsvps.partnerName, pass: eventRsvps.pass, pay: eventRsvps.pay, keepInTouch: eventRsvps.keepInTouch,
+            checkedInAt: eventRsvps.checkedInAt,
           }).from(eventRsvps)
             .where(and(eq(eventRsvps.eventId, ev.id), eq(eventRsvps.guestToken, input.guestToken), isNull(eventRsvps.dancerId))).limit(1)
         : []
@@ -292,6 +293,12 @@ export const rsvpRouter = router({
           set: { answer: input.answer, updatedAt: now, confirmedAt: sql`coalesce(${eventRsvps.confirmedAt}, ${now})`, ...signup },
         })
       await syncPlan(ctx.db, dancerId, ev, input.answer, before)
+      // A guest the door already checked in keeps that tick on their account (RAZ-928).
+      if (guest?.checkedInAt) {
+        await ctx.db.update(attendances)
+          .set({ checkedInAt: guest.checkedInAt, updatedAt: now })
+          .where(and(eq(attendances.eventId, ev.id), eq(attendances.dancerId, dancerId), isNull(attendances.checkedInAt)))
+      }
       if (guest?.name && input.answer !== 'next') await afterSignup(ctx.db, ev, dancerId, { name: guest.name, phone: guest.phone, keepInTouch: !!guest.keepInTouch })
 
       if (guest) {
@@ -421,7 +428,7 @@ export const rsvpRouter = router({
       const f = ev.festival as FestivalDetails | null
       if (!f?.key || !isNight(f.sessions)) return null
       const rows = await ctx.db.select({ dancerId: eventRsvps.dancerId, answer: eventRsvps.answer, pass: eventRsvps.pass })
-        .from(eventRsvps).where(and(countedWhere(ev.id), ne(eventRsvps.answer, 'next')))
+        .from(eventRsvps).where(and(countedRsvpWhere(ev.id), ne(eventRsvps.answer, 'next')))
       const dancerIds = rows.map((r: any) => r.dancerId).filter(Boolean) as string[]
       const picks = dancerIds.length
         ? await ctx.db.select({ dancerId: planItems.dancerId, itemId: planItems.itemId }).from(planItems)
@@ -451,8 +458,9 @@ export const rsvpRouter = router({
     .query(async ({ ctx, input }) => {
       const ev = await requireEventManager(ctx, input.eventId)
       const [polls, att, plans] = await Promise.all([
-        ctx.db.select({ dancerId: eventRsvps.dancerId, answer: eventRsvps.answer, confirmedAt: eventRsvps.confirmedAt })
-          .from(eventRsvps).where(countedWhere(ev.id)),
+        ctx.db.select({
+          dancerId: eventRsvps.dancerId, answer: eventRsvps.answer, confirmedAt: eventRsvps.confirmedAt, checkedInAt: eventRsvps.checkedInAt,
+        }).from(eventRsvps).where(countedRsvpWhere(ev.id)),
         ctx.db.select({ dancerId: attendances.dancerId, status: attendances.status, checkedInAt: attendances.checkedInAt })
           .from(attendances).where(and(eq(attendances.eventId, ev.id), inArray(attendances.status, ['going', 'ticket_holder']))),
         ctx.db.select({ dancerId: planItems.dancerId }).from(planItems)
@@ -464,7 +472,7 @@ export const rsvpRouter = router({
             .from(dancers).where(inArray(dancers.id, ids))
         : []
       return mergeSignups({
-        polls: polls.map((r: any) => ({ dancerId: r.dancerId, answer: r.answer, confirmed: !!r.confirmedAt })),
+        polls: polls.map((r: any) => ({ dancerId: r.dancerId, answer: r.answer, confirmed: !!r.confirmedAt, checkedIn: !!r.checkedInAt })),
         attendances: att.map((a: any) => ({ dancerId: a.dancerId, status: a.status, checkedIn: !!a.checkedInAt })),
         plans,
         people,

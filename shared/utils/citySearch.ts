@@ -43,6 +43,26 @@ export function needsResolve(o: CityOption): boolean {
   return o.source === 'google' && !o.id
 }
 
+/**
+ * The one city `typed` names exactly (canonical name, local name, or an alt
+ * spelling). Typing "Munich" or "München" is that city; a prefix is not, and
+ * two different cities that share a spelling are not a guess.
+ */
+export function exactCity(options: readonly CityOption[], typed: string): CityOption | null {
+  const q = normalizeCity(typed)
+  if (!q) return null
+  const hits = options.filter((o) => {
+    if (needsResolve(o)) return false
+    if (normalizeCity(o.name) === q) return true
+    if (o.localName && normalizeCity(o.localName) === q) return true
+    return o.altNames.some(a => normalizeCity(a) === q)
+  })
+  if (!hits.length) return null
+  const slugs = new Set(hits.map(h => h.slug).filter(Boolean))
+  if (slugs.size > 1) return null
+  return [...hits].sort((a, b) => b.communities - a.communities || a.name.localeCompare(b.name))[0]!
+}
+
 /** Stable identity for de-duplication: place id first, then slug, then folded name + country. */
 export function cityKey(o: CityOption): string {
   if (o.placeId) return `p:${o.placeId}`

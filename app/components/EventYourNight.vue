@@ -21,8 +21,11 @@ const props = defineProps<{
   eventName: string
   address?: string | null
   timezone?: string | null
+  /** "pass" on a festival, "ticket" on a party or class (RAZ-1029). */
+  noun?: 'pass' | 'ticket'
 }>()
 const emit = defineEmits<{ toggle: [id: string]; upgrade: [passName: string] }>()
+const one = computed(() => props.noun === 'pass' ? 'pass' : 'ticket')
 
 const covered = computed(() => new Set(passCovers(props.pass, props.items).map(s => s.id)))
 const ticked = computed(() => props.items.filter(i => props.plannedIds.has(i.id)))
@@ -80,8 +83,8 @@ const ics = computed(() => {
           class="shrink-0 text-xs font-bold text-primary border border-primary/40 rounded-full px-2.5 py-1 hover:bg-primary/5"
           data-your-night-upgrade
           @click="emit('upgrade', upgrades[it.id]!.pass.name)"
-        >Not in your pass · +€{{ upgrades[it.id]!.extra }}</button>
-        <span v-else-if="!covered.has(it.id)" class="shrink-0 text-xs text-muted-foreground">Not in your pass</span>
+        >Not in your {{ one }} · +€{{ upgrades[it.id]!.extra }}</button>
+        <span v-else-if="!covered.has(it.id)" class="shrink-0 text-xs text-muted-foreground">Not in your {{ one }}</span>
       </li>
     </ul>
     <p class="mt-3 text-xs text-muted-foreground">Untick what you’ll skip: you keep your spot and your price. It tells you when to come, and the organiser how many come to what.</p>

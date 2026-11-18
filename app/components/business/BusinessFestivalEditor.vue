@@ -13,8 +13,9 @@
 import type { PropType } from 'vue'
 import { Plus, X, ChevronDown, ChevronUp, Pencil, Check, AlertTriangle } from 'lucide-vue-next'
 import type { FestivalDetails, FestivalPass, FestivalSession, SessionType } from '#shared/types/festivalDetails'
+import { entryWords, type EntryNoun } from '#shared/utils/entryWord'
 import { PASS_DESCRIPTION_MAX, PRACTICAL_INFO_LINE_MAX } from '#shared/utils/eventLimits'
-import { SESSION_TYPES, SESSION_TYPE_LABEL, DEFAULT_DURATION, inferDurations, isWorkshop, outsideHoursNote, sessionKindLabel, sessionTimeRange } from '#shared/utils/programme'
+import { SESSION_TYPES, SESSION_TYPE_LABEL, DEFAULT_DURATION, hasArtist, inferDurations, isWorkshop, outsideHoursNote, sessionKindLabel, sessionTimeRange } from '#shared/utils/programme'
 
 type Editable = Omit<FestivalDetails, 'key'>
 const model = defineModel<Editable>({ required: true })
@@ -31,7 +32,10 @@ const props = defineProps({
   endTime: { type: String, default: '' },
   /** The event's start, so a programme time outside its hours can be flagged (not refused). */
   startTime: { type: String, default: '' },
+  /** A festival sells passes; a party or class sells tickets (RAZ-1029). The stored field stays `passes`. */
+  word: { type: String as PropType<EntryNoun>, default: 'pass' },
 })
+const words = computed(() => entryWords(props.word === 'ticket' ? 'ticket' : 'pass'))
 
 // Lists always exist, so rows can be added straight away.
 model.value.socialLinks ??= []
@@ -122,11 +126,17 @@ const rangeOf = (s: FestivalSession) => sessionTimeRange(settled.value.get(s.id)
 const hoursNote = (s: { date: string; time: string }) => outsideHoursNote(s, {
   date: props.days[0], startTime: props.startTime, endDate: props.endDate || null, endTime: props.endTime || null,
 })
-// Changing the type: a level only on a workshop; an untouched length follows the new type.
+// Changing the type: a level only on a workshop; an artist, style and partner only
+// where someone performs. An untouched length follows the new type.
 function setType(s: FestivalSession, t: SessionType) {
   s.type = t
   if (!isWorkshop(t)) delete s.level
   else s.level ??= 'Beginner'
+  if (!hasArtist(t)) {
+    s.artist = ''
+    s.style = ''
+    delete s.with
+  }
 }
 const autoHint = (s: FestivalSession) => (typeof s.duration === 'number' && Number.isFinite(s.duration)) ? undefined : `Empty = until the next item, the event’s end, or ${DEFAULT_DURATION[s.type] || 0} min.`
 function removeSession(id: string) {
@@ -185,10 +195,10 @@ const LEVELS = ['Beginner', 'Intermediate', 'Advanced']
       </div>
   </div>
 
-  <!-- Passes -->
+  <!-- Passes for a festival, tickets for a party or class (RAZ-1029). -->
   <div v-else-if="part === 'passes'" class="min-w-0">
-      <p class="text-sm font-bold">Passes</p>
-      <p class="text-xs text-muted-foreground">What dancers can buy. The page recommends the best-value pass for the sessions they pick.</p>
+      <p class="text-sm font-bold">{{ words.Many }}</p>
+      <p class="text-xs text-muted-foreground">What dancers can buy. The page recommends the best-value {{ words.one }} for the sessions they pick.</p>
       <!-- min-w-0 everywhere: a grid/flex child is otherwise as wide as its
            longest unbroken line, and the rows pushed the card open (RAZ-991). -->
       <div class="mt-3 grid min-w-0 grid-cols-1 gap-3">
@@ -196,7 +206,7 @@ const LEVELS = ['Beginner', 'Intermediate', 'Advanced']
           <div class="flex items-center gap-3 px-3 py-2 text-sm">
             <span class="min-w-0 flex-1">
               <span class="flex min-w-0 items-center gap-1.5">
-                <span class="min-w-0 truncate font-bold">{{ p.name || 'Untitled pass' }}</span>
+                <span class="min-w-0 truncate font-bold">{{ p.name || `Untitled ${words.one}` }}</span>
                 <span class="shrink-0 whitespace-nowrap tabular-nums">· {{ p.price }} €</span>
                 <Badge v-if="p.soldOut" variant="outline" class="shrink-0">Sold out</Badge>
               </span>
@@ -206,13 +216,13 @@ const LEVELS = ['Beginner', 'Intermediate', 'Advanced']
           </div>
           <div v-if="openPass === i" class="border-t p-3">
             <div class="flex flex-wrap items-end gap-2">
-              <Field :id="`pass-name-${i}`" label="Name" class="min-w-[10rem] flex-1"><Input v-model="p.name" placeholder="Full Pass" /></Field>
+              <Field :id="`pass-name-${i}`" label="Name" class="min-w-[10rem] flex-1"><Input v-model="p.name" :placeholder="words.one === 'pass' ? 'Full Pass' : 'Early bird'" /></Field>
               <Field :id="`pass-price-${i}`" label="Price (€)" class="w-28"><Input v-model.number="p.price" type="number" min="0" step="1" /></Field>
               <Field :id="`pass-couple-${i}`" label="For two (€)" optional class="w-32" :hint="p.price ? `Empty = ${p.price * 2} €` : undefined">
                 <Input :model-value="p.couplePrice ?? ''" type="number" min="0" step="1" :placeholder="p.price ? String(p.price * 2) : ''" @update:model-value="(v: any) => (p.couplePrice = v === '' || v == null || Number.isNaN(Number(v)) ? undefined : Number(v))" />
               </Field>
               <label class="mb-2 inline-flex items-center gap-2 text-sm"><Checkbox v-model="p.soldOut" /> Sold out</label>
-              <Button type="button" variant="ghost" size="icon-sm" class="mb-1" :aria-label="`Remove pass ${p.name || i + 1}`" @click="passes.splice(i, 1); openPass = null"><X /></Button>
+              <Button type="button" variant="ghost" size="icon-sm" class="mb-1" :aria-label="`Remove ${words.one} ${p.name || i + 1}`" @click="passes.splice(i, 1); openPass = null"><X /></Button>
             </div>
             <Field :id="`pass-desc-${i}`" label="What’s included" optional class="mt-2" :error="tooLong(p.description, PASS_DESCRIPTION_MAX) ? `Keep it under ${PASS_DESCRIPTION_MAX} characters.` : undefined"><Input v-model="p.description" placeholder="All workshops + all parties" /></Field>
             <div class="mt-2 flex flex-wrap items-center gap-2 text-sm">
@@ -234,11 +244,11 @@ const LEVELS = ['Beginner', 'Intermediate', 'Advanced']
             </div>
           </div>
         </div>
-        <Button type="button" variant="ghost" size="sm" class="justify-self-start" @click="addPass"><Plus /> Add a pass</Button>
+        <Button type="button" variant="ghost" size="sm" class="justify-self-start" @click="addPass"><Plus /> Add a {{ words.one }}</Button>
         <!-- RAZ-995: dancers can sign up now and pay when they arrive -->
         <label v-if="passes.length" class="inline-flex items-start gap-2 text-sm" data-pay-at-door>
           <Checkbox v-model="model.payAtDoor" class="mt-0.5" />
-          <span><span class="font-bold">Dancers can pay at the door</span> <span class="text-muted-foreground">— they sign up now and pay when they arrive. Off: passes are paid online.</span></span>
+          <span><span class="font-bold">Dancers can pay at the door</span> <span class="text-muted-foreground">— they sign up now and pay when they arrive. Off: {{ words.many }} are paid online.</span></span>
         </label>
       </div>
   </div>
@@ -256,7 +266,7 @@ const LEVELS = ['Beginner', 'Intermediate', 'Advanced']
               <span class="min-w-0 flex-1">
                 <span class="block truncate">
                   <span class="font-bold">{{ s.title || 'Untitled' }}</span>
-                  <span class="text-muted-foreground">{{ [sessionKindLabel(s), s.artist && [s.artist, ...(s.with ?? [])].map(nameOf).join(' & '), s.room].filter(Boolean).map(x => ` · ${x}`).join('') }}</span>
+                  <span class="text-muted-foreground">{{ [sessionKindLabel(s), hasArtist(s.type) && s.artist && [s.artist, ...(s.with ?? [])].map(nameOf).join(' & '), s.room].filter(Boolean).map(x => ` · ${x}`).join('') }}</span>
                 </span>
                 <span v-if="open !== s.id && hoursNote(s)" class="mt-1 flex items-start gap-1 rounded-lg bg-warning/15 px-2 py-1 text-xs font-bold leading-snug text-wd-amber-800" data-outside-hours>
                   <AlertTriangle class="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
@@ -275,10 +285,10 @@ const LEVELS = ['Beginner', 'Intermediate', 'Advanced']
                 <AlertTriangle class="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
                 {{ hoursNote(s) }}
               </p>
-              <Field :id="`s-artist-${s.id}`" label="Artist" class="sm:col-span-2" hint="From the line-up.">
+              <Field v-if="hasArtist(s.type)" :id="`s-artist-${s.id}`" label="Artist" class="sm:col-span-2" hint="From the line-up.">
                 <Select v-model="s.artist" :options="[{ label: 'Nobody', value: '' }, ...lineup.map(h => ({ label: nameOf(h), value: h }))]" />
               </Field>
-              <div v-if="lineup.length > 1" class="sm:col-span-4">
+              <div v-if="hasArtist(s.type) && lineup.length > 1" class="sm:col-span-4">
                 <p class="text-sm font-bold">{{ isWorkshop(s.type) ? 'Teaching with' : 'With' }} <span class="font-normal text-muted-foreground">(optional)</span></p>
                 <div class="mt-1 flex flex-wrap gap-1.5">
                   <Button
@@ -292,7 +302,7 @@ const LEVELS = ['Beginner', 'Intermediate', 'Advanced']
                   >{{ nameOf(h) }}</Button>
                 </div>
               </div>
-              <Field :id="`s-style-${s.id}`" label="Style" class="sm:col-span-4" :hint="styles.length ? 'From the event’s music.' : undefined">
+              <Field v-if="hasArtist(s.type)" :id="`s-style-${s.id}`" label="Style" class="sm:col-span-4" :hint="styles.length ? 'From the event’s music.' : undefined">
                 <DanceStylePicker
                   :model-value="s.style ? [s.style] : []"
                   single

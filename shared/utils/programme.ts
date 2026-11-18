@@ -42,6 +42,14 @@ export const sessionType = (t: string | null | undefined): SessionType =>
 /** A taught class: the only type with a level, a style filter and a partner picker. */
 export const isWorkshop = (t: string | null | undefined) => !t || t === 'workshop'
 
+/**
+ * Someone teaches, plays or performs it, so the programme asks for an artist,
+ * a style and who they're with. Doors open is a moment, not a performance.
+ * A break is not its own type (`other` can still name someone).
+ */
+const NO_ARTIST = new Set<SessionType>(['doors'])
+export const hasArtist = (t: string | null | undefined) => !NO_ARTIST.has(sessionType(t))
+
 /** The night's programme a party pass covers: everything but classes and doors. */
 export const isEveningItem = (t: string | null | undefined) => !isWorkshop(t) && t !== 'doors'
 
@@ -129,13 +137,17 @@ export const sessionTimeRange = (s: { time: string; duration?: number | null }) 
   [s.time, sessionEnd(s)].filter(Boolean).join('–')
 
 /**
- * A session as stored: a known type, and a level only on a workshop (older
- * data put "Beginner" on parties; it never shows).
+ * A session as stored: a known type, a level only on a workshop (older data
+ * put "Beginner" on parties; it never shows), and no artist, style or partner
+ * on a moment like doors open.
  */
-export function cleanSession<T extends { type: string; level?: FestivalSession['level'] }>(s: T): T & { type: SessionType } {
+export function cleanSession<T extends { type: string; level?: FestivalSession['level']; artist?: string; style?: string; with?: string[] }>(s: T): T & { type: SessionType } {
   const type = sessionType(s.type)
   const { level, ...rest } = s
-  return { ...rest, type, ...(isWorkshop(type) && level ? { level } : {}) } as T & { type: SessionType }
+  const kept = { ...rest, type, ...(isWorkshop(type) && level ? { level } : {}) }
+  if (hasArtist(type)) return kept as T & { type: SessionType }
+  const { artist: _a, style: _s, with: _w, ...plain } = kept
+  return { ...plain, artist: '', style: '' } as T & { type: SessionType }
 }
 
 /** What a session shows next to its title: "Show", or a workshop's style and level. */
