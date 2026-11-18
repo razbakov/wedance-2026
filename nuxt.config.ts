@@ -57,6 +57,7 @@ export default defineNuxtConfig({
     '/my-year': { ssr: false },
     '/my-plan': { ssr: false },
     '/meet': { ssr: false },
+    '/meet/**': { ssr: false },
     '/dance-card': { ssr: false },
     '/settings': { ssr: false },
     '/settings/**': { ssr: false },

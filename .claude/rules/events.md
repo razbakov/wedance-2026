@@ -23,6 +23,13 @@ time (`BusinessEventForm` `focus()`). A new draft opens on its first step to do.
 host's other events suggest (`pastEventHints`: artists booked before, last time's price). Same order as MCP
 `create_event`.
 
+**Back and the unfinished form (RAZ-1024):** choosing a path puts `?start=post|copy|scratch` on the URL
+(`router.push`), so the browser's Back and Forward move between the choice and that path, and a Back
+button on the path does the same. What was typed is kept in this browser (`localStorage`,
+`wedance-new-event`, `app/lib/newEventDraft.ts`) and filled in again when that path is opened. It is
+cleared once a draft is created. A link that already says what to make (`?type=` / `?artist=`) still
+opens From scratch, and leaves a different unfinished draft in place until the organiser types in it.
+
 ## The venue's own hints (RAZ-1012)
 
 What is true about a venue for every event there — nearest stop (line badge + colour, stop, how to get from it), parking
@@ -50,7 +57,9 @@ server `rsvp.signUp` (event_rsvps `name/phone/partner_name/pass/pay/keep_in_touc
 it is saved unconfirmed with the guest token, the magic link (`do` + `guest`) folds it into the account (`rsvp.answer`),
 replaces only an email-derived placeholder name, and "Pay now" returns with `?pay=now` to continue to checkout.
 `EventWhosComing` sits under the hero: counts to visitors, faces to signed-in dancers, pairing with waves. A class or
-course hides per-session Save and the "Pick your pass" section; festivals keep both. Sketch: `/sketches/class-signup`.
+course hides per-session Save and the passes section; festivals keep both. A party, class or anything
+that isn't a festival calls them tickets — the editor says "Tickets" and "Add a ticket", the sign-up "Pick your
+ticket" — and a festival (Festival, Weekender, Congress, or `is_festival`) keeps "Passes" (RAZ-1029). Sketch: `/sketches/class-signup`.
 **Festivals book the same way**: every event gets the steps (`pollable: true`); a festival keeps its Passes
 tab and its year plan (`plan-as="festival"`; booking also adds `plan_items` `festival`/`<key>`). Passes sold per role are
 read from their names (`passFor`: couple / leader / follower, else for anyone) and `passesFor(passes, answer)` offers only
@@ -75,6 +84,23 @@ in Business → Events.
 link. It returns to the in-app page the dancer opened the event from — My plan, the city, a profile — and ignores
 `?tab=` (a tab change stays on this page). Opened directly, it goes to the event's city (`/cities/<slug>`), or
 `/cities` when the event has none.
+
+## The flyer's draft (RAZ-1033)
+
+The flyer page (`/business/events/<id>/flyer`) remembers where the organiser was.
+The step, the uploaded photos and flyers, the look it read, and the sitting
+(`batch`) are a draft on the post (`event_posts.flyer_draft`, 0078). It is saved
+as they go and again when they leave — there is no save button — and the step
+and batch are in the URL, so a reload reopens the same place. Coming back from
+the event (to fix the title) restores it. Painted versions were already rows in
+`event_flyers`; the result then offers "Refresh the flyer" when the event's
+lines have changed, including a version that was never kept (`refresh` with
+`fromFlyerId`). Keeping a flyer clears the draft. "Continue your flyer" on the
+editor's panel is that same return.
+
+## Door check-in (RAZ-928)
+
+Business → event → **Door** (`/business/events/[id]/door`), built for a phone: search by name, then one tap. The list is who is actually coming — an RSVP other than “next time” (a signed-out guest keeps the name they typed), Going!, a ticket, and a festival pass when the event is that festival. `attendance.checkIn` writes `attendances.checked_in_at` (a signed-out RSVP is `event_rsvps.checked_in_at` until the magic link confirms it, then the tick moves onto the attendance). Doing it again changes nothing; Undo clears the tick and leaves the ticket or Going! row. Who’s coming shows “N checked in”. The AI app uses `door_list` and `check_in` (names only, nothing is sent). Emails and phones stay in Contacts.
 
 ## Cancelling an event (RAZ-948)
 

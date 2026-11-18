@@ -1,6 +1,12 @@
 ---
 paths:
-  - "app/pages/{my-plan,my-year,meet,dance-card}.vue"
+  - "app/pages/{my-plan,my-year,dance-card}.vue"
+  - "app/pages/meet/**"
+  - "app/components/RitualSymbol.vue"
+  - "shared/utils/ritual.ts"
+  - "server/utils/ritual.ts"
+  - "server/trpc/routers/ritual.ts"
+  - "server/api/cron/ritual-followup.get.ts"
   - "app/pages/w/**"
   - "server/trpc/routers/{plan,weekend,wave}*.ts"
   - "server/api/match-emails/**"
@@ -73,3 +79,7 @@ rows are joined). A thin year just drops screens (no filling in with the city's 
 Code: `server/utils/yearReview.ts` (`plan.yearReview`), `shared/utils/yearReview.ts` (`buildYearReview`, screens),
 `app/lib/yearReviewStory.ts` (one 1080×1920 picture per screen, `storyCanvas.ts`), `app/components/YearReview.vue`.
 `/my-year?user=<handle or id>` (a friend's festival year, `SharedYearPlan`) stays: the year story's link leads there.
+
+## Meetup after a match (RAZ-1071)
+
+`/meet/ritual?with=<dancer id>` is the night two dancers who said yes actually meet. It reads the real match (`plan.meetMatches`): book the suggested night (a plan item, `metadata.with` = them), then the time and place — 23:15 near the DJ booth when that clock time falls during the event, otherwise a little after the start. The page says why (the night's own start, then 23:15 once the floor is going) and shows the event's picture and how many are going. The next step is a sentence, not a button: open the screen and turn the phone. The screen is a shared color, shape and number (derived from the two ids and the event, same on both phones), with no name. No scan and no follow on that screen. Safety lines are optional first-person ticks (I can leave any time, I’m meeting in a public spot, I’m 18+). "Couldn't meet?" is on the turned screen and saves a problem on `meet_rituals`, including "Report someone"; the other dancer is not told. The morning-after email is not a link in the app. `/api/cron/ritual-followup` emails both; that mail is the only follow suggestion, and its link opens `/meet/ritual?with=<id>&morning=1` where one tap follows. The match card on `/meet` stays after booking, with "See when and where you'll meet", and the bell keeps the row. A match toast shows once per match, small, at the bottom right. Entry points: that card, the bell, and "How you'll meet" on My plan's dance friends.
