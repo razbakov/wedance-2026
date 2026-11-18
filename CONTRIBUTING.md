@@ -80,6 +80,13 @@ If you changed something visible, run `bun run test:design` locally too, and
   (375px) and desktop.
 - Keep the branch up to date with `main`. PRs are squash-merged once they are
   green and reviewed.
+- If the change alters a journey step, update the matching blueprint
+  (`app/lib/blueprint-*.ts`, drawn at `/docs/blueprints`) in the same PR. Name
+  the blueprint and the step ids in the description, for example
+  `meet-friends: match-them`. A step that is still missing, partial or gap
+  must not cite a Done or Canceled issue in `refs`. `bun run test` checks the
+  committed list; `bun run blueprint:issues` re-reads Linear when
+  `LINEAR_API_KEY` is set. A weekly workflow runs that re-read.
 
 ## License
 

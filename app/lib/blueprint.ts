@@ -4,7 +4,12 @@
  * someone wait, carry something by hand, or misses a change. Drawn by
  * `DocsBlueprint`; each blueprint keeps its data in its own file
  * (blueprint-event-setup.ts, blueprint-meet-friends.ts, blueprint-first-class.ts,
- * blueprint-festival-travel.ts).
+ * blueprint-keep-progressing.ts, blueprint-artist-booking.ts,
+ * blueprint-make-it-real.ts, blueprint-festival-travel.ts).
+ *
+ * A pull request that changes what a step does updates that file in the same
+ * PR and names the step ids. A step that is still missing, partial or gap
+ * must not list a Done or Canceled issue in `refs` (app/lib/blueprint-issues.ts).
  */
 import type { UxStatus } from './ux-map'
 

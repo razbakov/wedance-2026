@@ -7,12 +7,13 @@
  * /artists and /@handle (follow.*, review.*), /@handle/book and MCP
  * request_private_class (inquiries.*), course series
  * (businessEvents.createSeries, MCP recurring_series), sign-ups (rsvp.signUp)
- * and the school's Contacts. Not run end to end with a test student and
- * school yet. Shown at /docs/blueprints/keep-progressing.
+ * and the school's Contacts. Re-read against the code on 2026-11-18
+ * (RAZ-1072). Not run end to end with a test student and school yet.
+ * Shown at /docs/blueprints/keep-progressing.
  */
 import type { Blueprint, BpGap, BpLaneDef, BpPhaseDef, BpStep } from './blueprint'
 
-export const KEEP_PROGRESSING_BLUEPRINT_UPDATED = '2026-11-16'
+export const KEEP_PROGRESSING_BLUEPRINT_UPDATED = '2026-11-18'
 
 export type KeepLane = 'student' | 'system' | 'school'
 export type KeepPhase = 'goal' | 'find' | 'enroll' | 'weekly' | 'practise' | 'private' | 'progress' | 'next'
@@ -62,16 +63,16 @@ export const keepSteps: BpStep<KeepLane, KeepPhase>[] = [
     note: 'Every week / 2 weeks / month until a date or count, holidays skipped; each date is its own event in one series. A series has no level, no “course of 8 classes” and no price for the whole course.' },
   { id: 'my-courses', phase: 'enroll', lane: 'system', name: 'Show the course', status: 'partial', marks: [], route: '/my-plan#courses', code: 'plan.myCourses (server/utils/myPlanFeeds.ts)',
     note: 'One card per series with its next class, venue and price. The card leaves teacher and level empty, even when the event’s line-up names the teacher.' },
-  { id: 'signup', phase: 'enroll', lane: 'student', name: 'Book my spot', status: 'partial', marks: ['manual'], route: '/events/[id]', code: 'EventSignup → rsvp.signUp', refs: ['RAZ-995', 'RAZ-1003'],
-    note: 'How you come, pass, pay now or at the door, phone. It books ONE date: the course card checks only the next class, so next week you book again, by hand, every week.' },
+  { id: 'signup', phase: 'enroll', lane: 'student', name: 'Book my spot', status: 'partial', marks: ['manual'], route: '/events/[id]', code: 'EventSignup → rsvp.signUp',
+    note: 'How you come, pass, pay now or at the door, phone. The steps exist. It books ONE date: the course card checks only the next class, so next week you book again, by hand, every week.' },
   { id: 'school-contact', phase: 'enroll', lane: 'school', name: 'Student lands in Contacts', status: 'live', marks: [], route: '/business/network/[username]/contacts', code: 'recordSignupContact · rsvp.people',
     note: 'Name, email and phone for that event (source signup), not mailable unless they ticked “Also tell me about next events”. Who’s coming on the event shows them with leader / follower.' },
 
   // Weekly classes
   { id: 'reminder', phase: 'weekly', lane: 'system', name: 'Remind before class', status: 'missing', marks: ['silent'],
-    note: 'No email, push or Telegram before a class: there is no scheduled job at all (vercel.json has no crons), and dancer-facing email is only sign-in, sign-up and cancellations.' },
-  { id: 'go-class', phase: 'weekly', lane: 'student', name: 'Go to class', status: 'partial', marks: [], route: '/business/events/[id]/door', code: 'attendance.checkIn', refs: ['RAZ-928'],
-    note: 'The organiser can record that you were there on the door list (RAZ-928). Your goal still doesn’t count those classes.' },
+    note: 'No email, push or Telegram before a class. The scheduled mail is the morning-after review ask, and “said yes too” for Meet — not a reminder that class is tomorrow.' },
+  { id: 'go-class', phase: 'weekly', lane: 'student', name: 'Go to class', status: 'partial', marks: [], route: '/business/events/[id]/door', code: 'attendance.checkIn',
+    note: 'The organiser can record that you were there on the door list. Your goal still doesn’t count those classes.' },
   { id: 'school-attend', phase: 'weekly', lane: 'school', name: 'Track who comes and pays', status: 'partial', marks: ['manual'], route: '/business/network/[username]/contacts', code: 'contactActivity (wentTo, checkedIn)',
     note: 'The door list records who came, and Contacts counts those check-ins for people with an account. Monthly payment isn’t tracked: “paid through month” exists only in My plan’s preview data. Payments stay on paper or WhatsApp.' },
   { id: 'course-ends', phase: 'weekly', lane: 'system', name: 'Course runs out', status: 'partial', marks: ['silent'], code: 'myCourses (series with nothing upcoming is left out)',
@@ -82,7 +83,7 @@ export const keepSteps: BpStep<KeepLane, KeepPhase>[] = [
     note: 'The city page’s this-week calendar and My plan’s “This week” (what you put in with + My plan).' },
   { id: 'socials-link', phase: 'practise', lane: 'system', name: 'Link class and social', status: 'missing', marks: [],
     note: 'Nothing points from a course to where you can dance what you learned: not the school’s own party, not a social in the same style this week. Only the goal’s “Serves” tag on things you already added.' },
-  { id: 'school-social', phase: 'practise', lane: 'school', name: 'Invite students out', status: 'partial', marks: ['manual'], route: '/business/network/[username]/contacts', code: 'contactMailing.send (event card)', refs: ['RAZ-975'],
+  { id: 'school-social', phase: 'practise', lane: 'school', name: 'Invite students out', status: 'partial', marks: ['manual'], route: '/business/network/[username]/contacts', code: 'contactMailing.send (event card)',
     note: 'Contacts → Email N with an “I’m coming” card works, but only for contacts the page may email — most class sign-ups aren’t. So the invite goes out in the class WhatsApp group instead.' },
 
   // Private class / workshop
@@ -100,15 +101,15 @@ export const keepSteps: BpStep<KeepLane, KeepPhase>[] = [
     note: 'A goal’s progress is a percentage you set yourself. No class, social or workshop moves it.' },
   { id: 'level', phase: 'progress', lane: 'student', name: 'Your level per style', status: 'partial', marks: [], route: '/settings', code: 'dancers.dance_levels',
     note: 'Self-declared on Settings and the dance card (Lead / Follow + level). Nothing ever asks whether it changed.' },
-  { id: 'year', phase: 'progress', lane: 'system', name: 'Your year in dance', status: 'partial', marks: [], route: '/my-year', code: 'plan.yearReview', refs: ['RAZ-966'],
-    note: 'Counts the nights you were going to, your style, your home floor. Intent, not proof — and classes count like parties, so it says nothing about what you learned.' },
+  { id: 'year', phase: 'progress', lane: 'system', name: 'Your year in dance', status: 'partial', marks: [], route: '/my-year', code: 'plan.yearReview',
+    note: 'The look back counts the nights you were going to, your style, your home floor. Intent, not proof — and classes count like parties, so it says nothing about what you learned.' },
   { id: 'teacher-feedback', phase: 'progress', lane: 'school', name: 'Teacher’s view of progress', status: 'missing', marks: ['silent'],
     note: 'No way for a teacher to note a student’s level, what to work on, or “ready for the next level”.' },
 
   // Next level
   { id: 'next-level', phase: 'next', lane: 'system', name: 'Suggest the next course', status: 'missing', marks: ['silent'],
     note: 'When a course ends, nothing offers the same school’s next course or the next level up.' },
-  { id: 'school-next', phase: 'next', lane: 'school', name: 'Open the next course', status: 'partial', marks: ['manual'], route: '/business/events/new', code: 'businessEvents.copy · contactMailing.send', refs: ['RAZ-939'],
+  { id: 'school-next', phase: 'next', lane: 'school', name: 'Open the next course', status: 'partial', marks: ['manual'], route: '/business/events/new', code: 'businessEvents.copy · contactMailing.send',
     note: '“Like my last event” + N more weeks makes the next run in a minute. Telling last term’s students is Contacts → filter by the old event → Email N, and reaches only the mailable ones.' },
   { id: 'rejoin', phase: 'next', lane: 'student', name: 'Sign up again', status: 'gap', marks: ['wait'],
     note: 'The student starts over in the enroll picker — or waits for the school’s WhatsApp message.' },
@@ -120,7 +121,7 @@ export const keepGaps: BpGap[] = [
     fix: 'Book the course, not the date: a series sign-up (one rsvp for the series, “skip this week” per date) that My plan and Who’s coming read for every date still to come.',
     steps: ['picker', 'my-courses', 'signup', 'school-contact'] },
   { title: 'Silence between classes',
-    why: 'There is no scheduled job and no dancer-facing email. Following a teacher, a course ending and the week’s socials never reach the student, so momentum depends on the class WhatsApp group.',
+    why: 'Nothing reaches the student between classes: no reminder, and following a teacher, a course ending and the week’s socials stay on the site. The morning-after review ask is the only scheduled email about a class, so momentum depends on the class WhatsApp group.',
     fix: 'One weekly “your week” email (and the same block on My plan): your next class, a social in its style this week, new dates from teachers you follow, and “your course ends next week”. Needs a Vercel cron.',
     steps: ['reminder', 'follow', 'course-ends', 'socials-link'] },
   { title: 'Progress is a slider you move yourself',

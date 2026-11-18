@@ -5,12 +5,12 @@
  * a change upstream. Hand-maintained from the code (routers named in `code`),
  * then run end to end on 2026-11-14 (RAZ-898) with a test organiser page, a
  * venue and an artist on a local copy of the database. Not run yet: flyer,
- * content plan, Instagram, admin claim review, emails (RAZ-931). Shown at
- * /docs/blueprints/event-setup.
+ * content plan, Instagram, admin claim review, emails (RAZ-931). Re-read against
+ * the code on 2026-11-18 (RAZ-1072). Shown at /docs/blueprints/event-setup.
  */
 import type { Blueprint, BpGap, BpLaneDef, BpPhaseDef, BpStep } from './blueprint'
 
-export const BLUEPRINT_UPDATED = '2026-11-14'
+export const BLUEPRINT_UPDATED = '2026-11-18'
 
 export type BpLane = 'organizer' | 'system' | 'venue' | 'artist' | 'dancers'
 export type BpPhase = 'page' | 'draft' | 'venue' | 'lineup' | 'flyer' | 'promote' | 'publish' | 'night'
@@ -57,7 +57,7 @@ export const bpSteps: BpStep<BpLane, BpPhase>[] = [
   { id: 'ask-link', phase: 'venue', lane: 'system', name: 'Venue link + email', status: 'partial', marks: ['manual'], code: 'venueAsks.ask · artistInvites.notify',
     note: 'A personal link and a ready message to copy. WeDance emails it only when the venue page has a team (once a day at most). Most synced venues have none, so the organiser sends it by WhatsApp or Instagram.' },
   { id: 'ask-answer', phase: 'venue', lane: 'venue', name: 'Answer the ask', status: 'live', marks: ['wait'], route: '/ask/[token]', code: 'artistInvites.respond (venueAnswer)', refs: ['#514', '#517', 'RAZ-924'],
-    note: 'Can host / other date / no, with rent, bar spend, door split and what’s included. Signed out, they leave an email (required for a yes) and get the answer in writing with “That’s me, confirm”. Managed venues also see open asks under “From dancers” on their Business home. On a phone the answer buttons sit under the tab bar (RAZ-924).' },
+    note: 'Can host / other date / no, with rent, bar spend, door split and what’s included. Signed out, they leave an email (required for a yes) and get the answer in writing with “That’s me, confirm”. Managed venues also see open asks under “From dancers” on their Business home. On a phone the answer buttons sit above the tab bar (RAZ-924).' },
   { id: 'ask-back', phase: 'venue', lane: 'system', name: 'Answer reaches organiser', status: 'partial', marks: [], code: 'artistInvites.respond → sendInviteAnsweredEmail · businessEvents.inbox — no invite items', refs: ['#521'],
     note: 'The organiser gets an email per answer (“Salsea suggests another date…”), saying whether it’s email-confirmed. In the app the answer shows only once the editor’s “Where” panel is opened (“Venues you asked”); Business home and the collapsed editor don’t mention it.' },
   { id: 'book', phase: 'venue', lane: 'organizer', name: 'Book one', status: 'live', marks: [], code: 'venueAsks.book',
@@ -75,7 +75,7 @@ export const bpSteps: BpStep<BpLane, BpPhase>[] = [
   { id: 'invite-link', phase: 'lineup', lane: 'system', name: 'Artist link + email', status: 'partial', marks: ['manual'], code: 'artistInvites.link · artistInvites.notify',
     note: 'Same as venues: an email only when someone runs the artist’s page. Otherwise the organiser copies the link and message.' },
   { id: 'invite-answer', phase: 'lineup', lane: 'artist', name: 'Review the invite', status: 'live', marks: ['wait'], route: '/confirm/[token]', code: 'artistInvites.get · respond', refs: ['#515', '#516', '#520', '#521', 'RAZ-924'],
-    note: 'Flyer up top (once there is one); their slot, fee and needs, the name and photo for this event’s flyer, confirm or decline. The page itself changes only for its team. Signed out, they leave an email and get the answer in writing. On a phone the answer buttons sit under the tab bar (RAZ-924).' },
+    note: 'Flyer up top (once there is one); their slot, fee and needs, the name and photo for this event’s flyer, confirm or decline. The page itself changes only for its team. Signed out, they leave an email and get the answer in writing. On a phone the answer buttons sit above the tab bar (RAZ-924).' },
   { id: 'claim', phase: 'lineup', lane: 'artist', name: 'Take over the page', status: 'live', marks: [], code: 'artistInvites.claim · confirmEmail', refs: ['#521'],
     note: '“That’s me, confirm” in the answer copy signs them in and, while nobody runs the page, makes them its owner.' },
   { id: 'invite-back', phase: 'lineup', lane: 'organizer', name: 'See who answered', status: 'live', marks: [], code: 'sendInviteAnsweredEmail · BusinessLineupPicker', refs: ['#521'],
@@ -105,7 +105,7 @@ export const bpSteps: BpStep<BpLane, BpPhase>[] = [
 
   // Publish
   { id: 'publish', phase: 'publish', lane: 'organizer', name: 'Publish', status: 'live', marks: [], code: 'businessEvents.update (draft → live) · MCP publish_event',
-    note: 'Not gated: an event publishes with unanswered venues, unconfirmed artists or an out-of-date flyer, and nothing warns. From the form it is live from the first save (RAZ-927).' },
+    note: 'Not gated: an event publishes with unanswered venues, unconfirmed artists or an out-of-date flyer, and nothing warns. The form starts a draft (RAZ-927); “Publish it now” on From scratch is the only way the first save is live.' },
   { id: 'listed', phase: 'publish', lane: 'system', name: 'Listed everywhere', status: 'live', marks: [], route: '/cities/[city]',
     note: 'City page (this week, coming up), the event page, the RSVP poll, the organiser’s and venue’s /@handle schedule.' },
   { id: 'announce', phase: 'publish', lane: 'system', name: 'Tell followers', status: 'missing', marks: ['silent'],
@@ -120,8 +120,8 @@ export const bpSteps: BpStep<BpLane, BpPhase>[] = [
     note: 'Dancers who answered or pressed Going! get no reminder. See “Come back” on the UX map.' },
   { id: 'door', phase: 'night', lane: 'organizer', name: 'Door check-in', status: 'live', marks: [], route: '/business/events/[id]/door', code: 'attendance.door · attendance.checkIn · MCP door_list, check_in', refs: ['RAZ-928'],
     note: 'Phone list of RSVPs, Going! and tickets. One tap checks a guest in; Who’s coming shows how many. The AI app uses the same procedures. Nothing is emailed.' },
-  { id: 'after', phase: 'night', lane: 'dancers', name: 'After the night', status: 'missing', marks: [],
-    note: 'No review, photo or “next date” prompt for the people who came; the venue and artists get no recap.' },
+  { id: 'after', phase: 'night', lane: 'dancers', name: 'After the night', status: 'partial', marks: [], code: 'reviewAsk · /api/cron/review-asks',
+    note: 'The morning after, everyone who went gets “How was it?” with star links (not festivals). No photo prompt and no “next date”, and the venue and artists get no recap.' },
 ]
 
 export const bpGaps: BpGap[] = [

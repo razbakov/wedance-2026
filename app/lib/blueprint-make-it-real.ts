@@ -9,12 +9,13 @@
  * (profile_owner_suggestions), artistInvites.claim / confirmEmail
  * (/confirm/<token>), business.merge (findLikelyDuplicates), the v3 / Instagram
  * fill rules (grant() sets profiles.claimed), rsvp.people / EventWhosComing,
- * /dance-card. Not run end to end with a test owner yet. Shown at
- * /docs/blueprints/make-it-real.
+ * /dance-card. Re-read against the code on 2026-11-18 (RAZ-1072): the steps
+ * still match the claim, merge and faces code. Not run end to end with a test
+ * owner yet. Shown at /docs/blueprints/make-it-real.
  */
 import type { Blueprint, BpGap, BpLaneDef, BpPhaseDef, BpStep } from './blueprint'
 
-export const REAL_BLUEPRINT_UPDATED = '2026-11-16'
+export const REAL_BLUEPRINT_UPDATED = '2026-11-18'
 
 export type RealLane = 'owner' | 'system' | 'dancer'
 export type RealPhase = 'appears' | 'find' | 'ask' | 'review' | 'run' | 'dupes' | 'faces' | 'trust'

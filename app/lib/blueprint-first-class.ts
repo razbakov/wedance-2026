@@ -7,11 +7,12 @@
  * /cities/[city] "Your first class" (shared/utils/taster.ts), /events/[id]
  * EventSignup → rsvp.signUp (RAZ-995), auth.requestMagicLink, recordSignupContact
  * (server/utils/rsvpContact.ts), contactMailing (RAZ-975), My plan courses.
- * Not run end to end yet. Shown at /docs/blueprints/first-class.
+ * Re-read against the code on 2026-11-18 (RAZ-1072). Not run end to end yet.
+ * Shown at /docs/blueprints/first-class.
  */
 import type { Blueprint, BpGap, BpLaneDef, BpPhaseDef, BpStep } from './blueprint'
 
-export const FIRST_CLASS_BLUEPRINT_UPDATED = '2026-11-16'
+export const FIRST_CLASS_BLUEPRINT_UPDATED = '2026-11-18'
 
 export type FirstClassLane = 'newcomer' | 'system' | 'school'
 export type FirstClassPhase = 'curious' | 'style' | 'find' | 'signup' | 'before' | 'back'
@@ -70,20 +71,20 @@ export const firstClassSteps: BpStep<FirstClassLane, FirstClassPhase>[] = [
   { id: 'confirm', phase: 'before', lane: 'newcomer', name: '“You’re in”', status: 'partial', marks: [], route: '/events/[id]', code: 'EventSignup · EventMeetPrompt',
     note: 'On screen only: “<page> has your name, email and phone for this event”, Cancel my spot, and a “Meet who’s going” card. No confirmation email with the time and address, no calendar file.' },
   { id: 'reminder', phase: 'before', lane: 'system', name: 'Remind before the class', status: 'missing', marks: ['silent'],
-    note: 'Nothing runs on a schedule (no cron in vercel.json): no reminder the day before, no “what to bring”, no directions. Only a cancellation reaches you (sendEventCancelledEmail).' },
+    note: 'No reminder the day before, no “what to bring”, no directions. The only scheduled email about the class is the morning-after review ask, which comes after, plus a cancellation (sendEventCancelledEmail).' },
   { id: 'whatsapp', phase: 'before', lane: 'school', name: 'Add to the class group', status: 'gap', marks: ['manual'], route: '/business/network/[handle]/contacts',
     note: 'The phone was asked for “its WhatsApp group”, but the school has to open Contacts, find the person and add them by hand — and only if they look.' },
-  { id: 'door', phase: 'before', lane: 'school', name: 'Welcome at the door', status: 'partial', marks: [], route: '/business/events/[id]/door', code: 'attendance.door · attendance.checkIn', refs: ['RAZ-928'],
-    note: 'The door list checks guests in. Nothing marks someone as a first-timer, so the teacher can’t spot the newcomer who needs a hand.' },
+  { id: 'door', phase: 'before', lane: 'school', name: 'Welcome at the door', status: 'partial', marks: [], route: '/business/events/[id]/door', code: 'attendance.door · attendance.checkIn',
+    note: 'The door list checks guests in. Nothing marks someone as a first-timer, so the teacher can’t spot the newcomer who needs a hand. The list itself shipped.' },
   { id: 'attend', phase: 'before', lane: 'newcomer', name: 'Dance the first class', status: 'gap', marks: [],
     note: 'Happens off the platform. Pay at the door if that was the choice.' },
 
   // Come back
-  { id: 'follow-up', phase: 'back', lane: 'system', name: 'Ask “how was it?”', status: 'missing', marks: ['silent'],
-    note: 'No email or prompt after the first class — the moment a newcomer becomes a regular or drops out. Reviews exist on pages, but nothing asks for one.' },
+  { id: 'follow-up', phase: 'back', lane: 'system', name: 'Ask “how was it?”', status: 'partial', marks: ['silent'], code: 'reviewAsk · /api/cron/review-asks',
+    note: 'The morning after, a class gets the same “How was it?” email as a party: a star rating of the event, not “book next week”.' },
   { id: 'next-class', phase: 'back', lane: 'newcomer', name: 'Book the next one', status: 'partial', marks: ['manual'], route: '/my-plan', code: 'plan.myCourses',
     note: 'A weekly class is a sign-up per date: next week means finding the class again and booking again. My plan shows the course with its next class once it is on the plan.' },
-  { id: 'school-invite', phase: 'back', lane: 'school', name: 'Invite them back', status: 'partial', marks: ['wait'], route: '/business/network/[handle]/contacts', code: 'contactMailing.send', refs: ['RAZ-975'],
+  { id: 'school-invite', phase: 'back', lane: 'school', name: 'Invite them back', status: 'partial', marks: ['wait'], route: '/business/network/[handle]/contacts', code: 'contactMailing.send',
     note: 'The school can email contacts (with an event card), but a sign-up contact is mailable only if they ticked “Also tell me about next events”, which starts unticked. Everyone else needs WhatsApp, by hand.' },
   { id: 'goals', phase: 'back', lane: 'newcomer', name: 'Goals and progress', status: 'partial', marks: [], route: '/my-plan', code: 'useGoals',
     note: 'A goals block on My plan; nothing records that you took a first class or nudges you to a second.' },
@@ -95,7 +96,7 @@ export const firstClassGaps: BpGap[] = [
     fix: 'Email the page’s team on each sign-up (“Anna is coming to Salsa Beginners on Thu, first time”), and when the page has no team, send the sign-up to the class’s source (the v3 organiser) or say on the event page that the school isn’t on WeDance yet.',
     steps: ['school-lists', 'contact', 'school-hears', 'enroll'] },
   { title: 'Nothing arrives before the class',
-    why: 'The only email is “Sign in to WeDance” with a 15-minute link. No confirmation with time and address, no reminder, nothing on what to wear — the exact things a first-timer worries about.',
+    why: 'Before the class the only email is “Sign in to WeDance” with a 15-minute link. No confirmation with time and address, no reminder, nothing on what to wear — the exact things a first-timer worries about.',
     fix: 'Make the magic-link email the booking confirmation (class, time, address, map, “Confirm my spot”, a longer-lived link), send a reminder the day before with a short “your first class” guide, and attach an .ics.',
     steps: ['magic', 'confirm', 'reminder'] },
   { title: '“Free” and “beginner” are guesses',
@@ -107,8 +108,8 @@ export const firstClassGaps: BpGap[] = [
     fix: 'Save the chosen style and city (to the account, or the browser until sign-up), send every style choice to that city’s “Your first class”, and show a “first time?” box on class pages.',
     steps: ['arrive', 'onboard', 'choose', 'class-page'] },
   { title: 'No second class',
-    why: 'After the first class nobody asks how it went, a weekly class must be booked again date by date, and the school can only email people who ticked an unticked box.',
-    fix: 'The day after, email “How was it?” with “Book next week” (one tap, same details) and “Keep me posted about this course”; let the sign-up cover the course, not one date.',
+    why: 'The morning after asks how the event was, but not with a way to book next week. A weekly class must be booked again date by date, and the school can only email people who ticked an unticked box.',
+    fix: 'Add “Book next week” to that email (one tap, same details) and “Keep me posted about this course”; let the sign-up cover the course, not one date.',
     steps: ['follow-up', 'next-class', 'school-invite', 'whatsapp'] },
 ]
 

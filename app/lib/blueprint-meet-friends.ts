@@ -4,13 +4,14 @@
  * and the other dancer, whose side of every step is the part most often
  * missing. Hand-maintained from the code (procedures named in `code`):
  * /meet (plan.discover, discover_swipes), the festival page's "Shall we
- * dance?" (wave.*, festival_waves), meetMatches (RAZ-985, My plan → Your dance friends).
- * Not run end to end with two test dancers yet. Shown at
- * /docs/blueprints/meet-friends.
+ * dance?" waves (festival_waves; the festival-page deck itself is gone),
+ * meetMatches and the "said yes too" email (RAZ-985, My plan → Your dance friends).
+ * Re-read against the code on 2026-11-18 (RAZ-1072). Not run end to end with
+ * two test dancers yet. Shown at /docs/blueprints/meet-friends.
  */
 import type { Blueprint, BpGap, BpLaneDef, BpPhaseDef, BpStep } from './blueprint'
 
-export const MEET_BLUEPRINT_UPDATED = '2026-11-16'
+export const MEET_BLUEPRINT_UPDATED = '2026-11-18'
 
 export type MeetLane = 'me' | 'system' | 'other'
 export type MeetPhase = 'join' | 'findable' | 'browse' | 'yes' | 'match' | 'floor' | 'after'
@@ -45,16 +46,16 @@ export const meetSteps: BpStep<MeetLane, MeetPhase>[] = [
     note: 'Only narrows which nights count as “near you” (the city page’s nights). Living here alone no longer puts anyone in a deck (#608).' },
   { id: 'go-out', phase: 'findable', lane: 'me', name: 'Sign up to a night', status: 'live', marks: [], route: '/events/[id]', code: 'rsvp.signUp · EventMeetPrompt', refs: ['#608'],
     note: 'How you get into the deck: a confirmed sign-up to a night in the next two weeks puts you in the deck of everyone going out near there, as “Going to <night>”. Right after signing up, “Meet who’s going” says so, asks for a missing photo and links to /meet. Same people “Who’s coming” already shows on the event page.' },
-  { id: 'show-me', phase: 'findable', lane: 'me', name: '“Show me” for a festival', status: 'partial', marks: [], route: '/events/[id]', code: 'plan_items.share_going · DiscoverDancers', refs: ['#590'],
-    note: 'To reach a festival’s dancers you add it to your plan and tap “Show me” in “Shall we dance?” on its page (the same switch as “Who’s going”). It lives on each festival page, one by one; /meet only tells you it exists.' },
+  { id: 'show-me', phase: 'findable', lane: 'me', name: '“Show me” for a festival', status: 'partial', marks: [], route: '/events/[id]', code: 'plan.setShareGoing · EventMeetPrompt', refs: ['#590'],
+    note: 'To reach a festival’s dancers you add it to your plan and tap “Show me” on its overview (then “Hide me” to leave). That puts you in the /meet deck. It stays off until you tap it, one festival at a time. The old “Shall we dance?” deck on the page is gone.' },
 
   // Browse
   { id: 'deck', phase: 'browse', lane: 'system', name: 'Build the deck', status: 'live', marks: [], refs: ['#608'], code: 'plan.discover → discoverDeck (server/utils/myPlanFeeds.ts)',
     note: 'Only dancers going somewhere: signed up to a night near you in the next 14 days — the same night as you first, then the soonest — and festival-goers who chose “Show me”. Nobody is in it just for living here, and there is no fallback to strangers (#608).' },
   { id: 'swipe', phase: 'browse', lane: 'me', name: 'Yes / Skip / Later', status: 'live', marks: [], route: '/meet', code: 'plan.discoverSwipe · discoverUnswipe',
     note: 'Swipe or buttons, undo. Yes and Skip are stored and never come back; Later moves the card to the end for this visit. Explainer on top: who’s here, whether you are, how it works.' },
-  { id: 'fest-deck', phase: 'browse', lane: 'me', name: 'Festival “Shall we dance?”', status: 'live', marks: [], route: '/events/[id]', code: 'wave.discoverPool · wave.send',
-    note: 'A second deck per festival on its page: only that festival’s “Show me” dancers, people who waved at you first. A Yes here is a wave (festival_waves), not a deck Yes — the two don’t know about each other.' },
+  { id: 'fest-deck', phase: 'browse', lane: 'me', name: 'Festival dancers', status: 'partial', marks: [], route: '/meet', code: 'plan.setShareGoing · discoverDeck · EventWhosComing wave.send',
+    note: 'There is no second deck on the festival page. “Show me” puts those dancers in this /meet deck. A Yes to one still links to #discover on the festival, where that deck no longer is. A wave still exists as pairing on Who’s coming (wave.send), a separate record from a deck Yes.' },
   { id: 'empty', phase: 'browse', lane: 'system', name: 'Deck runs out', status: 'partial', marks: ['wait'], route: '/meet',
     note: 'Says “be the first”: sign up to a night and everyone who joins it meets you here, with Find a night out / pick a festival. Nobody tells you when someone new signs up.' },
 
@@ -62,9 +63,9 @@ export const meetSteps: BpStep<MeetLane, MeetPhase>[] = [
   { id: 'yes-private', phase: 'yes', lane: 'system', name: 'Store the Yes', status: 'live', marks: ['silent'], code: 'discover_swipes (decision yes)', refs: ['#590'],
     note: 'Private by design: the other dancer isn’t told. Two deck Yeses for the same festival become “add it to your year” on My plan.' },
   { id: 'yes-next', phase: 'yes', lane: 'me', name: '“Yes to X. Next: …”', status: 'live', marks: [], route: '/meet', refs: ['#590', '#608'],
-    note: 'After a Yes, /meet names their night with a link (“join Salsa Friday Fri 21:00”, or “you’re both at … — say hi there”), or the festival page to wave. The Yes itself still reaches nobody.' },
-  { id: 'waved', phase: 'yes', lane: 'other', name: 'Hears about a wave', status: 'partial', marks: ['silent'], code: 'wave.incomingCount · wavesForMe (no caller)',
-    note: 'Only on that festival’s page: a count of people who waved and those people first in its deck. No email, no My plan item; wave.wavesForMe exists but no page calls it.' },
+    note: 'After a Yes, /meet names their night with a link (“join Salsa Friday Fri 21:00”, or “you’re both at … — say hi there”). A festival card still says to wave on the festival page (#discover), where the deck no longer is. A one-way Yes reaches nobody; a match says “It’s a match” and emails the other dancer.' },
+  { id: 'waved', phase: 'yes', lane: 'other', name: 'Hears about a wave', status: 'partial', marks: ['silent'], code: 'wave.incomingCount · wavesForMe (no caller) · meetMatchNotify.onYes',
+    note: 'A one-way wave still reaches nobody: the festival deck that showed a count is gone, and wave.wavesForMe has no page. A wave back is a match — the other dancer gets the “said yes too” email and both see it on My plan.' },
   { id: 'deck-yes-them', phase: 'yes', lane: 'other', name: 'Hears about a deck Yes', status: 'missing', marks: ['silent'],
     note: 'Never — and they can’t act on it unless they happen to swipe you too.' },
 
@@ -73,8 +74,8 @@ export const meetSteps: BpStep<MeetLane, MeetPhase>[] = [
     note: 'Merges deck Yeses and waves both ways into one list per dancer, each with a night out both could go to in the next 14 days. Counts yeses from 2026-11-16 (when the deck started saying “we tell you both”).' },
   { id: 'match-me', phase: 'match', lane: 'me', name: 'See “you both said yes”', status: 'live', marks: [], route: '/my-plan', code: 'MeetMatches.vue', refs: ['RAZ-985'],
     note: 'My plan → “Your dance friends”: every mutual yes (deck + festival waves), newest first, “New” for a week.' },
-  { id: 'match-them', phase: 'match', lane: 'other', name: 'Told about the match', status: 'partial', marks: ['silent'], route: '/my-plan', refs: ['RAZ-985'],
-    note: 'Both see the match on My plan the next time they open it. No email or notification yet.' },
+  { id: 'match-them', phase: 'match', lane: 'other', name: 'Told about the match', status: 'live', marks: [], route: '/my-plan', code: 'meetMatchNotify.onYes → sendMeetMatchEmail', refs: ['RAZ-985'],
+    note: 'The dancer who just said yes sees “It’s a match” at once. The other gets one “<name> said yes too” email (once per pair, at most one a day, off in Settings → Emails) and both see the match on My plan. The email is skipped with no photo, a private profile, or no address.' },
 
   // Meet on the floor
   { id: 'night', phase: 'floor', lane: 'system', name: 'Suggest a night', status: 'live', marks: [], route: '/my-plan', code: 'meetMatches MatchNight · MeetMatches.vue',
@@ -98,18 +99,18 @@ export const meetGaps: BpGap[] = [
     why: 'You get into the deck by signing up to a night (#608), and the “Meet who’s going” card then asks for a photo. But onboarding still never asks for one, and festivals still need “Show me” on each festival page.',
     fix: 'Ask for a photo in onboarding (with “others see you in Meet new friends” as the reason), and turn “Show me” into the same moment as a night: on by default when you add a festival, with a Hide me.',
     steps: ['onboard', 'photo', 'go-out', 'show-me'] },
-  { title: 'A Yes goes nowhere',
-    why: 'A deck Yes is private and a wave is seen only on one festival page. Neither side is told, so the person you said yes to never gets the chance to say yes back.',
-    fix: 'Ship RAZ-985: show “You both said yes” on /meet and My plan, and email both people once when a Yes becomes mutual. Show “X waved at you” outside the festival page (wavesForMe is already there).',
-    steps: ['yes-private', 'waved', 'deck-yes-them', 'mutual', 'match-me', 'match-them'] },
-  { title: 'Two decks that don’t talk',
-    why: 'A Yes on /meet and a wave on a festival page are separate records. A Yes to a festival-goer on /meet doesn’t wave at them, so you are told to go and do it again on the festival page.',
-    fix: 'A Yes on a festival card also sends the wave for that festival; the festival deck reads deck Yeses too.',
+  { title: 'A one-way Yes still goes nowhere',
+    why: 'A mutual yes is told: My plan and one “said yes too” email (RAZ-985). A deck Yes that isn’t returned stays private, and a one-way wave has nowhere to land now that the festival deck is gone.',
+    fix: 'Tell the other dancer about a one-way Yes (one email, or put them first in their deck) so they can say yes back. Show “X waved at you” from wavesForMe, which no page calls.',
+    steps: ['yes-private', 'waved', 'deck-yes-them', 'yes-next', 'fest-deck'] },
+  { title: 'A festival Yes still points at a deck that left',
+    why: 'The festival page no longer has its own deck. A Yes on /meet to a festival-goer still says “wave at them” and links to #discover, and a wave from Who’s coming is a different record from a deck Yes.',
+    fix: 'Point that Yes at /meet or at the festival’s “Show me”, and count a deck Yes and a wave as the same yes.',
     steps: ['swipe', 'fest-deck', 'yes-next'] },
-  { title: 'No way to set a night',
-    why: 'Every card now leads to the night its dancer is going to (#608), so meeting no longer relies on luck. But a match still has no message and no “see you there”, and the night computed for a match is never shown.',
-    fix: 'On a match, show the shared night with one “I’m going” for each side, and tell the other when one says it. No chat needed for the first step.',
-    steps: ['night', 'contact', 'same-night'] },
+  { title: 'No way to reach them',
+    why: 'Every card leads to the night its dancer is going to (#608), and a match shows one shared night with “I’m going too”. There is still no message and no “see you there” beyond that night.',
+    fix: 'On a match, one “see you there” the other dancer is told about. No chat needed for that first step.',
+    steps: ['contact'] },
   { title: 'Friends are forgotten',
     why: 'After the night nothing remembers that you met, so the next festival starts from an empty deck.',
     fix: 'Matches you danced with become friends: their going-to shows in your plan, and they come first on the festival pages you share.',

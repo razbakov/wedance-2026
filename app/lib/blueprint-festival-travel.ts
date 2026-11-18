@@ -7,12 +7,13 @@
  * (listFestivals), the festival page (FestivalView: + My plan, workshops,
  * passes, rides, roommates, dinners, hangouts, sharing), My plan's Year
  * tab, festivalSignup.*, the Stripe and TicketTailor webhooks,
- * /charanga/claim, and the MCP tools. Not run end to end with a test dancer
- * and a real checkout yet. Shown at /docs/blueprints/festival-travel.
+ * /charanga/claim, and the MCP tools. Re-read against the code on 2026-11-18
+ * (RAZ-1072). Not run end to end with a test dancer and a real checkout yet.
+ * Shown at /docs/blueprints/festival-travel.
  */
 import type { Blueprint, BpGap, BpLaneDef, BpPhaseDef, BpStep } from './blueprint'
 
-export const TRAVEL_BLUEPRINT_UPDATED = '2026-11-16'
+export const TRAVEL_BLUEPRINT_UPDATED = '2026-11-18'
 
 export type TravelLane = 'me' | 'system' | 'organiser' | 'friends' | 'provider'
 export type TravelPhase = 'find' | 'year' | 'workshops' | 'tickets' | 'travel' | 'share' | 'festival' | 'after'
@@ -38,8 +39,8 @@ export const travelPhases: BpPhaseDef<TravelPhase>[] = [
 
 export const travelSteps: BpStep<TravelLane, TravelPhase>[] = [
   // Find festivals
-  { id: 'browse', phase: 'find', lane: 'me', name: 'Browse /festivals', status: 'partial', marks: [], route: '/festivals', code: '/api/festivals → listFestivals (server/utils/festivalListing.ts)', refs: ['RAZ-1004'],
-    note: 'Real festival, congress and weekender events that haven’t ended, soonest first; search by name, city or style, style chips, how many plan to go and the first verified faces. No price on a card, no month or “near me” filter — you can’t see what a festival costs until you open it.' },
+  { id: 'browse', phase: 'find', lane: 'me', name: 'Browse /festivals', status: 'partial', marks: [], route: '/festivals', code: '/api/festivals → listFestivals (server/utils/festivalListing.ts)',
+    note: 'Real festival, congress and weekender events that haven’t ended, soonest first; search by name, city or style, style chips, how many plan to go and the first verified faces. The list itself is real festivals. No price on a card, no month or “near me” filter — you can’t see what a festival costs until you open it.' },
   { id: 'mirror', phase: 'find', lane: 'system', name: 'Mirror wedance.vip', status: 'live', marks: [], code: 'scripts/sync-v3-events.ts · server/utils/v3EventSync.ts',
     note: 'Festivals typed on wedance.vip arrive as events with is_festival. They carry name, dates, venue and a ticket link — not passes or a programme, which only an organiser adds in the event editor.' },
   { id: 'list', phase: 'find', lane: 'organiser', name: 'List the festival', status: 'partial', marks: ['wait'], route: '/business/events/new', code: 'businessEvents.create · festival.submitDraft',
@@ -50,7 +51,7 @@ export const travelSteps: BpStep<TravelLane, TravelPhase>[] = [
   // Pick the year
   { id: 'going', phase: 'year', lane: 'me', name: '+ My plan', status: 'live', marks: [], route: '/events/[id]', code: 'useYearPlan.toggleFestival → plan.add (festival)',
     note: 'One tap on the festival page or a /festivals card puts it in the year plan; signed out it opens sign-up first. A festival event without festival details is saved as an event instead, by its id.' },
-  { id: 'this-year', phase: 'year', lane: 'system', name: 'My plan, Year tab', status: 'partial', marks: [], route: '/my-plan', code: 'plan.myPlan', refs: ['RAZ-1006'],
+  { id: 'this-year', phase: 'year', lane: 'system', name: 'My plan, Year tab', status: 'partial', marks: [], route: '/my-plan', code: 'plan.myPlan',
     note: 'Lists the picked festivals with dates and place. For real festivals the rows carry no ticket price and no early-bird deadline — only the hard-coded mock catalogue (and ?preview=1) has them.' },
   { id: 'checklist', phase: 'year', lane: 'me', name: 'Tick ticket / travel / stay', status: 'partial', marks: ['manual'], route: '/my-plan', code: 'localStorage wedance-plan-progress · attendance.updateLogistics (no caller)',
     note: 'Per festival: ticket bought, travel, stay, partner, holiday — ticked by hand and kept in this browser only. Only “ticket bought” syncs, from festivalSignup.myTickets. attendance.updateLogistics would store the rest but nothing calls it.' },
@@ -58,8 +59,8 @@ export const travelSteps: BpStep<TravelLane, TravelPhase>[] = [
     note: 'No total anywhere: not passes, not travel, not a budget. YearDrawer has a budget field, but no page renders it.' },
 
   // Plan workshops
-  { id: 'programme', phase: 'workshops', lane: 'organiser', name: 'Programme + passes', status: 'partial', marks: [], route: '/business/events/[id]', code: 'BusinessFestivalEditor (passes, programme) · events.festival', refs: ['RAZ-946'],
-    note: 'The organiser enters passes (price, days, workshops, party, couple price) and the programme by day. A mirrored festival has neither until its organiser claims the page and fills them in.' },
+  { id: 'programme', phase: 'workshops', lane: 'organiser', name: 'Programme + passes', status: 'partial', marks: [], route: '/business/events/[id]', code: 'BusinessFestivalEditor (passes, programme) · events.festival',
+    note: 'The organiser enters passes (price, days, workshops, party, couple price) and the programme by day, and a dancer can check out. A mirrored festival has neither until its organiser claims the page and fills them in.' },
   { id: 'pick', phase: 'workshops', lane: 'me', name: 'Pick workshops', status: 'live', marks: [], route: '/events/[id]?tab=schedule', code: 'plan.add (workshop, <festival>:<id>) · RolePickerModal',
     note: 'Tap a workshop: lead or follow, with a partner or looking (remembered once). Same-time picks replace each other. Saved per workshop in plan_items.' },
   { id: 'plan-workshops', phase: 'workshops', lane: 'me', name: 'Workshops on My plan', status: 'partial', marks: ['silent'], route: '/my-plan', code: 'localStorage wedance-plan-workshops',
@@ -114,7 +115,7 @@ export const travelSteps: BpStep<TravelLane, TravelPhase>[] = [
     note: 'When a friend adds the same festival or buys a pass, nothing reaches you; their plan reaches you only through a link they send.' },
 
   // The festival
-  { id: 'whos-going', phase: 'festival', lane: 'me', name: 'Meet who’s going', status: 'partial', marks: [], route: '/events/[id]', code: 'plan.setShareGoing · festivalSignup.publicRoster', refs: ['RAZ-1008'],
+  { id: 'whos-going', phase: 'festival', lane: 'me', name: 'Meet who’s going', status: 'partial', marks: [], route: '/events/[id]', code: 'plan.setShareGoing · festivalSignup.publicRoster',
     note: 'On the Overview, “Show me” puts you in Meet new friends for the festival (see the meet new friends blueprint); the per-festival deck is gone. The verified-ticket roster shows on one festival only.' },
   { id: 'my-schedule', phase: 'festival', lane: 'me', name: 'My workshops on the day', status: 'partial', marks: [], route: '/events/[id]?tab=schedule',
     note: 'Your picks are marked on the festival schedule. No day view of just your plan, no change alerts if the organiser moves a workshop.' },
@@ -122,8 +123,8 @@ export const travelSteps: BpStep<TravelLane, TravelPhase>[] = [
     note: 'The door list includes festival passes (festival_signups) as well as RSVPs, Going! and event tickets. Checking a pass in records it on attendances, and Who’s coming counts it.' },
 
   // After
-  { id: 'review', phase: 'after', lane: 'me', name: 'Review the festival', status: 'live', marks: [], route: '/events/[id]', code: 'ReviewsSection (festival)',
-    note: 'Ratings and reviews on the festival page; nobody asks for one after it ends.' },
+  { id: 'review', phase: 'after', lane: 'me', name: 'Review the festival', status: 'live', marks: [], route: '/events/[id]', code: 'ReviewsSection (festival) · reviewAsk (skips is_festival)',
+    note: 'Ratings and reviews on the festival page. The morning-after “How was it?” email skips festivals, so nobody asks for one after it ends.' },
   { id: 'year-review', phase: 'after', lane: 'system', name: 'Your year in dance', status: 'live', marks: [], route: '/my-year', code: 'plan.yearReview (server/utils/yearReview.ts)', refs: ['RAZ-966'],
     note: 'Real festivals in the year plan count as nights in the Wrapped-style look back, ending on “Plan <next year>”.' },
   { id: 'next-edition', phase: 'after', lane: 'system', name: 'Next year’s edition', status: 'missing', marks: ['silent'],

@@ -74,6 +74,7 @@ bun run dev:db-proxy          # Neon-HTTP-compatible proxy on :4444
 - Nothing reaches other people without a click: posting (Instagram, Telegram), emailing contacts and cancelling
   events are web-only or preview → `confirm_token` on MCP; MCP tokens can't publish or send.
 - Personal data (emails, phones, group admin contacts) never goes to PostHog, MCP or public endpoints.
+- A PR that changes a journey step updates the matching `app/lib/blueprint-*.ts` in the same PR and names the step ids (`meet-friends: match-them`). A step that is still missing, partial or gap must not cite a Done or Canceled issue in `refs`. See `.claude/rules/blueprints.md`.
 
 ## Analytics (PostHog)
 
