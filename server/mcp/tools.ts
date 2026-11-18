@@ -215,6 +215,33 @@ async function profileId(t: ToolCtx, h: string): Promise<string> {
   return id
 }
 
+/**
+ * A co-organiser argument: a handle, or `{handle, role?}`.
+ *
+ * The MCP SDK parses tool arguments (and applies transforms) before the
+ * handler, and `runTool` parses again so defaults and the confirm-token hash
+ * match every entry point. The transform stores `{username, role?}`, which the
+ * union would then reject ("co_organizers.0: Invalid input", RAZ-1056). Map
+ * that stored shape back to `{handle}` first, so the second parse round-trips.
+ * The published JSON schema stays a handle or `{handle, role?}` — `username`
+ * is only the value the SDK already validated.
+ */
+function coOrganizerFromOutput(value: unknown): unknown {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value
+  const item = value as { handle?: unknown; username?: unknown }
+  if (typeof item.handle === 'string' || typeof item.username !== 'string') return value
+  const { username, ...rest } = item
+  return { ...rest, handle: username }
+}
+
+const coOrganizerItem = z.preprocess(coOrganizerFromOutput, z.union([
+  z.string().min(1).max(200),
+  z.object({
+    handle: z.string().min(1).max(200),
+    role: z.string().trim().max(40).optional().describe('e.g. "co-organiser", "host", "partner". Default: co-organiser.'),
+  }),
+]))
+
 const PATCH_FIELDS = {
   name: z.string().trim().min(1).max(160).optional(),
   type: z.enum(['Party', 'Workshop', 'Course', 'Festival', 'Weekender', 'Congress', 'Concert', 'Show']).optional().describe('Kind of event.'),
@@ -227,10 +254,7 @@ const PATCH_FIELDS = {
   venue_name: z.string().max(200).nullable().optional().describe('Venue name when it isn’t on WeDance.'),
   venue_address: z.string().max(300).nullable().optional(),
   artists: z.array(z.string().min(1).max(200)).max(EVENT_ARTISTS_MAX).optional().describe('Line-up as WeDance handles (find_lineup, add_profile_from_instagram): who performs, teaches or plays. Not the people who organise it (co_organizers).'),
-  co_organizers: z.array(z.union([
-    z.string().min(1).max(200),
-    z.object({ handle: z.string().min(1).max(200), role: z.string().trim().max(40).optional().describe('e.g. "co-organiser", "host", "partner". Default: co-organiser.') }),
-  ])).max(20).optional()
+  co_organizers: z.array(coOrganizerItem).max(20).optional()
     .transform(list => list?.map(c => typeof c === 'string'
       ? { username: c.trim().replace(/^@/, '') }
       : { username: c.handle.trim().replace(/^@/, ''), ...(c.role ? { role: c.role } : {}) }))

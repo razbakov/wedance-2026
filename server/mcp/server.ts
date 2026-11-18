@@ -70,8 +70,10 @@ export async function callTool(tool: ToolDef, rawArgs: Record<string, unknown>, 
 /** One tool call: scope check, two-step confirmation, audit. */
 async function runTool(tool: ToolDef, rawArgs: Record<string, unknown>, t: ToolCtx): Promise<ToolResult> {
   const started = Date.now()
-  // The SDK validates too; parsing here as well applies defaults the same way
-  // for every entry point, so a preview and its confirmation hash identically.
+  // The SDK validates too, and passes this handler the transformed output.
+  // Parsing here as well applies defaults the same way for every entry point
+  // (tests call callTool with raw arguments), so a preview and its confirmation
+  // hash identically. A transform has to accept its own output — see co_organizers.
   const parsed = z.object(tool.input).safeParse(normalizeHandles(rawArgs ?? {}))
   if (!parsed.success) return fail(`Invalid arguments: ${parsed.error.issues.map(i => `${i.path.join('.') || 'input'}: ${i.message}`).join('; ')}`)
   const args = parsed.data as Record<string, unknown>
