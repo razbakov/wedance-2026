@@ -7,13 +7,15 @@
  * The morning after the event, each booked dancer gets one email. Follow is
  * only suggested there.
  */
-import { and, desc, eq, inArray, isNotNull, isNull } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm'
 import { attendances, dancers, events, follows, meetRituals, planItems } from '../database/schema'
 import { eventPath } from '../../shared/utils/eventSlug'
 import { eventEndsAt, eventLocalTime, eventLocalWeekday } from '../../shared/utils/eventTime'
 import { MEET_MATCHES_SINCE, meetMatches } from './meetMatches'
 import { matchEmailsOffUrl } from './meetMatchNotify'
 import { sendRitualFollowupEmail } from './email'
+import { nightCardWhen } from '../../shared/utils/notices'
+import { repairPreviewDemoDancers } from './previewDemoDancers'
 import {
   givenName,
   followupDue,
@@ -45,6 +47,8 @@ export interface RitualNight {
   venue: string
   ticketUrl: string | null
   price: string | null
+  cover: string | null
+  going: number
   youGoing: boolean
   theyGoing: boolean
   /** 'HH:MM' of the meetup, in the event's zone. */
@@ -53,6 +57,10 @@ export interface RitualNight {
   weekday: string
   /** The event's own start, so the booking card isn't the meetup clock. */
   starts: string
+  /** 'HH:MM' of the event's start, in its own zone. */
+  startTime: string
+  /** "Fri, Nov 20 · 20:00" — the event card's date and time. */
+  whenLabel: string
 }
 
 export interface RitualState {
@@ -104,6 +112,7 @@ function stateOf(row: { bookedAt: Date | null, revealedAt: Date | null, problem:
 /** The match, the night they booked (or the one suggested), and where they are in the meetup. Null when `otherId` is not a mutual yes. */
 export async function loadRitual(db: Db, dancerId: string, otherId: string, now = new Date()): Promise<RitualView | null> {
   if (!UUID_RE.test(otherId) || otherId === dancerId) return null
+  await repairPreviewDemoDancers(db)
   const match = (await meetMatches(db, dancerId, { now, since: MEET_MATCHES_SINCE })).find(m => m.dancerId === otherId)
   if (!match) return null
 
@@ -122,11 +131,15 @@ export async function loadRitual(db: Db, dancerId: string, otherId: string, now 
     const [ev] = await db.select({
       id: events.id, name: events.name, startDate: events.startDate, endDate: events.endDate,
       timezone: events.timezone, venueName: events.venueName, ticketUrl: events.ticketUrl, price: events.price,
+      cover: events.cover,
     }).from(events).where(eq(events.id, eventId)).limit(1)
-    const plans: Array<{ dancerId: string, shareGoing: boolean, metadata: Record<string, string> | null }> = await db
-      .select({ dancerId: planItems.dancerId, shareGoing: planItems.shareGoing, metadata: planItems.metadata })
-      .from(planItems)
-      .where(and(eq(planItems.itemType, 'event'), eq(planItems.itemId, eventId), inArray(planItems.dancerId, [dancerId, otherId])))
+    const [plans, goingRows] = await Promise.all([
+      db.select({ dancerId: planItems.dancerId, shareGoing: planItems.shareGoing, metadata: planItems.metadata })
+        .from(planItems)
+        .where(and(eq(planItems.itemType, 'event'), eq(planItems.itemId, eventId), inArray(planItems.dancerId, [dancerId, otherId]))) as Promise<Array<{ dancerId: string, shareGoing: boolean, metadata: Record<string, string> | null }>>,
+      db.select({ n: sql<number>`count(*)::int` }).from(planItems)
+        .where(and(eq(planItems.itemType, 'event'), eq(planItems.itemId, eventId))) as Promise<Array<{ n: number }>>,
+    ])
     ;[row] = await db.select().from(meetRituals).where(and(
       eq(meetRituals.dancerId, dancerId), eq(meetRituals.otherId, otherId), eq(meetRituals.eventId, eventId),
     )).limit(1)
@@ -146,11 +159,15 @@ export async function loadRitual(db: Db, dancerId: string, otherId: string, now 
         venue: ev.venueName || '',
         ticketUrl: ev.ticketUrl || null,
         price: ev.price || null,
+        cover: ev.cover || null,
+        going: Number(goingRows[0]?.n) || 0,
         youGoing: plans.some(p => p.dancerId === dancerId) || !!row?.bookedAt,
         theyGoing: !!theirs && (theirs.shareGoing || theirs.metadata?.with === dancerId),
         time: eventLocalTime(at, zone),
         weekday: eventLocalWeekday(at, zone),
         starts: `${eventLocalWeekday(start, zone)} ${eventLocalTime(start, zone)}`,
+        startTime: eventLocalTime(start, zone),
+        whenLabel: nightCardWhen(start.toISOString(), zone),
       }
     }
   }

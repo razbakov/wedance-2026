@@ -70,7 +70,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `meet_match_answered` | `MeetMatches` ("Your dance friends" on My plan, RAZ-985): a match's night → "I’m going too" / "I’m going" (added to the plan with `metadata.with` = the match) or "Next time" (an event Skip) | `answer` (going / next_time), `they_going`, `source` (deck / festival), `event_id` |
 | `ritual_booked` | `/meet/ritual` "Book my spot" on a real match (RAZ-1071) | `event_id` |
 | `ritual_revealed` | `/meet/ritual` "Turn your phone" — the symbol is shown to the other person | `event_id` |
-| `ritual_reported` | `/meet/ritual` "Couldn't meet?" saved | `problem` (couldnt_find / no_show / left / unsafe / other), `event_id` |
+| `ritual_reported` | `/meet/ritual` "Couldn't meet?" saved | `problem` (couldnt_find / no_show / left / unsafe / report_person / other), `event_id` |
 | `ritual_how` | `/meet/ritual?morning=1` "How was it?" | `how` (good / not), `event_id` |
 | `dance_card_saved` | `/dance-card` (RAZ-1005): a signed-in dancer saves the deck's dance card (Lead / Follow + levels, then photo, name, city, bio — the same cards as signed-out /meet) to their profile | `photo_added` (first photo), `photo_replaced`, `styles` (count), `surface` (back_link = came from a night's "Add a photo" / direct) |
 | `meet_empty_shared` | `MeetEmptyNext` (an empty /meet deck, RAZ-1002): "Ask" an organiser for their next night, "Send" a venue's page, "Invite a friend" | `what` (organiser / venue / friend), `stage` (nights / organisers / venues / nothing / no-city), `method` (native / copy / none) |
@@ -196,7 +196,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `server_meet_matched` | `plan.discoverSwipe` (a deck Yes) / `wave.send` (a festival wave) that meets a Yes back (RAZ-985) | `via` (deck / festival), `emailed` (the other dancer got "said yes too"), `email_skip` (off / no_email / not_shown / already / today / error) |
 | `server_ritual_booked` | `ritual.book` (the night goes on the plan) | `event_id` |
 | `server_ritual_revealed` | `ritual.reveal` (first time they turn the phone) | `event_id` |
-| `server_ritual_reported` | `ritual.report` | `problem` (couldnt_find / no_show / left / unsafe / other), `event_id` |
+| `server_ritual_reported` | `ritual.report` | `problem` (couldnt_find / no_show / left / unsafe / report_person / other), `event_id` |
 | `server_ritual_how` | `ritual.how` (the morning-after answer) | `how` (good / not), `event_id` |
 | `server_ritual_followup` | `/api/cron/ritual-followup` (the morning-after email, one per dancer) | `channel: cron` |
 | `server_account_deleted` | `auth.deleteAccount` — **anonymous**, no person profile | `days_since_signup` |

@@ -9,7 +9,7 @@
 import { eventLocalDate, eventLocalTime, zonedToUtc } from './eventTime'
 
 export type RitualShape = 'circle' | 'triangle' | 'square' | 'star' | 'cross'
-export const RITUAL_PROBLEMS = ['couldnt_find', 'no_show', 'left', 'unsafe', 'other'] as const
+export const RITUAL_PROBLEMS = ['couldnt_find', 'no_show', 'left', 'unsafe', 'report_person', 'other'] as const
 export type RitualProblem = (typeof RITUAL_PROBLEMS)[number]
 export type RitualHow = 'good' | 'not'
 
@@ -132,6 +132,8 @@ export interface RitualFacts {
   venue: string
   time: string
   weekday: string
+  /** The event's own start, 'HH:MM', when it differs from the meetup clock. */
+  eventStart?: string
 }
 
 export interface NightCopy {
@@ -159,11 +161,14 @@ export interface NightCopy {
   safetyPublic: string
   safetyAdult: string
   safetyOptional: string
-  turnHint: string
+  /** Why the meetup clock is not the event's start. */
+  timeWhy: string
+  nextTitle: string
+  nextBody: string
   showThem: string
   showAgain: string
-  /** Addressed to the person the phone is turned toward. The holder's name, never the other's. */
-  revealLine: string
+  /** On the turned phone: what the other person matches. No name. */
+  findLine: string
   help: string
   tomorrow: string
   helpTitle: string
@@ -188,7 +193,7 @@ export interface NightCopy {
 
 /** Everything said on the night itself. English only. No follow — that waits for the email. */
 export function nightCopy(facts: RitualFacts): NightCopy {
-  const { you, other, event } = facts
+  const { other, event } = facts
   return {
     back: 'Back',
     toMeet: 'Back to Meet',
@@ -210,14 +215,18 @@ export function nightCopy(facts: RitualFacts): NightCopy {
     tickets: 'Or buy a ticket',
     instructionsTitle: 'Where you’ll meet',
     safetyTitle: 'A few reassurances',
-    safetyLeave: 'You can leave any time',
-    safetyPublic: 'You meet in a public spot',
-    safetyAdult: 'This meetup is 18+',
+    safetyLeave: 'I can leave any time',
+    safetyPublic: 'I’m meeting in a public spot',
+    safetyAdult: 'I’m 18+',
     safetyOptional: 'The ticks are optional.',
-    turnHint: `Don’t look at the next screen. Turn your phone toward ${other} so they can see it.`,
-    showThem: 'Turn your phone',
-    showAgain: 'Show it again',
-    revealLine: `Hi, I’m ${you}`,
+    timeWhy: facts.eventStart && facts.time && facts.eventStart !== facts.time
+      ? `${event} starts at ${facts.eventStart}. You meet at ${facts.time}, once the floor is going, near the DJ booth.`
+      : `You meet at ${facts.time || 'the start'}, near the DJ booth.`,
+    nextTitle: 'What you do when you arrive',
+    nextBody: `Open the screen and turn your phone toward ${other}. It shows a color, a shape and a number. ${other}’s phone shows the same ones. Look for that color, shape and number on their phone. They look for it on yours. Don’t read your own screen while it faces them.`,
+    showThem: `Open the screen to turn toward ${other}`,
+    showAgain: 'Open the screen again',
+    findLine: 'Find the phone showing the same color, shape and number.',
     help: 'Couldn’t meet?',
     tomorrow: 'Tomorrow’s email',
     helpTitle: 'What happened?',
@@ -227,6 +236,7 @@ export function nightCopy(facts: RitualFacts): NightCopy {
       no_show: 'They didn’t come',
       left: 'I left',
       unsafe: 'It didn’t feel okay',
+      report_person: 'Report someone',
       other: 'Something else',
     },
     noteLabel: 'Anything else? Optional.',

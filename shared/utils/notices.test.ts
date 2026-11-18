@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { matchNotice, roleLabel, unactedNotices, type Notice } from './notices'
+import { asDanceRole, asStyleList, matchNotice, roleLabel, unactedNotices, type Notice } from './notices'
 
 const anna = {
   dancerId: 'anna-id',
@@ -47,6 +47,18 @@ describe('matchNotice', () => {
     const n = matchNotice({ ...anna, booked: true, night: null })
     expect(n.booked).toBe(false)
     expect(n.action).toContain('Book the night')
+  })
+})
+
+describe('profile fields on a match', () => {
+  it('reads a role and a dance list however they were stored', () => {
+    expect(asDanceRole('follow')).toBe('follow')
+    expect(asDanceRole('Follower')).toBe('follow')
+    expect(asDanceRole('')).toBeNull()
+    expect(asStyleList(['Salsa', 'Bachata'])).toEqual(['Salsa', 'Bachata'])
+    expect(asStyleList('["Salsa","Bachata"]')).toEqual(['Salsa', 'Bachata'])
+    expect(asStyleList([], { Salsa: 'Beginner', Bachata: 'Intermediate' })).toEqual(['Salsa', 'Bachata'])
+    expect(roleLabel('follow')).toBe('Follower')
   })
 })
 

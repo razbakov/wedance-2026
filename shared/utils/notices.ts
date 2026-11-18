@@ -88,10 +88,43 @@ export function nightCardWhen(startISO: string, timezone: string | null | undefi
   return `${date} · ${eventLocalTime(startISO, zone)}`
 }
 
+/** `lead` / `follow` / `both`, including the words the dance card shows. */
+export function asDanceRole(value: unknown): DanceRole | null {
+  const v = String(value ?? '').trim().toLowerCase()
+  if (v === 'lead' || v === 'leader') return 'lead'
+  if (v === 'follow' || v === 'follower') return 'follow'
+  if (v === 'both') return 'both'
+  return null
+}
+
+/**
+ * Dance names from a profile. Accepts a real array, a JSON string, or — when
+ * the list itself is empty — the keys of a level map.
+ */
+export function asStyleList(value: unknown, levels?: unknown): string[] {
+  const from = (v: unknown): string[] => {
+    if (Array.isArray(v)) return v.flatMap(item => from(item))
+    if (typeof v === 'string') {
+      const t = v.trim()
+      if (!t) return []
+      if (t.startsWith('[')) {
+        try { return from(JSON.parse(t)) } catch { return [t] }
+      }
+      return [t]
+    }
+    return []
+  }
+  const styles = from(value)
+  if (styles.length) return styles
+  if (levels && typeof levels === 'object') return Object.keys(levels as Record<string, unknown>).filter(Boolean)
+  return []
+}
+
 export function roleLabel(role: string | null | undefined): string | null {
-  if (role === 'lead') return 'Leader'
-  if (role === 'follow') return 'Follower'
-  if (role === 'both') return 'Both'
+  const parsed = asDanceRole(role)
+  if (parsed === 'lead') return 'Leader'
+  if (parsed === 'follow') return 'Follower'
+  if (parsed === 'both') return 'Both'
   return null
 }
 

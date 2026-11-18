@@ -92,7 +92,7 @@ function open(id: string, via: 'toast' | 'bell') {
   <Teleport to="body">
     <div
       v-if="mounted"
-      class="pointer-events-none fixed bottom-24 right-4 z-40 flex w-72 flex-col items-stretch gap-2 sm:bottom-6"
+      class="pointer-events-none fixed bottom-24 right-4 z-[70] flex w-72 flex-col items-stretch gap-2 sm:bottom-6"
       data-testid="notice-toasts"
       data-position="bottom-right"
       aria-live="polite"

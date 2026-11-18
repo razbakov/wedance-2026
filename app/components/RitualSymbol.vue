@@ -1,8 +1,8 @@
 <script setup lang="ts">
 /**
  * The screen turned toward the other person (RAZ-1071): full-bleed color,
- * one shape, a number, a short code. No "you're looking for…" — the holder
- * was told not to read this.
+ * one shape and a number. The same three things are on the other phone.
+ * No name and no extra code.
  */
 import { markPhrase, type RitualMark } from '#shared/utils/ritual'
 
@@ -21,9 +21,6 @@ const phrase = computed(() => markPhrase(props.mark))
     role="img"
     :aria-label="phrase"
   >
-    <p class="flex justify-end px-4 pt-3 font-sans text-base font-bold tracking-[0.25em]">
-      {{ mark.code }}
-    </p>
     <div class="flex flex-1 flex-col items-center justify-center px-4 pb-6">
       <svg viewBox="0 0 100 100" aria-hidden="true" class="size-40 fill-current">
         <circle v-if="mark.shape === 'circle'" cx="50" cy="50" r="40" />

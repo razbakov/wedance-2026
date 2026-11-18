@@ -10,7 +10,8 @@ import { eventIdForFestival, recordLinkAction } from '../../utils/trackedLinks'
 import { planCounts } from '../../utils/planCounts'
 import { festivalEventsWhere, toFestivalRow } from '../../utils/festivalListing'
 import { MEET_MATCHES_SINCE, meetMatches } from '../../utils/meetMatches'
-import { matchNotice, nightCardWhen, type DanceRole } from '../../../shared/utils/notices'
+import { asDanceRole, matchNotice, nightCardWhen, type DanceRole } from '../../../shared/utils/notices'
+import { repairPreviewDemoDancers } from '../../utils/previewDemoDancers'
 import { afterYes } from '../../utils/meetMatchNotify'
 import { meetEmpty } from '../../utils/meetEmpty'
 import { yearReviewFor } from '../../utils/yearReview'
@@ -615,6 +616,7 @@ export const planRouter = router({
    * when the match happens. "Booked" is the ritual booking, not the plan.
    */
   notices: protectedProcedure.query(async ({ ctx }) => {
+    await repairPreviewDemoDancers(ctx.db)
     const matches = await meetMatches(ctx.db, ctx.dancerId, { since: MEET_MATCHES_SINCE })
     // The night they booked, not whatever night the match would suggest next.
     // A later booking of the same friend replaces an earlier one.
@@ -645,7 +647,10 @@ export const planRouter = router({
     try {
       if (otherIds.length) {
         const rows = await ctx.db.select({ id: dancers.id, role: dancers.role }).from(dancers).where(inArray(dancers.id, otherIds))
-        for (const r of rows) roleOf.set(r.id, r.role === 'lead' || r.role === 'follow' || r.role === 'both' ? r.role : null)
+        for (const r of rows) {
+          const role = asDanceRole(r.role)
+          if (role) roleOf.set(r.id, role)
+        }
       }
       if (eventIds.length) {
         const [evs, counts] = await Promise.all([
@@ -692,7 +697,7 @@ export const planRouter = router({
           name: m.name,
           photo: m.photo,
           city: m.city,
-          role: roleOf.get(m.dancerId) ?? null,
+          role: roleOf.get(m.dancerId) ?? m.role ?? null,
           styles: m.styles,
           matchedAt: m.matchedAt,
           booked: bookedEventByOther.has(m.dancerId),

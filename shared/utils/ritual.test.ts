@@ -69,13 +69,20 @@ describe('meetupAt', () => {
 })
 
 describe('night copy', () => {
-  it('is English, tells the holder to turn the phone, and the screen speaks as the holder', () => {
-    const copy = nightCopy(FACTS)
-    expect(copy.turnHint).toContain('Mary')
-    expect(copy.turnHint).toContain('Turn your phone')
-    expect(copy.revealLine).toBe('Hi, I’m Lena')
-    expect(copy.revealLine).not.toContain('Mary')
-    expect(copy.safetyTitle).toBe('A few reassurances')
+  it('is English, explains the turn, and speaks the reassurances in the first person', () => {
+    const copy = nightCopy({ ...FACTS, eventStart: '20:00' })
+    expect(copy.nextBody).toContain('Mary')
+    expect(copy.nextBody).toContain('turn your phone toward Mary')
+    expect(copy.nextBody).toContain('color, shape and number')
+    expect(copy.showThem).toBe('Open the screen to turn toward Mary')
+    expect(copy.findLine).toBe('Find the phone showing the same color, shape and number.')
+    expect(copy.findLine).not.toContain('Lena')
+    expect(copy.safetyLeave).toBe('I can leave any time')
+    expect(copy.safetyPublic).toBe('I’m meeting in a public spot')
+    expect(copy.safetyAdult).toBe('I’m 18+')
+    expect(copy.timeWhy).toContain('starts at 20:00')
+    expect(copy.timeWhy).toContain('23:15')
+    expect(copy.problems.report_person).toBe('Report someone')
     expect(copy.help).toBe('Couldn’t meet?')
     expect(copy.place).toBe('near the DJ booth')
     const text = JSON.stringify(copy)

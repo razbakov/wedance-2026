@@ -224,9 +224,9 @@ const lastYes = computed(() => {
   const last = swipeHistory.value[swipeHistory.value.length - 1]
   return last?.direction === 'yes' ? last.card : null
 })
-const { unacted, announce, refresh: refreshNotices, act } = useNotices()
-/** Unopened matches. Derived from the mutual yes, so a reload still shows them. */
-const matchBanners = computed(() => unacted.value.filter(n => n.kind === 'match'))
+const { notices, announce, refresh: refreshNotices, act } = useNotices()
+/** Every current match, booked or not. Opening it clears the bell badge and leaves the card. */
+const matchBanners = computed(() => notices.value.filter(n => n.kind === 'match'))
 </script>
 
 <template>

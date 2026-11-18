@@ -2,12 +2,15 @@
  * In-app notices (no email, no push). A match is derived from the mutual yes
  * that already exists, so a dancer who was offline still hears about it the
  * next time they open WeDance. Toasts are temporary; the bell keeps the history.
- * Opening one (toast, bell, or the Meet card) is what clears the unread count.
+ * Opening one (toast, bell, or the Meet card) clears the unread count. The
+ * card on /meet and the row under the bell stay, so the meetup can be opened
+ * again. A match toast shows once per match on this browser.
  */
 import { matchNotice, unactedNotices, type Notice } from '#shared/utils/notices'
 
 const ACTED_KEY = 'wedance-notices-acted'
-const SHOWN_KEY = 'wedance-toasts-shown'
+/** v2: the small bottom-right toast. A previous visit's "already shown" does not count. */
+const SHOWN_KEY = 'wedance-toasts-shown-v2'
 const MATCH_TOAST_MS = 9000
 const PLAIN_TOAST_MS = 4500
 
@@ -33,18 +36,18 @@ function loadActed() {
 
 function shownIds(): Set<string> {
   if (!import.meta.client) return new Set()
-  return new Set(readIds(sessionStorage, SHOWN_KEY))
+  return new Set(readIds(localStorage, SHOWN_KEY))
 }
 
 function markShown(id: string) {
   if (!import.meta.client) return
   const ids = shownIds()
   ids.add(id)
-  sessionStorage.setItem(SHOWN_KEY, JSON.stringify([...ids]))
+  localStorage.setItem(SHOWN_KEY, JSON.stringify([...ids]))
 }
 
 function showToast(notice: Notice) {
-  if (acted.value.includes(notice.id) || openToasts.value.some(t => t.id === notice.id)) return
+  if (openToasts.value.some(t => t.id === notice.id)) return
   if (shownIds().has(notice.id)) return
   openToasts.value = [...openToasts.value, notice]
   markShown(notice.id)
@@ -92,7 +95,9 @@ export function useNotices() {
       const res = await $trpc.plan.notices.query()
       notices.value = res.notices
       openToasts.value = openToasts.value.map(t => res.notices.find(n => n.id === t.id) ?? t)
-      for (const n of unacted.value) showToast(n)
+      // Once per match, including one they already opened. Opening clears the
+      // badge; it must not swallow the toast they never saw.
+      for (const n of res.notices) showToast(n)
     } catch (err) {
       console.warn('[notices] load failed:', err)
     }

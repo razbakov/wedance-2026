@@ -2,13 +2,15 @@
 /**
  * /meet/ritual — the meetup after a real "you both said yes" (RAZ-1071).
  *
- * Two browsers, one dancer each. Book the night, read when and where (23:15
- * near the DJ when the night runs that late), then turn the phone toward the
- * other person. Nothing on that screen asks them to follow or to scan. If it
- * doesn't happen they come back and say what went wrong. The next morning's
- * email — the only place a follow is suggested — opens with ?morning=1.
+ * Two browsers, one dancer each. Book the night, then read when and where:
+ * the event's own start, and 23:15 near the DJ once the floor is going.
+ * The next step is a sentence. The screen they turn toward the other person
+ * is a shared color, shape and number, with no name. Couldn't meet, including
+ * reporting someone, is on that screen. Nothing there asks them to follow.
+ * The next morning's email — the only place a follow is suggested — opens
+ * with ?morning=1. It is not a link in the app.
  */
-import { ArrowLeft, MapPin, Ticket } from 'lucide-vue-next'
+import { ArrowLeft, Calendar, MapPin, Ticket, Users } from 'lucide-vue-next'
 import { sizedImage, IMG } from '#shared/utils/image'
 import { nightCopy, ritualFollowup, type RitualProblem } from '#shared/utils/ritual'
 
@@ -21,11 +23,15 @@ interface Night {
   venue: string
   ticketUrl: string | null
   price: string | null
+  cover: string | null
+  going: number
   youGoing: boolean
   theyGoing: boolean
   time: string
   weekday: string
   starts: string
+  startTime: string
+  whenLabel: string
 }
 interface RitualData {
   you: { firstName: string }
@@ -74,6 +80,7 @@ const facts = computed(() => ({
   venue: data.value?.night?.venue || '',
   time: data.value?.night?.time || '',
   weekday: data.value?.night?.weekday || '',
+  eventStart: data.value?.night?.startTime || '',
 }))
 const t = computed(() => nightCopy(facts.value))
 const email = computed(() => ritualFollowup(facts.value, 'https://2026.wedance.vip/meet/ritual', 'https://2026.wedance.vip/api/match-emails/off'))
@@ -390,42 +397,70 @@ async function follow() {
         <section v-else-if="step === 'instructions' && data?.night" class="flex flex-1 flex-col" data-testid="ritual-instructions">
           <h1 id="ritual-title" tabindex="-1" class="font-display text-4xl leading-tight outline-none">{{ t.instructionsTitle }}</h1>
           <p class="mt-1 text-sm text-muted-foreground">{{ data.other.firstName }} · {{ data.night.name }}</p>
+          <article
+            class="mt-5 overflow-hidden rounded-3xl border bg-card text-left"
+            style="border-color: color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);"
+            data-testid="ritual-event"
+          >
+            <img
+              v-if="data.night.cover"
+              :src="sizedImage(data.night.cover, IMG.card)"
+              alt=""
+              class="h-36 w-full object-cover"
+              data-testid="ritual-event-image"
+            >
+            <div class="p-4">
+              <p class="font-bold">{{ data.night.name }}</p>
+              <p class="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                <Calendar class="size-3 shrink-0" aria-hidden="true" /> {{ data.night.whenLabel }}
+              </p>
+              <p v-if="data.night.venue" class="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                <MapPin class="size-3 shrink-0" aria-hidden="true" /> {{ data.night.venue }}
+              </p>
+              <p class="mt-1 flex items-center gap-1 text-xs font-bold" data-testid="ritual-going">
+                <Users class="size-3" aria-hidden="true" /> {{ data.night.going }} going
+              </p>
+            </div>
+          </article>
           <p class="mt-6 text-center font-sans text-7xl font-black tabular-nums leading-none" data-testid="ritual-time">{{ data.night.time }}</p>
           <p class="mt-2 text-center font-display text-xl">{{ data.night.weekday }}</p>
           <p class="mt-1 text-center text-sm">
             <MapPin class="inline size-3.5 -mt-0.5" aria-hidden="true" />
             {{ t.place }}<template v-if="data.night.venue"> · {{ data.night.venue }}</template>
           </p>
+          <p class="mt-3 text-center text-sm text-muted-foreground" data-testid="ritual-time-why">{{ t.timeWhy }}</p>
           <div class="mt-6">
             <p class="text-xs font-bold uppercase tracking-widest text-secondary">{{ t.safetyTitle }}</p>
-            <div class="mt-1 flex flex-col">
-              <Checkbox v-model="leave">{{ t.safetyLeave }}</Checkbox>
-              <Checkbox v-model="publicSpot">{{ t.safetyPublic }}</Checkbox>
-              <Checkbox v-model="adult" data-testid="ritual-adult">{{ t.safetyAdult }}</Checkbox>
+            <div class="mt-2 flex flex-col gap-2">
+              <Checkbox v-model="leave" class="flex w-full rounded-2xl border border-border px-3 hover:bg-muted/60">{{ t.safetyLeave }}</Checkbox>
+              <Checkbox v-model="publicSpot" class="flex w-full rounded-2xl border border-border px-3 hover:bg-muted/60">{{ t.safetyPublic }}</Checkbox>
+              <Checkbox v-model="adult" class="flex w-full rounded-2xl border border-border px-3 hover:bg-muted/60" data-testid="ritual-adult">{{ t.safetyAdult }}</Checkbox>
             </div>
-            <p class="text-xs text-muted-foreground">{{ t.safetyOptional }}</p>
+            <p class="mt-2 text-xs text-muted-foreground">{{ t.safetyOptional }}</p>
           </div>
-          <p class="mt-4 rounded-2xl bg-muted/70 p-4 text-sm leading-snug" data-testid="ritual-turn-hint">{{ t.turnHint }}</p>
-          <div class="mt-auto pt-6">
-            <Button variant="cta" size="lg" class="w-full" :disabled="pending" data-testid="ritual-show" @click="reveal">
+          <div class="mt-6" data-testid="ritual-next">
+            <p class="font-bold">{{ t.nextTitle }}</p>
+            <p class="mt-1 text-sm leading-relaxed text-muted-foreground">{{ t.nextBody }}</p>
+            <button
+              type="button"
+              class="mt-3 inline-flex min-h-11 items-center text-left text-base font-bold text-primary underline decoration-primary underline-offset-4"
+              :disabled="pending"
+              data-testid="ritual-show"
+              @click="reveal"
+            >
               {{ data.state.revealed ? t.showAgain : t.showThem }}
-            </Button>
-            <div class="mt-3 flex justify-center gap-4 text-sm font-bold">
-              <NuxtLink :to="`/meet/ritual?with=${otherId}&help=1`" class="text-primary hover:underline" data-testid="ritual-help-link">{{ t.help }}</NuxtLink>
-              <NuxtLink :to="`/meet/ritual?with=${otherId}&morning=1`" class="text-muted-foreground hover:underline" data-testid="ritual-morning-link">{{ t.tomorrow }}</NuxtLink>
-            </div>
-            <p v-if="error" class="mt-2 text-center text-sm text-destructive" role="alert">{{ error }}</p>
+            </button>
           </div>
+          <p v-if="error" class="mt-2 text-center text-sm text-destructive" role="alert">{{ error }}</p>
         </section>
 
         <!-- For the other person. No next step. -->
         <section v-else-if="step === 'reveal' && data?.mark" class="-mx-5 flex flex-1 flex-col" data-testid="ritual-reveal">
           <RitualSymbol class="min-h-72 flex-1" :mark="data.mark" />
           <div class="px-5 pb-2">
-            <h1 id="ritual-title" tabindex="-1" class="text-center font-display text-3xl leading-tight outline-none" data-testid="ritual-reveal-line">{{ t.revealLine }}</h1>
-            <div class="mt-4 flex justify-center gap-4 text-sm font-bold text-white/80">
-              <NuxtLink :to="`/meet/ritual?with=${otherId}&help=1`" class="underline" data-testid="ritual-help-link">{{ t.help }}</NuxtLink>
-              <NuxtLink :to="`/meet/ritual?with=${otherId}&morning=1`" class="underline" data-testid="ritual-morning-link">{{ t.tomorrow }}</NuxtLink>
+            <h1 id="ritual-title" tabindex="-1" class="text-center font-display text-2xl leading-tight outline-none" data-testid="ritual-find">{{ t.findLine }}</h1>
+            <div class="mt-4 flex justify-center text-sm font-bold text-white/90">
+              <NuxtLink :to="`/meet/ritual?with=${otherId}&help=1`" class="inline-flex min-h-11 items-center underline" data-testid="ritual-help-link">{{ t.help }}</NuxtLink>
             </div>
           </div>
         </section>
