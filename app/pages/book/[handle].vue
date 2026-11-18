@@ -6,11 +6,12 @@ import { sizedImage, IMG } from '#shared/utils/image'
  * no account needed (BookingInquiryForm → inquiries.send).
  *
  * Signed in with business pages: the form is filled in and sent as one of
- * them, and for an artist two shortcuts come first: put them in one of your
- * upcoming events (the editor then sends them the line-up link), or draft a
- * new event with them in it.
+ * them. The request is the page's main action — ask first, book second
+ * (RAZ-964). Under it, for an artist, one small line: add them to one of your
+ * upcoming events (a short picker: same styles, one row per series — see
+ * inquiries.me) or draft a new event with them in it.
  */
-import { CalendarPlus, Plus, Check } from 'lucide-vue-next'
+import { Plus, Check, ChevronDown } from 'lucide-vue-next'
 
 definePageMeta({ layout: false, path: '/@:handle/book' })
 
@@ -20,6 +21,7 @@ const { isSignedIn } = useAuth()
 type Me = Awaited<ReturnType<typeof $trpc.inquiries.me.query>>
 const me = ref<Me | null>(null)
 const adding = ref<string | null>(null)
+const pickerOpen = ref(false)
 const showSignIn = ref(false)
 async function loadMe() {
   if (isSignedIn.value && profile.value) me.value = await $trpc.inquiries.me.query({ handle: profile.value.username }).catch(() => null)
@@ -59,7 +61,8 @@ async function addTo(eventId: string) {
   adding.value = eventId
   try {
     await $trpc.inquiries.addToEvent.mutate({ eventId, handle: profile.value.username })
-    useTrack().track('booking_added_to_event', { profile: profile.value.username })
+    const row = me.value?.events.find(e => e.id === eventId)
+    useTrack().track('booking_added_to_event', { profile: profile.value.username, series: !!row?.series, rows: me.value?.events.length ?? 0 })
     await navigateTo(`/business/events/${eventId}?added=${encodeURIComponent(profile.value.username)}#lineup`)
   } catch (e: any) { addErr.value = e?.message || 'Couldn’t add them.'; adding.value = null }
 }
@@ -97,24 +100,6 @@ useHead(() => ({
           </div>
         </NuxtLink>
         <p class="mt-5 text-sm text-muted-foreground font-sans">Tell {{ firstName }} what you have in mind. They get it by email and answer you directly.<template v-if="!isSignedIn"> No account needed.</template></p>
-        <!-- Signed in and running events: book them straight into one -->
-        <section v-if="canPlan" class="mt-6 rounded-2xl border bg-card p-5 sm:p-6 font-sans" aria-labelledby="plan-title">
-          <h2 id="plan-title" class="font-display text-xl">Put {{ firstName }} in your event</h2>
-          <p class="mt-1 text-sm text-muted-foreground">Add them to the line-up, then send them the link from your event: they confirm, check their programme and the posts about them.</p>
-          <ul v-if="me!.events.length" class="mt-4 grid gap-2">
-            <li v-for="e in me!.events" :key="e.id" class="flex items-center gap-3 rounded-xl border bg-background p-3">
-              <div class="min-w-0 flex-1">
-                <p class="truncate text-sm font-bold">{{ e.name }}</p>
-                <p class="text-xs text-muted-foreground">{{ day(e.startDate, e.timezone) }} · {{ e.host }}</p>
-              </div>
-              <span v-if="e.inLineup" class="inline-flex items-center gap-1 text-xs font-bold text-wd-green-700"><Check class="size-3.5" aria-hidden="true" /> In the line-up</span>
-              <Button v-else type="button" variant="outline-pill" size="pill-sm" :disabled="!!adding" @click="addTo(e.id)"><Plus aria-hidden="true" /> {{ adding === e.id ? 'Adding…' : 'Add' }}</Button>
-            </li>
-          </ul>
-          <p v-if="addErr" class="mt-2 text-sm text-destructive" role="alert">{{ addErr }}</p>
-          <Button variant="pill" class="mt-4" as-child><NuxtLink :to="draftLink"><CalendarPlus aria-hidden="true" /> Draft a new event with {{ firstName }}</NuxtLink></Button>
-        </section>
-
         <!-- Has an account? Signing in fills the form, sends it as their page,
              and lets them add the artist to their event instead. -->
         <p v-if="!isSignedIn" class="mt-5 rounded-xl border border-dashed bg-card/60 px-4 py-3 text-sm font-sans">
@@ -123,10 +108,36 @@ useHead(() => ({
           to send it as your school or event{{ profile.type === 'artist' ? `, or add ${firstName} to one of your events` : '' }}.
         </p>
 
-        <h2 v-if="canPlan" class="mt-8 font-display text-xl">Or send {{ firstName }} a request</h2>
-        <div :class="canPlan ? 'mt-3' : 'mt-6'" class="rounded-2xl border bg-card p-5 sm:p-6 shadow-wd-card">
+        <div class="mt-6 rounded-2xl border bg-card p-5 sm:p-6 shadow-wd-card">
           <BookingInquiryForm :profile="profile" :me="me" />
         </div>
+
+        <!-- Signed in and running events: a small way to book them straight in -->
+        <section v-if="canPlan" class="mt-4 px-1 text-sm text-muted-foreground font-sans" data-testid="lineup-shortcut" aria-label="Already planning something">
+          <p>
+            Already planning something?
+            <button type="button" class="font-bold text-foreground underline underline-offset-2 inline-flex items-center gap-0.5" :aria-expanded="pickerOpen" aria-controls="lineup-picker" @click="pickerOpen = !pickerOpen">
+              Add {{ firstName }} to an event’s line-up<ChevronDown class="size-3.5 transition-transform" :class="pickerOpen && 'rotate-180'" aria-hidden="true" />
+            </button>
+            ·
+            <NuxtLink :to="draftLink" class="font-bold text-foreground underline underline-offset-2">Draft a new event with {{ firstName }}</NuxtLink>
+          </p>
+          <div v-if="pickerOpen" id="lineup-picker" class="mt-3">
+            <ul v-if="me!.events.length" class="grid gap-2">
+              <li v-for="e in me!.events" :key="e.id" class="flex items-center gap-3 rounded-xl border bg-card p-3">
+                <div class="min-w-0 flex-1">
+                  <p class="truncate text-sm font-bold text-foreground">{{ e.name }}</p>
+                  <p class="text-xs">{{ e.series ? `Next: ${day(e.startDate, e.timezone)}` : day(e.startDate, e.timezone) }} · {{ e.host }}</p>
+                </div>
+                <span v-if="e.inLineup" class="inline-flex items-center gap-1 text-xs font-bold text-wd-green-700"><Check class="size-3.5" aria-hidden="true" /> In the line-up</span>
+                <Button v-else type="button" variant="outline-pill" size="pill-sm" :disabled="!!adding" @click="addTo(e.id)"><Plus aria-hidden="true" /> {{ adding === e.id ? 'Adding…' : 'Add' }}</Button>
+              </li>
+            </ul>
+            <p v-else class="text-sm">{{ profile.styles?.length ? `None of your upcoming events has ${profile.styles.join(' or ')}.` : 'You have no upcoming events.' }} Draft a new one with {{ firstName }} instead.</p>
+            <p v-if="me!.events.length" class="mt-2 text-xs">Then send {{ firstName }} the link from your event: they confirm and check their programme.</p>
+            <p v-if="addErr" class="mt-2 text-sm text-destructive" role="alert">{{ addErr }}</p>
+          </div>
+        </section>
         <p class="mt-4 text-center text-xs text-muted-foreground font-sans">Through <NuxtLink to="/" class="font-bold hover:underline">WeDance</NuxtLink>, where dancers, artists and venues meet.</p>
       </template>
     </main>

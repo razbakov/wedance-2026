@@ -2,6 +2,7 @@
 import { WD } from '~/lib/brand'
 import { mockFestival } from '~/data/mock-meneate'
 import cityImages from '~~/server/data/city-images.json'
+import { sizedImage, IMG } from '#shared/utils/image'
 
 definePageMeta({ layout: 'docs' })
 
@@ -10,7 +11,7 @@ const munich = (cityImages as Record<string, { image: string, credit?: string, l
 
 const photoCode = `<section class="relative">
   <div class="relative w-full h-64 sm:h-96 overflow-hidden">
-    <img :src="hero.image" :alt="\`\${city.name} — landmark\`" class="absolute inset-0 w-full h-full object-cover" fetchpriority="high">
+    <img :src="sizedImage(hero.image, IMG.hero)" :alt="\`\${city.name} — landmark\`" class="absolute inset-0 w-full h-full object-cover" fetchpriority="high">
     <!-- Scrim: light at the top, dark where the title sits -->
     <div class="absolute inset-0" style="background:linear-gradient(180deg, rgba(59,31,18,0.15) 0%, rgba(59,31,18,0.05) 40%, rgba(59,31,18,0.75) 100%);" />
     <div class="relative h-full max-w-4xl mx-auto px-4 flex flex-col justify-end pb-6">
@@ -40,6 +41,7 @@ const imageRules = [
   { rule: 'Cities: landmark, not dancers.', why: 'City heroes use a Wikipedia landmark photo (scripts/fetch-city-images.mjs → server/data/city-images.json). We don’t have dancers from every city yet, and a generic “people dancing” photo would lie.' },
   { rule: 'No photo? Use the text hero.', why: 'When there is no landmark, the city falls back to the cream text hero with sun rays in the city accent. Never fill the gap with a placeholder image.' },
   { rule: 'Credit the photographer.', why: 'Wikimedia images are CC-licensed: the credit + licence pill in the bottom-right corner is required, not decoration.' },
+  { rule: 'Serve it at hero size.', why: 'An uploaded cover goes through sizedImage(url, IMG.hero) (shared/utils/image.ts): Cloudinary originals are megabytes each, and serving them as is got the account switched off in Nov 2026. Wikimedia and static images pass through unchanged.' },
   { rule: 'Faces above the fold, not cropped.', why: 'Use object-position (e.g. center 30%) so heads survive the 4:5 and wide crops.' },
 ]
 
@@ -80,7 +82,7 @@ const a11y = [
       <DesignExample :code="photoCode" :padded="false">
         <section class="relative w-full bg-background">
           <div class="relative w-full h-64 sm:h-80 overflow-hidden">
-            <img :src="munich.image" alt="Munich — landmark" class="absolute inset-0 w-full h-full object-cover" loading="lazy">
+            <img :src="sizedImage(munich.image, IMG.hero)" alt="Munich — landmark" class="absolute inset-0 w-full h-full object-cover" loading="lazy">
             <div class="absolute inset-0 bg-[linear-gradient(180deg,rgba(59,31,18,0.15)_0%,rgba(59,31,18,0.05)_40%,rgba(59,31,18,0.75)_100%)]" />
             <div class="relative h-full px-6 flex flex-col justify-end pb-6">
               <div class="font-display italic text-lg leading-none mb-1 text-wd-amber-100">— 42 weekly events</div>
@@ -166,14 +168,14 @@ const a11y = [
         <DesignDoDont do-text="white title on a photo only with the scrim behind it." dont-text="text straight on a bright photo — the sky eats the title.">
           <template #do>
             <div class="relative w-48 h-24 rounded-xl overflow-hidden">
-              <img :src="munich.image" alt="" class="absolute inset-0 w-full h-full object-cover">
+              <img :src="sizedImage(munich.image, IMG.hero)" alt="" class="absolute inset-0 w-full h-full object-cover">
               <div class="absolute inset-0 bg-[linear-gradient(180deg,rgba(59,31,18,0.15)_0%,rgba(59,31,18,0.05)_40%,rgba(59,31,18,0.75)_100%)]" />
               <span class="absolute bottom-2 left-3 font-display text-2xl text-white">Munich</span>
             </div>
           </template>
           <template #dont>
             <div class="relative w-48 h-24 rounded-xl overflow-hidden">
-              <img :src="munich.image" alt="" class="absolute inset-0 w-full h-full object-cover object-top">
+              <img :src="sizedImage(munich.image, IMG.hero)" alt="" class="absolute inset-0 w-full h-full object-cover object-top">
               <span class="absolute top-2 left-3 font-display text-2xl text-white">Munich</span>
             </div>
           </template>

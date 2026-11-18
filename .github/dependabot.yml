@@ -1,0 +1,35 @@
+# Dependabot: security update PRs open as soon as an alert appears (repo setting
+# "Dependabot security updates"); routine version bumps arrive once a week, with
+# minor + patch bumps grouped into one PR per ecosystem. Majors stay one PR each.
+version: 2
+updates:
+  - package-ecosystem: "bun"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Berlin"
+    open-pull-requests-limit: 10
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        update-types: ["minor", "patch"]
+      security:
+        applies-to: security-updates
+        update-types: ["minor", "patch"]
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Berlin"
+    groups:
+      actions:
+        update-types: ["minor", "patch", "major"]
+    commit-message:
+      prefix: "chore(ci)"

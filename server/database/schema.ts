@@ -26,6 +26,8 @@ export const dancers = pgTable('dancers', {
   danceLevels: jsonb('dance_levels').$type<Record<string, string>>().notNull().default({}),
   role: text('role'),
   city: text('city'),
+  /** Phone / WhatsApp the dancer gave when signing up for a class (0073, RAZ-995); asked once, then confirmed. */
+  phone: text('phone'),
   neonAuthId: text('neon_auth_id').unique(),
   isAdmin: boolean('is_admin').default(false),
   // Public handle for the shareable profile URL (/u/<username>). Generated from
@@ -43,6 +45,8 @@ export const dancers = pgTable('dancers', {
   // Privacy: when false the public profile is hidden from everyone but the
   // owner (getByUsername 404s for other viewers). Default public.
   profilePublic: boolean('profile_public').default(true),
+  // "Dance friends" emails (0075, RAZ-985): tell me when someone I said yes to says yes back. Default on.
+  matchEmails: boolean('match_emails').notNull().default(true),
   // The page that IS this person (0059, #474): one of their own artist/organiser
   // pages. When set, that /@handle is their public identity — /u/<username> and
   // /@<username> forward to it, and it shows their dancer side.
@@ -291,10 +295,28 @@ export const reviews = pgTable('reviews', {
   text: text('text'),
   source: text('source').notNull().default('review').$type<'review' | 'recommendation'>(),
   status: text('status').notNull().default('visible').$type<'visible' | 'hidden'>(),
+  // An event review by someone who signed up and wrote it after the night (0075, RAZ-1011).
+  went: boolean('went').notNull().default(false),
   createdAt: timestamp('created_at').defaultNow(),
 }, (t) => [
   // One review per dancer per target (a recommend also upserts through this).
   unique('review_target_dancer_unique').on(t.targetType, t.targetSlug, t.dancerId),
+])
+
+// The morning-after "How was it?" email (0075, RAZ-1011): one row per event per address — the
+// unique key is the once-only guard (inserted before sending). `token` = the "didn't make it"
+// link; missed_at set = never asked again, on the page either.
+export const eventReviewAsks = pgTable('event_review_asks', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  eventId: uuid('event_id').notNull(),
+  email: text('email').notNull(),
+  token: text('token').notNull(),
+  sentAt: timestamp('sent_at'),
+  missedAt: timestamp('missed_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex('event_review_asks_event_email_uidx').on(t.eventId, t.email),
+  uniqueIndex('event_review_asks_token_uidx').on(t.token),
 ])
 
 // Community groups (WhatsApp / Telegram / …) per city — the cold-start
@@ -327,6 +349,10 @@ export const communityGroups = pgTable('community_groups', {
   // Last invite-link check (server/utils/groupLinkCheck.ts): a dead link is hidden from the city page.
   linkStatus: text('link_status').notNull().default('unknown').$type<'unknown' | 'ok' | 'dead'>(),
   linkCheckedAt: timestamp('link_checked_at'),
+  // Who runs the group and how to reach them (RAZ-967, 0071) — personal data: only WeDance admins
+  // and the city's admins read it; never selected by public / MCP queries, never sent to PostHog.
+  adminName: text('admin_name'),
+  adminContact: text('admin_contact'),
 }, t => [
   uniqueIndex('community_groups_invite_key_uidx').on(t.inviteKey).where(sql`${t.inviteKey} IS NOT NULL`),
   index('community_groups_city_status_idx').on(t.citySlug, t.status),
@@ -369,6 +395,35 @@ export const citySchedules = pgTable('city_schedules', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, t => [unique('city_schedules_city_week').on(t.citySlug, t.weekStart)])
+
+// A city's post for an occasion (RAZ-970, migration 0070): a silent day (Tanzverbot), Fasching,
+// Halloween, New Year's Eve… — `occasion_key` is `<id>:<year>` from shared/utils/cityOccasions.ts.
+// Its text is generated in the chosen languages until an admin edits it; posted like the weekly
+// post; `asked_*` records the question sent to the city's organisers.
+export const cityOccasionPosts = pgTable('city_occasion_posts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  citySlug: text('city_slug').notNull(),
+  occasionKey: text('occasion_key').notNull(),
+  langs: jsonb('langs').$type<string[]>().notNull().default(['en']),
+  text: text('text').notNull().default(''),
+  textEdited: boolean('text_edited').notNull().default(false),
+  imageUrl: text('image_url'),
+  imageKey: text('image_key'),
+  igMediaId: text('ig_media_id'),
+  igPermalink: text('ig_permalink'),
+  igPublishedAt: timestamp('ig_published_at'),
+  igStoryMediaId: text('ig_story_media_id'),
+  igStoryPublishedAt: timestamp('ig_story_published_at'),
+  telegram: jsonb('telegram').$type<{ chatId: string; messageId: number; url: string | null; at: string }[]>().notNull().default([]),
+  publishError: text('publish_error'),
+  askedAt: timestamp('asked_at'),
+  askedProfiles: jsonb('asked_profiles').$type<string[]>().notNull().default([]),
+  askMessage: text('ask_message'),
+  createdBy: uuid('created_by').references(() => dancers.id, { onDelete: 'set null' }),
+  updatedBy: uuid('updated_by').references(() => dancers.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, t => [unique('city_occasion_posts_city_key').on(t.citySlug, t.occasionKey)])
 
 // Per-user report tracking for community groups — prevents a single user
 // from hiding a group by reporting it multiple times.
@@ -426,6 +481,9 @@ export const profiles = pgTable('profiles', {
   openingHours: jsonb('opening_hours').$type<import('../../shared/types/venueDetails').OpeningHours>().notNull().default([]),
   floorPlan: text('floor_plan'),
   contact: jsonb('contact').$type<import('../../shared/types/venueDetails').VenueContact>().notNull().default({}),
+  // The venue's own hints (0074, shared/types/venueInfo.ts): nearest stop, parking, indoor shoes, cloakroom.
+  // Typed in on WeDance only — the v3 sync never writes it.
+  venueInfo: jsonb('venue_info').$type<import('../../shared/types/venueInfo').VenueInfo>().notNull().default({}),
   // Where the venue is (0036), from its Google listing.
   lat: doublePrecision('lat'),
   lng: doublePrecision('lng'),
@@ -929,8 +987,21 @@ export const eventRsvps = pgTable('event_rsvps', {
   eventId: uuid('event_id').notNull().references(() => events.id, { onDelete: 'cascade' }),
   dancerId: uuid('dancer_id').references(() => dancers.id, { onDelete: 'cascade' }),
   guestToken: text('guest_token'),
+  /** A guest's email from the confirm-link step (0069): they're told if the event is cancelled. */
+  guestEmail: text('guest_email'),
   answer: text('answer').notNull().$type<'partner' | 'needLeader' | 'needFollower' | 'yes' | 'next'>(),
+  // The rest of a sign-up (0073, RAZ-995): name + phone for the organiser (this event only), the partner's
+  // name, the pass, pay now / at the door, and the separate "tell me about next ones" opt-in.
+  name: text('name'),
+  phone: text('phone'),
+  partnerName: text('partner_name'),
+  pass: text('pass'),
+  pay: text('pay').$type<'now' | 'door'>(),
+  keepInTouch: boolean('keep_in_touch').notNull().default(false),
   confirmedAt: timestamp('confirmed_at'),
+  // Door check-in for a signed-out answer (RAZ-928). Copied onto the dancer's
+  // attendance when the magic link confirms the account.
+  checkedInAt: timestamp('checked_in_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (t) => [
@@ -1069,6 +1140,11 @@ export const events = pgTable('events', {
   // Festivals are events (migration 0032): logo, links, passes, programme…
   // (shared/types/festivalDetails.ts). Null for an ordinary event.
   festival: jsonb('festival').$type<import('../../shared/types/festivalDetails').FestivalDetails | null>(),
+  // Cancelled by its organiser (migration 0068, RAZ-948): stays published and
+  // listed, marked "Cancelled" with the reason. Null = on. Undo clears them.
+  cancelledAt: timestamp('cancelled_at'),
+  cancelReason: text('cancel_reason'),
+  cancelledBy: uuid('cancelled_by').references(() => dancers.id, { onDelete: 'set null' }),
 }, (t) => [
   index('events_host_profile_idx').on(t.hostProfileId),
   uniqueIndex('events_slug_uidx').on(t.slug).where(sql`${t.slug} IS NOT NULL`),
@@ -1189,6 +1265,45 @@ export const festivalWaves = pgTable('festival_waves', {
  * put a dancer on the card — Yes on two or more dancers heading to the same
  * festival raises the "add it to your year?" nudge.
  */
+/**
+ * A "you both said yes" email that went out (0075, RAZ-985): once per (recipient,
+ * other dancer), and its sent_at caps a recipient at one such email a day.
+ */
+export const meetMatchEmails = pgTable('meet_match_emails', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  recipientId: uuid('recipient_id').notNull().references(() => dancers.id, { onDelete: 'cascade' }),
+  otherId: uuid('other_id').notNull().references(() => dancers.id, { onDelete: 'cascade' }),
+  sentAt: timestamp('sent_at').notNull().defaultNow(),
+}, (t) => [
+  unique('meet_match_emails_pair').on(t.recipientId, t.otherId),
+  index('meet_match_emails_recipient_idx').on(t.recipientId, t.sentAt),
+])
+
+/**
+ * A booked color-and-shape meetup for one dancer of a match (0077, RAZ-1071).
+ * The other dancer has their own row. The symbol is not stored: both phones
+ * derive it from the two ids and the event. The morning-after email is one row's
+ * email_sent_at, so a re-run of the cron doesn't send twice.
+ */
+export const meetRituals = pgTable('meet_rituals', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  dancerId: uuid('dancer_id').notNull().references(() => dancers.id, { onDelete: 'cascade' }),
+  otherId: uuid('other_id').notNull().references(() => dancers.id, { onDelete: 'cascade' }),
+  eventId: uuid('event_id').notNull().references(() => events.id, { onDelete: 'cascade' }),
+  bookedAt: timestamp('booked_at'),
+  revealedAt: timestamp('revealed_at'),
+  problem: text('problem'),
+  note: text('note'),
+  reportedAt: timestamp('reported_at'),
+  how: text('how'),
+  emailSentAt: timestamp('email_sent_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => [
+  unique('meet_rituals_pair_event').on(t.dancerId, t.otherId, t.eventId),
+  index('meet_rituals_due_idx').on(t.eventId, t.emailSentAt),
+])
+
 export const discoverSwipes = pgTable('discover_swipes', {
   id: uuid('id').primaryKey().defaultRandom(),
   dancerId: uuid('dancer_id').notNull().references(() => dancers.id, { onDelete: 'cascade' }),
@@ -1312,6 +1427,9 @@ export const eventPosts = pgTable('event_posts', {
   igStoryMediaId: text('ig_story_media_id'),
   igStoryPermalink: text('ig_story_permalink'),
   storyPublishedAt: timestamp('story_published_at'),
+  // Work in progress on the flyer page (0078, RAZ-1033). The step, uploads and
+  // the look that was read. Painted versions stay in event_flyers.
+  flyerDraft: jsonb('flyer_draft').$type<import('../../shared/utils/flyerDraft').FlyerDraft | null>(),
 }, (t) => [index('event_posts_event_idx').on(t.eventId)])
 
 // A page's Instagram professional account, connected through WeDance's Meta app
@@ -1553,6 +1671,29 @@ export const profileContacts = pgTable('profile_contacts', {
 }, (t) => [
   uniqueIndex('profile_contacts_profile_email_uidx').on(t.profileId, sql`lower(${t.email})`),
   index('profile_contacts_profile_idx').on(t.profileId, t.createdAt),
+])
+
+// A page's emails to its contacts (migration 0072, RAZ-975): one row per send — who, when, which
+// segment, how many. Only contacts the page may email get it (contactSegments.emailBlock).
+export const contactMailings = pgTable('contact_mailings', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
+  sentBy: uuid('sent_by').references(() => dancers.id, { onDelete: 'set null' }),
+  subject: text('subject').notNull(),
+  body: text('body').notNull(),
+  eventId: uuid('event_id').references(() => events.id, { onDelete: 'set null' }),
+  // The filter in words ("Coming to Sun 15 Nov · Casino") and as data.
+  segment: text('segment').notNull().default(''),
+  filter: jsonb('filter').$type<Record<string, unknown>>().notNull().default({}),
+  contactIds: jsonb('contact_ids').$type<string[]>().notNull().default([]),
+  recipients: integer('recipients').notNull().default(0),
+  sent: integer('sent').notNull().default(0),
+  failed: integer('failed').notNull().default(0),
+  status: text('status').notNull().default('sending').$type<'sending' | 'sent' | 'failed'>(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  finishedAt: timestamp('finished_at'),
+}, (t) => [
+  index('contact_mailings_profile_idx').on(t.profileId, t.createdAt),
 ])
 
 // ---------------------------------------------------------------------------

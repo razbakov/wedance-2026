@@ -51,9 +51,13 @@ const form = reactive({
   citySlug: '', sponsorName: '', title: '', description: '', prizeDescription: '',
   ctaUrl: '', imageUrl: '', termsUrl: '', startsAt: '', endsAt: '', status: 'active' as 'active' | 'ended' | 'draft',
 })
+// The city comes from <CityCombobox> (its slug); clearing the field clears it.
+const formCity = ref('')
+watch(formCity, (v) => { if (!v) form.citySlug = '' })
 const { errors, validate, reset: resetValidation, fieldAttrs } = useFormValidation(GiveawaySchema, form)
 function resetForm() {
   resetValidation()
+  formCity.value = ''
   Object.assign(form, {
     citySlug: '', sponsorName: '', title: '', description: '', prizeDescription: '',
     ctaUrl: '', imageUrl: '', termsUrl: '', startsAt: '', endsAt: '', status: 'active',
@@ -99,8 +103,8 @@ const statusOptions = ['active', 'draft', 'ended']
     <form v-if="showForm" class="mt-6 rounded-2xl border bg-card p-5 shadow-wd-card" novalidate @submit.prevent="submit">
       <h2 class="text-eyebrow font-bold uppercase tracking-[0.3em] text-secondary mb-4">New giveaway</h2>
       <div class="grid gap-4 sm:grid-cols-2">
-        <Field id="giveaway-citySlug" label="City slug" :error="errors.citySlug">
-          <Input v-model="form.citySlug" placeholder="e.g. munich" v-bind="fieldAttrs('citySlug', 'giveaway-citySlug-error')" />
+        <Field id="giveaway-citySlug" label="City" :error="errors.citySlug">
+          <CityCombobox v-model="formCity" placeholder="e.g. Munich" v-bind="fieldAttrs('citySlug', 'giveaway-citySlug-error')" @select="c => (form.citySlug = c.slug)" />
         </Field>
         <Field id="giveaway-sponsorName" label="Sponsor name" :error="errors.sponsorName">
           <Input v-model="form.sponsorName" v-bind="fieldAttrs('sponsorName', 'giveaway-sponsorName-error')" />

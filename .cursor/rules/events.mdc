@@ -1,0 +1,139 @@
+---
+description: "Events: creating, venue hints, signing up, cancelling, reviews"
+globs: app/pages/events/**,app/pages/business/events/**,app/components/festival/**,server/trpc/routers/rsvp*.ts,server/trpc/routers/events*.ts,server/trpc/routers/businessEvents*.ts,server/trpc/routers/eventCancel*.ts,server/trpc/routers/review*.ts,server/trpc/routers/festival*.ts,server/trpc/routers/festivalSignup*.ts,server/api/cron/**,**/eventSignup*,**/EventSignup*,**/eventSteps*,**/BusinessEventSteps*,**/BusinessEventForm*,**/eventStart*,**/venueInfo*,**/BusinessEventVenueHints*,**/BusinessVenueHints*,**/eventCancel*,**/BusinessCancelEvents*,**/BusinessUncancelEvent*,**/EventUncancel*,**/EventCancelled*,**/eventReview*,**/reviewAsk*,**/useEventReviewAsk*,**/EventHowWasIt*,**/EventWhosComing*,**/EventFacts*,**/EventGoodToKnow*,**/rsvp*
+alwaysApply: false
+---
+<!-- Generated from .claude/rules/events.md by scripts/ci/agent-context.ts. Edit the source, not this file. -->
+# Events: creating, venue hints, signing up, cancelling, reviews
+
+## New event: one question, then steps (RAZ-939)
+
+`/business/events/new` asks "Where are you starting from?": **I have a post** (Instagram link →
+`eventImport.fromInstagram`), **Like my last event** (one of my events + a new date, optionally N more weeks →
+`businessEvents.copy`: drafts only, same local start time, one series when repeated) or **From scratch** (Run by,
+type, music, date, start time; city from the host; name suggested by `shared/utils/eventStart.ts`
+`suggestEventName`, e.g. "Salsa Party · Thursday", editable). Each makes a draft ("Publish it now" stays) and
+opens the editor, which shows **Steps** (`BusinessEventSteps`, `app/lib/eventSteps.ts`): what and when → venue →
+line-up → entry → flyer → publish, done/to do from the saved event's gaps/flyer/published, one card open at a
+time (`BusinessEventForm` `focus()`). A new draft opens on its first step to do. Line-up and entry show what the
+host's other events suggest (`pastEventHints`: artists booked before, last time's price). Same order as MCP
+`create_event`.
+
+**Back and the unfinished form (RAZ-1024):** choosing a path puts `?start=post|copy|scratch` on the URL
+(`router.push`), so the browser's Back and Forward move between the choice and that path, and a Back
+button on the path does the same. What was typed is kept in this browser (`localStorage`,
+`wedance-new-event`, `app/lib/newEventDraft.ts`) and filled in again when that path is opened. It is
+cleared once a draft is created. A link that already says what to make (`?type=` / `?artist=`) still
+opens From scratch, and leaves a different unfinished draft in place until the organiser types in it.
+
+## The venue's own hints (RAZ-1012)
+
+What is true about a venue for every event there — nearest stop (line badge + colour, stop, how to get from it), parking
+(text + detail), indoor dance shoes only, cloakroom (yes / no / not said; only "no" shows, struck through) — lives on the
+venue's page: `profiles.venue_info` (0074, `shared/types/venueInfo.ts`: `cleanVenueInfo`, `venueHints`). The old
+`CoatCheck` amenity moved into `cloakroom` (one place only). Shown in the event hero's venue row (`FestivalHero`, both
+`festivalView` and `events.get` → `venueInfo`) as an Airbnb-style card: OpenStreetMap embed (no key) when the venue has
+coordinates, Directions, one row per hint, then "About the venue". No hints = no chevron, the address links to
+directions. The event's own practical info is not in the venue card: it's on Overview → "Good to know" (`EventGoodToKnow`). Edited by the venue's team and admins (Business → the venue
+→ "Getting there & house rules", `business.update` `venueInfo`), by the organiser of an event at an UNCLAIMED venue (the
+event editor's Where step, `BusinessEventVenueHints` → `listedProfiles.venueInfo` / `saveVenueInfo`, same rule as
+`requireListedEditor`), and by connected apps (`venue_info` on `update_listed_profile`, `add_venue`,
+`update_business_profile`). Only the parts given change; null clears a part. The v3 sync never writes it.
+
+
+## Signing up for a class (RAZ-995)
+
+Dated events (`/events/[id]`, plain or with `events.festival` passes) have one button in the hero, `EventSignup`, which
+opens the steps in place: ① how you come (the poll answers; "with my partner" = two people) ② pass — only with more
+than one priced pass ③ pay now (Stripe `festivalSignup.ticketCheckout`, `people` 1|2) or at the door (organiser switch
+`festival.payAtDoor`, Business → event → Entry and tickets) ④ contact — signed out: name, email, phone; signed in: a
+review card asking only for a missing phone. Phone is required for classes / courses (`CLASS_EVENT_TYPES`) and anything
+paid, optional for a party night. A pass's `couplePrice` is what two pay (else 2 ×). Rules: `shared/utils/eventSignup.ts`;
+server `rsvp.signUp` (event_rsvps `name/phone/partner_name/pass/pay/keep_in_touch`, `dancers.phone` — 0073). Signed out
+it is saved unconfirmed with the guest token, the magic link (`do` + `guest`) folds it into the account (`rsvp.answer`),
+replaces only an email-derived placeholder name, and "Pay now" returns with `?pay=now` to continue to checkout.
+`EventWhosComing` sits under the hero: counts to visitors, faces to signed-in dancers, pairing with waves. A class or
+course hides per-session Save and the passes section; festivals keep both. A party, class or anything
+that isn't a festival calls them tickets — the editor says "Tickets" and "Add a ticket", the sign-up "Pick your
+ticket" — and a festival (Festival, Weekender, Congress, or `is_festival`) keeps "Passes" (RAZ-1029). Sketch: `/sketches/class-signup`.
+**Festivals book the same way**: every event gets the steps (`pollable: true`); a festival keeps its Passes
+tab and its year plan (`plan-as="festival"`; booking also adds `plan_items` `festival`/`<key>`). Passes sold per role are
+read from their names (`passFor`: couple / leader / follower, else for anyone) and `passesFor(passes, answer)` offers only
+the ones that fit how you come; a couple pass is priced once for both (`passTotal`), and when a role has none left the
+pass step says so (`noPassForRole`). The server checks the pass against the answer (`chosenPass(…, answer)`).
+The pass step suggests ("Fits your plan", preselected) the pass covering the workshops picked on the Schedule — the same
+`recommendFor` as the Passes tab's "Best value for your plan", among the passes for that way of coming (`recommend` prop);
+the Passes tab's buttons open the steps on that pass. Unset `workshopCount` / `includesParty` are read from the pass's
+words (`passCoverage`: "Party only", "no workshops", masterclass), else a party pass looked like it covered every workshop.
+Not yet: Stripe without an account, a 1,000-person Who's coming with search for festivals.
+**Nobody to book with (RAZ-1007):** an event takes bookings only when the page they go to (host, else organiser —
+`contactPageFor`) has a team (`events.get` → `bookable`). Otherwise "Book my spot" opens `EventImportedNotice` instead of
+the steps: "Imported by WeDance" (v3 sync) / "Added by WeDance", where from (`events.link`), last checked (`synced_at`),
+and a "Book on <site>" link. `rsvp.signUp` itself doesn't refuse yet (MCP).
+**One layout (RAZ-1007):** every `events` row renders through `FestivalView` (`events.festival` serves plain events too —
+`festivalView` keys them by `eventSlug`); a plain event adds `EventFacts` (type, styles, price, website, agenda), the
+"Checked by" badge, the archived note and "More dancing in <city>" via the `event` prop. Only booking requests, single
+programme sessions (`f~key~id`) and mock city events still use the old template in `events/[id].vue`.
+**Back (RAZ-1020):** the sticky bar on `FestivalView` (and the old template, under the header) starts with a back
+link. It returns to the in-app page the dancer opened the event from — My plan, the city, a profile — and ignores
+`?tab=` (a tab change stays on this page). Opened directly, it goes to the event's city (`/cities/<slug>`), or
+`/cities` when the event has none.
+
+## The flyer's draft (RAZ-1033)
+
+The flyer page (`/business/events/<id>/flyer`) remembers where the organiser was.
+The step, the uploaded photos and flyers, the look it read, and the sitting
+(`batch`) are a draft on the post (`event_posts.flyer_draft`, 0078). It is saved
+as they go and again when they leave — there is no save button — and the step
+and batch are in the URL, so a reload reopens the same place. Coming back from
+the event (to fix the title) restores it. Painted versions were already rows in
+`event_flyers`; the result then offers "Refresh the flyer" when the event's
+lines have changed, including a version that was never kept (`refresh` with
+`fromFlyerId`). Keeping a flyer clears the draft. "Continue your flyer" on the
+editor's panel is that same return.
+
+## Door check-in (RAZ-928)
+
+Business → event → **Door** (`/business/events/[id]/door`), built for a phone: search by name, then one tap. The list is who is actually coming — an RSVP other than “next time” (a signed-out guest keeps the name they typed), Going!, a ticket, and a festival pass when the event is that festival. `attendance.checkIn` writes `attendances.checked_in_at` (a signed-out RSVP is `event_rsvps.checked_in_at` until the magic link confirms it, then the tick moves onto the attendance). Doing it again changes nothing; Undo clears the tick and leaves the ticket or Going! row. Who’s coming shows “N checked in”. The AI app uses `door_list` and `check_in` (names only, nothing is sent). Emails and phones stay in Contacts.
+
+## Cancelling an event (RAZ-948)
+
+Business → event → **Cancel** (or Business → Events: tick events / "Select today's" → cancel them at once), MCP
+`cancel_event` (preview with how many people will be emailed → `confirm_token`; `undo`). `businessEvents.cancel`
+sets `events.cancelled_at` / `cancel_reason` / `cancelled_by` (0068); the event stays published and listed, crossed
+out with the reason on `/events/[id]`, the city page and `/@handle`, and in the profile feed
+(`/api/profiles/<u>/site` and `/events`: `cancelled`, `cancelReason` — contract `SiteEvent` in
+`shared/types/profileSite.ts`, mirrored by wedance-site-kit `WeDanceEvent`). Everyone who signed up is emailed once
+(`server/utils/eventCancel.ts` `signupsOf`: plan items, confirmed poll answers other than "next", attendances incl.
+ticket stubs, festival sign-ups / TicketTailor buyers, and guests' unconfirmed answers other than "next" when they left an
+email — `auth.requestMagicLink` with `guest` keeps it on that browser's `event_rsvps.guest_email` (0069), from the poll and
+the weekend page; one email per address, never the canceller). Ticket holders
+are told to contact the organiser — refunds stay manual.
+Only published, not-yet-over events can be cancelled.
+
+**It's on again (RAZ-969):** the editor's "It's on again" (`BusinessUncancelEvent`) first asks
+`businessEvents.uncancelPreview` how many people got the cancellation email, then offers "On again + email N people"
+or "Just remove the mark" → `businessEvents.uncancel({ notify })`. MCP `cancel_event` with `undo` previews the same
+count (`email_people`, default true). Recipients = `backOnRecipients`: `signupsOf` now, minus the canceller and the
+person undoing it; nobody once the event is over. Email: `sendEventBackOnEmail` ("Good news, it's on again"; ticket
+holders are asked to check with the organiser if they already asked for a refund). Nobody is emailed without the
+organiser's choice.
+
+## Event reviews: only people who went, after the night (RAZ-1011)
+
+The rating sits under the hero picture; the stars open the page's Reviews tab (plain events: Overview / Reviews in
+`events/[id].vue`; an event with a programme: FestivalView's fifth tab, reviewed as the event; real festivals
+(`is_festival`): the same tab, festival reviews, still open to anyone signed in). An **event** is reviewed only
+by someone who signed up — `wentTo` in `server/utils/eventCancel.ts`, the same sources as `signupsOf` (plan, confirmed
+poll answer other than "next", attendances / tickets, matched by id or email) — and only once the night is over
+(`shared/utils/eventReview.ts` `reviewOpen`: its end, else start + 3 h). Enforced in `review.create`; such reviews carry
+`reviews.went` (0075) and show "Went". **How was it?** (`EventHowWasIt`, state in `useEventReviewAsk`, shared by
+`events/[id].vue` and `FestivalView` with `planAs: 'event'`) replaces the sign-up in the hero for a dancer
+who went (`review.eventAsk`): tap a star, an optional line, post → Reviews tab. Before the night the tab says you can
+review it the day after. **Morning-after email**: a daily Vercel cron (`vercel.json` → `/api/cron/review-asks`, 09:00
+UTC, `Authorization: Bearer $CRON_SECRET` — unset = 503, nothing sent) emails everyone who went to nights over 4–30 h
+ago (`server/utils/reviewAsk.ts`; events with a programme too; not festivals, cancelled, archived or drafts): "How was Thursday at <host>?", five
+star links (`/events/<slug>?rate=N`) and "Didn't make it?" (`?review=missed&t=<token>` → a "Don't ask me again" tap →
+`review.missed`; a GET never changes anything). Once per event per address: `event_review_asks` (unique event + email,
+inserted before sending). Not yet: tips to the organiser after a good review (RAZ-1013, needs a Stripe payout decision).
+

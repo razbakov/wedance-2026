@@ -6,6 +6,7 @@ export interface TicketOption {
   soldOut?: boolean
   workshopCount?: number // max workshops covered, undefined = unlimited
   includesParty?: boolean // whether party access is included
+  couplePrice?: number // price for two coming together; unset = 2 × price (RAZ-995)
 }
 
 export interface Festival {
@@ -25,6 +26,8 @@ export interface Festival {
   attendeeCount: number
   ticketUrl?: string
   tickets?: TicketOption[]
+  /** Dancers may sign up and pay at the door (RAZ-995). */
+  payAtDoor?: boolean
   /** Who runs it: the organiser first, then its co-organisers (#456), each with a role label. */
   organizers?: { username: string; name: string; role: string }[]
 }
@@ -32,7 +35,13 @@ export interface Festival {
 export interface Venue {
   name: string
   address: string
+  /** The venue's WeDance page (/@handle), when it has one. */
+  handle?: string
   coordinates?: { lat: number; lng: number }
+  /** The venue page's own hints (RAZ-1012): nearest stop, parking, indoor shoes, cloakroom. */
+  info?: import('../../shared/types/venueInfo').VenueInfo
+  /** Where it is, for the venue card: "Dachau, Germany". */
+  place?: string
   practicalInfo: string[]
 }
 
@@ -54,6 +63,8 @@ export interface Workshop {
   time: string
   duration: number
   day: string
+  /** Local date, yyyy-mm-dd (real events; mock data has only `day`). */
+  date?: string
   room: string
   style: string
   /** Workshops only. */
@@ -165,6 +176,32 @@ export interface SwipeCardOnboardingDanceCard {
 export interface SwipeCardOnboardingProfile {
   id: string
   cardType: 'onboarding-profile'
+}
+
+type DanceLevelName = 'Beginner' | 'Intermediate' | 'Advanced'
+
+/** What a signed-in dancer already has, to start the dance card from (RAZ-1005, /dance-card). */
+export interface DanceCardPrefill {
+  role?: string | null
+  styles: string[]
+  levels: Record<string, DanceLevelName>
+  name: string
+  city: string
+  bio: string
+  /** A stored photo URL. */
+  photo: string
+}
+
+/** The finished dance card. `photoFile` is a newly picked photo (null = keep the current one). */
+export interface DanceCardResult {
+  role: DanceRole
+  styles: string[]
+  /** Only styles with a level picked. */
+  levels: Record<string, DanceLevelName>
+  name: string
+  city: string
+  bio: string
+  photoFile: File | null
 }
 
 export type SwipeCard = (DiscoverDancer & { cardType?: 'dancer' }) | SwipeCardDinner | SwipeCardActivity | SwipeCardFreespot | SwipeCardOnboardingDanceCard | SwipeCardOnboardingProfile

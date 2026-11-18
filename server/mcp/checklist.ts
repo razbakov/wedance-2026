@@ -1,4 +1,5 @@
 import type { EventGap } from '../../shared/utils/eventChecklist'
+import { hasArtist } from '../../shared/utils/programme'
 
 /**
  * What an event still needs before it's worth showing, as next steps for an
@@ -19,7 +20,7 @@ export interface ChecklistEvent {
   gaps?: EventGap[]
   flyer?: { ready: number; painting: number; kept: boolean; latestUrl?: string | null } | null
 }
-export interface ChecklistSession { title: string; artist?: string | null; with?: string[] }
+export interface ChecklistSession { title: string; type?: string | null; artist?: string | null; with?: string[] }
 
 export function setupChecklist(e: ChecklistEvent, programme: ChecklistSession[], editorUrl: string): SetupItem[] {
   const gaps = new Map((e.gaps ?? []).map(g => [g.key, g]))
@@ -40,7 +41,8 @@ export function setupChecklist(e: ChecklistEvent, programme: ChecklistSession[],
       hint: 'Take the artists/DJs/performers from the announcement and the organiser’s Instagram. If you find no names, ask the user who performs: don’t leave it empty silently.',
     })
   }
-  const bare = programme.filter(s => !s.artist && !(s.with ?? []).length)
+  // Doors open names nobody. A break is not its own type, so it is still asked when saved as something else.
+  const bare = programme.filter(s => hasArtist(s.type) && !s.artist && !(s.with ?? []).length)
   if (programme.length && bare.length) {
     out.push({
       item: 'Programme items without an artist',

@@ -20,8 +20,9 @@ import {
 } from 'lucide-vue-next'
 import { ReportProblemSchema } from '#shared/validation'
 import { REPORT_PROBLEM_EVENT } from '~/lib/report-problem'
+import { KEEP_POPUPS_OPEN } from '~/lib/popup-layers'
 import { captureScreenFrame, isScreenCaptureSupported, type ScreenFrame } from '~/lib/screen-capture'
-import { submitFeedback } from '~/lib/sentry-feedback'
+import { failureMessage, feedbackFailure, submitFeedback } from '~/lib/sentry-feedback'
 
 const { collect } = useReportContext()
 const { isSignedIn, dancerId, dancerName, username } = useAuth()
@@ -41,12 +42,12 @@ const submitting = ref(false)
 const error = ref('')
 /** Sentry event id of the submitted feedback — set = success state. */
 const doneId = ref<string | null>(null)
+/** The report went out, but only without its screenshot. */
+const screenshotDropped = ref(false)
 const { errors, validate, reset: resetValidation, fieldAttrs } = useFormValidation(ReportProblemSchema, () => ({
   description: description.value,
   email: email.value,
 }))
-
-const FALLBACK_ERROR = 'Could not submit. Please try again, or email hello@wedance.vip.'
 
 const PIPELINE_STEPS = [
   { icon: MessageSquare, label: 'You describe your idea', color: 'text-primary' },
@@ -64,7 +65,10 @@ function setScreenshot(frame: ScreenFrame | null) {
   screenshotUrl.value = frame ? URL.createObjectURL(frame.blob) : null
 }
 
-/** Wait until the hidden dialog has animated out and the browser picker closed. */
+/**
+ * Wait until the hidden dialog has animated out. captureScreenFrame adds its
+ * own wait for the browser's picker and skips frames captured before (RAZ-976).
+ */
 function settle(): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(() => requestAnimationFrame(() => requestAnimationFrame(() => resolve())), 350)
@@ -79,11 +83,13 @@ function settle(): Promise<void> {
 async function takeScreenshot() {
   if (!canCapture.value || capturing.value) return
   capturing.value = true
+  const retake = !!screenshot.value
   const pending = captureScreenFrame(settle)
   const frame = await pending
   capturing.value = false
+  // A declined retake keeps the earlier shot.
   if (frame) setScreenshot(frame)
-  track('problem_report_screenshot', { captured: !!frame })
+  track('problem_report_screenshot', { captured: !!frame, retake })
 }
 
 /** Open the hub. */
@@ -123,6 +129,7 @@ function reset() {
   error.value = ''
   submitting.value = false
   doneId.value = null
+  screenshotDropped.value = false
   hubChoice.value = null
   resetValidation()
 }
@@ -157,7 +164,7 @@ async function submit() {
   submitting.value = true
   try {
     const who = await reporter()
-    const id = await submitFeedback({
+    const sent = await submitFeedback({
       type,
       description: result.data.description,
       name: who.name || dancerName.value,
@@ -167,11 +174,19 @@ async function submit() {
       context: collect(),
       screenshot: type === 'bug' ? screenshot.value?.bytes : null,
     })
-    doneId.value = id
-    track('problem_report_submitted', { type, identifier: id, has_screenshot: type === 'bug' && !!screenshot.value })
+    doneId.value = sent.id
+    screenshotDropped.value = sent.screenshotDropped
+    track('problem_report_submitted', {
+      type,
+      identifier: sent.id,
+      has_screenshot: type === 'bug' && !!screenshot.value && !sent.screenshotDropped,
+      screenshot_dropped: sent.screenshotDropped,
+    })
   } catch (e) {
     console.warn('[ReportProblem] submit failed:', e)
-    error.value = FALLBACK_ERROR
+    const reason = feedbackFailure(e)
+    error.value = failureMessage(reason)
+    track('problem_report_failed', { type, reason, has_screenshot: type === 'bug' && !!screenshot.value })
   } finally {
     submitting.value = false
   }
@@ -179,10 +194,17 @@ async function submit() {
 </script>
 
 <template>
-  <!-- Floating trigger (bottom-left to stay clear of the plan/cart sidebar) -->
+  <!--
+    Floating trigger (bottom-left to stay clear of the plan/cart sidebar).
+    From sm up it sits above every popup, takes clicks while a modal has turned
+    pointer events off, and doesn't close the popup (RAZ-992) — so a bug inside a
+    popup can be reported with the popup in the screenshot. On phones it stays
+    under popups: bottom sheets would be covered, and phones can't screenshot.
+  -->
   <Button
     v-show="!capturing"
-    class="fixed left-4 bottom-[calc(1rem+var(--wd-tabbar-h,0px))] z-40 h-auto gap-2 rounded-full pl-3 pr-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white bg-foreground hover:bg-foreground/90 shadow-wd-float"
+    v-bind="{ [KEEP_POPUPS_OPEN]: '' }"
+    class="fixed left-4 bottom-[calc(1rem+var(--wd-tabbar-h,0px))] z-40 sm:z-[120] pointer-events-auto h-auto gap-2 rounded-full pl-3 pr-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white bg-foreground hover:bg-foreground/90 shadow-wd-float"
     aria-label="Talk to us"
     @click="openHub"
   >
@@ -193,7 +215,8 @@ async function submit() {
   <!-- Hidden (not closed) while capturing, so the form keeps its state. -->
   <Dialog :open="open && !capturing" @update:open="(v: boolean) => { if (!capturing) open = v }">
     <DialogContent
-      class="sm:max-w-md border-0 p-0 overflow-hidden [&>button]:top-6 [&>button]:right-5 bg-background text-foreground"
+      overlay-class="z-[120]"
+      class="z-[120] sm:max-w-md border-0 p-0 overflow-hidden [&>button]:top-6 [&>button]:right-5 bg-background text-foreground"
     >
       <div class="h-1.5" :class="hubChoice === 'idea' ? 'bg-secondary' : 'bg-primary'" />
 
@@ -211,6 +234,9 @@ async function submit() {
               </template>
               <template v-else>
                 Our team has it, together with the technical details. We really appreciate you flagging it.
+                <template v-if="screenshotDropped">
+                  The screenshot couldn't be sent along, but the session replay shows us what happened.
+                </template>
               </template>
             </DialogDescription>
           </DialogHeader>
@@ -298,15 +324,32 @@ async function submit() {
             <div
               class="flex items-center gap-3 rounded-2xl px-3 py-2.5 text-xs bg-card border border-border text-muted-foreground"
             >
-              <img
+              <a
                 v-if="screenshotUrl"
-                :src="screenshotUrl"
-                alt="Screenshot that will be attached"
-                class="h-12 w-20 shrink-0 rounded-md border border-border object-cover object-top"
+                :href="screenshotUrl"
+                target="_blank"
+                rel="noopener"
+                class="shrink-0"
+                aria-label="Open the screenshot full size"
               >
+                <img
+                  :src="screenshotUrl"
+                  alt="Screenshot that will be attached"
+                  class="h-12 w-20 rounded-md border border-border object-cover object-top"
+                >
+              </a>
               <ImageIcon v-else class="size-4 shrink-0 text-secondary" aria-hidden="true" />
               <span v-if="screenshot" class="flex-1">Screenshot attached.</span>
               <span v-else class="flex-1">No screenshot — the session replay will show us what happened.</span>
+              <Button
+                v-if="screenshot && canCapture"
+                type="button"
+                variant="link"
+                class="h-auto shrink-0 gap-1 p-0 text-xs font-bold underline text-primary"
+                @click="takeScreenshot"
+              >
+                <Camera class="size-3.5" aria-hidden="true" /> Retake
+              </Button>
               <Button
                 v-if="screenshot"
                 type="button"

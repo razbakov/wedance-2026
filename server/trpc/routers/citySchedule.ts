@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
-import { and, asc, eq, gte, isNotNull, lt } from 'drizzle-orm'
+import { and, asc, eq, gte, isNotNull, isNull, lt } from 'drizzle-orm'
 import { router, protectedProcedure } from '../trpc'
 import { citySchedules, communityGroups, events } from '../../database/schema'
 import { cityNames, requireCityAdmin } from '../../utils/cityAccess'
@@ -39,7 +39,7 @@ async function weekEvents(db: any, citySlug: string, weekStart: string): Promise
     id: events.id, name: events.name, type: events.type, startDate: events.startDate, timezone: events.timezone,
     venueName: events.venueName, organizerName: events.organizerName, styles: events.styles,
   }).from(events)
-    .where(and(eq(events.citySlug, citySlug), eq(events.published, true), eq(events.archived, false), isNotNull(events.startDate), gte(events.startDate, from), lt(events.startDate, to)))
+    .where(and(eq(events.citySlug, citySlug), eq(events.published, true), eq(events.archived, false), isNull(events.cancelledAt), isNotNull(events.startDate), gte(events.startDate, from), lt(events.startDate, to)))
     .orderBy(asc(events.startDate))
 }
 

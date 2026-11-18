@@ -29,6 +29,18 @@ const userOrder = (sort: keyof typeof USER_SORTS, dir: 'asc' | 'desc') =>
   [sql`${USER_SORTS[sort]} ${sql.raw(dir)} nulls last`, sql`${dancers.createdAt} desc nulls last`, dancers.id]
 
 export const adminRouter = router({
+  // What waits on an admin, for the badges on every side (Admin link, Me tab, admin sections):
+  // claims to decide (not those waiting on the claimant's extra info), videos and local groups
+  // to approve. One round trip; the client polls it on navigation (useAdminAttention).
+  attention: adminProcedure.query(async ({ ctx }) => {
+    const r: any = await ctx.db.execute(sql`select
+      (select count(*)::int from profile_claims where status = 'pending' and kind in ('claim', 'reclaim')) as claims,
+      (select count(*)::int from city_videos where status = 'pending') as videos,
+      (select count(*)::int from community_groups where status = 'pending') as "groups"`)
+    const row = ((r.rows ?? r) as { claims: number; videos: number; groups: number }[])[0]
+    return { claims: row?.claims ?? 0, videos: row?.videos ?? 0, groups: row?.groups ?? 0 }
+  }),
+
   // Every user with the business profiles they manage, last sign-in and days
   // used. Newest sign-up first by default; also sorts by last login, last active
   // day or days used, either way. Search by name, email, @handle or a business

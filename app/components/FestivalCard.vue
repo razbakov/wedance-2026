@@ -6,7 +6,7 @@ import { sizedImage, IMG } from '#shared/utils/image'
  *   <FestivalCard :festival="f" :picked="isPicked(f)" @pick="onPick(f)" />
  *
  * Stretched link: the title is the only <a>; its ::after covers the card so the
- * whole surface navigates, while the "Going?" button sits above it (relative z-10).
+ * whole surface navigates, while the "+ My plan" button sits above it (relative z-10).
  * A <button> inside an <a> is invalid HTML and announced as one blob.
  */
 import { Calendar, MapPin, Users } from 'lucide-vue-next'
@@ -35,7 +35,7 @@ export interface FestivalCardData {
 
 const props = withDefaults(defineProps<{
   festival: FestivalCardData
-  /** Already in the dancer's year plan → "Going!" */
+  /** Already in the dancer's year plan → "✓ My plan" */
   picked?: boolean
   /** Style chips shown before "+N". */
   maxStyles?: number
@@ -99,7 +99,7 @@ const dateRange = computed(() => {
               class="font-hand text-[15px] font-bold shrink-0 mt-1"
               :style="{ color: accent }"
             >
-              {{ daysUntil(festival.startDate) }}
+              {{ daysUntil(festival.startDate, null, festival.endDate) }}
             </span>
           </div>
 
@@ -156,7 +156,7 @@ const dateRange = computed(() => {
               :aria-pressed="picked"
               @click="$emit('pick')"
             >
-              {{ picked ? 'Going!' : 'Going?' }}
+              {{ picked ? '✓ My plan' : '+ My plan' }}
             </Button>
           </div>
         </div>

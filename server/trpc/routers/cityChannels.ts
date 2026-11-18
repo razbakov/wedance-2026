@@ -6,7 +6,9 @@ import { cityPages, citySchedules, communityGroups, dancers, instagramConnection
 import { grant, logAccess, membershipOf, profileByHandle } from '../../utils/profileAccess'
 import { cityNames, cityOfPage, citiesManagedBy, cityPageOf, requireCityAdmin } from '../../utils/cityAccess'
 import { checkChat, telegramConfigured, TelegramError } from '../../utils/telegram'
-import { inviteKey, inviteUrlError, telegramNameOf } from '../../../shared/utils/communityGroups'
+import { cityPageHandle, inviteKey, inviteUrlError, telegramNameOf } from '../../../shared/utils/communityGroups'
+import { handleError } from '../../../shared/utils/handle'
+import { handleTaken } from './business'
 import { profileGroup, trackServer } from '../../utils/posthog'
 
 /**
@@ -86,7 +88,10 @@ export const cityChannelsRouter = router({
         await ctx.db.delete(cityPages).where(eq(cityPages.citySlug, input.citySlug))
         return { citySlug: input.citySlug, page: null }
       }
-      const p = await profileByHandle(ctx.db, input.username.replace(/^@/, '').toLowerCase())
+      const handle = input.username.replace(/^@/, '').toLowerCase()
+      const [found] = await ctx.db.select({ id: profiles.id }).from(profiles).where(eq(profiles.username, handle)).limit(1)
+      if (!found) throw new TRPCError({ code: 'NOT_FOUND', message: `There is no page @${handle}. Check the spelling, or click “Create @${cityPageHandle(input.citySlug)}” to make the city page.` })
+      const p = await profileByHandle(ctx.db, handle)
       const other = await cityOfPage(ctx.db, p.id)
       if (other && other !== input.citySlug) throw new TRPCError({ code: 'CONFLICT', message: `@${p.username} already runs ${other}. Unset it there first.` })
       await ctx.db.insert(cityPages).values({ citySlug: input.citySlug, profileId: p.id, createdBy: ctx.dancerId })
@@ -94,6 +99,29 @@ export const cityChannelsRouter = router({
       // The page's own official channels move with it.
       await ctx.db.update(communityGroups).set({ profileId: p.id }).where(and(eq(communityGroups.citySlug, input.citySlug), eq(communityGroups.kind, 'official')))
       return { citySlug: input.citySlug, page: { username: p.username, name: p.name } }
+    }),
+
+  // No page yet: create the city's own page (an organizer page "WeDance <City>",
+  // @wedance<city> unless another handle is given, the admin as its owner) and make it the city page.
+  createCityPage: adminProcedure
+    .input(z.object({ citySlug: z.string().trim().toLowerCase().min(1).max(80), handle: z.string().trim().max(60).optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const handle = (input.handle?.replace(/^@/, '').toLowerCase() || cityPageHandle(input.citySlug))
+      const bad = handleError(handle)
+      if (bad) throw new TRPCError({ code: 'BAD_REQUEST', message: bad })
+      if (await handleTaken(ctx.db, handle)) throw new TRPCError({ code: 'CONFLICT', message: `@${handle} already exists. If it is the city’s page, use “Set page” instead.` })
+      const existing = await cityPageOf(ctx.db, input.citySlug)
+      if (existing) throw new TRPCError({ code: 'CONFLICT', message: `${input.citySlug} already has a page: @${existing.username}.` })
+      const cityName = (await cityNames(ctx.db, [input.citySlug])).get(input.citySlug)!
+      const [p] = await ctx.db.insert(profiles).values({
+        type: 'organizer', name: `WeDance ${cityName}`, username: handle, city: cityName, citySlug: input.citySlug, claimed: true, socials: [],
+      }).returning({ id: profiles.id, username: profiles.username, name: profiles.name })
+      await ctx.db.insert(profileMembers).values({ profileId: p!.id, dancerId: ctx.dancerId, role: 'owner' })
+      await logAccess(ctx.db, { profileId: p!.id, actorId: ctx.dancerId, subjectId: ctx.dancerId, action: 'created', role: 'owner', note: `city page (${input.citySlug})` })
+      await ctx.db.insert(cityPages).values({ citySlug: input.citySlug, profileId: p!.id, createdBy: ctx.dancerId })
+      await ctx.db.update(communityGroups).set({ profileId: p!.id }).where(and(eq(communityGroups.citySlug, input.citySlug), eq(communityGroups.kind, 'official')))
+      trackServer(ctx, 'business_profile_created', { profile: p!.username, profile_type: 'organizer', ...profileGroup(p!.username) })
+      return { citySlug: input.citySlug, page: { username: p!.username, name: p!.name } }
     }),
 
   // Add a city admin: someone on the city page's team (editor by default).

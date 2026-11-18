@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  agendaToSessions, agendaType, cleanSession, defaultDuration, inferDurations, isEveningItem, isWorkshop,
+  agendaToSessions, agendaType, cleanSession, defaultDuration, hasArtist, inferDurations, isEveningItem, isWorkshop,
   minutesUntil, programmePostItems, programmePostLine, sessionEnd, sessionKindLabel, sessionTimeRange, sessionType, untilInText,
   type DraftSession,
 } from './programme'
@@ -22,6 +22,10 @@ describe('session types (#455)', () => {
     expect(isEveningItem('doors')).toBe(false)
     expect(isEveningItem('workshop')).toBe(false)
   })
+  it('doors open names nobody; a class, party, show, concert and other still do', () => {
+    expect(hasArtist('doors')).toBe(false)
+    expect(['workshop', 'party', 'show', 'concert', 'other', undefined].every(hasArtist)).toBe(true)
+  })
   it('per-type defaults: doors a moment, show 60, concert 90, party 180, workshop 60', () => {
     expect(['doors', 'show', 'concert', 'party', 'workshop', 'other'].map(t => defaultDuration(t as any))).toEqual([0, 60, 90, 180, 60, 60])
   })
@@ -40,6 +44,12 @@ describe('a level only on a workshop', () => {
     expect(cleanSession({ type: 'party', level: 'Beginner' as const, title: 'x' })).toEqual({ type: 'party', title: 'x' })
     expect(cleanSession({ type: 'doors', level: 'Beginner' as const })).not.toHaveProperty('level')
     expect(cleanSession({ type: 'workshop', level: 'Advanced' as const })).toEqual({ type: 'workshop', level: 'Advanced' })
+  })
+  it('cleanSession drops artist, style and partner on doors open and keeps them on a show', () => {
+    const doors = cleanSession({ type: 'doors', title: 'Open doors', artist: 'ana', style: 'Salsa', with: ['max'], level: 'Beginner' as const })
+    expect(doors).toEqual({ type: 'doors', title: 'Open doors', artist: '', style: '' })
+    expect(doors).not.toHaveProperty('with')
+    expect(cleanSession({ type: 'show', artist: 'ana', style: 'Salsa', with: ['max'] })).toEqual({ type: 'show', artist: 'ana', style: 'Salsa', with: ['max'] })
   })
   it('agendaToSessions puts "Beginner" on classes only', () => {
     const s = agendaToSessions([{ time: '18:00', what: 'Open doors' }, { time: '18:30', what: 'Salsa class' }, { time: '19:30', what: 'Party' }], { date: '2026-10-31', startTime: '18:00' })
@@ -127,5 +137,16 @@ describe('rendering helpers', () => {
   it('programmePostLine: a range for the night, the plain start for a class', () => {
     expect(programmePostLine({ date: '2026-10-31', time: '19:00', duration: 90, type: 'show', title: 'B-FEST show' }, 'Sat', '')).toBe('Sat 19:00–20:30 · B-FEST show')
     expect(programmePostLine({ date: '2026-10-31', time: '18:00', duration: 60, type: 'workshop', title: 'Salsa' }, 'Sat', 'Ana')).toBe('Sat 18:00 · Salsa · Ana')
+  })
+})
+
+describe('stylesOf (RAZ-1008)', () => {
+  it('splits combined styles and drops empty ones', async () => {
+    const { stylesOf } = await import('./programme')
+    expect(stylesOf('Bachata Dominicana, Timba')).toEqual(['Bachata Dominicana', 'Timba'])
+    expect(stylesOf('Salsa / Bachata')).toEqual(['Salsa', 'Bachata'])
+    expect(stylesOf('')).toEqual([])
+    expect(stylesOf(undefined)).toEqual([])
+    expect(stylesOf(' Reparto ')).toEqual(['Reparto'])
   })
 })

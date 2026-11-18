@@ -4,6 +4,7 @@ import { eq, and, asc, desc, inArray, ne, or, sql, isNull } from 'drizzle-orm'
 import { router, publicProcedure, protectedProcedure, adminProcedure } from '../trpc'
 import { communityGroups, communityGroupReports, dancers } from '../../database/schema'
 import { GROUP_PLATFORMS, inviteKey, inviteUrlError } from '../../../shared/utils/communityGroups'
+import { ADMIN_CONTACT_MAX, ADMIN_NAME_MAX, cleanAdminField } from '../../../shared/utils/communityGroupAdmin'
 import { citiesManagedBy, requireCityAdmin } from '../../utils/cityAccess'
 import { batchLooksBroken, checkInviteLink } from '../../utils/groupLinkCheck'
 import { trackServer } from '../../utils/posthog'
@@ -21,6 +22,10 @@ const MAX_PENDING_PER_DANCER = 15
  * admins) approve or decline it (`pending` / `review`), and `checkLinks` hides
  * groups whose invite link died. Official channels of the city's own WeDance page
  * (kind 'official') live in the same table but are listed by cityChannels.official.
+ *
+ * The group's admin (`adminName` / `adminContact`, RAZ-967) is personal data: only `listAll`
+ * (WeDance admins), `forCity` / `pending` (the city's admins) select it, `setAdmin` edits it.
+ * Public queries list their columns one by one and leave it out; it never goes to PostHog.
  */
 export const communityGroupRouter = router({
   // Admin: every community group across cities, newest first (dashboard).
@@ -108,6 +113,7 @@ export const communityGroupRouter = router({
         id: communityGroups.id, citySlug: communityGroups.citySlug, name: communityGroups.name, platform: communityGroups.platform,
         inviteUrl: communityGroups.inviteUrl, styles: communityGroups.styles, description: communityGroups.description,
         createdAt: communityGroups.createdAt, linkStatus: communityGroups.linkStatus, submittedBy: dancers.name,
+        adminName: communityGroups.adminName, adminContact: communityGroups.adminContact,
       }).from(communityGroups).leftJoin(dancers, eq(dancers.id, communityGroups.submittedBy))
         .where(and(eq(communityGroups.status, 'pending'), cities ? inArray(communityGroups.citySlug, cities) : undefined))
         .orderBy(asc(communityGroups.createdAt))
@@ -161,9 +167,30 @@ export const communityGroupRouter = router({
         id: communityGroups.id, name: communityGroups.name, platform: communityGroups.platform, inviteUrl: communityGroups.inviteUrl,
         styles: communityGroups.styles, verified: communityGroups.verified, status: communityGroups.status, linkStatus: communityGroups.linkStatus,
         linkCheckedAt: communityGroups.linkCheckedAt, reportCount: communityGroups.reportCount, submittedBy: dancers.name,
+        adminName: communityGroups.adminName, adminContact: communityGroups.adminContact,
       }).from(communityGroups).leftJoin(dancers, eq(dancers.id, communityGroups.submittedBy))
         .where(and(eq(communityGroups.citySlug, input.citySlug), eq(communityGroups.kind, 'community'), inArray(communityGroups.status, ['visible', 'hidden'])))
         .orderBy(asc(communityGroups.name))
+    }),
+
+  // Who runs the group and how to reach them (RAZ-967): WeDance admins and the city's admins.
+  // Blank clears a field. Not tracked: the contact is personal data.
+  setAdmin: protectedProcedure
+    .input(z.object({
+      id: z.string().uuid(),
+      adminName: z.string().max(ADMIN_NAME_MAX).optional().nullable(),
+      adminContact: z.string().max(ADMIN_CONTACT_MAX).optional().nullable(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const [g] = await ctx.db.select({ id: communityGroups.id, citySlug: communityGroups.citySlug }).from(communityGroups).where(eq(communityGroups.id, input.id))
+      if (!g) throw new TRPCError({ code: 'NOT_FOUND', message: 'Group not found.' })
+      await requireCityAdmin(ctx as any, g.citySlug)
+      const values = {
+        adminName: cleanAdminField(input.adminName, ADMIN_NAME_MAX),
+        adminContact: cleanAdminField(input.adminContact, ADMIN_CONTACT_MAX),
+      }
+      await ctx.db.update(communityGroups).set(values).where(eq(communityGroups.id, input.id))
+      return values
     }),
 
   // Check invite links (WhatsApp / Telegram), the longest-unchecked first. A dead link

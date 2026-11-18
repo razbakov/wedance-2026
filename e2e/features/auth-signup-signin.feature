@@ -10,7 +10,7 @@ Feature: Sign up, sign in, and sign out
   Scenario: New user registers, signs out, then signs back in
     Given I am on the home page
     When I click "Sign in" in the header
-    And I click "Create an account" in the modal
+    And I click the "Join" tab in the modal
     And I fill in "Name" with "Smoke Tester"
     And I fill in "Email" with a unique test email
     And I fill in "Password" with "SmokeyPass88!"

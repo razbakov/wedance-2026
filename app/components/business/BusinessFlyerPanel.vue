@@ -5,6 +5,8 @@ import { sizedImage, IMG } from '#shared/utils/image'
  * or out of date with what changed since and a one-click refresh in the same
  * look. Lists the exact lines that go on the flyer. Making or refreshing asks
  * the page to save first (`go`), since the flyer is painted from saved details.
+ * A draft in progress says "Continue your flyer": leaving the page keeps the
+ * uploads and the step.
  */
 import { Sparkles, Wand2, Download, AlertTriangle, Loader2 } from 'lucide-vue-next'
 
@@ -61,8 +63,9 @@ const download = (url: string) => url.replace('/upload/', '/upload/fl_attachment
         <!-- None yet -->
         <template v-if="status === 'none'">
           <div class="mx-auto mt-3 flex aspect-[9/16] w-32 items-center justify-center rounded-xl border-2 border-dashed border-input text-center text-xs text-muted-foreground">Instagram story<br>1080×1920</div>
-          <Button type="button" variant="cta" class="mt-4 w-full" @click="emit('go', { action: 'make' })"><Sparkles /> Make the flyer</Button>
-          <p class="mt-1.5 text-center text-xs text-muted-foreground">
+          <Button type="button" variant="cta" class="mt-4 w-full" @click="emit('go', { action: 'make' })"><Sparkles /> {{ st.draft && !painting ? 'Continue your flyer' : 'Make the flyer' }}</Button>
+          <p v-if="st.draft && !painting" class="mt-1.5 text-center text-xs text-muted-foreground">Your photos and the draft are still here.</p>
+          <p v-else class="mt-1.5 text-center text-xs text-muted-foreground">
             {{ st.looks.length ? `In your “${st.looks[0]!.name}” look. About a minute.` : 'About a minute. Uses the details on this page.' }}
           </p>
         </template>

@@ -14,12 +14,16 @@ import { Textarea } from '~/components/ui/textarea'
 
 const GREEN_CHIP = accentText(WD.green600)
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   targetType: 'festival' | 'venue' | 'artist' | 'organizer' | 'event'
   targetSlug: string
   targetName?: string
   citySlug?: string
-}>()
+  /** false = no "Write a review" here (an event is reviewed from its hero, by people who went — RAZ-1011). */
+  canWrite?: boolean
+  /** A line under the heading: who can review, and when. */
+  note?: string
+}>(), { canWrite: true, note: '' })
 
 const { $trpc } = useNuxtApp()
 const { isSignedIn } = useAuth()
@@ -83,8 +87,10 @@ function fmtDate(d: any) {
       </div>
     </div>
 
+    <p v-if="note" class="mt-3 text-sm text-muted-foreground" data-reviews-note>{{ note }}</p>
+
     <!-- Write CTA / form -->
-    <div v-if="isSignedIn" class="mt-4">
+    <div v-if="isSignedIn && canWrite" class="mt-4">
       <Button v-if="!showForm" type="button" variant="soft" size="pill-sm" @click="showForm = true">Write a review</Button>
 
       <div v-else class="rounded-2xl border p-4 mt-1 bg-card" style="border-color:color-mix(in srgb, var(--wd-red-600) 20%, transparent);">
@@ -107,13 +113,14 @@ function fmtDate(d: any) {
 
     <!-- List -->
     <div v-if="loading" class="mt-4 text-sm text-secondary">Loading reviews…</div>
-    <p v-else-if="!data.count" class="mt-4 text-sm italic text-secondary">No reviews yet. Be the first.</p>
+    <p v-else-if="!data.count" class="mt-4 text-sm italic text-secondary">No reviews yet.{{ canWrite ? ' Be the first.' : '' }}</p>
     <ul v-else class="mt-5 space-y-4">
       <li v-for="r in data.reviews" :key="r.id" class="rounded-2xl border p-4 bg-card" style="border-color:color-mix(in srgb, var(--wd-brown-900) 10.2%, transparent);">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
             <NuxtLink v-if="r.reviewerUsername" :to="`/u/${r.reviewerUsername}`" class="text-sm font-bold hover:underline text-foreground">{{ r.reviewerName || 'A dancer' }}</NuxtLink>
             <span v-else class="text-sm font-bold text-foreground">{{ r.reviewerName || 'A dancer' }}</span>
+            <span v-if="r.went" class="text-tag uppercase tracking-wider font-bold rounded-full px-1.5 py-0.5" :style="{ background: 'color-mix(in srgb, var(--wd-green-600) 9.4%, transparent)', color: GREEN_CHIP }" data-review-went>Went</span>
             <span v-if="r.source === 'recommendation'" class="text-tag uppercase tracking-wider font-bold rounded-full px-1.5 py-0.5" :style="{ background: 'color-mix(in srgb, var(--wd-green-600) 9.4%, transparent)', color: GREEN_CHIP }">Recommended</span>
           </div>
           <div class="flex items-center gap-0.5">

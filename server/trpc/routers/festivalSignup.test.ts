@@ -56,6 +56,13 @@ vi.mock('drizzle-orm', async () => {
   return { eq, and, sql: (..._args: any[]) => ({}), gt: () => () => true }
 })
 
+// The live event's passes (RAZ-946): none by default, so the registry prices apply.
+const livePassesMock = vi.hoisted(() => vi.fn(async (): Promise<any> => null))
+vi.mock('../../utils/eventPasses', async (orig) => ({
+  ...(await orig<typeof import('../../utils/eventPasses')>()),
+  livePasses: livePassesMock,
+}))
+
 // Mock drizzle pg-core just enough to satisfy schema imports.
 // (Schema is imported above; the mock is for any indirect use.)
 
@@ -465,5 +472,46 @@ describe('festivalSignup.ticketCheckout', () => {
         ticketNames: ['Friday Pass'],
       }),
     ).rejects.not.toThrow(/already have a ticket/i)
+  })
+})
+
+describe('festivalSignup.ticketCheckout with passes from the event editor (RAZ-946)', () => {
+  const KEY = 'my-editor-festival-2027'
+  const passes = [
+    { name: 'Full Pass', price: 89.5, days: [] },
+    { name: 'Party Pass', price: 25, days: [], soldOut: true },
+    { name: 'Free Social', price: 0, days: [] },
+  ]
+
+  it('prices a pass the organiser added, not the hard-coded registry', async () => {
+    livePassesMock.mockResolvedValueOnce(passes)
+    const db = new FakeDb()
+    db.seedFestival(KEY)
+    const me = db.seedDancer({ name: 'Buyer' })
+    const caller = makeCaller(db, { dancerId: me })
+    // Passes every guard; fails only at Stripe (no key in tests).
+    const err = await caller.festivalSignup.ticketCheckout({ festivalSlug: KEY, ticketNames: ['Full Pass'] }).catch(e => e)
+    expect(err.message).not.toMatch(/not found|sold out|free/i)
+  })
+
+  it('rejects a name that is not one of the event passes', async () => {
+    livePassesMock.mockResolvedValueOnce(passes)
+    const db = new FakeDb()
+    db.seedFestival(KEY)
+    const me = db.seedDancer({ name: 'Buyer' })
+    await expect(makeCaller(db, { dancerId: me }).festivalSignup.ticketCheckout({ festivalSlug: KEY, ticketNames: ['VIP'] }))
+      .rejects.toThrow(/not found/i)
+  })
+
+  it('rejects a sold-out pass and a free one', async () => {
+    const db = new FakeDb()
+    db.seedFestival(KEY)
+    const me = db.seedDancer({ name: 'Buyer' })
+    livePassesMock.mockResolvedValueOnce(passes)
+    await expect(makeCaller(db, { dancerId: me }).festivalSignup.ticketCheckout({ festivalSlug: KEY, ticketNames: ['Party Pass'] }))
+      .rejects.toThrow(/sold out/i)
+    livePassesMock.mockResolvedValueOnce(passes)
+    await expect(makeCaller(db, { dancerId: me }).festivalSignup.ticketCheckout({ festivalSlug: KEY, ticketNames: ['Free Social'] }))
+      .rejects.toThrow(/free/i)
   })
 })

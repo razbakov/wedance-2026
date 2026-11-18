@@ -5,12 +5,38 @@ import { fitSchedule, scheduleSvg } from './scheduleImage'
 import type { ScheduleDay } from '../../shared/utils/citySchedule'
 
 describe('invite link check', () => {
-  it('reads WhatsApp invite pages: a name means alive, an empty title means reset', () => {
-    expect(readInvitePage('whatsapp', '<meta property="og:title" content="Salsa &amp; Bachata Munich" /><meta property="og:description" content="WhatsApp Group Invite" />'))
+  // The meta tags of real chat.whatsapp.com pages (RAZ-862, Nov 2026), trimmed.
+  const waPage = (title: string, typeV2: string | null, extra = '') => [
+    `<meta property="og:title" content="${title}" />`,
+    '<meta property="og:description" content="WhatsApp Group Invite" />',
+    '<meta property="invite_link_type" content="REGULAR" />',
+    typeV2 === null ? '' : `<meta property="invite_link_type_v2" content="${typeV2}" />`,
+    extra,
+  ].join('')
+
+  it('reads WhatsApp invite pages: a name means alive, an empty title AND link type means reset', () => {
+    expect(readInvitePage('whatsapp', waPage('Salsa &amp; Bachata Munich', 'REGULAR')))
       .toEqual({ status: 'ok', title: 'Salsa & Bachata Munich' })
-    expect(readInvitePage('whatsapp', '<meta property="og:title" content="" /><meta property="og:description" content="WhatsApp Group Invite" />').status).toBe('dead')
+    // Working community sub-group and parent, as WhatsApp serves them.
+    expect(readInvitePage('whatsapp', waPage('G&#xe9;n&#xe9;ral', 'SUB', '<meta property="parent_group_subject" content="Tarraxo community" />')))
+      .toEqual({ status: 'ok', title: 'Général' })
+    expect(readInvitePage('whatsapp', waPage('ZOUK FESTIVAL', 'PARENT')).status).toBe('ok')
+    // A made-up / reset code: both empty.
+    expect(readInvitePage('whatsapp', waPage('', '')).status).toBe('dead')
     // Not the page we know: never guess.
     expect(readInvitePage('whatsapp', '<html>blocked</html>').status).toBe('unknown')
+  })
+
+  it('never hides a WhatsApp group on one empty signal', () => {
+    // Empty title but the group has a link type: it exists.
+    expect(readInvitePage('whatsapp', waPage('', 'REGULAR')).status).toBe('unknown')
+    // Empty title and no link-type tag at all: the page changed, not proof.
+    expect(readInvitePage('whatsapp', waPage('', null)).status).toBe('unknown')
+    expect(readInvitePage('whatsapp', waPage('   ', null)).status).toBe('unknown')
+  })
+
+  it('decodes entities in titles without double-decoding', () => {
+    expect(readInvitePage('whatsapp', waPage('Rock &#039;n&#039; Roll &amp;lt;3', 'REGULAR')).title).toBe('Rock \'n\' Roll &lt;3')
   })
 
   it('reads Telegram pages: a title means alive', () => {

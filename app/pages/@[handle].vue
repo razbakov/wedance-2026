@@ -170,6 +170,7 @@ const scheduleCards = computed(() => [
     endTime: e.endDate ? eventLocalTime(e.endDate, e.timezone) : undefined,
     location: e.venueUsername === profile.value?.username ? (e.organizerName || '') : (e.venueName || ''),
     href: eventPath(e),
+    cancelled: !!e.cancelledAt, cancelReason: e.cancelReason ?? null,
   })),
 ])
 // Busy schools have 100+ dated classes — show the next ones, expand on demand.

@@ -6,7 +6,7 @@ import { MapPin, Plus } from "lucide-vue-next"
 import { cn } from "@/lib/utils"
 import { controlAria, FIELD_KEY } from "@/lib/field"
 import { controlVariants } from "@/components/ui/input"
-import { cityKey, matchRange, mergeCityResults, needsResolve, normalizeCity, searchCities } from "#shared/utils/citySearch"
+import { cityKey, exactCity, matchRange, mergeCityResults, needsResolve, normalizeCity, searchCities } from "#shared/utils/citySearch"
 
 /**
  * City typeahead — ARIA 1.2 combobox (list autocomplete, no auto-select).
@@ -82,7 +82,9 @@ const searching = ref(false)
 const resolving = ref<string | null>(null)
 const error = ref("")
 
-watch(model, (v) => { if ((v ?? "") !== text.value) text.value = v ?? "" })
+// True while onInput is writing the model, so that write doesn't snap the text back.
+let editing = false
+watch(model, (v) => { if (!editing && (v ?? "") !== text.value) text.value = v ?? "" })
 
 const local = computed(() => {
   if (!query.value.trim() && !props.showPopular) return []
@@ -144,14 +146,36 @@ function close() {
 
 function onInput(e: Event) {
   const v = (e.target as HTMLInputElement).value
+  editing = true
   text.value = v
   error.value = ""
   if (props.freeText) model.value = v
   else if (!v.trim()) model.value = ""
+  else commitExact(v)
+  editing = false
   query.value = v
   openList()
   scheduleRemote()
 }
+
+/** "Munich" / "München" becomes the canonical name as soon as the list can say so. */
+function commitExact(typed: string) {
+  const match = exactCity(source.value, typed)
+  if (match && !needsResolve(match)) {
+    model.value = match.name
+    return true
+  }
+  // A half-typed name is not a city yet — don't keep the previous one.
+  if (normalizeCity(typed) !== normalizeCity(model.value ?? "")) model.value = ""
+  return false
+}
+
+// The list arrives after the first letters. Commit once it can name what was typed.
+watch(source, () => {
+  if (props.freeText || resolving.value) return
+  const typed = text.value.trim()
+  if (typed) commitExact(typed)
+})
 
 function commit(city: CityOption) {
   text.value = city.name
@@ -228,8 +252,17 @@ function onKeydown(e: KeyboardEvent) {
 
 function onBlur() {
   close()
-  // Typed-but-not-picked text is not a city: put the saved value back.
-  if (!props.freeText && !resolving.value && text.value !== (model.value ?? "")) {
+  if (props.freeText || resolving.value) return
+  // Still fetching the city list: keep what they typed. Save waits for the list
+  // and commits it; wiping it here is why the first Settings save came back empty.
+  if (useRemote.value && remote.status.value !== "ready" && remote.status.value !== "error") return
+  if (commitExact(text.value)) {
+    const match = exactCity(source.value, text.value)
+    if (match) text.value = match.name
+    return
+  }
+  // Typed-but-not-a-city text is not saved: put the saved value back.
+  if (text.value !== (model.value ?? "")) {
     text.value = model.value ?? ""
     query.value = text.value
     error.value = ""
@@ -309,17 +342,21 @@ const status = computed(() => {
           :aria-busy="resolving === cityKey(c) ? 'true' : undefined"
           :data-source="c.source"
           :data-active="i === active ? '' : undefined"
-          class="flex cursor-pointer items-center gap-2.5 px-3.5 py-2.5 text-sm font-sans text-foreground data-[active]:bg-accent data-[active]:text-accent-foreground hover:bg-muted"
+          class="flex cursor-pointer items-center gap-2.5 px-3.5 py-2 text-sm font-sans text-foreground data-[active]:bg-accent data-[active]:text-accent-foreground hover:bg-muted"
           @mousedown.prevent
           @click="pick(c)"
           @mousemove="active = i"
         >
           <component :is="c.source === 'google' ? Plus : MapPin" class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-          <span class="min-w-0 flex-1 truncate">
-            <template v-for="(p, j) in [parts(c.name)]" :key="j">{{ p[0] }}<mark class="bg-transparent font-bold text-inherit">{{ p[1] }}</mark>{{ p[2] }}</template>
+          <!-- City on its own line, country / region under it: in a narrow field
+               the city name gets the whole width instead of being cut. -->
+          <span class="min-w-0 flex-1">
+            <span class="block truncate">
+              <template v-for="(p, j) in [parts(c.name)]" :key="j">{{ p[0] }}<mark class="bg-transparent font-bold text-inherit">{{ p[1] }}</mark>{{ p[2] }}</template>
+            </span>
+            <span v-if="detail(c) && resolving !== cityKey(c)" class="block truncate text-xs text-muted-foreground">{{ detail(c) }}</span>
           </span>
           <span v-if="resolving === cityKey(c)" class="shrink-0 text-xs text-muted-foreground">Adding…</span>
-          <span v-else-if="detail(c)" class="shrink-0 max-w-[45%] truncate text-xs text-muted-foreground">{{ detail(c) }}</span>
         </li>
       </ul>
       <p v-if="open && (loading || pending) && !results.length" class="px-3.5 py-3 text-sm text-muted-foreground font-sans">

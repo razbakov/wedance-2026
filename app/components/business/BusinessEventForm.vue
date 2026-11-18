@@ -8,8 +8,12 @@
  */
 import type { PropType } from 'vue'
 import { MapPin, CalendarDays, Send, Pencil, Check, Plus, X, FileText, ListOrdered, Ticket, Users, Palette, Handshake } from 'lucide-vue-next'
+import { entryNoun, entryWords } from '#shared/utils/entryWord'
 import { priceLines } from '#shared/utils/flyer'
 import { agendaToSessions, emptyEventDetails, legacyAgendaOf } from '#shared/utils/programme'
+import { blankBusinessEvent, lineupSummary } from '~/lib/businessEvent'
+import { eventErrorCard, eventFieldLabel, type SaveError } from '~/lib/eventSaveError'
+import { EventLimitsSchema, validateForm } from '#shared/validation'
 
 export type BusinessEventValues = {
   hostUsername: string
@@ -53,6 +57,10 @@ const props = defineProps({
   eventId: { type: String, default: undefined },
   /** Display names for the read-only cards (the venue picker stores a handle). */
   labels: { type: Object as PropType<{ venue?: string; host?: string }>, default: () => ({}) },
+  /** What the host's other events suggest (RAZ-939): artists they booked, last time's price. */
+  hints: { type: Object as PropType<{ artists: string[]; price: string | null }>, default: () => ({ artists: [], price: null }) },
+  /** The last save the server refused (RAZ-991): shown in the save bar, its fields' cards opened. */
+  saveError: { type: Object as PropType<SaveError | null>, default: null },
 })
 const emit = defineEmits<{ submit: [values: BusinessEventValues] }>()
 
@@ -60,12 +68,8 @@ const emit = defineEmits<{ submit: [values: BusinessEventValues] }>()
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v))
 
 const TYPES = ['Party', 'Workshop', 'Course', 'Festival', 'Weekender', 'Congress', 'Concert', 'Show']
-const blank = (): BusinessEventValues => ({
-  hostUsername: '', name: '', type: 'Party', date: '', startTime: '20:00', endTime: '', endDate: '',
-  city: '', venueUsername: null, venueName: '', venueAddress: '', artists: [], coOrganizers: [], styles: [],
-  description: '', cover: '', ticketUrl: '', price: '', published: true,
-  agenda: [], showAgenda: true, photos: {}, names: {}, festival: null,
-})
+// New events start as drafts (RAZ-927).
+const blank = blankBusinessEvent
 const form = reactive<BusinessEventValues>({ ...blank(), ...clone(props.initial) })
 // Prices are edited one per line.
 const prices = ref<string[]>(priceLines(form.price))
@@ -74,7 +78,9 @@ watch(prices, v => (form.price = v.map(p => p.trim()).filter(Boolean).join('\n')
 // Venue not on WeDance → type its name and address instead.
 const venueManual = ref(!form.venueUsername && !!form.venueName)
 const multiDay = ref(!!form.endDate)
-const isMultiDayType = computed(() => ['Festival', 'Weekender', 'Congress'].includes(form.type))
+const isMultiDayType = computed(() => entryNoun({ type: form.type }) === 'pass')
+// A festival sells passes; a party or class sells tickets (RAZ-1029).
+const soldAs = computed(() => entryWords(entryNoun({ type: form.type })))
 watch(isMultiDayType, (v) => { if (v) multiDay.value = true }, { immediate: true })
 
 // Every event has the same cards and the same details: programme by day,
@@ -101,12 +107,25 @@ watch(() => props.initial, (v) => {
   snapshot.value = JSON.stringify(form)
 }, { deep: true })
 
-const open = ref(new Set<string>(props.mode === 'create' ? ['when', 'where', 'event', 'agenda', 'entry'] : []))
+const open = ref(new Set<string>(props.mode === 'create' ? ['when', 'where', 'lineup', 'event', 'agenda', 'entry'] : []))
 const isOpen = (k: string) => open.value.has(k)
 function toggle(k: string) {
   const next = new Set(open.value)
   next.has(k) ? next.delete(k) : next.add(k)
   open.value = next
+}
+// The editor's steps (RAZ-939): one card open at a time, scrolled into view.
+function focus(k: string) {
+  open.value = new Set([k])
+  nextTick(() => document.getElementById(`ev-card-${k}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+}
+// Suggestions from the host's past events.
+const pastArtists = computed(() => props.hints.artists.filter(h => !form.artists.includes(h)))
+function addArtist(h: string) {
+  if (!form.artists.includes(h)) form.artists = [...form.artists, h]
+}
+function useLastPrice() {
+  if (props.hints.price) prices.value = priceLines(props.hints.price)
 }
 
 // Co-organisers: the picker edits the handles, each keeps its role label.
@@ -116,6 +135,28 @@ const coHandles = computed<string[]>({
 })
 
 const errors = reactive<Record<string, string | undefined>>({})
+// Size limits (line-up, practical info, passes) the server would refuse: checked
+// live, shown once a save was tried, so a too-long line is flagged before Save.
+const limits = computed(() => validateForm(EventLimitsSchema, { artists: form.artists, festival: form.festival }))
+const showLimits = ref(false)
+const limitErrors = computed(() => (showLimits.value && !limits.value.success ? limits.value.fieldErrors : {}))
+// What the save bar says: this form's own problem first, else the server's refusal.
+const barError = computed(() => {
+  const own = Object.values(errors).find(Boolean)
+  if (own) return own
+  const [path, msg] = Object.entries(limitErrors.value)[0] ?? []
+  if (path && msg) return `${eventFieldLabel(path.split('.').map(x => (/^\d+$/.test(x) ? Number(x) : x)))}: ${msg}`
+  return props.saveError?.message || ''
+})
+/** Open the cards these fields live in and bring the first one into view. */
+function reveal(cards: string[]) {
+  if (!cards.length) return
+  open.value = new Set([...open.value, ...cards])
+  nextTick(() => document.getElementById(`ev-card-${cards[0]}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+}
+watch(() => props.saveError, (e) => {
+  if (e) reveal([...new Set(e.paths.map(eventErrorCard).filter((c): c is string => !!c))])
+})
 function validate() {
   errors.host = props.hosts.length && !form.hostUsername ? 'Pick who runs this event.' : undefined
   errors.name = form.name.trim() ? undefined : 'Add a name.'
@@ -128,7 +169,9 @@ function validate() {
   const next = new Set(open.value)
   for (const [k, v] of Object.entries(errors)) if (v && card[k]) next.add(card[k]!)
   open.value = next
-  return !Object.values(errors).some(Boolean)
+  showLimits.value = !limits.value.success
+  if (!limits.value.success) reveal([...new Set(Object.keys(limits.value.fieldErrors).map(eventErrorCard).filter((c): c is string => !!c))])
+  return !Object.values(errors).some(Boolean) && limits.value.success
 }
 function submit() {
   if (!validate()) return false
@@ -154,7 +197,14 @@ function submit() {
   })
   return true
 }
-defineExpose({ dirty, submit })
+// The editor's "Publish" step: saves what's in the form and makes it live.
+function publish() {
+  form.published = true
+  if (submit()) return true
+  form.published = false
+  return false
+}
+defineExpose({ dirty, submit, publish, focus })
 
 // Read-only summaries.
 const fmtDate = (d: string) => d ? new Date(`${d}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) : ''
@@ -182,6 +232,9 @@ const sessionsText = computed(() => {
   const n = form.festival?.sessions?.length ?? 0
   return n ? `${n} session${n === 1 ? '' : 's'} over ${festivalDays.value.length || 1} day${festivalDays.value.length === 1 ? '' : 's'}` : 'Workshops and parties, day by day.'
 })
+const publishHint = computed(() => props.mode === 'create'
+  ? (form.published ? 'Dancers see it as soon as you create it.' : 'It starts as a draft: only you see it. Add the venue, line-up and flyer, then publish.')
+  : (form.published ? 'Dancers can see it.' : 'Only you can see it until you publish.'))
 const hostText = computed(() => props.hosts.find(h => h.username === form.hostUsername)?.name || props.labels.host || '')
 </script>
 
@@ -222,7 +275,7 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
     </section>
 
     <!-- When, with what else is on those days -->
-    <section class="rounded-2xl border bg-card p-4">
+    <section id="ev-card-when" class="scroll-mt-20 rounded-2xl border bg-card p-4">
       <div class="flex items-center justify-between gap-2">
         <h2 class="flex items-center gap-1.5 text-sm font-bold"><CalendarDays class="size-4 text-muted-foreground" aria-hidden="true" /> When</h2>
         <Button v-if="mode === 'edit'" type="button" variant="ghost" size="sm" :aria-expanded="isOpen('when')" @click="toggle('when')"><template v-if="isOpen('when')"><Check /> Done</template><template v-else><Pencil /> Edit</template></Button>
@@ -252,7 +305,7 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
     </section>
 
     <!-- Where -->
-    <section class="rounded-2xl border bg-card p-4">
+    <section id="ev-card-where" class="scroll-mt-20 rounded-2xl border bg-card p-4">
       <div class="flex items-center justify-between gap-2">
         <h2 class="flex items-center gap-1.5 text-sm font-bold"><MapPin class="size-4 text-muted-foreground" aria-hidden="true" /> Where</h2>
         <Button v-if="mode === 'edit'" type="button" variant="ghost" size="sm" :aria-expanded="isOpen('where')" @click="toggle('where')"><template v-if="isOpen('where')"><Check /> Done</template><template v-else><Pencil /> Edit</template></Button>
@@ -294,6 +347,8 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
           class="mt-4"
           @pick="v => { venueManual = false; pickedVenue = v.name }"
         />
+        <!-- The venue's own hints (RAZ-1012): saved on its page, shown by every event there. -->
+        <BusinessEventVenueHints v-if="!venueManual && form.venueUsername" :username="form.venueUsername" class="mt-4" />
         <BusinessFestivalEditor v-if="form.festival" v-model="form.festival" part="practical" :days="festivalDays" class="mt-4" />
       </div>
       <p v-else class="mt-1 text-sm">
@@ -304,16 +359,30 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
 
     <!-- Line-up: before the programme, which picks its artists from it -->
     <section id="lineup" class="scroll-mt-20 rounded-2xl border bg-card p-4">
-      <h2 class="flex items-center gap-1.5 text-sm font-bold"><Users class="size-4 text-muted-foreground" aria-hidden="true" /> Line-up</h2>
-      <p class="text-xs text-muted-foreground">DJs, teachers, performers. Everyone is named on the flyer. Pick the photo it uses, or “Name only”.</p>
-      <BusinessLineupPicker
-        v-model="form.artists"
-        v-model:photos="form.photos"
-        v-model:names="form.names"
-        :videos="form.festival?.videos"
-        :event-id="eventId"
-        class="mt-3"
-      />
+      <span id="ev-card-lineup" class="block scroll-mt-20" aria-hidden="true" />
+      <div class="flex items-center justify-between gap-2">
+        <h2 class="flex items-center gap-1.5 text-sm font-bold"><Users class="size-4 text-muted-foreground" aria-hidden="true" /> Line-up</h2>
+        <Button v-if="mode === 'edit'" type="button" variant="ghost" size="sm" :aria-expanded="isOpen('lineup')" @click="toggle('lineup')"><template v-if="isOpen('lineup')"><Check /> Done</template><template v-else><Pencil /> Edit</template></Button>
+      </div>
+      <p v-if="!isOpen('lineup')" class="mt-1 text-sm" data-lineup-summary>{{ lineupSummary(form.artists, form.names) }}</p>
+      <template v-else>
+        <p class="text-xs text-muted-foreground">DJs, teachers, performers. Everyone is named on the flyer. Pick the photo it uses, or “Name only”.</p>
+        <FieldError id="ev-artists-error" :message="limitErrors.artists" />
+        <BusinessLineupPicker
+          v-model="form.artists"
+          v-model:photos="form.photos"
+          v-model:names="form.names"
+          :videos="form.festival?.videos"
+          :event-id="eventId"
+          class="mt-3"
+        />
+        <div v-if="pastArtists.length" class="mt-3" data-past-artists>
+          <p class="text-xs font-bold text-muted-foreground">From your past events</p>
+          <div class="mt-1 flex flex-wrap gap-1.5">
+            <Button v-for="h in pastArtists" :key="h" type="button" variant="outline-pill" size="pill-sm" @click="addArtist(h)"><Plus /> @{{ h }}</Button>
+          </div>
+        </div>
+      </template>
     </section>
 
     <!-- Programme: day by day, for every type -->
@@ -336,16 +405,20 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
     </section>
 
     <!-- Entry and tickets -->
-    <section class="rounded-2xl border bg-card p-4">
+    <section id="ev-card-entry" class="scroll-mt-20 rounded-2xl border bg-card p-4">
       <div class="flex items-center justify-between gap-2">
         <h2 class="flex items-center gap-1.5 text-sm font-bold"><Ticket class="size-4 text-muted-foreground" aria-hidden="true" /> Entry and tickets</h2>
         <Button v-if="mode === 'edit'" type="button" variant="ghost" size="sm" :aria-expanded="isOpen('entry')" @click="toggle('entry')"><template v-if="isOpen('entry')"><Check /> Done</template><template v-else><Pencil /> Edit</template></Button>
       </div>
-      <div v-if="isOpen('entry')" class="mt-3 grid gap-2">
-        <BusinessFestivalEditor v-if="form.festival" v-model="form.festival" part="passes" :days="festivalDays" />
+      <div v-if="isOpen('entry')" class="mt-3 grid grid-cols-1 gap-2">
+        <BusinessFestivalEditor v-if="form.festival" v-model="form.festival" part="passes" :word="soldAs.one" :days="festivalDays" class="min-w-0" />
         <div class="mt-4">
           <p class="text-sm font-bold">Promotions <span class="font-normal text-muted-foreground">(optional)</span></p>
           <p class="text-xs text-muted-foreground">Deals and door prices, one per line, e.g. “Free until 21:00”, “From 21:00 · 10€”, “Early bird −20% until 1 Nov”.</p>
+        </div>
+        <div v-if="hints.price && !prices.some(p => p.trim())" class="flex flex-wrap items-center gap-2 rounded-xl bg-muted/60 p-3 text-sm" data-last-price>
+          <span class="min-w-0 flex-1"><span class="font-bold">Last time:</span> {{ priceLines(hints.price).join(' · ') }}</span>
+          <Button type="button" variant="outline-pill" size="pill-sm" @click="useLastPrice">Use the same</Button>
         </div>
         <div v-for="(_, i) in prices" :key="i" class="flex gap-2">
           <Input v-model="prices[i]" class="flex-1" :aria-label="`Promotion, line ${i + 1}`" />
@@ -357,7 +430,7 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
         </Field>
       </div>
       <div v-else class="mt-1 text-sm">
-        <p v-if="form.festival?.passes?.length">Passes: {{ form.festival.passes.map(p => p.name).filter(Boolean).join(' · ') }}</p>
+        <p v-if="form.festival?.passes?.length">{{ soldAs.Many }}: {{ form.festival.passes.map(p => p.name).filter(Boolean).join(' · ') }}</p>
         <p>{{ prices.filter(Boolean).length ? `Promotions: ${prices.filter(Boolean).join(' · ')}` : 'No promotions' }}</p>
         <p class="truncate text-xs text-muted-foreground">{{ form.ticketUrl ? `Tickets: ${form.ticketUrl}` : 'No ticket link' }}</p>
       </div>
@@ -385,15 +458,26 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
       <BusinessFestivalEditor v-if="isFestival && form.festival" v-model="form.festival" part="branding" :days="festivalDays" class="mt-4" />
     </section>
 
-    <div class="mt-3 flex flex-wrap items-center gap-3">
+    <!--
+      Publish + save: one bar that sticks to the bottom of the screen (above the
+      phone tab bar) while the form is on screen, so it's never lost on a long
+      event (RAZ-987). Left padding on small screens clears the "Talk to us" button.
+    -->
+    <div
+      :id="mode === 'edit' ? 'ev-step-publish' : undefined"
+      class="sticky bottom-[calc(0.5rem+var(--wd-tabbar-h,0px))] z-20 mt-3 scroll-mt-20 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border bg-card/95 py-3 pl-16 pr-3 shadow-wd-float backdrop-blur sm:pl-40 md:pl-4"
+      role="region"
+      aria-label="Publish and save"
+      data-testid="event-save-bar"
+    >
       <label class="inline-flex items-center gap-2 text-sm font-bold">
-        <Checkbox v-model="form.published" /> Published
+        <Checkbox v-model="form.published" :data-publish-now="mode === 'create' ? '' : undefined" />
+        {{ mode === 'create' ? 'Publish it now' : 'Published' }}
       </label>
-      <span class="text-xs text-muted-foreground">{{ form.published ? 'Dancers can see it.' : 'Only you can see it until you publish.' }}</span>
-    </div>
-    <div class="flex flex-wrap items-center gap-3">
-      <Button type="submit" variant="pill" :loading="saving">{{ submitLabel }}</Button>
-      <span v-if="dirty && !saving" class="text-sm text-muted-foreground">Unsaved changes</span>
+      <span class="hidden min-w-0 flex-1 text-xs text-muted-foreground lg:inline">{{ publishHint }}</span>
+      <p v-if="barError && !saving" class="order-last basis-full text-sm font-bold text-destructive" role="alert" data-save-error>{{ barError }}</p>
+      <span v-if="dirty && !saving" class="ml-auto text-sm font-bold text-wd-amber-800" role="status">Unsaved changes</span>
+      <Button type="submit" variant="pill" :loading="saving" :class="dirty && !saving ? '' : 'ml-auto'">{{ submitLabel }}</Button>
       <slot name="after-submit" :dirty="dirty" />
     </div>
   </form>

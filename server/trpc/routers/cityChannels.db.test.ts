@@ -69,6 +69,26 @@ describe.skipIf(!DATABASE_URL)('city channels (DB)', () => {
     expect(row.team.map(m => m.name).sort()).toEqual(['Ada Admin', 'Carla City'])
   })
 
+  it('an admin creates a missing city page in one click; a typo gets a clear error', async () => {
+    const other = `${tag}-ville`
+    await expect(as(ids.admin, true).cityChannels.setCityPage({ citySlug: other, username: `${tag}typo` })).rejects.toThrow(/no page @.*Create @wedance/)
+    await expect(as(ids.stranger).cityChannels.createCityPage({ citySlug: other })).rejects.toThrow(/Admin/)
+    const r = await as(ids.admin, true).cityChannels.createCityPage({ citySlug: other })
+    try {
+      expect(r.page.username).toBe(`wedance${tag}ville`)
+      const [p] = await db.select().from(schema.profiles).where(eq(schema.profiles.username, r.page.username))
+      expect(p).toMatchObject({ type: 'organizer', citySlug: other, claimed: true })
+      expect(p.name).toMatch(/^WeDance /)
+      const row = (await as(ids.admin, true).cityChannels.overview()).find(x => x.citySlug === other)!
+      expect(row.page?.username).toBe(r.page.username)
+      expect(row.team).toEqual([expect.objectContaining({ name: 'Ada Admin', role: 'owner' })])
+      await expect(as(ids.admin, true).cityChannels.createCityPage({ citySlug: other })).rejects.toThrow(/already/)
+    } finally {
+      await db.delete(schema.cityPages).where(eq(schema.cityPages.citySlug, other))
+      await db.delete(schema.profiles).where(eq(schema.profiles.username, r.page.username))
+    }
+  })
+
   it('city admins list official channels; the city page shows them', async () => {
     await expect(as(ids.stranger).cityChannels.saveChannel({ citySlug: city, platform: 'telegram', name: 'X', inviteUrl: 'https://t.me/x_town' })).rejects.toThrow(/admins/)
     await expect(as(ids.cityAdmin).cityChannels.saveChannel({ citySlug: city, platform: 'telegram', name: 'X', inviteUrl: 'https://chat.whatsapp.com/abc' })).rejects.toThrow(/t\.me/)
@@ -103,6 +123,30 @@ describe.skipIf(!DATABASE_URL)('city channels (DB)', () => {
     expect(await publicList()).toEqual([])
     await as(ids.cityAdmin).communityGroup.setVisible({ id: r.id, visible: true })
     expect(await publicList()).toHaveLength(1)
+  })
+
+  it('a group’s admin and contact are kept for city admins only (RAZ-967)', async () => {
+    const [g] = await db.select({ id: schema.communityGroups.id }).from(schema.communityGroups)
+      .where(eq(schema.communityGroups.inviteKey, `chat.whatsapp.com/${tag}AbC`))
+    await expect(as(ids.stranger).communityGroup.setAdmin({ id: g.id, adminName: 'Eve', adminContact: '+49 1' })).rejects.toThrow(/admins/)
+    expect(await as(ids.cityAdmin).communityGroup.setAdmin({ id: g.id, adminName: '  Maria  Lopez ', adminContact: '+49 151 2345678' }))
+      .toEqual({ adminName: 'Maria Lopez', adminContact: '+49 151 2345678' })
+
+    const forCity = await as(ids.cityAdmin).communityGroup.forCity({ citySlug: city })
+    expect(forCity.find(x => x.id === g.id)).toMatchObject({ adminName: 'Maria Lopez', adminContact: '+49 151 2345678' })
+    const all = await as(ids.admin, true).communityGroup.listAll({ citySlug: city })
+    expect(all.find(x => x.id === g.id)).toMatchObject({ adminName: 'Maria Lopez', adminContact: '+49 151 2345678' })
+
+    // Never on the city page.
+    const anon = appRouter.createCaller({ db, dancerId: null, isAdmin: false } as any)
+    const listed = await anon.communityGroup.listByCity({ citySlug: city })
+    expect(listed).toHaveLength(1)
+    expect(JSON.stringify(listed)).not.toMatch(/Maria|2345678|adminName|adminContact/)
+    expect(JSON.stringify(await anon.cityChannels.official({ citySlug: city }))).not.toMatch(/Maria|2345678|admin(Name|Contact)/)
+    await expect(as(ids.stranger).communityGroup.forCity({ citySlug: city })).rejects.toThrow(/admins/)
+
+    // Blank clears.
+    expect(await as(ids.cityAdmin).communityGroup.setAdmin({ id: g.id, adminName: ' ', adminContact: null })).toEqual({ adminName: null, adminContact: null })
   })
 
   it('the weekly post picks nights out, writes the text, and keeps hand edits', async () => {

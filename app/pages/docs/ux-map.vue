@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { jobLink } from '~/lib/jobs'
 import { UX_UPDATED, uxHandoffs, uxItems, uxJourneys, uxStages, uxStatusLabel, type UxItem, type UxJourneyId, type UxStatus } from '~/lib/ux-map'
 
 definePageMeta({ layout: 'docs' })
@@ -13,7 +14,9 @@ useSeoMeta({
  */
 const statuses: UxStatus[] = ['live', 'partial', 'missing', 'gap']
 const shown = ref<Set<UxStatus>>(new Set(statuses))
-const focus = ref<UxJourneyId | null>(null)
+// /docs/ux-map?journey=C3 opens with that journey focused (linked from /docs/jobs).
+const route = useRoute()
+const focus = ref<UxJourneyId | null>(uxJourneys.find(j => j.id === route.query.journey)?.id ?? null)
 const selected = ref<UxItem | null>(null)
 
 function toggle(st: UxStatus) {
@@ -166,7 +169,7 @@ const refUrl = (r: string) =>
               <th scope="row" class="border-b border-r border-border bg-background p-3 align-top">
                 <div class="text-[11px] font-bold tracking-wider text-primary">{{ j.id }}</div>
                 <div class="font-display text-base font-bold leading-tight">{{ j.who }}</div>
-                <div class="mt-1 text-xs font-normal text-muted-foreground">{{ j.what }}<br>“{{ j.job }}”</div>
+                <div class="mt-1 text-xs font-normal text-muted-foreground">{{ j.what }}<br><NuxtLink :to="jobLink(j.jobId)" class="font-mono font-bold text-secondary hover:underline">{{ j.jobId }}</NuxtLink> “{{ j.job }}”</div>
               </th>
               <td v-for="s in uxStages" :key="s.key" class="border-b border-r border-border p-2 align-top last:border-r-0">
                 <div class="flex flex-col gap-1.5">
@@ -193,23 +196,23 @@ const refUrl = (r: string) =>
       <ul class="space-y-4 max-w-2xl">
         <li>
           <p class="font-bold">“Come back” is the weakest stage.</p>
-          <p class="text-muted-foreground">{{ returnWeak }} of {{ returnItems.length }} return items are partial, missing or gaps. Dancers get no email or notification; every email sent today goes to businesses or is about signing in. Someone who RSVPs has no reason to return next week.</p>
+          <p class="text-muted-foreground">{{ returnWeak }} of {{ returnItems.length }} return items are partial, missing or gaps. Dancers get a few emails (a review the morning after, a mutual dance friend, a cancellation) and still have no inbox, no push, and no note when someone they follow posts a new night.</p>
         </li>
         <li>
           <p class="font-bold">The business side is ahead of the dancer side.</p>
-          <p class="text-muted-foreground">Organizer and Artist are mostly green: event setup, flyers, Instagram, websites, invites. Seeker and Traveler are mostly amber. Tools for organisers are growing faster than the dancer demand that makes them worth paying for.</p>
+          <p class="text-muted-foreground">Organizer and Artist are mostly green: event setup, flyers, Instagram, websites, invites, and email to contacts. Seeker and Traveler are mostly amber. Tools for organisers are growing faster than the dancer demand that makes them worth paying for.</p>
         </li>
         <li>
           <p class="font-bold">Nothing turns a Seeker into a Regular.</p>
-          <p class="text-muted-foreground">The Seeker row has gaps from “Commit” on: no beginner filter, no first-class guide, no follow-up after a first class.</p>
+          <p class="text-muted-foreground">There is still no beginner-level filter, and the taster list still does not say what to wear. A review email goes out the morning after a class (#632). It does not lead to the weekly social at the same school.</p>
         </li>
         <li>
           <p class="font-bold">Traveler features are built but empty.</p>
-          <p class="text-muted-foreground">Ride shares, roommates, dinners and who's going only work with several real people on the same festival.</p>
+          <p class="text-muted-foreground">Ride shares, roommates, dinners and who's going only work with several real people on the same festival. Mutual dance friends now show on My plan, and the other dancer gets an email (#634 #636).</p>
         </li>
         <li>
-          <p class="font-bold">The July landing audit is stale.</p>
-          <p class="text-muted-foreground">“Who's going” shipped after the audit called it not built. Some stories closed in Linear (Pro €49, Style &amp; level mix) still deliver less than they promise.</p>
+          <p class="font-bold">Using the site found what reading the code missed.</p>
+          <p class="text-muted-foreground">From the 2026-11-14 walk, still true: door check-in has no screen, the promo kit lives only in the AI app, and there is no festival map. Since then: Who's going faces are back on the event page (#605), a new event from the form stays a draft (#559), and the venue and artist answer bar sits above the phone tab bar (#551).</p>
         </li>
       </ul>
     </DesignSection>
@@ -231,7 +234,9 @@ const refUrl = (r: string) =>
       <p class="text-sm text-muted-foreground max-w-2xl">
         The routes in <code class="font-mono text-[13px]">app/pages</code> (docs, sketches and admin left out), the landing-promise stories in
         <code class="font-mono text-[13px]">docs/issues/P*.md</code> with statuses corrected against merged PRs, and the email senders in
-        <code class="font-mono text-[13px]">server/utils/email.ts</code>. Data lives in <code class="font-mono text-[13px]">app/lib/ux-map.ts</code>: update an item when you ship or change it.
+        <code class="font-mono text-[13px]">server/utils/email.ts</code>, then checked by using the site on 2026-11-14: signed out on 2026.wedance.vip, and as a dancer, an organiser,
+        a venue and an artist on a local copy of the database, on desktop and a phone (RAZ-898; what couldn't be run is in RAZ-931). Re-read against the code on 2026-11-17, from #518 through #652 (RAZ-1035). Data lives in <code class="font-mono text-[13px]">app/lib/ux-map.ts</code>: update an item when you ship or change it.
+        The job each journey serves is on <NuxtLink to="/docs/jobs" class="text-secondary hover:underline">Jobs to be done</NuxtLink>.
         For stories mapped to tables and procedures, see <NuxtLink to="/docs/architecture/stories" class="text-secondary hover:underline">User stories</NuxtLink>.
       </p>
     </DesignSection>

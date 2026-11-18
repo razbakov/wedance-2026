@@ -32,7 +32,9 @@ vi.mock('drizzle-orm', async () => {
   const and = (...preds: any[]) => (row: Record<string, any>) =>
     preds.every(p => p(row))
 
-  return { eq, and, sql: (..._args: any[]) => ({}), unique: () => ({}), index: () => ({}), ne: () => () => true, inArray: () => () => true, gte: () => () => true, lt: () => () => true, asc: () => ({}), ilike: () => () => true }
+  const or = (...preds: any[]) => (row: Record<string, any>) => preds.some(p => p(row))
+
+  return { eq, and, or, sql: (..._args: any[]) => ({}), unique: () => ({}), index: () => ({}), ne: () => () => true, inArray: () => () => true, gte: () => () => true, lt: () => () => true, asc: () => ({}), ilike: () => () => true }
 })
 
 // ---------- FakeDb ----------

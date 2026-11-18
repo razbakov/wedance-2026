@@ -5,72 +5,47 @@
  * and the sign-in affordance all live here. The server adminProcedure is the
  * real security boundary; this gate is UX.
  */
-import {
-  LayoutDashboard, Video, Gift, Users, UtensilsCrossed,
-  ShieldAlert, ArrowLeft, BadgeCheck, UserRound, Cpu, MapPin } from 'lucide-vue-next'
+import { ShieldAlert, ArrowLeft } from 'lucide-vue-next'
+import { ADMIN_NAV, adminNavActive } from '~/lib/admin-nav'
 
 const route = useRoute()
 const { $trpc } = useNuxtApp()
 
 const state = ref<'checking' | 'ok' | 'denied'>('checking')
 const showSignIn = ref(false)
-const pendingVideos = ref<number | null>(null)
-const pendingClaims = ref<number | null>(null)
+// Pending counts per section — the same ones every other side shows on the Admin link.
+const { counts: badges, refresh: refreshBadges } = useAdminAttention()
 
 async function check() {
   try {
     const me = await $trpc.auth.me.query()
     state.value = me?.isAdmin ? 'ok' : 'denied'
-    if (state.value === 'ok') loadBadges()
+    if (state.value === 'ok') refreshBadges(true)
   } catch {
     state.value = 'denied'
-  }
-}
-async function loadBadges() {
-  try {
-    const [videos, claims] = await Promise.all([
-      $trpc.cityVideo.pendingList.query({}),
-      $trpc.business.listClaims.query(),
-    ])
-    pendingVideos.value = videos.length
-    pendingClaims.value = claims.length
-  } catch {
-    pendingVideos.value = null
-    pendingClaims.value = null
   }
 }
 
 onMounted(check)
 watch(showSignIn, (open) => { if (!open) check() })
 
-const nav = computed(() => [
-  { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, exact: true, badge: null as number | null },
-  { to: '/admin/videos', label: 'Videos', icon: Video, exact: false, badge: pendingVideos.value || null },
-  { to: '/admin/claims', label: 'Claims', icon: BadgeCheck, exact: false, badge: pendingClaims.value || null },
-  { to: '/admin/users', label: 'Users', icon: UserRound, exact: false, badge: null },
-  { to: '/admin/giveaways', label: 'Giveaways', icon: Gift, exact: false, badge: null },
-  { to: '/admin/cities', label: 'Cities', icon: MapPin, exact: false, badge: null },
-  { to: '/admin/community-groups', label: 'Community', icon: Users, exact: false, badge: null },
-  { to: '/admin/festivals', label: 'Festivals', icon: UtensilsCrossed, exact: false, badge: null },
-  { to: '/admin/ai-usage', label: 'AI usage', icon: Cpu, exact: false, badge: null },
-])
-
-const isActive = (item: { to: string; exact: boolean }) =>
-  item.exact ? route.path === item.to : route.path.startsWith(item.to)
+const nav = computed(() => ADMIN_NAV.map(item => ({ ...item, count: (item.badge && badges.value[item.badge]) || null })))
+const isActive = (item: { to: string; exact?: boolean }) => adminNavActive(item, route.path)
 </script>
 
 <template>
   <div class="min-h-screen md:flex bg-background text-foreground font-sans">
-    <!-- Sidebar (desktop) / top bar (mobile) -->
+    <!-- Sidebar (desktop) / logo row (phones). Phones get the sections as the bottom
+         tab bar + "Me" sheet (SiteTabBar), the same as Business (RAZ-943). -->
     <aside class="md:w-60 md:min-h-screen md:border-r border-b md:border-b-0 border-border shrink-0 md:sticky md:top-0 md:h-screen flex md:flex-col bg-card/55">
-      <div class="px-4 py-4 md:py-6 flex md:block items-center justify-between w-full">
+      <div class="px-4 py-3 md:py-6 flex md:block items-center justify-between w-full">
         <!-- Brand is the home link itself; wrapping it in another NuxtLink nested <a>
              in <a>, which the HTML parser splits, so every page mismatched on hydration. -->
         <Brand />
-        <div class="hidden md:block mt-6 text-eyebrow font-bold uppercase tracking-[0.3em] text-secondary">Admin</div>
+        <div class="sm:hidden md:block md:mt-6 text-eyebrow font-bold uppercase tracking-[0.3em] text-secondary">Admin</div>
       </div>
 
-      <nav class="flex md:flex-col gap-1 px-2 md:px-3 pb-3 md:pb-0 overflow-x-auto md:overflow-visible" aria-label="Admin">
+      <nav class="hidden sm:flex md:flex-col gap-1 px-2 md:px-3 pb-3 md:pb-0 overflow-x-auto md:overflow-visible" aria-label="Admin">
         <NuxtLink
           v-for="item in nav"
           :key="item.to"
@@ -83,7 +58,7 @@ const isActive = (item: { to: string; exact: boolean }) =>
         >
           <component :is="item.icon" class="size-4 shrink-0" aria-hidden="true" />
           <span>{{ item.label }}</span>
-          <AdminStatus v-if="item.badge" tone="accent" solid class="ml-auto px-1.5">{{ item.badge }}</AdminStatus>
+          <AdminStatus v-if="item.count" tone="accent" solid class="ml-auto px-1.5">{{ item.count }}</AdminStatus>
         </NuxtLink>
       </nav>
 
@@ -98,10 +73,10 @@ const isActive = (item: { to: string; exact: boolean }) =>
     <!-- Content -->
     <main class="flex-1 min-w-0">
       <!-- Same account menu as Dancing and Business; its switch rows lead to both. -->
-      <div v-if="state === 'ok'" class="flex justify-end px-4 md:px-8 pt-4">
+      <div v-if="state === 'ok'" class="hidden sm:flex justify-end px-4 md:px-8 pt-4">
         <AccountMenu mode="admin" />
       </div>
-      <div class="max-w-4xl mx-auto px-4 py-8">
+      <div class="max-w-4xl mx-auto px-4 py-5 md:py-8">
         <AdminState v-if="state === 'checking'" kind="loading" message="Checking access…" class="py-24" />
 
         <div
@@ -122,5 +97,7 @@ const isActive = (item: { to: string; exact: boolean }) =>
         <slot v-else />
       </div>
     </main>
+
+    <SiteTabBar v-if="state === 'ok'" mode="admin" :admin-badges="badges" />
   </div>
 </template>

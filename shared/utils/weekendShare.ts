@@ -48,3 +48,14 @@ export function joinersLine(names: readonly string[], max = 2): string {
   const rest = n.length - max
   return `${n.slice(0, max).join(', ')} and ${rest} other${rest === 1 ? '' : 's'}`
 }
+
+/** The parties a story shows: the ones still to come, else (all over) every one, so the page never goes blank. */
+export function storyParties<T extends { ended: boolean }>(events: readonly T[]): T[] {
+  const upcoming = events.filter(e => !e.ended)
+  return upcoming.length ? upcoming : [...events]
+}
+
+/** One key per set of parties (order ignored): My plan makes a new story link only when the set changes. */
+export function weekendKey(ids: readonly string[]): string {
+  return [...new Set(ids)].sort().join(',')
+}

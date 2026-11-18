@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { buildFeedback, getSentry, submitFeedback } from './sentry-feedback'
+import { buildFeedback, failureMessage, feedbackFailure, getSentry, submitFeedback } from './sentry-feedback'
 
 const context = {
   url: 'https://2026.wedance.vip/cities/munich?tab=events',
@@ -63,8 +63,53 @@ describe('submitFeedback', () => {
     const sendFeedback = vi.fn().mockResolvedValue('evt123')
     const flush = vi.fn().mockResolvedValue(true)
     vi.stubGlobal('window', { Sentry: { isInitialized: () => true, sendFeedback, flush } })
-    await expect(submitFeedback({ type: 'bug', description: 'x', context })).resolves.toBe('evt123')
+    await expect(submitFeedback({ type: 'bug', description: 'x', context })).resolves.toEqual({ id: 'evt123', screenshotDropped: false })
     expect(sendFeedback).toHaveBeenCalledWith(expect.objectContaining({ message: '🐞 x' }), expect.objectContaining({ includeReplay: true }))
     expect(flush).toHaveBeenCalled()
+  })
+
+  // Sentry's own rejection texts (@sentry/feedback sendFeedback).
+  const BLOCKED = new Error('Unable to send feedback. This could be because of network issues, or because you are using an ad-blocker.')
+  const TIMEOUT = new Error('Unable to determine if Feedback was correctly sent.')
+
+  it('sends again without the screenshot when the report with it is refused (RAZ-976)', async () => {
+    const shot = new Uint8Array([0xff, 0xd8, 0xff])
+    const sendFeedback = vi.fn()
+      .mockRejectedValueOnce(BLOCKED)
+      .mockResolvedValueOnce('evt2')
+    vi.stubGlobal('window', { Sentry: { isInitialized: () => true, sendFeedback, flush: vi.fn().mockResolvedValue(true) } })
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    await expect(submitFeedback({ type: 'bug', description: 'x', context, screenshot: shot }))
+      .resolves.toEqual({ id: 'evt2', screenshotDropped: true })
+    expect(sendFeedback).toHaveBeenCalledTimes(2)
+    expect(sendFeedback.mock.calls[0]![1].attachments).toHaveLength(1)
+    expect(sendFeedback.mock.calls[1]![1].attachments).toBeUndefined()
+  })
+
+  it('does not resend after a timeout (the first one may have landed) or without a screenshot', async () => {
+    const shot = new Uint8Array([1])
+    const sendFeedback = vi.fn().mockRejectedValue(TIMEOUT)
+    vi.stubGlobal('window', { Sentry: { isInitialized: () => true, sendFeedback, flush: vi.fn() } })
+    await expect(submitFeedback({ type: 'bug', description: 'x', context, screenshot: shot })).rejects.toBe(TIMEOUT)
+    expect(sendFeedback).toHaveBeenCalledTimes(1)
+
+    sendFeedback.mockReset().mockRejectedValue(BLOCKED)
+    await expect(submitFeedback({ type: 'bug', description: 'x', context })).rejects.toBe(BLOCKED)
+    expect(sendFeedback).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('feedbackFailure / failureMessage', () => {
+  it('reads Sentry\'s rejection messages', () => {
+    expect(feedbackFailure(new Error('Unable to send feedback. This could be because of network issues, or because you are using an ad-blocker.'))).toBe('blocked')
+    expect(feedbackFailure(new Error('Unable to determine if Feedback was correctly sent.'))).toBe('timeout')
+    expect(feedbackFailure(new Error('Unable to send feedback. This could be because this domain is not in your list of allowed domains.'))).toBe('forbidden')
+    expect(feedbackFailure(new Error('Sentry is not initialised'))).toBe('no_client')
+    expect(feedbackFailure('boom')).toBe('other')
+  })
+
+  it('tells the reporter a blocker may be in the way, and always offers the email', () => {
+    expect(failureMessage('blocked')).toMatch(/blocker/)
+    for (const r of ['blocked', 'timeout', 'forbidden', 'other'] as const) expect(failureMessage(r)).toMatch(/hello@wedance\.vip/)
   })
 })

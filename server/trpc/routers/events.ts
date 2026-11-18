@@ -3,8 +3,8 @@ import { and, asc, eq, gte, lt, ne, or, sql, type SQL } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { router, publicProcedure } from '../trpc'
 import { events, cities } from '../../database/schema'
-import { festivalView } from '../../utils/festivalView'
-import { listFestivals } from '../../utils/festivalListing'
+import { festivalView, venueInfoOf } from '../../utils/festivalView'
+import { festivalEventsWhere, listFestivals } from '../../utils/festivalListing'
 import { inviteEventId, previewEventWhere, publicEventWhere } from '../../utils/eventLookup'
 import { resolveCoOrganizers } from '../../utils/coOrganizers'
 
@@ -35,6 +35,9 @@ const cardColumns = {
   organizerUsername: events.organizerUsername,
   city: events.city,
   citySlug: events.citySlug,
+  // Cancelled by its organiser (RAZ-948): still listed, shown crossed out with the reason.
+  cancelledAt: events.cancelledAt,
+  cancelReason: events.cancelReason,
 }
 
 /** Card rows for a filter, soonest first. */
@@ -74,7 +77,7 @@ export const eventsRouter = router({
       const end = new Date(new Date(`${input.to && input.to >= input.from ? input.to : input.from}T00:00:00Z`).getTime() + 86400_000)
       const overlaps = and(lt(events.startDate, new Date(end.getTime() + 2 * 3600_000)), gte(sql`coalesce(${events.endDate}, ${events.startDate})`, new Date(start.getTime() + 4 * 3600_000)))
       const except = input.exceptId ? ne(events.id, input.exceptId) : undefined
-      const multiDay = or(eq(events.isFestival, true), sql`${events.festival} is not null`, sql`${events.type} in ('Festival', 'Weekender', 'Congress')`)
+      const multiDay = festivalEventsWhere()
       const [inCity, festivals] = await Promise.all([
         selectCards(ctx.db, and(live(), overlaps, eq(events.citySlug, citySlug), except), 50),
         c?.country ? selectCards(ctx.db, and(live(), overlaps, eq(events.country, c.country), multiDay, sql`${events.citySlug} is distinct from ${citySlug}`, except), 30) : [],
@@ -142,6 +145,11 @@ export const eventsRouter = router({
         agenda: events.agenda,
         festival: events.festival,
         published: events.published,
+        // When the v3 sync last saw it (imported events: "last checked").
+        syncedAt: events.syncedAt,
+        // Someone on WeDance gets the bookings: the page they go to (host, else organiser —
+        // contactPageFor) has a team. Otherwise "Book my spot" says it's imported, and where from.
+        bookable: sql<boolean>`exists (select 1 from profile_members m where m.profile_id = coalesce(${events.hostProfileId}, (select p.id from profiles p where p.username = ${events.organizerUsername} limit 1)))`,
       }
       let ev: any
       for (const where of publicEventWhere(input.id)) {
@@ -156,7 +164,7 @@ export const eventsRouter = router({
       }
       if (!ev) throw new TRPCError({ code: 'NOT_FOUND', message: 'Event not found.' })
       // Named next to the organiser on the event page.
-      return { ...ev, preview: !ev.published, coOrganizers: await resolveCoOrganizers(ctx.db, ev.coOrganizers) }
+      return { ...ev, preview: !ev.published, coOrganizers: await resolveCoOrganizers(ctx.db, ev.coOrganizers), venueInfo: await venueInfoOf(ctx.db, ev.venueUsername) }
     }),
 
   // Upcoming festivals, congresses and weekenders, soonest first (the
@@ -166,12 +174,14 @@ export const eventsRouter = router({
   // A festival event in the shape the festival page renders (Festival,
   // workshops, teachers — app/types/festival.ts), built from the event, its
   // festival details and its line-up's profiles.
+  // Every event renders this way (one layout for all events, RAZ-1007): a plain event is a
+  // festival without programme, passes or logo of its own.
   festival: publicProcedure
     .input(z.object({ id: z.string().uuid(), preview: z.string().max(100).optional() }))
     .query(async ({ ctx, input }) => {
       const draftOk = !!input.preview && (await inviteEventId(ctx.db, input.preview)) === input.id
       const [ev] = await ctx.db.select().from(events).where(and(eq(events.id, input.id), draftOk ? undefined : eq(events.published, true)))
-      if (!ev?.festival) throw new TRPCError({ code: 'NOT_FOUND', message: 'Festival not found.' })
+      if (!ev) throw new TRPCError({ code: 'NOT_FOUND', message: 'Event not found.' })
       return festivalView(ctx.db, ev)
     }),
 })

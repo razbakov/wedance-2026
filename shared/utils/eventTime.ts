@@ -87,3 +87,39 @@ export function nightStart(now: Date = new Date(), tz = DEFAULT_TZ, rolloverHour
   }
   return zonedToUtc(date, `${String(rolloverHour).padStart(2, '0')}:00`, tz)
 }
+
+const isDateOnly = (v: string | Date) => typeof v === 'string' && !v.includes('T')
+const nextDay = (date: string) => new Date(Date.parse(`${date}T00:00:00Z`) + 86400000).toISOString().slice(0, 10)
+
+/**
+ * When an event is over: its end, else the end of its start day in its own zone.
+ * A date-only end ("2026-11-15", festivals) means the whole of that day.
+ */
+export function eventEndsAt(startIso: string | Date, endIso: string | Date | null | undefined, tz = DEFAULT_TZ): Date {
+  const zone = tz || DEFAULT_TZ
+  const startDay = isDateOnly(startIso) ? String(startIso) : eventLocalDate(startIso, zone)
+  const fallback = zonedToUtc(nextDay(startDay), '00:00', zone)
+  if (!endIso) return fallback
+  const end = isDateOnly(endIso) ? zonedToUtc(nextDay(String(endIso)), '00:00', zone) : new Date(endIso)
+  return end.getTime() > eventStartsAt(startIso, zone).getTime() ? end : fallback
+}
+
+/** When an event starts; a date-only start is the beginning of that day in its zone. */
+export function eventStartsAt(startIso: string | Date, tz = DEFAULT_TZ): Date {
+  return isDateOnly(startIso) ? zonedToUtc(String(startIso), '00:00', tz || DEFAULT_TZ) : new Date(startIso)
+}
+
+/**
+ * 'upcoming' before the start, 'on' while it runs (a weekender on its middle day),
+ * 'past' only once its last day has ended. Never decide "past" from the start alone.
+ */
+export function eventPhase(
+  startIso: string | Date,
+  endIso: string | Date | null | undefined,
+  tz = DEFAULT_TZ,
+  now: Date = new Date(),
+): 'upcoming' | 'on' | 'past' {
+  const t = now.getTime()
+  if (t < eventStartsAt(startIso, tz).getTime()) return 'upcoming'
+  return t < eventEndsAt(startIso, endIso, tz).getTime() ? 'on' : 'past'
+}

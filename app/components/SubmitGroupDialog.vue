@@ -17,7 +17,7 @@ const emit = defineEmits<{ 'update:open': [boolean]; submitted: [] }>()
 const { $trpc } = useNuxtApp()
 const { track } = useTrack()
 
-const form = reactive({ name: '', platform: 'whatsapp' as 'whatsapp' | 'telegram' | 'facebook' | 'other', inviteUrl: '', styles: '', description: '' })
+const form = reactive({ name: '', platform: 'whatsapp' as 'whatsapp' | 'telegram' | 'facebook' | 'other', inviteUrl: '', styles: [] as string[], description: '' })
 const { errors, validate, reset, fieldAttrs } = useFormValidation(SubmitGroupSchema, form)
 const saving = ref(false)
 const error = ref<string | null>(null)
@@ -25,7 +25,7 @@ const done = ref<null | 'pending' | 'listed' | 'waiting'>(null)
 
 watch(() => props.open, (o) => {
   if (!o) return
-  Object.assign(form, { name: '', platform: 'whatsapp', inviteUrl: '', styles: '', description: '' })
+  Object.assign(form, { name: '', platform: 'whatsapp', inviteUrl: '', styles: [], description: '' })
   reset()
   error.value = null
   done.value = null
@@ -76,7 +76,7 @@ const doneText = {
 
 <template>
   <Dialog :open="open" @update:open="emit('update:open', $event)">
-    <DialogContent class="sm:max-w-md">
+    <DialogContent class="max-h-[90dvh] overflow-y-auto sm:max-w-md">
       <DialogHeader>
         <DialogTitle>Share a group{{ cityName ? ` in ${cityName}` : '' }}</DialogTitle>
         <DialogDescription>A WhatsApp, Telegram or Facebook group where dancers here meet. Open invite links only.</DialogDescription>
@@ -99,8 +99,8 @@ const doneText = {
             <Select v-model="form.platform" :options="platformOptions" />
           </Field>
         </div>
-        <Field id="sg-styles" label="Styles" hint="Comma-separated" optional>
-          <Input v-model="form.styles" placeholder="Salsa, Bachata" />
+        <Field id="sg-styles" label="Styles" optional :error="errors.styles">
+          <DanceStylePicker v-model="form.styles" :popular-count="6" v-bind="fieldAttrs('styles', 'sg-styles-error')" />
         </Field>
         <Field id="sg-description" label="What’s it for?" optional :error="errors.description">
           <Input v-model="form.description" placeholder="e.g. Party announcements, rides, practice partners" v-bind="fieldAttrs('description', 'sg-description-error')" />

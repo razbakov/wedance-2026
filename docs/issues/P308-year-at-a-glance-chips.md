@@ -7,7 +7,7 @@ audience: Traveler
 p: P308
 cuj: "C4 — Traveler — Plan your festival year (festivals, tickets, travel)"
 jtbd: "J4 — Plan and afford my dance travel"
-status: partial
+status: canceled
 wsjf_business_value: 5
 wsjf_time_criticality: 5
 wsjf_risk_opportunity: 3
@@ -22,3 +22,8 @@ As a traveler, I want a year-at-a-glance strip of chips on My Plan, so that I ca
 - My Plan shows a strip of chips summarising my year.
 - Selecting a chip jumps me to that point in my plan.
 - The strip reflects the festivals and events currently in my plan.
+
+## Removed (RAZ-990, 2026-11-15)
+The "Your year at a glance" strip and the "Festivals this year" stats card were removed from My plan: with a
+year of a few festivals they repeated the "This year · N festivals" line and took a screen. The money and
+early-bird deadlines the stats card showed now sit in that line (`shared/utils/festivalYearLine.ts`).

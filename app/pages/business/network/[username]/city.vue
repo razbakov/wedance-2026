@@ -1,8 +1,8 @@
 <script setup lang="ts">
 /**
  * /business/network/<handle>/city — the tools of a city page (city channels, migration 0067),
- * e.g. @wedancemunich: the weekly post, the city's official channels, and the local groups
- * dancers share. For the page's team (the city's admins) and WeDance admins.
+ * e.g. @wedancemunich: the weekly post, the year plan of occasions (RAZ-970), the city's official
+ * channels, and the local groups dancers share. For the page's team (the city's admins) and WeDance admins.
  */
 import { ArrowLeft } from 'lucide-vue-next'
 
@@ -23,7 +23,8 @@ onMounted(async () => {
   finally { loading.value = false }
 })
 
-const tab = ref<'schedule' | 'channels' | 'groups'>(route.query.tab === 'groups' ? 'groups' : route.query.tab === 'channels' ? 'channels' : 'schedule')
+type Tab = 'schedule' | 'plan' | 'channels' | 'groups'
+const tab = ref<Tab>((['plan', 'channels', 'groups'] as const).find(t => t === route.query.tab) ?? 'schedule')
 watch(tab, t => navigateTo({ query: { ...route.query, tab: t === 'schedule' ? undefined : t } }, { replace: true }))
 useHead(() => ({ title: `${city.value?.cityName ?? 'City'} · City channels | Business | WeDance` }))
 </script>
@@ -46,10 +47,12 @@ useHead(() => ({ title: `${city.value?.cityName ?? 'City'} · City channels | Bu
       <Tabs v-model="tab" class="mt-5">
         <TabsList>
           <TabsTrigger value="schedule">Weekly post</TabsTrigger>
+          <TabsTrigger value="plan">Plan</TabsTrigger>
           <TabsTrigger value="channels">Channels</TabsTrigger>
           <TabsTrigger value="groups">Local groups</TabsTrigger>
         </TabsList>
         <TabsContent value="schedule" class="mt-4"><BusinessCitySchedule :city-slug="city.citySlug" /></TabsContent>
+        <TabsContent value="plan" class="mt-4"><BusinessCityPlan :city-slug="city.citySlug" /></TabsContent>
         <TabsContent value="channels" class="mt-4"><BusinessCityChannels :city-slug="city.citySlug" /></TabsContent>
         <TabsContent value="groups" class="mt-4"><BusinessCityGroups :city-slug="city.citySlug" /></TabsContent>
       </Tabs>

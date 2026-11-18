@@ -223,8 +223,8 @@ export function renameInEvent(ev: { artists: string[] | null; coOrganizers?: { u
 
 const FILL = ['photo', 'bio', 'city', 'city_slug', 'address', 'lat', 'lng', 'map_url', 'venue_type', 'floor_type', 'capacity', 'floor_plan'] as const
 // The kept profile's columns a merge may change — snapshotted so an undo puts them back.
-const SNAPSHOT = [...FILL, 'socials', 'photos', 'styles', 'amenities', 'contact', 'instagram_aliases'] as const
-const JSON_COLS: Record<string, 'json' | 'jsonb'> = { socials: 'json', styles: 'json', photos: 'jsonb', amenities: 'jsonb', contact: 'jsonb', instagram_aliases: 'jsonb' }
+const SNAPSHOT = [...FILL, 'socials', 'photos', 'styles', 'amenities', 'contact', 'venue_info', 'instagram_aliases'] as const
+const JSON_COLS: Record<string, 'json' | 'jsonb'> = { socials: 'json', styles: 'json', photos: 'jsonb', amenities: 'jsonb', contact: 'jsonb', venue_info: 'jsonb', instagram_aliases: 'jsonb' }
 
 /**
  * Every column that points at a profile by id. `same` = the other columns of a
@@ -248,6 +248,8 @@ export const PROFILE_REFS: { table: string; col: string; same?: string; notSelf?
   { table: 'tracked_links', col: 'profile_id', same: 'x.event_id = t.event_id' },
   { table: 'profile_suggestions', col: 'profile_id', same: `x.kind = t.kind and x.value = t.value and x.status = 'pending' and t.status = 'pending'` },
   { table: 'profile_contacts', col: 'profile_id', same: 'lower(x.email) = lower(t.email)' },
+  // A page's sent emails (RAZ-975): the log moves with the page; nothing clashes.
+  { table: 'contact_mailings', col: 'profile_id' },
   { table: 'profile_sites', col: 'profile_id', same: 'true', idCol: 'profile_id' },
   // Its history follows the site: moves only when the kept profile has no site versions (so no site) either.
   { table: 'profile_site_versions', col: 'profile_id', same: 'true' },
@@ -386,11 +388,13 @@ export async function mergeProfile(db: any, from: { id: string; username: string
   const styles = (a.styles ?? []).length ? a.styles : (b.styles ?? [])
   const amenities = (a.amenities ?? []).length ? a.amenities : (b.amenities ?? [])
   const contact = { ...(b.contact ?? {}), ...(a.contact ?? {}) }
+  // The venue's hints (RAZ-1012): the kept page's own win, the copy fills what it hasn't said.
+  const venueInfo = { ...(b.venue_info ?? {}), ...(a.venue_info ?? {}) }
   // The copy's Instagram accounts become aliases of the one that stays (its main one stays main).
   const mainIg = instagramHandles({ socials })
   const aliases = [...new Set([...instagramHandles(a), ...instagramHandles(b)])].filter(h => !mainIg.includes(h))
   await q(sql`update profiles set socials = ${JSON.stringify(socials)}::json, photos = ${JSON.stringify(photos)}::jsonb, styles = ${JSON.stringify(styles)}::json,
-    amenities = ${JSON.stringify(amenities)}::jsonb, contact = ${JSON.stringify(contact)}::jsonb, instagram_aliases = ${JSON.stringify(aliases)}::jsonb where id = ${to.id}`)
+    amenities = ${JSON.stringify(amenities)}::jsonb, contact = ${JSON.stringify(contact)}::jsonb, venue_info = ${JSON.stringify(venueInfo)}::jsonb, instagram_aliases = ${JSON.stringify(aliases)}::jsonb where id = ${to.id}`)
   // Hide the copy, pointing at the one that stays.
   await q(sql`update profiles set status = 'hidden', source_ref = coalesce(source_ref, '{}'::jsonb) || ${JSON.stringify({ mergedInto: to.username, mergedAt: new Date().toISOString() })}::jsonb where id = ${from.id}`)
   return { touched, filled: fill, mergeId }

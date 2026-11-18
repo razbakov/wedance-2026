@@ -109,7 +109,7 @@ const typeBadge: Record<string, { label: string; class: string }> = {
         <CalendarDays class="w-8 h-8 mx-auto mb-3 text-secondary" aria-hidden="true" />
         <p class="text-sm font-bold font-display text-foreground">Build your week</p>
         <p class="text-xs text-muted-foreground mt-1 font-sans">
-          Tap “Going?” on classes and socials to plan your dance week in {{ cityName }}.
+          Tap “+ My plan” on classes and socials to plan your dance week in {{ cityName }}.
         </p>
         <Button variant="soft" size="pill-sm" class="mt-3 lg:hidden" @click="emit('close')">
           See this week’s classes

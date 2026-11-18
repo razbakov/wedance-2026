@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { inviteKey, inviteUrlError, platformOf, telegramNameOf } from './communityGroups'
+import { cityPageHandle, inviteKey, inviteUrlError, platformOf, telegramNameOf } from './communityGroups'
 import { buildScheduleText, defaultWeekStart, isWeekStart, pickedByDefault, scheduleDays, scheduleImageKey, shiftWeek, weekLabel, weekRange, weekStartOf } from './citySchedule'
 
 describe('community group links', () => {
@@ -107,5 +107,13 @@ describe('weekly city schedule', () => {
     const a = scheduleImageKey({ cityName: 'Munich', weekStart: '2026-11-16', events, tz })
     expect(scheduleImageKey({ cityName: 'Munich', weekStart: '2026-11-16', events: [...events].reverse(), tz })).toBe(a)
     expect(scheduleImageKey({ cityName: 'Munich', weekStart: '2026-11-16', events: events.slice(1), tz })).not.toBe(a)
+  })
+})
+
+describe('city page handle', () => {
+  it('is wedance + the city, as its Instagram', () => {
+    expect(cityPageHandle('munich')).toBe('wedancemunich')
+    expect(cityPageHandle('frankfurt-am-main')).toBe('wedancefrankfurtammain')
+    expect(cityPageHandle('Düsseldorf')).toBe('wedancedsseldorf')
   })
 })

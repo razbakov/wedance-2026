@@ -7,6 +7,9 @@ const dsn = useRuntimeConfig().public.sentryDsn
 if (dsn) {
   Sentry.init({
     dsn,
+    // Send envelopes through our own domain (server/api/m.post.ts): privacy
+    // blockers drop *.ingest.sentry.io, and with it "Report a problem" (RAZ-976).
+    tunnel: '/api/m',
     // Session Replay: sample a slice of all sessions, but always keep the
     // recording when an error occurs so problem reports can link to it.
     integrations: [Sentry.replayIntegration({ maskAllText: false, blockAllMedia: false })],

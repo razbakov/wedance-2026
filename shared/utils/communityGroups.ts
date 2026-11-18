@@ -70,3 +70,11 @@ export function telegramNameOf(url: string): string | null {
   const name = u.pathname.replace(/^\/(s\/)?/, '').split('/')[0] ?? ''
   return /^[a-z][a-z0-9_]{3,}$/i.test(name) ? `@${name}` : null
 }
+
+/**
+ * The handle a city's own WeDance page gets by default, as its Instagram account is named:
+ * munich → wedancemunich, frankfurt-am-main → wedancefrankfurtammain (Admin → Cities "Create").
+ */
+export function cityPageHandle(citySlug: string): string {
+  return `wedance${citySlug.toLowerCase().replace(/[^a-z0-9]/g, '')}`.slice(0, 40)
+}
