@@ -83,6 +83,19 @@ link. It returns to the in-app page the dancer opened the event from — My plan
 `?tab=` (a tab change stays on this page). Opened directly, it goes to the event's city (`/cities/<slug>`), or
 `/cities` when the event has none.
 
+## The flyer's draft (RAZ-1033)
+
+The flyer page (`/business/events/<id>/flyer`) remembers where the organiser was.
+The step, the uploaded photos and flyers, the look it read, and the sitting
+(`batch`) are a draft on the post (`event_posts.flyer_draft`, 0078). It is saved
+as they go and again when they leave — there is no save button — and the step
+and batch are in the URL, so a reload reopens the same place. Coming back from
+the event (to fix the title) restores it. Painted versions were already rows in
+`event_flyers`; the result then offers "Refresh the flyer" when the event's
+lines have changed, including a version that was never kept (`refresh` with
+`fromFlyerId`). Keeping a flyer clears the draft. "Continue your flyer" on the
+editor's panel is that same return.
+
 ## Door check-in (RAZ-928)
 
 Business → event → **Door** (`/business/events/[id]/door`), built for a phone: search by name, then one tap. The list is who is actually coming — an RSVP other than “next time” (a signed-out guest keeps the name they typed), Going!, a ticket, and a festival pass when the event is that festival. `attendance.checkIn` writes `attendances.checked_in_at` (a signed-out RSVP is `event_rsvps.checked_in_at` until the magic link confirms it, then the tick moves onto the attendance). Doing it again changes nothing; Undo clears the tick and leaves the ticket or Going! row. Who’s coming shows “N checked in”. The AI app uses `door_list` and `check_in` (names only, nothing is sent). Emails and phones stay in Contacts.
