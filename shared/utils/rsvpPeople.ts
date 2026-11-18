@@ -27,7 +27,7 @@ export interface SignupPerson {
 }
 
 export interface SignupRowsIn {
-  polls: readonly { dancerId: string | null; answer: string; confirmed: boolean }[]
+  polls: readonly { dancerId: string | null; answer: string; confirmed: boolean; checkedIn?: boolean }[]
   attendances: readonly { dancerId: string | null; status: string; checkedIn: boolean }[]
   plans: readonly { dancerId: string }[]
   people: readonly { id: string; name: string | null; photo: string | null; username: string | null }[]
@@ -61,8 +61,9 @@ export function mergeSignups(rows: SignupRowsIn): SignupPerson[] {
       const row = ensure(r.dancerId)
       row.answer = answer
       row.confirmed = r.confirmed
+      row.checkedIn ||= !!r.checkedIn
     } else {
-      anon.push({ key: `guest:${anon.length}`, dancerId: null, name: null, photo: null, username: null, answer, confirmed: false, ticket: false, checkedIn: false })
+      anon.push({ key: `guest:${anon.length}`, dancerId: null, name: null, photo: null, username: null, answer, confirmed: false, ticket: false, checkedIn: !!r.checkedIn })
     }
   }
 

@@ -118,8 +118,8 @@ export const bpSteps: BpStep<BpLane, BpPhase>[] = [
   // Night
   { id: 'remind', phase: 'night', lane: 'dancers', name: 'Reminder before', status: 'missing', marks: ['silent'],
     note: 'Dancers who answered or pressed Going! get no reminder. See “Come back” on the UX map.' },
-  { id: 'door', phase: 'night', lane: 'organizer', name: 'Door check-in', status: 'missing', marks: [], code: 'attendance.checkIn — no caller', refs: ['RAZ-928'],
-    note: 'The server can record a check-in, but no page or AI-app tool calls it, so the organiser can’t check anyone in.' },
+  { id: 'door', phase: 'night', lane: 'organizer', name: 'Door check-in', status: 'live', marks: [], route: '/business/events/[id]/door', code: 'attendance.door · attendance.checkIn · MCP door_list, check_in', refs: ['RAZ-928'],
+    note: 'Phone list of RSVPs, Going! and tickets. One tap checks a guest in; Who’s coming shows how many. The AI app uses the same procedures. Nothing is emailed.' },
   { id: 'after', phase: 'night', lane: 'dancers', name: 'After the night', status: 'missing', marks: [],
     note: 'No review, photo or “next date” prompt for the people who came; the venue and artists get no recap.' },
 ]

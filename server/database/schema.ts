@@ -999,6 +999,9 @@ export const eventRsvps = pgTable('event_rsvps', {
   pay: text('pay').$type<'now' | 'door'>(),
   keepInTouch: boolean('keep_in_touch').notNull().default(false),
   confirmedAt: timestamp('confirmed_at'),
+  // Door check-in for a signed-out answer (RAZ-928). Copied onto the dancer's
+  // attendance when the magic link confirms the account.
+  checkedInAt: timestamp('checked_in_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (t) => [

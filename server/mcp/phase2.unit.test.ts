@@ -17,12 +17,14 @@ describe('phase 2 tools in the dynamic list', () => {
   })
   it('promoter reads: link, results, dashboard, kit, attendees; not the writes', () => {
     const read = names(['business:read'], ['p1'])
-    expect(read).toEqual(expect.arrayContaining(['my_link', 'my_results', 'promoter_dashboard', 'event_link_results', 'promo_kit', 'attendees', 'gig_applications', 'giveaway_proposals']))
+    expect(read).toEqual(expect.arrayContaining(['my_link', 'my_results', 'promoter_dashboard', 'event_link_results', 'promo_kit', 'attendees', 'door_list', 'gig_applications', 'giveaway_proposals']))
+    expect(read).not.toContain('check_in')
     for (const t of ['recurring_series', 'propose_giveaway', 'publish_series', 'decide_gig_application', 'decide_giveaway_proposal']) expect(read).not.toContain(t)
   })
   it('business:write adds recurring_series and propose_giveaway; publish adds the decisions', () => {
     const write = names(['business:write'], ['p1'])
-    expect(write).toEqual(expect.arrayContaining(['recurring_series', 'propose_giveaway']))
+    expect(write).toEqual(expect.arrayContaining(['recurring_series', 'propose_giveaway', 'check_in']))
+    expect(TOOL_BY_NAME.get('check_in')!.confirm).toBeUndefined()
     expect(write).not.toContain('publish_series')
     expect(names(['business:publish'], ['p1'])).toEqual(expect.arrayContaining(['publish_series', 'decide_gig_application', 'decide_giveaway_proposal']))
   })
