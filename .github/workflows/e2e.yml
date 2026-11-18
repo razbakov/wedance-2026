@@ -20,10 +20,7 @@ on:
 
 jobs:
   e2e:
-    # Pinned: ubuntu-latest moved to 26.04, which Playwright 1.58 can't install
-    # chromium on ("does not support chromium on ubuntu26.04-x64"). Move back to
-    # ubuntu-latest once @playwright/test supports 26.04.
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     # ~4 min typical for @smoke (DB + build + cached browser + tests). 25 min
     # absorbs occasional slow apt mirrors (observed 10min+ on westus3, run #442)
     # and the longer full suite.
