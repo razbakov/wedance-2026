@@ -2,7 +2,7 @@
 paths:
   - "app/lib/blueprint*.ts"
   - "app/pages/docs/blueprints/**"
-  - "app/pages/meet.vue"
+  - "app/pages/meet/**"
   - "app/components/MeetMatches.vue"
   - "app/pages/business/events/**"
   - "app/pages/ask/**"

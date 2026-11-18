@@ -24,8 +24,8 @@ useSeoMeta({
       <template #about="{ updated }">
         Gaps are where markers cluster. Click a step for its code, or a gap below to light up its steps.
         Built from the code on {{ updated }} (<NuxtLink to="/meet" class="underline">/meet</NuxtLink>,
-        My plan → Your dance friends, and the “said yes too” email). The festival page no longer has its own deck.
-        Not yet run end to end with two test dancers. See also the
+        My plan → Your dance friends, the “said yes too” email, and the header bell). The festival page no longer has its own deck.
+        A match shows their face and the night. Not yet run end to end with two test dancers. See also the
         <NuxtLink to="/docs/blueprints/event-setup" class="underline">event setup blueprint</NuxtLink>. This is job
         <NuxtLink to="/docs/jobs#j3" class="underline">J3, never dance alone</NuxtLink>.
       </template>

@@ -8,14 +8,20 @@ import { sizedImage, IMG } from '#shared/utils/image'
  * start fresh → four directions) → make it → fix → keep it and name the look.
  * With a saved look: make it in that look. ?batch=… opens a sitting (painting
  * or done); &refresh=1 is the editor's "Refresh the flyer"; &flyer=… picks a
- * version. Gemini paints for real; every version is read back and checked.
+ * version. ?step= is where they were. The draft (uploads, the look it read,
+ * the step, the sitting) is saved on the post as they go and again on the way
+ * out, so leaving to fix the title does not start over. Gemini paints for
+ * real; every version is read back and checked.
  */
 import { Upload, Sparkles, Check, ArrowLeft, ArrowRight, Loader2, Wand2, Download, ImagePlus, X, PartyPopper, CalendarDays, Pencil, AlertTriangle, RotateCcw, Palette } from 'lucide-vue-next'
-import { DIRECTIONS } from '#shared/utils/flyer'
+import { DIRECTIONS, flyerChanges } from '#shared/utils/flyer'
+import { FLYER_SITTING_STEPS, landOnSitting, resumeFlyer, type FlyerDraft, type FlyerStep } from '#shared/utils/flyerDraft'
 
 definePageMeta({ layout: 'business' })
 
 const route = useRoute()
+const router = useRouter()
+const viewAs = useViewAs()
 const { $trpc } = useNuxtApp()
 const id = computed(() => String(route.params.id))
 // A content-plan post (?post=…), else the event's flyer.
@@ -31,12 +37,21 @@ const loadError = ref<string | null>(null)
 useHead(() => ({ title: `Flyer · ${ev.value?.name || 'Event'} | Business | WeDance` }))
 
 // ---------------------------------------------------------------- flow
-type Step = 'ask' | 'upload' | 'reading' | 'look' | 'brief' | 'painting' | 'directions' | 'result' | 'save' | 'done'
+type Step = FlyerStep
 const step = ref<Step>('ask')
 const path = ref<'yes' | 'fresh' | 'saved' | null>(null)
-const history: Step[] = []
-function go(s: Step) { history.push(step.value); step.value = s; if (import.meta.client) window.scrollTo({ top: 0, behavior: 'smooth' }) }
-function back() { const prev = history.pop(); if (prev) step.value = prev }
+const history = ref<Step[]>([])
+function go(s: Step) {
+  history.value = [...history.value, step.value]
+  step.value = s
+  if (import.meta.client) window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+function back() {
+  const h = [...history.value]
+  const prev = h.pop()
+  history.value = h
+  if (prev) step.value = prev
+}
 const error = ref<string | null>(null)
 
 const stages = computed(() => [
@@ -94,11 +109,14 @@ onBeforeUnmount(() => clearInterval(timer))
 // Honest progress words while Gemini works (paint ~30 s, read back, maybe again).
 const paintMsg = ref('Painting your story…')
 let msgTimer: ReturnType<typeof setTimeout>[] = []
-function painting(what = 'Painting your story…') {
+function paintMessage(what: string) {
   msgTimer.forEach(clearTimeout)
   paintMsg.value = what
   // The picture shows as soon as it's painted; its words are checked afterwards.
   msgTimer = [setTimeout(() => (paintMsg.value = 'Still painting: about half a minute more…'), 30_000)]
+}
+function painting(what = 'Painting your story…') {
+  paintMessage(what)
   go('painting')
 }
 onBeforeUnmount(() => msgTimer.forEach(clearTimeout))
@@ -253,6 +271,38 @@ function showVersion(fid: string) {
 }
 const currentId = ref<string | null>(null)
 const current = computed(() => versions.value.find(v => v.id === currentId.value) ?? versions.value[versions.value.length - 1] ?? null)
+// The picture was painted from older lines (they left to fix the title). Same words as the editor's "Out of date".
+const detailChanges = computed(() => {
+  const c = current.value
+  if (!c?.lines?.length || !st.value) return []
+  return flyerChanges({ lines: c.lines, pictured: c.pictured ?? [] }, { lines: st.value.lines, pictured: st.value.pictured })
+})
+const directionsStale = computed(() => {
+  if (step.value !== 'directions' || !st.value) return false
+  const painted = directions.value.find(d => d.lines?.length)
+  if (!painted?.lines) return false
+  return flyerChanges({ lines: painted.lines, pictured: painted.pictured ?? [] }, { lines: st.value.lines, pictured: st.value.pictured }).length > 0
+})
+const refreshingFlyer = ref(false)
+async function refreshFlyer() {
+  if (!current.value) return
+  refreshingFlyer.value = true
+  error.value = null
+  try {
+    const { id: fid, batchId: b } = await $trpc.businessFlyers.refresh.mutate({
+      eventId: id.value,
+      postId: postId.value,
+      // A kept flyer refreshes from itself. Still making the first one: from the version on screen.
+      ...(st.value?.kept ? {} : { fromFlyerId: current.value.id }),
+    })
+    painting('Putting the new details on your flyer…')
+    watchBatch(b, fid, () => showVersion(fid))
+  } catch (e: any) {
+    error.value = e?.message || 'Couldn’t refresh the flyer.'
+  } finally {
+    refreshingFlyer.value = false
+  }
+}
 function toResult() {
   currentId.value = (route.query.flyer as string) && versions.value.some(v => v.id === route.query.flyer)
     ? String(route.query.flyer)
@@ -344,7 +394,16 @@ async function keep(lookName?: string) {
   keeping.value = true
   error.value = null
   try {
-    await $trpc.businessFlyers.keep.mutate({ flyerId: current.value!.id, lookName })
+    // The kept flyer is the record. Stop the draft from being written back on top of the clear.
+    await enqueue(async () => {
+      sealed = true
+      try {
+        await $trpc.businessFlyers.keep.mutate({ flyerId: current.value!.id, lookName })
+      } catch (e) {
+        sealed = false
+        throw e
+      }
+    })
     if (lookName) go('done')
     else await navigateTo(editor.value)
   } catch (e: any) {
@@ -359,6 +418,130 @@ function keepLook() {
   void keep(look.name.trim())
 }
 
+// ---------------------------------------------------------------- draft
+// Saved on the post, so leaving (to fix the title, or by accident) and coming
+// back reopens the same step, uploads and look. The URL carries the step and
+// the sitting too, so a reload does not wait on the save.
+let ready = false
+let sealed = false
+let lastSaved = ''
+const saveState = ref<'idle' | 'saving' | 'saved' | 'error'>('idle')
+function snapshot(): FlyerDraft {
+  return {
+    step: step.value,
+    path: path.value,
+    history: history.value.slice(-20),
+    uploads: uploads.value.slice(0, 5).flatMap(u => /^https?:\/\//.test(u.url) ? [{ url: u.url, name: u.name.slice(0, 180) }] : []),
+    look: {
+      name: look.name.slice(0, 60),
+      description: look.description.slice(0, 2000),
+      palette: look.palette.filter(p => /^#[0-9a-fA-F]{6}$/.test(p.hex)).slice(0, 8).map(p => ({ name: p.name.slice(0, 40), hex: p.hex })),
+    },
+    savedLookId: savedLookId.value,
+    feeling: feeling.value.slice(0, 3),
+    liked: liked.value && /^https?:\/\//.test(liked.value) ? liked.value : null,
+    chosen: chosen.value.slice(0, 12),
+    picked: picked.value.slice(0, 2),
+    currentId: currentId.value,
+    batchId: batchId.value,
+  }
+}
+const draftJson = computed(() => JSON.stringify(snapshot()))
+let chain: Promise<void> = Promise.resolve()
+function enqueue(fn: () => Promise<void>) {
+  const run = chain.then(fn, fn)
+  chain = run.then(() => {}, () => {})
+  return run
+}
+let saveTimer: ReturnType<typeof setTimeout> | undefined
+function scheduleSave() {
+  if (!ready || sealed) return
+  clearTimeout(saveTimer)
+  saveTimer = setTimeout(() => { void flushDraft() }, 500)
+}
+async function flushDraft() {
+  clearTimeout(saveTimer)
+  return enqueue(async () => {
+    if (!ready || sealed) return
+    const j = draftJson.value
+    if (j === lastSaved) return
+    saveState.value = 'saving'
+    try {
+      await $trpc.businessFlyers.saveDraft.mutate({ eventId: id.value, postId: postId.value, draft: JSON.parse(j) as FlyerDraft })
+      if (draftJson.value === j) lastSaved = j
+      saveState.value = 'saved'
+    } catch {
+      saveState.value = 'error'
+    }
+  })
+}
+watch(draftJson, () => { if (ready && !sealed) scheduleSave() })
+function syncUrl() {
+  if (!import.meta.client) return
+  const q: Record<string, string> = {}
+  for (const [k, v] of Object.entries(route.query)) {
+    if (k === 'step' || k === 'batch') continue
+    if (typeof v === 'string') q[k] = v
+  }
+  if (step.value !== 'ask') q.step = step.value
+  if (batchId.value) q.batch = batchId.value
+  const curStep = typeof route.query.step === 'string' ? route.query.step : undefined
+  const curBatch = typeof route.query.batch === 'string' ? route.query.batch : undefined
+  if (curStep === q.step && curBatch === q.batch) return
+  void router.replace({ query: q })
+}
+watch([step, batchId], () => { if (ready) syncUrl() })
+onBeforeRouteLeave(async () => {
+  // An upload that finishes as they leave still belongs in the draft.
+  const start = Date.now()
+  while ((uploading.value > 0 || likedUploading.value) && Date.now() - start < 8000) {
+    await new Promise(resolve => setTimeout(resolve, 100))
+  }
+  await Promise.race([flushDraft(), new Promise(resolve => setTimeout(resolve, 2500))])
+})
+function draftHeaders(): Record<string, string> {
+  const headers: Record<string, string> = { 'content-type': 'application/json' }
+  const m = document.cookie.match(/(?:^|;\s*)wedance-session=([^;]*)/)
+  if (m?.[1]) headers.authorization = `Bearer ${decodeURIComponent(m[1])}`
+  if (viewAs.value?.id) headers['x-wedance-view-as'] = viewAs.value.id
+  return headers
+}
+/** Tab close does not run the route guard. keepalive still sends the draft. */
+function saveKeepalive() {
+  if (!ready || sealed) return
+  const j = draftJson.value
+  if (j === lastSaved) return
+  try {
+    void fetch('/api/trpc/businessFlyers.saveDraft?batch=1', {
+      method: 'POST',
+      headers: draftHeaders(),
+      body: JSON.stringify({ 0: { eventId: id.value, postId: postId.value, draft: JSON.parse(j) } }),
+      keepalive: true,
+    })
+  } catch { /* the in-app leave still awaits flushDraft */ }
+}
+onMounted(() => window.addEventListener('pagehide', saveKeepalive))
+onBeforeUnmount(() => {
+  window.removeEventListener('pagehide', saveKeepalive)
+  clearTimeout(saveTimer)
+})
+
+function applyDraft(d: FlyerDraft, restoreSitting: boolean) {
+  path.value = d.path
+  uploads.value = d.uploads.map(u => ({ url: u.url, name: u.name }))
+  look.name = d.look.name
+  look.description = d.look.description
+  look.palette = d.look.palette.map(p => ({ name: p.name, hex: p.hex }))
+  savedLookId.value = d.savedLookId
+  feeling.value = [...d.feeling]
+  liked.value = d.liked
+  if (d.chosen.length || d.step === 'brief' || d.step === 'directions') chosen.value = [...d.chosen]
+  if (!restoreSitting) return
+  picked.value = [...d.picked]
+  currentId.value = d.currentId
+  history.value = [...d.history]
+}
+
 // ---------------------------------------------------------------- load
 onMounted(async () => {
   try {
@@ -370,8 +553,13 @@ onMounted(async () => {
     loadError.value = e?.message || 'Could not load this event.'
     return
   }
-  const b = route.query.batch as string | undefined
-  if (b) {
+  const saved = st.value?.draft ?? null
+  const resume = resumeFlyer({
+    step: route.query.step, batch: route.query.batch, refresh: route.query.refresh, flyer: route.query.flyer,
+  }, saved)
+  if (saved) applyDraft(saved, !resume.explicitBatch)
+  if (resume.explicitBatch && resume.batchId) {
+    const b = resume.batchId
     batchId.value = b
     await pollOnce()
     const isDirections = rows.value.some(r => r.mode === 'direction')
@@ -393,7 +581,33 @@ onMounted(async () => {
       if (rows.value.some(active)) watchBatch(b, null)
       toResult()
     }
+  } else {
+    const preview = landOnSitting(resume.step, [], { lookDescription: look.description, picked: picked.value })
+    const b = resume.batchId
+    if (b && FLYER_SITTING_STEPS.has(preview)) {
+      batchId.value = b
+      await pollOnce()
+      const landed = landOnSitting(resume.step, rows.value, { lookDescription: look.description, picked: picked.value })
+      if (landed === 'painting') {
+        paintMessage(refreshing.value ? 'Putting the new details on your flyer…' : 'Painting your story…')
+        step.value = 'painting'
+        const last = rows.value[rows.value.length - 1]
+        if (rows.value.some(r => r.mode === 'direction')) watchBatch(b, null)
+        else if (last) watchBatch(b, last.id, () => showVersion(last.id))
+      } else {
+        step.value = landed
+        if (rows.value.some(active)) watchBatch(b, null)
+      }
+    } else {
+      step.value = preview
+      if (resume.batchId) batchId.value = resume.batchId
+    }
   }
+  // Persist a landing that moved on (Reading → the look, Painting → the result).
+  lastSaved = saved ? JSON.stringify(saved) : draftJson.value
+  ready = true
+  syncUrl()
+  if (draftJson.value !== lastSaved) void flushDraft()
 })
 const faces = computed(() => st.value?.pictured.length ?? 0)
 </script>
@@ -424,6 +638,9 @@ const faces = computed(() => st.value?.pictured.length ?? 0)
           <Check v-if="i < stageIndex" class="size-3.5" aria-hidden="true" /><span v-else>{{ i + 1 }}</span> {{ s.label }}
         </li>
       </ol>
+      <p v-if="saveState === 'saving'" class="mt-2 text-xs text-muted-foreground">Saving…</p>
+      <p v-else-if="saveState === 'saved'" class="mt-2 text-xs text-muted-foreground">Saved</p>
+      <p v-else-if="saveState === 'error'" class="mt-2 text-xs text-destructive" role="status">Couldn’t save just now. It will try again.</p>
       <AdminState v-if="error" kind="error" :message="error" />
 
       <!-- Ask -->
@@ -590,6 +807,7 @@ const faces = computed(() => st.value?.pictured.length ?? 0)
       <section v-else-if="step === 'directions'" class="mt-6">
         <h2 class="font-display text-2xl font-bold">{{ directions.length === 4 ? 'Four directions' : directions.length === 1 ? 'A direction' : `${directions.length} directions` }} for {{ ev.name }}</h2>
         <p class="mt-1 text-sm text-muted-foreground">Pick one or two you like. You can change them next.</p>
+        <p v-if="directionsStale" class="mt-3 rounded-xl bg-warning/10 p-3 text-xs">You changed the details since these were painted. Paint them again to put the new details on.</p>
         <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <template v-for="d in directions" :key="d.id">
             <button
@@ -652,6 +870,16 @@ const faces = computed(() => st.value?.pictured.length ?? 0)
               <figcaption class="mt-1.5 text-xs"><span class="font-bold">Instagram story</span> <span class="text-muted-foreground">1080×1920</span><template v-if="current.notes"> · <span class="text-muted-foreground">changed: {{ current.notes }}</span></template></figcaption>
             </figure>
             <div class="grid content-start gap-4">
+              <div v-if="detailChanges.length" class="rounded-2xl bg-warning/10 p-4">
+                <p class="flex items-center gap-1.5 text-sm font-bold"><AlertTriangle class="size-4" aria-hidden="true" /> You changed the details since</p>
+                <ul class="mt-2 grid gap-1.5 text-xs">
+                  <li v-for="(c, i) in detailChanges" :key="i" class="leading-snug">
+                    <span v-if="c.was" class="block text-muted-foreground line-through">{{ c.was }}</span>
+                    <span v-if="c.now" class="block font-bold">{{ c.now }}</span>
+                  </li>
+                </ul>
+                <Button variant="cta" class="mt-3" :loading="refreshingFlyer" @click="refreshFlyer"><Wand2 /> Refresh the flyer</Button>
+              </div>
               <div v-if="current.status === 'checking'" class="rounded-2xl border bg-card p-4" role="status">
                 <p class="flex items-center gap-1.5 text-sm font-bold"><Loader2 class="size-4 animate-spin" aria-hidden="true" /> Reading every word back…</p>
                 <p class="mt-1 text-xs text-muted-foreground">Checking each line against your event. Look at it meanwhile.</p>

@@ -60,6 +60,7 @@ export const CLOSED_BLUEPRINT_ISSUES: readonly string[] = [
   'RAZ-1003',
   'RAZ-1005',
   'RAZ-1024',
+  'RAZ-1071',
 ]
 
 export interface ClosedOnOpenStep {

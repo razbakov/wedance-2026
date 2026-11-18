@@ -57,7 +57,9 @@ server `rsvp.signUp` (event_rsvps `name/phone/partner_name/pass/pay/keep_in_touc
 it is saved unconfirmed with the guest token, the magic link (`do` + `guest`) folds it into the account (`rsvp.answer`),
 replaces only an email-derived placeholder name, and "Pay now" returns with `?pay=now` to continue to checkout.
 `EventWhosComing` sits under the hero: counts to visitors, faces to signed-in dancers, pairing with waves. A class or
-course hides per-session Save and the "Pick your pass" section; festivals keep both. Sketch: `/sketches/class-signup`.
+course hides per-session Save and the passes section; festivals keep both. A party, class or anything
+that isn't a festival calls them tickets — the editor says "Tickets" and "Add a ticket", the sign-up "Pick your
+ticket" — and a festival (Festival, Weekender, Congress, or `is_festival`) keeps "Passes" (RAZ-1029). Sketch: `/sketches/class-signup`.
 **Festivals book the same way**: every event gets the steps (`pollable: true`); a festival keeps its Passes
 tab and its year plan (`plan-as="festival"`; booking also adds `plan_items` `festival`/`<key>`). Passes sold per role are
 read from their names (`passFor`: couple / leader / follower, else for anyone) and `passesFor(passes, answer)` offers only
@@ -80,6 +82,19 @@ programme sessions (`f~key~id`) and mock city events still use the old template 
 link. It returns to the in-app page the dancer opened the event from — My plan, the city, a profile — and ignores
 `?tab=` (a tab change stays on this page). Opened directly, it goes to the event's city (`/cities/<slug>`), or
 `/cities` when the event has none.
+
+## The flyer's draft (RAZ-1033)
+
+The flyer page (`/business/events/<id>/flyer`) remembers where the organiser was.
+The step, the uploaded photos and flyers, the look it read, and the sitting
+(`batch`) are a draft on the post (`event_posts.flyer_draft`, 0078). It is saved
+as they go and again when they leave — there is no save button — and the step
+and batch are in the URL, so a reload reopens the same place. Coming back from
+the event (to fix the title) restores it. Painted versions were already rows in
+`event_flyers`; the result then offers "Refresh the flyer" when the event's
+lines have changed, including a version that was never kept (`refresh` with
+`fromFlyerId`). Keeping a flyer clears the draft. "Continue your flyer" on the
+editor's panel is that same return.
 
 ## Door check-in (RAZ-928)
 
