@@ -23,7 +23,6 @@ export const TAILWIND_CSS = 'app/assets/css/tailwind.css'
 /** Paths (posix, relative to repo root) that may hold literal colours/fonts. */
 const EXEMPT: RegExp[] = [
   /^app\/pages\/sketches\//, // frozen design explorations
-  /^app\/data\/mock-[^/]*\.ts$/, // festival accents are content
   /^app\/lib\/brand\.ts$/, // the JS mirror of the tokens
   /^app\/assets\/css\/tailwind\.css$/, // where tokens are defined
   /\.test\.ts$/,

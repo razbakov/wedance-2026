@@ -12,7 +12,7 @@
  */
 import type { Blueprint, BpGap, BpLaneDef, BpPhaseDef, BpStep } from './blueprint'
 
-export const KEEP_PROGRESSING_BLUEPRINT_UPDATED = '2026-11-16'
+export const KEEP_PROGRESSING_BLUEPRINT_UPDATED = '2026-11-18'
 
 export type KeepLane = 'student' | 'system' | 'school'
 export type KeepPhase = 'goal' | 'find' | 'enroll' | 'weekly' | 'practise' | 'private' | 'progress' | 'next'
@@ -69,11 +69,11 @@ export const keepSteps: BpStep<KeepLane, KeepPhase>[] = [
 
   // Weekly classes
   { id: 'reminder', phase: 'weekly', lane: 'system', name: 'Remind before class', status: 'missing', marks: ['silent'],
-    note: 'No email, push or Telegram before a class: there is no scheduled job at all (vercel.json has no crons), and dancer-facing email is only sign-in, sign-up and cancellations.' },
+    note: 'No email, push or Telegram before a class. The daily jobs send the morning-after review and the meetup follow-up.' },
   { id: 'go-class', phase: 'weekly', lane: 'student', name: 'Go to class', status: 'partial', marks: [], route: '/business/events/[id]/door', code: 'attendance.checkIn', refs: ['RAZ-928'],
     note: 'The organiser can record that you were there on the door list (RAZ-928). Your goal still doesn’t count those classes.' },
   { id: 'school-attend', phase: 'weekly', lane: 'school', name: 'Track who comes and pays', status: 'partial', marks: ['manual'], route: '/business/network/[username]/contacts', code: 'contactActivity (wentTo, checkedIn)',
-    note: 'The door list records who came, and Contacts counts those check-ins for people with an account. Monthly payment isn’t tracked: “paid through month” exists only in My plan’s preview data. Payments stay on paper or WhatsApp.' },
+    note: 'The door list records who came, and Contacts counts those check-ins for people with an account. Monthly payment isn’t tracked on the course card. Payments stay on paper or WhatsApp.' },
   { id: 'course-ends', phase: 'weekly', lane: 'system', name: 'Course runs out', status: 'partial', marks: ['silent'], code: 'myCourses (series with nothing upcoming is left out)',
     note: 'When the last date passes, the card just disappears from My plan. Neither side is told the course ended.' },
 
@@ -120,7 +120,7 @@ export const keepGaps: BpGap[] = [
     fix: 'Book the course, not the date: a series sign-up (one rsvp for the series, “skip this week” per date) that My plan and Who’s coming read for every date still to come.',
     steps: ['picker', 'my-courses', 'signup', 'school-contact'] },
   { title: 'Silence between classes',
-    why: 'There is no scheduled job and no dancer-facing email. Following a teacher, a course ending and the week’s socials never reach the student, so momentum depends on the class WhatsApp group.',
+    why: 'Following a teacher, a course ending and the week’s socials never reach the student, so momentum depends on the class WhatsApp group. The daily jobs cover reviews and meetups.',
     fix: 'One weekly “your week” email (and the same block on My plan): your next class, a social in its style this week, new dates from teachers you follow, and “your course ends next week”. Needs a Vercel cron.',
     steps: ['reminder', 'follow', 'course-ends', 'socials-link'] },
   { title: 'Progress is a slider you move yourself',

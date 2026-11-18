@@ -131,8 +131,8 @@ export async function listFestivals(db: ReturnType<typeof useDb>): Promise<Festi
       eq(events.archived, false),
       gte(sql`coalesce(${events.endDate}, ${events.startDate})`, now),
       festivalEventsWhere(),
-      // The mock festivals scripts/import-festivals.ts brought in from app/data
-      // carry invented dates — listed only once a person has checked one.
+      // Festivals copied in by the retired import (source wedance-festival)
+      // carry dates nobody has checked — listed only once a person has edited one.
       or(sql`${events.source} is distinct from 'wedance-festival'`, isNotNull(events.editedAt)),
     ))
     .orderBy(asc(events.startDate)))
