@@ -391,7 +391,7 @@ useHead(() => ({
           />
           <p v-else-if="rateNotAllowed" class="mt-4 text-sm text-muted-foreground font-sans" data-review-not-went>Only people who signed up for this night can review it.</p>
           <div v-if="ev.pollable && !ev.archived && !isPreview && !ev.cancelled" id="rsvp" class="mt-4 max-w-xl scroll-mt-16">
-            <EventSignup :event-type="ev.eventType" :event-id="ev.id" :path="route.path" :start-date="ev.startDate" :end-date="ev.endDate" :timezone="ev.timezone" :organizer-name="ev.organizerName || (ev.organizerHandle ? `@${ev.organizerHandle}` : null)" surface="event" @poll="onPoll" />
+            <EventSignup :event-type="ev.eventType" :is-festival="ev.isFestival" :event-id="ev.id" :path="route.path" :start-date="ev.startDate" :end-date="ev.endDate" :timezone="ev.timezone" :organizer-name="ev.organizerName || (ev.organizerHandle ? `@${ev.organizerHandle}` : null)" surface="event" @poll="onPoll" />
           </div>
         </template>
       </FestivalHero>

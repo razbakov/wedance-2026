@@ -57,7 +57,9 @@ server `rsvp.signUp` (event_rsvps `name/phone/partner_name/pass/pay/keep_in_touc
 it is saved unconfirmed with the guest token, the magic link (`do` + `guest`) folds it into the account (`rsvp.answer`),
 replaces only an email-derived placeholder name, and "Pay now" returns with `?pay=now` to continue to checkout.
 `EventWhosComing` sits under the hero: counts to visitors, faces to signed-in dancers, pairing with waves. A class or
-course hides per-session Save and the "Pick your pass" section; festivals keep both. Sketch: `/sketches/class-signup`.
+course hides per-session Save and the passes section; festivals keep both. A party, class or anything
+that isn't a festival calls them tickets — the editor says "Tickets" and "Add a ticket", the sign-up "Pick your
+ticket" — and a festival (Festival, Weekender, Congress, or `is_festival`) keeps "Passes" (RAZ-1029). Sketch: `/sketches/class-signup`.
 **Festivals book the same way**: every event gets the steps (`pollable: true`); a festival keeps its Passes
 tab and its year plan (`plan-as="festival"`; booking also adds `plan_items` `festival`/`<key>`). Passes sold per role are
 read from their names (`passFor`: couple / leader / follower, else for anyone) and `passesFor(passes, answer)` offers only

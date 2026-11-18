@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { entryNoun, entryWords } from '#shared/utils/entryWord'
 import { CLASS_EVENT_TYPES, passCoverage, passesFor } from '#shared/utils/eventSignup'
 import { heroGoingCount } from '#shared/utils/rsvp'
 import { eventNoun } from '~/lib/shareInvite'
@@ -872,13 +873,15 @@ const tabs = computed<Tab[]>(() =>
     return true
   }),
 )
-const tabLabels: Record<Tab, string> = {
+// A festival sells passes; a party or class sells tickets — the same word as the editor (RAZ-1029).
+const words = computed(() => entryWords(entryNoun({ type: props.type, isFestival: !planAsEvent })))
+const tabLabels = computed<Record<Tab, string>>(() => ({
   overview: 'Overview',
   lineup: 'Lineup',
   schedule: 'Schedule',
-  tickets: 'Passes',
+  tickets: words.value.Many,
   reviews: 'Reviews',
-}
+}))
 function tabFromRoute(): Tab {
   const q = String(route.query.tab ?? '')
   const h = route.hash.replace('#', '')
@@ -952,7 +955,7 @@ const summaryCards = computed(() => {
     const n = festival.tickets?.length ?? 0
     cards.push({
       tab: 'tickets',
-      title: hasTicket.value ? 'You have a pass' : priceFrom.value != null ? `Passes from €${priceFrom.value}` : 'Passes',
+      title: hasTicket.value ? `You have a ${words.value.one}` : priceFrom.value != null ? `${words.value.Many} from €${priceFrom.value}` : words.value.Many,
       line: hasTicket.value ? 'See what it covers' : `${n} to choose from · we suggest the one for your plan`,
     })
   }
@@ -1408,13 +1411,13 @@ useHead({
           <div v-if="rsvp" id="rsvp" class="mt-4 max-w-xl scroll-mt-16">
             <EventSignup
               :event-id="rsvp.eventId" :path="rsvp.path" :start-date="rsvp.startDate" :end-date="rsvp.endDate" :timezone="rsvp.timezone" :organizer-name="rsvp.organizerName"
-              :passes="festival.tickets" :pay-at-door="festival.payAtDoor" :pass-key="festival.slug" :has-ticket="hasTicket" :event-type="type"
+              :passes="festival.tickets" :pay-at-door="festival.payAtDoor" :pass-key="festival.slug" :has-ticket="hasTicket" :event-type="type" :is-festival="!planAsEvent"
               :programme="isNightEvent ? nightItems : []" :planned-ids="[...plannedIds]" :programme-shown="!!programmeCard"
               ref="signupRef" surface="event" :recommend="recommendAmong" :not-bookable="rsvp.notBookable" @poll="onPoll"
             >
               <template v-if="isNightEvent" #booked="{ pass }">
                 <EventYourNight
-                  :items="nightItems" :pass="pass" :passes="festival.tickets ?? []" :planned-ids="plannedIds"
+                  :items="nightItems" :pass="pass" :passes="festival.tickets ?? []" :planned-ids="plannedIds" :noun="words.one"
                   :event-name="festival.name" :address="festival.venue?.address" :timezone="rsvp.timezone"
                   @toggle="toggleWorkshop" @upgrade="(p) => signupRef?.start(p)"
                 />
@@ -1433,10 +1436,10 @@ useHead({
         <template v-else-if="sellsPasses" #cta>
           <div class="mt-4 flex flex-wrap gap-2">
             <Button v-if="hasTicket" type="button" variant="pill" class="px-5" @click="openTab('tickets', 'hero')">
-              <Check aria-hidden="true" /> You have a pass
+              <Check aria-hidden="true" /> You have a {{ words.one }}
             </Button>
             <Button v-else type="button" variant="cta" class="px-5" data-hero-get-pass @click="openTab('tickets', 'hero')">
-              <Ticket aria-hidden="true" /> Get pass<template v-if="priceFrom != null"><span class="font-normal opacity-80 sm:hidden">· €{{ priceFrom }}+</span><span class="hidden font-normal opacity-80 sm:inline">· from €{{ priceFrom }}</span></template>
+              <Ticket aria-hidden="true" /> Get {{ words.one }}<template v-if="priceFrom != null"><span class="font-normal opacity-80 sm:hidden">· €{{ priceFrom }}+</span><span class="hidden font-normal opacity-80 sm:inline">· from €{{ priceFrom }}</span></template>
             </Button>
             <Button type="button" :variant="inPlan ? 'pill' : 'outline-pill'" class="px-5 font-sans" :aria-pressed="inPlan" data-hero-my-plan @click="onPick">
               <component :is="inPlan ? Check : Plus" aria-hidden="true" /> My plan
@@ -1561,12 +1564,12 @@ useHead({
         <!-- A dated event's passes are in the sign-up up top (RAZ-995); festivals keep this section. -->
         <section v-if="currentTab === 'tickets'" id="tickets" class="scroll-mt-16">
           <div class="mb-4">
-            <div class="text-xs uppercase tracking-[0.3em] text-secondary">Passes</div>
+            <div class="text-xs uppercase tracking-[0.3em] text-secondary">{{ words.Many }}</div>
             <h2 v-if="hasTicket" class="mt-2 text-2xl font-black leading-tight text-foreground">
               You're <em class="italic text-wd-green-600">in.</em>
             </h2>
             <h2 v-else class="mt-2 text-2xl font-black leading-tight text-foreground">
-              Pick your <em class="italic text-primary">pass.</em>
+              Pick your <em class="italic text-primary">{{ words.one }}.</em>
             </h2>
           </div>
 
@@ -1585,7 +1588,7 @@ useHead({
                   You have a ticket
                 </div>
                 <div class="mt-1 text-sm text-foreground font-display">
-                  Your pass for {{ festival.name }} is confirmed.
+                  Your {{ words.one }} for {{ festival.name }} is confirmed.
                 </div>
                 <div class="mt-1 text-xs text-muted-foreground font-sans">
                   Plan your workshops in the schedule above and connect with other dancers.
@@ -1634,7 +1637,7 @@ useHead({
                   class="mt-3 px-5 text-xs"
                   @click="getRecommendedPass"
                 >
-                  Get this pass <ArrowRight aria-hidden="true" />
+                  Get this {{ words.one }} <ArrowRight aria-hidden="true" />
                 </Button>
                 <div
                   v-else
@@ -1657,10 +1660,10 @@ useHead({
             <Sparkles class="w-6 h-6 shrink-0 text-secondary" />
             <div>
               <div class="text-sm font-bold text-foreground font-display">
-                Not sure which pass?
+                Not sure which {{ words.one }}?
               </div>
               <div class="text-xs text-muted-foreground font-sans">
-                Pick the workshops + parties you want in the schedule above — we'll find your best-value pass.
+                Pick the workshops + parties you want in the schedule above — we'll find your best-value {{ words.one }}.
               </div>
             </div>
             <ArrowRight class="w-4 h-4 ml-auto shrink-0 text-primary" />
@@ -1773,7 +1776,7 @@ useHead({
                 class="w-full h-11 text-xs"
                 @click="chooseTicket(t)"
               >
-                Get this pass
+                Get this {{ words.one }}
                 <ArrowRight aria-hidden="true" />
               </Button>
               <div
@@ -2045,7 +2048,7 @@ useHead({
                   <span class="text-sm font-bold text-foreground font-display">{{ paymentSuccessInfo.festivalName }}</span>
                 </div>
                 <div class="flex items-center justify-between">
-                  <span class="text-xs uppercase tracking-wider font-bold text-secondary">Pass</span>
+                  <span class="text-xs uppercase tracking-wider font-bold text-secondary">{{ words.One }}</span>
                   <span class="text-sm font-bold text-foreground font-display">{{ paymentSuccessInfo.ticketName }}</span>
                 </div>
                 <div v-if="paymentSuccessInfo.amount > 0" class="flex items-center justify-between">
