@@ -42,8 +42,8 @@ describe('pairMark', () => {
 
   it('names the symbol without saying who to look for', () => {
     const mark = pairMark('a', 'b', 'event-1')
-    expect(markPhrase(mark, 'en')).toBe(`${mark.colorName.en} ${mark.shapeName.en} ${mark.number}`)
-    expect(markPhrase(mark, 'en').toLowerCase()).not.toContain('mary')
+    expect(markPhrase(mark)).toBe(`${mark.colorName} ${mark.shapeName} ${mark.number}`)
+    expect(markPhrase(mark).toLowerCase()).not.toContain('mary')
   })
 })
 
@@ -69,28 +69,27 @@ describe('meetupAt', () => {
 })
 
 describe('night copy', () => {
-  it('tells the holder to turn the phone, and the screen speaks as the holder', () => {
-    for (const lang of ['en', 'de'] as const) {
-      const copy = nightCopy(lang, FACTS)
-      expect(copy.turnHint).toContain('Mary')
-      expect(copy.revealLine).toContain('Lena')
-      expect(copy.revealLine).not.toContain('Mary')
-      expect(copy.revealLine.toLowerCase()).not.toContain('looking for')
-      expect(copy.revealLine.toLowerCase()).not.toContain('suchst')
-    }
+  it('is English, tells the holder to turn the phone, and the screen speaks as the holder', () => {
+    const copy = nightCopy(FACTS)
+    expect(copy.turnHint).toContain('Mary')
+    expect(copy.turnHint).toContain('Turn your phone')
+    expect(copy.revealLine).toBe('Hi, I’m Lena')
+    expect(copy.revealLine).not.toContain('Mary')
+    expect(copy.safetyTitle).toBe('A few reassurances')
+    expect(copy.help).toBe('Couldn’t meet?')
+    expect(copy.place).toBe('near the DJ booth')
+    const text = JSON.stringify(copy)
+    expect(text).not.toMatch(/Zurück|Grün|Handy|Sicherheit|geklappt/)
   })
 
   it('does not suggest following until the morning-after lines', () => {
-    for (const lang of ['en', 'de'] as const) {
-      const copy = nightCopy(lang, FACTS)
-      const night = Object.entries(copy)
-        .filter(([key]) => key !== 'follow' && key !== 'following')
-        .map(([, value]) => typeof value === 'string' ? value : Object.values(value).join(' '))
-        .join('\n')
-      expect(night.toLowerCase()).not.toContain('follow')
-      expect(night.toLowerCase()).not.toContain('folgen')
-      expect(copy.follow.toLowerCase()).toMatch(/follow|folgen/)
-    }
+    const copy = nightCopy(FACTS)
+    const night = Object.entries(copy)
+      .filter(([key]) => key !== 'follow' && key !== 'following')
+      .map(([, value]) => typeof value === 'string' ? value : Object.values(value).join(' '))
+      .join('\n')
+    expect(night.toLowerCase()).not.toContain('follow')
+    expect(copy.follow).toBe('Follow Mary')
   })
 })
 

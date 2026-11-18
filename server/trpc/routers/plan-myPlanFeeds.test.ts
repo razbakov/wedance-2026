@@ -370,6 +370,30 @@ describe.skipIf(!DATABASE_URL)('my-plan feeds', () => {
       expect(me.citySlug).toBe(CITY_SLUG)
     })
 
+    it('shows another dancer who only put the same night on their plan, and a dancer with no city has none', async () => {
+      const now = Date.now()
+      await addDancer('annaPlan', { photo: 'https://example.com/anna.jpg', city: CITY, name: `Anna Plan ${RUN}` })
+      await addDancer('benPlan', { photo: 'https://example.com/ben.jpg', city: CITY, name: `Ben Plan ${RUN}` })
+      await addDancer('noCityPlan', { photo: 'https://example.com/nocity.jpg', city: '' })
+      await addEvent('planNight', { startDate: new Date(now + 4 * DAY), endDate: new Date(now + 4 * DAY + 4 * 3600_000) })
+      const created = [ids.annaPlan!, ids.benPlan!, ids.noCityPlan!]
+      await db.insert(schema.planItems).values(created.map(dancerId => ({ dancerId, itemType: 'event' as const, itemId: ids.planNight! })))
+      try {
+        const ben = await caller(ids.benPlan!).plan.discover()
+        expect(ben.cards.find(c => c.targetKind === 'dancer' && c.targetId === ids.annaPlan)).toMatchObject({
+          kind: 'dancer-same-night', eventId: ids.planNight,
+        })
+        expect(ben.me.citySlug).toBe(CITY_SLUG)
+        expect(ben.me.nextNight?.eventId).toBe(ids.planNight)
+        expect((await caller(ids.noCityPlan!).plan.meetEmpty()).stage).toBe('no-city')
+        expect((await caller(ids.benPlan!).plan.meetEmpty()).stage).not.toBe('no-city')
+      } finally {
+        await db.delete(schema.planItems).where(inArray(schema.planItems.dancerId, created))
+        await db.delete(schema.events).where(eq(schema.events.id, ids.planNight!))
+        await db.delete(schema.dancers).where(inArray(schema.dancers.id, created))
+      }
+    })
+
     it('shows each dancer once, with the festival that put them on the card', async () => {
       const { cards } = await caller(ids.me!).plan.discover()
       const mine = cards.filter(c => c.targetKind === 'dancer' && c.targetId === ids.withPhoto)

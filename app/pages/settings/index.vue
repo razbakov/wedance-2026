@@ -38,6 +38,11 @@ const loading = ref(false)
 const error = ref('')
 const saved = ref(false)
 const profileForm = reactive(useFormValidation(ProfileSettingsSchema, form))
+// Unsaved edits must survive a late auth.me. That response used to refill the
+// form from the server and wipe a city the dancer had just picked.
+let hydrating = false
+const dirty = ref(false)
+watch(form, () => { if (!hydrating) dirty.value = true }, { deep: true, flush: 'sync' })
 
 // Change-password sub-form.
 const pw = reactive({ current: '', next: '' })
@@ -57,6 +62,8 @@ watch([isLoading, isSignedIn], ([loadingNow, signedIn]) => {
 }, { immediate: true })
 
 function hydrate() {
+  if (dirty.value) return
+  hydrating = true
   form.name = dancerName.value ?? ''
   form.city = meCity.value ?? ''
   form.photo = mePhoto.value ?? ''
@@ -69,6 +76,7 @@ function hydrate() {
   const r = meRole.value
   form.role = (r === 'lead' || r === 'follow' || r === 'both') ? r : ''
   form.profilePublic = mePublic.value !== false
+  hydrating = false
 }
 onMounted(hydrate)
 watch([dancerName, meCity, meStyles, meLevels, meRole, meBio, mePhoto, meIg, meYt, meSite, mePublic], hydrate)
@@ -87,12 +95,18 @@ function setLevel(style: string, level: DanceLevel) {
 async function save() {
   error.value = ''
   saved.value = false
+  // The city list may still be loading when they hit Save. Wait, so "Munich"
+  // typed into the combobox is the canonical city before we read the form.
+  await useCityOptions().load()
+  await nextTick()
   const result = profileForm.validate()
   if (!result.success) return
   loading.value = true
   try {
     await updateProfile(result.data)
     saved.value = true
+    dirty.value = false
+    hydrate()
   } catch (e: unknown) {
     error.value = (e as { message?: string })?.message || 'Could not save. Please try again.'
   } finally {

@@ -4,14 +4,13 @@
  * one shape, a number, a short code. No "you're looking for…" — the holder
  * was told not to read this.
  */
-import { markPhrase, type RitualLang, type RitualMark } from '#shared/utils/ritual'
+import { markPhrase, type RitualMark } from '#shared/utils/ritual'
 
 const props = defineProps<{
   mark: RitualMark
-  lang: RitualLang
 }>()
 
-const phrase = computed(() => markPhrase(props.mark, props.lang))
+const phrase = computed(() => markPhrase(props.mark))
 </script>
 
 <template>

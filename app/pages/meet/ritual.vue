@@ -10,7 +10,7 @@
  */
 import { ArrowLeft, MapPin, Ticket } from 'lucide-vue-next'
 import { sizedImage, IMG } from '#shared/utils/image'
-import { nightCopy, ritualFollowup, type RitualLang, type RitualProblem } from '#shared/utils/ritual'
+import { nightCopy, ritualFollowup, type RitualProblem } from '#shared/utils/ritual'
 
 definePageMeta({ layout: false })
 
@@ -31,7 +31,7 @@ interface RitualData {
   you: { firstName: string }
   other: { id: string, name: string, firstName: string, photo: string | null, username: string | null, city: string, styles: string[] }
   night: Night | null
-  mark: { color: string, colorName: Record<RitualLang, string>, shape: 'circle' | 'triangle' | 'square' | 'star' | 'cross', shapeName: Record<RitualLang, string>, number: number, code: string } | null
+  mark: { color: string, colorName: string, shape: 'circle' | 'triangle' | 'square' | 'star' | 'cross', shapeName: string, number: number, code: string } | null
   state: { booked: boolean, revealed: boolean, problem: RitualProblem | null, note: string | null, how: 'good' | 'not' | null, emailSentAt: string | null }
   following: boolean
 }
@@ -49,7 +49,6 @@ const { isSignedIn, isLoading: authLoading } = useAuth()
 const { track } = useTrack()
 const { syncEvent } = useWeekPlan()
 
-const lang = ref<RitualLang>('en')
 const data = ref<RitualData | null>(null)
 const matches = ref<MatchRow[]>([])
 const loading = ref(false)
@@ -76,7 +75,7 @@ const facts = computed(() => ({
   time: data.value?.night?.time || '',
   weekday: data.value?.night?.weekday || '',
 }))
-const t = computed(() => nightCopy(lang.value, facts.value))
+const t = computed(() => nightCopy(facts.value))
 const email = computed(() => ritualFollowup(facts.value, 'https://2026.wedance.vip/meet/ritual', 'https://2026.wedance.vip/api/match-emails/off'))
 
 type Step = 'loading' | 'signed-out' | 'none' | 'pick' | 'not-match' | 'match' | 'instructions' | 'reveal' | 'help' | 'morning'
@@ -95,7 +94,7 @@ const step = computed<Step>(() => {
 const onSignal = computed(() => step.value === 'reveal' && !!data.value?.mark)
 
 useHead(computed(() => ({
-  title: lang.value === 'de' ? 'Treffen — WeDance' : 'Meetup — WeDance',
+  title: 'Meetup — WeDance',
   meta: [{ name: 'robots', content: 'noindex' }],
 })))
 
@@ -103,7 +102,7 @@ function errMessage(e: unknown): string {
   if (e && typeof e === 'object' && 'message' in e && typeof (e as { message: unknown }).message === 'string') {
     return (e as { message: string }).message
   }
-  return lang.value === 'de' ? 'Das hat nicht geklappt. Nochmal versuchen.' : 'That didn’t work. Try again.'
+  return 'That didn’t work. Try again.'
 }
 
 async function load() {
@@ -261,7 +260,7 @@ async function follow() {
 </script>
 
 <template>
-  <div :lang="lang" class="min-h-dvh bg-background" :data-step="step" data-testid="ritual">
+  <div lang="en" class="min-h-dvh bg-background" :data-step="step" data-testid="ritual">
     <div
       class="mx-auto flex min-h-dvh w-full max-w-md flex-col"
       :class="onSignal ? 'text-white' : 'text-foreground'"
@@ -284,25 +283,7 @@ async function follow() {
         </button>
         <p v-if="!onSignal" class="flex-1 text-center text-xs font-bold uppercase tracking-widest text-secondary">Meet</p>
         <span v-else class="flex-1" />
-        <div v-if="!onSignal" class="flex rounded-full bg-muted p-0.5" role="group" :aria-label="t.language">
-          <button
-            type="button"
-            class="h-9 min-w-11 rounded-full px-2 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            :class="lang === 'de' ? 'bg-card text-foreground' : 'text-muted-foreground'"
-            :aria-pressed="lang === 'de'"
-            data-testid="ritual-lang-de"
-            @click="lang = 'de'"
-          >DE</button>
-          <button
-            type="button"
-            class="h-9 min-w-11 rounded-full px-2 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            :class="lang === 'en' ? 'bg-card text-foreground' : 'text-muted-foreground'"
-            :aria-pressed="lang === 'en'"
-            data-testid="ritual-lang-en"
-            @click="lang = 'en'"
-          >EN</button>
-        </div>
-        <span v-else class="w-11" />
+        <span class="w-11" />
       </header>
 
       <main class="flex flex-1 flex-col px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
@@ -439,7 +420,7 @@ async function follow() {
 
         <!-- For the other person. No next step. -->
         <section v-else-if="step === 'reveal' && data?.mark" class="-mx-5 flex flex-1 flex-col" data-testid="ritual-reveal">
-          <RitualSymbol class="min-h-72 flex-1" :mark="data.mark" :lang="lang" />
+          <RitualSymbol class="min-h-72 flex-1" :mark="data.mark" />
           <div class="px-5 pb-2">
             <h1 id="ritual-title" tabindex="-1" class="text-center font-display text-3xl leading-tight outline-none" data-testid="ritual-reveal-line">{{ t.revealLine }}</h1>
             <div class="mt-4 flex justify-center gap-4 text-sm font-bold text-white/80">

@@ -8,7 +8,6 @@
  */
 import { eventLocalDate, eventLocalTime, zonedToUtc } from './eventTime'
 
-export type RitualLang = 'en' | 'de'
 export type RitualShape = 'circle' | 'triangle' | 'square' | 'star' | 'cross'
 export const RITUAL_PROBLEMS = ['couldnt_find', 'no_show', 'left', 'unsafe', 'other'] as const
 export type RitualProblem = (typeof RITUAL_PROBLEMS)[number]
@@ -25,36 +24,37 @@ export interface RitualColor {
   id: string
   /** CSS color, dark enough for white type. */
   css: string
-  name: Record<RitualLang, string>
+  /** English name, for the screen reader. */
+  name: string
 }
 
 export interface RitualMark {
   color: string
-  colorName: Record<RitualLang, string>
+  colorName: string
   shape: RitualShape
-  shapeName: Record<RitualLang, string>
+  shapeName: string
   number: number
   code: string
 }
 
 /** Dark brand tokens. White type on each of these clears WCAG AA for large text. */
 export const RITUAL_COLORS: readonly RitualColor[] = [
-  { id: 'orange', css: 'var(--wd-orange-700)', name: { en: 'orange', de: 'Orange' } },
-  { id: 'red', css: 'var(--wd-red-800)', name: { en: 'red', de: 'Rot' } },
-  { id: 'rose', css: 'var(--wd-red-900)', name: { en: 'rose', de: 'Rosa' } },
-  { id: 'violet', css: 'var(--wd-violet-600)', name: { en: 'violet', de: 'Violett' } },
-  { id: 'green', css: 'var(--wd-green-700)', name: { en: 'green', de: 'Grün' } },
-  { id: 'cyan', css: 'var(--wd-cyan-700)', name: { en: 'cyan', de: 'Türkis' } },
-  { id: 'amber', css: 'var(--wd-amber-800)', name: { en: 'amber', de: 'Bernstein' } },
-  { id: 'brown', css: 'var(--wd-brown-900)', name: { en: 'brown', de: 'Braun' } },
+  { id: 'orange', css: 'var(--wd-orange-700)', name: 'orange' },
+  { id: 'red', css: 'var(--wd-red-800)', name: 'red' },
+  { id: 'rose', css: 'var(--wd-red-900)', name: 'rose' },
+  { id: 'violet', css: 'var(--wd-violet-600)', name: 'violet' },
+  { id: 'green', css: 'var(--wd-green-700)', name: 'green' },
+  { id: 'cyan', css: 'var(--wd-cyan-700)', name: 'cyan' },
+  { id: 'amber', css: 'var(--wd-amber-800)', name: 'amber' },
+  { id: 'brown', css: 'var(--wd-brown-900)', name: 'brown' },
 ]
 
-const SHAPES: readonly { id: RitualShape, name: Record<RitualLang, string> }[] = [
-  { id: 'circle', name: { en: 'circle', de: 'Kreis' } },
-  { id: 'triangle', name: { en: 'triangle', de: 'Dreieck' } },
-  { id: 'square', name: { en: 'square', de: 'Quadrat' } },
-  { id: 'star', name: { en: 'star', de: 'Stern' } },
-  { id: 'cross', name: { en: 'cross', de: 'Kreuz' } },
+const SHAPES: readonly { id: RitualShape, name: string }[] = [
+  { id: 'circle', name: 'circle' },
+  { id: 'triangle', name: 'triangle' },
+  { id: 'square', name: 'square' },
+  { id: 'star', name: 'star' },
+  { id: 'cross', name: 'cross' },
 ]
 
 const CODE_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
@@ -87,10 +87,8 @@ export function pairMark(a: string, b: string, eventId: string): RitualMark {
 }
 
 /** Words for the symbol, for the screen reader. The other person is the one looking. */
-export function markPhrase(mark: RitualMark, lang: RitualLang): string {
-  return lang === 'de'
-    ? `${mark.colorName.de}, ${mark.shapeName.de}, ${mark.number}`
-    : `${mark.colorName.en} ${mark.shapeName.en} ${mark.number}`
+export function markPhrase(mark: RitualMark): string {
+  return `${mark.colorName} ${mark.shapeName} ${mark.number}`
 }
 
 /**
@@ -138,7 +136,6 @@ export interface RitualFacts {
 
 export interface NightCopy {
   back: string
-  language: string
   toMeet: string
   toFriends: string
   signInTitle: string
@@ -189,71 +186,11 @@ export interface NightCopy {
   place: string
 }
 
-/** Everything said on the night itself. No follow — that waits for the email. */
-export function nightCopy(lang: RitualLang, facts: RitualFacts): NightCopy {
+/** Everything said on the night itself. English only. No follow — that waits for the email. */
+export function nightCopy(facts: RitualFacts): NightCopy {
   const { you, other, event } = facts
-  if (lang === 'de') {
-    return {
-      back: 'Zurück',
-      language: 'Sprache',
-      toMeet: 'Zu Meet',
-      toFriends: 'Zu deinen Dance Friends',
-      signInTitle: 'Melde dich an',
-      signInBody: 'Melde dich an, buch den Abend und sieh, wo ihr euch trefft.',
-      signIn: 'Anmelden',
-      noneTitle: 'Noch kein Match',
-      noneBody: 'Sagt euch auf Meet beide Ja. Danach steht hier, wann und wo ihr euch trefft.',
-      pickTitle: 'Mit wem triffst du dich?',
-      pickHint: 'Ihr habt beide Ja gesagt.',
-      notMatch: 'Das ist kein Match von dir.',
-      matchKicker: 'Ihr habt beide Ja gesagt',
-      matchTitle: 'Es ist ein Match',
-      matchBody: `${other} hat auch Ja gesagt. Buch den Abend, dann siehst du, wann und wo ihr euch trefft.`,
-      book: 'Platz buchen',
-      seeInstructions: 'So trefft ihr euch',
-      noNight: 'In den nächsten zwei Wochen ist noch kein Abend da, den ihr beide besuchen könnt.',
-      tickets: 'Oder Ticket kaufen',
-      instructionsTitle: 'So trefft ihr euch',
-      safetyTitle: 'Kurz zur Sicherheit',
-      safetyLeave: 'Du kannst jederzeit gehen',
-      safetyPublic: 'Ihr trefft euch an einem öffentlichen Ort',
-      safetyAdult: 'Das Treffen ist ab 18',
-      safetyOptional: 'Die Haken sind freiwillig.',
-      turnHint: `Schau nicht auf den nächsten Bildschirm. Dreh dein Handy zu ${other}, damit ${other} ihn sieht.`,
-      showThem: 'Handy umdrehen',
-      showAgain: 'Nochmal zeigen',
-      revealLine: `Hallo, ich bin ${you}`,
-      help: 'Hat nicht geklappt?',
-      tomorrow: 'Die E-Mail am nächsten Morgen',
-      helpTitle: 'Was ist passiert?',
-      helpBody: `Das bleibt bei WeDance. ${other} wird nicht benachrichtigt.`,
-      problems: {
-        couldnt_find: 'Wir haben uns nicht gefunden',
-        no_show: 'Die andere Person war nicht da',
-        left: 'Ich bin gegangen',
-        unsafe: 'Es hat sich nicht gut angefühlt',
-        other: 'Etwas anderes',
-      },
-      noteLabel: 'Noch etwas? Optional.',
-      notePlaceholder: 'Ein Satz reicht',
-      saveReport: 'Speichern',
-      reportSaved: 'Gespeichert. Du kannst jederzeit hierher zurück.',
-      morningKicker: 'Am nächsten Morgen',
-      morningPending: `Diese E-Mail bekommen ihr beide am Morgen nach ${event}.`,
-      morningSent: 'Verschickt.',
-      emailCaption: 'Die E-Mail',
-      howTitle: 'Wie war’s?',
-      howGood: 'Gut',
-      howNot: 'Diesmal nicht',
-      howSaved: 'Danke, das ist angekommen.',
-      follow: `${other} folgen`,
-      following: `Du folgst ${other}`,
-      place: 'am DJ-Pult',
-    }
-  }
   return {
     back: 'Back',
-    language: 'Language',
     toMeet: 'Back to Meet',
     toFriends: 'Your dance friends',
     signInTitle: 'Sign in',
