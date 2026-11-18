@@ -1427,7 +1427,7 @@ export const eventPosts = pgTable('event_posts', {
   igStoryMediaId: text('ig_story_media_id'),
   igStoryPermalink: text('ig_story_permalink'),
   storyPublishedAt: timestamp('story_published_at'),
-  // Work in progress on the flyer page (0076, RAZ-1033). The step, uploads and
+  // Work in progress on the flyer page (0078, RAZ-1033). The step, uploads and
   // the look that was read. Painted versions stay in event_flyers.
   flyerDraft: jsonb('flyer_draft').$type<import('../../shared/utils/flyerDraft').FlyerDraft | null>(),
 }, (t) => [index('event_posts_event_idx').on(t.eventId)])
