@@ -1,9 +1,12 @@
 import { z } from 'zod'
-import { eq, and, sql, inArray, ne } from 'drizzle-orm'
+import { eq, and, sql, inArray, ne, isNull } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
-import { router, publicProcedure, protectedProcedure, adminProcedure } from '../trpc'
-import { attendances, dancers, events, profileMembers } from '../../database/schema'
+import { router, publicProcedure, protectedProcedure } from '../trpc'
+import { attendances, dancers, eventRsvps, events } from '../../database/schema'
 import { eventGroup, trackServer } from '../../utils/posthog'
+import { requireEventManager } from './businessEvents'
+import { isPartnerEvent, UNCONFIRMED_TTL_HOURS } from '../../../shared/utils/rsvp'
+import { loadDoorGuests, passHolder, passSource, stubWhere, type DoorEvent } from '../../utils/doorGuests'
 
 const visibilityEnum = z.enum(['hidden', 'public_minimal', 'public_full'])
 const statusEnum = z.enum(['interested', 'going', 'none'])
@@ -338,58 +341,163 @@ export const attendanceRouter = router({
   }),
 
   /**
-   * Check in an attendee (organiser door flow). Requires the caller to be
-   * an owner or editor of the event's host profile.
+   * The door list: RSVPs (not "next time"), Going!, tickets and festival passes.
+   * Names only — a guest's typed name, never an email or a phone. Event managers only.
+   */
+  door: protectedProcedure
+    .input(z.object({ eventId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const ev = await requireEventManager(ctx, input.eventId)
+      const guests = await loadDoorGuests(ctx.db, ev)
+      return {
+        eventName: ev.name || 'Event',
+        partner: isPartnerEvent(ev.styles),
+        here: guests.filter(g => g.checkedIn).length,
+        total: guests.length,
+        guests,
+      }
+    }),
+
+  /**
+   * Check a guest in, or take it back (`undo`). One of attendanceId (an existing
+   * row, including an unclaimed ticket), dancerId (someone on the door list;
+   * creates their attendance if the RSVP or Going! never did), rsvpId (a
+   * signed-out answer) or signupId (an unclaimed festival pass).
+   * Event managers only. Checking in twice records nothing new.
    */
   checkIn: protectedProcedure
     .input(z.object({
       eventId: z.string().uuid(),
-      attendanceId: z.string().uuid(),
+      attendanceId: z.string().uuid().optional(),
+      dancerId: z.string().uuid().optional(),
+      rsvpId: z.string().uuid().optional(),
+      signupId: z.string().uuid().optional(),
+      undo: z.boolean().optional(),
+    }).refine(i => [i.attendanceId, i.dancerId, i.rsvpId, i.signupId].filter(Boolean).length === 1, {
+      message: 'Name one guest: an attendance, a dancer, an RSVP or a pass.',
     }))
     .mutation(async ({ ctx, input }) => {
-      // Verify the caller is an owner/editor of the event's host profile.
-      const [event] = await ctx.db
-        .select({ hostProfileId: events.hostProfileId, organizerUsername: events.organizerUsername, venueUsername: events.venueUsername, isFestival: events.isFestival })
-        .from(events)
-        .where(eq(events.id, input.eventId))
-
-      if (!event?.hostProfileId) {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Event has no host profile' })
-      }
-
-      const [membership] = await ctx.db
-        .select({ role: profileMembers.role })
-        .from(profileMembers)
-        .where(
-          and(
-            eq(profileMembers.profileId, event.hostProfileId),
-            eq(profileMembers.dancerId, ctx.dancerId),
-            inArray(profileMembers.role, ['owner', 'editor']),
-          ),
-        )
-
-      if (!membership) {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Not a team member of this event' })
-      }
-
-      const now = new Date()
-      const result = await ctx.db
-        .update(attendances)
-        .set({ checkedInAt: now, updatedAt: now })
-        .where(
-          and(
-            eq(attendances.id, input.attendanceId),
-            eq(attendances.eventId, input.eventId),
-          ),
-        )
-        .returning({ checkedInAt: attendances.checkedInAt })
-
-      if (result.length === 0) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Attendance not found' })
-      }
-
-      // Door check-in by the organiser (distinct_id = the organiser; no attendee data).
-      trackServer(ctx, 'checked_in', { event_id: input.eventId, is_festival: !!event.isFestival, ...eventGroup(event) })
-      return { checkedInAt: result[0].checkedInAt }
+      const ev = await requireEventManager(ctx, input.eventId)
+      const undo = !!input.undo
+      if (input.attendanceId) return markAttendance(ctx, ev, input.attendanceId, undo)
+      if (input.rsvpId) return markRsvp(ctx, ev, input.rsvpId, undo)
+      if (input.signupId) return markPass(ctx, ev, input.signupId, undo)
+      return markDancer(ctx, ev, input.dancerId!, undo)
     }),
 })
+
+type DoorCtx = { db: any; dancerId: string; waitUntil?: (p: Promise<unknown>) => void }
+
+function trackCheckIn(ctx: DoorCtx, ev: { id: string; isFestival?: boolean | null; organizerUsername?: string | null; venueUsername?: string | null }) {
+  trackServer(ctx, 'checked_in', { event_id: ev.id, is_festival: !!ev.isFestival, ...eventGroup(ev) })
+}
+
+/** Set checked_in_at only when it was empty, so a second tap does not count again. */
+async function stampAttendance(db: any, where: any, now: Date): Promise<{ checkedInAt: Date | null; fresh: boolean }> {
+  const updated = await db.update(attendances)
+    .set({ checkedInAt: now, updatedAt: now })
+    .where(and(where, isNull(attendances.checkedInAt)))
+    .returning({ checkedInAt: attendances.checkedInAt })
+  if (updated.length) return { checkedInAt: updated[0].checkedInAt, fresh: true }
+  const [row] = await db.select({ checkedInAt: attendances.checkedInAt }).from(attendances).where(where).limit(1)
+  if (!row?.checkedInAt) throw new TRPCError({ code: 'NOT_FOUND', message: 'Attendance not found' })
+  return { checkedInAt: row.checkedInAt, fresh: false }
+}
+
+async function clearAttendance(db: any, where: any) {
+  await db.update(attendances).set({ checkedInAt: null, updatedAt: new Date() }).where(where)
+  return { checkedInAt: null, checkedIn: false as const }
+}
+
+async function markAttendance(ctx: DoorCtx, ev: DoorEvent & { id: string; isFestival?: boolean | null; organizerUsername?: string | null; venueUsername?: string | null }, attendanceId: string, undo: boolean) {
+  const where = and(eq(attendances.id, attendanceId), eq(attendances.eventId, ev.id))
+  if (undo) {
+    const [row] = await ctx.db.select({ id: attendances.id }).from(attendances).where(where).limit(1)
+    if (!row) throw new TRPCError({ code: 'NOT_FOUND', message: 'Attendance not found' })
+    return clearAttendance(ctx.db, where)
+  }
+  const now = new Date()
+  const { checkedInAt, fresh } = await stampAttendance(ctx.db, where, now)
+  if (fresh) trackCheckIn(ctx, ev)
+  return { checkedInAt, checkedIn: true as const }
+}
+
+async function markRsvp(ctx: DoorCtx, ev: any, rsvpId: string, undo: boolean) {
+  const [row] = await ctx.db.select({
+    id: eventRsvps.id, dancerId: eventRsvps.dancerId, answer: eventRsvps.answer,
+    confirmedAt: eventRsvps.confirmedAt, updatedAt: eventRsvps.updatedAt, checkedInAt: eventRsvps.checkedInAt,
+  }).from(eventRsvps).where(and(eq(eventRsvps.id, rsvpId), eq(eventRsvps.eventId, ev.id))).limit(1)
+  if (!row) throw new TRPCError({ code: 'NOT_FOUND', message: 'That RSVP isn’t for this event.' })
+  if (row.dancerId) return markDancer(ctx, ev, row.dancerId, undo)
+  if (!undo) {
+    if (row.answer === 'next') throw new TRPCError({ code: 'BAD_REQUEST', message: 'They said next time, so they’re not on the door list.' })
+    const fresh = !!row.confirmedAt || (row.updatedAt && new Date(row.updatedAt).getTime() > Date.now() - UNCONFIRMED_TTL_HOURS * 3600_000)
+    if (!fresh) throw new TRPCError({ code: 'BAD_REQUEST', message: 'That answer expired before it was confirmed.' })
+  }
+  if (undo) {
+    await ctx.db.update(eventRsvps).set({ checkedInAt: null, updatedAt: new Date() }).where(eq(eventRsvps.id, row.id))
+    return { checkedInAt: null, checkedIn: false as const }
+  }
+  if (row.checkedInAt) return { checkedInAt: row.checkedInAt, checkedIn: true as const }
+  const now = new Date()
+  await ctx.db.update(eventRsvps).set({ checkedInAt: now, updatedAt: now }).where(eq(eventRsvps.id, row.id))
+  trackCheckIn(ctx, ev)
+  return { checkedInAt: now, checkedIn: true as const }
+}
+
+async function markDancer(ctx: DoorCtx, ev: any, dancerId: string, undo: boolean) {
+  const guests = await loadDoorGuests(ctx.db, ev)
+  const guest = guests.find(g => g.dancerId === dancerId)
+  if (!guest) throw new TRPCError({ code: 'BAD_REQUEST', message: 'They’re not on this event’s list.' })
+  const where = and(eq(attendances.eventId, ev.id), eq(attendances.dancerId, dancerId))
+  if (undo) return clearAttendance(ctx.db, where)
+  const now = new Date()
+  const ticket = guest.via === 'ticket'
+  const inserted = await ctx.db.insert(attendances).values({
+    eventId: ev.id,
+    dancerId,
+    status: ticket ? 'ticket_holder' : 'going',
+    source: ticket ? await passSource(ctx.db, ev, dancerId) : 'click',
+    visibility: 'hidden',
+    checkedInAt: now,
+    ...(ticket ? { verifiedAt: now } : {}),
+  }).onConflictDoNothing({ target: [attendances.eventId, attendances.dancerId] }).returning({ checkedInAt: attendances.checkedInAt })
+  if (inserted.length) {
+    trackCheckIn(ctx, ev)
+    return { checkedInAt: inserted[0].checkedInAt, checkedIn: true as const }
+  }
+  const stamped = await stampAttendance(ctx.db, where, now)
+  if (stamped.fresh) trackCheckIn(ctx, ev)
+  // A festival pass is a paid order: the attendance shows as a ticket in Who's coming.
+  if (ticket) {
+    await ctx.db.update(attendances).set({
+      status: 'ticket_holder',
+      verifiedAt: sql`coalesce(${attendances.verifiedAt}, ${now})`,
+      updatedAt: now,
+    }).where(and(where, ne(attendances.status, 'ticket_holder')))
+  }
+  return { checkedInAt: stamped.checkedInAt, checkedIn: true as const }
+}
+
+async function markPass(ctx: DoorCtx, ev: any, signupId: string, undo: boolean) {
+  const holder = await passHolder(ctx.db, ev, signupId)
+  if (!holder) throw new TRPCError({ code: 'NOT_FOUND', message: 'That pass isn’t for this event.' })
+  if ('dancerId' in holder) return markDancer(ctx, ev, holder.dancerId, undo)
+  const where = stubWhere(ev.id, holder.email)
+  if (undo) return clearAttendance(ctx.db, where)
+  const now = new Date()
+  const [existing] = await ctx.db.select({ id: attendances.id, checkedInAt: attendances.checkedInAt }).from(attendances).where(where).limit(1)
+  if (existing?.checkedInAt) return { checkedInAt: existing.checkedInAt, checkedIn: true as const }
+  if (existing) {
+    const stamped = await stampAttendance(ctx.db, where, now)
+    if (stamped.fresh) trackCheckIn(ctx, ev)
+    return { checkedInAt: stamped.checkedInAt, checkedIn: true as const }
+  }
+  await ctx.db.insert(attendances).values({
+    eventId: ev.id, buyerEmail: holder.email, status: 'ticket_holder', source: holder.source,
+    visibility: 'hidden', checkedInAt: now, verifiedAt: now,
+  })
+  trackCheckIn(ctx, ev)
+  return { checkedInAt: now, checkedIn: true as const }
+}
+

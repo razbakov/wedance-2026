@@ -653,45 +653,68 @@ export async function discoverDeck(db: Db, dancerId: string, now = new Date()): 
     }
   } catch { /* non-critical */ }
 
-  // 2. Dancers going out in my city in the next two weeks (RAZ-981): signed up
-  //    to a night (a confirmed poll answer other than "next"), public profile,
-  //    photo — the same people "Who's coming" already shows to signed-in
-  //    dancers on that event's page. Nobody is in the deck just for living
-  //    here: you get shown by going out, and each card leads to the night.
+  // 2. Dancers going out in my city in the next two weeks (RAZ-981): a confirmed
+  //    poll answer other than "next", or the night on their plan. Public profile
+  //    and a photo — the same people the deck has always required. Nobody is in
+  //    the deck just for living here: you get shown by going out, and each card
+  //    leads to the night.
   if (citySlug) {
     try {
-      const rows: any[] = await db
-        .select({
-          id: dancers.id, name: dancers.name, photo: dancers.photo, city: dancers.city, danceStyles: dancers.danceStyles,
-          eventId: events.id, eventName: events.name, startDate: events.startDate, timezone: events.timezone, venueName: events.venueName,
-        })
-        .from(eventRsvps)
-        .innerJoin(events, eq(eventRsvps.eventId, events.id))
-        .innerJoin(dancers, eq(eventRsvps.dancerId, dancers.id))
-        .where(and(
-          eq(events.citySlug, citySlug),
-          live(),
-          isNull(events.cancelledAt),
-          ne(events.isFestival, true),
-          gte(sql`coalesce(${events.endDate}, ${events.startDate})`, now),
-          lt(events.startDate, new Date(now.getTime() + GOING_OUT_DAYS * DAY)),
-          ne(eventRsvps.answer, 'next'),
-          isNotNull(eventRsvps.confirmedAt),
-          ne(dancers.id, dancerId),
-          eq(dancers.profilePublic, true),
-          ...hasPhoto(),
-          ...notSwipedDancer,
-        ))
-        .orderBy(asc(events.startDate))
-        .limit(300)
+      const goingCols = {
+        id: dancers.id, name: dancers.name, photo: dancers.photo, city: dancers.city, danceStyles: dancers.danceStyles,
+        eventId: events.id, eventName: events.name, startDate: events.startDate, timezone: events.timezone, venueName: events.venueName,
+      }
+      const nightOn = and(
+        eq(events.citySlug, citySlug),
+        live(),
+        isNull(events.cancelledAt),
+        ne(events.isFestival, true),
+        gte(sql`coalesce(${events.endDate}, ${events.startDate})`, now),
+        lt(events.startDate, new Date(now.getTime() + GOING_OUT_DAYS * DAY)),
+      )
+      const visible = [
+        ne(dancers.id, dancerId),
+        eq(dancers.profilePublic, true),
+        ...hasPhoto(),
+        ...notSwipedDancer,
+      ]
+      const [rsvpRows, planRows]: [any[], any[]] = await Promise.all([
+        db.select(goingCols).from(eventRsvps)
+          .innerJoin(events, eq(eventRsvps.eventId, events.id))
+          .innerJoin(dancers, eq(eventRsvps.dancerId, dancers.id))
+          .where(and(nightOn, ne(eventRsvps.answer, 'next'), isNotNull(eventRsvps.confirmedAt), ...visible))
+          .orderBy(asc(events.startDate))
+          .limit(300),
+        db.select(goingCols).from(planItems)
+          .innerJoin(events, sql`${events.id}::text = ${planItems.itemId}`)
+          .innerJoin(dancers, eq(planItems.dancerId, dancers.id))
+          .where(and(
+            eq(planItems.itemType, 'event'),
+            nightOn,
+            notInArray(sql`coalesce(${events.type}, '')`, NON_SOCIAL_TYPES),
+            ...visible,
+          ))
+          .orderBy(asc(events.startDate))
+          .limit(300),
+      ])
+      const rows = [...rsvpRows, ...planRows]
 
-      // Nights I signed up to: someone going to one of those comes first, with that night.
-      const myNights = new Set<string>(rows.length
-        ? (await db.select({ id: eventRsvps.eventId }).from(eventRsvps).where(and(
+      // Nights I'm going to — a sign-up or the plan. Someone on one of those comes first.
+      const eventIds = [...new Set(rows.map(r => r.eventId))]
+      const myNights = new Set<string>()
+      if (eventIds.length) {
+        const [mineRsvp, minePlan] = await Promise.all([
+          db.select({ id: eventRsvps.eventId }).from(eventRsvps).where(and(
             eq(eventRsvps.dancerId, dancerId), ne(eventRsvps.answer, 'next'), isNotNull(eventRsvps.confirmedAt),
-            inArray(eventRsvps.eventId, [...new Set(rows.map(r => r.eventId))]),
-          ))).map((r: any) => r.id)
-        : [])
+            inArray(eventRsvps.eventId, eventIds),
+          )),
+          db.select({ id: planItems.itemId }).from(planItems).where(and(
+            eq(planItems.dancerId, dancerId), eq(planItems.itemType, 'event'), inArray(planItems.itemId, eventIds),
+          )),
+        ])
+        for (const r of mineRsvp) myNights.add(r.id)
+        for (const r of minePlan) myNights.add(r.id)
+      }
       const pick = new Map<string, any>()
       for (const r of rows) {
         const had = pick.get(r.id)
@@ -823,28 +846,34 @@ export async function discoverDeck(db: Db, dancerId: string, now = new Date()): 
 
 /**
  * Where the dancer shows up in other decks (RAZ-981): their next night out
- * (any city — dancers going out there see them) and the festivals they chose
+ * (a sign-up or the night on their plan, any city) and the festivals they chose
  * "Show me" for. Their photo and public profile are checked on the page.
  */
 async function discoverMe(db: Db, dancerId: string, citySlug: string, myPlan: any[], now: Date): Promise<DiscoverMe> {
   let nextNight: DiscoverMe['nextNight'] = null
   try {
-    const [n] = await db
-      .select({ id: events.id, name: events.name, startDate: events.startDate, timezone: events.timezone, city: events.city })
-      .from(eventRsvps)
+    const soon = and(
+      live(),
+      isNull(events.cancelledAt),
+      ne(events.isFestival, true),
+      gte(sql`coalesce(${events.endDate}, ${events.startDate})`, now),
+      lt(events.startDate, new Date(now.getTime() + GOING_OUT_DAYS * DAY)),
+    )
+    const cols = { id: events.id, name: events.name, startDate: events.startDate, timezone: events.timezone, city: events.city }
+    const [rsvpNight] = await db.select(cols).from(eventRsvps)
       .innerJoin(events, eq(eventRsvps.eventId, events.id))
+      .where(and(eq(eventRsvps.dancerId, dancerId), ne(eventRsvps.answer, 'next'), isNotNull(eventRsvps.confirmedAt), soon))
+      .orderBy(asc(events.startDate))
+      .limit(1)
+    const [planNight] = await db.select(cols).from(planItems)
+      .innerJoin(events, sql`${events.id}::text = ${planItems.itemId}`)
       .where(and(
-        eq(eventRsvps.dancerId, dancerId),
-        ne(eventRsvps.answer, 'next'),
-        isNotNull(eventRsvps.confirmedAt),
-        live(),
-        isNull(events.cancelledAt),
-        ne(events.isFestival, true),
-        gte(sql`coalesce(${events.endDate}, ${events.startDate})`, now),
-        lt(events.startDate, new Date(now.getTime() + GOING_OUT_DAYS * DAY)),
+        eq(planItems.dancerId, dancerId), eq(planItems.itemType, 'event'), soon,
+        notInArray(sql`coalesce(${events.type}, '')`, NON_SOCIAL_TYPES),
       ))
       .orderBy(asc(events.startDate))
       .limit(1)
+    const n = [rsvpNight, planNight].filter(x => x?.startDate).sort((a, b) => +new Date(a.startDate) - +new Date(b.startDate))[0]
     if (n?.startDate) nextNight = { eventId: n.id, eventName: n.name ?? '', eventDateISO: new Date(n.startDate).toISOString(), eventTimezone: n.timezone ?? null, city: n.city ?? '' }
   } catch { /* non-critical */ }
   let festivalsShown = 0

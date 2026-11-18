@@ -12,7 +12,7 @@
  * is a big button on that step while the event is a draft: one click publishes,
  * then a dialog confirms it, with the event's link.
  */
-import { Check, ExternalLink, Repeat, Archive, ArchiveRestore, Sparkles, FileText, Copy, Ban } from 'lucide-vue-next'
+import { Check, ExternalLink, Repeat, Archive, ArchiveRestore, Sparkles, FileText, Copy, Ban, DoorOpen } from 'lucide-vue-next'
 import type { BusinessEventValues } from '~/components/business/BusinessEventForm.vue'
 import { toBusinessEventInput } from '~/lib/businessEvent'
 import { readableSaveError, type SaveError } from '~/lib/eventSaveError'
@@ -297,6 +297,9 @@ async function archive(series = false) {
         :title="ev.name"
         :back="{ to: '/business/events', label: 'Events' }"
       >
+        <Button variant="pill" size="pill-sm" as-child>
+          <NuxtLink :to="`/business/events/${ev.id}/door`"><DoorOpen /> Door</NuxtLink>
+        </Button>
         <Button v-if="ev.published" variant="outline-pill" size="pill-sm" as-child>
           <NuxtLink :to="eventPath({ id: ev.id, name: ev.name })" target="_blank"><ExternalLink /> View as dancers see it</NuxtLink>
         </Button>

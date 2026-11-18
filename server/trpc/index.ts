@@ -48,6 +48,7 @@ import { organizerSubscriptionRouter } from './routers/organizerSubscription'
 import { attendanceRouter } from './routers/attendance'
 import { oauthRouter } from './routers/oauth'
 import { eventImportRouter } from './routers/eventImport'
+import { ritualRouter } from './routers/ritual'
 
 export const appRouter = router({
   auth: authRouter,
@@ -98,6 +99,7 @@ export const appRouter = router({
   weekend: weekendRouter,
   organizerSubscription: organizerSubscriptionRouter,
   attendance: attendanceRouter,
+  ritual: ritualRouter,
   oauth: oauthRouter,
 })
 

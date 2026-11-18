@@ -17,19 +17,36 @@
  *
  * ?artist=<handle> (from /@handle/book) starts from scratch with that artist in
  * the line-up; ?type=Festival (from /organizers) starts from scratch as that type.
+ *
+ * Back (RAZ-1024): choosing a path puts ?start= in the URL, so Back and
+ * Forward move between the choice and that path. A Back button does the
+ * same. What was typed stays in this browser and is filled in again on the
+ * way back, until a draft is created.
  */
-import { Plus, Search, Instagram, Loader2, Copy, PenLine, Check, Pencil } from 'lucide-vue-next'
+import { Plus, Search, Instagram, Loader2, Copy, PenLine, Check, Pencil, ArrowLeft } from 'lucide-vue-next'
 import { EventStartSchema, EventCopySchema, InstagramPostImportSchema } from '#shared/validation'
 import { suggestEventName, nextSameWeekday, type EventStart } from '#shared/utils/eventStart'
 import { eventLocalDate, eventLocalTime } from '#shared/utils/eventTime'
 import { emptyEventDetails } from '#shared/utils/programme'
 import { blankBusinessEvent, toBusinessEventInput } from '~/lib/businessEvent'
+import {
+  NEW_EVENT_DRAFT_KEY,
+  clearNewEventDraft,
+  newEventBackAction,
+  newEventRestorePlan,
+  nextNewEventDraft,
+  parseEventStart,
+  readNewEventDraft,
+  writeNewEventDraft,
+  type NewEventDraft,
+} from '~/lib/newEventDraft'
 
 definePageMeta({ layout: 'business' })
 useHead({ title: 'New event | Business | WeDance' })
 
 const { $trpc } = useNuxtApp()
 const route = useRoute()
+const router = useRouter()
 const { track } = useTrack()
 const artist = typeof route.query.artist === 'string' ? route.query.artist.replace(/^@/, '') : ''
 const TYPES = ['Party', 'Workshop', 'Course', 'Festival', 'Weekender', 'Congress', 'Concert', 'Show'] as const
@@ -38,14 +55,10 @@ const queryType = typeof route.query.type === 'string' && (TYPES as readonly str
 const businessProfile = useBusinessProfile()
 const hosts = ref<{ username: string; name: string; type: string; city: string | null }[] | null>(null)
 const error = ref<string | null>(null)
-
-onMounted(async () => {
-  try {
-    hosts.value = (await $trpc.business.myProfiles.query()).managed
-  } catch (e: any) {
-    error.value = e?.message || 'Could not load your profiles.'
-  }
-})
+// True while the saved form is being put back, so that fill doesn't count as typing.
+let applying = true
+let draftForgotten = false
+const edited = { post: false, copy: false, scratch: false }
 
 // Default host: the switcher's profile, else the only one, else an organizer.
 const defaultHost = computed(() => {
@@ -55,24 +68,33 @@ const defaultHost = computed(() => {
 const hostOptions = computed(() => (hosts.value ?? []).map(h => ({ label: h.name, value: h.username })))
 
 // ── The one question ─────────────────────────────────────────────────────────
-const start = ref<EventStart | null>(null)
+// The URL is the step. Back and Forward move between the choice and a path.
+const start = computed(() => parseEventStart(route.query.start))
 function choose(s: EventStart) {
   if (start.value === s) return
-  start.value = s
   track('event_form_opened', { start: s })
-  if (s === 'copy') loadPast()
+  router.push({ query: { ...route.query, start: s } })
+}
+function backToChoice() {
+  const state = window.history.state as { back?: unknown } | null
+  const prev = typeof state?.back === 'string' ? state.back : null
+  if (newEventBackAction(prev) === 'back') {
+    router.back()
+    return
+  }
+  const query = { ...route.query }
+  delete query.start
+  router.push({ query })
 }
 const STARTS: { key: EventStart; icon: any; title: string; text: string }[] = [
   { key: 'post', icon: Instagram, title: 'I have a post', text: 'Paste your Instagram post or reel. We read it into a draft.' },
   { key: 'copy', icon: Copy, title: 'Like my last event', text: 'Pick an earlier event and the new date. Venue, line-up and prices come along.' },
   { key: 'scratch', icon: PenLine, title: 'From scratch', text: 'Type, music, date and time. The rest comes step by step.' },
 ]
-// Links that already say what to make go straight to "From scratch".
-onMounted(() => { if (artist || queryType) choose('scratch') })
 
 // ── "I have a post" ──────────────────────────────────────────────────────────
 const post = reactive({ url: '', profile: '' })
-watch(defaultHost, h => { if (!post.profile) post.profile = h }, { immediate: true })
+watch(defaultHost, (h) => { if (h && !post.profile) fillDefault(() => { post.profile = h }) }, { immediate: true })
 const { errors: postErrors, validate: validatePost, fieldAttrs: postAttrs } = useFormValidation(InstagramPostImportSchema, post)
 const importing = ref(false)
 const importError = ref<string | null>(null)
@@ -83,6 +105,7 @@ async function importPost() {
   importError.value = null
   try {
     const r = await $trpc.eventImport.fromInstagram.mutate(result.data)
+    forgetDraft()
     track('event_imported', { event_id: r.id, source: 'instagram', created: r.created, lineup: r.lineup.length, has_cover: r.cover })
     await navigateTo(`/business/events/${r.id}?created=draft`)
   } catch (e: any) {
@@ -96,8 +119,10 @@ async function importPost() {
 type Past = { id: string; name: string; startDate: string | Date; timezone: string | null; host: { name: string } | null; published: boolean; city: string | null; styles: string[] | null }
 const past = ref<Past[] | null>(null)
 const pastError = ref<string | null>(null)
+let pastLoading = false
 async function loadPast() {
-  if (past.value) return
+  if (past.value || pastLoading) return
+  pastLoading = true
   try {
     const l = await $trpc.businessEvents.list.query()
     // Mine only (not line-ups I play), newest first, one row per name.
@@ -107,9 +132,23 @@ async function loadPast() {
       .sort((a, b) => +new Date(b.startDate) - +new Date(a.startDate))
       .filter(e => { const k = (e.name ?? '').trim().toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true })
       .slice(0, 12)
-    if (past.value.length) pick(past.value[0]!)
+    // A restored choice stays. Otherwise the newest event is the suggestion.
+    const list = past.value ?? []
+    if (!list.length) return
+    const kept = list.find(e => e.id === copy.id)
+    if (kept) {
+      // Filling the suggested date is not the organiser typing.
+      if (!copy.date) fillDefault(() => { copy.date = nextSameWeekday(eventLocalDate(kept.startDate, tzOf(kept)), todayIso()) })
+    } else if (copy.id) {
+      // The saved event is gone: the suggestion replaces it, and that replacement is what we keep.
+      pick(list[0]!)
+    } else {
+      fillDefault(() => pick(list[0]!))
+    }
   } catch (e: any) {
     pastError.value = e?.message || 'Could not load your events.'
+  } finally {
+    pastLoading = false
   }
 }
 const tzOf = (e: Past) => e.timezone || 'Europe/Berlin'
@@ -132,6 +171,7 @@ async function makeCopy() {
   error.value = null
   try {
     const r = await $trpc.businessEvents.copy.mutate(result.data)
+    forgetDraft()
     const src = picked.value
     track('event_created', { event_id: r.id, is_festival: false, city: src?.city ?? null, style: src?.styles?.[0] ?? null, published: false, source: 'copy', dates: r.created.length })
     await navigateTo(`/business/events/${r.id}?created=draft`)
@@ -144,7 +184,7 @@ async function makeCopy() {
 
 // ── "From scratch" ───────────────────────────────────────────────────────────
 const scratch = reactive({ hostUsername: '', type: (queryType ?? 'Party') as EventType, styles: [] as string[], date: '', startTime: '20:00', name: '', published: false })
-watch(defaultHost, h => { if (!scratch.hostUsername) scratch.hostUsername = h }, { immediate: true })
+watch(defaultHost, (h) => { if (h && !scratch.hostUsername) fillDefault(() => { scratch.hostUsername = h }) }, { immediate: true })
 const suggested = computed(() => suggestEventName(scratch))
 const naming = ref(false)
 function editName() {
@@ -176,6 +216,7 @@ async function createFromScratch() {
       festival: emptyEventDetails(),
     })
     const { id } = await $trpc.businessEvents.create.mutate(input)
+    forgetDraft()
     const props = { event_id: id, is_festival: ['Festival', 'Weekender', 'Congress'].includes(input.type), city: input.city || null, style: input.styles?.[0] ?? null }
     track('event_created', { ...props, published: !!input.published, source: 'scratch' })
     if (input.published) track('event_published', props)
@@ -188,6 +229,131 @@ async function createFromScratch() {
 }
 // An event's local start time, as on its page.
 const timeOf = (e: Past) => eventLocalTime(e.startDate, tzOf(e))
+
+// ── Remember the unfinished form (RAZ-1024) ──────────────────────────────────
+function browserStorage(): Storage | null {
+  if (!import.meta.client) return null
+  try {
+    const storage = window.localStorage
+    storage.getItem(NEW_EVENT_DRAFT_KEY)
+    return storage
+  } catch {
+    return null
+  }
+}
+
+function fillDefault(fn: () => void) {
+  const prev = applying
+  applying = true
+  try { fn() } finally { applying = prev }
+}
+
+function snapshot(): NewEventDraft {
+  return {
+    v: 1,
+    start: start.value,
+    entry: { type: queryType, artist },
+    post: { url: post.url, profile: post.profile },
+    copy: { id: copy.id, date: copy.date, repeatWeeks: copy.repeatWeeks },
+    scratch: {
+      hostUsername: scratch.hostUsername,
+      type: scratch.type,
+      styles: [...scratch.styles],
+      date: scratch.date,
+      startTime: scratch.startTime,
+      name: scratch.name,
+      published: scratch.published,
+    },
+    naming: naming.value,
+  }
+}
+
+function persist() {
+  if (applying || draftForgotten) return
+  const storage = browserStorage()
+  const previous = readNewEventDraft(storage)
+  const current = snapshot()
+  // Opening a link and leaving, without typing, is not an unfinished form.
+  if (!previous && !current.start && !edited.post && !edited.copy && !edited.scratch) return
+  const next = nextNewEventDraft(previous, current, edited)
+  if (next) writeNewEventDraft(storage, next)
+}
+
+function mark(which: 'post' | 'copy' | 'scratch') {
+  if (applying || draftForgotten) return
+  edited[which] = true
+  persist()
+}
+
+function forgetDraft() {
+  draftForgotten = true
+  applying = true
+  clearNewEventDraft(browserStorage())
+}
+
+// Sync, so putting a saved form back (while `applying`) is not recorded as typing.
+watch(post, () => mark('post'), { deep: true, flush: 'sync' })
+watch(copy, () => mark('copy'), { deep: true, flush: 'sync' })
+watch(scratch, () => mark('scratch'), { deep: true, flush: 'sync' })
+watch(naming, () => mark('scratch'), { flush: 'sync' })
+watch(start, (s) => {
+  if (s === 'copy' && import.meta.client) loadPast()
+  persist()
+}, { flush: 'sync' })
+
+function applySaved(saved: NewEventDraft, plan: { applyPost: boolean; applyCopy: boolean; applyScratch: boolean }) {
+  if (plan.applyPost) {
+    post.url = saved.post.url
+    if (saved.post.profile) post.profile = saved.post.profile
+  }
+  if (plan.applyCopy) {
+    copy.id = saved.copy.id
+    copy.date = saved.copy.date
+    copy.repeatWeeks = saved.copy.repeatWeeks
+  }
+  if (plan.applyScratch) {
+    scratch.hostUsername = saved.scratch.hostUsername
+    scratch.type = saved.scratch.type
+    scratch.styles = [...saved.scratch.styles]
+    scratch.date = saved.scratch.date
+    scratch.startTime = saved.scratch.startTime
+    scratch.name = saved.scratch.name
+    scratch.published = saved.scratch.published
+    naming.value = saved.naming
+  }
+}
+
+// Put the path in the URL and the saved fields back before the form is shown,
+// so the first paint is the step they were on, not a blank choice.
+async function settleUrl() {
+  const entry = { type: queryType, artist }
+  const saved = readNewEventDraft(browserStorage())
+  const urlStart = parseEventStart(route.query.start)
+  const plan = newEventRestorePlan(saved, entry, urlStart)
+  if (saved) applySaved(saved, plan)
+  if (plan.open) {
+    await router.push({ query: { ...route.query, start: plan.open } })
+    // A link that already says what to make opens From scratch, as before.
+    if (plan.open === 'scratch' && (queryType || artist)) track('event_form_opened', { start: 'scratch' })
+  }
+  if (start.value === 'copy') loadPast()
+}
+
+onMounted(async () => {
+  const profiles = $trpc.business.myProfiles.query()
+    .then(r => r.managed)
+    .catch((e: any) => {
+      error.value = e?.message || 'Could not load your profiles.'
+      return null
+    })
+  try {
+    await settleUrl()
+  } finally {
+    applying = false
+  }
+  const managed = await profiles
+  if (managed) hosts.value = managed
+})
 </script>
 
 <template>
@@ -222,6 +388,17 @@ const timeOf = (e: Past) => eventLocalTime(e.startDate, tzOf(e))
           <span class="text-sm text-muted-foreground">{{ s.text }}</span>
         </button>
       </div>
+
+      <button
+        v-if="start"
+        type="button"
+        class="mt-4 inline-flex items-center gap-1.5 font-sans text-sm font-bold text-primary hover:underline"
+        data-testid="new-event-back"
+        aria-label="Back to where you're starting from"
+        @click="backToChoice"
+      >
+        <ArrowLeft class="size-4 shrink-0" aria-hidden="true" /> Back
+      </button>
 
       <!-- I have a post -->
       <section v-if="start === 'post'" class="mt-4 rounded-2xl border bg-card p-4" data-start-panel="post">

@@ -1,7 +1,11 @@
 # PR preview image for the Hetzner dev server (RAZ-886) — production stays on Vercel.
 # Built by .github/workflows/preview.yml on GitHub's runners (the server has 4 GB and
 # can't build this app), pushed to ghcr.io, run by Dokploy. See ops/hetzner/README.md.
-FROM oven/bun:1.3 AS build
+# The build runs on Node, like Vercel and CI: without Node in the image Bun runs
+# `nuxt build` itself, ignores NODE_OPTIONS' heap cap and gets OOM-killed on the
+# runner now and then (no preview link on the PR). Bun only installs packages.
+FROM node:22-bookworm AS build
+COPY --from=oven/bun:1.3 /usr/local/bin/bun /usr/local/bin/bun
 WORKDIR /app
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
@@ -10,7 +14,7 @@ ARG COMMIT_SHA=""
 ENV NITRO_PRESET=node-server \
     VERCEL_GIT_COMMIT_SHA=$COMMIT_SHA \
     NODE_OPTIONS=--max-old-space-size=6144
-RUN bun run build
+RUN node node_modules/nuxt/bin/nuxt.mjs build
 
 FROM node:22-bookworm-slim
 COPY --from=oven/bun:1.3 /usr/local/bin/bun /usr/local/bin/bun

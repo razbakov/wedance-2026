@@ -18,6 +18,7 @@ import { siteChangeSummary } from '../../shared/utils/siteDiff'
 import { SITE_FONTS, SITE_THEMES } from '../../shared/utils/siteThemes'
 import { applySitePatch, sectionKinds, siteChanges, sitePatchInput, SitePatchError, type SitePatch } from './site'
 import { TRPCError } from '@trpc/server'
+import type { DoorGuest } from '../../shared/utils/doorList'
 import { venueInfoInput, type VenueInfoInput } from '../utils/venueInfo'
 import type { ProfileSite } from '../../shared/types/profileSite'
 
@@ -215,6 +216,33 @@ async function profileId(t: ToolCtx, h: string): Promise<string> {
   return id
 }
 
+/**
+ * A co-organiser argument: a handle, or `{handle, role?}`.
+ *
+ * The MCP SDK parses tool arguments (and applies transforms) before the
+ * handler, and `runTool` parses again so defaults and the confirm-token hash
+ * match every entry point. The transform stores `{username, role?}`, which the
+ * union would then reject ("co_organizers.0: Invalid input", RAZ-1056). Map
+ * that stored shape back to `{handle}` first, so the second parse round-trips.
+ * The published JSON schema stays a handle or `{handle, role?}` — `username`
+ * is only the value the SDK already validated.
+ */
+function coOrganizerFromOutput(value: unknown): unknown {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value
+  const item = value as { handle?: unknown; username?: unknown }
+  if (typeof item.handle === 'string' || typeof item.username !== 'string') return value
+  const { username, ...rest } = item
+  return { ...rest, handle: username }
+}
+
+const coOrganizerItem = z.preprocess(coOrganizerFromOutput, z.union([
+  z.string().min(1).max(200),
+  z.object({
+    handle: z.string().min(1).max(200),
+    role: z.string().trim().max(40).optional().describe('e.g. "co-organiser", "host", "partner". Default: co-organiser.'),
+  }),
+]))
+
 const PATCH_FIELDS = {
   name: z.string().trim().min(1).max(160).optional(),
   type: z.enum(['Party', 'Workshop', 'Course', 'Festival', 'Weekender', 'Congress', 'Concert', 'Show']).optional().describe('Kind of event.'),
@@ -227,10 +255,7 @@ const PATCH_FIELDS = {
   venue_name: z.string().max(200).nullable().optional().describe('Venue name when it isn’t on WeDance.'),
   venue_address: z.string().max(300).nullable().optional(),
   artists: z.array(z.string().min(1).max(200)).max(EVENT_ARTISTS_MAX).optional().describe('Line-up as WeDance handles (find_lineup, add_profile_from_instagram): who performs, teaches or plays. Not the people who organise it (co_organizers).'),
-  co_organizers: z.array(z.union([
-    z.string().min(1).max(200),
-    z.object({ handle: z.string().min(1).max(200), role: z.string().trim().max(40).optional().describe('e.g. "co-organiser", "host", "partner". Default: co-organiser.') }),
-  ])).max(20).optional()
+  co_organizers: z.array(coOrganizerItem).max(20).optional()
     .transform(list => list?.map(c => typeof c === 'string'
       ? { username: c.trim().replace(/^@/, '') }
       : { username: c.handle.trim().replace(/^@/, ''), ...(c.role ? { role: c.role } : {}) }))
@@ -1264,6 +1289,57 @@ export const TOOLS: ToolDef[] = [
     description: 'Who added an event of my pages to their plan, signed up or bought a ticket. Counts always include everyone; names only for dancers who made their going public. csv: true adds a CSV of the named list.',
     input: { event_id: eventId, csv: z.boolean().default(false) },
     run: (t, a) => t.caller.businessEvents.attendees({ id: a.event_id, csv: a.csv }),
+  },
+  {
+    name: 'door_list', title: 'Door list for my event', scopes: ['business:read'], business: true, annotations: READ,
+    description: 'Who to expect at the door of one of my events, and who is already checked in: RSVPs other than “next time” (a signed-out guest by the name they typed), Going!, tickets, and festival passes. Never an email or a phone. Use the ids on each guest with check_in.',
+    input: { event_id: eventId },
+    run: async (t, a) => {
+      const r = await t.caller.attendance.door({ eventId: a.event_id })
+      const quote = (s: string | null) => (s ? { untrusted_text: s } : null)
+      return {
+        event: quote(r.eventName),
+        partner: r.partner,
+        here: r.here,
+        total: r.total,
+        guests: r.guests.map((g: DoorGuest) => ({
+          name: quote(g.name),
+          via: g.via,
+          answer: g.answer,
+          partner_name: quote(g.partnerName),
+          confirmed: g.confirmed,
+          checked_in: g.checkedIn,
+          attendance_id: g.attendanceId,
+          dancer_id: g.dancerId,
+          rsvp_id: g.rsvpId,
+          signup_id: g.signupId,
+        })),
+      }
+    },
+  },
+  {
+    name: 'check_in', title: 'Check a guest in at the door', scopes: ['business:write'], business: true, annotations: IDEMPOTENT,
+    description: 'Mark one guest from door_list as here, or undo it. Pass exactly one of attendance_id, dancer_id, rsvp_id, signup_id. Checking the same guest in again changes nothing and does not email anyone.',
+    input: {
+      event_id: eventId,
+      attendance_id: z.string().uuid().optional().describe('From door_list, when the guest has an attendance (including an unclaimed ticket).'),
+      dancer_id: z.string().uuid().optional().describe('From door_list, for a dancer with no attendance row yet.'),
+      rsvp_id: z.string().uuid().optional().describe('From door_list, for a signed-out RSVP.'),
+      signup_id: z.string().uuid().optional().describe('From door_list, for an unclaimed festival pass.'),
+      undo: z.boolean().optional().describe('Take the check-in back. The guest stays on the list.'),
+    },
+    run: (t, a) => {
+      const n = [a.attendance_id, a.dancer_id, a.rsvp_id, a.signup_id].filter(Boolean).length
+      if (n !== 1) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Pass exactly one of attendance_id, dancer_id, rsvp_id or signup_id from door_list.' })
+      return t.caller.attendance.checkIn({
+        eventId: a.event_id,
+        attendanceId: a.attendance_id,
+        dancerId: a.dancer_id,
+        rsvpId: a.rsvp_id,
+        signupId: a.signup_id,
+        undo: a.undo,
+      })
+    },
   },
   {
     name: 'gig_applications', title: 'Applications to my gigs', scopes: ['business:read'], business: true, annotations: READ,

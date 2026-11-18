@@ -1,0 +1,21 @@
+---
+description: "Product backlog (landing-promise audit — 2026-07-16)"
+globs: docs/issues/**
+alwaysApply: false
+---
+<!-- Generated from .claude/rules/backlog.md by scripts/ci/agent-context.ts. Edit the source, not this file. -->
+## Product backlog (landing-promise audit — 2026-07-16)
+
+125 user stories derived from every landing-page promise/feature/use-case, each
+linking **P-id · CUJ (journey) · JTBD · status (built/partial/not-built) · WSJF**.
+Kept in sync across three surfaces:
+- **Repo:** `docs/issues/<Pxxx>-*.md` (source of truth for story content; taxonomy
+  in `docs/issues/_reference-cuj-jtbd.md`).
+- **Linear:** team **WED** — 125 issues, 8 CUJ projects (C1–C8), label taxonomy
+  (`status:*`, `cuj:C#`, `jtbd:J#`, `aud:*`, `landing-audit`), WSJF-based priority,
+  cycle 1 loaded. Titles are short handles (e.g. "Who's Going"), detail in the body.
+- **Sheet:** "WeDance 2026 UX" (`12YiUIcBd02hIIj2ua1w2bMFJSJSuIf8a64CQP7E60mg`) →
+  "Landing Promises" tab (index + a Linear-link column per row).
+Split: 43 built · 60 partial (Todo) · 22 not-built (Backlog). Biggest gap = the
+flagship "see who's going / real faces" attendee roster (not built).
+

@@ -16,8 +16,8 @@ import type { NavMode } from '~/composables/useAccountNav'
 import { ADMIN_NAV, adminNavActive, type AdminBadges } from '~/lib/admin-nav'
 
 const props = withDefaults(
-  defineProps<{ mode: NavMode, planCount?: number, adminBadges?: AdminBadges }>(),
-  { planCount: 0, adminBadges: () => ({}) },
+  defineProps<{ mode: NavMode, adminBadges?: AdminBadges }>(),
+  { adminBadges: () => ({}) },
 )
 
 const route = useRoute()
@@ -58,7 +58,7 @@ const tabs = computed(() => props.mode === 'dance'
   ? [
       { to: '/festivals', label: 'Explore', icon: Compass, active: route.path === '/' || EXPLORE_ROOTS.some(under) },
       { to: '/cities', label: 'Cities', icon: MapPin, active: under('/cities') },
-      { to: '/my-plan', label: 'My plan', icon: CalendarDays, active: under('/my-plan') || under('/my-year'), badge: props.planCount },
+      { to: '/my-plan', label: 'My plan', icon: CalendarDays, active: under('/my-plan') || under('/my-year') },
     ]
   : props.mode === 'admin'
     ? ADMIN_NAV.filter(i => i.tab).map(i => ({
