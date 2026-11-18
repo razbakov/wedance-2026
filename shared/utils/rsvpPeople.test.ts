@@ -53,4 +53,15 @@ describe('mergeSignups', () => {
     expect(rows[2]).toMatchObject({ confirmed: false, answer: 'needFollower' })
     expect(signupDisplayName(rows[2]!)).toBe('Guest')
   })
+
+  it('keeps a signed-out answer checked in, still without a name', () => {
+    const rows = mergeSignups({
+      polls: [{ dancerId: null, answer: 'yes', confirmed: false, checkedIn: true }],
+      attendances: [],
+      plans: [],
+      people: [],
+    })
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({ name: null, checkedIn: true, confirmed: false })
+  })
 })

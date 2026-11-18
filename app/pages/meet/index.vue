@@ -13,6 +13,7 @@
 import { ArrowLeft, ArrowRight, Heart, X, Clock, Undo2 } from 'lucide-vue-next'
 import { festivalPath } from '#shared/utils/eventSlug'
 import { meetVisibility } from '#shared/utils/meetFriends'
+import { matchNotice } from '#shared/utils/notices'
 import { toMeetCards, type MeetCard } from '~/lib/meetDeck'
 import { authPending } from '~/lib/planView'
 import { WD } from '~/lib/brand'
@@ -161,8 +162,24 @@ function commitSwipe(direction: 'yes' | 'skip' | 'later') {
     $trpc.plan.discoverSwipe
       .mutate({ targetKind: card.target.kind, targetId: card.target.id, decision: direction, festivalSlug: card.target.festivalSlug })
       .then((r) => {
-        // They'd said yes to me already: it's a match (RAZ-985) — they get an email, I see it here.
-        if (direction === 'yes' && r?.match) matchedIds.value = new Set([...matchedIds.value, card.id])
+        // They'd said yes already: it's a match. Tell this dancer now, and the
+        // other one the next time they open WeDance (the notice is the match itself).
+        if (direction === 'yes' && r?.match && card.target) {
+          matchedIds.value = new Set([...matchedIds.value, card.id])
+          announce(matchNotice({
+            dancerId: card.target.id,
+            name: card.name,
+            photo: card.photo,
+            matchedAt: new Date().toISOString(),
+            city: card.city,
+            styles: card.danceStyles,
+            booked: false,
+            night: card.kind === 'dancer-same-night' || card.kind === 'dancer-going-out'
+              ? { name: card.night.name, whenLabel: card.night.when, venue: card.night.venue, path: card.night.path }
+              : null,
+          }))
+          void refreshNotices()
+        }
       })
       .catch(err => console.warn('[meet] swipe not saved:', err))
   }
@@ -207,6 +224,9 @@ const lastYes = computed(() => {
   const last = swipeHistory.value[swipeHistory.value.length - 1]
   return last?.direction === 'yes' ? last.card : null
 })
+const { notices, announce, refresh: refreshNotices, act } = useNotices()
+/** Every current match, booked or not. Opening it clears the bell badge and leaves the card. */
+const matchBanners = computed(() => notices.value.filter(n => n.kind === 'match'))
 </script>
 
 <template>
@@ -293,6 +313,16 @@ const lastYes = computed(() => {
         </p>
 
         <div class="relative mx-auto max-w-md">
+          <!-- A match leads to the night, above whatever card comes next. -->
+          <section v-if="matchBanners.length" class="mb-6 space-y-4" data-testid="meet-match-banner">
+            <MatchNoticeCard
+              v-for="n in matchBanners"
+              :key="n.id"
+              :notice="n"
+              @open="act(n.id, 'meet')"
+            />
+          </section>
+
           <!-- RAZ-1002: an empty deck is one thing to do about it. -->
           <MeetEmptyNext v-if="!deckCurrent" :preview="previewMode" :city="dancerCity" />
 
@@ -370,12 +400,7 @@ const lastYes = computed(() => {
           </p>
 
           <!-- After a Yes: the next step toward actually meeting them (RAZ-981). -->
-          <p v-if="lastYes" class="mt-4 text-sm text-center text-muted-foreground font-sans" data-testid="meet-next-step" aria-live="polite">
-            <template v-if="matchedIds.has(lastYes.id)">
-              <span class="font-bold text-wd-green-700" data-testid="meet-its-a-match">It’s a match — {{ lastYes.name }} said yes to you too.</span>
-              They’ll see it too. <NuxtLink to="/my-plan#dance-friends" class="font-bold text-primary hover:underline">Pick a night together</NuxtLink>.
-            </template>
-            <template v-else>
+          <p v-if="lastYes && !matchedIds.has(lastYes.id)" class="mt-4 text-sm text-center text-muted-foreground font-sans" data-testid="meet-next-step" aria-live="polite">
             <span class="font-bold text-foreground">Yes to {{ lastYes.name }}.</span>
             <template v-if="previewMode" />
             <template v-else-if="lastYes.kind === 'dancer-your-fest' || lastYes.kind === 'dancer-new-fest'">
@@ -386,7 +411,6 @@ const lastYes = computed(() => {
             </template>
             <template v-else-if="isNightCard(lastYes)">
               Next: <NuxtLink :to="lastYes.night.path" class="font-bold text-primary hover:underline">join {{ lastYes.night.name }}</NuxtLink> {{ lastYes.night.when }} — you'll meet on the floor.
-            </template>
             </template>
           </p>
 

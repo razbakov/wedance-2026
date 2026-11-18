@@ -103,6 +103,8 @@ export const PROCEDURE_SCOPES: Record<string, Scope | null> = {
   'businessEvents.seriesPreview': 'business:read',
   'businessEvents.series': 'business:read',
   'businessEvents.attendees': 'business:read',
+  // Door list: names of who's expected, never email or phone.
+  'attendance.door': 'business:read',
   'businessEvents.cancelPreview': 'business:read',
   'businessEvents.uncancelPreview': 'business:read',
   'gigs.applications': 'business:read',
@@ -117,6 +119,8 @@ export const PROCEDURE_SCOPES: Record<string, Scope | null> = {
 
   // business:write — drafts. Publishing through these needs business:publish
   // too (businessEvents.create/update/duplicate check it themselves).
+  // Door check-in records who arrived. It doesn't email anyone or change the public page.
+  'attendance.checkIn': 'business:write',
   'businessEvents.create': 'business:write',
   'businessEvents.update': 'business:write',
   'businessEvents.duplicate': 'business:write',
@@ -132,6 +136,8 @@ export const PROCEDURE_SCOPES: Record<string, Scope | null> = {
   'businessFlyers.make': 'business:write',
   'businessFlyers.directions': 'business:write',
   'businessFlyers.fix': 'business:write',
+  // The flyer page's work in progress (uploads, step, the look it read). Nothing is published.
+  'businessFlyers.saveDraft': 'business:write',
   'businessPosts.writeCaptions': 'business:write',
   'businessPosts.propose': 'business:write',
   'inquiries.setStatus': 'business:write',

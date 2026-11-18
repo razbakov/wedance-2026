@@ -111,6 +111,17 @@ export function rsvpSummaryLine(s: RsvpSummary, partner: boolean): string {
   return line
 }
 
+/**
+ * The hero's "N going". People who put the night on their plan count, and so
+ * do people the poll counts as coming (a partner counts as two). Taking only
+ * the poll showed 0 when both dancers had only added the night to their plan.
+ */
+export function heroGoingCount(planned: number, pollComing: number | null | undefined): number {
+  const onPlan = Number.isFinite(planned) ? planned : 0
+  if (pollComing == null || !Number.isFinite(pollComing)) return onPlan
+  return Math.max(onPlan, pollComing)
+}
+
 /** The answer that pairs with mine: "I need a leader" ↔ "I need a follower". */
 export function pairingAnswer(a: RsvpAnswer | null | undefined): RsvpAnswer | null {
   return a === 'needLeader' ? 'needFollower' : a === 'needFollower' ? 'needLeader' : null

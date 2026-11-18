@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildCityOptions, citySlug, matchRange, normalizeCity, searchCities, type CityOption } from './citySearch'
+import { buildCityOptions, citySlug, exactCity, matchRange, normalizeCity, searchCities, type CityOption } from './citySearch'
 
 const opt = (name: string, communities = 0, extra: Partial<CityOption> = {}): CityOption =>
   ({ name, slug: name.toLowerCase().replace(/\s+/g, '-'), country: null, altNames: [], communities, ...extra })
@@ -17,6 +17,19 @@ describe('normalizeCity', () => {
   it('folds accents, case and punctuation', () => {
     expect(normalizeCity('  São-Paulo ')).toBe('sao paulo')
     expect(normalizeCity('MÜNCHEN')).toBe('munchen')
+  })
+})
+
+describe('exactCity', () => {
+  it('commits the canonical name for an exact spelling, including an alt name', () => {
+    expect(exactCity(cities, 'Munich')?.name).toBe('Munich')
+    expect(exactCity(cities, '  münchen ')?.name).toBe('Munich')
+    expect(exactCity(cities, 'mun')).toBeNull()
+  })
+
+  it('does not guess when two cities share the spelling', () => {
+    const twins = [opt('Springfield', 1, { slug: 'springfield-il' }), opt('Springfield', 2, { slug: 'springfield-mo' })]
+    expect(exactCity(twins, 'Springfield')).toBeNull()
   })
 })
 
