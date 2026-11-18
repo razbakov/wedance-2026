@@ -47,7 +47,7 @@ and others read it directly). Agent context lives in the repo so cloud agents ge
   password scrubbed — sign up fresh; no emails sent). The branch's migrations run on that copy only. Closing the PR
   removes it. Not a merge gate. Box (Brievcase runs there too), TLS, commands: `ops/hetzner/README.md`.
 - **Pre-PR checklist (RAZ-1073):** before a pull request is ready for review, load
-  `.cursor/skills/pr-checklist/SKILL.md` and run `bun scripts/ci/pr-checklist.ts`.
+  `.claude/skills/pr-checklist/SKILL.md` and run `bun scripts/ci/pr-checklist.ts`.
   The script flags and blocks review until every demo path is clickable, covered by BDD,
   the preview has uploads and data, the UI is one language, blueprints match the code,
   and desktop, mobile and a video walkthrough are attached. No user-visible screen → the
