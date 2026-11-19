@@ -1,10 +1,27 @@
 import { initTRPC, TRPCError } from '@trpc/server'
+import { randomUUID } from 'node:crypto'
+import * as Sentry from '@sentry/nuxt'
 import type { Context } from './context'
 import { withAi } from '../utils/aiUsage'
 import { assertScope, checkProcedureScope } from './scopes'
 import type { Scope } from '../oauth/config'
 
-const t = initTRPC.context<Context>().create()
+// Internal errors (DB failures, bugs) never reach the browser as-is: the user
+// gets a friendly message with a short reference, the details go to the
+// server log and Sentry under that reference (RAZ-1075).
+const t = initTRPC.context<Context>().create({
+  errorFormatter({ shape, error, path }) {
+    if (error.code !== 'INTERNAL_SERVER_ERROR') return shape
+    const ref = randomUUID().slice(0, 8)
+    console.error(`[trpc] ${path ?? '?'} failed (ref ${ref}):`, error.cause ?? error)
+    Sentry.captureException(error.cause ?? error, { tags: { trpc_path: path ?? 'unknown', error_ref: ref } })
+    return {
+      ...shape,
+      message: `Something went wrong on our side. Please try again. If it keeps happening, contact us with reference ${ref}.`,
+      data: { ...shape.data, stack: undefined, ref },
+    }
+  },
+})
 
 export const router = t.router
 // Every procedure names itself and its caller for the AI usage log (an AI call

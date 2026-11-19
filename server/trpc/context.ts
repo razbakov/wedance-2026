@@ -85,16 +85,22 @@ export async function createContext(
   if (authHeader?.startsWith('Bearer ')) {
     const token = authHeader.slice(7)
 
-    // Look up session by token, check not expired
-    const [session] = await db
-      .select({ dancerId: sessions.dancerId })
-      .from(sessions)
-      .where(
-        and(
-          eq(sessions.token, token),
-          gt(sessions.expiresAt, new Date()),
-        ),
-      )
+    // Look up session by token, check not expired. A failed lookup counts as
+    // signed out instead of failing the whole request (RAZ-1075).
+    let session: { dancerId: string } | undefined
+    try {
+      ;[session] = await db
+        .select({ dancerId: sessions.dancerId })
+        .from(sessions)
+        .where(
+          and(
+            eq(sessions.token, token),
+            gt(sessions.expiresAt, new Date()),
+          ),
+        )
+    } catch (err) {
+      console.error('[auth] session lookup failed, treating request as signed out:', err)
+    }
 
     if (session) {
       const [dancer] = await db
