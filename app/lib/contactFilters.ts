@@ -93,7 +93,7 @@ export function comingCounts(list: readonly FilterableContact[], eventId: string
  * showing up front, the rest behind "More". Options with nobody in them are dropped unless
  * picked, and a picked option is never hidden behind "More".
  */
-export function railOptions<T extends { key: K, count: number }, K>(options: readonly T[], picked: readonly K[], limit = 4): { shown: T[], more: T[] } {
+export function railOptions<T extends { key: PropertyKey, count: number }>(options: readonly T[], picked: readonly T['key'][], limit = 4): { shown: T[], more: T[] } {
   const live = options.filter(o => o.count > 0 || picked.includes(o.key))
   const shown = live.slice(0, limit)
   const more: T[] = []
