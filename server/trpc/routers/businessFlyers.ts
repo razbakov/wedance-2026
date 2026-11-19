@@ -7,6 +7,7 @@ import { requireEventManager } from './businessEvents'
 import { requireMember } from './business'
 import { announcementPost, flyerSource, runFlyer, texts } from '../../utils/flyer/paint'
 import { flyerChanges } from '../../../shared/utils/flyer'
+import { flyerDraftHasProgress, flyerDraftSchema, parseFlyerDraft } from '../../../shared/utils/flyerDraft'
 import { askAboutImages, fetchImage, type InlineImage } from '../../utils/flyer/gemini'
 import { withAi } from '../../utils/aiUsage'
 import { DIRECTIONS, LOOK_PROMPT } from '../../../shared/utils/flyer'
@@ -29,7 +30,8 @@ function trackFlyer(ctx: any, ev: any, mode: string, variantCount: number, extra
  * are the words on the flyer); from there: read your look off flyers you made
  * before, or pick from four directions; make it; fix it; keep it. A kept flyer
  * remembers the lines and faces it was painted from, so the editor can say it's
- * out of date and refresh it in the same look.
+ * out of date and refresh it in the same look. The page's work in progress
+ * (step, uploads, the look it read) is saved on the post and restored on return.
  *
  * Every procedure checks that the caller manages the event's host profile.
  */
@@ -69,6 +71,8 @@ const shape = (f: any) => ({
   id: f.id, batchId: f.batchId, status: f.status, url: f.url, mode: f.mode, error: f.error,
   lookName: f.look?.name ?? null, check: f.check, notes: f.notes, keptAt: f.keptAt, createdAt: f.createdAt,
   width: f.width, height: f.height,
+  // So the page can tell that the title (or any line) changed after this picture was painted.
+  lines: texts(f.lines ?? []), pictured: f.pictured ?? [],
 })
 
 export const businessFlyersRouter = router({
@@ -132,6 +136,8 @@ export const businessFlyersRouter = router({
       // A sitting still painting (or just finished) — so a reload picks it up.
       const [latest] = await ctx.db.select({ batchId: eventFlyers.batchId, status: eventFlyers.status, createdAt: eventFlyers.createdAt })
         .from(eventFlyers).where(eq(eventFlyers.postId, post.id)).orderBy(desc(eventFlyers.createdAt)).limit(1)
+      const [draftRow] = await ctx.db.select({ flyerDraft: eventPosts.flyerDraft }).from(eventPosts).where(eq(eventPosts.id, post.id))
+      const draft = parseFlyerDraft(draftRow?.flyerDraft)
       return {
         post: { id: post.id, kind: post.kind, subject: post.subject, format: post.format },
         lines: texts(st.source.lines),
@@ -142,7 +148,23 @@ export const businessFlyersRouter = router({
         looks,
         ideas,
         latestBatch: latest ?? null,
+        // Null when they have not started, so the editor can say "Continue" only then.
+        draft: draft && flyerDraftHasProgress(draft) ? draft : null,
       }
+    }),
+
+  // The page saves this as the organiser works, and again on the way out.
+  // Nothing is published: it is how the same page reopens after a title change.
+  saveDraft: protectedProcedure
+    .input(z.object({ eventId: z.string().uuid(), postId, draft: flyerDraftSchema.nullable() }))
+    .mutation(async ({ ctx, input }) => {
+      const ev = await requireEventManager(ctx, input.eventId)
+      const post = await postFor(ctx, ev, input.postId)
+      await ctx.db.update(eventPosts).set({
+        flyerDraft: input.draft && flyerDraftHasProgress(input.draft) ? input.draft : null,
+        updatedAt: new Date(),
+      }).where(eq(eventPosts.id, post.id))
+      return { saved: true }
     }),
 
   // "Add flyers you've made" → the look, in words and colours, to correct before painting.
@@ -284,15 +306,23 @@ export const businessFlyersRouter = router({
 
   // The details changed: new words on the kept flyer (picture stays), or a new
   // painting in the same look when the faces changed. No kept flyer but a saved
-  // look (next week's date): a new painting in that look.
+  // look (next week's date): a new painting in that look. No kept flyer and no
+  // saved look yet (still making the first one): the same, from the version
+  // they were looking at (`fromFlyerId`), so a title change does not start over.
   refresh: protectedProcedure
-    .input(z.object({ eventId: z.string().uuid(), postId }))
+    .input(z.object({ eventId: z.string().uuid(), postId, fromFlyerId: z.string().uuid().optional() }))
     .mutation(async ({ ctx, input }) => {
       const ev = await requireEventManager(ctx, input.eventId)
       const post = await postFor(ctx, ev, input.postId)
       const source = await flyerSource(ctx.db, ev, post)
       const [keptRow] = await ctx.db.select().from(eventFlyers).where(and(eq(eventFlyers.postId, post.id), isNotNull(eventFlyers.keptAt))).limit(1)
-      const st = { source, kept: keptRow ?? null }
+      let base = keptRow ?? null
+      if (!base && input.fromFlyerId) {
+        const [row] = await ctx.db.select().from(eventFlyers).where(and(eq(eventFlyers.id, input.fromFlyerId), eq(eventFlyers.postId, post.id)))
+        if (!row?.url || !['ready', 'checking'].includes(row.status)) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Paint the flyer first.' })
+        base = row
+      }
+      const st = { source, kept: base }
       const batchId = crypto.randomUUID()
       let values: Record<string, unknown>
       if (st.kept) {
@@ -307,7 +337,7 @@ export const businessFlyersRouter = router({
         eventId: ev.id, postId: post.id, batchId, lines: st.source.lines, pictured: st.source.pictured, createdBy: ctx.dancerId, ...values,
       } as any).returning({ id: eventFlyers.id })
       start(ctx, n!.id)
-      trackFlyer(ctx, ev, String(values.mode) === 'refresh' ? 'refresh' : 'paint', 1, { from_kept: !!st.kept })
+      trackFlyer(ctx, ev, String(values.mode) === 'refresh' ? 'refresh' : 'paint', 1, { from_kept: !!keptRow })
       return { id: n!.id, batchId }
     }),
 
@@ -346,8 +376,9 @@ export const businessFlyersRouter = router({
         }).returning({ id: brandLooks.id })
         lookId = l!.id
       }
-      // One kept per post.
+      // One kept per post. The draft was the way back to this sitting; the kept flyer is the record now.
       const post = await postFor(ctx, ev, f.postId)
+      await ctx.db.update(eventPosts).set({ flyerDraft: null, updatedAt: new Date() }).where(eq(eventPosts.id, post.id))
       await ctx.db.update(eventFlyers).set({ keptAt: null }).where(and(eq(eventFlyers.postId, post.id), isNotNull(eventFlyers.keptAt)))
       await ctx.db.update(eventFlyers).set({ keptAt: new Date(), lookId, look: { ...(f.look as any), name: input.lookName ?? (f.look as any).name }, updatedAt: new Date() }).where(eq(eventFlyers.id, f.id))
       // No cover yet → the event's flyer is the cover.

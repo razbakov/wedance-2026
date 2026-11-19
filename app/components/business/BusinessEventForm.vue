@@ -8,6 +8,7 @@
  */
 import type { PropType } from 'vue'
 import { MapPin, CalendarDays, Send, Pencil, Check, Plus, X, FileText, ListOrdered, Ticket, Users, Palette, Handshake } from 'lucide-vue-next'
+import { entryNoun, entryWords } from '#shared/utils/entryWord'
 import { priceLines } from '#shared/utils/flyer'
 import { agendaToSessions, emptyEventDetails, legacyAgendaOf } from '#shared/utils/programme'
 import { blankBusinessEvent, lineupSummary } from '~/lib/businessEvent'
@@ -77,7 +78,9 @@ watch(prices, v => (form.price = v.map(p => p.trim()).filter(Boolean).join('\n')
 // Venue not on WeDance → type its name and address instead.
 const venueManual = ref(!form.venueUsername && !!form.venueName)
 const multiDay = ref(!!form.endDate)
-const isMultiDayType = computed(() => ['Festival', 'Weekender', 'Congress'].includes(form.type))
+const isMultiDayType = computed(() => entryNoun({ type: form.type }) === 'pass')
+// A festival sells passes; a party or class sells tickets (RAZ-1029).
+const soldAs = computed(() => entryWords(entryNoun({ type: form.type })))
 watch(isMultiDayType, (v) => { if (v) multiDay.value = true }, { immediate: true })
 
 // Every event has the same cards and the same details: programme by day,
@@ -408,7 +411,7 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
         <Button v-if="mode === 'edit'" type="button" variant="ghost" size="sm" :aria-expanded="isOpen('entry')" @click="toggle('entry')"><template v-if="isOpen('entry')"><Check /> Done</template><template v-else><Pencil /> Edit</template></Button>
       </div>
       <div v-if="isOpen('entry')" class="mt-3 grid grid-cols-1 gap-2">
-        <BusinessFestivalEditor v-if="form.festival" v-model="form.festival" part="passes" :days="festivalDays" class="min-w-0" />
+        <BusinessFestivalEditor v-if="form.festival" v-model="form.festival" part="passes" :word="soldAs.one" :days="festivalDays" class="min-w-0" />
         <div class="mt-4">
           <p class="text-sm font-bold">Promotions <span class="font-normal text-muted-foreground">(optional)</span></p>
           <p class="text-xs text-muted-foreground">Deals and door prices, one per line, e.g. “Free until 21:00”, “From 21:00 · 10€”, “Early bird −20% until 1 Nov”.</p>
@@ -427,7 +430,7 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
         </Field>
       </div>
       <div v-else class="mt-1 text-sm">
-        <p v-if="form.festival?.passes?.length">Passes: {{ form.festival.passes.map(p => p.name).filter(Boolean).join(' · ') }}</p>
+        <p v-if="form.festival?.passes?.length">{{ soldAs.Many }}: {{ form.festival.passes.map(p => p.name).filter(Boolean).join(' · ') }}</p>
         <p>{{ prices.filter(Boolean).length ? `Promotions: ${prices.filter(Boolean).join(' · ')}` : 'No promotions' }}</p>
         <p class="truncate text-xs text-muted-foreground">{{ form.ticketUrl ? `Tickets: ${form.ticketUrl}` : 'No ticket link' }}</p>
       </div>

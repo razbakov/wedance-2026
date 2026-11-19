@@ -998,6 +998,9 @@ export const eventRsvps = pgTable('event_rsvps', {
   pass: text('pass'),
   pay: text('pay').$type<'now' | 'door'>(),
   keepInTouch: boolean('keep_in_touch').notNull().default(false),
+  /** Where the sign-up came from (0079, RAZ-1074): utm_* and the outside referrer. Kept on a guest's row until
+   * the magic link confirms it, then on the page's contact (`profile_contacts.source`). */
+  cameFrom: jsonb('came_from').$type<Record<string, string>>(),
   confirmedAt: timestamp('confirmed_at'),
   // Door check-in for a signed-out answer (RAZ-928). Copied onto the dancer's
   // attendance when the magic link confirms the account.
@@ -1279,6 +1282,31 @@ export const meetMatchEmails = pgTable('meet_match_emails', {
   index('meet_match_emails_recipient_idx').on(t.recipientId, t.sentAt),
 ])
 
+/**
+ * A booked color-and-shape meetup for one dancer of a match (0077, RAZ-1071).
+ * The other dancer has their own row. The symbol is not stored: both phones
+ * derive it from the two ids and the event. The morning-after email is one row's
+ * email_sent_at, so a re-run of the cron doesn't send twice.
+ */
+export const meetRituals = pgTable('meet_rituals', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  dancerId: uuid('dancer_id').notNull().references(() => dancers.id, { onDelete: 'cascade' }),
+  otherId: uuid('other_id').notNull().references(() => dancers.id, { onDelete: 'cascade' }),
+  eventId: uuid('event_id').notNull().references(() => events.id, { onDelete: 'cascade' }),
+  bookedAt: timestamp('booked_at'),
+  revealedAt: timestamp('revealed_at'),
+  problem: text('problem'),
+  note: text('note'),
+  reportedAt: timestamp('reported_at'),
+  how: text('how'),
+  emailSentAt: timestamp('email_sent_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => [
+  unique('meet_rituals_pair_event').on(t.dancerId, t.otherId, t.eventId),
+  index('meet_rituals_due_idx').on(t.eventId, t.emailSentAt),
+])
+
 export const discoverSwipes = pgTable('discover_swipes', {
   id: uuid('id').primaryKey().defaultRandom(),
   dancerId: uuid('dancer_id').notNull().references(() => dancers.id, { onDelete: 'cascade' }),
@@ -1402,6 +1430,9 @@ export const eventPosts = pgTable('event_posts', {
   igStoryMediaId: text('ig_story_media_id'),
   igStoryPermalink: text('ig_story_permalink'),
   storyPublishedAt: timestamp('story_published_at'),
+  // Work in progress on the flyer page (0078, RAZ-1033). The step, uploads and
+  // the look that was read. Painted versions stay in event_flyers.
+  flyerDraft: jsonb('flyer_draft').$type<import('../../shared/utils/flyerDraft').FlyerDraft | null>(),
 }, (t) => [index('event_posts_event_idx').on(t.eventId)])
 
 // A page's Instagram professional account, connected through WeDance's Meta app
@@ -1868,4 +1899,54 @@ export const giveawayProposals = pgTable('giveaway_proposals', {
 }, (t) => [
   index('giveaway_proposals_event_idx').on(t.eventId, t.status),
   index('giveaway_proposals_profile_idx').on(t.profileId),
+])
+
+// Launch workspace (migration 0068): Business → page → Launch. The step
+// catalogue is code (shared/utils/launch.ts); these hold the organiser's answers.
+export const launchSteps = pgTable('launch_steps', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
+  stepKey: text('step_key').notNull(),
+  status: text('status').notNull().default('todo').$type<'todo' | 'doing' | 'done'>(),
+  // The step's fields (and `link:<i>` overrides of its default links).
+  fields: jsonb('fields').$type<Record<string, string>>().notNull().default({}),
+  // The organiser's edits of the ready-to-paste texts, by copy key. Absent = the draft.
+  copy: jsonb('copy').$type<Record<string, string>>().notNull().default({}),
+  doneAt: timestamp('done_at'),
+  updatedBy: uuid('updated_by').references(() => dancers.id, { onDelete: 'set null' }),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex('launch_steps_profile_step').on(t.profileId, t.stepKey),
+])
+
+export const launchNames = pgTable('launch_names', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  // candidate · chosen (at most one per profile) · dropped
+  decision: text('decision').notNull().default('candidate').$type<'candidate' | 'chosen' | 'dropped'>(),
+  note: text('note').notNull().default(''),
+  createdBy: uuid('created_by').references(() => dancers.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => [
+  index('launch_names_profile_idx').on(t.profileId),
+])
+
+// Evidence: a link and/or note that proves a check — for a name candidate
+// (verdict free/taken/unclear) or for a step (the live listing, the profile…).
+export const launchEvidence = pgTable('launch_evidence', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
+  stepKey: text('step_key').notNull(),
+  nameId: uuid('name_id').references(() => launchNames.id, { onDelete: 'cascade' }),
+  source: text('source').notNull().default(''),
+  url: text('url'),
+  verdict: text('verdict').$type<'free' | 'taken' | 'unclear'>(),
+  note: text('note').notNull().default(''),
+  // manual · instagram-check (automated)
+  via: text('via').notNull().default('manual'),
+  createdBy: uuid('created_by').references(() => dancers.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => [
+  index('launch_evidence_profile_idx').on(t.profileId, t.stepKey),
 ])

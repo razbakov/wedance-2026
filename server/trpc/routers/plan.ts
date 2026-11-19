@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { eq, and, ne, sql, inArray, gte, lt, asc, ilike, isNotNull, or } from 'drizzle-orm'
 import { router, publicProcedure, protectedProcedure } from '../trpc'
-import { planItems, dancers, festivals, festivalSignups, events, attendances, dancerGoals } from '../../database/schema'
+import { planItems, dancers, festivals, festivalSignups, events, attendances, dancerGoals, meetRituals } from '../../database/schema'
 import { getReferralDiscountPercent, getEarlyBirdInfo } from '../../utils/ticket-prices'
 import { eventPath } from '../../../shared/utils/eventSlug'
 import { festivalPath } from '../../../shared/utils/eventSlug'
@@ -10,6 +10,8 @@ import { eventIdForFestival, recordLinkAction } from '../../utils/trackedLinks'
 import { planCounts } from '../../utils/planCounts'
 import { festivalEventsWhere, toFestivalRow } from '../../utils/festivalListing'
 import { MEET_MATCHES_SINCE, meetMatches } from '../../utils/meetMatches'
+import { asDanceRole, matchNotice, nightCardWhen, type DanceRole } from '../../../shared/utils/notices'
+import { repairPreviewDemoDancers } from '../../utils/previewDemoDancers'
 import { afterYes } from '../../utils/meetMatchNotify'
 import { meetEmpty } from '../../utils/meetEmpty'
 import { yearReviewFor } from '../../utils/yearReview'
@@ -608,6 +610,103 @@ export const planRouter = router({
     return { matches: await meetMatches(ctx.db, ctx.dancerId, { since: MEET_MATCHES_SINCE }) }
   }),
 
+  /**
+   * In-app notices derived from matches that already exist (no email, no push).
+   * A mutual yes from before this screen existed still shows: nothing is written
+   * when the match happens. "Booked" is the ritual booking, not the plan.
+   */
+  notices: protectedProcedure.query(async ({ ctx }) => {
+    await repairPreviewDemoDancers(ctx.db)
+    const matches = await meetMatches(ctx.db, ctx.dancerId, { since: MEET_MATCHES_SINCE })
+    // The night they booked, not whatever night the match would suggest next.
+    // A later booking of the same friend replaces an earlier one.
+    const bookedEventByOther = new Map<string, string>()
+    try {
+      const rows: Array<{ otherId: string, eventId: string, bookedAt: Date | null }> = await ctx.db
+        .select({ otherId: meetRituals.otherId, eventId: meetRituals.eventId, bookedAt: meetRituals.bookedAt })
+        .from(meetRituals)
+        .where(eq(meetRituals.dancerId, ctx.dancerId))
+      const latest = new Map<string, { eventId: string, at: number }>()
+      for (const r of rows) {
+        if (!r.bookedAt) continue
+        const at = new Date(r.bookedAt).getTime()
+        const cur = latest.get(r.otherId)
+        if (!cur || at >= cur.at) latest.set(r.otherId, { eventId: r.eventId, at })
+      }
+      for (const [other, v] of latest) bookedEventByOther.set(other, v.eventId)
+    } catch { /* rituals table not migrated yet */ }
+    const otherIds = matches.map(m => m.dancerId)
+    const eventIds = [...new Set([
+      ...bookedEventByOther.values(),
+      ...matches.map(m => m.night?.eventId).filter((id): id is string => !!id),
+    ])]
+    const roleOf = new Map<string, DanceRole | null>()
+    const coverOf = new Map<string, string | null>()
+    const goingOf = new Map<string, number>()
+    const bookedNights = new Map<string, { name: string, path: string, whenLabel: string, venue: string }>()
+    try {
+      if (otherIds.length) {
+        const rows = await ctx.db.select({ id: dancers.id, role: dancers.role }).from(dancers).where(inArray(dancers.id, otherIds))
+        for (const r of rows) {
+          const role = asDanceRole(r.role)
+          if (role) roleOf.set(r.id, role)
+        }
+      }
+      if (eventIds.length) {
+        const [evs, counts] = await Promise.all([
+          ctx.db.select({
+            id: events.id, name: events.name, cover: events.cover,
+            startDate: events.startDate, timezone: events.timezone, venueName: events.venueName,
+          }).from(events).where(inArray(events.id, eventIds)),
+          ctx.db.select({ itemId: planItems.itemId, n: sql<number>`count(*)::int` }).from(planItems)
+            .where(and(eq(planItems.itemType, 'event'), inArray(planItems.itemId, eventIds)))
+            .groupBy(planItems.itemId),
+        ])
+        for (const e of evs) {
+          coverOf.set(e.id, e.cover || null)
+          if (!e.startDate) continue
+          bookedNights.set(e.id, {
+            name: e.name || 'the night',
+            path: eventPath({ id: e.id, name: e.name }),
+            whenLabel: nightCardWhen(new Date(e.startDate).toISOString(), e.timezone),
+            venue: e.venueName || '',
+          })
+        }
+        for (const r of counts) goingOf.set(r.itemId, Number(r.n) || 0)
+      }
+    } catch { /* cover and count are extras; the match still shows */ }
+
+    return {
+      notices: matches.map(m => {
+        const bookedId = bookedEventByOther.get(m.dancerId)
+        const bookedNight = bookedId ? bookedNights.get(bookedId) : undefined
+        const night = bookedNight
+          ? { ...bookedNight, cover: coverOf.get(bookedId!) ?? null, going: goingOf.get(bookedId!) ?? 0 }
+          : m.night
+            ? {
+                name: m.night.name,
+                path: m.night.path,
+                whenLabel: nightCardWhen(m.night.startISO, m.night.timezone),
+                venue: m.night.venue,
+                cover: coverOf.get(m.night.eventId) ?? null,
+                going: goingOf.get(m.night.eventId) ?? 0,
+              }
+            : null
+        return matchNotice({
+          dancerId: m.dancerId,
+          name: m.name,
+          photo: m.photo,
+          city: m.city,
+          role: roleOf.get(m.dancerId) ?? m.role ?? null,
+          styles: m.styles,
+          matchedAt: m.matchedAt,
+          booked: bookedEventByOther.has(m.dancerId),
+          night,
+        })
+      }),
+    }
+  }),
+
   /** Undo a discover decision. */
   discoverUnswipe: protectedProcedure
     .input(z.object({
@@ -641,9 +740,10 @@ export const planRouter = router({
   }),
 
   /**
-   * The "My plan" badge and the city page's "N in your week" pill (RAZ-889):
-   * counts of what /my-plan actually lists — upcoming festivals, courses and
-   * this week's socials — from the same feeds, never the raw plan_items size.
+   * Counts of what /my-plan actually lists — upcoming festivals, courses and
+   * this week's socials — from the same feeds, never the raw plan_items size
+   * (RAZ-889). The city page's "N in your week" pill reads this. The header
+   * shows no number on My plan; the bell is the only badge.
    */
   /**
    * Your year in dance (RAZ-966): the story of the dancer's past year — the

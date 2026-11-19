@@ -7,7 +7,7 @@ import { heroTagline } from '#shared/utils/heroTagline'
  * content, so an event can grow into a full festival-grade page over time.
  */
 import { Check, ArrowLeft, Globe, User, Euro, Pencil, EyeOff } from 'lucide-vue-next'
-import { findMockEvent, festivalSessionEvent } from '~/lib/mockEvents'
+import { festivalSessionEvent } from '~/lib/sessionEvent'
 import { formatEventWhen, eventLocalDate } from '#shared/utils/eventTime'
 import { Button } from '~/components/ui/button'
 import { WD } from '~/lib/brand'
@@ -15,6 +15,7 @@ import { mixHex, readableOn } from '~/lib/contrast'
 import { isUuid, eventSlug, sessionKey } from '#shared/utils/eventSlug'
 import { festivalPath } from '#shared/utils/eventSlug'
 import { nightWeekday } from '#shared/utils/eventReview'
+import { heroGoingCount } from '#shared/utils/rsvp'
 
 definePageMeta({ layout: false })
 
@@ -59,15 +60,14 @@ const festivalData = ref<Awaited<ReturnType<typeof $trpc.events.festival.query>>
 
 // The page's data loads in the browser, so without this the server answered
 // 200 with an empty shell for events that don't exist or were unpublished.
-// During SSR, ask whether anything is behind this address; if not (and it
-// isn't a mock city/festival-programme page either), answer HTTP 404 and
-// render "Event not found" straight away. useState carries the verdict to the
-// browser so it doesn't load (or flash a spinner) again.
+// During SSR, ask whether anything is behind this address; if not, answer
+// HTTP 404 and render "Event not found" straight away. useState carries the
+// verdict to the browser so it doesn't load (or flash a spinner) again.
 const notFound = useState(`event-404:${id.value}`, () => false)
 if (import.meta.server) {
   try {
     const { found } = await $fetch<{ found: boolean }>('/api/event-status', { query: { id: id.value, preview: previewToken.value } })
-    if (!found && !findMockEvent(id.value)) {
+    if (!found) {
       notFound.value = true
       const reqEvent = useRequestEvent()
       if (reqEvent) setResponseStatus(reqEvent, 404, 'Event not found')
@@ -89,7 +89,7 @@ async function load() {
     try {
       // One item of a festival's programme (f~<key>~<session id>).
       const session = sessionKey(id.value)
-      if (session && !findMockEvent(id.value)) {
+      if (session) {
         const fest = await $trpc.events.get.query({ id: session.key })
         ev.value = festivalSessionEvent(await $trpc.events.festival.query({ id: fest.id }), session.sessionId)
         if (!ev.value) throw new Error('no such session')
@@ -111,10 +111,7 @@ async function load() {
         if (id.value !== canonical) router.replace({ path: `/events/${canonical}`, query: route.query, hash: route.hash })
       }
     } catch {
-      // Neither — fall back to a mock city event so it still has a page.
-      const mock = findMockEvent(id.value)
-      if (mock) ev.value = mock
-      else failed.value = true
+      failed.value = true
     }
   } finally { pending.value = false }
   // A preview isn't a public view (and the event isn't live yet).
@@ -265,7 +262,7 @@ const asFestival = computed(() => ({
     coordinates: ev.value.venueCoords,
     place: [ev.value.venueCity, ev.value.venueCountry].filter(Boolean).join(', ') || undefined,
   },
-  attendeeCount: rsvpPoll.value ? rsvpPoll.value.coming : liveGoingCount.value,
+  attendeeCount: heroGoingCount(liveGoingCount.value, rsvpPoll.value ? rsvpPoll.value.coming : null),
   socialLinks: [] as any[],
   ticketUrl: ev.value.ticketUrl || undefined,
   tickets: [] as any[],
@@ -390,7 +387,7 @@ useHead(() => ({
           />
           <p v-else-if="rateNotAllowed" class="mt-4 text-sm text-muted-foreground font-sans" data-review-not-went>Only people who signed up for this night can review it.</p>
           <div v-if="ev.pollable && !ev.archived && !isPreview && !ev.cancelled" id="rsvp" class="mt-4 max-w-xl scroll-mt-16">
-            <EventSignup :event-type="ev.eventType" :event-id="ev.id" :path="route.path" :start-date="ev.startDate" :end-date="ev.endDate" :timezone="ev.timezone" :organizer-name="ev.organizerName || (ev.organizerHandle ? `@${ev.organizerHandle}` : null)" surface="event" @poll="onPoll" />
+            <EventSignup :event-type="ev.eventType" :is-festival="ev.isFestival" :event-id="ev.id" :path="route.path" :start-date="ev.startDate" :end-date="ev.endDate" :timezone="ev.timezone" :organizer-name="ev.organizerName || (ev.organizerHandle ? `@${ev.organizerHandle}` : null)" surface="event" @poll="onPoll" />
           </div>
         </template>
       </FestivalHero>

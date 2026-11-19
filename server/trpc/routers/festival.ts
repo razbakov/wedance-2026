@@ -6,8 +6,8 @@
  * the minimum set of fields the event page renders; we keep the public shape
  * narrow so future schema additions don't accidentally leak.
  *
- * Other festival data (workshops, teachers, roster) lives in its own router
- * (or, for v0 of the workshop/cart UI, in `~/app/data/mock-*.ts`).
+ * Programme, teachers and passes live on the event (`events.festival`), edited
+ * in Business → Events.
  */
 import { z } from 'zod'
 import { eq } from 'drizzle-orm'

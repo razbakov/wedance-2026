@@ -18,6 +18,7 @@ import { ArrowRight, Check, Mail, Ticket, X } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
 import { signupGuestSchema, signupMemberSchema } from '#shared/validation'
 import { rsvpOptions, type RsvpAnswer } from '#shared/utils/rsvp'
+import { entryNoun, entryWords } from '#shared/utils/entryWord'
 import { chosenPass, noPassForRole, passFor, passPriceLabel, passTotal, passesFor, peopleFor, pricedPasses, signupCta, signupState, signupNeedsPhone, signupSteps, type PayMethod, type SignupStep } from '#shared/utils/eventSignup'
 import type { FestivalPass } from '#shared/types/festivalDetails'
 import { sizedImage, IMG } from '#shared/utils/image'
@@ -40,8 +41,10 @@ const props = defineProps<{
   passKey?: string | null
   /** This dancer already holds a paid ticket (festival sign-up with a verified ticket). */
   hasTicket?: boolean
-  /** events.type: a class / course asks for the phone (signupNeedsPhone). */
+  /** events.type: a class / course asks for the phone (signupNeedsPhone). A festival type says "pass". */
   eventType?: string | null
+  /** Saved events.isFestival, when the page knows it. A festival says "pass"; a party or class says "ticket". */
+  isFestival?: boolean
   /** A night's programme (RAZ-1007): each pass says what it includes. Empty = not a night. */
   programme?: { id: string; date: string; time: string; duration: number; type: any; title?: string }[]
   /** The page already lists the whole programme above: a pass that covers all of it needs no "Includes" line. */
@@ -64,6 +67,8 @@ const router = useRouter()
 
 const poll = ref<Poll | null>(null)
 const passes = computed(() => props.passes ?? [])
+// A festival sells passes; a party or class sells tickets — the same word as the editor (RAZ-1029).
+const words = computed(() => entryWords(entryNoun({ type: props.eventType, isFestival: props.isFestival })))
 const priced = computed(() => pricedPasses(passes.value))
 // The steps follow how you're coming: a festival sells passes per role, so a follower
 // on their own is offered follower passes, a couple the couple passes, priced once for both.
@@ -218,6 +223,7 @@ async function submit() {
       phone,
       ...(answer.value === 'partner' && data.partnerName ? { partnerName: data.partnerName } : {}),
       keepInTouch: keepInTouch.value,
+      cameFrom: cameFrom(),
     })
     setPoll(p)
     if (signedIn) useWeekPlan().syncEvent(p.eventId, true)
@@ -252,7 +258,7 @@ async function checkout(name: string, n: 1 | 2) {
       window.location.href = res.checkoutUrl
     }
   } catch (e: any) {
-    error.value = e?.message?.includes('sold out') ? 'This pass is sold out.' : 'Couldn’t start the payment. Please try again.'
+    error.value = e?.message?.includes('sold out') ? `This ${words.value.one} is sold out.` : 'Couldn’t start the payment. Please try again.'
   } finally { busy.value = false }
 }
 
@@ -386,7 +392,7 @@ defineExpose({ start })
         <template v-else>
           <p class="flex items-center gap-2 font-bold">
             <span class="size-6 rounded-full grid place-items-center text-xs shrink-0" :class="i === stepIndex(step) ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'">{{ i + 1 }}</span>
-            {{ s === 'role' ? 'How are you coming?' : s === 'pass' ? 'Pick your pass' : s === 'pay' ? (i === stepIndex(step) ? `Pay €${total}` : 'Pay') : isSignedIn ? 'Check and confirm' : 'Your contact' }}
+            {{ s === 'role' ? 'How are you coming?' : s === 'pass' ? `Pick your ${words.one}` : s === 'pay' ? (i === stepIndex(step) ? `Pay €${total}` : 'Pay') : isSignedIn ? 'Check and confirm' : 'Your contact' }}
           </p>
 
           <template v-if="i === stepIndex(step)">
@@ -408,7 +414,7 @@ defineExpose({ start })
             <!-- ② Pick your pass -->
             <div v-else-if="s === 'pass'" class="mt-3 space-y-2">
               <p v-if="noneForRole" class="rounded-xl bg-muted px-3 py-2 text-xs text-muted-foreground" data-signup-no-role-pass>
-                No {{ answer === 'needLeader' ? 'follower' : 'leader' }} passes left on their own. Coming with a partner? Change how you're coming for the couple passes.
+                No {{ answer === 'needLeader' ? 'follower' : 'leader' }} {{ words.many }} left on their own. Coming with a partner? Change how you're coming for the couple {{ words.many }}.
               </p>
               <button
                 v-for="p in fitting" :key="p.name" type="button"

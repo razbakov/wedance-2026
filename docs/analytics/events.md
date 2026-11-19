@@ -64,9 +64,14 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `year_plan_add` / `year_plan_remove` | `useYearPlan` | `festival_slug`, `year_count`; add: `festival`, `surface` |
 | `workshop_plan_add` / `workshop_plan_remove` | `festival/FestivalView.vue` | `festival`, `workshop_id`, `workshop_type`, `partner_status` |
 | `discover_swipe` | `/meet` Meet new friends deck (on My plan until RAZ-989) | `direction`, `card_kind`, `added_festival`, `added_event` (always false since the deck is people only), `surface` (meet) |
+| `notice_opened` | Match toast, the header bell history, or the Meet match card (RAZ-1071). Opening it is the click through to the meetup. | `kind` (match), `via` (toast / bell / meet) |
 | `plan_zoom_opened` | My plan's Today / Week / Month / Year tabs (RAZ-1006): a tab clicked | `tab` (today / week / month / year), `from` |
 | `meet_friends_opened` | `MeetFriendsEntry` on My plan (the card leading to `/meet`, RAZ-989) · `EventMeetPrompt` under "You're in" after signing up to a night (RAZ-981) | `surface` (my_plan / my_plan_empty / `<event surface>_signup`), `people` (dancers waiting in the deck; null = not loaded) |
 | `meet_match_answered` | `MeetMatches` ("Your dance friends" on My plan, RAZ-985): a match's night → "I’m going too" / "I’m going" (added to the plan with `metadata.with` = the match) or "Next time" (an event Skip) | `answer` (going / next_time), `they_going`, `source` (deck / festival), `event_id` |
+| `ritual_booked` | `/meet/ritual` "Book my spot" on a real match (RAZ-1071) | `event_id` |
+| `ritual_revealed` | `/meet/ritual` "Turn your phone" — the symbol is shown to the other person | `event_id` |
+| `ritual_reported` | `/meet/ritual` "Couldn't meet?" saved | `problem` (couldnt_find / no_show / left / unsafe / report_person / other), `event_id` |
+| `ritual_how` | `/meet/ritual?morning=1` "How was it?" | `how` (good / not), `event_id` |
 | `dance_card_saved` | `/dance-card` (RAZ-1005): a signed-in dancer saves the deck's dance card (Lead / Follow + levels, then photo, name, city, bio — the same cards as signed-out /meet) to their profile | `photo_added` (first photo), `photo_replaced`, `styles` (count), `surface` (back_link = came from a night's "Add a photo" / direct) |
 | `meet_empty_shared` | `MeetEmptyNext` (an empty /meet deck, RAZ-1002): "Ask" an organiser for their next night, "Send" a venue's page, "Invite a friend" | `what` (organiser / venue / friend), `stage` (nights / organisers / venues / nothing / no-city), `method` (native / copy / none) |
 | `goal_added` | `useGoals.addGoal` | `style` |
@@ -112,6 +117,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `app_connected` | `oauth/authorize.vue` | `scopes`, `business` |
 | `ai_app_cta_click` | `AiAppCta` ("Use WeDance in ChatGPT": docs connect-ai, Settings → Connected apps, new event, Business dashboard, for-organizers, my-plan bottom line) · `ChatgptPlanPitch` (top of My plan until ChatGPT is connected; the landing `MyPlanLanding` on `/` and signed-out `/my-plan`) | `app` (chatgpt), `surface` (docs_connect_ai / settings_connections / business_event_new / business_dashboard_empty / business_dashboard_needs / for_organizers / my_plan / my_plan_top / my_plan_landing / home) |
 | `instagram_connect_started` | `BusinessInstagram` (Business → page → Instagram, before Meta's dialog) | `profile`, `reconnect` |
+| `launch_step_completed` | `BusinessLaunchStep` (Business → page → Launch, "Mark done") | `profile`, `step`, `stage` |
 | `instagram_post_published` | `BusinessContentPlan` "Post to feed" / "Add to story" | `event_id`, `post_kind`, `format`, `to` (feed / story) |
 | `weekend_plan_viewed` | `w/[code].vue` (Share my weekend page, once per mount) | `own`, `parties`, `friends`, `story` (opened with `?story=1`) |
 | `weekend_joined` | `w/[code].vue` "I'm in" | `signed_in`, `surface` |
@@ -186,9 +192,16 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `server_weekend_shared` | `weekend.share` (new link only; My plan makes it on its own to show the story, MCP `share_my_weekend`) | `events`, `replaced_previous`, `surface` (my_plan / mcp / web / event = an event page's "Bring friends", RAZ-1001) — `my_plan` is not a share intent; count intent on `weekend_story_shared` |
 | `server_weekend_joined` | `weekend.join` (a friend's first "I'm in" on a party) | `signed_in`, `coming`, `friends` |
 | `server_weekend_join_confirmed` | `weekend.join` signed in with a guest token (the magic link came back; guest joins folded into the account) | `parties`, `hours_to_confirm` |
+| `server_launch_step_completed` | `businessLaunch.setStatus` (a step first ticked done) | `profile`, `profile_type`, `step`, `stage`, `$groups` |
+| `server_launch_name_decided` | `businessLaunch.decideName` (a name chosen — needs evidence that it's free) | `profile`, `profile_type`, `candidates`, `$groups` |
 | `server_member_role_set` | `businessTeam.setRole` (role actually changed) | `profile`, `profile_type`, `from_role`, `role`, `self`, `$groups` |
 | `server_mcp_tool_called` | every MCP tool call (`server/mcp/server.ts` `callTool`), signed in or anonymous | `tool`, `result` (ok / error / preview / denied), `error_code`, `client_app` (chatgpt / claude / cursor / … — `server/mcp/caller.ts`; not `app`, which is the project filter), `country` (Vercel geo, ISO-2), `anonymous`, `latency_ms`, `channel: mcp` |
 | `server_meet_matched` | `plan.discoverSwipe` (a deck Yes) / `wave.send` (a festival wave) that meets a Yes back (RAZ-985) | `via` (deck / festival), `emailed` (the other dancer got "said yes too"), `email_skip` (off / no_email / not_shown / already / today / error) |
+| `server_ritual_booked` | `ritual.book` (the night goes on the plan) | `event_id` |
+| `server_ritual_revealed` | `ritual.reveal` (first time they turn the phone) | `event_id` |
+| `server_ritual_reported` | `ritual.report` | `problem` (couldnt_find / no_show / left / unsafe / report_person / other), `event_id` |
+| `server_ritual_how` | `ritual.how` (the morning-after answer) | `how` (good / not), `event_id` |
+| `server_ritual_followup` | `/api/cron/ritual-followup` (the morning-after email, one per dancer) | `channel: cron` |
 | `server_account_deleted` | `auth.deleteAccount` — **anonymous**, no person profile | `days_since_signup` |
 | `server_ticket_purchased` | Stripe webhook `checkout.session.completed` (festival checkout; not on redelivery) · TicketTailor webhook, first of `order.created`/`order.completed` per order | `festival`, `provider` (stripe / tickettailor), `product` (ticket / social_unlock), `tickets`, `amount` (cents), `currency`, `$revenue` (major units), `$currency`, `referral`, `referral_code` (promoter tracked-link code), `discount` (cents) |
 | `server_ticket_checkout_expired` | Stripe webhook `checkout.session.expired` (festival checkout) | `festival`, `provider`, `product`, `tickets`, `referral`, `referral_code` |

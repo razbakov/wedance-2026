@@ -24,6 +24,7 @@ import {
 import { mergeSignups } from '../../../shared/utils/rsvpPeople'
 import { CONTACT_PHONE_MAX, contactPageFor, contactState, recordSignupContact, setContactShared } from '../../utils/rsvpContact'
 import { PHONE_MAX, chosenPass, fullNameOk, phoneOk, pricedPasses, signupNeedsPhone } from '../../../shared/utils/eventSignup'
+import { cameFromInput, cleanCameFrom } from '../../../shared/utils/cameFrom'
 import type { FestivalDetails } from '../../../shared/types/festivalDetails'
 import { findPass, isNight, nightCounts, nightPlanChanges, passCovers, plannable, sessionPlanId } from '../../../shared/utils/yourNight'
 
@@ -163,7 +164,7 @@ async function accountOf(db: any, dancerId: string): Promise<{ name: string, ema
  * the name typed in the form (it was created with the email's first part), and the page that runs the
  * event gets the contact (recordSignupContact). Best-effort: the sign-up itself is already saved.
  */
-async function afterSignup(db: any, ev: Ev, dancerId: string, s: { name?: string | null, phone?: string | null, keepInTouch: boolean }) {
+async function afterSignup(db: any, ev: Ev, dancerId: string, s: { name?: string | null, phone?: string | null, keepInTouch: boolean, cameFrom?: Record<string, string> | null }) {
   try {
     const [d] = await db.select({ name: dancers.name, email: dancers.email, phone: dancers.phone }).from(dancers).where(eq(dancers.id, dancerId)).limit(1)
     if (!d) return { created: false }
@@ -174,7 +175,7 @@ async function afterSignup(db: any, ev: Ev, dancerId: string, s: { name?: string
     if (Object.keys(set).length) await db.update(dancers).set(set).where(eq(dancers.id, dancerId))
     const page = await contactPageFor(db, ev)
     if (!page) return { created: false }
-    return await recordSignupContact(db, page, dancerId, { phone: s.phone, name: s.name, eventId: ev.id, keepInTouch: s.keepInTouch })
+    return await recordSignupContact(db, page, dancerId, { phone: s.phone, name: s.name, eventId: ev.id, keepInTouch: s.keepInTouch, cameFrom: s.cameFrom })
   } catch (e) {
     console.warn('[rsvp] after-signup failed', (e as Error)?.message ?? e)
     return { created: false }
@@ -275,14 +276,14 @@ export const rsvpRouter = router({
         ? await ctx.db.select({
             id: eventRsvps.id, createdAt: eventRsvps.createdAt, name: eventRsvps.name, phone: eventRsvps.phone,
             partnerName: eventRsvps.partnerName, pass: eventRsvps.pass, pay: eventRsvps.pay, keepInTouch: eventRsvps.keepInTouch,
-            checkedInAt: eventRsvps.checkedInAt,
+            cameFrom: eventRsvps.cameFrom, checkedInAt: eventRsvps.checkedInAt,
           }).from(eventRsvps)
             .where(and(eq(eventRsvps.eventId, ev.id), eq(eventRsvps.guestToken, input.guestToken), isNull(eventRsvps.dancerId))).limit(1)
         : []
       if (guest) await ctx.db.delete(eventRsvps).where(eq(eventRsvps.id, guest.id))
       // A guest's sign-up (RAZ-995) comes along into the account: pass, how they pay, partner, phone.
       const signup = guest?.name
-        ? { phone: guest.phone, partnerName: guest.partnerName, pass: guest.pass, pay: guest.pay, keepInTouch: !!guest.keepInTouch }
+        ? { phone: guest.phone, partnerName: guest.partnerName, pass: guest.pass, pay: guest.pay, keepInTouch: !!guest.keepInTouch, cameFrom: guest.cameFrom ?? null }
         : {}
 
       const before = await bookingBefore(ctx.db, ev.id, dancerId)
@@ -299,7 +300,7 @@ export const rsvpRouter = router({
           .set({ checkedInAt: guest.checkedInAt, updatedAt: now })
           .where(and(eq(attendances.eventId, ev.id), eq(attendances.dancerId, dancerId), isNull(attendances.checkedInAt)))
       }
-      if (guest?.name && input.answer !== 'next') await afterSignup(ctx.db, ev, dancerId, { name: guest.name, phone: guest.phone, keepInTouch: !!guest.keepInTouch })
+      if (guest?.name && input.answer !== 'next') await afterSignup(ctx.db, ev, dancerId, { name: guest.name, phone: guest.phone, keepInTouch: !!guest.keepInTouch, cameFrom: guest.cameFrom })
 
       if (guest) {
         const hours = guest.createdAt ? Math.round((now.getTime() - new Date(guest.createdAt).getTime()) / 360_000) / 10 : null
@@ -328,6 +329,8 @@ export const rsvpRouter = router({
       phone: z.string().trim().max(PHONE_MAX).default(''),
       partnerName: z.string().trim().max(120).optional(),
       keepInTouch: z.boolean().default(false),
+      /** Where this visit came from (RAZ-1074): utm_* and the outside referrer, for the page's Contacts. */
+      cameFrom: cameFromInput.optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const ev = await findEvent(ctx.db, input.event)
@@ -354,6 +357,8 @@ export const rsvpRouter = router({
         pay,
         keepInTouch: input.keepInTouch,
       }
+      const came = cleanCameFrom(input.cameFrom)
+      const cameFrom = Object.keys(came).length ? came : null
       const dancerId = ctx.dancerId ?? null
       const now = new Date()
       const track = (signedIn: boolean) => trackServer(ctx, 'event_signed_up', {
@@ -367,8 +372,8 @@ export const rsvpRouter = router({
         const [known] = await ctx.db.select({ email: eventRsvps.guestEmail }).from(eventRsvps)
           .where(and(eq(eventRsvps.guestToken, input.guestToken), isNull(eventRsvps.dancerId), isNotNull(eventRsvps.guestEmail))).limit(1)
         await ctx.db.insert(eventRsvps)
-          .values({ eventId: ev.id, guestToken: input.guestToken, guestEmail: known?.email ?? null, name: input.name!, ...fields })
-          .onConflictDoUpdate({ target: [eventRsvps.eventId, eventRsvps.guestToken], set: { name: input.name!, ...fields, updatedAt: now } })
+          .values({ eventId: ev.id, guestToken: input.guestToken, guestEmail: known?.email ?? null, name: input.name!, cameFrom, ...fields })
+          .onConflictDoUpdate({ target: [eventRsvps.eventId, eventRsvps.guestToken], set: { name: input.name!, ...fields, ...(cameFrom ? { cameFrom } : {}), updatedAt: now } })
         track(false)
         return pollFor(ctx.db, ev, { dancerId: null, guestToken: input.guestToken })
       }
@@ -381,7 +386,7 @@ export const rsvpRouter = router({
           set: { ...fields, updatedAt: now, confirmedAt: sql`coalesce(${eventRsvps.confirmedAt}, ${now})` },
         })
       await syncPlan(ctx.db, dancerId, ev, input.answer, before)
-      await afterSignup(ctx.db, ev, dancerId, { phone: input.phone, keepInTouch: input.keepInTouch })
+      await afterSignup(ctx.db, ev, dancerId, { phone: input.phone, keepInTouch: input.keepInTouch, cameFrom })
       track(true)
       return pollFor(ctx.db, ev, { dancerId })
     }),

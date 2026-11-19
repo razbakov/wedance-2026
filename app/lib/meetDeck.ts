@@ -2,8 +2,9 @@
  * "Meet new friends" (RAZ-989: its own page, `/meet`; My plan links there).
  *
  * The deck is people only, and only people going somewhere (RAZ-981): dancers
- * signed up to a night out in your city — the same night as you first — and
- * dancers going to a festival who chose "Show me". Each card leads to that
+ * signed up to a night out in your city, or with that night on their plan —
+ * the same night as you first — and dancers going to a festival who chose
+ * "Show me". Each card leads to that
  * night or festival. `plan.discover` also returns festival / social cards —
  * Your week and Your festivals on My plan already hold those, so they are dropped.
  */

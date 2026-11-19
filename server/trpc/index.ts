@@ -37,6 +37,7 @@ import { inquiriesRouter } from './routers/inquiries'
 import { businessPostsRouter } from './routers/businessPosts'
 import { instagramRouter } from './routers/instagram'
 import { businessLooksRouter } from './routers/businessLooks'
+import { businessLaunchRouter } from './routers/businessLaunch'
 import { businessSiteRouter } from './routers/businessSite'
 import { contactMailingRouter } from './routers/contactMailing'
 import { businessTeamRouter } from './routers/businessTeam'
@@ -48,6 +49,7 @@ import { organizerSubscriptionRouter } from './routers/organizerSubscription'
 import { attendanceRouter } from './routers/attendance'
 import { oauthRouter } from './routers/oauth'
 import { eventImportRouter } from './routers/eventImport'
+import { ritualRouter } from './routers/ritual'
 
 export const appRouter = router({
   auth: authRouter,
@@ -88,6 +90,7 @@ export const appRouter = router({
   businessPosts: businessPostsRouter,
   instagram: instagramRouter,
   businessLooks: businessLooksRouter,
+  businessLaunch: businessLaunchRouter,
   businessSite: businessSiteRouter,
   contactMailing: contactMailingRouter,
   businessTeam: businessTeamRouter,
@@ -98,6 +101,7 @@ export const appRouter = router({
   weekend: weekendRouter,
   organizerSubscription: organizerSubscriptionRouter,
   attendance: attendanceRouter,
+  ritual: ritualRouter,
   oauth: oauthRouter,
 })
 

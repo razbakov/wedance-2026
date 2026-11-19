@@ -10,7 +10,7 @@ import { profiles, planItems, profileInvites, profileMembers } from '../database
 import { eventLocalDate } from '../../shared/utils/eventTime'
 import { eventSlug } from '../../shared/utils/eventSlug'
 import type { Festival, Teacher, Workshop } from '../../app/types/festival'
-import { isWorkshop, sessionType } from '../../shared/utils/programme'
+import { hasArtist, isWorkshop, sessionType } from '../../shared/utils/programme'
 import type { FestivalDetails } from '../../shared/types/festivalDetails'
 import { resolveCoOrganizers } from './coOrganizers'
 import { cleanVenueInfo, type VenueInfo } from '../../shared/types/venueInfo'
@@ -93,11 +93,12 @@ export async function festivalView(db: any, ev: any): Promise<{ festival: Festiv
       day: weekday(s.date),
       date: s.date,
       room: s.room ?? '',
-      style: s.style,
+      // Doors open names nobody and has no style (older data may still carry both).
+      style: hasArtist(s.type) ? s.style : '',
       // A level only on a workshop (older data put "Beginner" on parties).
       ...(isWorkshop(s.type) && s.level ? { level: s.level } : {}),
-      teacherId: s.artist,
-      ...(s.with?.length ? { withIds: s.with } : {}),
+      teacherId: hasArtist(s.type) ? s.artist : '',
+      ...(hasArtist(s.type) && s.with?.length ? { withIds: s.with } : {}),
       goingCount: going.get(s.id) ?? 0,
       type: sessionType(s.type),
       ...(s.venue ? { venue: s.venue } : {}),

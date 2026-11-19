@@ -3,7 +3,8 @@
  * SiteHeader — the shared V3 navigation used on every dancing-side page.
  *
  * Desktop (sm+): brand · Festivals / Cities / Artists / Find your dance ·
- * My plan (badge) · AccountMenu (profile, year, settings, Business, sign out).
+ * bell · My plan · AccountMenu (profile, year, settings, Business, sign out).
+ * The match count lives on the bell only. My plan has no number.
  * Phone: slim top bar (My plan icon + avatar-only AccountMenu when signed in),
  * section chips on the Explore pages, and SiteTabBar (Explore · Cities ·
  * My plan · Me). Chosen from /sketches/nav (prototype E).
@@ -14,11 +15,6 @@ import { CalendarDays, MapPin, Sparkles, Users, Music } from 'lucide-vue-next'
 const route = useRoute()
 const { appearsSignedIn } = useAccountNav('dance')
 const showSignIn = ref(false)
-
-// My plan badge = the upcoming things /my-plan lists (festivals, courses,
-// this week's socials) — RAZ-889. Loaded by plugins/04.plan.client.ts after
-// hydration, so SSR and the client's first render agree (both 0).
-const { planTotal: planCount } = usePlanCounts()
 
 const discover = [
   { to: '/festivals', label: 'Festivals', icon: Sparkles },
@@ -55,7 +51,8 @@ const onPlan = computed(() => under('/my-plan') || under('/my-year'))
         </NuxtLink>
       </nav>
 
-      <div class="ml-auto flex items-center gap-4">
+      <div class="ml-auto flex items-center gap-2 sm:gap-4">
+        <NoticeCenter />
         <template v-if="appearsSignedIn">
           <NuxtLink
             to="/my-plan"
@@ -65,10 +62,6 @@ const onPlan = computed(() => under('/my-plan') || under('/my-year'))
           >
             <CalendarDays class="w-5 h-5" />
             <span class="hidden sm:inline">My plan</span>
-            <span
-              v-if="planCount > 0"
-              class="bg-primary text-primary-foreground text-[10px] font-bold min-w-4 h-4 rounded-full grid place-items-center px-1"
-            >{{ planCount }}</span>
           </NuxtLink>
           <AccountMenu mode="dance" />
         </template>
@@ -96,7 +89,7 @@ const onPlan = computed(() => under('/my-plan') || under('/my-year'))
       ><component :is="l.icon" class="w-3.5 h-3.5" />{{ l.label }}</NuxtLink>
     </nav>
 
-    <SiteTabBar mode="dance" :plan-count="planCount" />
+    <SiteTabBar mode="dance" />
     <SignUpModal v-model:open="showSignIn" action="signin" />
   </header>
 </template>

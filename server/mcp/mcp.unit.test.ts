@@ -203,7 +203,7 @@ describe('create_event / update_event write the programme as festival.sessions',
     await tool('create_event').run(t, args('create_event', {
       ...party, start_time: '18:00', end_time: '22:00',
       programme: [
-        { time: '18:00', type: 'doors', title: 'Open Doors', level: 'Beginner' },
+        { time: '18:00', type: 'doors', title: 'Open Doors', level: 'Beginner', artist: 'ana', style: 'Salsa', with: ['max'] },
         { time: '19:00', type: 'performance', title: 'B-FEST show' },
         { time: '20:30', type: 'afterparty', title: 'Afterparty' },
         { time: '21:00', type: 'concert', title: 'Live set', end_time: '21:45', duration: 10 },
@@ -213,6 +213,8 @@ describe('create_event / update_event write the programme as festival.sessions',
     expect(s.map((x: any) => [x.type, x.time, x.duration])).toEqual([['doors', '18:00', 0], ['show', '19:00', 90], ['party', '20:30', 30], ['concert', '21:00', 45]])
     for (const x of s) expect(x).not.toHaveProperty('level')
     for (const x of s) expect(x).not.toHaveProperty('endTime')
+    expect(s[0]).toMatchObject({ artist: '', style: '' })
+    expect(s[0]).not.toHaveProperty('with')
   })
 
   it('the programme schema takes every new type directly and mentions end_time', () => {

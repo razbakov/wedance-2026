@@ -11,7 +11,6 @@ All output directories are `.gitignore`d — they appear only after a test run.
 | **BDD E2E** | `bun run test:e2e` | `playwright-report/index.html` | `e2e/test-results/` |
 | **Design (contract + a11y)** | `bun run test:design` | `playwright-report/design/index.html` | `e2e/test-results/design/` |
 | **Visual regression** | `bun run test:visual` | `playwright-report/design/index.html` (shared) | `e2e/design/__screenshots__/{platform}/` |
-| **Argos (visual history)** | `bun run test:argos` | — (Argos CI uploads only) | `e2e/test-results/argos/` |
 
 ## Opening HTML reports
 
@@ -33,7 +32,6 @@ npx playwright show-report playwright-report/design
 | Unit | `vitest.config.ts` |
 | BDD E2E | `playwright.config.ts` |
 | Design / Visual | `playwright.design.config.ts` |
-| Argos | `playwright.argos.config.ts` |
 
 ## CI workflow
 
@@ -58,4 +56,3 @@ merge gate.
 - **Design** tests are read-only and can run against any live URL via `DESIGN_BASE_URL`.
 - **Visual regression** baselines are per-OS (`e2e/design/__screenshots__/{platform}/`).
   Update baselines with `bun run test:visual:update`.
-- **Argos** tests default to `https://2026.wedance.vip`. Override with `ARGOS_BASE_URL`.

@@ -39,7 +39,7 @@ Postgres. The DB tests refuse to run against anything but `localhost`.
      hex colour. See [`docs/design-system.md`](docs/design-system.md) and
      <https://2026.wedance.vip/docs/design>.
    - **Forms:** client validation uses valibot, as described in
-     [`CLAUDE.md`](CLAUDE.md) → Conventions.
+     [`AGENTS.md`](AGENTS.md) → Conventions.
    - **Data model / API:** the architecture docs are generated from the code
      ([ADR-000](docs/architecture/adr/000-generated-architecture-docs.md)). A new
      table must be assigned to a context in `scripts/architecture/domains.ts`, or
@@ -78,7 +78,7 @@ If you changed something visible, run `bun run test:design` locally too, and
 - In the description, say what changed and why, and link the issue
   (`Closes #123`). Add screenshots for anything a user can see — phone width
   (375px) and desktop.
-- Agents opening a PR load `.cursor/skills/pr-checklist/SKILL.md` and run
+- Agents opening a PR load `.claude/skills/pr-checklist/SKILL.md` and run
   `bun scripts/ci/pr-checklist.ts` before the PR is ready for review. A failing
   check blocks review. A change with no user-visible screen records why, and
   the demo checks do not apply.
