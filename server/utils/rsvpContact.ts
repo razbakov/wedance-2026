@@ -11,6 +11,7 @@
 import { and, eq, or, sql } from 'drizzle-orm'
 import { dancers, profileContacts, profiles } from '../database/schema'
 import { emailBlock } from '../../shared/utils/contactSegments'
+import { cleanCameFrom } from '../../shared/utils/cameFrom'
 
 export const CONTACT_PHONE_MAX = 40
 
@@ -47,9 +48,10 @@ export async function contactState(db: any, page: ContactPage, dancerId: string)
  * Signing up for one of the page's events (RAZ-995): the page gets the dancer's name, email and phone to
  * run THAT event (changes, its WhatsApp group). A new contact gets source `signup`, which is not mailable;
  * "tell me about next ones" (`keepInTouch`) opts them in. Never unsubscribes or downgrades a contact:
- * an earlier opt-in stays.
+ * an earlier opt-in stays. Where they came from (`cameFrom`, RAZ-1074: utm_*, referrer) goes on a new contact
+ * only: the first way they found the page stays.
  */
-export async function recordSignupContact(db: any, page: ContactPage, dancerId: string, opts: { phone?: string | null, name?: string | null, eventId: string, keepInTouch: boolean }): Promise<{ created: boolean }> {
+export async function recordSignupContact(db: any, page: ContactPage, dancerId: string, opts: { phone?: string | null, name?: string | null, eventId: string, keepInTouch: boolean, cameFrom?: Record<string, string> | null }): Promise<{ created: boolean }> {
   const d = await dancerOf(db, dancerId)
   if (!d) return { created: false }
   const row = await findRow(db, page.id, d)
@@ -67,7 +69,7 @@ export async function recordSignupContact(db: any, page: ContactPage, dancerId: 
   }
   await db.insert(profileContacts).values({
     profileId: page.id, dancerId: d.id, email: d.email, name: opts.name?.trim() || d.name || null, phone,
-    source: { from: 'signup', event: opts.eventId, ...optIn },
+    source: { ...cleanCameFrom(opts.cameFrom), from: 'signup', event: opts.eventId, ...optIn },
   })
   return { created: true }
 }

@@ -268,6 +268,7 @@ describe.skipIf(!DATABASE_URL)('rsvp.signUp', () => {
   it('saves a signed-out sign-up unconfirmed, with the only pass picked for them', async () => {
     const p = await caller(null).rsvp.signUp({
       event: S.event, answer: 'partner', guestToken: GUEST_S, name: 'Maria Lopez', pay: 'door', phone: '+49 171 1234567', partnerName: 'Juan', keepInTouch: false,
+      cameFrom: { utm_source: 'montuno.club', utm_medium: 'schedule', referrer: 'https://montuno.club/' },
     })
     expect(p.mine).toEqual({
       answer: 'partner', confirmed: false,
@@ -284,17 +285,18 @@ describe.skipIf(!DATABASE_URL)('rsvp.signUp', () => {
     expect(guestRows).toHaveLength(0)
     const [contact] = await db.select().from(schema.profileContacts).where(eq(schema.profileContacts.profileId, S.org))
     expect(contact).toMatchObject({ email, name: 'Maria Lopez', phone: '+49 171 1234567', status: 'subscribed' })
-    expect(contact.source).toMatchObject({ from: 'signup', event: S.event })
+    // Where the sign-up came from (RAZ-1074) survives the magic link and lands on the contact.
+    expect(contact.source).toMatchObject({ from: 'signup', event: S.event, utm_source: 'montuno.club', utm_medium: 'schedule', referrer: 'https://montuno.club/' })
     expect(contact.source.opted_in).toBeUndefined()
   })
 
   it('signed in, "tell me about next events" opts the contact in; a chosen name is never replaced', async () => {
     await db.update(schema.dancers).set({ name: 'Maria L.' }).where(eq(schema.dancers.id, S.maria))
-    const p = await caller(S.maria).rsvp.signUp({ event: S.online, answer: 'needLeader', pass: 'Whole course', pay: 'now', phone: '+49 171 7654321', keepInTouch: true })
+    const p = await caller(S.maria).rsvp.signUp({ event: S.online, answer: 'needLeader', pass: 'Whole course', pay: 'now', phone: '+49 171 7654321', keepInTouch: true, cameFrom: { utm_source: 'instagram' } })
     expect(p.mine).toMatchObject({ answer: 'needLeader', confirmed: true, signup: { pass: 'Whole course', pay: 'now', keepInTouch: true } })
     expect(p.me).toMatchObject({ name: 'Maria L.', phone: '+49 171 7654321' })
     const [contact] = await db.select().from(schema.profileContacts).where(eq(schema.profileContacts.profileId, S.org))
-    expect(contact.source).toMatchObject({ opted_in: 'signup', opted_in_event: S.online })
+    expect(contact.source).toMatchObject({ opted_in: 'signup', opted_in_event: S.online, utm_source: 'montuno.club' })
     expect(contact.phone).toBe('+49 171 7654321')
   })
 })

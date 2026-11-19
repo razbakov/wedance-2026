@@ -223,6 +223,7 @@ async function submit() {
       phone,
       ...(answer.value === 'partner' && data.partnerName ? { partnerName: data.partnerName } : {}),
       keepInTouch: keepInTouch.value,
+      cameFrom: cameFrom(),
     })
     setPoll(p)
     if (signedIn) useWeekPlan().syncEvent(p.eventId, true)

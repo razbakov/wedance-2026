@@ -998,6 +998,9 @@ export const eventRsvps = pgTable('event_rsvps', {
   pass: text('pass'),
   pay: text('pay').$type<'now' | 'door'>(),
   keepInTouch: boolean('keep_in_touch').notNull().default(false),
+  /** Where the sign-up came from (0079, RAZ-1074): utm_* and the outside referrer. Kept on a guest's row until
+   * the magic link confirms it, then on the page's contact (`profile_contacts.source`). */
+  cameFrom: jsonb('came_from').$type<Record<string, string>>(),
   confirmedAt: timestamp('confirmed_at'),
   // Door check-in for a signed-out answer (RAZ-928). Copied onto the dancer's
   // attendance when the magic link confirms the account.
