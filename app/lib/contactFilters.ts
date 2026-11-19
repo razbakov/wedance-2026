@@ -88,13 +88,30 @@ export function comingCounts(list: readonly FilterableContact[], eventId: string
   return { total, by }
 }
 
+/**
+ * The filter rail, kept short (Contacts sidebar redesign, 19 Nov 2026): the options worth
+ * showing up front, the rest behind "More". Options with nobody in them are dropped unless
+ * picked, and a picked option is never hidden behind "More".
+ */
+export function railOptions<T extends { key: K, count: number }, K>(options: readonly T[], picked: readonly K[], limit = 4): { shown: T[], more: T[] } {
+  const live = options.filter(o => o.count > 0 || picked.includes(o.key))
+  const shown = live.slice(0, limit)
+  const more: T[] = []
+  for (const o of live.slice(limit)) (picked.includes(o.key) ? shown : more).push(o)
+  return { shown, more }
+}
+
+/** Activity filters by what an organiser asks: about their events, and everything else. */
+export const EVENT_ACTIVITY: readonly ActivityFilter[] = ['going', 'regular', 'lapsed', 'came']
+export const OTHER_ACTIVITY: readonly ActivityFilter[] = ['new', 'follows', 'account']
+
 /** Toggle a value in a list filter (chips). */
 export function toggle<T>(list: T[], v: T): T[] {
   return list.includes(v) ? list.filter(x => x !== v) : [...list, v]
 }
 
 /**
- * When the contact joined, for the row: "15 Nov 2026". Some imports only know a bound
+ * When the contact joined, for the row: "15 Nov 2026, 12:00" (Berlin time). Some imports only know a bound
  * — wedance.vip logged subscribe dates only from 24 Mar 2024, so older subscribers carry
  * `source.subscribed_before` and read "before Mar 2024" (created_at then only keeps the order).
  */
@@ -102,7 +119,7 @@ export function contactSince(createdAt: string | Date | null, source: Record<str
   if (!createdAt) return ''
   const before = source?.subscribed_before
   if (before) return `before ${new Date(before).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}`
-  return new Date(createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+  return new Date(createdAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' })
 }
 
 /** Where a website sign-up came from, in a few words: UTM, else the form, else the referrer. */

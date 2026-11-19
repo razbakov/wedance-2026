@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { filterContacts, comingCounts, emptyFilter, isFiltered, toggle, contactsCsv, sourceDetail, contactSince, CSV_COLUMNS, type FilterableContact } from './contactFilters'
+import { filterContacts, comingCounts, emptyFilter, isFiltered, toggle, contactsCsv, sourceDetail, contactSince, CSV_COLUMNS, railOptions, EVENT_ACTIVITY, OTHER_ACTIVITY, type FilterableContact } from './contactFilters'
 import { EMPTY_ACTIVITY } from '#shared/utils/contactSegments'
 
 const NOW = new Date('2026-11-15T12:00:00Z')
@@ -90,9 +90,9 @@ describe('contactsCsv', () => {
 
 describe('contactSince', () => {
   it('the day they joined, or only a bound when the import has no date', () => {
-    expect(contactSince('2024-07-08T13:36:43Z', { from: 'wedance-v3', subscribed_at: '2024-07-08T13:36:43Z' })).toBe('8 Jul 2024')
+    expect(contactSince('2024-07-08T13:36:43Z', { from: 'wedance-v3', subscribed_at: '2024-07-08T13:36:43Z' })).toBe('8 Jul 2024, 15:36')
     expect(contactSince('2024-03-24T15:23:00Z', { from: 'wedance-v3', subscribed_before: '2024-03-24T15:23:43Z' })).toBe('before Mar 2024')
-    expect(contactSince('2026-11-15T11:00:00Z', null)).toBe('15 Nov 2026')
+    expect(contactSince('2026-11-15T11:00:00Z', null)).toBe('15 Nov 2026, 12:00')
   })
 
   it('CSV writes the bound, not a made-up day', () => {
@@ -125,5 +125,22 @@ describe('describeFilter (RAZ-975)', () => {
     expect(describeFilter(emptyFilter())).toBe('')
     expect(describeFilter({ ...emptyFilter(), event: 'e1', as: 'needFollower', sources: ['website'], activity: ['regular'], q: ' anna ' }, 'Sun 15 Nov · Casino'))
       .toBe('Coming to Sun 15 Nov · Casino · Needs a follower · Your website · Regulars (3+ events) · search “anna”')
+  })
+})
+
+describe('railOptions (sidebar redesign)', () => {
+  const opts = [{ key: 'a', count: 9 }, { key: 'b', count: 5 }, { key: 'c', count: 3 }, { key: 'd', count: 2 }, { key: 'e', count: 1 }, { key: 'f', count: 0 }]
+  it('shows the first few, puts the rest behind More and drops empty ones', () => {
+    const r = railOptions(opts, [], 4)
+    expect(r.shown.map(o => o.key)).toEqual(['a', 'b', 'c', 'd'])
+    expect(r.more.map(o => o.key)).toEqual(['e'])
+  })
+  it('never hides a picked option, even an empty one', () => {
+    const r = railOptions(opts, ['e', 'f'], 4)
+    expect(r.shown.map(o => o.key)).toEqual(['a', 'b', 'c', 'd', 'e', 'f'])
+    expect(r.more).toEqual([])
+  })
+  it('splits the activity filters into event ones and the rest, each once', () => {
+    expect([...EVENT_ACTIVITY, ...OTHER_ACTIVITY].sort()).toEqual(['account', 'came', 'follows', 'going', 'lapsed', 'new', 'regular'])
   })
 })
