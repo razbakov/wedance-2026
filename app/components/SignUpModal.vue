@@ -20,6 +20,7 @@
  * nothing new).
  */
 import { LoginSchema, RecoverySchema, RegisterSchema } from '#shared/validation'
+import { friendlyError } from '~/lib/friendlyError'
 
 const props = defineProps<{
   open: boolean
@@ -178,17 +179,6 @@ async function handleSubmit() {
       emit('update:open', false)
     })
   }
-}
-
-// Show the server's message only for expected errors (wrong password, unknown
-// email, validation). Internal errors already arrive sanitised with a
-// reference; anything else (network, unknown) gets the generic fallback.
-function friendlyError(e: any): string {
-  const fallback = 'Something went wrong. Please try again.'
-  const code = e?.data?.code
-  if (!code || !e?.message) return fallback
-  if (code === 'INTERNAL_SERVER_ERROR') return e.data?.ref ? e.message : fallback
-  return e.message
 }
 
 async function submitWith(action: () => Promise<void>) {
