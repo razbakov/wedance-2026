@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { filterContacts, comingCounts, emptyFilter, isFiltered, toggle, contactsCsv, sourceDetail, contactSince, CSV_COLUMNS, type FilterableContact } from './contactFilters'
+import { describeFilter, filterContacts, comingCounts, emptyFilter, isFiltered, toggle, contactsCsv, sourceDetail, contactSince, CSV_COLUMNS, type FilterableContact } from './contactFilters'
 import { EMPTY_ACTIVITY } from '#shared/utils/contactSegments'
 
 const NOW = new Date('2026-11-15T12:00:00Z')
@@ -80,8 +80,9 @@ describe('contactsCsv', () => {
     expect(b).toContain('"no: Never asked for your emails"')
     expect(b).toContain('"4","2026-11-20","yes"')
   })
-  it('sourceDetail: UTM, else form, else referrer', () => {
-    expect(sourceDetail({ form: 'f', referrer: 'r' })).toBe('f')
+  it('sourceDetail: UTM, else the referring site, else the form (RAZ-1074)', () => {
+    expect(sourceDetail({ form: 'f', referrer: 'https://www.google.com/search' })).toBe('google.com')
+    expect(sourceDetail({ form: 'f' })).toBe('f')
     expect(sourceDetail({ referrer: 'r' })).toBe('r')
     expect(sourceDetail(null)).toBe('')
     expect(sourceDetail({ from: 'wedance-v3', form: 'WeDance v3 · subscribers' })).toBe('')
@@ -125,5 +126,20 @@ describe('describeFilter (RAZ-975)', () => {
     expect(describeFilter(emptyFilter())).toBe('')
     expect(describeFilter({ ...emptyFilter(), event: 'e1', as: 'needFollower', sources: ['website'], activity: ['regular'], q: ' anna ' }, 'Sun 15 Nov · Casino'))
       .toBe('Coming to Sun 15 Nov · Casino · Needs a follower · Your website · Regulars (3+ events) · search “anna”')
+  })
+})
+
+describe('the channel filter (RAZ-1074)', () => {
+  it('keeps the contacts that came through the chosen channels; the audience never matches', () => {
+    const l = [
+      c({ name: 'Ig', source: { utm_source: 'ig' } }),
+      c({ name: 'Mc', source: { utm_source: 'montuno.club', utm_medium: 'schedule' } }),
+      c({ name: 'Nobody', source: {} }),
+      c({ name: 'Fan', source: {}, isContact: false }),
+    ]
+    expect(names(filterContacts(l, { ...emptyFilter(), channels: ['instagram'] }, NOW))).toEqual(['Ig'])
+    expect(names(filterContacts(l, { ...emptyFilter(), channels: ['montuno.club', 'unknown'] }, NOW))).toEqual(['Mc', 'Nobody'])
+    expect(isFiltered({ ...emptyFilter(), channels: ['instagram'] })).toBe(true)
+    expect(describeFilter({ ...emptyFilter(), channels: ['instagram'] })).toBe('via Instagram')
   })
 })

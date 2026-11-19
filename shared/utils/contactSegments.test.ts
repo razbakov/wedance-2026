@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   contactSourceKey, emailBlock, summariseActivity, contactSegments, matchesActivity, activityLine,
-  EMPTY_ACTIVITY, audienceOnly, inAudience, cameToEvents, type ActivitySignal, type SegmentContact,
+  EMPTY_ACTIVITY, audienceOnly, inAudience, cameToEvents, contactChannel, channelLabel, sourceLabelFor, type ActivitySignal, type SegmentContact,
 } from './contactSegments'
 
 const NOW = new Date('2026-11-15T12:00:00Z')
@@ -92,7 +92,7 @@ describe('contactSegments', () => {
     ])
     expect(s.canEmail).toBe(1)
     expect(s.cantEmail).toBe(4)
-    expect(s.blocked).toEqual({ unsubscribed: 1, not_opted_in: 3, not_a_contact: 0 })
+    expect(s.blocked).toEqual({ unsubscribed: 1, not_opted_in: 3, event_only: 0, not_a_contact: 0 })
     expect(s.activity.account).toBe(3)
     expect(s.activity.follows).toBe(1)
     expect(s.contacts).toBe(5)
@@ -170,5 +170,48 @@ describe('summariseActivity → events (the event filter)', () => {
       sig('long-ago', '2026-09-01T19:00:00Z', 'attendance', 'going'),
     ], null, NOW)
     expect(a.events).toEqual({ 'fri': 'needLeader', 'sat': 'ticket', 'sun': 'going', 'last-week': 'going' })
+  })
+})
+
+describe('where a contact came from (RAZ-1074)', () => {
+  it('a sign-up contact may not be emailed: only for their event, until they opt in', () => {
+    expect(emailBlock({ status: 'subscribed', source: { from: 'signup', event: 'e1' } })).toBe('event_only')
+    expect(emailBlock({ status: 'subscribed', source: { from: 'signup', event: 'e1', opted_in: 'signup' } })).toBeNull()
+    expect(emailBlock({ status: 'unsubscribed', source: { from: 'signup', event: 'e1' } })).toBe('unsubscribed')
+  })
+
+  it('names the event of a sign-up or poll contact', () => {
+    expect(sourceLabelFor('signup', 'La Timberia')).toBe('Signed up for La Timberia')
+    expect(sourceLabelFor('rsvp', 'Casino')).toBe('Shared at Casino')
+    expect(sourceLabelFor('signup', null)).toBe('Signed up for an event')
+    expect(sourceLabelFor('website', 'La Timberia')).toBe('Your website')
+  })
+
+  it('channel: utm_source, else the referring site, with known aliases folded', () => {
+    expect(contactChannel({ utm_source: 'montuno.club', utm_medium: 'schedule', referrer: 'https://montuno.club/' })).toBe('montuno.club')
+    expect(contactChannel({ utm_source: 'ig', referrer: 'https://l.instagram.com/' })).toBe('instagram')
+    expect(contactChannel({ form: 'montuno.club', referrer: 'https://www.google.com/' })).toBe('google')
+    expect(contactChannel({ utm_source: 'chatgpt.com' })).toBe('chatgpt')
+    expect(contactChannel({ form: 'montuno.club' })).toBe('unknown')
+    expect(contactChannel(null)).toBe('unknown')
+    expect(channelLabel('instagram')).toBe('Instagram')
+    expect(channelLabel('montuno.club')).toBe('montuno.club')
+  })
+
+  it('counts contacts by channel, the unknown ones last, the audience left out', () => {
+    const base = { status: 'subscribed', createdAt: null, hasAccount: false, activity: EMPTY_ACTIVITY }
+    const s = contactSegments([
+      { ...base, source: { utm_source: 'ig' } },
+      { ...base, source: {} },
+      { ...base, source: {} },
+      { ...base, source: { referrer: 'https://instagram.com/x' } },
+      { ...base, source: { referrer: 'https://www.google.com/' } },
+      { ...base, source: {}, isContact: false },
+    ] as SegmentContact[], NOW)
+    expect(s.channels).toEqual([
+      { key: 'instagram', label: 'Instagram', count: 2 },
+      { key: 'google', label: 'Google', count: 1 },
+      { key: 'unknown', label: 'Not known', count: 2 },
+    ])
   })
 })
