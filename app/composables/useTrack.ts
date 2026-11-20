@@ -7,8 +7,8 @@ import posthog from 'posthog-js'
  * calls sprinkled through pages/components harmless in dev and tests.
  *
  * Event names are snake_case and stable — the full catalogue (client + the
- * `server_*` copies sent from tRPC, server/utils/posthog.ts) is in CLAUDE.md →
- * "Analytics (PostHog)". Never put PII (names, emails, raw search text) in props.
+ * `server_*` copies sent from tRPC, server/utils/posthog.ts) is in
+ * docs/analytics/events.md. Never put PII (names, emails, raw search text) in props.
  */
 export type TrackProps = Record<string, unknown>
 

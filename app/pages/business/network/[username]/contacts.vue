@@ -4,19 +4,22 @@
  * in RAZ-949 as layout A, "segment sidebar"): everyone who gave the page their
  * email — website sign-ups and imported lists (HubSpot, wedance.vip subscribers).
  * A rail on the left counts and filters by whether the page may email them,
- * where they came from and what they do on WeDance; on a phone it hides behind
+ * where they came from (segment, and the channel — utm_source or referrer, RAZ-1074) and what they do on WeDance; on a phone it hides behind
  * a Filters button. Each contact shows its WeDance activity around the page's
  * events. Search, note, unsubscribe / resubscribe, delete, CSV of what's shown.
  * An event filter (`?event=<id>&as=<how>`, linked from the event's "Who's coming")
  * narrows the list to the contacts coming to one event and says how many others
  * signed up without being a contact.
- * "Send an update" (RAZ-960, BusinessContactUpdate) emails the segment the filters show:
- * only people the page may email, imported lists off unless ticked in.
+ * "Email N" writes to the contacts shown that may be emailed (RAZ-975, BusinessContactMailing).
+ * One audience (RAZ-963): the list also holds the page's followers and the people who went /
+ * are going to its events without being contacts — each person once, marked Contact /
+ * Follower / Event-goer. They show no email or phone, can't be emailed, aren't in the CSV and
+ * have no note / unsubscribe / delete; "Who" in the rail narrows to contacts or the rest.
  * Data: businessSite.contactsOverview.
  */
-import { Download, Mail, Search, Trash2, Globe, StickyNote, Check, X, SlidersHorizontal, MailCheck, MailX, Users, CalendarCheck, Repeat, Moon, Sparkles, Heart, CalendarDays } from 'lucide-vue-next'
+import { Download, Search, Trash2, Globe, Route, StickyNote, Check, X, SlidersHorizontal, MailCheck, MailX, Users, CalendarCheck, Repeat, Moon, Sparkles, Heart, CalendarDays, Ticket, Contact, UserRound } from 'lucide-vue-next'
 import { ACTIVITY_FILTERS, COMING_AS_LABEL, COMING_AS_ORDER, contactSegments, emailBlock, type ActivityFilter, type ComingAs, type ContactSourceKey } from '#shared/utils/contactSegments'
-import { comingCounts, contactsCsv, emptyFilter, filterContacts, isFiltered, sourceDetail, toggle, type ContactFilter } from '~/lib/contactFilters'
+import { comingCounts, contactsCsv, describeFilter, emptyFilter, filterContacts, isFiltered, sourceDetail, toggle, type ContactFilter } from '~/lib/contactFilters'
 
 definePageMeta({ layout: 'business' })
 const route = useRoute()
@@ -37,6 +40,7 @@ onMounted(load)
 useHead(() => ({ title: `Contacts · ${data.value?.profile.name ?? ''} | Business | WeDance` }))
 
 const all = computed<Row[]>(() => data.value?.contacts ?? [])
+const onlyContacts = (l: Row[]) => l.filter(r => r.isContact)
 // Counted here so a note, unsubscribe or delete shows at once; past the 2000-row
 // cap the server's counts (everyone) are the right ones.
 const segs = computed(() => (data.value?.truncated ? data.value.segments : contactSegments(all.value)))
@@ -58,8 +62,12 @@ watch(() => [f.event, f.as] as const, ([event, as]) => {
 const pageEvents = computed(() => data.value?.events ?? [])
 const chosenEvent = computed(() => pageEvents.value.find(e => e.id === f.event) ?? null)
 const eventCounts = computed(() => (f.event ? comingCounts(all.value, f.event) : { total: 0, by: {} }))
+// Of those coming, how many are contacts (the rest are on the list without an email).
+const eventContacts = computed(() => (f.event ? comingCounts(onlyContacts(all.value), f.event).total : 0))
 const eventLabel = (e: { name: string, startDate: string, timezone: string | null }) =>
   `${new Date(e.startDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: e.timezone || 'Europe/Berlin' })} · ${e.name}`
+const segment = computed(() => describeFilter(f, chosenEvent.value ? eventLabel(chosenEvent.value) : null))
+const filterData = computed(() => ({ ...f, sources: [...f.sources], channels: [...f.channels], activity: [...f.activity] }))
 const setAs = (a: ComingAs) => { f.as = f.as === a ? null : a }
 const shown = computed(() => filterContacts(all.value, f))
 const LIMIT = 60
@@ -67,16 +75,17 @@ const more = ref(LIMIT)
 watch(shown, () => { more.value = LIMIT })
 const visible = computed(() => shown.value.slice(0, more.value))
 
-const ACT_ICON: Record<ActivityFilter, any> = { account: Users, follows: Heart, going: CalendarCheck, regular: Repeat, lapsed: Moon, new: Sparkles }
-const SHORT: Record<ActivityFilter, string> = { account: 'On WeDance', follows: 'Follow you', going: 'Going next', regular: 'Regulars', lapsed: 'Haven’t come in 3 months', new: 'New this month' }
+const ACT_ICON: Record<ActivityFilter, any> = { account: Users, follows: Heart, came: Ticket, going: CalendarCheck, regular: Repeat, lapsed: Moon, new: Sparkles }
+const SHORT: Record<ActivityFilter, string> = { account: 'On WeDance', follows: 'Follow you', came: 'Came or coming', going: 'Going next', regular: 'Regulars', lapsed: 'Haven’t come in 3 months', new: 'New this month' }
 const toggleSource = (k: ContactSourceKey) => { f.sources = toggle(f.sources, k) }
+const toggleChannel = (k: string) => { f.channels = toggle(f.channels, k) }
 const toggleAct = (a: ActivityFilter) => { f.activity = toggle(f.activity, a) }
 const setEmail = (e: ContactFilter['email']) => { f.email = f.email === e ? 'any' : e }
+const setWho = (w: ContactFilter['who']) => { f.who = f.who === w ? 'any' : w }
+// The CSV and "Email N" only ever get contacts.
+const shownContacts = computed(() => onlyContacts(shown.value))
 const clear = () => Object.assign(f, emptyFilter())
-// The segment an update goes to: the rail's filters (not the search box).
-const updating = ref(false)
-const updateSegment = computed(() => ({ sources: [...f.sources], activity: [...f.activity], event: f.event, as: f.event ? f.as : null }))
-const filterCount = computed(() => f.sources.length + f.activity.length + (f.email !== 'any' ? 1 : 0) + (f.event ? 1 : 0))
+const filterCount = computed(() => f.sources.length + f.channels.length + f.activity.length + (f.email !== 'any' ? 1 : 0) + (f.who !== 'any' ? 1 : 0) + (f.event ? 1 : 0))
 
 const detail = (r: Row) => [r.locale?.toUpperCase(), sourceDetail(r.source), r.source?.promo_code ? `code ${r.source.promo_code}` : ''].filter(Boolean).join(' · ')
 
@@ -103,7 +112,7 @@ async function remove(r: Row) {
 
 function csv() {
   const a = document.createElement('a')
-  a.href = URL.createObjectURL(new Blob([contactsCsv(shown.value)], { type: 'text/csv' }))
+  a.href = URL.createObjectURL(new Blob([contactsCsv(shownContacts.value)], { type: 'text/csv' }))
   a.download = `${username.value}-contacts.csv`
   a.click()
   URL.revokeObjectURL(a.href)
@@ -118,17 +127,17 @@ function csv() {
       <AdminPageHeader
         eyebrow="Contacts"
         :title="data.profile.name"
-        description="Everyone who gave you their email: sign-ups on your website, dancers who shared it when answering your event’s poll, and the lists you imported. Only people who signed up themselves can be emailed."
+        description="Everyone connected to your page, each once: contacts who gave you their email (website sign-ups, dancers who shared it at your event’s poll, the lists you imported), plus dancers who follow you or went to your events. Only contacts who signed up themselves can be emailed: filter the list, then “Email” writes to them."
         :back="{ to: `/business/network/${username}`, label: 'The profile' }"
       >
+        <BusinessContactMailing :username="username" :contacts="shownContacts" :segment="segment" :filter="filterData" :event-id="f.event" />
         <Button variant="outline-pill" size="pill-sm" as-child>
           <NuxtLink :to="`/business/network/${username}/website`"><Globe /> Website</NuxtLink>
         </Button>
-        <Button v-if="segs.canEmail" variant="pill" size="pill-sm" :aria-expanded="updating" data-contacts-send-update @click="updating = !updating"><Mail /> Send an update</Button>
-        <Button variant="outline-pill" size="pill-sm" :disabled="!shown.length" @click="csv"><Download /> CSV<template v-if="isFiltered(f)"> · {{ shown.length }}</template></Button>
+        <Button variant="outline-pill" size="pill-sm" :disabled="!shownContacts.length" @click="csv"><Download /> CSV<template v-if="isFiltered(f)"> · {{ shownContacts.length }}</template></Button>
       </AdminPageHeader>
       <p v-if="segs.total" class="mt-2 text-sm">
-        <b>{{ segs.total }}</b> contacts · <b>{{ segs.canEmail }}</b> can be emailed<template v-if="data.followers.notContacts"> · {{ data.followers.notContacts }} more follow you without being a contact</template>
+        <b>{{ segs.total }}</b> people · <b>{{ segs.contacts }}</b> contacts · <b>{{ segs.canEmail }}</b> can be emailed<template v-if="segs.others"> · {{ segs.others }} follow you or came to your events without being a contact</template>
       </p>
       <p v-if="data.truncated" class="mt-1 text-xs text-muted-foreground">The counts cover everyone; the list shows the newest 2000.</p>
       <AdminState v-if="error" kind="error" :message="error" class="mt-4" />
@@ -136,18 +145,16 @@ function csv() {
       <div v-if="f.event" class="mt-4 rounded-2xl border bg-card p-4 text-sm shadow-wd-card" data-contacts-event>
         <p class="font-bold">
           <CalendarDays class="mr-1 inline size-4" aria-hidden="true" />
-          <template v-if="chosenEvent">{{ eventLabel(chosenEvent) }} · {{ chosenEvent.coming }} coming · {{ eventCounts.total }} in your contacts</template>
+          <template v-if="chosenEvent">{{ eventLabel(chosenEvent) }} · {{ chosenEvent.coming }} coming · {{ eventContacts }} in your contacts</template>
           <template v-else>Nobody has signed up for this event yet, or it was more than 30 days ago.</template>
         </p>
-        <p v-if="chosenEvent && chosenEvent.coming > eventCounts.total" class="mt-1 text-muted-foreground">
-          The other {{ chosenEvent.coming - eventCounts.total }} haven’t shared their contact with you. Dancers can tick “Let {{ data.profile.name }} keep in touch” when they answer the event’s poll; their names are on the event’s “Who’s coming”.
+        <p v-if="chosenEvent && chosenEvent.coming > eventContacts" class="mt-1 text-muted-foreground">
+          The other {{ chosenEvent.coming - eventContacts }} haven’t shared their contact with you<template v-if="eventCounts.total > eventContacts">: the {{ eventCounts.total - eventContacts }} on WeDance are in the list without an email</template>. Dancers can tick “Let {{ data.profile.name }} keep in touch” when they answer the event’s poll.
         </p>
         <Button type="button" variant="link" size="sm" class="h-auto p-0" @click="f.event = null"><X /> Show all contacts</Button>
       </div>
 
-      <BusinessContactUpdate v-if="updating" :username="username" :page-name="data.profile.name" :segment="updateSegment" :event-name="chosenEvent?.name" @close="updating = false" />
-
-      <AdminState v-if="!segs.total" kind="empty" message="No contacts yet. People who sign up on your website, and lists you import, show up here." class="mt-6" />
+      <AdminState v-if="!segs.total" kind="empty" message="Nobody yet. People who sign up on your website, lists you import, your followers and the dancers going to your events show up here." class="mt-6" />
 
       <div v-else class="mt-5 lg:grid lg:grid-cols-[15rem_1fr] lg:gap-6">
         <Button type="button" variant="outline" size="sm" class="mb-3 lg:hidden" :aria-expanded="railOpen" aria-controls="contacts-filters" @click="railOpen = !railOpen">
@@ -166,19 +173,34 @@ function csv() {
               </button>
             </template>
           </section>
+          <section v-if="segs.others">
+            <h2 class="mb-1 text-eyebrow font-black uppercase tracking-widest text-muted-foreground">Who</h2>
+            <button v-for="w in (['contacts', 'others'] as const)" :key="w" type="button" class="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left hover:bg-accent" :class="f.who === w ? 'bg-primary/8 font-bold text-wd-red-800' : ''" :aria-pressed="f.who === w" data-contacts-who @click="setWho(w)">
+              <span class="inline-flex items-center gap-2"><component :is="w === 'contacts' ? Contact : UserRound" class="size-4" aria-hidden="true" /> {{ w === 'contacts' ? 'Contacts' : 'Not contacts' }}</span>
+              <span class="tabular-nums">{{ w === 'contacts' ? segs.contacts : segs.others }}</span>
+            </button>
+            <p class="mt-1 px-2 text-xs text-muted-foreground">Not contacts = follow you or came to your events, no email.</p>
+          </section>
           <section>
             <h2 class="mb-1 text-eyebrow font-black uppercase tracking-widest text-muted-foreground">Email</h2>
             <button v-for="e in (['can', 'cant'] as const)" :key="e" type="button" class="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left hover:bg-accent" :class="f.email === e ? 'bg-primary/8 font-bold text-wd-red-800' : ''" :aria-pressed="f.email === e" @click="setEmail(e)">
               <span class="inline-flex items-center gap-2"><component :is="e === 'can' ? MailCheck : MailX" class="size-4" aria-hidden="true" /> {{ e === 'can' ? 'Can email' : 'Can’t email' }}</span>
               <span class="tabular-nums">{{ e === 'can' ? segs.canEmail : segs.cantEmail }}</span>
             </button>
-            <p class="mt-1 px-2 text-xs text-muted-foreground">{{ segs.blocked.not_opted_in }} never asked for your emails · {{ segs.blocked.unsubscribed }} unsubscribed</p>
+            <p class="mt-1 px-2 text-xs text-muted-foreground">{{ segs.blocked.not_opted_in }} never asked for your emails<template v-if="segs.blocked.event_only"> · {{ segs.blocked.event_only }} only for their event</template> · {{ segs.blocked.unsubscribed }} unsubscribed<template v-if="segs.blocked.not_a_contact"> · {{ segs.blocked.not_a_contact }} not contacts</template></p>
           </section>
           <section>
             <h2 class="mb-1 text-eyebrow font-black uppercase tracking-widest text-muted-foreground">Came from</h2>
             <button v-for="s in segs.sources" :key="s.key" type="button" class="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-accent" :class="f.sources.includes(s.key) ? 'bg-primary/8 font-bold text-wd-red-800' : ''" :aria-pressed="f.sources.includes(s.key)" @click="toggleSource(s.key)">
               <span>{{ s.label }}</span><span class="tabular-nums">{{ s.count }}</span>
             </button>
+          </section>
+          <section v-if="segs.channels?.some(c => c.key !== 'unknown')" data-contacts-channels>
+            <h2 class="mb-1 text-eyebrow font-black uppercase tracking-widest text-muted-foreground">Channel</h2>
+            <button v-for="c in segs.channels" :key="c.key" type="button" class="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-accent" :class="f.channels.includes(c.key) ? 'bg-primary/8 font-bold text-wd-red-800' : ''" :aria-pressed="f.channels.includes(c.key)" data-contacts-channel @click="toggleChannel(c.key)">
+              <span class="inline-flex min-w-0 items-center gap-2"><Route class="size-4 shrink-0" aria-hidden="true" /> <span class="truncate">{{ c.label }}</span></span><span class="tabular-nums">{{ c.count }}</span>
+            </button>
+            <p class="mt-1 px-2 text-xs text-muted-foreground">The link or site that brought them. Tag the links you share (utm_source) to see more here.</p>
           </section>
           <section>
             <h2 class="mb-1 text-eyebrow font-black uppercase tracking-widest text-muted-foreground">On WeDance</h2>
@@ -193,7 +215,7 @@ function csv() {
           <div class="mb-3 flex items-center gap-2">
             <div class="relative flex-1">
               <Search class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-              <Input v-model="f.q" placeholder="Search name, email, note, source…" class="pl-9" aria-label="Search contacts" />
+              <Input v-model="f.q" placeholder="Search name, email, note, source…" class="pl-9" aria-label="Search people" />
             </div>
             <span class="text-sm text-muted-foreground tabular-nums" aria-live="polite">{{ shown.length }}</span>
           </div>
@@ -206,7 +228,7 @@ function csv() {
                   <div class="flex gap-2"><Button type="button" size="sm" variant="cta" @click="saveNote(r)"><Check /> Save note</Button><Button type="button" size="sm" variant="ghost" @click="editing = null">Cancel</Button></div>
                 </div>
               </div>
-              <div class="flex flex-wrap items-start gap-1 pl-13 sm:pl-0">
+              <div v-if="r.isContact" class="flex flex-wrap items-start gap-1 pl-13 sm:pl-0">
                 <Button type="button" size="sm" variant="ghost" @click="editing = r.id; note = r.note ?? ''"><StickyNote /> Note</Button>
                 <Button v-if="r.status === 'subscribed'" type="button" size="sm" variant="ghost" @click="setStatus(r, 'unsubscribed')">Unsubscribe</Button>
                 <Button v-else type="button" size="sm" variant="ghost" @click="setStatus(r, 'subscribed')">Resubscribe</Button>

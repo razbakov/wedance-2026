@@ -49,7 +49,9 @@ export async function drawWeekendStory(input: StoryInput): Promise<Blob> {
   const { canvas, ctx } = await storyCanvas((bgFamily && POSTER_BG[bgFamily]) || DEFAULT_BG)
 
   // --- Header: who + the WeDance mark -----------------------------------------
-  let y = masthead(ctx, `${input.sharerName.toUpperCase()}’S WEEKEND`)
+  // One event (an event page's "Bring friends", RAZ-1001) may be a Tuesday class: not "weekend".
+  const name = input.sharerName.toUpperCase()
+  let y = masthead(ctx, input.parties.length === 1 ? `${name} IS GOING` : `${name}’S WEEKEND`)
 
   // --- Headline: two lines, each as wide as the poster -------------------------
   const head1 = 'COME DANCE'

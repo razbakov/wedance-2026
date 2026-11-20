@@ -25,14 +25,14 @@ export type V3Plan =
 /** First path segments 2026 serves itself (pages, server routes, public files). Never treated as a v3 handle. */
 export const KNOWN_SEGMENTS = new Set([
   // app/pages
-  'about', 'admin', 'artists', 'auth', 'battle', 'book', 'booking-terms', 'business', 'charanga', 'cities', 'confirm', 'docs',
+  'about', 'admin', 'artists', 'auth', 'battle', 'book', 'booking-terms', 'business', 'charanga', 'cities', 'confirm', 'dance-card', 'docs',
   'elections', 'events', 'festivals', 'find-your-dance', 'for-events', 'for-organizers', 'for-sponsors', 'for-venues',
-  'gigs', 'imprint', 'my-plan', 'my-year', 'oauth', 'onboarding', 'open', 'organizers', 'press', 'privacy-policy',
+  'gigs', 'imprint', 'meet', 'my-plan', 'my-year', 'oauth', 'onboarding', 'open', 'organizers', 'press', 'privacy-policy',
   'settings', 'sketches', 'terms', 'u', 'venues', 'w', 'whats-new',
   // server routes + framework
   'api', 'mcp', '_nuxt', '__nuxt', '__nuxt_error', '_vercel', '.well-known',
   // public/ folders
-  'people', 'updates',
+  'brand', 'people', 'updates',
   // routeRules redirects (nuxt.config.ts)
   'datenschutz', 'impressum', 'agb', 'styleguide', 'design', 'architecture',
 ])

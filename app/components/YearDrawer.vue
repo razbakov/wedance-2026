@@ -199,7 +199,7 @@ const simpleChecklistItems = [
             <CalendarDays class="w-4 h-4 shrink-0" :class="hasFestivals ? 'text-primary' : 'text-muted-foreground'" />
             <span class="text-sm font-medium flex-1 text-left">
               Pick festivals
-              <span class="text-xs text-muted-foreground font-normal ml-1">{{ count > 0 ? `${count} going` : 'Tap Going? on cards' }}</span>
+              <span class="text-xs text-muted-foreground font-normal ml-1">{{ count > 0 ? `${count} going` : 'Tap + My plan on cards' }}</span>
             </span>
             <ChevronDown
               v-if="count > 0"

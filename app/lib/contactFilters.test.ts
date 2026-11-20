@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { filterContacts, comingCounts, emptyFilter, isFiltered, toggle, contactsCsv, sourceDetail, contactSince, CSV_COLUMNS, type FilterableContact } from './contactFilters'
+import { describeFilter, filterContacts, comingCounts, emptyFilter, isFiltered, toggle, contactsCsv, sourceDetail, contactSince, CSV_COLUMNS, type FilterableContact } from './contactFilters'
 import { EMPTY_ACTIVITY } from '#shared/utils/contactSegments'
 
 const NOW = new Date('2026-11-15T12:00:00Z')
@@ -25,6 +25,28 @@ describe('filterContacts', () => {
     expect(names(filterContacts(list, { ...emptyFilter(), email: 'can' }, NOW))).toEqual(['Ana'])
     expect(names(filterContacts(list, { ...emptyFilter(), email: 'cant', activity: ['regular'] }, NOW))).toEqual(['Ben'])
     expect(names(filterContacts(list, { ...emptyFilter(), q: 'benja' }, NOW))).toEqual(['Ben'])
+  })
+})
+
+describe('the audience (RAZ-963)', () => {
+  const other = c({ name: 'Dan', email: '', sourceKey: 'wedance', emailBlock: 'not_a_contact', isContact: false, hasAccount: true, createdAt: null, activity: { ...EMPTY_ACTIVITY, follows: true } })
+  const everyone = [...list, other]
+  it('"Who" narrows to contacts or the rest; the other filters work on both', () => {
+    expect(names(filterContacts(everyone, emptyFilter(), NOW))).toEqual(['Ana', 'Ben', 'Cleo', 'Dan'])
+    expect(names(filterContacts(everyone, { ...emptyFilter(), who: 'contacts' }, NOW))).toEqual(['Ana', 'Ben', 'Cleo'])
+    expect(names(filterContacts(everyone, { ...emptyFilter(), who: 'others' }, NOW))).toEqual(['Dan'])
+    expect(names(filterContacts(everyone, { ...emptyFilter(), activity: ['follows'] }, NOW))).toEqual(['Cleo', 'Dan'])
+    expect(names(filterContacts(everyone, { ...emptyFilter(), sources: ['wedance'] }, NOW))).toEqual(['Dan'])
+    expect(names(filterContacts(everyone, { ...emptyFilter(), email: 'can' }, NOW))).toEqual(['Ana'])
+    expect(isFiltered({ ...emptyFilter(), who: 'others' })).toBe(true)
+  })
+  it('the CSV leaves non-contacts out', () => {
+    const csv = contactsCsv(everyone.map(x => ({ ...x, locale: null, sourceLabel: 'x' })))
+    expect(csv.split('\n')).toHaveLength(4)
+    expect(csv).not.toContain('Dan')
+  })
+  it('no join date for a non-contact who doesn\'t follow', () => {
+    expect(contactSince(null, {})).toBe('')
   })
 })
 
@@ -58,8 +80,9 @@ describe('contactsCsv', () => {
     expect(b).toContain('"no: Never asked for your emails"')
     expect(b).toContain('"4","2026-11-20","yes"')
   })
-  it('sourceDetail: UTM, else form, else referrer', () => {
-    expect(sourceDetail({ form: 'f', referrer: 'r' })).toBe('f')
+  it('sourceDetail: UTM, else the referring site, else the form (RAZ-1074)', () => {
+    expect(sourceDetail({ form: 'f', referrer: 'https://www.google.com/search' })).toBe('google.com')
+    expect(sourceDetail({ form: 'f' })).toBe('f')
     expect(sourceDetail({ referrer: 'r' })).toBe('r')
     expect(sourceDetail(null)).toBe('')
     expect(sourceDetail({ from: 'wedance-v3', form: 'WeDance v3 · subscribers' })).toBe('')
@@ -94,5 +117,29 @@ describe('the event filter', () => {
   it('counts them by how they come', () => {
     expect(comingCounts(coming, 'e1')).toEqual({ total: 2, by: { needLeader: 1, ticket: 1 } })
     expect(comingCounts(coming, 'nope')).toEqual({ total: 0, by: {} })
+  })
+})
+
+describe('describeFilter (RAZ-975)', () => {
+  it('is empty for everyone and says the filter in words otherwise', async () => {
+    const { describeFilter, emptyFilter } = await import('./contactFilters')
+    expect(describeFilter(emptyFilter())).toBe('')
+    expect(describeFilter({ ...emptyFilter(), event: 'e1', as: 'needFollower', sources: ['website'], activity: ['regular'], q: ' anna ' }, 'Sun 15 Nov · Casino'))
+      .toBe('Coming to Sun 15 Nov · Casino · Needs a follower · Your website · Regulars (3+ events) · search “anna”')
+  })
+})
+
+describe('the channel filter (RAZ-1074)', () => {
+  it('keeps the contacts that came through the chosen channels; the audience never matches', () => {
+    const l = [
+      c({ name: 'Ig', source: { utm_source: 'ig' } }),
+      c({ name: 'Mc', source: { utm_source: 'montuno.club', utm_medium: 'schedule' } }),
+      c({ name: 'Nobody', source: {} }),
+      c({ name: 'Fan', source: {}, isContact: false }),
+    ]
+    expect(names(filterContacts(l, { ...emptyFilter(), channels: ['instagram'] }, NOW))).toEqual(['Ig'])
+    expect(names(filterContacts(l, { ...emptyFilter(), channels: ['montuno.club', 'unknown'] }, NOW))).toEqual(['Mc', 'Nobody'])
+    expect(isFiltered({ ...emptyFilter(), channels: ['instagram'] })).toBe(true)
+    expect(describeFilter({ ...emptyFilter(), channels: ['instagram'] })).toBe('via Instagram')
   })
 })

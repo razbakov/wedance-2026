@@ -12,11 +12,15 @@ import { agendaToSessions, cleanSession, emptyEventDetails, inferDurations, newS
 import { setupChecklist, setupNext } from './checklist'
 import { dupeReasonText } from '../utils/profileDupes'
 import { parseInstagramLink } from '../../shared/utils/instagram'
+import { EVENT_ARTISTS_MAX } from '../../shared/utils/eventLimits'
 import { mergeSocials } from '../../shared/utils/socials'
 import { siteChangeSummary } from '../../shared/utils/siteDiff'
 import { SITE_FONTS, SITE_THEMES } from '../../shared/utils/siteThemes'
 import { applySitePatch, sectionKinds, siteChanges, sitePatchInput, SitePatchError, type SitePatch } from './site'
 import { TRPCError } from '@trpc/server'
+import type { DoorGuest } from '../../shared/utils/doorList'
+import { redactBugReport } from './bugReport'
+import { venueInfoInput, type VenueInfoInput } from '../utils/venueInfo'
 import type { ProfileSite } from '../../shared/types/profileSite'
 
 /** A site patch from tool args; a bad patch is the caller's error, not a crash. */
@@ -35,8 +39,10 @@ function sitePatchOrError(site: ProfileSite, a: SitePatch): ProfileSite {
  * trim results.
  *
  * `scopes` decide whether a tool is listed (all must be held); `business`
- * tools also need at least one business profile in the grant. `confirm`
- * tools are business:publish: preview first, commit with confirm_token.
+ * tools also need at least one business profile in the grant. `anyAuth`
+ * tools are listed for every signed-in connection and hidden from anonymous
+ * callers. `confirm` tools preview first and commit with confirm_token;
+ * publishing ones also need business:publish.
  */
 
 export type Caller = ReturnType<typeof appRouter.createCaller>
@@ -54,6 +60,10 @@ export interface ToolDef {
   run: (t: ToolCtx, args: any) => Promise<unknown>
   /** Two-step tool: always (true) or only when this says the call goes public. */
   confirm?: true | ((t: ToolCtx, args: any) => Promise<boolean>)
+  /** Confirmation asks the user, but any signed-in connection can confirm (a report to the team, not a public change). */
+  confirmWithoutPublish?: boolean
+  /** Listed for every signed-in connection, whatever they allowed. Hidden from anonymous callers. */
+  anyAuth?: boolean
   /** What the user is asked to approve. Required for confirm tools. */
   preview?: (t: ToolCtx, args: any) => Promise<unknown>
 }
@@ -72,6 +82,20 @@ const city = z.string().min(1).max(120).describe('City in English or its WeDance
 const ymd = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe('Date as YYYY-MM-DD.')
 const hhmm = z.string().regex(/^\d{2}:\d{2}$/).describe('Local wall-clock time as HH:MM (24 h), in the event’s city.')
 const eventId = z.string().uuid().describe('Event id (a UUID, from find_events, my_events or get_event).')
+// A venue's own hints (RAZ-1012), shown on every event held there. Same shape as the web form.
+const venueInfo = z.object({
+  transit: venueInfoInput.shape.transit,
+  parking: venueInfoInput.shape.parking,
+  indoor_shoes_only: venueInfoInput.shape.indoorShoesOnly,
+  cloakroom: venueInfoInput.shape.cloakroom,
+}).optional().describe('Venues only: what’s true about the venue for every event there, shown in the event’s venue row. Only the parts you pass change; null clears a part. E.g. { transit: { line: "S2", color: "#76B82A", stop: "Dachau Bahnhof", detail: "20 min walk or 5 min by bus" }, parking: { text: "Garage next door", detail: "Entrance by the Audi dealership" }, indoor_shoes_only: true, cloakroom: "no" }.')
+const toVenueInfo = (v: z.infer<typeof venueInfo>): VenueInfoInput | undefined => v && {
+  ...(v.transit !== undefined ? { transit: v.transit } : {}),
+  ...(v.parking !== undefined ? { parking: v.parking } : {}),
+  ...(v.indoor_shoes_only !== undefined ? { indoorShoesOnly: v.indoor_shoes_only } : {}),
+  ...(v.cloakroom !== undefined ? { cloakroom: v.cloakroom } : {}),
+}
+
 const handle = z.string().min(1).max(200).transform(h => h.replace(/^@/, '')).describe('WeDance handle, with or without @ (the part after wedance.vip/@).')
 const profile = z.string().min(1).max(200).transform(h => h.replace(/^@/, '')).describe('Handle of one of your business profiles (see my_profiles).')
 const festival = z.string().min(1).max(120).describe('Festival key/slug (planId of a festival from find_festivals, e.g. "meneate-viena-2026").')
@@ -142,9 +166,9 @@ const programmeItem = z.object({
   duration: z.number().int().min(0).max(1440).optional().describe('Minutes, instead of end_time. Leave both out and it runs until the next item that day; the last item until the event’s end_time, else a default (doors 0 = just a moment, show 60, concert 90, party 180, workshop 60). "until 22:00" in the title also works.'),
   type: z.enum(Object.keys(SESSION_TYPES) as [keyof typeof SESSION_TYPES, ...(keyof typeof SESSION_TYPES)[]]).describe('What it is: workshop (a taught class; also class, lesson, masterclass, bootcamp), party (social dancing, DJ; also social, dj, afterparty), show (a performance), concert (live music; also live, band), doors (doors open: a moment, not a slot), other.'),
   title: z.string().trim().min(1).max(160).describe('e.g. "Salsa on2 beginners", "Halloween party with DJ Max", "Open doors".'),
-  artist: z.string().max(200).transform(h => h.trim().replace(/^@/, '')).optional().describe('Handle of who teaches or plays it (added to the line-up).'),
-  with: z.array(z.string().min(1).max(200).transform(h => h.trim().replace(/^@/, ''))).max(6).optional().describe('More handles: a teaching partner, a band.'),
-  style: z.string().trim().max(40).optional().describe('e.g. "Salsa", "Bachata".'),
+  artist: z.string().max(200).transform(h => h.trim().replace(/^@/, '')).optional().describe('Handle of who teaches or plays it (added to the line-up). Leave out for doors: nobody performs it.'),
+  with: z.array(z.string().min(1).max(200).transform(h => h.trim().replace(/^@/, ''))).max(6).optional().describe('More handles: a teaching partner, a band. Leave out for doors.'),
+  style: z.string().trim().max(40).optional().describe('e.g. "Salsa", "Bachata". Leave out for doors.'),
   level: z.enum(['Beginner', 'Intermediate', 'Advanced']).optional().describe('Workshops only; leave out for anything else.'),
   room: z.string().trim().max(60).optional(),
   venue: z.string().trim().max(200).optional().describe('Only when it’s somewhere else than the event’s venue.'),
@@ -199,6 +223,33 @@ async function profileId(t: ToolCtx, h: string): Promise<string> {
   return id
 }
 
+/**
+ * A co-organiser argument: a handle, or `{handle, role?}`.
+ *
+ * The MCP SDK parses tool arguments (and applies transforms) before the
+ * handler, and `runTool` parses again so defaults and the confirm-token hash
+ * match every entry point. The transform stores `{username, role?}`, which the
+ * union would then reject ("co_organizers.0: Invalid input", RAZ-1056). Map
+ * that stored shape back to `{handle}` first, so the second parse round-trips.
+ * The published JSON schema stays a handle or `{handle, role?}` — `username`
+ * is only the value the SDK already validated.
+ */
+function coOrganizerFromOutput(value: unknown): unknown {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value
+  const item = value as { handle?: unknown; username?: unknown }
+  if (typeof item.handle === 'string' || typeof item.username !== 'string') return value
+  const { username, ...rest } = item
+  return { ...rest, handle: username }
+}
+
+const coOrganizerItem = z.preprocess(coOrganizerFromOutput, z.union([
+  z.string().min(1).max(200),
+  z.object({
+    handle: z.string().min(1).max(200),
+    role: z.string().trim().max(40).optional().describe('e.g. "co-organiser", "host", "partner". Default: co-organiser.'),
+  }),
+]))
+
 const PATCH_FIELDS = {
   name: z.string().trim().min(1).max(160).optional(),
   type: z.enum(['Party', 'Workshop', 'Course', 'Festival', 'Weekender', 'Congress', 'Concert', 'Show']).optional().describe('Kind of event.'),
@@ -210,11 +261,8 @@ const PATCH_FIELDS = {
   venue_handle: z.string().max(200).nullable().optional().describe('Handle of a venue on WeDance (find one with find_lineup type=venue or suggest_venues).'),
   venue_name: z.string().max(200).nullable().optional().describe('Venue name when it isn’t on WeDance.'),
   venue_address: z.string().max(300).nullable().optional(),
-  artists: z.array(z.string().min(1).max(200)).max(40).optional().describe('Line-up as WeDance handles (find_lineup, add_profile_from_instagram): who performs, teaches or plays. Not the people who organise it (co_organizers).'),
-  co_organizers: z.array(z.union([
-    z.string().min(1).max(200),
-    z.object({ handle: z.string().min(1).max(200), role: z.string().trim().max(40).optional().describe('e.g. "co-organiser", "host", "partner". Default: co-organiser.') }),
-  ])).max(20).optional()
+  artists: z.array(z.string().min(1).max(200)).max(EVENT_ARTISTS_MAX).optional().describe('Line-up as WeDance handles (find_lineup, add_profile_from_instagram): who performs, teaches or plays. Not the people who organise it (co_organizers).'),
+  co_organizers: z.array(coOrganizerItem).max(20).optional()
     .transform(list => list?.map(c => typeof c === 'string'
       ? { username: c.trim().replace(/^@/, '') }
       : { username: c.handle.trim().replace(/^@/, ''), ...(c.role ? { role: c.role } : {}) }))
@@ -377,6 +425,27 @@ export const TOOLS: ToolDef[] = [
     description: 'Open gigs on WeDance: roles organizers want filled (teacher, DJ, photographer…) and offers from artists.',
     input: { kind: z.enum(['role', 'offer']).optional().describe('"role" = someone is hiring, "offer" = someone offers a service.'), category: z.string().max(60).optional() },
     run: (t, a) => t.caller.gigs.list({ kind: a.kind, category: a.category }),
+  },
+  {
+    name: 'report_bug', title: 'Report a bug to WeDance', scopes: [], anyAuth: true,
+    confirm: true, confirmWithoutPublish: true, annotations: OUTWARD,
+    description: 'File a bug with the WeDance team: what the user was doing, the tool you called, the arguments you sent and the error text. Shows a preview first; call again with confirm_token only after the user agrees. Emails, phones, passwords and tokens in the arguments are removed before the report is stored. The same channel on the website is “Report a problem” in the footer, or hello@wedance.vip.',
+    input: {
+      what_happened: z.string().trim().min(10).max(4000).describe('What the user was trying to do and what went wrong, in their words.'),
+      tool: z.string().trim().max(80).optional().describe('The WeDance tool that failed, e.g. "update_event".'),
+      arguments: z.record(z.string(), z.unknown()).optional().describe('The arguments of that call. Secrets are stripped before the report is stored.'),
+      error: z.string().trim().max(4000).optional().describe('The error text the tool returned, e.g. "co_organizers.0: Invalid input".'),
+      contact_email: z.string().trim().email().max(200).optional().describe('Only if the user wants a reply. Leave out otherwise.'),
+      confirm_token: confirmToken,
+    },
+    preview: async (_t, a) => {
+      const r = redactBugReport({ message: a.what_happened, tool: a.tool, error: a.error, arguments: a.arguments, contactEmail: a.contact_email })
+      return { filing: 'A bug report to the WeDance team', message: r.message, tool: r.tool, error: r.error, arguments: r.arguments, reply_to: r.contactEmail }
+    },
+    run: async (t, a) => {
+      const r = redactBugReport({ message: a.what_happened, tool: a.tool, error: a.error, arguments: a.arguments, contactEmail: a.contact_email })
+      return t.caller.feedback.reportBug({ message: r.message, tool: r.tool, error: r.error, arguments: r.arguments, contactEmail: r.contactEmail, clientApp: t.client?.app ?? null })
+    },
   },
 
   // ── Dancers ─────────────────────────────────────────────────────────────────
@@ -831,15 +900,23 @@ export const TOOLS: ToolDef[] = [
       address: z.string().trim().min(3).max(300).describe('Street and number, e.g. "Heinz-Galinski-Straße 13".'),
       city,
       instagram: z.string().min(2).max(300).optional().describe('The venue’s Instagram handle or URL, if known.'),
+      venue_info: venueInfo,
     },
     run: async (t, a) => {
       const r: any = await t.caller.businessEvents.addVenue({ name: a.name, address: a.address, city: a.city, instagram: a.instagram })
-      return { ...r, venue_handle: r.username, url: url(t, `/@${r.username}`) }
+      const out: any = { ...r, venue_handle: r.username, url: url(t, `/@${r.username}`) }
+      const info = toVenueInfo(a.venue_info)
+      if (info) {
+        // A page that was already on WeDance may be claimed: its team adds the hints, so say so instead of failing.
+        try { await t.caller.listedProfiles.update({ username: r.username, venueInfo: info }); out.venue_info_saved = true }
+        catch (e: any) { out.venue_info_saved = false; out.venue_info_error = e?.message }
+      }
+      return out
     },
   },
   {
     name: 'update_listed_profile', title: 'Complete a page I added', scopes: ['business:write'], business: true, annotations: IDEMPOTENT,
-    description: 'Fill in or fix an UNCLAIMED page (venue, artist, organizer) that the user added (add_venue, add_profile_from_instagram) or that is the venue, organizer or an artist of one of their events: name, bio, city, address, socials, styles, photo. Use it right after adding a page with gaps, e.g. a venue missing its address. Only the fields you pass change. No reconnect needed. Pages the user runs: update_business_profile; claimed pages someone else runs are refused (their owner edits them).',
+    description: 'Fill in or fix an UNCLAIMED page (venue, artist, organizer) that the user added (add_venue, add_profile_from_instagram) or that is the venue, organizer or an artist of one of their events: name, bio, city, address, socials, styles, photo, and for a venue its venue_info (nearest stop, parking, indoor shoes, cloakroom). Use it right after adding a page with gaps, e.g. a venue missing its address. Only the fields you pass change. No reconnect needed. Pages the user runs: update_business_profile; claimed pages someone else runs are refused (their owner edits them).',
     input: {
       handle,
       name: z.string().trim().min(1).max(120).optional(),
@@ -852,10 +929,12 @@ export const TOOLS: ToolDef[] = [
         url: z.string().max(300).describe('Full link; empty removes that platform.'),
       })).max(10).optional().describe('Links by platform; platforms you leave out stay as they are.'),
       photo: z.string().url().nullable().optional().describe('Direct link to a photo (copied to WeDance, so expiring Instagram links are fine); null removes it.'),
+      venue_info: venueInfo,
     },
     run: async (t, a) => {
-      const { handle: username, ...fields } = a
-      const r: any = await t.caller.listedProfiles.update({ username, ...fields })
+      const { handle: username, venue_info, ...fields } = a
+      const info = toVenueInfo(venue_info)
+      const r: any = await t.caller.listedProfiles.update({ username, ...fields, ...(info ? { venueInfo: info } : {}) })
       return { ...r, url: url(t, `/@${username}`) }
     },
   },
@@ -1012,7 +1091,7 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'update_business_profile', title: 'Edit a business page', scopes: ['business:publish'], business: true, annotations: OUTWARD, confirm: true,
-    description: 'Change one of my public pages (artist, venue, organizer, promoter): name, bio, city, styles, photo, address, socials (links shown on the WeDance page: website, Instagram, Facebook…), and for a promoter page the influencer flag. Changing what is ON the page’s own website (when WeDance runs it, see my_profiles website) is update_my_site. Preview → confirm. Only pages the user runs (my_profiles); an unclaimed page they added or have on their events: update_listed_profile.',
+    description: 'Change one of my public pages (artist, venue, organizer, promoter): name, bio, city, styles, photo, address, a venue’s venue_info (nearest stop, parking, indoor shoes, cloakroom), socials (links shown on the WeDance page: website, Instagram, Facebook…), and for a promoter page the influencer flag. Changing what is ON the page’s own website (when WeDance runs it, see my_profiles website) is update_my_site. Preview → confirm. Only pages the user runs (my_profiles); an unclaimed page they added or have on their events: update_listed_profile.',
     input: {
       profile, name: z.string().trim().min(1).max(120).optional(), bio: z.string().max(4000).optional(), city: z.string().max(120).optional(),
       styles: z.array(z.string().trim().min(1).max(40)).max(20).optional(), photo: z.string().url().nullable().optional(), address: z.string().max(300).optional(),
@@ -1021,6 +1100,7 @@ export const TOOLS: ToolDef[] = [
         url: z.string().trim().max(300).describe('Full link; empty removes that platform.'),
       })).max(10).optional().describe('Links by platform; platforms you leave out stay as they are.'),
       influencer: z.boolean().optional().describe('Promoter pages only: true = this promoter is an influencer (their deliverable is content; promo_kit is made for them).'),
+      venue_info: venueInfo,
       confirm_token: confirmToken,
     },
     preview: async (t, a) => {
@@ -1028,13 +1108,15 @@ export const TOOLS: ToolDef[] = [
       const fields = ['name', 'bio', 'city', 'styles', 'photo', 'address', 'influencer'].filter(k => a[k] !== undefined)
       const changes: Record<string, unknown> = Object.fromEntries(fields.map(k => [k, { from: cur[k], to: a[k] }]))
       if (a.socials) changes.socials = { from: cur.socials ?? [], to: mergeSocials(cur.socials, a.socials) }
+      if (a.venue_info) changes.venue_info = { from: cur.venueInfo ?? {}, to: a.venue_info }
       return { page: cur.name, changes }
     },
     run: async (t, a) => {
-      const { profile: username, confirm_token: _c, socials, ...fields } = a
+      const { profile: username, confirm_token: _c, socials, venue_info, ...fields } = a
+      const info = toVenueInfo(venue_info)
       // business.update replaces the whole list; merge per platform so a website edit keeps the Instagram.
       const merged = socials ? mergeSocials(((await t.caller.business.get({ username })) as any).socials, socials) : undefined
-      return t.caller.business.update({ username, ...fields, ...(merged ? { socials: merged } : {}) })
+      return t.caller.business.update({ username, ...fields, ...(merged ? { socials: merged } : {}), ...(info ? { venueInfo: info } : {}) })
     },
   },
   {
@@ -1237,6 +1319,57 @@ export const TOOLS: ToolDef[] = [
     run: (t, a) => t.caller.businessEvents.attendees({ id: a.event_id, csv: a.csv }),
   },
   {
+    name: 'door_list', title: 'Door list for my event', scopes: ['business:read'], business: true, annotations: READ,
+    description: 'Who to expect at the door of one of my events, and who is already checked in: RSVPs other than “next time” (a signed-out guest by the name they typed), Going!, tickets, and festival passes. Never an email or a phone. Use the ids on each guest with check_in.',
+    input: { event_id: eventId },
+    run: async (t, a) => {
+      const r = await t.caller.attendance.door({ eventId: a.event_id })
+      const quote = (s: string | null) => (s ? { untrusted_text: s } : null)
+      return {
+        event: quote(r.eventName),
+        partner: r.partner,
+        here: r.here,
+        total: r.total,
+        guests: r.guests.map((g: DoorGuest) => ({
+          name: quote(g.name),
+          via: g.via,
+          answer: g.answer,
+          partner_name: quote(g.partnerName),
+          confirmed: g.confirmed,
+          checked_in: g.checkedIn,
+          attendance_id: g.attendanceId,
+          dancer_id: g.dancerId,
+          rsvp_id: g.rsvpId,
+          signup_id: g.signupId,
+        })),
+      }
+    },
+  },
+  {
+    name: 'check_in', title: 'Check a guest in at the door', scopes: ['business:write'], business: true, annotations: IDEMPOTENT,
+    description: 'Mark one guest from door_list as here, or undo it. Pass exactly one of attendance_id, dancer_id, rsvp_id, signup_id. Checking the same guest in again changes nothing and does not email anyone.',
+    input: {
+      event_id: eventId,
+      attendance_id: z.string().uuid().optional().describe('From door_list, when the guest has an attendance (including an unclaimed ticket).'),
+      dancer_id: z.string().uuid().optional().describe('From door_list, for a dancer with no attendance row yet.'),
+      rsvp_id: z.string().uuid().optional().describe('From door_list, for a signed-out RSVP.'),
+      signup_id: z.string().uuid().optional().describe('From door_list, for an unclaimed festival pass.'),
+      undo: z.boolean().optional().describe('Take the check-in back. The guest stays on the list.'),
+    },
+    run: (t, a) => {
+      const n = [a.attendance_id, a.dancer_id, a.rsvp_id, a.signup_id].filter(Boolean).length
+      if (n !== 1) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Pass exactly one of attendance_id, dancer_id, rsvp_id or signup_id from door_list.' })
+      return t.caller.attendance.checkIn({
+        eventId: a.event_id,
+        attendanceId: a.attendance_id,
+        dancerId: a.dancer_id,
+        rsvpId: a.rsvp_id,
+        signupId: a.signup_id,
+        undo: a.undo,
+      })
+    },
+  },
+  {
     name: 'gig_applications', title: 'Applications to my gigs', scopes: ['business:read'], business: true, annotations: READ,
     description: 'Gigs I (or my pages) posted, each with the artists who applied: message, page, email, status.',
     input: { gig_id: z.string().uuid().optional() },
@@ -1341,11 +1474,18 @@ export const TOOLS: ToolDef[] = [
 export const TOOL_BY_NAME = new Map(TOOLS.map(t => [t.name, t]))
 
 /** Who's calling, as far as tool listing cares. */
-export interface ListingCtx { scopes: readonly string[]; grantedProfileIds: readonly string[]; isAdmin: boolean }
+export interface ListingCtx { scopes: readonly string[]; grantedProfileIds: readonly string[]; isAdmin: boolean; /** Omitted: signed in when they hold a scope or are an admin. */ signedIn?: boolean }
+
+/** The same listing buildMcpServer and tools/list use. */
+export function listingFrom(ctx: { scopes?: readonly string[] | null; grantedProfileIds?: readonly string[] | null; isAdmin?: boolean; oauthGrantId?: string | null }): ListingCtx {
+  return { scopes: ctx.scopes ?? [], grantedProfileIds: ctx.grantedProfileIds ?? [], isAdmin: !!ctx.isAdmin, signedIn: !!ctx.oauthGrantId }
+}
 
 /** The tools this caller may see: every scope held; business tools need a granted profile (or admin). */
 export function visibleTools(c: ListingCtx): ToolDef[] {
+  const signedIn = c.signedIn ?? (c.scopes.length > 0 || c.isAdmin)
   return TOOLS.filter((tool) => {
+    if (tool.anyAuth && !signedIn) return false
     if (!tool.scopes.every(s => s === 'admin' ? c.isAdmin : hasScope(c.scopes, s))) return false
     if (tool.business && !c.isAdmin && !c.grantedProfileIds.length) return false
     return true

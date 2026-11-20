@@ -28,11 +28,11 @@ export interface Job {
 }
 
 export const jobs: Job[] = [
-  { id: 'J1', statement: 'Start dancing without feeling lost', who: 'Someone who has never danced, or only once, looking for a first class', journeys: ['C1'], flows: [] },
-  { id: 'J2', statement: 'Get better and keep momentum', who: 'A student taking classes who wants the right teacher and steady progress', journeys: ['C2', 'C3'], flows: [] },
-  { id: 'J3', statement: 'Never dance alone — go with people I know', who: 'A regular going out to socials, who wants friends and partners on the floor', journeys: ['C3', 'C8'], flows: [] },
-  { id: 'J4', statement: 'Plan and afford my dance travel', who: 'A traveller choosing festivals for the year, with tickets, rides and rooms', journeys: ['C4'], flows: [] },
-  { id: 'J5', statement: 'Get discovered and booked as an artist', who: 'A teacher, DJ, band or performer looking for gigs', journeys: ['C5'], flows: [] },
+  { id: 'J1', statement: 'Start dancing without feeling lost', who: 'Someone who has never danced, or only once, looking for a first class', journeys: ['C1'], flows: [{ title: 'First class blueprint', to: '/docs/blueprints/first-class' }] },
+  { id: 'J2', statement: 'Get better and keep momentum', who: 'A student taking classes who wants the right teacher and steady progress', journeys: ['C2', 'C3'], flows: [{ title: 'Keep progressing blueprint', to: '/docs/blueprints/keep-progressing' }] },
+  { id: 'J3', statement: 'Never dance alone — go with people I know', who: 'A regular going out to socials, who wants friends and partners on the floor', journeys: ['C3', 'C8'], flows: [{ title: 'Meet new friends blueprint', to: '/docs/blueprints/meet-friends' }] },
+  { id: 'J4', statement: 'Plan and afford my dance travel', who: 'A traveller choosing festivals for the year, with tickets, rides and rooms', journeys: ['C4'], flows: [{ title: 'Festival travel blueprint', to: '/docs/blueprints/festival-travel' }] },
+  { id: 'J5', statement: 'Get discovered and booked as an artist', who: 'A teacher, DJ, band or performer looking for gigs', journeys: ['C5'], flows: [{ title: 'Artist booking blueprint', to: '/docs/blueprints/artist-booking' }] },
   {
     id: 'J6',
     statement: 'Run a great event / throw a great night',
@@ -40,7 +40,7 @@ export const jobs: Job[] = [
     journeys: ['C6', 'C7', 'C8'],
     flows: [{ title: 'Event setup blueprint', to: '/docs/blueprints/event-setup' }],
   },
-  { id: 'J7', statement: 'Trust it\'s real — real people, real faces, no fakes', who: 'Everyone: dancers, artists and organisers deciding whether WeDance is worth their time', journeys: ['C4', 'C7', 'C8'], flows: [] },
+  { id: 'J7', statement: 'Trust it\'s real — real people, real faces, no fakes', who: 'Everyone: dancers, artists and organisers deciding whether WeDance is worth their time', journeys: ['C4', 'C7', 'C8'], flows: [{ title: 'Make a page real blueprint', to: '/docs/blueprints/make-it-real' }] },
 ]
 
 export const jobById = (id: JobId): Job => jobs.find(j => j.id === id)!

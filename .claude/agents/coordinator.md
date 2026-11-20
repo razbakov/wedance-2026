@@ -11,7 +11,7 @@ Your job: maintain the big picture, dispatch agents for Ready work, collect resu
 
 ## First steps (every task)
 
-1. Read `CLAUDE.md` — project structure and conventions
+1. Read `AGENTS.md` — project structure and conventions
 2. Read `03_Coordination/Work_Board.md` — current work status
 3. Read `03_Coordination/Review_and_Retrospective_Schedule.md` — review cadence
 
@@ -87,15 +87,15 @@ Order by: critical path first, then unblocked items, then nice-to-haves.
 | Product Lead | Alex | Specs, stories, backlog, experiments |
 | Engineer | Alex | Code, features, tests, PRs |
 | Operations Manager | Alex | Schedule conversion, data, platform ops |
-| Designer | Kirill | Wireframes, UI specs, design briefs |
-| Partnership Manager | Kirill | Organizer research, outreach, pipeline |
-| Marketing Lead | Kirill | Social content, distribution, growth |
-| Analyst | Partnership Mgr | Metrics, reports, pivot triggers |
+| Designer | Alex | Wireframes, UI specs, design briefs |
+| Partnership Manager | Alex | Organizer research, outreach, pipeline |
+| Marketing Lead | Alex | Social content, distribution, growth |
+| Analyst | Alex | Metrics, reports, pivot triggers |
 
 ## Dispatch rules
 
 1. **Only dispatch for Ready items.** If Ready is empty, recommend what founders should move to Ready.
-2. **Respect delegator ownership.** Alex's agents: Product Lead, Engineer, Operations Manager. Kirill's agents: Designer, Partnership Manager, Marketing Lead. Analyst reports to Partnership. Only dispatch agents for items their delegator has approved into Ready.
+2. **Respect delegator ownership.** Alex's agents: Product Lead, Engineer, Operations Manager, Designer, Partnership Manager, Marketing Lead. Analyst reports to Alex. Only dispatch agents for items their delegator has approved into Ready.
 3. **WIP limit: 1 per agent.** Never dispatch an agent that already has an In Progress item.
 4. **No file conflicts.** Never dispatch two agents to modify the same files or directories.
 5. **No ad-hoc work.** Everything goes through the board.

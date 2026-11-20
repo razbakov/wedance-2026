@@ -37,13 +37,13 @@ export const DOMAINS: Domain[] = [
     id: 'events',
     title: 'Events & plans',
     summary: 'Dated public events (v4 archive + live v3 mirror), their flyers and the hosts\' saved flyer looks, each dancer\'s week/year plan, the unified attendance model, and the organiser\'s RSVP poll.',
-    tables: ['events', 'planItems', 'discoverSwipes', 'attendances', 'eventRsvps', 'weekendShares', 'weekendShareJoins', 'dancerGoals', 'brandLooks', 'eventFlyers', 'eventPosts', 'aiUsage'],
+    tables: ['events', 'planItems', 'discoverSwipes', 'meetMatchEmails', 'meetRituals', 'attendances', 'eventRsvps', 'weekendShares', 'weekendShareJoins', 'dancerGoals', 'brandLooks', 'eventFlyers', 'eventPosts', 'aiUsage'],
   },
   {
     id: 'directory',
     title: 'Profiles & cities',
     summary: 'Venue / artist / organiser profiles under /@handle, canonical cities, follows and the per-city community-group directory.',
-    tables: ['profiles', 'profileMembers', 'profileClaims', 'profileMerges', 'profileAccessLog', 'profileSuggestions', 'profileOwnerSuggestions', 'profileInvites', 'follows', 'legacyFollows', 'profileAffiliations', 'handles', 'organizerSubscriptions', 'networkLinks', 'profileSites', 'profileSiteVersions', 'profileContacts', 'contactUpdateSends', 'instagramConnections', 'instagramWebhookEvents', 'cities', 'communityGroups', 'communityGroupReports', 'cityPages', 'citySchedules', 'cityOccasionPosts'],
+    tables: ['profiles', 'profileMembers', 'profileClaims', 'profileMerges', 'profileAccessLog', 'profileSuggestions', 'profileOwnerSuggestions', 'profileInvites', 'follows', 'legacyFollows', 'profileAffiliations', 'handles', 'organizerSubscriptions', 'networkLinks', 'profileSites', 'profileSiteVersions', 'profileContacts', 'contactMailings', 'instagramConnections', 'instagramWebhookEvents', 'cities', 'communityGroups', 'communityGroupReports', 'cityPages', 'citySchedules', 'cityOccasionPosts', 'launchSteps', 'launchNames', 'launchEvidence'],
   },
   {
     id: 'booking',
@@ -55,7 +55,7 @@ export const DOMAINS: Domain[] = [
     id: 'engagement',
     title: 'Community engagement',
     summary: 'City video voting and battles, giveaways (and the ones promoters propose), reviews, "ask locals" recommendations, and promoters\' tracked links with what they brought.',
-    tables: ['cityVideos', 'videoVotes', 'cityBattleVotes', 'giveaways', 'giveawayEntries', 'giveawayProposals', 'reviews', 'recommendationRequests', 'trackedLinks', 'trackedLinkActions'],
+    tables: ['cityVideos', 'videoVotes', 'cityBattleVotes', 'giveaways', 'giveawayEntries', 'giveawayProposals', 'reviews', 'eventReviewAsks', 'recommendationRequests', 'trackedLinks', 'trackedLinkActions'],
   },
   {
     id: 'opportunities',

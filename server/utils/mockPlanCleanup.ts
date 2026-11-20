@@ -1,8 +1,9 @@
 /**
- * Finding plan items that point at mock data (app/data/mock-*.ts) — written
- * into real plans by the old onboarding auto-fill (mock city classes like
- * `muc-3`, preview-only festivals like `timba-fest-london-2026`). Pure, so the
- * selection is unit-tested; scripts/cleanup-mock-plan-items.ts does the I/O.
+ * Finding plan items that point at the old mock catalogue — written into real
+ * plans by the old onboarding auto-fill (mock city classes like `muc-3`,
+ * preview-only festivals like `timba-fest-london-2026`). The ids themselves
+ * are frozen in historicalMockIds.ts. Pure, so the selection is unit-tested;
+ * scripts/cleanup-mock-plan-items.ts does the I/O.
  */
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

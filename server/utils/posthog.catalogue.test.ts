@@ -1,7 +1,7 @@
 /**
  * Keeps the analytics catalogue honest: every client event (`track` /
  * `trackOnce` in app/) and every `server_*` event the code sends must be
- * documented in CLAUDE.md → "Analytics (PostHog)", and renamed events must
+ * documented in docs/analytics/events.md, and renamed events must
  * not come back (tracking plan: server name = `server_` + client name).
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs'
@@ -58,7 +58,7 @@ function documented(catalogue: string, name: string): boolean {
 }
 
 describe('client analytics catalogue', () => {
-  const catalogue = readFileSync(join(ROOT, 'CLAUDE.md'), 'utf8')
+  const catalogue = readFileSync(join(ROOT, 'docs/analytics/events.md'), 'utf8')
   const names = clientEventNames()
 
   it('finds the client events (sanity)', () => {
@@ -66,14 +66,14 @@ describe('client analytics catalogue', () => {
     expect(names.has('outbound_click')).toBe(true)
   })
 
-  it('documents every client event in CLAUDE.md', () => {
+  it('documents every client event in docs/analytics/events.md', () => {
     const missing = [...names.keys()].filter(n => !documented(catalogue, n))
     expect(missing).toEqual([])
   })
 })
 
 describe('server analytics catalogue', () => {
-  const catalogue = readFileSync(join(ROOT, 'CLAUDE.md'), 'utf8')
+  const catalogue = readFileSync(join(ROOT, 'docs/analytics/events.md'), 'utf8')
   const names = serverEventNames()
 
   it('finds the server events (sanity)', () => {
@@ -81,7 +81,7 @@ describe('server analytics catalogue', () => {
     expect(names.has('ticket_purchased')).toBe(true)
   })
 
-  it('documents every server event in CLAUDE.md', () => {
+  it('documents every server event in docs/analytics/events.md', () => {
     const missing = [...names.keys()].filter(n => !catalogue.includes(`\`server_${n}\``))
     expect(missing).toEqual([])
   })

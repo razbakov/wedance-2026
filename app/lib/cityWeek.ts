@@ -8,6 +8,7 @@
  */
 import { sameDanceStyle } from '#shared/dance-styles'
 import { eventLocalDate } from '#shared/utils/eventTime'
+import { CLASS_EVENT_TYPES } from '#shared/utils/eventSignup'
 
 // Local YYYY-MM-DD (never toISOString — that shifts to UTC and, in a positive
 // offset like CEST, moves every day back by one, so "this week" ends up a day off).
@@ -26,6 +27,23 @@ export function weekDateKeys(now: Date = new Date()): Set<string> {
 /** Style filter for the "Coming up" list: no style picked keeps everything. */
 export const matchesStyle = (styles: string[] | null | undefined, style: string) =>
   !style || (styles || []).some((s: string) => sameDanceStyle(s, style))
+
+/**
+ * Parties / classes filter (RAZ-1018), kept in the URL as `?type=party|class`.
+ * Classes are CLASS_EVENT_TYPES (class, course, practica, workshop — the same list
+ * as the sign-up, RAZ-995); everything else (social, party, concert, show) is a party.
+ */
+export type EventKind = 'party' | 'class'
+export const EVENT_KINDS: { key: EventKind; label: string }[] = [
+  { key: 'party', label: 'Parties' },
+  { key: 'class', label: 'Classes' },
+]
+export const parseEventKind = (v: unknown): EventKind | '' => (v === 'party' || v === 'class' ? v : '')
+export const isClassType = (type: string | null | undefined) =>
+  (CLASS_EVENT_TYPES as readonly string[]).includes(String(type ?? '').trim().toLowerCase())
+/** No kind picked keeps everything. */
+export const matchesKind = (type: string | null | undefined, kind: EventKind | '') =>
+  !kind || (kind === 'class') === isClassType(type)
 
 /**
  * Splits the city's booked + synced events into this week and later. Festivals
@@ -73,6 +91,138 @@ export function isActiveThisWeek(tab: PeopleTab, p: { id: string; name: string }
     return t.has(String(p.id).toLowerCase()) || t.has(String(p.name).trim().toLowerCase())
   }
   return false
+}
+
+/**
+ * Jump to one date on the city page (RAZ-1021).
+ *
+ * "Pick a date" opens a 5-week grid that starts on this week's Monday, so a
+ * night three weeks away is on the first page — two taps, and no third tap to
+ * reach the next month. Days before today are not selectable. The grid follows
+ * the parties / classes filter because the caller passes already-filtered events.
+ */
+export const CITY_DATE_HORIZON_DAYS = 89
+export const JUMP_WEEKS = 5
+
+export function addDays(date: string, days: number): string {
+  const [y, m, d] = date.split('-').map(Number)
+  return localDateKey(new Date(y!, (m ?? 1) - 1, (d ?? 1) + days))
+}
+
+/** Monday of the week `date` falls in (local calendar, Monday first). */
+export function mondayOnOrBefore(date: string): string {
+  const [y, m, d] = date.split('-').map(Number)
+  const dt = new Date(y!, (m ?? 1) - 1, d)
+  dt.setDate(dt.getDate() - (dt.getDay() + 6) % 7)
+  return localDateKey(dt)
+}
+
+/** A `?date=` value: a real YYYY-MM-DD, today or later, within two years. Anything else is ignored. */
+export function parseDateKey(v: unknown, today = localDateKey(new Date())): string {
+  if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return ''
+  const [y, m, d] = v.split('-').map(Number)
+  const dt = new Date(y!, (m ?? 1) - 1, d)
+  if (dt.getFullYear() !== y || dt.getMonth() !== (m ?? 1) - 1 || dt.getDate() !== d) return ''
+  if (v < today || v > addDays(today, 366 * 2)) return ''
+  return v
+}
+
+const atNoonUtc = (date: string) => new Date(`${date}T12:00:00Z`)
+
+/** "Tuesday, Dec 8" — the heading above the chosen day's events. */
+export function formatJumpDate(date: string): string {
+  return atNoonUtc(date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', timeZone: 'UTC' })
+}
+
+/** "Tue, Dec 8" — the chip once a date is chosen. */
+export function formatJumpDateShort(date: string): string {
+  return atNoonUtc(date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })
+}
+
+export function formatMonthShort(date: string): string {
+  return atNoonUtc(date).toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' })
+}
+
+/** "Nov 16 – Dec 20, 2026" for the open calendar's range. */
+export function formatJumpWindow(startMonday: string, weeks = JUMP_WEEKS): string {
+  const end = addDays(startMonday, weeks * 7 - 1)
+  const sameYear = startMonday.slice(0, 4) === end.slice(0, 4)
+  const left = atNoonUtc(startMonday).toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', timeZone: 'UTC', ...(sameYear ? {} : { year: 'numeric' }),
+  })
+  const right = atNoonUtc(end).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
+  return `${left} – ${right}`
+}
+
+/**
+ * Mondays that start each calendar page. Always covers today through
+ * `CITY_DATE_HORIZON_DAYS` (what the city feed loads), and further when an
+ * event is dated past that.
+ */
+export function jumpPageStarts(today: string, dates: string[] = [], weeks = JUMP_WEEKS): string[] {
+  const first = mondayOnOrBefore(today)
+  let end = addDays(today, CITY_DATE_HORIZON_DAYS)
+  for (const date of dates) if (date > end) end = date
+  const pageLen = weeks * 7
+  const pages = [first]
+  let start = first
+  while (addDays(start, pageLen - 1) < end && pages.length < 16) {
+    start = addDays(start, pageLen)
+    pages.push(start)
+  }
+  return pages
+}
+
+export interface JumpDay {
+  date: string
+  isToday: boolean
+  isPast: boolean
+  count: number
+  /** First cell, or the 1st of a month — the grid prints the month name there. */
+  showMonth: boolean
+}
+
+export function jumpDays(startMonday: string, counts: Record<string, number>, today: string, weeks = JUMP_WEEKS): JumpDay[] {
+  const days: JumpDay[] = []
+  for (let i = 0; i < weeks * 7; i++) {
+    const date = addDays(startMonday, i)
+    days.push({
+      date,
+      isToday: date === today,
+      isPast: date < today,
+      count: counts[date] ?? 0,
+      showMonth: i === 0 || date.slice(8, 10) === '01',
+    })
+  }
+  return days
+}
+
+/** One count per event id, so a dot means "something is listed", matching the list below. */
+export function countByDate(items: { id: string; date: string }[]): Record<string, number> {
+  const seen = new Set<string>()
+  const out: Record<string, number> = {}
+  for (const e of items) {
+    if (!e.id || !/^\d{4}-\d{2}-\d{2}$/.test(e.date) || seen.has(e.id)) continue
+    seen.add(e.id)
+    out[e.date] = (out[e.date] ?? 0) + 1
+  }
+  return out
+}
+
+export interface DatedEvent { id: string; date: string; time?: string }
+
+/** The chosen day's events, soonest first. Other dates and duplicate ids are left out. */
+export function pickEventsOnDate<T extends DatedEvent>(items: T[], date: string): T[] {
+  if (!date) return []
+  const seen = new Set<string>()
+  const out: T[] = []
+  for (const e of items) {
+    if (e.date !== date || !e.id || seen.has(e.id)) continue
+    seen.add(e.id)
+    out.push(e)
+  }
+  out.sort((a, b) => String(a.time ?? '').localeCompare(String(b.time ?? '')) || a.id.localeCompare(b.id))
+  return out
 }
 
 /** "Coming up": merged later events sorted by date then time, grouped per date, capped at `limit` ("show more"). */

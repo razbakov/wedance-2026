@@ -63,6 +63,9 @@ function trackEventsCleanup(c3: C3World) {
   })
 }
 
+/** "+ My plan" / "✓ My plan" (RAZ-1003): one name, the state is aria-pressed (an icon or the ✓/+ shows it). */
+const planState = (label: string) => ({ name: /My plan$/, pressed: label.trim().startsWith('✓') })
+
 /** The nearest element around `text` that also holds a button with `button` in its label. */
 const cardButton = (page: Page, text: string, button: string): Locator =>
   page.locator(`xpath=//*[contains(normalize-space(.), "${text}") and not(*[contains(normalize-space(.), "${text}")])]/ancestor::*[.//button[contains(normalize-space(.), "${button}")]][1]//button[contains(normalize-space(.), "${button}")]`).first()
@@ -107,6 +110,10 @@ Given('a C3 city with an active and an idle profile per role, and a smaller city
     artists: JSON.stringify([people['artists:active']!.handle]),
   })
   c3.cleanup.push(async () => { await sql(`DELETE FROM profiles WHERE username LIKE $1`, [`c3-%-${c3.run}`]) })
+  // The active organiser runs its page on WeDance, so its nights take bookings (RAZ-1007: an event
+  // whose page has no team shows where it was imported from instead of the sign-up steps).
+  const host = await addDancer(c3, 'Host', null)
+  await sql(`INSERT INTO profile_members (profile_id, dancer_id, role) SELECT id, $2, 'owner' FROM profiles WHERE username = $1`, [people['organisers:active']!.handle, host])
 })
 
 async function addDancer(c3: C3World, who: string, photo: string | null) {
@@ -252,8 +259,8 @@ When('I open that event', async ({ page, c3 }) => {
 })
 
 When('I tap {string} on the one-off social', async ({ page, c3 }, label: string) => {
-  const button = cardButton(page, c3.data.oneOff, label.replace(/[?!]$/, ''))
-  await expect(button).toHaveText(new RegExp(label.replace('?', '\\?')))
+  const button = cardButton(page, c3.data.oneOff, 'My plan')
+  await expect(button).toHaveAttribute('aria-pressed', String(planState(label).pressed))
   const signedIn = Object.keys(c3.data).some(k => k.startsWith('token:'))
   const saved = signedIn ? page.waitForResponse(r => r.url().includes('plan.add')) : null
   await button.click()
@@ -268,7 +275,7 @@ When('I scroll through the page and reload it', async ({ page }) => {
 
 When('I tap {string} to undo', async ({ page }, label: string) => {
   const removed = page.waitForResponse(r => r.url().includes('plan.remove'))
-  await page.getByRole('button', { name: label, exact: true }).first().click()
+  await page.getByRole('button', planState(label)).first().click()
   expect((await removed).ok()).toBe(true)
 })
 
@@ -330,7 +337,7 @@ Then('the tab lists the active {word} only', async ({ page, c3 }, role: string) 
   await expect(page.getByText(c3.data.people[`${role}:idle`].name)).toHaveCount(0)
 })
 
-Then('I am on the full {word} directory, listing the active and the idle {word}', async ({ page, c3 }, role: string) => {
+Then('I am on the full {word} directory, listing the active and the idle {word}', async ({ page, c3 }, role: string, _sameRole: string) => {
   await expect(page).toHaveURL(new RegExp(`/cities/${c3.data.city.slug}/${role}$`))
   await expect(page.getByText(c3.data.people[`${role}:active`].name).first()).toBeVisible()
   await expect(page.getByText(c3.data.people[`${role}:idle`].name).first()).toBeVisible()
@@ -369,12 +376,12 @@ Then('the HTML carries BreadcrumbList and ItemList structured data for {string}'
 })
 
 Then('the event page shows {string} and {int} going', async ({ page }, label: string, n: number) => {
-  await expect(page.getByRole('button', { name: label, exact: true }).first()).toBeVisible()
-  await expect(page.getByText(`${n} planning`).first()).toBeVisible()
+  await expect(page.getByRole('button', planState(label)).first()).toBeVisible()
+  await expect(page.getByText(new RegExp(`\\b${n} going\\b`)).first()).toBeVisible()
 })
 
 Then('the one-off social shows {string}', async ({ page, c3 }, label: string) => {
-  await expect(cardButton(page, c3.data.oneOff, 'Going')).toHaveText(new RegExp(label.replace(/[?!]/, '\\$&')))
+  await expect(cardButton(page, c3.data.oneOff, 'My plan')).toHaveAttribute('aria-pressed', String(planState(label).pressed))
 })
 
 Then('the database has one Going for {string} on the one-off social', async ({ c3 }, who: string) => {
@@ -409,33 +416,33 @@ Then('no Going is saved in the database for that event', async () => {
 
 const poll = (page: Page) => page.locator('#rsvp')
 
-When('{string} answers {string} in the event\'s poll', async ({ page, c3 }, who: string, answer: string) => {
+// RAZ-995: the hero's one button opens the steps; a party night without passes is role → contact.
+When('{string} signs up {string} for the event', async ({ page, c3 }, who: string, answer: string) => {
   await signInAs(page, c3, who)
   await page.goto(`/events/${c3.ids.event}`)
-  const saved = page.waitForResponse(r => r.url().includes('rsvp.answer'))
+  await poll(page).locator('[data-signup-start]').click()
   await poll(page).getByRole('button', { name: new RegExp(answer) }).click()
+  const saved = page.waitForResponse(r => r.url().includes('rsvp.signUp'))
+  await poll(page).locator('[data-signup-submit]').click()
   expect((await saved).ok()).toBe(true)
-  await expect(poll(page).locator('[data-rsvp-status]')).toContainText('You’re going')
+  await expect(poll(page).locator('[data-signup-in]')).toContainText('Spot booked')
 })
 
-Then('{string} is led to share the week from My plan', async ({ page }, _who: string) => {
-  await expect(poll(page).locator('[data-rsvp-share]').getByRole('link')).toHaveAttribute('href', '/my-plan#socials')
-})
-
-Then('{string} sees {string} under {string} in the event\'s poll', async ({ page, c3 }, viewer: string, who: string, answer: string) => {
+Then('{string} sees {string} under {string} in Who\'s coming', async ({ page, c3 }, viewer: string, who: string, answer: string) => {
   await signInAs(page, c3, viewer)
   await page.goto(`/events/${c3.ids.event}`)
-  await poll(page).getByRole('button', { name: /See who’s coming/ }).click()
-  const group = poll(page).locator('#rsvp-who-list > div').filter({ hasText: answer })
-  await expect(group.getByRole('link', { name: who })).toHaveAttribute('href', `/u/c3-${who.toLowerCase()}-${c3.run}`)
+  const faces = page.locator('[data-whos-coming-faces]')
+  await expect(faces.getByRole('link', { name: new RegExp(who) })).toHaveAttribute('href', `/u/c3-${who.toLowerCase()}-${c3.run}`)
+  await expect(faces).toContainText(answer.replace('With my partner', 'With your partner'))
 })
 
 Then('a signed-out visitor sees the counts but nobody\'s name in the event\'s poll', async ({ page }) => {
   await page.context().clearCookies()
   await page.evaluate(() => localStorage.clear())
   await page.reload()
-  await expect(poll(page).getByRole('button', { name: /With my partner/ })).toContainText('1')
-  await expect(poll(page).locator('[data-rsvp-who], [data-rsvp-faces]')).toHaveCount(0)
+  await expect(page.locator('[data-whos-coming]')).toContainText('1 couple')
+  await expect(page.locator('[data-whos-coming-faces]')).toHaveCount(0)
+  await expect(page.locator('[data-whos-coming-anon]')).toBeVisible()
 })
 
 Then('the event page has no {string} section', async ({ page }, title: string) => {
@@ -447,12 +454,12 @@ Then('the event page has no {string} section', async ({ page }, title: string) =
 
 When('I tap {string} in the event hero', async ({ page }, label: string) => {
   const saved = page.waitForResponse(r => r.url().includes('plan.add'))
-  await page.getByRole('button', { name: label, exact: true }).first().click()
+  await page.getByRole('button', planState(label)).first().click()
   expect((await saved).ok()).toBe(true)
 })
 
 Then('the event hero shows {string}', async ({ page }, label: string) => {
-  await expect(page.getByRole('button', { name: label, exact: true }).first()).toBeVisible()
+  await expect(page.getByRole('button', planState(label)).first()).toBeVisible()
 })
 
 Then('the event hero offers no ticket button and links the website as {string}', async ({ page, c3 }, label: string) => {

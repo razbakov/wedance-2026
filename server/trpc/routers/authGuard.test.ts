@@ -20,6 +20,7 @@ import { protectedProcedure, adminProcedure } from '../trpc'
 // Every entry needs a one-line reason so reviewers know why it's public.
 // ---------------------------------------------------------------------------
 const PUBLIC_MUTATIONS_ALLOW_LIST: Record<string, string> = {
+  'review.missed': 'the morning-after email\'s "didn\'t make it" — authorised by its unguessable per-address token (RAZ-1011)',
   'auth.requestMagicLink': 'unauthenticated by definition — initiates the sign-in flow',
   'auth.verifyMagicLink': 'unauthenticated by definition — completes the magic-link sign-in',
   'auth.resetPassword': 'unauthenticated by definition — password recovery flow',
@@ -38,6 +39,7 @@ const PUBLIC_MUTATIONS_ALLOW_LIST: Record<string, string> = {
   'giveaway.enter': 'public giveaway entry — low-risk, promotional',
   'weekend.join': 'Share my weekend (#527): a friend opening the sharer\'s link taps "I\'m in" signed out — a first name against an anonymous browser token, only for a party in that share',
   'weekend.leave': 'Share my weekend (#527): takes back only the caller\'s own "I\'m in" (their dancer id or this browser\'s token)',
+  'rsvp.signUp': 'signing up for a class or event (RAZ-995) works signed out: saved unconfirmed against the anonymous browser token with the name and phone the organiser needs, until the magic link confirms it (same 48 h rule as rsvp.answer)',
   'rsvp.answer': 'the event poll counts a signed-out tap at once (RAZ-718): stored unconfirmed against an anonymous browser token, drops out after 48 h unless the magic link confirms it',
   'referral.trackVisit': 'counts a visit to a promoter’s tracked link before anyone signs in; once per browser session, unknown codes count nothing',
 }

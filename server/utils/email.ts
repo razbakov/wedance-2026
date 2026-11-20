@@ -436,52 +436,6 @@ export async function sendSiteWelcomeEmail(params: {
   })
 }
 
-export interface ContactUpdateMessage {
-  to: string
-  subject: string
-  html: string
-  text: string
-  unsubscribeUrl: string
-}
-
-/**
- * An update to a page's contacts (RAZ-960), sent in batches of 100 (Resend's batch API).
- * Every message carries the page's one-click unsubscribe (List-Unsubscribe + RFC 8058 POST).
- * Returns how many went out and how many failed; never throws. Logged instead of sent
- * when Resend isn't configured (local dev).
- */
-export async function sendContactUpdates(params: { profileName: string, replyTo?: string | null, messages: ContactUpdateMessage[] }): Promise<{ sent: number, failed: number }> {
-  const config = useRuntimeConfig()
-  if (!params.messages.length) return { sent: 0, failed: 0 }
-  if (!config.resendApiKey) {
-    for (const m of params.messages) console.log(`\n✉️  ${m.to}: ${m.subject}\n${m.text}\n`)
-    return { sent: params.messages.length, failed: 0 }
-  }
-  const from = (config.resendFromEmail || 'WeDance <noreply@wedance.vip>').replace(/^[^<]*</, `${params.profileName.replace(/[<>"]/g, '')} <`)
-  let sent = 0
-  let failed = 0
-  for (let i = 0; i < params.messages.length; i += 100) {
-    const chunk = params.messages.slice(i, i + 100)
-    try {
-      const r: any = await getResend().batch.send(chunk.map(m => ({
-        from,
-        to: m.to,
-        subject: m.subject,
-        html: m.html,
-        text: m.text,
-        ...(params.replyTo ? { replyTo: params.replyTo } : {}),
-        headers: { 'List-Unsubscribe': `<${m.unsubscribeUrl}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' },
-      })))
-      if (r?.error) { failed += chunk.length; console.error('[contact update] batch failed', r.error) }
-      else sent += chunk.length
-    } catch (e) {
-      failed += chunk.length
-      console.error('[contact update] batch failed', e)
-    }
-  }
-  return { sent, failed }
-}
-
 /** Gigs (MCP phase 2): someone applied to a gig role. Goes to the gig's contact email. */
 export async function sendGigApplicationEmail(params: {
   to: string
@@ -668,5 +622,150 @@ export async function sendOccasionAskEmail(params: {
       <p style="color: #888; font-size: 13px;">You get this because ${escapeHtml(params.pageName)} runs events in ${escapeHtml(params.cityName)} on WeDance.</p>
       <a href="${params.link}" style="display: inline-block; background: #000; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">Add your event</a>
     </div>`,
+  })
+}
+
+/**
+ * A page's email to its contacts (RAZ-975): the same text to many people, each with their
+ * own name and unsubscribe link, sent with Resend's batch API (100 per call). From the page's
+ * name, replies go to the person who sent it. Returns how many went out; a failed batch is
+ * counted, never retried here (the send log keeps the numbers).
+ */
+export async function sendContactMailing(params: {
+  profileName: string
+  replyTo?: string | null
+  subject: string
+  messages: { to: string; subject?: string; html: string; text: string; unsubscribeUrl?: string | null }[]
+}): Promise<{ sent: number; failed: number }> {
+  const config = useRuntimeConfig()
+  if (!config.resendApiKey) {
+    for (const m of params.messages) console.log(`\n✉️  ${m.to}: ${m.subject ?? params.subject}\n${m.text}\n`)
+    return { sent: params.messages.length, failed: 0 }
+  }
+  const from = (config.resendFromEmail || 'WeDance <noreply@wedance.vip>').replace(/^[^<]*</, `${params.profileName.replace(/[<>"]/g, '')} <`)
+  let sent = 0
+  let failed = 0
+  for (let i = 0; i < params.messages.length; i += 100) {
+    const chunk = params.messages.slice(i, i + 100)
+    try {
+      const { error } = await getResend().batch.send(chunk.map(m => ({
+        from,
+        to: m.to,
+        subject: m.subject ?? params.subject,
+        html: m.html,
+        text: m.text,
+        ...(params.replyTo ? { replyTo: params.replyTo } : {}),
+        ...(m.unsubscribeUrl ? { headers: { 'List-Unsubscribe': `<${m.unsubscribeUrl}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' } } : {}),
+      })))
+      if (error) { console.error('[contact-mailing] batch failed', error); failed += chunk.length } else sent += chunk.length
+    } catch (e) {
+      console.error('[contact-mailing] batch failed', e)
+      failed += chunk.length
+    }
+  }
+  return { sent, failed }
+}
+
+/**
+ * The morning after (RAZ-1011): "How was Thursday at La Timberia?" to everyone who signed up.
+ * Five star links open the event page with that rating picked (`?rate=N`); "Didn't make it?"
+ * opens it with a one-tap "don't ask again" (a GET never changes anything — mail scanners
+ * open links).
+ */
+export async function sendReviewAskEmail(params: {
+  to: string
+  name: string
+  subject: string
+  eventName: string
+  host: string | null
+  /** The event page; star links add `?rate=N`. */
+  link: string
+  /** The event page with the "didn't make it" step. */
+  missedLink: string
+}) {
+  const config = useRuntimeConfig()
+  if (!config.resendApiKey) {
+    console.log(`\n✉️  ${params.to}: ${params.subject} → ${params.link}?rate=5 · missed: ${params.missedLink}\n`)
+    return
+  }
+  const sep = params.link.includes('?') ? '&' : '?'
+  const stars = [1, 2, 3, 4, 5].map(n => `<a href="${params.link}${sep}rate=${n}" style="display: inline-block; width: 44px; margin-right: 6px; padding: 8px 0; border: 1px solid #ddd; border-radius: 8px; text-align: center; text-decoration: none; color: #333;"><span style="font-size: 22px; color: #f2a516;">★</span><br><span style="font-size: 11px; font-weight: bold;">${n}</span></a>`).join('')
+  const sender = (params.host || 'WeDance').replace(/[<>"]/g, '')
+  const from = (config.resendFromEmail || 'WeDance <noreply@wedance.vip>').replace(/^[^<]*</, `${params.host ? `${sender} via WeDance` : 'WeDance'} <`)
+  await getResend().emails.send({
+    from,
+    to: params.to,
+    subject: params.subject,
+    html: `<div style="font-family: sans-serif; max-width: 460px; margin: 0 auto; padding: 20px; color: #333;">
+      <h2 style="color: #333;">${escapeHtml(params.subject)}</h2>
+      <p>Hey ${escapeHtml(params.name || 'there')},</p>
+      <p style="color: #555;">You signed up for <strong>${escapeHtml(params.eventName)}</strong>. One tap tells ${params.host ? escapeHtml(params.host) : 'the organiser'} and other dancers how it went:</p>
+      <p style="margin: 16px 0;">${stars}</p>
+      <p style="color: #777; font-size: 13px;">Each star opens the event page with that rating picked — add a line if you like.</p>
+      <p style="color: #999; font-size: 12px; margin-top: 24px;">Didn’t make it? <a href="${params.missedLink}" style="color: #999;">Tell us</a> and we won’t ask again.</p>
+    </div>`,
+  })
+}
+
+/**
+ * "<Name> said yes too" (RAZ-985): someone this dancer said yes to (Meet deck or a
+ * festival wave) said yes back. One per match, at most one a day; the link at the
+ * bottom (and List-Unsubscribe) turns these off.
+ */
+export async function sendMeetMatchEmail(params: {
+  to: string
+  name: string
+  other: string
+  night: { name: string; when: string; link: string } | null
+  link: string
+  unsubscribeUrl: string
+}) {
+  const config = useRuntimeConfig()
+  const subject = `${params.other} said yes too`
+  if (!config.resendApiKey) {
+    console.log(`\n✉️  ${params.to}: ${subject} → ${params.link}\n`)
+    return
+  }
+  const o = escapeHtml(params.other)
+  await getResend().emails.send({
+    from: config.resendFromEmail || 'WeDance <noreply@wedance.vip>',
+    to: params.to,
+    subject,
+    headers: { 'List-Unsubscribe': `<${params.unsubscribeUrl}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' },
+    html: `<div style="font-family: sans-serif; max-width: 460px; margin: 0 auto; padding: 20px;">
+      <h2 style="color: #333;">You and ${o} both said yes 💃</h2>
+      <p>Hey ${escapeHtml(params.name)}!</p>
+      <p style="color: #555;">You said yes to ${o} on WeDance, and ${o} just said yes to you. You’d both like to dance together.</p>
+      ${params.night ? `<p style="color: #555;">A night you could both go to: <a href="${params.night.link}" style="color: #333; font-weight: bold;">${escapeHtml(params.night.name)}</a>, ${escapeHtml(params.night.when)}.</p>` : ''}
+      <a href="${params.link}" style="display: inline-block; background: #000; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">See your dance friends</a>
+      <p style="color: #999; font-size: 12px; margin-top: 32px;">You get this because you said yes to ${o} in Meet new friends or on a festival page. At most one a day. <a href="${params.unsubscribeUrl}" style="color: #999;">Stop these emails</a> · or turn them off in Settings.</p>
+    </div>`,
+  })
+}
+
+/**
+ * The morning after a booked meetup (RAZ-1071): "How was it with Mary?"
+ * The HTML is built in shared/utils/ritual.ts so the on-screen preview and the
+ * sent mail say the same thing. Logged instead of sent when Resend isn't configured.
+ */
+export async function sendRitualFollowupEmail(params: {
+  to: string
+  subject: string
+  html: string
+  text: string
+  unsubscribeUrl: string
+}) {
+  const config = useRuntimeConfig()
+  if (!config.resendApiKey) {
+    console.log(`\n✉️  ${params.to}: ${params.subject}\n${params.text}\n`)
+    return
+  }
+  await getResend().emails.send({
+    from: config.resendFromEmail || 'WeDance <noreply@wedance.vip>',
+    to: params.to,
+    subject: params.subject,
+    text: params.text,
+    html: params.html,
+    headers: { 'List-Unsubscribe': `<${params.unsubscribeUrl}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' },
   })
 }

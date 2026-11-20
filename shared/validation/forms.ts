@@ -7,6 +7,8 @@ import * as v from 'valibot'
 import { inviteUrlError } from '../utils/communityGroups'
 import { parseInstagramLink } from '../utils/instagram'
 import { DANCE_LEVELS } from '../utils/styleLevelMix'
+import { MAILING_BODY_MAX, MAILING_SUBJECT_MAX } from '../utils/contactMailing'
+import { EVENT_ARTISTS_MAX, PASS_DESCRIPTION_MAX, PRACTICAL_INFO_LINE_MAX, PRACTICAL_INFO_MAX } from '../utils/eventLimits'
 import {
   DANCE_ROLES,
   commaList,
@@ -52,6 +54,29 @@ export const RsvpEmailSchema = v.object({
 // rsvp.shareContact — "Let <page> keep in touch" (phone ≤ 40, CONTACT_PHONE_MAX).
 export const RsvpContactSchema = v.object({
   phone: optionalText(40, 'Keep the number under 40 characters.'),
+})
+
+// rsvp.signUp — the contact step of signing up for a class (RAZ-995). Signed out: name, email, phone;
+// signed in: just the phone (and only when the account has none). Limits mirror the zod input.
+// The phone is required for classes and anything paid (shared/utils/eventSignup.ts signupNeedsPhone).
+const signupPhone = (required: boolean) => v.pipe(
+  v.string(),
+  v.trim(),
+  v.maxLength(40, 'Keep the number under 40 characters.'),
+  v.check(s => (!required && !s) || s.replace(/\D/g, '').length >= 7, required ? 'Enter your phone, so the organiser can reach you about this event.' : 'Enter a full phone number.'),
+)
+export const signupGuestSchema = (phoneRequired: boolean) => v.object({
+  name: v.pipe(
+    v.string(), v.trim(), v.nonEmpty('Enter your first and last name.'), v.maxLength(120, 'Keep your name under 120 characters.'),
+    v.check(s => s.split(/\s+/).filter(Boolean).length >= 2, 'Enter your first and last name, as the organiser will see it.'),
+  ),
+  email: email(),
+  phone: signupPhone(phoneRequired),
+  partnerName: optionalText(120, 'Keep the name under 120 characters.'),
+})
+export const signupMemberSchema = (phoneRequired: boolean) => v.object({
+  phone: signupPhone(phoneRequired),
+  partnerName: optionalText(120, 'Keep the name under 120 characters.'),
 })
 
 export const ResetPasswordSchema = v.pipe(
@@ -151,7 +176,7 @@ export const RidePostSchema = v.object({
   )),
 })
 
-// Discover dancers (festival page preview — mock data, no API).
+// Dance card on a festival page (role, styles, name, city).
 export const DanceCardSchema = v.object({
   role: v.pipe(v.unknown(), v.picklist(['lead', 'follow'], 'Pick lead or follow.')),
   styles: v.pipe(v.array(v.string()), v.minLength(1, 'Pick at least one style.')),
@@ -448,10 +473,30 @@ export const EventCancelSchema = v.object({
   reason: optionalText(280, 'Keep the reason under 280 characters.'),
 })
 
-// ── Business (contactUpdates.sendTest / send — RAZ-960) ──────────────────────
+// ── Business (contactMailing.send / sendTest — RAZ-975) ──────────────────────
 
-/** An update to a segment of a page's contacts: a subject and the words ({name} = first name). */
-export const ContactUpdateSchema = v.object({
-  subject: v.pipe(requiredText('Write a subject.'), v.maxLength(150, 'Keep the subject under 150 characters.')),
-  body: v.pipe(requiredText('Write your update.'), v.maxLength(5000, 'Keep it under 5000 characters.')),
+/** An email to a page's contacts: a subject and the text (plain; `{first_name}` is filled per person). */
+export const ContactMailingSchema = v.object({
+  subject: v.pipe(requiredText('Write a subject.'), v.maxLength(MAILING_SUBJECT_MAX, `Keep the subject under ${MAILING_SUBJECT_MAX} characters.`)),
+  body: v.pipe(requiredText('Write what you want to say.'), v.maxLength(MAILING_BODY_MAX, `Keep it under ${MAILING_BODY_MAX} characters.`)),
+})
+
+// ── Business (businessEvents.update — RAZ-991) ───────────────────────────────
+
+/**
+ * The editor's size limits (`shared/utils/eventLimits.ts`), checked before Save so
+ * a too-long line is flagged where it is instead of failing on the server. Paths
+ * match the form (`festival.practicalInfo.11`), so each error lands on its row.
+ */
+export const EventLimitsSchema = v.object({
+  artists: v.pipe(v.array(v.string()), v.maxLength(EVENT_ARTISTS_MAX, `Keep the line-up to ${EVENT_ARTISTS_MAX} artists.`)),
+  festival: v.nullish(v.object({
+    practicalInfo: v.optional(v.pipe(
+      v.array(v.pipe(v.string(), v.trim(), v.maxLength(PRACTICAL_INFO_LINE_MAX, `Keep each line under ${PRACTICAL_INFO_LINE_MAX} characters, or split it in two.`))),
+      v.maxLength(PRACTICAL_INFO_MAX, `Keep practical info to ${PRACTICAL_INFO_MAX} lines.`),
+    )),
+    passes: v.optional(v.array(v.object({
+      description: v.optional(v.pipe(v.string(), v.trim(), v.maxLength(PASS_DESCRIPTION_MAX, `Keep what's included under ${PASS_DESCRIPTION_MAX} characters.`))),
+    }))),
+  })),
 })

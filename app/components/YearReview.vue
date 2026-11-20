@@ -5,8 +5,8 @@
  * Every screen is a 1080×1920 picture (`~/lib/yearReviewStory`), so what they
  * see is what they share: "Share" sends the current one (or all of them)
  * through the phone's share sheet, "Save" downloads it. The last screen turns
- * to next year: celebrate first, then plan (`plan-next` emit → the page's
- * festival plan, or /festivals).
+ * to next year: celebrate first, then plan (`plan-next` emit → My plan's
+ * "Your festivals", or /festivals).
  */
 import { ChevronLeft, ChevronRight, Download, Images, Loader2, Share2, Sparkles } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
@@ -149,7 +149,7 @@ function planNext(to: 'plan' | 'festivals') {
     <div v-else-if="!hasYear" class="mt-4 rounded-2xl border bg-card p-6 font-sans" data-testid="year-review-empty">
       <p class="font-bold text-foreground">Nothing to look back at for {{ review.year }} yet.</p>
       <p class="mt-1 text-muted-foreground">
-        Your story builds itself: tap <b>Going!</b> on nights out, answer event polls, add festivals to your plan.
+        Your story builds itself: tap <b>+ My plan</b> on nights out, answer event polls, add festivals to your plan.
         Next New Year you’ll have a year to celebrate.
       </p>
       <div class="mt-4 flex flex-wrap gap-2">

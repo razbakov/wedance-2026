@@ -2,7 +2,7 @@
 /**
  * /privacy-policy — GDPR information (Art. 13/14 GDPR).
  * Keep it in step with the code: when a new processor, cookie or data flow is
- * added (see the env vars in server/ and the PostHog section in CLAUDE.md),
+ * added (see the env vars in server/ and docs/analytics/events.md),
  * add it here and bump LEGAL_UPDATED in shared/legal.ts.
  */
 import type { LegalSection } from '~/components/LegalDocument.vue'

@@ -78,13 +78,19 @@ watch([isLoading, isSignedIn], ([loadingNow, signedIn]) => {
   }
 }, { immediate: true })
 
+function prefillFromProfile() {
+  // A late auth.me (styles and role saved at sign-up) must fill empty fields.
+  // It must not wipe a choice the dancer already made on this page.
+  if (!form.city && meCity.value) form.city = meCity.value
+  if (!form.danceStyles.length && meStyles.value?.length) form.danceStyles = [...meStyles.value]
+  if (!form.role && (meRole.value === 'lead' || meRole.value === 'follow' || meRole.value === 'both')) form.role = meRole.value
+}
+
 onMounted(() => {
-  // Prefill from any values a caller already captured (e.g. festival onboarding).
-  if (meCity.value) form.city = meCity.value
-  if (meStyles.value?.length) form.danceStyles = [...meStyles.value]
-  if (meRole.value === 'lead' || meRole.value === 'follow' || meRole.value === 'both') form.role = meRole.value
+  prefillFromProfile()
   nextTick(() => firstIntentBtn.value?.focus())
 })
+watch([meCity, meStyles, meRole], prefillFromProfile)
 
 const detailsNeeded = computed(() => {
   const c = chosen.value?.collects

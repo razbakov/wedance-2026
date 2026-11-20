@@ -16,31 +16,30 @@ Feature: C3 — Going: plan, share, discover
     And I am signed in as "Ana"
     And I watch the console for hydration warnings
     When I open the "munich" city page
-    And I tap "Going?" on the one-off social
-    Then the one-off social shows "Going!"
+    And I tap "+ My plan" on the one-off social
+    Then the one-off social shows "✓ My plan"
     When I open the one-off social
-    Then the event page shows "Going!" and 1 going
+    Then the event page shows "✓ My plan" and 1 going
     When I scroll through the page and reload it
-    Then the event page shows "Going!" and 1 going
+    Then the event page shows "✓ My plan" and 1 going
     And the database has one Going for "Ana" on the one-off social
-    When I tap "Going!" to undo
+    When I tap "✓ My plan" to undo
     And I reload the page
-    Then the event page shows "Going?" and 0 going
+    Then the event page shows "+ My plan" and 0 going
     And the database has no Going for "Ana" on the one-off social
     And there were no hydration warnings
 
-  # ── RAZ-974 — Who's coming, like a WhatsApp poll; inviting friends lives in My plan ──
-  # Ordinary events only: a festival keeps its "Shall we dance?" deck and its
-  # verified-ticket rule (RAZ-314).
+  # ── RAZ-974 / RAZ-995 — Who's coming under the sign-up ──
+  # Ordinary events only: a festival keeps its verified-ticket rule (RAZ-314); its
+  # "Meet who’s going" shows once it is on your plan (RAZ-1008).
 
   @write
-  Scenario: A signed-in dancer sees who answered the event poll, and is led to My plan to invite friends
+  Scenario: A signed-in dancer sees who signed up for the event; a visitor sees only the counts
     Given the test environment is safe to write
     And an ordinary event with no attendees
     And synthetic dancers "Ana" and "Ben" with public profiles and photos
-    When "Ana" answers "With my partner" in the event's poll
-    Then "Ana" is led to share the week from My plan
-    And "Ben" sees "Ana" under "With my partner" in the event's poll
+    When "Ana" signs up "With my partner" for the event
+    Then "Ben" sees "Ana" under "With my partner" in Who's coming
     And a signed-out visitor sees the counts but nobody's name in the event's poll
     And the event page has no "Shall we dance?" section
 
@@ -54,8 +53,8 @@ Feature: C3 — Going: plan, share, discover
     When I open that event
     Then the event hero <tickets>
     And the event page never promises free entry
-    When I tap "Going?" in the event hero
-    Then the event hero shows "Going!"
+    When I tap "+ My plan" in the event hero
+    Then the event hero shows "✓ My plan"
     And the event hero <tickets>
     And the database shows "Ana" Going on that event, not as a ticket holder
 

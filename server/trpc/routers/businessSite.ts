@@ -1,7 +1,7 @@
 import { z } from 'zod'
-import { and, desc, eq } from 'drizzle-orm'
+import { and, desc, eq, inArray } from 'drizzle-orm'
 import { router, protectedProcedure } from '../trpc'
-import { dancers, profileContacts, profileSites, profileSiteVersions } from '../../database/schema'
+import { dancers, events, profileContacts, profileSites, profileSiteVersions } from '../../database/schema'
 import { profileSiteSchema, type ProfileSite } from '../../../shared/types/profileSite'
 import { requireMember } from './business'
 import { profileGroup, trackServer } from '../../utils/posthog'
@@ -11,7 +11,7 @@ import { sitePreviewToken } from '../../utils/sitePreview'
 import { SITE_PREVIEW_TTL_S, hostedSiteUrl } from '../../../shared/utils/hostedSite'
 import { isPublished } from '../../../shared/types/profileSite'
 import { loadContactActivity, loadPageEvents, activityFor } from '../../utils/contactActivity'
-import { contactSegments, contactSourceKey, emailBlock, SOURCE_LABEL } from '../../../shared/utils/contactSegments'
+import { audienceOnly, contactSegments, contactSourceKey, emailBlock, sourceLabelFor, SOURCE_LABEL } from '../../../shared/utils/contactSegments'
 
 /**
  * A profile's website and contacts, managed on WeDance (RAZ-412):
@@ -116,6 +116,12 @@ export const businessSiteRouter = router({
    * the page may email it, its account and its WeDance activity around the
    * page's events, plus the segment counts — computed here so they stay right
    * past the 2000-row list.
+   *
+   * One audience (RAZ-963): `contacts` also holds everyone else connected to the
+   * page — followers and people who went / are going to its events — once each,
+   * as `isContact: false` rows. Like the event's "Who's coming" (`rsvp.people`),
+   * organisers see their name, photo, handle and city whatever their attendee
+   * visibility; never an email or phone, and they can't be mailed.
    */
   contactsOverview: protectedProcedure.input(z.object({ username: z.string().min(1) })).query(async ({ ctx, input }) => {
     const p = await requireMember(ctx, input.username)
@@ -130,29 +136,58 @@ export const businessSiteRouter = router({
       loadContactActivity(ctx.db, { id: p.id, username: p.username }),
       loadPageEvents(ctx.db, { id: p.id, username: p.username }),
     ])
+    // The event a sign-up / poll contact came through, by name (RAZ-1074): "Signed up for La Timberia".
+    const eventIds = [...new Set<string>(rows.map((r: any) => r.source?.event).filter((id: unknown): id is string => typeof id === 'string' && /^[0-9a-f-]{36}$/i.test(id)))]
+    const eventNames = new Map<string, string>(eventIds.length
+      ? (await ctx.db.select({ id: events.id, name: events.name }).from(events).where(inArray(events.id, eventIds))).map((e: any) => [e.id, e.name])
+      : [])
     const contacts = rows.map((r: any) => {
       const sourceKey = contactSourceKey(r.source)
       return {
         id: r.id, email: r.email, name: r.name, phone: r.phone, locale: r.locale, source: r.source as Record<string, string>,
-        note: r.note, status: r.status as 'subscribed' | 'unsubscribed', createdAt: r.createdAt as Date,
-        sourceKey, sourceLabel: SOURCE_LABEL[sourceKey],
+        note: r.note, status: r.status as 'subscribed' | 'unsubscribed', createdAt: r.createdAt as Date | null,
+        sourceKey, sourceLabel: sourceLabelFor(sourceKey, eventNames.get(r.source?.event)),
         emailBlock: emailBlock(r),
+        isContact: true,
+        dancerId: (r.dancerId as string | null) ?? null,
         hasAccount: !!r.dancerId,
         account: r.dancerId ? { name: r.accountName as string | null, photo: r.accountPhoto as string | null, username: r.accountUsername as string | null, city: r.accountCity as string | null } : null,
         activity: activityFor(act.byDancer, r.dancerId),
       }
     })
-    const contactDancers = new Set(rows.map((r: any) => r.dancerId).filter(Boolean))
-    const followersNotContacts = [...act.byDancer.entries()].filter(([id, a]) => a.follows && !contactDancers.has(id)).length
+    const contactDancers = new Set<string>(rows.map((r: any) => r.dancerId).filter(Boolean))
+    const otherIds = audienceOnly(act.byDancer, contactDancers)
+    const otherPeople: any[] = otherIds.length
+      ? await ctx.db.select({ id: dancers.id, name: dancers.name, photo: dancers.photo, username: dancers.username, city: dancers.city })
+          .from(dancers).where(inArray(dancers.id, otherIds))
+      : []
+    const others: typeof contacts = otherPeople.map((d) => {
+      const activity = activityFor(act.byDancer, d.id)
+      return {
+        id: `dancer:${d.id}`, email: '', name: d.name ?? null, phone: null, locale: null, source: {} as Record<string, string>,
+        note: null, status: 'subscribed' as const, createdAt: activity.followedAt ? new Date(activity.followedAt) : null,
+        sourceKey: 'wedance' as const, sourceLabel: SOURCE_LABEL.wedance,
+        emailBlock: 'not_a_contact' as const,
+        isContact: false,
+        dancerId: d.id as string,
+        hasAccount: true,
+        account: { name: d.name ?? null, photo: d.photo ?? null, username: d.username ?? null, city: d.city ?? null },
+        activity,
+      }
+    })
+    // Who's been around most recently first: going next, then the last time they came.
+    others.sort((a, b) => (a.activity.upcoming[0]?.startDate ?? '9').localeCompare(b.activity.upcoming[0]?.startDate ?? '9')
+      || (b.activity.lastEventAt ?? '').localeCompare(a.activity.lastEventAt ?? ''))
+    const followersNotContacts = others.filter(o => o.activity.follows).length
     return {
       profile: { username: p.username, name: p.name, type: p.type },
-      segments: contactSegments(contacts),
+      segments: contactSegments([...contacts, ...others]),
       followers: { total: act.followers, notContacts: followersNotContacts },
       // For the event filter: who signed up, contacts or not ("12 coming · 5 in your contacts").
       events: pageEvents,
       // The list stays capped; the counts above cover everyone.
-      contacts: contacts.slice(0, 2000),
-      truncated: contacts.length > 2000,
+      contacts: [...contacts.slice(0, 2000), ...others.slice(0, 2000)],
+      truncated: contacts.length > 2000 || others.length > 2000,
     }
   }),
 

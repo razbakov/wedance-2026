@@ -131,6 +131,21 @@ Given('I am on an event page', async ({ page }) => {
        ON CONFLICT (id) DO NOTHING`,
       [testEventId, 'smoke-test-event', 'Smoke Test Salsa Night', 'Party', 'Munich'],
     )
+    // Run by a page with a team, so it takes bookings (RAZ-1007: without one, "Book my spot"
+    // says where the event was imported from instead of opening the steps).
+    await client.query(
+      `INSERT INTO profiles (username, type, name, city, status) VALUES ('smoke-test-host', 'organizer', 'Smoke Test Host', 'Munich', 'visible')
+       ON CONFLICT (username) DO NOTHING`,
+    )
+    await client.query(
+      `INSERT INTO dancers (name, email) VALUES ('Smoke Host', 'smoke-host@example.test') ON CONFLICT (email) DO NOTHING`,
+    )
+    await client.query(
+      `INSERT INTO profile_members (profile_id, dancer_id, role)
+       SELECT p.id, d.id, 'owner' FROM profiles p, dancers d WHERE p.username = 'smoke-test-host' AND d.email = 'smoke-host@example.test'
+       ON CONFLICT DO NOTHING`,
+    )
+    await client.query(`UPDATE events SET organizer_username = 'smoke-test-host', organizer_name = 'Smoke Test Host' WHERE id = $1`, [testEventId])
   } finally {
     await client.end()
   }
@@ -168,11 +183,11 @@ When('I confirm sign out', async ({ page }) => {
 // ── Modal interactions ──────────────────────────────────────────────
 
 When(
-  'I click "Create an account" in the modal',
+  'I click the "Join" tab in the modal',
   async ({ page }) => {
     await page
       .locator('[role="dialog"]')
-      .getByRole('button', { name: 'Create an account' })
+      .getByRole('tab', { name: 'Join' })
       .click()
   },
 )
@@ -285,18 +300,23 @@ When(
 
 // ── "Going?" gate ───────────────────────────────────────────────────
 
-// The hero's Going question on a dated event is the organiser's poll (RAZ-731).
-When('I answer the Going question in the event hero', async ({ page }) => {
-  const answer = page.locator('#rsvp [data-rsvp]').first()
-  await expect(answer).toBeVisible({ timeout: 10_000 })
-  await answer.click()
+// The hero's one button opens the sign-up steps in place (RAZ-995): how you come, then your contact.
+When('I sign up in the event hero as {string} with {string}', async ({ page }, name: string, email: string) => {
+  const start = page.locator('#rsvp [data-signup-start]')
+  await expect(start).toBeVisible({ timeout: 10_000 })
+  await start.click()
+  await page.locator('#rsvp [data-rsvp]').first().click()
+  const contact = page.locator('#rsvp [data-signup-contact]')
+  await expect(contact).toBeVisible()
+  await contact.getByRole('textbox', { name: 'First and last name' }).fill(name)
+  await contact.getByRole('textbox', { name: 'Email' }).fill(email)
+  const saved = page.waitForResponse(r => r.url().includes('rsvp.signUp'))
+  await contact.locator('[data-signup-submit]').click()
+  expect((await saved).ok()).toBe(true)
 })
 
-Then('the email confirmation sheet is visible', async ({ page }) => {
-  const dialog = page.locator('[role="dialog"]')
-  await expect(dialog).toBeVisible({ timeout: 5_000 })
-  await expect(dialog.getByRole('heading', { name: 'You’re on the list' })).toBeVisible()
-  await expect(dialog.getByRole('textbox', { name: 'Email' })).toBeVisible()
+Then('I am asked to open the link we sent', async ({ page }) => {
+  await expect(page.locator('#rsvp [data-signup-sent]')).toContainText('Almost there', { timeout: 10_000 })
 })
 
 // ── Assertions ──────────────────────────────────────────────────────

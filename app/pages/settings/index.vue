@@ -38,6 +38,16 @@ const loading = ref(false)
 const error = ref('')
 const saved = ref(false)
 const profileForm = reactive(useFormValidation(ProfileSettingsSchema, form))
+// Unsaved edits must survive a late auth.me. That response used to refill the
+// form from the server and wipe a city the dancer had just picked. Role and
+// dances stay filled from the server until the dancer actually changes them,
+// so a city save cannot store an empty list over Follow / Salsa / Bachata.
+let hydrating = false
+const dirty = ref(false)
+const dancesTouched = ref(false)
+const roleTouched = ref(false)
+const profileSeen = ref(false)
+watch(form, () => { if (!hydrating) dirty.value = true }, { deep: true, flush: 'sync' })
 
 // Change-password sub-form.
 const pw = reactive({ current: '', next: '' })
@@ -56,19 +66,31 @@ watch([isLoading, isSignedIn], ([loadingNow, signedIn]) => {
   if (!loadingNow && !signedIn) navigateTo('/')
 }, { immediate: true })
 
+function applyRole(role: string | null | undefined) {
+  form.role = (role === 'lead' || role === 'follow' || role === 'both') ? role : ''
+}
+
 function hydrate() {
-  form.name = dancerName.value ?? ''
-  form.city = meCity.value ?? ''
-  form.photo = mePhoto.value ?? ''
-  form.bio = meBio.value ?? ''
-  form.instagram = meIg.value ?? ''
-  form.youtube = meYt.value ?? ''
-  form.website = meSite.value ?? ''
-  form.danceStyles = meStyles.value ? [...meStyles.value] : []
-  form.danceLevels = { ...(meLevels.value as Record<string, DanceLevel>) }
-  const r = meRole.value
-  form.role = (r === 'lead' || r === 'follow' || r === 'both') ? r : ''
-  form.profilePublic = mePublic.value !== false
+  hydrating = true
+  if (!dirty.value) {
+    form.name = dancerName.value ?? ''
+    form.city = meCity.value ?? ''
+    form.photo = mePhoto.value ?? ''
+    form.bio = meBio.value ?? ''
+    form.instagram = meIg.value ?? ''
+    form.youtube = meYt.value ?? ''
+    form.website = meSite.value ?? ''
+    form.profilePublic = mePublic.value !== false
+    form.danceLevels = { ...(meLevels.value as Record<string, DanceLevel>) }
+  }
+  if (!dancesTouched.value) {
+    form.danceStyles = meStyles.value ? [...meStyles.value] : []
+    if (!dirty.value) form.danceLevels = { ...(meLevels.value as Record<string, DanceLevel>) }
+  }
+  if (!roleTouched.value) applyRole(meRole.value)
+  if (!isLoading.value && (dancerName.value || meCity.value || meStyles.value?.length || meRole.value)) profileSeen.value = true
+  if (!isLoading.value && isSignedIn.value) profileSeen.value = true
+  hydrating = false
 }
 onMounted(hydrate)
 watch([dancerName, meCity, meStyles, meLevels, meRole, meBio, mePhoto, meIg, meYt, meSite, mePublic], hydrate)
@@ -84,15 +106,26 @@ function setLevel(style: string, level: DanceLevel) {
   else form.danceLevels[style] = level
 }
 
+function touchDances() {
+  if (!hydrating) dancesTouched.value = true
+}
+
 async function save() {
+  if (!profileSeen.value) return
   error.value = ''
   saved.value = false
+  // The city list may still be loading when they hit Save. Wait, so "Munich"
+  // typed into the combobox is the canonical city before we read the form.
+  await useCityOptions().load()
+  await nextTick()
   const result = profileForm.validate()
   if (!result.success) return
   loading.value = true
   try {
     await updateProfile(result.data)
     saved.value = true
+    dirty.value = false
+    hydrate()
   } catch (e: unknown) {
     error.value = (e as { message?: string })?.message || 'Could not save. Please try again.'
   } finally {
@@ -210,14 +243,14 @@ async function submitDelete() {
               :key="opt.v"
               :pressed="form.role === opt.v"
               class="flex-1 h-11 text-sm"
-              @click="form.role = (form.role === opt.v ? '' : (opt.v as any))"
+              @click="roleTouched = true; form.role = (form.role === opt.v ? '' : (opt.v as any))"
             >{{ opt.l }}</ToggleChip>
           </div>
         </div>
 
         <div class="flex flex-col gap-1.5">
           <label for="settings-dances" class="text-sm font-bold text-foreground leading-snug">Dances <span class="font-normal text-muted-foreground">(optional)</span></label>
-          <DanceStylePicker id="settings-dances" v-model="form.danceStyles" label="Dances" />
+          <DanceStylePicker id="settings-dances" v-model="form.danceStyles" label="Dances" @update:model-value="touchDances" />
           <div v-if="form.danceStyles.length" class="mt-3 grid gap-2">
             <p class="text-xs text-muted-foreground font-sans">
               Your level in each — organizers see it only as an anonymous mix of who's coming.
@@ -271,7 +304,7 @@ async function submitDelete() {
         <p v-if="error" role="alert" class="text-sm font-bold text-primary">{{ error }}</p>
         <p v-if="saved" role="status" class="inline-flex items-center gap-1.5 text-sm font-bold text-wd-green-600"><Check class="w-4 h-4" aria-hidden="true" /> Saved</p>
 
-        <Button type="submit" variant="cta" size="lg" class="w-full h-12" :loading="loading">
+        <Button type="submit" variant="cta" size="lg" class="w-full h-12" :loading="loading" :disabled="!profileSeen">
           {{ loading ? 'Saving…' : 'Save changes' }}
         </Button>
       </form>
@@ -313,6 +346,10 @@ async function submitDelete() {
           </Button>
         </form>
       </template>
+
+      <!-- EMAILS (RAZ-985) -->
+      <h2 class="mt-12 text-lg font-bold text-foreground font-display">Emails</h2>
+      <SettingsEmails class="mt-4" />
 
       <!-- CONNECTED APPS -->
       <h2 class="mt-12 text-lg font-bold text-foreground font-display">Connected apps</h2>

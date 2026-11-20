@@ -8,36 +8,14 @@
  * content plan, Instagram, admin claim review, emails (RAZ-931). Shown at
  * /docs/blueprints/event-setup.
  */
-import type { UxStatus } from './ux-map'
+import type { Blueprint, BpGap, BpLaneDef, BpPhaseDef, BpStep } from './blueprint'
 
 export const BLUEPRINT_UPDATED = '2026-11-14'
 
 export type BpLane = 'organizer' | 'system' | 'venue' | 'artist' | 'dancers'
 export type BpPhase = 'page' | 'draft' | 'venue' | 'lineup' | 'flyer' | 'promote' | 'publish' | 'night'
-/** wait: someone is blocked on someone else · manual: a person carries the link or the news · silent: a change or answer doesn't reach the side that needs it */
-export type BpMark = 'wait' | 'manual' | 'silent'
 
-export interface BpStep {
-  id: string
-  phase: BpPhase
-  lane: BpLane
-  name: string
-  status: UxStatus
-  note: string
-  marks: BpMark[]
-  route?: string
-  code?: string
-  refs?: string[]
-}
-
-export interface BpGap {
-  title: string
-  why: string
-  fix: string
-  steps: string[]
-}
-
-export const bpLanes: { key: BpLane, label: string, hint: string }[] = [
+export const bpLanes: BpLaneDef<BpLane>[] = [
   { key: 'organizer', label: 'Organiser', hint: 'Business → Events' },
   { key: 'system', label: 'WeDance', hint: 'Server, AI, emails' },
   { key: 'venue', label: 'Venue', hint: 'Through /ask/<token>' },
@@ -45,7 +23,7 @@ export const bpLanes: { key: BpLane, label: string, hint: string }[] = [
   { key: 'dancers', label: 'Dancers', hint: 'City page, event page' },
 ]
 
-export const bpPhases: { key: BpPhase, label: string }[] = [
+export const bpPhases: BpPhaseDef<BpPhase>[] = [
   { key: 'page', label: 'Get the page' },
   { key: 'draft', label: 'Draft' },
   { key: 'venue', label: 'Venue' },
@@ -56,13 +34,7 @@ export const bpPhases: { key: BpPhase, label: string }[] = [
   { key: 'night', label: 'The night' },
 ]
 
-export const bpMarkLabel: Record<BpMark, { icon: string, label: string, hint: string }> = {
-  wait: { icon: '⏳', label: 'Waits', hint: 'Someone is blocked on someone else, and nothing chases it.' },
-  manual: { icon: '✋', label: 'By hand', hint: 'A person carries the link or the news between lanes.' },
-  silent: { icon: '🔇', label: 'Silent', hint: 'An answer or change doesn’t reach the side that needs it.' },
-}
-
-export const bpSteps: BpStep[] = [
+export const bpSteps: BpStep<BpLane, BpPhase>[] = [
   // Get the page — most organisers already have an unclaimed page from the v3 sync
   { id: 'reach-out', phase: 'page', lane: 'system', name: 'Invite to the page', status: 'gap', marks: ['manual'], route: '/@[handle]',
     note: 'WeDance (in practice, an admin) messages the organiser by hand with their /@handle link. Unlike artist and venue invites there’s no personal link that hands the page over, so “claim it” is one more form to fill.' },
@@ -74,8 +46,8 @@ export const bpSteps: BpStep[] = [
     note: 'An admin approves, rejects or asks for more in /admin/claims, and the organiser gets an email either way. No one is alerted when a claim comes in, so it waits until an admin looks. When the organiser already has an account, admin.addPageOwner skips the claim.' },
 
   // Draft
-  { id: 'start', phase: 'draft', lane: 'organizer', name: 'Start an event', status: 'live', marks: [], route: '/business/events/new', code: 'businessEvents.create · businessEvents.copy · eventImport.fromInstagram · MCP create_event', refs: ['#453', 'RAZ-939'],
-    note: 'One question: “I have a post” (Gemini reads the Instagram caption into a draft), “Like my last event” (a draft copy on a new date, or a weekly series of drafts) or “From scratch” (Run by, type and music, date and time; the name is suggested). All make a draft (“Publish it now” is there for a simple weekly social) and open the editor on its steps: venue, line-up, entry, flyer, publish. An assistant over MCP follows the same order (RAZ-939).' },
+  { id: 'start', phase: 'draft', lane: 'organizer', name: 'Start an event', status: 'live', marks: [], route: '/business/events/new', code: 'businessEvents.create · businessEvents.copy · eventImport.fromInstagram · MCP create_event', refs: ['#453', 'RAZ-939', 'RAZ-1024'],
+    note: 'One question: “I have a post” (Gemini reads the Instagram caption into a draft), “Like my last event” (a draft copy on a new date, or a weekly series of drafts) or “From scratch” (Run by, type and music, date and time; the name is suggested). All make a draft (“Publish it now” is there for a simple weekly social) and open the editor on its steps: venue, line-up, entry, flyer, publish. An assistant over MCP follows the same order (RAZ-939). Back and the browser’s Back return to the choice without losing what was typed; it stays in this browser until the draft exists (RAZ-1024).' },
   { id: 'gaps', phase: 'draft', lane: 'system', name: 'Draft + what’s missing', status: 'live', marks: [], code: 'shared/utils/eventChecklist.ts · server/mcp/checklist.ts',
     note: 'One checklist: cover, ticket or “free”, venue, line-up, artist Instagram, artist photo. Shown in the editor, events list and Business inbox; MCP adds the tool that fixes each one. It checks that fields are filled, not that anyone agreed.' },
 
@@ -146,8 +118,8 @@ export const bpSteps: BpStep[] = [
   // Night
   { id: 'remind', phase: 'night', lane: 'dancers', name: 'Reminder before', status: 'missing', marks: ['silent'],
     note: 'Dancers who answered or pressed Going! get no reminder. See “Come back” on the UX map.' },
-  { id: 'door', phase: 'night', lane: 'organizer', name: 'Door check-in', status: 'missing', marks: [], code: 'attendance.checkIn — no caller', refs: ['RAZ-928'],
-    note: 'The server can record a check-in, but no page or AI-app tool calls it, so the organiser can’t check anyone in.' },
+  { id: 'door', phase: 'night', lane: 'organizer', name: 'Door check-in', status: 'live', marks: [], route: '/business/events/[id]/door', code: 'attendance.door · attendance.checkIn · MCP door_list, check_in', refs: ['RAZ-928'],
+    note: 'Phone list of RSVPs, Going! and tickets. One tap checks a guest in; Who’s coming shows how many. The AI app uses the same procedures. Nothing is emailed.' },
   { id: 'after', phase: 'night', lane: 'dancers', name: 'After the night', status: 'missing', marks: [],
     note: 'No review, photo or “next date” prompt for the people who came; the venue and artists get no recap.' },
 ]
@@ -174,3 +146,12 @@ export const bpGaps: BpGap[] = [
     fix: 'A pre-publish check (answers, flyer up to date) and, on publish, a note to the line-up and venue with their promo kit, and to followers.',
     steps: ['publish', 'announce', 'told-live'] },
 ]
+
+export const eventSetupBlueprint: Blueprint = {
+  updated: BLUEPRINT_UPDATED,
+  lanes: bpLanes,
+  phases: bpPhases,
+  steps: bpSteps,
+  gaps: bpGaps,
+  systemLane: 'system',
+}

@@ -67,7 +67,7 @@ describe.skipIf(!DATABASE_URL)('rsvp router', () => {
     expect(p.counts.needLeader).toBe(1)
     expect(p.unconfirmed).toBe(1)
     expect(p.coming).toBe(1)
-    expect(p.mine).toEqual({ answer: 'needLeader', confirmed: false })
+    expect(p.mine).toEqual({ answer: 'needLeader', confirmed: false, signup: { name: null, phone: null, partnerName: null, pass: null, pay: null, keepInTouch: false } })
     // The organiser sees it straight away, in the same buckets.
     const s = await caller(ids.ana, true).rsvp.summary({ eventId: ids.event })
     expect(s.counts.needLeader).toBe(1)
@@ -80,7 +80,7 @@ describe.skipIf(!DATABASE_URL)('rsvp router', () => {
 
   it('the magic link folds the guest answer into the dancer’s, confirmed, without double counting', async () => {
     const p = await caller(ids.ana).rsvp.answer({ event: ids.event, answer: 'needLeader', guestToken: GUEST })
-    expect(p.mine).toEqual({ answer: 'needLeader', confirmed: true })
+    expect(p.mine).toEqual({ answer: 'needLeader', confirmed: true, signup: { name: null, phone: null, partnerName: null, pass: null, pay: null, keepInTouch: false } })
     expect(p.counts.needLeader).toBe(1)
     expect(p.unconfirmed).toBe(0)
     const rows = await db.select().from(schema.eventRsvps).where(eq(schema.eventRsvps.eventId, ids.event))
@@ -108,7 +108,7 @@ describe.skipIf(!DATABASE_URL)('rsvp router', () => {
   it('"Next time" takes the event off the plan and follows the organiser', async () => {
     await caller(ids.cat).rsvp.answer({ event: ids.event, answer: 'partner' })
     const p = await caller(ids.cat).rsvp.answer({ event: ids.event, answer: 'next' })
-    expect(p.mine).toEqual({ answer: 'next', confirmed: true })
+    expect(p.mine).toEqual({ answer: 'next', confirmed: true, signup: { name: null, phone: null, partnerName: null, pass: null, pay: null, keepInTouch: false } })
     const plan = await db.select().from(schema.planItems).where(and(eq(schema.planItems.dancerId, ids.cat), eq(schema.planItems.itemId, ids.event)))
     expect(plan).toHaveLength(0)
     const f = await db.select().from(schema.follows).where(and(eq(schema.follows.dancerId, ids.cat), eq(schema.follows.profileId, ids.org)))
@@ -218,5 +218,85 @@ describe.skipIf(!DATABASE_URL)('rsvp router', () => {
   it('keeps the organiser view to the event’s managers', async () => {
     await expect(caller(ids.ben).rsvp.summary({ eventId: ids.event })).rejects.toThrow(/manage/i)
     await expect(caller(ids.ben).rsvp.people({ eventId: ids.event })).rejects.toThrow(/manage/i)
+  })
+})
+
+// RAZ-995 — signing up: how you come + pass + pay + contact, signed out then confirmed by the magic link.
+describe.skipIf(!DATABASE_URL)('rsvp.signUp', () => {
+  const S: Record<string, string> = {}
+  const GUEST_S = crypto.randomUUID()
+  const email = `maria-${RUN}@test.wedance.local`
+
+  beforeAll(async () => {
+    // A fresh magic-link account: its name is still the email's first part.
+    const [d] = await db.insert(schema.dancers).values({ email, name: email.split('@')[0] }).returning({ id: schema.dancers.id })
+    S.maria = d.id
+    const [org] = await db.insert(schema.profiles).values({ username: `signup-org-${RUN}`, name: `Signup Org ${RUN}`, type: 'organizer' }).returning({ id: schema.profiles.id })
+    S.org = org.id
+    const start = new Date(Date.now() + 3 * 86400_000)
+    const [ev] = await db.insert(schema.events).values({
+      name: `Casino Partnerwork ${RUN}`, type: 'class', styles: ['Casino'], startDate: start, timezone: 'Europe/Berlin',
+      published: true, archived: false, organizerUsername: `signup-org-${RUN}`,
+      festival: { key: `signup-${RUN}`, payAtDoor: true, passes: [{ name: 'This class', price: 10, days: [], couplePrice: 18 }] },
+    }).returning({ id: schema.events.id })
+    S.event = ev.id
+    const [online] = await db.insert(schema.events).values({
+      name: `Casino Course ${RUN}`, type: 'course', styles: ['Casino'], startDate: start, timezone: 'Europe/Berlin',
+      published: true, archived: false, organizerUsername: `signup-org-${RUN}`,
+      festival: { key: `signup-online-${RUN}`, passes: [{ name: 'Whole course', price: 60, days: [] }, { name: 'One class', price: 18, days: [] }] },
+    }).returning({ id: schema.events.id })
+    S.online = online.id
+  })
+
+  afterAll(async () => {
+    if (!db) return
+    await db.delete(schema.profileContacts).where(eq(schema.profileContacts.profileId, S.org))
+    await db.delete(schema.planItems).where(eq(schema.planItems.dancerId, S.maria))
+    await db.delete(schema.events).where(inArray(schema.events.id, [S.event, S.online]))
+    await db.delete(schema.profiles).where(eq(schema.profiles.id, S.org))
+    await db.delete(schema.dancers).where(eq(schema.dancers.id, S.maria))
+  })
+
+  it('refuses a missing phone for a class, an unknown pass, and the door when payment is online only', async () => {
+    const guest = caller(null).rsvp
+    await expect(guest.signUp({ event: S.event, answer: 'partner', guestToken: GUEST_S, name: 'Maria Lopez', pay: 'door', phone: '' })).rejects.toThrow(/phone/i)
+    await expect(guest.signUp({ event: S.online, answer: 'partner', guestToken: GUEST_S, name: 'Maria Lopez', pass: 'Nope', pay: 'now', phone: '+49 171 1234567' })).rejects.toThrow(/pass/i)
+    await expect(guest.signUp({ event: S.online, answer: 'partner', guestToken: GUEST_S, name: 'Maria Lopez', pass: 'One class', pay: 'door', phone: '+49 171 1234567' })).rejects.toThrow(/online/i)
+    await expect(guest.signUp({ event: S.event, answer: 'partner', guestToken: GUEST_S, name: 'Maria', pay: 'door', phone: '+49 171 1234567' })).rejects.toThrow(/first and last name/i)
+  })
+
+  it('saves a signed-out sign-up unconfirmed, with the only pass picked for them', async () => {
+    const p = await caller(null).rsvp.signUp({
+      event: S.event, answer: 'partner', guestToken: GUEST_S, name: 'Maria Lopez', pay: 'door', phone: '+49 171 1234567', partnerName: 'Juan', keepInTouch: false,
+      cameFrom: { utm_source: 'montuno.club', utm_medium: 'schedule', referrer: 'https://montuno.club/' },
+    })
+    expect(p.mine).toEqual({
+      answer: 'partner', confirmed: false,
+      signup: { name: 'Maria Lopez', phone: '+49 171 1234567', partnerName: 'Juan', pass: 'This class', pay: 'door', keepInTouch: false },
+    })
+    expect(p.me).toBeNull()
+  })
+
+  it('the magic link folds it into the account: phone and real name saved, the organiser gets a contact it may not email', async () => {
+    const p = await caller(S.maria).rsvp.answer({ event: S.event, answer: 'partner', guestToken: GUEST_S })
+    expect(p.mine).toMatchObject({ answer: 'partner', confirmed: true, signup: { phone: '+49 171 1234567', partnerName: 'Juan', pass: 'This class', pay: 'door' } })
+    expect(p.me).toMatchObject({ name: 'Maria Lopez', email, phone: '+49 171 1234567' })
+    const guestRows = await db.select().from(schema.eventRsvps).where(eq(schema.eventRsvps.guestToken, GUEST_S))
+    expect(guestRows).toHaveLength(0)
+    const [contact] = await db.select().from(schema.profileContacts).where(eq(schema.profileContacts.profileId, S.org))
+    expect(contact).toMatchObject({ email, name: 'Maria Lopez', phone: '+49 171 1234567', status: 'subscribed' })
+    // Where the sign-up came from (RAZ-1074) survives the magic link and lands on the contact.
+    expect(contact.source).toMatchObject({ from: 'signup', event: S.event, utm_source: 'montuno.club', utm_medium: 'schedule', referrer: 'https://montuno.club/' })
+    expect(contact.source.opted_in).toBeUndefined()
+  })
+
+  it('signed in, "tell me about next events" opts the contact in; a chosen name is never replaced', async () => {
+    await db.update(schema.dancers).set({ name: 'Maria L.' }).where(eq(schema.dancers.id, S.maria))
+    const p = await caller(S.maria).rsvp.signUp({ event: S.online, answer: 'needLeader', pass: 'Whole course', pay: 'now', phone: '+49 171 7654321', keepInTouch: true, cameFrom: { utm_source: 'instagram' } })
+    expect(p.mine).toMatchObject({ answer: 'needLeader', confirmed: true, signup: { pass: 'Whole course', pay: 'now', keepInTouch: true } })
+    expect(p.me).toMatchObject({ name: 'Maria L.', phone: '+49 171 7654321' })
+    const [contact] = await db.select().from(schema.profileContacts).where(eq(schema.profileContacts.profileId, S.org))
+    expect(contact.source).toMatchObject({ opted_in: 'signup', opted_in_event: S.online, utm_source: 'montuno.club' })
+    expect(contact.phone).toBe('+49 171 7654321')
   })
 })

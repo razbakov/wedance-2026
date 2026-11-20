@@ -39,13 +39,13 @@ const { yearPlanIds, toggleFestival } = useYearPlan()
 const { planFestivals } = usePlanCounts()
 const { weekPlanIds, toggleEvent } = useWeekPlan()
 
-// "Going?" stores what the festival's own page stores: its key in the year
+// "+ My plan" stores what the festival's own page stores: its key in the year
 // plan, or — a festival event without festival details — its id in the week plan.
 function isPicked(f: FestivalRow) {
   return f.planType === 'festival' ? yearPlanIds.value.has(f.planId) : weekPlanIds.value.has(f.planId)
 }
 
-// Auth gate — "Going?" requires sign-in
+// Auth gate — "+ My plan" requires sign-in
 const { isSignedIn } = useAuth()
 const showSignUp = ref(false)
 

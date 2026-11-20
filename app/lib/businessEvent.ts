@@ -48,3 +48,16 @@ export function toBusinessEventInput(v: BusinessEventValues) {
     },
   }
 }
+
+/**
+ * The closed Line-up card's one line (RAZ-988): how many, then the first few
+ * names as the event names them (else the @handle).
+ */
+export function lineupSummary(artists: string[], names: Record<string, string> = {}, shown = 4): string {
+  if (!artists.length) return 'No one yet'
+  const label = (h: string) => names[h]?.trim() || `@${h}`
+  const first = artists.slice(0, shown).map(label).join(', ')
+  const rest = artists.length - shown
+  const count = `${artists.length} ${artists.length === 1 ? 'artist' : 'artists'}`
+  return `${count}: ${first}${rest > 0 ? ` and ${rest} more` : ''}`
+}

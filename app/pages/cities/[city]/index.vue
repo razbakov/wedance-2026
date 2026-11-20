@@ -13,6 +13,10 @@ import { sizedImage, IMG } from '#shared/utils/image'
  * ?style=<Style> preselects the style filter; ?taster=1 (from the
  * /find-your-dance "free taster class" pick) shows a "Your first class"
  * section of upcoming classes, free-priced ones first (P1006).
+ * ?type=party|class shows only parties or only classes in "This week" and
+ * "Coming up" (RAZ-1018); the page keeps ?style= and ?type= in the URL.
+ * ?date=YYYY-MM-DD jumps to that day's events (RAZ-1021): "Pick a date" opens
+ * a 5-week grid, and the chosen day is listed under the filters.
  */
 import { sameDanceStyle, sortDanceStyles } from '#shared/dance-styles'
 import { MapPin, Calendar, ArrowRight, Sparkles } from 'lucide-vue-next'
@@ -24,7 +28,7 @@ import { WD } from '~/lib/brand'
 import { readableOn } from '~/lib/contrast'
 import { eventPath } from '#shared/utils/eventSlug'
 import { initialOf } from '#shared/utils/initials'
-import { weekDateKeys, cityFeed, matchesStyle, activeThisWeek, isActiveThisWeek, groupUpcoming, type PeopleTab } from '~/lib/cityWeek'
+import { weekDateKeys, cityFeed, matchesStyle, matchesKind, parseEventKind, activeThisWeek, isActiveThisWeek, groupUpcoming, parseDateKey, countByDate, pickEventsOnDate, formatJumpDate, type PeopleTab } from '~/lib/cityWeek'
 
 definePageMeta({ layout: false })
 
@@ -37,7 +41,7 @@ const { weekPlanIds, toggleEvent } = useWeekPlan()
 // "N in your week" = what /my-plan lists for the next 7 days (RAZ-889).
 const { planWeek } = usePlanCounts()
 
-// Auth gate — "Going?" requires sign-in
+// Auth gate — "+ My plan" requires sign-in
 const { isSignedIn } = useAuth()
 const showSignUp = ref(false)
 
@@ -142,11 +146,12 @@ const toCityEvent = (e: any) => ({
 const syncedThisWeek = computed(() => feed.value.syncedThisWeek.map(toCityEvent))
 // After this week: the next weeks, grouped by local date (capped; "show more").
 const upcomingLimit = ref(24)
-const syncedLater = computed(() => feed.value.syncedLater.filter(e => matchesStyle(e.styles, selectedStyle.value)))
+const syncedLater = computed(() => feed.value.syncedLater
+  .filter(e => matchesStyle(e.styles, selectedStyle.value) && matchesKind(syncedTypeMap[e.type] || 'social', selectedKind.value)))
 // Booked events beyond this week (same shape as toCityEvent output).
 const bookedLater = computed(() => {
   return feed.value.bookedLater
-    .filter(b => matchesStyle(b.styles, selectedStyle.value))
+    .filter(b => matchesStyle(b.styles, selectedStyle.value) && matchesKind(bookedTypeMap[b.eventType] || 'social', selectedKind.value))
     .map(b => {
       const date = String(b.eventDate).slice(0, 10)
       return {
@@ -207,6 +212,11 @@ useHead(() => ({
 
 // Style filter — preselected from ?style= (the /find-your-dance quick picks).
 const selectedStyle = ref(typeof route.query.style === 'string' ? route.query.style.trim() : '')
+// Parties / classes — preselected from ?type= (RAZ-1018; My plan links here with it).
+const selectedKind = ref(parseEventKind(route.query.type))
+const kindWord = computed(() => (selectedKind.value === 'class' ? 'classes' : selectedKind.value === 'party' ? 'parties' : ''))
+// Jump to one date — preselected from ?date= (RAZ-1021). Past and nonsense values are ignored.
+const selectedDate = ref(parseDateKey(route.query.date))
 
 // People tabs (now also includes Venues — same Lineup shape with auto-generated avatars).
 // Order: Venues first, then Organisers, then Artists.
@@ -281,6 +291,7 @@ const seeAllHref = computed(() => `/cities/${slug}/${roleSlugFor(activeTab.value
 
 const filteredEvents = computed(() => {
   let result: any[] = [...events, ...bookedThisWeek.value, ...syncedThisWeek.value]
+  if (selectedKind.value) result = result.filter(e => matchesKind(e.type, selectedKind.value))
   if (selectedStyle.value) {
     result = result.filter(e => e.style === selectedStyle.value || (e.styles || []).some((s: string) => sameDanceStyle(s, selectedStyle.value)))
   }
@@ -299,6 +310,53 @@ const filteredEvents = computed(() => {
   }
   return result
 })
+
+// One list for the date jump: this week (style, kind and person) plus later
+// (style and kind, same as "Coming up"). Dots and the day panel both read it,
+// so a parties-only filter can't offer a day that then shows a class.
+interface JumpEvent {
+  id: string
+  name: string
+  type: string
+  styles: string[]
+  time: string
+  venueName: string
+  date: string
+  cancelled: boolean
+  cancelReason: string | null
+  booking: boolean
+}
+function asJumpEvent(e: any, date: string, booking: boolean): JumpEvent {
+  return {
+    id: e.id,
+    name: e.name,
+    type: e.type,
+    styles: e.styles?.length ? e.styles : (e.style ? [e.style] : []),
+    time: e.time || '',
+    venueName: e.venueName || e.venue || '',
+    date,
+    cancelled: !!e.cancelled,
+    cancelReason: e.cancelReason ?? null,
+    booking,
+  }
+}
+const jumpCandidates = computed<JumpEvent[]>(() => {
+  const week = filteredEvents.value.flatMap((e: any) => {
+    const date = String(e.date ?? '').slice(0, 10)
+    return /^\d{4}-\d{2}-\d{2}$/.test(date) ? [asJumpEvent(e, date, !!e.booking)] : []
+  })
+  const later = [
+    ...syncedLater.value.map((e) => {
+      const mapped = toCityEvent(e)
+      return asJumpEvent(mapped, mapped.date, false)
+    }),
+    ...bookedLater.value.map(e => asJumpEvent(e, e.date, true)),
+  ]
+  return [...week, ...later]
+})
+const dateCounts = computed(() => countByDate(jumpCandidates.value))
+const eventsOnDate = computed(() => pickEventsOnDate(jumpCandidates.value, selectedDate.value))
+const selectedDateLabel = computed(() => (selectedDate.value ? formatJumpDate(selectedDate.value) : ''))
 
 // Upcoming festivals / congresses / weekenders in this city (synced events).
 const cityFestivals = computed(() => syncedEvents.value
@@ -360,8 +418,15 @@ const ink = (c: string, bg = '#fff') => readableOn(c, bg)
 
 function clearFilters() {
   selectedStyle.value = ''
+  selectedKind.value = ''
   clearPersonFilter()
 }
+
+function scrollToChosenDate() {
+  nextTick(() => document.getElementById('city-date')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }))
+}
+watch(selectedDate, (date) => { if (date && bookedEventsLoaded.value) scrollToChosenDate() })
+watch(bookedEventsLoaded, (loaded) => { if (loaded && selectedDate.value) scrollToChosenDate() })
 
 
 // --- City video competition + giveaways (O-009) ---------------------------
@@ -419,9 +484,15 @@ onMounted(() => {
 // unless the link's card names its own object (data-object-type/-id).
 useTrackContext(() => ({ object_type: 'city', object_id: slug, city: slug }))
 
-// Style filter use (a click on a style chip — one event per change).
-watch(selectedStyle, (style) => {
-  useTrack().track('filter_used', { surface: 'city', city: slug, filter_keys: style ? ['style'] : [], style: style || null })
+// Style / type filter use (a click on a chip — one event per change).
+watch([selectedStyle, selectedKind, selectedDate], ([style, kind, date]) => {
+  const filterKeys = [...(style ? ['style'] : []), ...(kind ? ['type'] : []), ...(date ? ['date'] : [])]
+  useTrack().track('filter_used', { surface: 'city', city: slug, filter_keys: filterKeys, style: style || null, type: kind || null, date: date || null })
+})
+// Keep style, type and date in the URL, so a link opens the page already filtered (RAZ-1018, RAZ-1021).
+const router = useRouter()
+watch([selectedStyle, selectedKind, selectedDate], ([style, kind, date]) => {
+  router.replace({ query: { ...route.query, style: style || undefined, type: kind || undefined, date: date || undefined }, hash: route.hash })
 })
 </script>
 
@@ -640,6 +711,10 @@ watch(selectedStyle, (style) => {
           <h2 class="mt-2 text-2xl leading-tight font-display text-foreground">
             Where you're <em class="italic text-primary">dancing.</em>
           </h2>
+          <div class="mt-4 flex flex-wrap items-center gap-2">
+            <CityKindFilter v-model="selectedKind" />
+            <CityDateJump v-model="selectedDate" :counts="dateCounts" />
+          </div>
         </div>
         <div v-if="filterLabel" class="flex items-center gap-2 text-xs text-muted-foreground font-sans">
           <span>
@@ -656,11 +731,58 @@ watch(selectedStyle, (style) => {
           </Button>
         </div>
       </div>
+      <div
+        v-if="selectedDate"
+        id="city-date"
+        data-testid="city-date-events"
+        class="mb-8 scroll-mt-4"
+        aria-live="polite"
+      >
+        <div class="mb-3 flex flex-wrap items-baseline justify-between gap-3">
+          <h3 class="text-sm font-black text-foreground font-display">{{ selectedDateLabel }}</h3>
+          <Button
+            type="button"
+            variant="link"
+            class="h-auto p-0 text-xs font-bold underline font-sans"
+            :style="{ color: ink(accent, WD.cream) }"
+            @click="selectedDate = ''"
+          >
+            Show every date
+          </Button>
+        </div>
+        <p v-if="!bookedEventsLoaded" class="text-sm italic text-secondary font-sans">Finding events…</p>
+        <div v-else-if="eventsOnDate.length" class="grid grid-cols-1 gap-2">
+          <NuxtLink
+            v-for="e in eventsOnDate"
+            :key="e.id"
+            :to="eventHref(e)"
+            data-testid="city-date-event"
+            class="group rounded-xl bg-white p-3 border flex items-center gap-3 hover:-translate-y-0.5 transition-all border-wd-brown-900/[12.2%]"
+            style="box-shadow:0 1px 0 color-mix(in srgb, var(--wd-brown-900) 5.1%, transparent);"
+          >
+            <div class="w-12 shrink-0 text-center text-base font-black tabular-nums" :style="{ color: accent, fontFamily: 'var(--wd-font-display)' }">{{ e.time }}</div>
+            <div class="flex-1 min-w-0 font-sans">
+              <p class="text-sm font-bold truncate group-hover:underline text-foreground font-display" :class="e.cancelled && 'line-through decoration-2 text-muted-foreground'">{{ e.name }}</p>
+              <EventCancelledTag v-if="e.cancelled" :reason="e.cancelReason" with-reason />
+              <p class="text-xs truncate text-muted-foreground">
+                <span class="font-bold uppercase tracking-wider text-eyebrow text-secondary">{{ e.type }}</span>
+                <span v-if="e.styles?.length"> · {{ e.styles.slice(0, 3).join(', ') }}</span>
+                <span v-if="e.venueName"> · {{ e.venueName }}</span>
+              </p>
+            </div>
+            <ArrowRight class="w-4 h-4 shrink-0 text-secondary" />
+          </NuxtLink>
+        </div>
+        <p v-else data-testid="city-date-empty" class="text-sm text-muted-foreground font-sans">
+          Nothing listed<span v-if="kindWord"> for {{ kindWord }}</span><span v-if="selectedStyle"> in {{ selectedStyle }}</span> on this date.
+        </p>
+      </div>
       <WeeklyCalendar
         :events="filteredEvents"
+        :focus-date="selectedDate"
         :week-plan-ids="weekPlanIds"
         :teachers="[...teachers, ...djs, ...organisers]"
-        :filtered="!!selectedStyle || !!selectedPersonId"
+        :filtered="!!selectedStyle || !!selectedKind || !!selectedPersonId"
         @toggle="onToggleEvent"
         @select-teacher="onSelectPerson"
         @clear-filters="clearFilters"
@@ -685,6 +807,12 @@ watch(selectedStyle, (style) => {
         <h2 class="mt-2 text-2xl leading-tight font-display text-foreground">
           Coming <em class="italic" :style="{ color: accent }">up.</em>
         </h2>
+        <p v-if="kindWord" class="mt-2 text-xs text-muted-foreground font-sans" data-testid="upcoming-kind-note">
+          Only {{ kindWord }}.
+          <Button type="button" variant="link" class="h-auto p-0 align-baseline text-xs font-bold underline font-sans" :style="{ color: ink(accent, WD.cream) }" @click="selectedKind = ''">
+            Show everything
+          </Button>
+        </p>
       </div>
       <div class="space-y-6">
         <div v-for="g in upcomingGroups" :key="g.date">

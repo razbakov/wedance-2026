@@ -1,9 +1,17 @@
 <script setup lang="ts">
+import { entryNoun, entryWords } from '#shared/utils/entryWord'
+import { CLASS_EVENT_TYPES, passCoverage, passesFor } from '#shared/utils/eventSignup'
+import { heroGoingCount } from '#shared/utils/rsvp'
+import { eventNoun } from '~/lib/shareInvite'
 import { sizedImage, IMG } from '#shared/utils/image'
-import type { Festival, Teacher, Workshop, PlanEntry, DanceRole, DancePartner, FestivalFriend, PartnerMatch, ExtraActivity, SwipeCard, FreemiumState } from '~/types/festival'
-import { ArrowRight, Sparkles, Check, Pencil, Ticket } from 'lucide-vue-next'
-import { isWorkshop, isEveningItem } from '#shared/utils/programme'
+import type { Festival, Teacher, Workshop, PlanEntry, DanceRole, DancePartner, ExtraActivity, FreemiumState } from '~/types/festival'
+import { ArrowRight, Sparkles, Check, Plus, Pencil, Ticket, Share2, Users } from 'lucide-vue-next'
+import { isWorkshop, isEveningItem, stylesOf } from '#shared/utils/programme'
+import { heroTagline } from '#shared/utils/heroTagline'
+import { includesLine, isNight } from '#shared/utils/yourNight'
+import { nightWeekday } from '#shared/utils/eventReview'
 import { Button } from '~/components/ui/button'
+import type { EventFactsData } from '~/components/EventFacts.vue'
 import { artistPlaces, artistLanguages } from '~/data/artists'
 import { WD } from '~/lib/brand'
 import { accentText } from '~/lib/accent'
@@ -28,7 +36,11 @@ const props = defineProps<{
   /** The event's type ("Weekender"), for the wording: "You manage this weekender". */
   type?: string | null
   /** A dated event (not a festival) shown in this view: its RSVP is the organiser's poll (RAZ-718). */
-  rsvp?: { eventId: string; path: string; startDate: string; endDate?: string | null; timezone?: string | null; organizerName?: string | null } | null
+  rsvp?: {
+    eventId: string; path: string; startDate: string; endDate?: string | null; timezone?: string | null; organizerName?: string | null
+    /** Nobody on WeDance takes its bookings (RAZ-1007): "Book my spot" says where it comes from. */
+    notBookable?: { imported: boolean; from?: string | null; checkedAt?: string | null } | null
+  } | null
   /** Cancelled by its organiser (RAZ-948): the hero says so; no poll, no passes. */
   cancelled?: { reason?: string | null } | null
   /**
@@ -36,8 +48,21 @@ const props = defineProps<{
    * event with a programme (a workshop, a class) goes in the plan as an event, by its id.
    */
   planAs?: 'festival' | 'event'
+  /** The hero's date line with times, in the event's zone (a plain event, RAZ-1007). */
+  dateLabel?: string
+  /** A plain event (RAZ-1007 — one layout for every event): what the old event page showed. */
+  event?: {
+    facts: EventFactsData
+    /** "Checked by … · date": last edited on WeDance. */
+    checked?: { at: string; by?: string | null } | null
+    archived?: boolean
+    city?: { slug: string; name: string } | null
+  } | null
+  /** Where Back goes when the page was opened directly (RAZ-1020). Festivals pass it here; a plain event's is on `event`. */
+  city?: { slug: string; name: string } | null
 }>()
 const kind = computed(() => (props.type || 'festival').toLowerCase())
+const backCity = computed(() => props.city ?? props.event?.city ?? null)
 const data = props.data
 const festival = data.festival
 const workshops = data.workshops
@@ -48,7 +73,7 @@ const slug = festival.slug
 const liveAttendeeCount = ref(festival.attendeeCount)
 const heroFestival = computed(() => ({
   ...festival,
-  attendeeCount: rsvpPoll.value ? rsvpPoll.value.coming : liveAttendeeCount.value,
+  attendeeCount: heroGoingCount(liveAttendeeCount.value, rsvpPoll.value ? rsvpPoll.value.coming : null),
   // A dated event knows its real start/end times (festival data carries dates
   // only), so a night running past midnight reads as one date, not two.
   ...(props.rsvp?.startDate ? { startDate: props.rsvp.startDate, endDate: props.rsvp.endDate || props.rsvp.startDate, timezone: props.rsvp.timezone || festival.timezone } : {}),
@@ -60,9 +85,22 @@ const heroFestival = computed(() => ({
 const freeEntry = computed(() => (festival.tickets?.length ?? 0) > 0 && festival.tickets!.every(t => !t.price))
 const sellsPasses = computed(() => (festival.tickets?.length ?? 0) > 0 && !freeEntry.value)
 
-// The poll answers "Going?" for a dated event, in the hero.
-const rsvpPoll = ref<{ coming: number; mine: { answer: string } | null } | null>(null)
-function onPoll(p: { coming: number; mine: { answer: string } | null }) { rsvpPoll.value = p }
+// A class or course (or a one-session event) is signed up for as a whole up top: its dates aren't saved
+// one by one (RAZ-995). A festival, or a day of several workshops, keeps Save on each session.
+const hideSessionSave = computed(() => !!props.rsvp && (workshops.length <= 1 || (CLASS_EVENT_TYPES as readonly string[]).includes(String(props.type ?? '').toLowerCase())))
+
+// The sign-up (RAZ-995) answers "am I coming?" for a dated event, in the hero; Who's coming sits under it.
+const rsvpPoll = ref<any | null>(null)
+const signupRef = ref<any>(null)
+// RAZ-1007: booking (or cancelling, or a new pass) changes a night's programme items on the
+// server; take the plan from there so the ticks match.
+let lastBooking: string | null = null
+function onPoll(p: any) {
+  rsvpPoll.value = p
+  const b = p?.mine ? `${p.mine.answer}|${p.mine.signup?.pass ?? ''}` : ''
+  if (lastBooking !== null && b !== lastBooking && isNightEvent.value) reloadNightPlan()
+  lastBooking = b
+}
 const heroPicked = computed(() => rsvpPoll.value
   ? !!rsvpPoll.value.mine && rsvpPoll.value.mine.answer !== 'next'
   : inPlan.value)
@@ -73,7 +111,7 @@ onMounted(async () => {
   try {
     const count = await $trpc.plan.count.query(planAsEvent ? { itemType: 'event', itemId: data.eventId } : { itemType: 'festival', itemId: festival.slug })
     liveAttendeeCount.value = count
-  } catch { /* keep mock fallback */ }
+  } catch { /* keep the count the page already has */ }
 })
 
 // Festival-level "Pick" — adds the whole festival to the year plan (distinct
@@ -84,6 +122,28 @@ const { yearPlanIds, toggleFestival } = useYearPlan()
 const { weekPlanIds, toggleEvent } = useWeekPlan()
 const planAsEvent = props.planAs === 'event'
 const inPlan = computed(() => planAsEvent ? weekPlanIds.value.has(data.eventId) : yearPlanIds.value.has(festival.slug))
+
+// Festival-goers are in Meet new friends only once they say so (plan_items.share_going,
+// opt-in — ADR-008). The overview asks with "Show me" and offers "Hide me" after (RAZ-1008),
+// in place of the old "Shall we dance?" deck's Show me.
+const shareGoing = ref<boolean | null>(null)
+const shareBusy = ref(false)
+async function loadShareGoing() {
+  if (props.rsvp || !isSignedIn.value || !inPlan.value) { shareGoing.value = null; return }
+  try {
+    const r = await $trpc.plan.getShareGoing.query({ itemType: 'festival', itemId: festival.slug })
+    shareGoing.value = r.share
+  } catch { shareGoing.value = null }
+}
+async function setShareGoing(share: boolean) {
+  shareBusy.value = true
+  try {
+    await $trpc.plan.setShareGoing.mutate({ itemType: 'festival', itemId: festival.slug, share })
+    shareGoing.value = share
+    useTrack().track('going_visibility_changed', { share, item_type: 'festival', item_id: festival.slug, surface: 'festival_overview' })
+  } catch { /* stays as it was */ } finally { shareBusy.value = false }
+}
+onMounted(() => { watch([isSignedIn, inPlan], loadShareGoing, { immediate: true }) })
 
 // Shared plan view detection — supports both the new `?invite=<encoded>` token
 // and the legacy `?plan=shared` query for backward compatibility.
@@ -182,12 +242,11 @@ function onBePartner(workshopId: string) {
   }
   // Add the workshop to user's plan and scroll to schedule
   toggleWorkshop(workshopId)
-  router.replace({ query: {} })
-  nextTick(() => scrollTo('schedule'))
+  openTab('schedule', 'link', {})
 }
 
 const days = [...new Set(workshops.map((w) => w.day))]
-const styles = [...new Set(workshops.map((w) => w.style))]
+const styles = [...new Set(workshops.filter(w => isWorkshop(w.type)).flatMap(w => stylesOf(w.style)))]
 
 // Auth state (needed early for workshop persistence)
 const { isSignedIn, dancerId: myDancerId, danceStyles: myDanceStyles, role: myRole, city: myCity, onboardedAt, completeOnboarding, updateProfile } = useAuth()
@@ -265,7 +324,21 @@ function toggleWorkshop(id: string) {
     plan.value = next
   } else {
     const workshop = workshops.find((w) => w.id === id)
-    if (workshop && !isWorkshop(workshop.type)) {
+    if (workshop && props.rsvp) {
+      // An event with "Book my spot" (RAZ-1003): the booking asks how you come — lead,
+      // follow, with a partner — so "+ My plan" on a session just adds it. Booked
+      // already? Its answer carries over.
+      const a = rsvpPoll.value?.mine?.answer
+      const booked = a && a !== 'next'
+      next.set(id, {
+        workshopId: id,
+        role: a === 'needLeader' ? 'follow' : a === 'needFollower' ? 'lead' : null,
+        partnerStatus: !booked ? 'solo' : a === 'partner' ? 'with-partner' : a === 'yes' ? 'solo' : 'looking',
+      })
+      persistWorkshopAdd(id)
+      trackWorkshop('add', id, next.get(id)!.partnerStatus)
+      plan.value = next
+    } else if (workshop && !isWorkshop(workshop.type)) {
       // Parties, shows, concerts don't need role/partner — add directly
       next.set(id, { workshopId: id, role: null, partnerStatus: 'solo' })
       persistWorkshopAdd(id)
@@ -384,6 +457,26 @@ function persistWorkshopRemove(workshopId: string) {
   )
 }
 
+// "Your night" (RAZ-1007): a booked event whose programme runs one item after another.
+const nightItems = computed(() => workshops
+  .filter(w => w.date && w.type !== 'doors')
+  .map(w => ({
+    id: w.id, date: w.date!, time: w.time, duration: w.duration, type: w.type ?? 'workshop', title: w.title,
+    sub: [teachers.find(t => t.id === w.teacherId)?.name, w.level].filter(Boolean).join(' · ') || undefined,
+  })))
+const isNightEvent = computed(() => !!props.rsvp && isNight(nightItems.value))
+const plannedIds = computed(() => new Set(plan.value.keys()))
+async function reloadNightPlan() {
+  if (!isSignedIn.value) return
+  try {
+    const items = await $trpc.plan.list.query()
+    const prefix = `${slug}:`
+    const ids = items.filter(i => i.itemType === 'workshop' && i.itemId.startsWith(prefix)).map(i => i.itemId.slice(prefix.length))
+    persistedWorkshopIds.value = new Set(ids)
+    plan.value = new Map(ids.map(id => [id, plan.value.get(id) ?? { workshopId: id, role: null, partnerStatus: 'solo' }]))
+  } catch { /* keep what's shown */ }
+}
+
 // Load persisted workshops and reconcile with the local plan.
 // Called on mount (if already signed in) and again when isSignedIn
 // becomes true (sign-in on an already-open page).
@@ -462,16 +555,11 @@ const lineupCards = teachers.map((teacher, i) => {
 
 function toggleTeacherFilter(id: string) {
   selectedTeacherId.value = selectedTeacherId.value === id ? null : id
-  nextTick(() => scrollTo('schedule'))
+  if (selectedTeacherId.value) openTab('schedule', 'link')
 }
 
-// Friends and partner matches: none until they come from real data (no
-// made-up people on an event page).
-const friends = computed<FestivalFriend[]>(() => [])
-const partnerMatches = computed<PartnerMatch[]>(() => [])
 
-// Discover dancers are now loaded by the DiscoverDancers component itself
-// via tRPC (wave.discoverPool) — no mock data needed here.
+// Meeting dancers lives in Meet new friends (/meet) — the same flow as any event (RAZ-1008).
 
 // Payment success confirmation
 const showPaymentSuccess = ref(false)
@@ -701,31 +789,6 @@ function tryUnlockSocialActivity(action: () => void) {
   action()
 }
 
-// Extra cards (dinner, activity, onboarding) interleaved into the swipe deck
-// by DiscoverDancers. Dancer cards come from the component's own tRPC query.
-const extraSwipeCards = computed<SwipeCard[]>(() => {
-  const dinners: SwipeCard[] = groupDinners.value.map(d => ({ ...d, cardType: 'dinner' as const }))
-  const activities: SwipeCard[] = extraActivities.value.map(a => ({ ...a, cardType: 'activity' as const }))
-  const result: SwipeCard[] = [...dinners, ...activities]
-
-  // Insert onboarding cards at the front when not signed in
-  if (!isSignedIn.value) {
-    result.unshift(
-      {
-        id: 'onboarding-dancecard',
-        cardType: 'onboarding-dancecard',
-        availableStyles: styles,
-      },
-      {
-        id: 'onboarding-profile',
-        cardType: 'onboarding-profile',
-      },
-    )
-  }
-
-  return result
-})
-
 // Sign-up gate
 const showSignUp = ref(false)
 const signUpAction = ref('share')
@@ -734,15 +797,6 @@ const signUpPrefill = ref<{ name?: string; danceStyles?: string[]; role?: 'lead'
 function onSignIn(action?: string) {
   signUpAction.value = action || 'share'
   showSignUp.value = true
-}
-
-function onOnboardingComplete(role: DanceRole, styles: string[], name: string, city: string) {
-  signUpPrefill.value = {
-    name: name || undefined,
-    danceStyles: styles,
-    role: role as 'lead' | 'follow' | 'both',
-    city: city || undefined,
-  }
 }
 
 function onSignedIn() {
@@ -765,19 +819,12 @@ function onPick() {
   else toggleFestival(festival.slug, { surface: 'festival' })
 }
 
-function onSave() {
-  if (!isSignedIn.value) {
-    signUpAction.value = 'save'
-    showSignUp.value = true
-  }
-  // When signed in, save is a no-op (mock — would persist to backend)
-}
-
 // Share modal
 const showSharePlan = ref(false)
 
+// A workshop plan needs an account; the event's own link doesn't (RAZ-1001).
 function onShare() {
-  if (!isSignedIn.value) {
+  if (!isSignedIn.value && workshops.length > 1) {
     signUpAction.value = 'share'
     showSignUp.value = true
   } else {
@@ -791,46 +838,130 @@ function onShare() {
 const { setCartCount } = useCart()
 watch(() => plan.value.size, (n) => setCartCount(n), { immediate: true })
 
-// Navigation — only show sections that have content for this festival.
-const allSections = ['about', 'discover', 'activities', 'lineup', 'schedule', 'tickets', 'venue'] as const
-const sections = computed(() =>
-  allSections.filter((s) => {
-    if (s === 'schedule') return workshops.length > 0
-    if (s === 'lineup') return teachers.length > 0
-    if (s === 'tickets') return sellsPasses.value
-    // A dated event (it has the poll) has no swipe deck: meeting people lives
-    // in My plan → Meet new friends, inviting them in My plan → Share (RAZ-974).
-    if (s === 'discover') return !props.rsvp
+// Tabs (RAZ-1008): the first page is an overview (about, a summary of what's
+// inside, who's going, the venue, going together); line-up, schedule and
+// passes are their own tabs, so a first visit plans instead of drowning.
+// The tab lives in ?tab= (deep links, Back); old #tickets / #schedule /
+// #lineup anchors still open their tab. Reviews is a tab too, opened from the hero's stars
+// (RAZ-1011), so it no longer sits under every tab at the bottom of the page.
+// A one-off event with a programme is reviewed as an event (RAZ-1011): only people who went, after
+// the night, from "How was it?" in the hero. A real festival keeps its festival reviews.
+const reviewAsk = useEventReviewAsk({
+  eventId: () => (planAsEvent ? data.eventId : null),
+  blocked: () => !!props.cancelled,
+  openReviews: () => openTab('reviews', 'hero'),
+})
+const reviewWeekday = computed(() => nightWeekday({ startDate: props.rsvp?.startDate ?? festival.startDate, timezone: props.rsvp?.timezone ?? festival.timezone }))
+
+const ALL_TABS = ['overview', 'lineup', 'schedule', 'tickets', 'reviews'] as const
+type Tab = typeof ALL_TABS[number]
+// A class or course is booked in the steps alone (RAZ-995); a festival keeps its Passes tab to compare them.
+const showTickets = computed(() => (!props.rsvp || !planAsEvent) && (sellsPasses.value || (!!festival.tickets?.length && hasTicket.value)))
+const tabs = computed<Tab[]>(() =>
+  ALL_TABS.filter((t) => {
+    if (t === 'lineup') return teachers.length > 0
+    if (t === 'schedule') return workshops.length > 0
+    if (t === 'tickets') return showTickets.value
     return true
   }),
 )
-const sectionLabels: Record<string, string> = {
-  'about': 'About',
-  'discover': 'Shall we dance?',
-  'activities': 'Activities',
-  'lineup': 'Lineup',
-  'schedule': 'Schedule',
-  'tickets': 'Tickets',
-  'venue': 'Venue',
+// A festival sells passes; a party or class sells tickets — the same word as the editor (RAZ-1029).
+const words = computed(() => entryWords(entryNoun({ type: props.type, isFestival: !planAsEvent })))
+const tabLabels = computed<Record<Tab, string>>(() => ({
+  overview: 'Overview',
+  lineup: 'Lineup',
+  schedule: 'Schedule',
+  tickets: words.value.Many,
+  reviews: 'Reviews',
+}))
+function tabFromRoute(): Tab {
+  const q = String(route.query.tab ?? '')
+  const h = route.hash.replace('#', '')
+  const t = (ALL_TABS as readonly string[]).includes(q) ? q : (ALL_TABS as readonly string[]).includes(h) ? h : 'overview'
+  return t as Tab
 }
+const activeTab = ref<Tab>(tabFromRoute())
+const currentTab = computed<Tab>(() => tabs.value.includes(activeTab.value) ? activeTab.value : 'overview')
+const tabsRef = ref<HTMLElement | null>(null)
 
-function scrollTo(id: string) {
-  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
-  activeSection.value = id // immediate feedback; observer keeps it honest
+function openTab(t: Tab, via: 'nav' | 'summary' | 'hero' | 'link' = 'link', base: Record<string, any> = route.query) {
+  if (t !== currentTab.value) {
+    useTrack().track('event_tab_opened', { tab: t, via, event_id: data.eventId, is_festival: !planAsEvent })
+  }
+  activeTab.value = t
+  const query = { ...base }
+  if (t === 'overview') delete query.tab
+  else query.tab = t
+  router.replace({ query, hash: '' })
+  // Land at the top of the tab, under the sticky bar — not halfway down the old one.
+  nextTick(() => {
+    const top = (tabsRef.value?.getBoundingClientRect().top ?? 0) + window.scrollY
+    if (window.scrollY > top) window.scrollTo({ top, behavior: 'smooth' })
+  })
 }
+watch(() => route.query.tab, () => { activeTab.value = tabFromRoute() })
+
+
+// About keeps only what the hero doesn't say (co-organisers, or a text the hero can't sum up) — RAZ-1008.
+const eventHasFacts = computed(() => {
+  const f = props.event?.facts
+  return !!f && !!(f.type || f.styles?.length || f.price || f.link || f.agenda?.length)
+})
+const aboutHasContent = computed(() => (festival.organizers?.length ?? 0) > 1 || (!!festival.description?.trim() && !heroTagline(festival.description)))
+
+// Overview summary: what's inside each tab, one card each, so the first page
+// shows there is a lot to explore without showing all of it.
+const priceFrom = computed(() => {
+  const prices = (festival.tickets ?? []).filter(t => !t.soldOut && t.price > 0).map(t => t.price)
+  return prices.length ? Math.min(...prices) : null
+})
+const sessionCount = computed(() => workshops.filter(w => isWorkshop(w.type)).length || workshops.length)
+// One night with at most one class: nothing to pick, so the card shows the night
+// itself ("19:00 class · 20:00 party · 22:00 concert"), not "1 session · pick yours".
+const programmeCard = computed(() => {
+  if (days.length > 1 || workshops.filter(w => isWorkshop(w.type)).length > 1) return ''
+  return includesLine(null, nightItems.value)
+})
+const summaryCards = computed(() => {
+  const cards: { tab: Tab; title: string; line: string; photos?: string[] }[] = []
+  if (tabs.value.includes('lineup')) {
+    cards.push({
+      tab: 'lineup',
+      title: `${teachers.length} ${teachers.length === 1 ? 'artist' : 'artists'}`,
+      line: teachers.slice(0, 3).map(t => t.name).join(', ') + (teachers.length > 3 ? ' and more' : ''),
+      photos: teachers.filter(t => t.photo).slice(0, 4).map(t => t.photo),
+    })
+  }
+  if (tabs.value.includes('schedule') && programmeCard.value) {
+    cards.push({ tab: 'schedule', title: 'The programme', line: programmeCard.value })
+  } else if (tabs.value.includes('schedule')) {
+    const n = sessionCount.value
+    cards.push({
+      tab: 'schedule',
+      title: `${n} ${n === 1 ? 'session' : 'sessions'}`,
+      line: [days.length > 1 ? `${days.length} days` : null, styles.length ? `${styles.length} ${styles.length === 1 ? 'style' : 'styles'}` : null, 'pick yours'].filter(Boolean).join(' · '),
+    })
+  }
+  // Passes on sale: the button right under these cards (Book my spot / Get pass) picks the pass, with the price.
+  if (tabs.value.includes('tickets') && !sellsPasses.value) {
+    const n = festival.tickets?.length ?? 0
+    cards.push({
+      tab: 'tickets',
+      title: hasTicket.value ? `You have a ${words.value.one}` : priceFrom.value != null ? `${words.value.Many} from €${priceFrom.value}` : words.value.Many,
+      line: hasTicket.value ? 'See what it covers' : `${n} to choose from · we suggest the one for your plan`,
+    })
+  }
+  return cards
+})
 
 // ── Sticky nav behaviour ──────────────────────────────────────────
-// - The festival name only appears in the sticky nav once the hero has
-//   scrolled out of view (so a deep-link straight to #tickets still
-//   shows which festival you're on).
-// - The nav highlights the section currently at the top and updates as
-//   you scroll (scrollspy).
+// The festival name appears in the sticky tab bar whenever the hero isn't in view —
+// scrolled past, or on another tab (the hero is only on Overview, RAZ-1008).
 const heroRef = ref<HTMLElement | null>(null)
 const heroVisible = ref(true)
-const activeSection = ref<string>('about')
+function scrollToTop() { window.scrollTo({ top: 0, behavior: 'smooth' }) }
 
 let heroObserver: IntersectionObserver | null = null
-let sectionObserver: IntersectionObserver | null = null
 
 onMounted(() => {
   if (heroRef.value) {
@@ -840,29 +971,10 @@ onMounted(() => {
     )
     heroObserver.observe(heroRef.value)
   }
-
-  // Scrollspy — track which section sits under the sticky nav.
-  const seen = new Set<string>()
-  sectionObserver = new IntersectionObserver(
-    (entries) => {
-      for (const e of entries) {
-        if (e.isIntersecting) seen.add(e.target.id)
-        else seen.delete(e.target.id)
-      }
-      const active = sections.value.find((s) => seen.has(s))
-      if (active) activeSection.value = active
-    },
-    { rootMargin: '-64px 0px -60% 0px', threshold: 0 },
-  )
-  for (const s of sections.value) {
-    const el = document.getElementById(s)
-    if (el) sectionObserver.observe(el)
-  }
 })
 
 onBeforeUnmount(() => {
   heroObserver?.disconnect()
-  sectionObserver?.disconnect()
   if (paymentSuccessTimer) clearTimeout(paymentSuccessTimer)
 })
 
@@ -890,6 +1002,7 @@ const hasTicket = computed(() => freemiumState.value.verifiedTicketHolder)
 
 function chooseTicket(ticket: TicketOption) {
   if (hasTicket.value) return
+  if (bookInSteps(ticket.name)) return
   selectedTickets.value = [ticket]
   showCheckout.value = true
 }
@@ -993,9 +1106,12 @@ const passesDescribed = (festival.tickets ?? []).some((t) =>
   t.days.length > 0 || t.workshopCount !== undefined || t.includesParty !== undefined,
 )
 
+// Booked already (leader / follower / with a partner)? Only the passes for that way of coming.
+const myAnswer = computed(() => { const a = rsvpPoll.value?.mine?.answer; return a && a !== 'next' ? a : null })
 const recommendation = computed<Recommendation | null>(() => {
   if (plannedDays.value.size === 0) return null
-  return recommendFor(plannedDays.value, plannedWorkshopCount.value, hasPartyInPlan.value)
+  const among = myAnswer.value ? passesFor(festival.tickets ?? [], myAnswer.value) as TicketOption[] : undefined
+  return recommendFor(plannedDays.value, plannedWorkshopCount.value, hasPartyInPlan.value, among)
 })
 
 // Before the dancer picks anything: the cheapest way to the whole programme.
@@ -1005,8 +1121,9 @@ const bestValueNames = computed(() => new Set((recommendFor(
   workshops.some((w) => isEveningItem(w.type)),
 )?.tickets ?? []).map((t) => t.name)))
 
-function recommendFor(days: Set<string>, workshopCount: number, wantsParty: boolean): Recommendation | null {
-  const all = festival.tickets
+function recommendFor(days: Set<string>, workshopCount: number, wantsParty: boolean, among?: TicketOption[], singleOnly = false): Recommendation | null {
+  // What each pass covers, read from its description where the organiser left it unset.
+  const all = (among ?? festival.tickets)?.map(passCoverage)
   if (!all?.length || !passesDescribed || days.size === 0) return null
 
   interface Candidate { tickets: TicketOption[]; total: number; soldOut: boolean }
@@ -1060,6 +1177,7 @@ function recommendFor(days: Set<string>, workshopCount: number, wantsParty: bool
     if (party) candidates.push({ tickets: [party], total: party.price, soldOut: !!party.soldOut })
   }
 
+  if (singleOnly) candidates.splice(0, candidates.length, ...candidates.filter(c => c.tickets.length === 1))
   if (candidates.length === 0) return null
   // Prefer buyable options over sold-out ones, then cheapest.
   candidates.sort((a, b) => (Number(a.soldOut) - Number(b.soldOut)) || (a.total - b.total))
@@ -1076,10 +1194,30 @@ function recommendFor(days: Set<string>, workshopCount: number, wantsParty: bool
 // Which ticket names are in the current recommendation (for grid highlight)
 const recommendedNames = computed(() => new Set((recommendation.value?.tickets ?? []).map((t) => t.name)))
 
+// The booking steps (EventSignup) ask: of the passes that fit how you're coming, which one covers
+// the workshops you picked? One pass only — the steps book one.
+function recommendAmong(passes: any[]): string | null {
+  if (plannedDays.value.size === 0) return null
+  return recommendFor(plannedDays.value, plannedWorkshopCount.value, hasPartyInPlan.value, passes, true)?.tickets[0]?.name ?? null
+}
+
+// With the booking steps (every event since festivals book like classes), a pass is booked there:
+// back to Overview, the steps open on that pass.
+function bookInSteps(name: string): boolean {
+  if (!props.rsvp || !signupRef.value) return false
+  openTab('overview', 'link')
+  nextTick(() => {
+    signupRef.value?.start(name)
+    document.getElementById('rsvp')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  })
+  return true
+}
+
 function getRecommendedPass() {
   if (hasTicket.value) return
   const rec = recommendation.value
   if (!rec) return
+  if (rec.tickets.length === 1 && bookInSteps(rec.tickets[0]!.name)) return
   const buyable = rec.tickets.filter((t) => !t.soldOut)
   if (buyable.length === 0) return
   selectedTickets.value = buyable
@@ -1098,7 +1236,7 @@ function isTopPass(t: TicketOption): boolean {
 // the whole page in the cream + Playfair aesthetic without touching
 // the default layout (which other pages still depend on). The shared
 // components inside (FestivalHero, AboutTab, DiscoverDancers,
-// ActivitiesTab, MySpace, Lineup, ScheduleTab, VenueTab, CartDrawer,
+// ActivitiesTab, Lineup, ScheduleTab, VenueTab, CartDrawer,
 // SharedPlanView, modals) still carry shadcn styling — those get
 // restyled in a follow-up pass.
 
@@ -1145,34 +1283,18 @@ useHead({
       </div>
     </div>
 
-    <div ref="heroRef">
-      <FestivalHero :festival="heroFestival" :picked="heroPicked" :cancelled="cancelled" :free-entry="freeEntry" :venue-address="festival.venue?.address" :map-url="festival.venue?.coordinates?.lat != null ? `https://www.google.com/maps/search/?api=1&query=${festival.venue.coordinates.lat},${festival.venue.coordinates.lng}` : (festival.venue?.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(festival.venue.address)}` : undefined)" @pick="onPick">
-        <!-- A dated event: the organiser's poll is the Going question. -->
-        <template v-if="rsvp" #cta>
-          <div id="rsvp" class="mt-4 max-w-xl scroll-mt-16">
-            <EventRsvpPoll :event-id="rsvp.eventId" :path="rsvp.path" :start-date="rsvp.startDate" :end-date="rsvp.endDate" :timezone="rsvp.timezone" :organizer-name="rsvp.organizerName" surface="event" @poll="onPoll" />
-          </div>
-        </template>
-        <!-- A festival that sells passes: the pass is the Going. -->
-        <template v-else-if="sellsPasses" #cta>
-          <div class="mt-4 flex flex-wrap gap-2">
-            <Button v-if="hasTicket" type="button" variant="pill" class="px-5" @click="scrollTo('tickets')">
-              <Check aria-hidden="true" /> You have a pass
-            </Button>
-            <Button v-else type="button" variant="cta" class="px-5" data-hero-get-pass @click="scrollTo('tickets')">
-              <Ticket aria-hidden="true" /> Get pass
-            </Button>
-          </div>
-        </template>
-      </FestivalHero>
-    </div>
-
-    <!-- Section anchor nav — V3 restyled. Festival identity slides in on
-         the left once the hero has scrolled out of view, so a deep-link
-         (Buy Tickets from the official site) always shows which festival
-         you're on. The active section is highlighted and tracks scroll. -->
-    <nav class="sticky top-0 z-20 border-b" style="background:rgba(251, 245, 234, 0.95); backdrop-filter: blur(8px); border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);">
-      <div class="max-w-4xl mx-auto flex items-center gap-2 px-4 min-w-0">
+    <!-- The tabs come first, above the hero (RAZ-1008): the hero is the Overview's top, the other
+         tabs start right here. The festival's name slides into the bar whenever the hero isn't in
+         view (another tab, or scrolled past it), so a deep link always shows which festival it is.
+         Back sits in the same sticky bar (RAZ-1020): it leaves the event, and ?tab= is not a step. -->
+    <!-- Where the tab bar sits before it sticks: switching tabs scrolls back up to here. -->
+    <div ref="tabsRef" aria-hidden="true" />
+    <div class="sticky top-0 z-20 border-b" style="background:rgba(251, 245, 234, 0.95); backdrop-filter: blur(8px); border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);">
+      <div class="max-w-4xl mx-auto px-4 pt-2.5 pb-1">
+        <EventBackLink :city="backCity" />
+      </div>
+      <nav>
+        <div class="max-w-4xl mx-auto flex items-center gap-2 px-4 min-w-0">
         <Transition
           enter-active-class="transition-all duration-200 ease-out"
           enter-from-class="opacity-0 -translate-x-2"
@@ -1182,11 +1304,11 @@ useHead({
           leave-to-class="opacity-0 -translate-x-2"
         >
           <NuxtLink
-            v-if="!heroVisible"
+            v-if="!heroVisible || currentTab !== 'overview'"
             :to="`/events/${festival.slug}`"
             class="flex items-center gap-2 shrink-0 pr-3 mr-1 border-r"
             style="border-color:color-mix(in srgb, var(--wd-brown-900) 8.2%, transparent);"
-            @click.prevent="scrollTo('about')"
+            @click.prevent="openTab('overview', 'nav'); scrollToTop()"
           >
             <img
               v-if="festival.logo"
@@ -1206,95 +1328,170 @@ useHead({
             </span>
           </NuxtLink>
         </Transition>
-        <div class="flex gap-0 overflow-x-auto min-w-0">
+        <div class="flex gap-0 overflow-x-auto min-w-0" role="tablist" aria-label="Sections">
           <button
-            v-for="section in sections"
-            :key="section"
+            v-for="tab in tabs"
+            :key="tab"
             type="button"
+            role="tab"
+            :aria-selected="currentTab === tab"
+            :data-event-tab="tab"
             class="relative px-3 py-3 text-sm italic whitespace-nowrap transition-colors font-display cursor-pointer"
-            :class="activeSection === section ? 'font-bold' : 'font-normal text-muted-foreground'"
-            :style="activeSection === section ? { color: festival.accentColor } : undefined"
-            :aria-current="activeSection === section ? 'location' : undefined"
-            @click="scrollTo(section)"
+            :class="currentTab === tab ? 'font-bold' : 'font-normal text-muted-foreground'"
+            :style="currentTab === tab ? { color: festival.accentColor } : undefined"
+            @click="openTab(tab, 'nav')"
           >
-            {{ sectionLabels[section] }}
+            {{ tabLabels[tab] }}
             <span
-              v-if="activeSection === section"
+              v-if="currentTab === tab"
               class="absolute left-3 right-3 bottom-0 h-[2px] rounded-full"
               :style="{ background: festival.accentColor }"
             />
           </button>
         </div>
+        </div>
+      </nav>
+    </div>
+
+    <!-- v-show, not v-if: the hero holds the sign-up, whose poll the schedule reads on every tab. -->
+    <div v-show="currentTab === 'overview'" ref="heroRef">
+      <div v-if="event?.checked" class="max-w-3xl mx-auto px-4 pt-3 font-sans">
+        <p class="inline-flex items-center gap-1.5 rounded-full bg-success/10 px-3 py-1 text-xs font-bold text-wd-green-700">
+          <Check class="size-3.5" aria-hidden="true" /> Checked{{ event?.checked?.by ? ` by ${event.checked.by}` : '' }} · {{ new Date(event?.checked?.at ?? '').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) }}
+        </p>
       </div>
-    </nav>
+      <FestivalHero :festival="heroFestival" :image="festival.flyer" :presenters="festival.organizers" :description="festival.description" :picked="heroPicked" :cancelled="cancelled" :free-entry="freeEntry" :venue-address="festival.venue?.address" :map-url="festival.venue?.coordinates?.lat != null ? `https://www.google.com/maps/search/?api=1&query=${festival.venue.coordinates.lat},${festival.venue.coordinates.lng}` : (festival.venue?.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(festival.venue.address)}` : undefined)" :review-target-type="planAsEvent ? 'event' : 'festival'" :review-target-slug="planAsEvent ? data.eventId : undefined" :rating-version="reviewAsk.reviewsKey.value" :date-label="dateLabel" @pick="onPick" @reviews="openTab('reviews', 'hero')">
+        <!-- What's inside, before the buttons (RAZ-1008): one compact card per tab, no header —
+             enough to see there's lots to explore; each opens its tab. -->
+        <template v-if="summaryCards.length" #before-cta>
+          <!-- Same cards on every screen. Two fit side by side on a phone; three scroll sideways
+               at their desktop width instead of losing their faces and lines. -->
+          <ul
+            :class="summaryCards.length < 3
+              ? 'grid grid-cols-2 gap-2 max-w-[24rem]'
+              : '-mx-4 flex snap-x snap-mandatory gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:grid sm:max-w-xl sm:grid-cols-3 sm:overflow-visible sm:px-0 sm:pb-0'"
+            data-event-summary
+          >
+            <li v-for="c in summaryCards" :key="c.tab" :class="summaryCards.length < 3 ? '' : 'w-44 shrink-0 snap-start sm:w-auto'">
+              <button
+                type="button"
+                class="group flex h-full w-full flex-col gap-1 rounded-xl border border-border bg-card/80 px-3 py-2.5 text-left transition-colors hover:border-primary/40 hover:bg-card cursor-pointer"
+                :data-summary-card="c.tab"
+                @click="openTab(c.tab, 'summary')"
+              >
+                <div v-if="c.photos?.length" class="flex -space-x-1.5 mb-0.5">
+                  <img v-for="(src, i) in c.photos" :key="i" :src="sizedImage(src, IMG.avatar)" alt="" class="size-6 rounded-full object-cover ring-2 ring-card">
+                </div>
+                <span class="text-sm sm:text-base font-black leading-tight text-foreground font-display">{{ c.title }}</span>
+                <span class="block text-xs text-muted-foreground font-sans line-clamp-2">{{ c.line }}</span>
+                <span class="mt-auto inline-flex items-center gap-1 text-xs font-bold text-secondary font-sans">
+                  {{ tabLabels[c.tab] }} <ArrowRight class="size-3 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+                </span>
+              </button>
+            </li>
+          </ul>
+        </template>
+        <!-- A dated event: the organiser's poll is the Going question. -->
+        <template v-if="rsvp || reviewAsk.show.value" #cta>
+          <!-- After the night, for people who went (RAZ-1011): "How was it?" -->
+          <EventHowWasIt
+            v-if="reviewAsk.show.value" :event-id="data.eventId" :event-name="festival.name" :weekday="reviewWeekday" :mine="reviewAsk.ask.value?.mine ?? null" :signed-in="!!reviewAsk.ask.value?.signedIn"
+            :initial-rating="reviewAsk.rateParam.value" :from-email="!!reviewAsk.rateParam.value" :missed-token="reviewAsk.missedToken.value"
+            @posted="reviewAsk.onPosted" @reviews="openTab('reviews', 'hero')" @sign-in="onSignIn('review')" @missed="reviewAsk.load"
+          />
+          <p v-else-if="reviewAsk.notAllowed.value" class="mt-4 text-sm text-muted-foreground font-sans" data-review-not-went>Only people who signed up for this night can review it.</p>
+          <div v-if="rsvp" id="rsvp" class="mt-4 max-w-xl scroll-mt-16">
+            <EventSignup
+              :event-id="rsvp.eventId" :path="rsvp.path" :start-date="rsvp.startDate" :end-date="rsvp.endDate" :timezone="rsvp.timezone" :organizer-name="rsvp.organizerName"
+              :passes="festival.tickets" :pay-at-door="festival.payAtDoor" :pass-key="festival.slug" :has-ticket="hasTicket" :event-type="type" :is-festival="!planAsEvent"
+              :programme="isNightEvent ? nightItems : []" :planned-ids="[...plannedIds]" :programme-shown="!!programmeCard"
+              ref="signupRef" surface="event" :recommend="recommendAmong" :not-bookable="rsvp.notBookable" @poll="onPoll"
+            >
+              <template v-if="isNightEvent" #booked="{ pass }">
+                <EventYourNight
+                  :items="nightItems" :pass="pass" :passes="festival.tickets ?? []" :planned-ids="plannedIds" :noun="words.one"
+                  :event-name="festival.name" :address="festival.venue?.address" :timezone="rsvp.timezone"
+                  @toggle="toggleWorkshop" @upgrade="(p) => signupRef?.start(p)"
+                />
+              </template>
+              <!-- Planning isn't signing up (RAZ-1003): "+ My plan" keeps it to decide later.
+                   Once you're in, the sign-up shows "On My plan" as a status instead. -->
+              <template #beside>
+                <Button type="button" :variant="inPlan ? 'pill' : 'outline-pill'" class="px-5 font-sans" :aria-pressed="inPlan" data-hero-my-plan @click="onPick">
+                  <component :is="inPlan ? Check : Plus" aria-hidden="true" /> My plan
+                </Button>
+              </template>
+            </EventSignup>
+          </div>
+        </template>
+        <!-- A festival that sells passes: the pass is the Going. -->
+        <template v-else-if="sellsPasses" #cta>
+          <div class="mt-4 flex flex-wrap gap-2">
+            <Button v-if="hasTicket" type="button" variant="pill" class="px-5" @click="openTab('tickets', 'hero')">
+              <Check aria-hidden="true" /> You have a {{ words.one }}
+            </Button>
+            <Button v-else type="button" variant="cta" class="px-5" data-hero-get-pass @click="openTab('tickets', 'hero')">
+              <Ticket aria-hidden="true" /> Get {{ words.one }}<template v-if="priceFrom != null"><span class="font-normal opacity-80 sm:hidden">· €{{ priceFrom }}+</span><span class="hidden font-normal opacity-80 sm:inline">· from €{{ priceFrom }}</span></template>
+            </Button>
+            <Button type="button" :variant="inPlan ? 'pill' : 'outline-pill'" class="px-5 font-sans" :aria-pressed="inPlan" data-hero-my-plan @click="onPick">
+              <component :is="inPlan ? Check : Plus" aria-hidden="true" /> My plan
+            </Button>
+          </div>
+        </template>
+        <!-- Meeting people sits where it does on any event: under the "am I coming?" control,
+             once it's on your plan or you have a pass (RAZ-1008, RAZ-981). Festival-goers
+             show only after "Show me" (plan_items.share_going, opt-in — ADR-008). -->
+        <template v-if="!rsvp && (inPlan || hasTicket) && shareGoing !== null" #after-cta>
+          <div class="mt-3 max-w-xl" data-festival-meet>
+            <template v-if="shareGoing">
+              <EventMeetPrompt :event-id="data.eventId" surface="festival" />
+              <Button type="button" variant="link" size="sm" class="mt-1 h-auto p-0 text-xs font-sans text-muted-foreground" :disabled="shareBusy" data-meet-hide @click="setShareGoing(false)">
+                Hide me from dancers going
+              </Button>
+            </template>
+            <div v-else-if="shareGoing === false" class="rounded-2xl border border-border bg-card px-4 py-3 space-y-2 font-sans" data-meet-show>
+              <p class="inline-flex items-center gap-1.5 font-bold text-foreground">
+                <Users class="size-4" aria-hidden="true" /> Meet who’s going
+              </p>
+              <p class="text-sm text-muted-foreground">
+                Dancers going to this {{ kind }} can’t see you yet. Show yourself and you’ll meet them in Meet new friends; you can hide again any time.
+              </p>
+              <Button type="button" variant="cta" size="pill-sm" :disabled="shareBusy" @click="setShareGoing(true)">
+                <Check aria-hidden="true" /> Show me
+              </Button>
+            </div>
+          </div>
+        </template>
+      </FestivalHero>
+    </div>
+
+    <!-- Who's coming, under the sign-up (RAZ-995) -->
+    <div v-if="rsvp && rsvpPoll && !cancelled && currentTab === 'overview'" class="max-w-4xl mx-auto px-4 pt-6">
+      <EventWhosComing :poll="rsvpPoll" />
+    </div>
+
 
     <div class="max-w-3xl mx-auto px-4 space-y-14 pt-8 pb-20">
-        <section id="about" class="scroll-mt-12">
+        <template v-if="currentTab === 'overview'">
+        <p v-if="event?.archived" class="rounded-xl px-4 py-3 text-sm bg-warning/[12.2%] text-wd-amber-800 font-sans">This event is no longer listed by its organiser — it may have been cancelled or moved.</p>
+        <section v-if="aboutHasContent || eventHasFacts" id="about" class="scroll-mt-12 space-y-4">
+          <h2 v-if="eventHasFacts" class="text-2xl font-black leading-tight font-display text-foreground">About</h2>
+          <EventFacts v-if="eventHasFacts" :facts="event.facts" />
           <AboutTab :festival="festival" />
         </section>
 
-        <section v-if="!rsvp" id="discover" class="scroll-mt-16">
-          <h2 class="text-2xl font-black leading-tight mb-1 text-foreground">Shall we <em class="italic text-primary">dance?</em></h2>
-          <p class="text-sm mb-4 text-muted-foreground font-sans">Swipe to discover dancers, group dinners, and activities happening around the {{ kind }}.</p>
-          <DiscoverDancers
-            :festival-slug="festival.slug"
-            :entity-label="kind"
-            :extra-cards="extraSwipeCards"
-            :workshops="workshops"
-            :plan-ids="planIds"
-            :is-signed-in="isSignedIn"
-            @sign-in="onSignIn"
-            @onboarding-complete="onOnboardingComplete"
-            @join-dinner="joinDinner"
-            @join-activity="joinActivity"
-          />
-          <!-- Verified ticket holders: the TicketTailor claim flow exists for Charanga only (/charanga/claim). -->
-          <div v-if="festival.slug === 'charanga-habanera-munich-2026'" class="mt-6">
-            <h3 class="mb-3 text-lg font-bold font-display">Verified attendees</h3>
-            <AttendeeRoster :festival-slug="festival.slug" />
-          </div>
-        </section>
+        <!-- The event's practical info (RAZ-1009): out of the venue card, which holds only the venue's hints. -->
+        <EventGoodToKnow :lines="festival.venue?.practicalInfo ?? []" />
 
-        <section id="activities" class="scroll-mt-16">
-          <h2 class="text-2xl font-black leading-tight mb-1 text-foreground">Activities</h2>
-          <p class="text-sm mb-4 text-muted-foreground font-sans">Rides, rooms, dinners and more — connect with fellow dancers.</p>
-          <ActivitiesTab
-            :ride-shares="rideShares"
-            :group-dinners="groupDinners"
-            :extra-activities="extraActivities"
-            :hangouts="eventHangouts"
-            :looking-for-roommate="lookingForRoommate"
-            :roommate-others="roommateOthers"
-            :ride-error="rideError"
-            :roommate-error="roommateError"
-            :hotel-search-url="hotelSearchUrl"
-            :is-signed-in="isSignedIn"
-            @join-dinner="joinDinner"
-            @join-activity="joinActivity"
-            @post-ride="postRide"
-            @toggle-roommate="toggleRoommate"
-            @create-hangout="createEventHangout"
-            @toggle-hangout="toggleEventHangout"
-            @close-hangout="closeEventHangout"
-            @sign-in="onSignIn"
-          />
-        </section>
 
-        <section v-if="isSignedIn" id="my-plan" class="scroll-mt-16">
-          <MySpace
-            :workshops="workshops"
-            :plan-ids="planIds"
-            :plan="plan"
-            :is-signed-in="isSignedIn"
-            :friends="friends"
-            :partner-matches="partnerMatches"
-            @sign-in="onSignIn"
-            @invite-friends="onShare"
-            @add-workshop="toggleWorkshop"
-          />
+        <!-- Verified ticket holders: the TicketTailor claim flow exists for Charanga only (/charanga/claim). -->
+        <section v-if="festival.slug === 'charanga-habanera-munich-2026' && (inPlan || hasTicket)" aria-labelledby="verified-title">
+          <h3 id="verified-title" class="mb-3 text-lg font-bold font-display">Verified attendees</h3>
+          <AttendeeRoster :festival-slug="festival.slug" />
         </section>
+        </template>
 
-        <section v-if="teachers.length > 0" id="lineup" class="scroll-mt-16">
+        <section v-if="currentTab === 'lineup'" id="lineup" class="scroll-mt-16">
           <div class="flex items-baseline justify-between gap-3 mb-1">
             <h2 class="text-2xl font-black leading-tight text-foreground">Lineup</h2>
             <Button
@@ -1326,7 +1523,7 @@ useHead({
           </div>
         </section>
 
-        <section v-if="workshops.length > 0" id="schedule" class="scroll-mt-16">
+        <section v-if="currentTab === 'schedule'" id="schedule" class="scroll-mt-16">
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-2xl font-black leading-tight text-foreground">Schedule</h2>
             <Button
@@ -1351,18 +1548,20 @@ useHead({
             :selected-teacher-id="selectedTeacherId"
             :start-date="festival.startDate"
             :festival-slug="festival.slug"
+            :hide-save="hideSessionSave"
             @toggle-workshop="toggleWorkshop"
           />
         </section>
 
-        <section v-if="sellsPasses || (festival.tickets?.length && hasTicket)" id="tickets" class="scroll-mt-16">
+        <!-- A dated event's passes are in the sign-up up top (RAZ-995); festivals keep this section. -->
+        <section v-if="currentTab === 'tickets'" id="tickets" class="scroll-mt-16">
           <div class="mb-4">
-            <div class="text-xs uppercase tracking-[0.3em] text-secondary">Passes</div>
+            <div class="text-xs uppercase tracking-[0.3em] text-secondary">{{ words.Many }}</div>
             <h2 v-if="hasTicket" class="mt-2 text-2xl font-black leading-tight text-foreground">
               You're <em class="italic text-wd-green-600">in.</em>
             </h2>
             <h2 v-else class="mt-2 text-2xl font-black leading-tight text-foreground">
-              Pick your <em class="italic text-primary">pass.</em>
+              Pick your <em class="italic text-primary">{{ words.one }}.</em>
             </h2>
           </div>
 
@@ -1381,7 +1580,7 @@ useHead({
                   You have a ticket
                 </div>
                 <div class="mt-1 text-sm text-foreground font-display">
-                  Your pass for {{ festival.name }} is confirmed.
+                  Your {{ words.one }} for {{ festival.name }} is confirmed.
                 </div>
                 <div class="mt-1 text-xs text-muted-foreground font-sans">
                   Plan your workshops in the schedule above and connect with other dancers.
@@ -1430,7 +1629,7 @@ useHead({
                   class="mt-3 px-5 text-xs"
                   @click="getRecommendedPass"
                 >
-                  Get this pass <ArrowRight aria-hidden="true" />
+                  Get this {{ words.one }} <ArrowRight aria-hidden="true" />
                 </Button>
                 <div
                   v-else
@@ -1445,18 +1644,18 @@ useHead({
           <!-- Nudge: no plan yet (only when we can actually recommend) -->
           <NuxtLink
             v-else-if="passesDescribed"
-            to="#schedule"
+            :to="{ query: { ...route.query, tab: 'schedule' } }"
             class="rounded-2xl p-5 mb-6 flex items-center gap-3 border-2 border-dashed transition-colors hover:bg-white/60"
             style="border-color:color-mix(in srgb, var(--wd-brown-900) 20%, transparent); background:rgba(255,255,255,0.4);"
-            @click="scrollTo('schedule')"
+            @click.prevent="openTab('schedule', 'link')"
           >
             <Sparkles class="w-6 h-6 shrink-0 text-secondary" />
             <div>
               <div class="text-sm font-bold text-foreground font-display">
-                Not sure which pass?
+                Not sure which {{ words.one }}?
               </div>
               <div class="text-xs text-muted-foreground font-sans">
-                Pick the workshops + parties you want in the schedule above — we'll find your best-value pass.
+                Pick the workshops + parties you want in the schedule above — we'll find your best-value {{ words.one }}.
               </div>
             </div>
             <ArrowRight class="w-4 h-4 ml-auto shrink-0 text-primary" />
@@ -1569,7 +1768,7 @@ useHead({
                 class="w-full h-11 text-xs"
                 @click="chooseTicket(t)"
               >
-                Get this pass
+                Get this {{ words.one }}
                 <ArrowRight aria-hidden="true" />
               </Button>
               <div
@@ -1583,9 +1782,53 @@ useHead({
           </div>
         </section>
 
-        <section id="venue" class="scroll-mt-16">
-          <h2 class="text-2xl font-black leading-tight mb-4 text-foreground">Venue</h2>
-          <VenueTab :venue="festival.venue" />
+        <!-- The venue, its address and its practical info live in the hero (RAZ-1008). -->
+
+        <section v-if="currentTab === 'overview'" id="activities" class="scroll-mt-16">
+          <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 mb-1">
+            <h2 class="text-2xl font-black leading-tight text-foreground">Going together</h2>
+            <!-- The old empty "Friends' Plans" box, as one button (RAZ-996). -->
+            <Button
+              v-if="workshops.length > 0"
+              type="button"
+              variant="link"
+              size="sm"
+              class="h-auto p-0 gap-1 text-xs font-bold font-sans"
+              @click="onShare"
+            >
+              <Share2 class="w-3.5 h-3.5" aria-hidden="true" />
+              {{ workshops.length > 1 ? 'Coming with friends? Share your plan' : `Bring friends to this ${eventNoun(props.type)}` }}
+            </Button>
+          </div>
+          <ActivitiesTab
+            :ride-shares="rideShares"
+            :group-dinners="groupDinners"
+            :extra-activities="extraActivities"
+            :hangouts="eventHangouts"
+            :looking-for-roommate="lookingForRoommate"
+            :roommate-others="roommateOthers"
+            :ride-error="rideError"
+            :roommate-error="roommateError"
+            :hotel-search-url="hotelSearchUrl"
+            :is-signed-in="isSignedIn"
+            @join-dinner="joinDinner"
+            @join-activity="joinActivity"
+            @post-ride="postRide"
+            @toggle-roommate="toggleRoommate"
+            @create-hangout="createEventHangout"
+            @toggle-hangout="toggleEventHangout"
+            @close-hangout="closeEventHangout"
+            @sign-in="onSignIn"
+          />
+        </section>
+
+        <p v-if="currentTab === 'overview' && event?.city" class="text-sm font-sans"><NuxtLink :to="`/cities/${event.city.slug}`" class="font-bold hover:underline text-secondary">More dancing in {{ event.city.name }} →</NuxtLink></p>
+
+        <section v-if="currentTab === 'reviews'" id="reviews" class="scroll-mt-16">
+          <ClientOnly>
+            <ReviewsSection v-if="planAsEvent" :key="reviewAsk.reviewsKey.value" target-type="event" :target-slug="data.eventId" :target-name="festival.name" :can-write="false" :note="reviewAsk.note.value" class="!mt-0" />
+            <ReviewsSection v-else target-type="festival" :target-slug="festival.slug" :target-name="festival.name" class="!mt-0" />
+          </ClientOnly>
         </section>
     </div>
 
@@ -1797,7 +2040,7 @@ useHead({
                   <span class="text-sm font-bold text-foreground font-display">{{ paymentSuccessInfo.festivalName }}</span>
                 </div>
                 <div class="flex items-center justify-between">
-                  <span class="text-xs uppercase tracking-wider font-bold text-secondary">Pass</span>
+                  <span class="text-xs uppercase tracking-wider font-bold text-secondary">{{ words.One }}</span>
                   <span class="text-sm font-bold text-foreground font-display">{{ paymentSuccessInfo.ticketName }}</span>
                 </div>
                 <div v-if="paymentSuccessInfo.amount > 0" class="flex items-center justify-between">
@@ -1915,14 +2158,10 @@ useHead({
       :plan-ids="planIds"
       :festival-name="festival.name"
       :festival-slug="festival.slug"
+      :event-type="props.type"
+      :event-id="data.eventId"
     />
 
-
-    <ClientOnly>
-      <section id="reviews" class="max-w-4xl mx-auto px-4 pb-10 scroll-mt-16">
-        <ReviewsSection target-type="festival" :target-slug="festival.slug" :target-name="festival.name" />
-      </section>
-    </ClientOnly>
 
     <SiteFooter />
   </div>

@@ -1,23 +1,25 @@
 <script setup lang="ts">
 import { Calendar, MapPin, Users, ChevronRight, Ticket } from 'lucide-vue-next'
 import { WD } from '~/lib/brand'
-import { mockFestival, mockTeachers } from '~/data/mock-meneate'
+import type { Teacher } from '~/types/festival'
 import { daysUntil } from '#shared/utils/festivalDateFormatter'
+import { sizedImage, IMG } from '#shared/utils/image'
 
 definePageMeta({ layout: 'docs' })
 
 // Accent = content colour (the festival's own, or the event's first style).
 // Everything around it is derived with the same alpha steps the product uses.
-const accent = mockFestival.accentColor || WD.amber600
+const accent = WD.amber600
 
+// Sample content for this page only — not a product data source.
 const festival = {
-  name: mockFestival.name,
-  logo: mockFestival.logo,
-  startDate: mockFestival.startDate,
+  name: '¡Menéate Viena! 2026',
+  logo: '/people/silvio.jpg',
+  startDate: '2026-11-26',
   dates: 'Nov 26–29, 2026',
   location: 'Vienna, Austria',
   styles: ['Timba', 'Salsa', 'Son', 'Rumba', 'Afro', 'Reggaeton'],
-  planning: mockFestival.attendeeCount,
+  planning: 12,
 }
 
 // Real component: EventSchedule. Dates relative to today so "Tonight" shows.
@@ -29,7 +31,11 @@ const events = [
   { id: 'doc-ev-2', title: 'Casino beginners', eventType: 'Class', styles: ['Casino', 'Rueda'], eventDate: iso(tomorrow), startTime: '19:00', endTime: '20:00', location: 'Altstadt', artists: ['Ivan', 'Ivana'] },
 ]
 
-const artists = mockTeachers.filter(t => ['silvio', 'lisandra', 'ivana'].includes(t.id))
+const artists: Teacher[] = [
+  { id: 'silvio', name: 'Silvio Leroy', photo: '/people/silvio.jpg', bio: 'Rumba, Son and Afrocuban.', styles: ['Rumba', 'Son', 'Afro'] },
+  { id: 'lisandra', name: 'Lisandra Garcia', photo: '/people/lisandra.jpg', bio: 'Son Cubano and lady style.', styles: ['Son', 'Ladies', 'Timba'] },
+  { id: 'ivana', name: 'Ivana Jovanovic', photo: '/people/ivana.jpg', bio: 'Casino and rueda.', styles: ['Casino', 'Rueda'] },
+]
 
 const styleColor: Record<string, string> = {
   salsa: WD.red600, bachata: WD.purple500, kizomba: WD.pink500, timba: WD.amber500,
@@ -44,7 +50,7 @@ const anatomy = [
   { n: 5, part: 'Title', spec: 'font-display bold, text-lg, brown-900. One line on desktop, wraps on mobile — never truncate a name.' },
   { n: 6, part: 'Meta row', spec: 'font-sans text-xs, brown-700, Lucide icons w-3 h-3 in amber-600. Date · place · count.' },
   { n: 7, part: 'Chips', spec: 'Style chips: 10px caps, rounded-full, accent text on accent·9% (accent + "18"). Max 3–4, then "+N".' },
-  { n: 8, part: 'Action', spec: 'One secondary pill (Going? → Going!) on the right. The card itself is the primary action (navigate).' },
+  { n: 8, part: 'Action', spec: 'One secondary pill (+ My plan → ✓ My plan) on the right. The card itself is the primary action (navigate).' },
 ]
 
 const variants = [
@@ -68,7 +74,7 @@ const recipe = `<div
       <NuxtLink :to="\`/festivals/\${f.slug}\`" class="outline-none after:absolute after:inset-0">{{ f.name }}</NuxtLink>
     </h3>
     <p class="mt-1 font-sans text-xs text-muted-foreground">…meta…</p>
-    <button type="button" class="relative z-10 …" @click="onPick(f.slug)">Going?</button>
+    <button type="button" class="relative z-10 …" @click="onPick(f.slug)">+ My plan</button>
   </div>
 </div>
 
@@ -83,9 +89,18 @@ const artistCode = `<ArtistCard :artist="teacher" :accent="festival.accentColor"
 const eventCode = `<EventSchedule :events="events" />
 // events: { id, title, eventType?, styles?, artists?, eventDate, startTime?, endTime?, location?, href? }[]`
 
+const imageCode = `<script setup lang="ts">
+import { sizedImage, IMG } from '#shared/utils/image'
+<\/script>
+
+<!-- Logo or face (up to ~96px): IMG.avatar -->
+<img :src="sizedImage(festival.logo, IMG.avatar)" :alt="festival.name" class="w-14 h-14 rounded-full object-cover">
+<!-- Flyer or photo in a grid: IMG.card -->
+<img :src="sizedImage(event.flyer, IMG.card)" :alt="event.name" class="w-full aspect-[4/5] object-cover">`
+
 const a11y = [
   '<strong>One link per card.</strong> A card with no inner controls can be the <code>&lt;a&gt;</code> (NuxtLink) itself — ArtistCard does this.',
-  '<strong>Card with an inner button</strong> (Going?): a <code>&lt;button&gt;</code> inside an <code>&lt;a&gt;</code> is invalid HTML and screen readers announce it as one blob. Use the <em>stretched link</em> instead — root <code>relative</code>, the title is the link with <code>after:absolute after:inset-0</code>, the button sits above it with <code>relative z-10</code>. The anatomy example above is built this way.',
+  '<strong>Card with an inner button</strong> (+ My plan): a <code>&lt;button&gt;</code> inside an <code>&lt;a&gt;</code> is invalid HTML and screen readers announce it as one blob. Use the <em>stretched link</em> instead — root <code>relative</code>, the title is the link with <code>after:absolute after:inset-0</code>, the button sits above it with <code>relative z-10</code>. The anatomy example above is built this way.',
   '<strong>Selectable cards use the stretched pattern</strong> (ArtistCard <code>selectable</code>): the name is a <code>&lt;button&gt;</code> stretched over the card, and the profile link sits above it — never a link inside a button.',
   '<strong>Never make a <code>&lt;div @click&gt;</code> card.</strong> It can’t be reached by keyboard. Use a link or button root.',
   '<strong>Accent text on accent tint</strong> (chips) is decorative only for light accents (amber, yellow, sky): the chip text repeats information that is also in the title or filter, so it may sit below 4.5:1 — anything essential goes in brown.',
@@ -112,7 +127,7 @@ const a11y = [
               <span class="absolute top-2.5 left-2 size-5 rounded-full bg-foreground text-background text-[10px] font-bold flex items-center justify-center">3</span>
               <div class="p-5">
                 <div class="flex items-start gap-4">
-                  <img :src="festival.logo" :alt="festival.name" class="w-14 h-14 rounded-full shrink-0 shadow-sm object-cover bg-muted">
+                  <img :src="sizedImage(festival.logo, IMG.avatar)" :alt="festival.name" class="w-14 h-14 rounded-full shrink-0 shadow-sm object-cover bg-muted">
                   <div class="flex-1 min-w-0">
                     <div class="flex items-start justify-between gap-2">
                       <h3 class="font-display font-bold text-lg leading-tight text-foreground">
@@ -144,7 +159,7 @@ const a11y = [
                         class="relative z-10 ml-auto text-xs font-bold px-3 py-1.5 rounded-full bg-white transition-all"
                         :style="{ color: accent, border: '1.5px solid ' + accent + '55' }"
                       >
-                        Going?
+                        + My plan
                       </button>
                       <sup class="text-[10px]">8</sup>
                     </div>
@@ -210,7 +225,7 @@ const a11y = [
       </div>
     </DesignSection>
 
-    <DesignSection id="event" title="Event row" lead="Live EventSchedule component with mock events. Time column in the style accent, type badge, style chips, place, then Going?. (Interaction is disabled here so the docs never write to your plan.)">
+    <DesignSection id="event" title="Event row" lead="Live EventSchedule component with sample events. Time column in the style accent, type badge, style chips, place, then + My plan. (Interaction is disabled here so the docs never write to your plan.)">
       <DesignExample :code="eventCode">
         <div class="w-full max-w-2xl" inert>
           <EventSchedule :events="events" />
@@ -218,11 +233,11 @@ const a11y = [
       </DesignExample>
     </DesignSection>
 
-    <DesignSection id="festival" title="Festival card" lead="Use the FestivalCard component (app/components/FestivalCard.vue) — stretched-link title, Going? above it, accent-aware chips and an avatar row. Recipe:">
+    <DesignSection id="festival" title="Festival card" lead="Use the FestivalCard component (app/components/FestivalCard.vue) — stretched-link title, + My plan above it, accent-aware chips and an avatar row. Recipe:">
       <DesignCode :code="recipe" />
     </DesignSection>
 
-    <DesignSection id="artist" title="Artist card" lead="Live ArtistCard with real lineup data from ¡Menéate Viena! Face first, whole card links to the profile.">
+    <DesignSection id="artist" title="Artist card" lead="Live ArtistCard. Face first, whole card links to the profile.">
       <DesignExample :code="artistCode">
         <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 w-full max-w-2xl">
           <ArtistCard
@@ -249,7 +264,7 @@ const a11y = [
           @click.prevent
         >
           <div class="px-4 py-3 flex items-center gap-3" :style="{ background: accent + '0d' }">
-            <img :src="festival.logo" :alt="festival.name" class="w-10 h-10 rounded-lg object-cover shrink-0 bg-muted">
+            <img :src="sizedImage(festival.logo, IMG.avatar)" :alt="festival.name" class="w-10 h-10 rounded-lg object-cover shrink-0 bg-muted">
             <div class="flex-1 min-w-0">
               <h3 class="text-sm font-bold leading-tight font-display text-foreground">{{ festival.name }}</h3>
               <div class="flex flex-wrap items-center gap-x-2 mt-0.5 text-xs text-secondary font-sans">
@@ -271,6 +286,10 @@ const a11y = [
           </div>
         </a>
       </DesignExample>
+    </DesignSection>
+
+    <DesignSection id="images" title="Images at their shown size" lead="Every <img> showing an uploaded photo, logo, flyer or cover goes through sizedImage(url, IMG.avatar | card | large | hero) from shared/utils/image.ts. Cloudinary originals are up to 3.5 MB each; serving them as is used 64 GB in a month and got the account switched off (Nov 2026). Other hosts, static files and previews come back unchanged, so it is safe on any src. Download buttons keep the original URL. AvatarImage does it for you.">
+      <DesignCode :code="imageCode" />
     </DesignSection>
 
     <DesignSection id="guidance" title="Do and don't">
@@ -298,9 +317,9 @@ const a11y = [
             <div class="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center text-[10px] text-muted-foreground text-center p-1">random avatar</div>
           </template>
         </DesignDoDont>
-        <DesignDoDont do-text="the card is the link; one small pill action inside (Going?)." dont-text="several buttons and links inside one card — the tap target becomes a guessing game on mobile.">
+        <DesignDoDont do-text="the card is the link; one small pill action inside (+ My plan)." dont-text="several buttons and links inside one card — the tap target becomes a guessing game on mobile.">
           <template #do>
-            <div class="w-44 rounded-xl bg-white border border-border p-3 flex items-center justify-between text-xs font-sans"><span class="font-bold">Timba Thursday</span><span class="px-2 py-1 rounded-full border border-primary/40 text-primary font-bold">Going?</span></div>
+            <div class="w-44 rounded-xl bg-white border border-border p-3 flex items-center justify-between text-xs font-sans"><span class="font-bold">Timba Thursday</span><span class="px-2 py-1 rounded-full border border-primary/40 text-primary font-bold">+ My plan</span></div>
           </template>
           <template #dont>
             <div class="w-44 rounded-xl bg-white border border-border p-3 flex flex-wrap gap-1 text-[10px] font-sans"><span class="font-bold w-full">Timba Thursday</span><span class="underline text-primary">Venue</span><span class="underline text-primary">DJ</span><span class="px-1.5 rounded-full bg-primary text-white">Book</span><span class="px-1.5 rounded-full border">Share</span></div>

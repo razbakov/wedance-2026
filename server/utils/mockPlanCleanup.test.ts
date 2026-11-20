@@ -3,16 +3,20 @@
  */
 import { describe, it, expect } from 'vitest'
 import { collectMockIds, countMockBy, selectMockPlanItems } from './mockPlanCleanup'
-import * as munich from '../../app/data/mock-city-munich'
-import * as berlin from '../../app/data/mock-city-berlin'
-import * as previewFestivals from '../../app/data/mock-preview-festivals'
+import { HISTORICAL_MOCK_IDS } from './historicalMockIds'
 
 describe('collectMockIds', () => {
-  it('derives ids and slugs from the mock files, nested anywhere', () => {
-    const ids = collectMockIds([munich, berlin, previewFestivals])
+  it('derives ids and slugs from exported objects, nested anywhere', () => {
+    const ids = collectMockIds([{ events: [{ id: 'muc-3' }], city: { slug: 'timba-fest-london-2026' } }])
     expect(ids.has('muc-3')).toBe(true)
-    expect(ids.has(berlin.events[0]!.id)).toBe(true)
     expect(ids.has('timba-fest-london-2026')).toBe(true)
+  })
+
+  it('the frozen list still names the old city classes and preview festivals', () => {
+    const ids = new Set(HISTORICAL_MOCK_IDS)
+    expect(ids.has('muc-3')).toBe(true)
+    expect(ids.has('timba-fest-london-2026')).toBe(true)
+    expect([...ids].some(id => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))).toBe(false)
   })
 
   it('never takes a UUID for a mock id', () => {

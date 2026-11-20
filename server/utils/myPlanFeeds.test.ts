@@ -132,3 +132,4 @@ describe('eventIdForNonFestival', () => {
     expect(eventIdForNonFestival('no-such', [])).toBeNull()
   })
 })
+
