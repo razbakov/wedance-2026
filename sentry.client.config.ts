@@ -7,9 +7,9 @@ const dsn = useRuntimeConfig().public.sentryDsn
 if (dsn) {
   Sentry.init({
     dsn,
-    // Through our own origin (server/api/relay.post.ts): blockers drop
-    // *.ingest.sentry.io, which broke the report form and lost replays.
-    tunnel: '/api/relay',
+    // Send envelopes through our own domain (server/api/m.post.ts): privacy
+    // blockers drop *.ingest.sentry.io, and with it "Report a problem" (RAZ-976).
+    tunnel: '/api/m',
     // Session Replay: sample a slice of all sessions, but always keep the
     // recording when an error occurs so problem reports can link to it.
     integrations: [Sentry.replayIntegration({ maskAllText: false, blockAllMedia: false })],

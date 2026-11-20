@@ -45,9 +45,6 @@ scripts/cities/.cache/
 app/generated/
 server/assets/architecture/
 
-# Argos screenshots (e2e/argos)
-screenshots/
-
 # Backups written by one-off data scripts (may hold contact details)
 .backups/
 

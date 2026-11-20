@@ -42,6 +42,14 @@ export const sessionType = (t: string | null | undefined): SessionType =>
 /** A taught class: the only type with a level, a style filter and a partner picker. */
 export const isWorkshop = (t: string | null | undefined) => !t || t === 'workshop'
 
+/**
+ * Someone teaches, plays or performs it, so the programme asks for an artist,
+ * a style and who they're with. Doors open is a moment, not a performance.
+ * A break is not its own type (`other` can still name someone).
+ */
+const NO_ARTIST = new Set<SessionType>(['doors'])
+export const hasArtist = (t: string | null | undefined) => !NO_ARTIST.has(sessionType(t))
+
 /** The night's programme a party pass covers: everything but classes and doors. */
 export const isEveningItem = (t: string | null | undefined) => !isWorkshop(t) && t !== 'doors'
 
@@ -129,13 +137,17 @@ export const sessionTimeRange = (s: { time: string; duration?: number | null }) 
   [s.time, sessionEnd(s)].filter(Boolean).join('–')
 
 /**
- * A session as stored: a known type, and a level only on a workshop (older
- * data put "Beginner" on parties; it never shows).
+ * A session as stored: a known type, a level only on a workshop (older data
+ * put "Beginner" on parties; it never shows), and no artist, style or partner
+ * on a moment like doors open.
  */
-export function cleanSession<T extends { type: string; level?: FestivalSession['level'] }>(s: T): T & { type: SessionType } {
+export function cleanSession<T extends { type: string; level?: FestivalSession['level']; artist?: string; style?: string; with?: string[] }>(s: T): T & { type: SessionType } {
   const type = sessionType(s.type)
   const { level, ...rest } = s
-  return { ...rest, type, ...(isWorkshop(type) && level ? { level } : {}) } as T & { type: SessionType }
+  const kept = { ...rest, type, ...(isWorkshop(type) && level ? { level } : {}) }
+  if (hasArtist(type)) return kept as T & { type: SessionType }
+  const { artist: _a, style: _s, with: _w, ...plain } = kept
+  return { ...plain, artist: '', style: '' } as T & { type: SessionType }
 }
 
 /** What a session shows next to its title: "Show", or a workshop's style and level. */
@@ -148,6 +160,77 @@ export function sessionKindLabel(s: { type?: string | null; style?: string; leve
 export function clockTime(t: string | null | undefined): string | null {
   const s = (t ?? '').trim()
   return /^\d{1,2}:\d{2}$/.test(s) ? s.padStart(5, '0') : null
+}
+
+/** Minutes from midnight, or null when it isn't a clock time within the day (24:00 is null). */
+function clockMinutes(t: string | null | undefined): number | null {
+  const c = clockTime(t)
+  if (!c) return null
+  const h = Number(c.slice(0, 2)); const m = Number(c.slice(3))
+  return h < 24 && m < 60 ? h * 60 + m : null
+}
+
+const ymd = (d: string | null | undefined): d is string => !!d && /^\d{4}-\d{2}-\d{2}$/.test(d)
+
+/**
+ * A programme item's start against the event's hours (RAZ-1027).
+ * 'before' or 'after' when it falls outside; null when it is inside, or when
+ * there is nothing to judge (no event start, no clock time). It is never a
+ * reason to refuse the item: a pre-party or an after-party can stay.
+ *
+ * A night that runs past midnight — 20:00–02:00 on one date — includes the
+ * hours after midnight up to its end. That 01:00 is stored on the event's own
+ * date and still counts as inside. A later last day is a real span, so 01:00
+ * on the first morning is before the event, and 01:00 on the last morning is inside.
+ */
+export function outsideEventHours(
+  session: { date?: string | null; time?: string | null },
+  event: { date?: string | null; startTime?: string | null; endDate?: string | null; endTime?: string | null },
+): 'before' | 'after' | null {
+  const origin = event.date ?? ''
+  const start = clockMinutes(event.startTime)
+  const time = clockMinutes(session.time)
+  if (!ymd(origin) || !ymd(session.date) || start == null || time == null) return null
+
+  const endClock = clockMinutes(event.endTime)
+  const span = ymd(event.endDate) && event.endDate !== origin ? dayNo(event.endDate) - dayNo(origin) : 0
+  // Same date, end at or before the start: the party ends the next morning.
+  const overnightTail = span <= 0 && endClock != null && endClock <= start ? endClock : null
+  const end = endClock == null ? null : span > 0 ? span * 1440 + endClock : overnightTail != null ? 1440 + endClock : endClock
+
+  const day = dayNo(session.date) - dayNo(origin)
+  if (!Number.isFinite(day)) return null
+  const at = day * 1440 + time + (day === 0 && overnightTail != null && time <= overnightTail ? 1440 : 0)
+
+  if (at < start) {
+    // Between a night's end and its start (02:00–20:00): the early part is after
+    // the night, the later part is before it.
+    if (overnightTail != null && day === 0 && time > overnightTail) {
+      return time < (overnightTail + start) / 2 ? 'after' : 'before'
+    }
+    return 'before'
+  }
+  if (end != null && at > end) return 'after'
+  return null
+}
+
+/** The note shown next to a programme item whose time is outside the event's hours. */
+export function outsideHoursNote(
+  session: { date?: string | null; time?: string | null },
+  event: { date?: string | null; startTime?: string | null; endDate?: string | null; endTime?: string | null },
+): string | null {
+  const side = outsideEventHours(session, event)
+  if (!side) return null
+  const start = clockTime(event.startTime)
+  if (!start) return null
+  const end = clockTime(event.endTime)
+  const hours = end ? `${start}–${end}` : start
+  if (side === 'before') {
+    return end
+      ? `Before the event’s hours (${hours}). A pre-party can stay.`
+      : `Before the event starts (${hours}). A pre-party can stay.`
+  }
+  return `After the event’s hours (${hours}). An after-party can stay.`
 }
 
 /** The old agenda as programme sessions on the event's day (the editor's "Put it in the programme"). */
@@ -197,4 +280,9 @@ export function programmePostItems<T extends { type?: string | null }>(sessions:
 export function programmePostLine(s: { date: string; time: string; duration?: number | null; type?: string | null; title: string }, day: string, who: string): string {
   const when = isWorkshop(s.type) ? s.time : sessionTimeRange(s)
   return [`${day} ${when}`, s.title, who].filter(Boolean).join(' · ')
+}
+
+/** A session's dance styles: "Bachata Dominicana, Timba" → two; empty → none (RAZ-1008). */
+export function stylesOf(style: string | null | undefined): string[] {
+  return String(style ?? '').split(/\s*[,/]\s*/).map(s => s.trim()).filter(Boolean)
 }

@@ -5,8 +5,8 @@
  * preview-only festivals (`timba-fest-london-2026`…) into real dancers' plans;
  * they show up as courses and festivals nobody signed up for.
  *
- * Mock ids are DERIVED from app/data/mock-*.ts (every `id` / `slug` in their
- * exports), never hand-typed. Only plan items of type 'event' or 'festival'
+ * Mock ids are the frozen list in server/utils/historicalMockIds.ts (every
+ * `id` / `slug` the old app/data/mock-*.ts files exported). Only plan items of type 'event' or 'festival'
  * are considered, and an id that is also a real row (festivals.slug, an event
  * slug or festival key) is kept: several mock festival slugs are real
  * festivals, and plans for those are real choices. Workshops and goals are
@@ -24,14 +24,12 @@
  * Rollback: none needed for dry-run. Before --write, keep the dry-run --json
  * output; each listed row can be re-inserted (dancer_id, item_type, item_id).
  */
-import { readdirSync } from 'node:fs'
-import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { neon, neonConfig } from '@neondatabase/serverless'
 import { drizzle } from 'drizzle-orm/neon-http'
 import { and, inArray, sql } from 'drizzle-orm'
 import * as schema from '../server/database/schema'
-import { collectMockIds, countMockBy, selectMockPlanItems } from '../server/utils/mockPlanCleanup'
+import { countMockBy, selectMockPlanItems } from '../server/utils/mockPlanCleanup'
+import { HISTORICAL_MOCK_IDS } from '../server/utils/historicalMockIds'
 
 const args = new Set(process.argv.slice(2))
 const WRITE = args.has('--write')
@@ -45,12 +43,9 @@ if (process.env.NEON_FETCH_ENDPOINT) neonConfig.fetchEndpoint = process.env.NEON
 const host = (() => { try { return new URL(dbUrl).host } catch { return '?' } })()
 log(`mock plan-item cleanup · ${WRITE ? 'WRITE' : 'dry-run'} · target DB ${process.env.NEON_FETCH_ENDPOINT ? `${host} via ${process.env.NEON_FETCH_ENDPOINT}` : host}`)
 
-// 1. Mock ids from every app/data/mock-*.ts.
-const dataDir = fileURLToPath(new URL('../app/data/', import.meta.url))
-const files = readdirSync(dataDir).filter(f => /^mock-.*\.ts$/.test(f)).sort()
-const modules = await Promise.all(files.map(f => import(join(dataDir, f))))
-const mockIds = collectMockIds(modules)
-log(`  ${mockIds.size} mock ids from ${files.length} files (${files.join(', ')})`)
+// 1. Ids the old mock files used to export.
+const mockIds = new Set(HISTORICAL_MOCK_IDS)
+log(`  ${mockIds.size} historical mock ids`)
 
 const db = drizzle(neon(dbUrl), { schema })
 const ids = [...mockIds]

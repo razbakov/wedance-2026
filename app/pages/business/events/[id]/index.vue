@@ -1,16 +1,22 @@
 <script setup lang="ts">
 /**
  * /business/events/<id> — two tabs. Details: edit the event, see what it still
- * needs, its flyer (the panel beside the cards), repeat it weekly, archive it.
+ * needs, its flyer (the panel beside the cards), repeat it weekly, cancel it
+ * (stays listed as "Cancelled", everyone who signed up is emailed), archive it.
  * Content plan (?tab=plan): every post it's promoted with, each made with the
  * flyer pipeline. Both stay mounted, so switching keeps unsaved edits.
+ *
+ * Steps (RAZ-939): the details are worked through in order — what and when →
+ * venue → line-up → entry → flyer → publish — one card open at a time. A new
+ * draft (?created=…) opens on its first step still to do.
  */
-import { Check, ExternalLink, Repeat, Archive, ArchiveRestore, Sparkles, FileText, Copy } from 'lucide-vue-next'
+import { Check, ExternalLink, Repeat, Archive, ArchiveRestore, Sparkles, FileText, Copy, Ban, DoorOpen } from 'lucide-vue-next'
 import type { BusinessEventValues } from '~/components/business/BusinessEventForm.vue'
 import { toBusinessEventInput } from '~/lib/businessEvent'
+import { readableSaveError, type SaveError } from '~/lib/eventSaveError'
 import { eventLocalDate } from '#shared/utils/eventTime'
 import { eventPath } from '#shared/utils/eventSlug'
-import { rsvpOptions } from '#shared/utils/rsvp'
+import { eventSteps, firstOpenStep, pastEventHints, STEP_CARD, type EventStepKey } from '~/lib/eventSteps'
 
 definePageMeta({ layout: 'business' })
 
@@ -23,7 +29,7 @@ const ev = ref<Ev | null>(null)
 const hosts = ref<{ username: string; name: string }[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
-const notice = ref<string | null>(route.query.created ? 'Event created.' : route.query.added ? `@${route.query.added} is in the line-up. Send them their link below so they can confirm.` : null)
+const notice = ref<string | null>(route.query.created === 'draft' ? 'Draft created. Only you can see it: work through the steps, then publish.' : route.query.created ? 'Event created.' : route.query.added ? `@${route.query.added} is in the line-up. Send them their link below so they can confirm.` : null)
 const tab = ref<'details' | 'plan'>(route.query.tab === 'plan' ? 'plan' : 'details')
 watch(tab, t => navigateTo({ query: { ...route.query, tab: t === 'plan' ? 'plan' : undefined } }, { replace: true }))
 
@@ -42,18 +48,41 @@ async function load() {
     loading.value = false
   }
   // #lineup (from an artist's booking page): the editor renders after the load.
-  if (route.hash) nextTick(() => document.querySelector(route.hash)?.scrollIntoView({ block: 'start' }))
+  // The Line-up card opens, so the artist just added can be confirmed (RAZ-988).
+  if (route.hash === '#lineup') nextTick(() => formRef.value?.focus('lineup'))
+  else if (route.hash) nextTick(() => document.querySelector(route.hash)?.scrollIntoView({ block: 'start' }))
+  else if (route.query.created && !guided && ev.value && !ev.value.synced) {
+    guided = true
+    nextTick(() => goStep(firstOpenStep(steps.value)))
+  }
 }
-onMounted(load)
-
-// The RSVP poll (RAZ-718): the same buckets dancers see on the event page.
-const poll = ref<Awaited<ReturnType<typeof $trpc.rsvp.summary.query>> | null>(null)
 onMounted(async () => {
-  try { poll.value = await $trpc.rsvp.summary.query({ eventId: id.value }) } catch { /* no poll card */ }
+  await load()
+  loadHints()
 })
-const pollBuckets = computed(() => poll.value
-  ? rsvpOptions(poll.value.partner).map(o => ({ ...o, count: poll.value!.counts[o.id] }))
-  : [])
+
+// Steps: done / to do from the saved event.
+const steps = computed(() => ev.value ? eventSteps(ev.value) : [])
+const step = ref<EventStepKey | null>(null)
+let guided = false
+function goStep(k: EventStepKey) {
+  step.value = k
+  tab.value = 'details'
+  const card = STEP_CARD[k]
+  if (card) formRef.value?.focus(card)
+  else nextTick(() => document.getElementById(`ev-step-${k}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+}
+// What the host's other events suggest: artists they booked, last time's price.
+const hints = ref<{ artists: string[]; price: string | null }>({ artists: [], price: null })
+async function loadHints() {
+  const host = ev.value?.host?.username
+  if (!host || ev.value?.synced) return
+  try {
+    const l = await $trpc.businessEvents.list.query({ profile: host })
+    hints.value = pastEventHints([...l.upcoming, ...l.drafts, ...l.past] as any[], { id: ev.value!.id, artists: ev.value!.artists })
+  } catch { /* no suggestions */ }
+}
+
 useHead(() => ({ title: `${ev.value?.name || 'Event'} | Business | WeDance` }))
 
 const initial = computed<Partial<BusinessEventValues>>(() => ev.value
@@ -72,6 +101,8 @@ const initial = computed<Partial<BusinessEventValues>>(() => ev.value
   : {})
 
 const saving = ref(false)
+// A refused save, in words, shown in the form's save bar where the Save button is (RAZ-991).
+const saveError = ref<SaveError | null>(null)
 // After switching organizer, offer to copy flyer styles from the old profile.
 const copyLooksOffer = ref<{ from: string; to: string; fromName: string; toName: string } | null>(null)
 const copyingLooks = ref(false)
@@ -94,6 +125,7 @@ async function copyLooks() {
 async function save(v: BusinessEventValues) {
   saving.value = true
   error.value = null
+  saveError.value = null
   notice.value = null
   copyLooksOffer.value = null
   try {
@@ -112,7 +144,7 @@ async function save(v: BusinessEventValues) {
     captionRef.value?.reload()
     planRef.value?.reload()
     teaserRef.value?.reload()
-    notice.value = 'Saved.'
+    notice.value = input.published && !wasPublished ? 'Published. Dancers can see it now.' : 'Saved.'
     if (hostChanged && oldHost && input.hostUsername) {
       const oldName = hosts.value.find(h => h.username === oldHost)?.name ?? oldHost
       const newName = hosts.value.find(h => h.username === input.hostUsername)?.name ?? input.hostUsername
@@ -122,7 +154,7 @@ async function save(v: BusinessEventValues) {
     if (pendingPost.value) { const t = pendingPost.value; pendingPost.value = null; await toPost(t) }
   } catch (e: any) {
     pending.value = null
-    error.value = e?.message || 'Could not save.'
+    saveError.value = readableSaveError(e, 'Could not save.')
   } finally {
     saving.value = false
   }
@@ -145,7 +177,7 @@ async function repeat() {
   }
 }
 
-const formRef = ref<{ dirty: boolean; submit: () => boolean } | null>(null)
+const formRef = ref<{ dirty: boolean; submit: () => boolean; publish: () => boolean; focus: (card: string) => void } | null>(null)
 const planRef = ref<{ reload: () => Promise<void> } | null>(null)
 const teaserRef = ref<{ reload: () => Promise<void> } | null>(null)
 // Line-up names for "Add a post · artist".
@@ -207,6 +239,20 @@ async function restore() {
     notice.value = 'Restored as a draft. Publish it when it’s ready.'
   } catch (e: any) { error.value = e?.message || 'Could not restore it.' } finally { restoring.value = false }
 }
+// Cancel (RAZ-948): stays listed as "Cancelled"; undo takes the mark off.
+const canCancel = computed(() => !!ev.value && ev.value.published && !ev.value.archived && !ev.value.cancelledAt
+  && new Date(`${ev.value.endDate || ev.value.date}T${ev.value.endTime || '23:59'}`).getTime() > Date.now() - 86400_000)
+async function onCancelled(r: { notified: number }) {
+  await load()
+  notice.value = r.notified ? `Cancelled. We’re emailing the ${r.notified} ${r.notified === 1 ? 'person' : 'people'} who signed up.` : 'Cancelled. Nobody had signed up yet.'
+}
+// "It's on again" (RAZ-969): BusinessUncancelEvent offers to email the people told it was off.
+async function onUncancelled(r: { notified: number }) {
+  await load()
+  notice.value = r.notified
+    ? `It’s on again. We’re emailing the ${r.notified} ${r.notified === 1 ? 'person' : 'people'} who got the cancellation: “Good news, it’s on again”.`
+    : 'It’s on again: the “Cancelled” mark is gone. Nobody was emailed.'
+}
 const confirmArchive = ref(false)
 const archiving = ref(false)
 async function archive(series = false) {
@@ -232,6 +278,9 @@ async function archive(series = false) {
         :title="ev.name"
         :back="{ to: '/business/events', label: 'Events' }"
       >
+        <Button variant="pill" size="pill-sm" as-child>
+          <NuxtLink :to="`/business/events/${ev.id}/door`"><DoorOpen /> Door</NuxtLink>
+        </Button>
         <Button v-if="ev.published" variant="outline-pill" size="pill-sm" as-child>
           <NuxtLink :to="eventPath({ id: ev.id, name: ev.name })" target="_blank"><ExternalLink /> View as dancers see it</NuxtLink>
         </Button>
@@ -260,6 +309,11 @@ async function archive(series = false) {
         <p class="min-w-0 flex-1"><span class="font-bold">Archived.</span> It’s off WeDance and not listed anywhere. Restore it to bring it back as a draft.</p>
         <Button type="button" variant="outline-pill" size="pill-sm" :loading="restoring" @click="restore"><ArchiveRestore /> Restore</Button>
       </div>
+      <div v-if="ev.cancelledAt" class="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm" role="status" data-testid="event-cancelled-status">
+        <Ban class="size-4 shrink-0 text-destructive" aria-hidden="true" />
+        <p class="min-w-0 flex-1"><span class="font-bold text-destructive">Cancelled.</span> Still listed on WeDance and your website, crossed out<template v-if="ev.cancelReason">: “{{ ev.cancelReason }}”</template>.</p>
+        <BusinessUncancelEvent :id="ev.id" @uncancelled="onUncancelled" />
+      </div>
       <p v-if="ev.synced" class="mt-4 rounded-2xl bg-secondary/10 p-4 text-sm" role="status">
         <span class="font-bold">This event comes from wedance.vip.</span>
         <span class="text-muted-foreground"> Check the details and save: it shows as “Checked” to dancers, the daily sync stops overwriting it{{ ev.host ? `, and it moves to ${ev.host.name}’s events` : '' }}. Then you can make its flyer.</span>
@@ -270,23 +324,9 @@ async function archive(series = false) {
         <span class="text-muted-foreground"> What’s here goes on it word for word. The panel shows exactly which words.</span>
       </p>
 
-      <section class="mt-4 rounded-2xl border bg-card p-4">
-        <h2 class="text-eyebrow font-bold uppercase tracking-[0.3em] text-secondary">Checklist</h2>
-        <p v-if="!ev.missing.length && ev.published" class="mt-2 text-sm text-wd-green-700 font-bold">Ready: everything a dancer and a flyer need is here.</p>
-        <ul v-else class="mt-2 grid gap-1 text-sm">
-          <li v-if="!ev.published">• Publish it so dancers can see it.</li>
-          <li v-for="m in ev.missing" :key="m">• Add {{ m }}.</li>
-        </ul>
-      </section>
+      <BusinessEventSteps v-if="!ev.synced && !ev.archived" v-model="step" :steps="steps" class="mt-4" @go="goStep" />
 
-      <section v-if="poll && !poll.festival" class="mt-4 rounded-2xl border bg-card p-4" data-rsvp-summary>
-        <h2 class="text-eyebrow font-bold uppercase tracking-[0.3em] text-secondary">Who’s coming</h2>
-        <p class="mt-2 text-sm font-bold">{{ poll.line }}</p>
-        <ul class="mt-2 flex flex-wrap gap-2 text-sm">
-          <li v-for="b in pollBuckets" :key="b.id" class="rounded-full bg-muted px-3 py-1"><span class="font-bold tabular-nums">{{ b.count }}</span> {{ b.label }}</li>
-        </ul>
-        <p v-if="poll.unconfirmed" class="mt-2 text-xs text-muted-foreground">Unconfirmed: answered without an account yet. They count for 48 hours unless confirmed by email.</p>
-      </section>
+      <BusinessWhosComing id="whos-coming" :event-id="ev.id" :contacts-page="ev.host?.username" class="mt-4 scroll-mt-20" />
 
       <div class="mt-4 grid gap-5" :class="ev.synced ? '' : 'lg:grid-cols-[minmax(0,1fr)_19rem]'">
         <BusinessEventForm
@@ -295,13 +335,15 @@ async function archive(series = false) {
           :initial="initial"
           :hosts="hosts"
           :labels="{ venue: ev.venueName, host: ev.host?.name }"
+          :hints="hints"
           :saving="saving"
+          :save-error="saveError"
           submit-label="Save changes"
           @submit="save"
         />
         <div v-if="!ev.synced" class="order-first grid content-start gap-4 lg:order-none">
           <BusinessPlanTeaser ref="teaserRef" :event-id="ev.id" @open="tab = 'plan'" />
-          <BusinessFlyerPanel ref="panelRef" :event-id="ev.id" :highlight="!!route.query.flyer" @go="onFlyer" />
+          <div id="ev-step-flyer" class="scroll-mt-20"><BusinessFlyerPanel ref="panelRef" :event-id="ev.id" :highlight="!!route.query.flyer || step === 'flyer'" @go="onFlyer" /></div>
           <BusinessCaption ref="captionRef" :event-id="ev.id" />
         </div>
       </div>
@@ -317,6 +359,11 @@ async function archive(series = false) {
             <Button type="button" variant="outline-pill" size="pill-sm" :loading="repeating" :disabled="formRef?.dirty" @click="repeat"><Repeat /> Repeat</Button>
           </div>
         </div>
+        <div v-if="canCancel" class="rounded-2xl border bg-card p-4">
+          <h2 class="text-eyebrow font-bold uppercase tracking-[0.3em] text-secondary">Cancel</h2>
+          <p class="mt-1 text-sm text-muted-foreground">Not happening? It stays listed as “Cancelled” with your reason, and everyone who signed up gets an email.</p>
+          <BusinessCancelEvents :ids="[ev.id]" id-prefix="ev-cancel" class="mt-3" @cancelled="onCancelled" />
+        </div>
         <div class="rounded-2xl border bg-card p-4">
           <h2 class="text-eyebrow font-bold uppercase tracking-[0.3em] text-secondary">Archive</h2>
           <template v-if="ev.archived">
@@ -324,7 +371,7 @@ async function archive(series = false) {
             <Button type="button" variant="outline-pill" size="pill-sm" class="mt-3" :loading="restoring" @click="restore"><ArchiveRestore /> Restore</Button>
           </template>
           <template v-else>
-          <p class="mt-1 text-sm text-muted-foreground">Cancelled or a mistake? Archiving takes it off WeDance.</p>
+          <p class="mt-1 text-sm text-muted-foreground">A mistake or a duplicate? Archiving takes it off WeDance without telling anyone.</p>
           <Button v-if="!confirmArchive" type="button" variant="destructive" size="sm" class="mt-3" @click="confirmArchive = true"><Archive /> Archive event</Button>
           <div v-else class="mt-3 flex flex-wrap items-center gap-2">
             <span class="text-sm font-bold">Archive “{{ ev.name }}”?</span>

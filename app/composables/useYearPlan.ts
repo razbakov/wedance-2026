@@ -1,5 +1,8 @@
 const yearPlanIds = ref(new Set<string>())
 const yearDrawerOpen = ref(false)
+// The first plan.list has settled (RAZ-890): until then an empty yearPlanIds
+// means "not loaded yet", not "no festivals" — My plan shows a loading state.
+const yearPlanLoaded = ref(false)
 
 export function useYearPlan() {
   function loadFromDb() {
@@ -19,6 +22,9 @@ export function useYearPlan() {
       })
       .catch((err) => {
         console.warn('[useYearPlan] loadFromDb failed:', err)
+      })
+      .finally(() => {
+        yearPlanLoaded.value = true
       })
   }
 
@@ -85,6 +91,7 @@ export function useYearPlan() {
   return {
     yearPlanIds: readonly(yearPlanIds),
     yearDrawerOpen: readonly(yearDrawerOpen),
+    loaded: readonly(yearPlanLoaded),
     yearCount: computed(() => yearPlanIds.value.size),
     addFestival,
     removeFestival,

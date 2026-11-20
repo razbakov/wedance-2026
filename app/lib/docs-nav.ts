@@ -42,6 +42,20 @@ export const hubNav: DocSection[] = [
     ],
   },
   {
+    title: 'Product',
+    items: [
+      { title: 'Jobs to be done', to: '/docs/jobs', status: 'beta', summary: 'The seven jobs (J1–J7) people hire WeDance for, who has each, and its journeys.' },
+      { title: 'UX map', to: '/docs/ux-map', status: 'beta', summary: 'Every user journey, stage by stage: what is live, partial, missing.' },
+      { title: 'Event setup blueprint', to: '/docs/blueprints/event-setup', status: 'beta', summary: 'Organiser, venue, artists and dancers lane by lane: every wait, hand-carried link and missed update.' },
+      { title: 'Meet new friends blueprint', to: '/docs/blueprints/meet-friends', status: 'beta', summary: 'You, WeDance and the other dancer lane by lane: from joining to dancing with someone new, and where a Yes goes nowhere.' },
+      { title: 'First class blueprint', to: '/docs/blueprints/first-class', status: 'beta', summary: 'Newcomer, WeDance and the school lane by lane: from curious to a second class, and what the school never hears.' },
+      { title: 'Keep progressing blueprint', to: '/docs/blueprints/keep-progressing', status: 'beta', summary: 'Student, WeDance and the teacher or school lane by lane: from a goal to the next level, and where momentum is left to WhatsApp.' },
+      { title: 'Artist booking blueprint', to: '/docs/blueprints/artist-booking', status: 'beta', summary: 'Artist, WeDance and organiser lane by lane: from having a page to being booked again, and where a request goes unanswered.' },
+      { title: 'Make a page real blueprint', to: '/docs/blueprints/make-it-real', status: 'beta', summary: 'Page owner, WeDance and dancers lane by lane: from a synced or imported page to one its owner runs, and where claims wait on an admin.' },
+      { title: 'Festival travel blueprint', to: '/docs/blueprints/festival-travel', status: 'beta', summary: 'Dancer, WeDance, organiser, friends and the ticket provider lane by lane: a year of festivals, what it costs, and where a ticket goes unseen.' },
+    ],
+  },
+  {
     title: 'Sections',
     items: [
       { title: 'Design system', to: '/docs/design', status: 'stable', summary: 'Tokens, components and patterns.' },
@@ -53,7 +67,8 @@ export const hubNav: DocSection[] = [
     items: [
       { title: 'Contributing', to: CONTRIBUTING_URL, status: 'stable', summary: 'How to propose a change.' },
       { title: 'Issues', to: ISSUES_URL, status: 'stable', summary: 'Report a bug or suggest a feature.' },
-      { title: 'Governance', to: GOVERNANCE_URL, status: 'stable', summary: 'The WeDance organisation\'s living docs.' },
+      { title: 'How we\'re organised', to: '/docs/organization', status: 'stable', summary: 'Why WeDance exists, what we test now, how we decide.' },
+      { title: 'Governance', to: GOVERNANCE_URL, status: 'stable', summary: 'The full governance documents (team sign-in).' },
       { title: 'Open metrics', to: '/open', status: 'stable', summary: 'Our real usage numbers, on a public dashboard.' },
     ],
   },

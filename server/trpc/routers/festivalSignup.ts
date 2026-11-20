@@ -5,6 +5,8 @@ import { TRPCError } from '@trpc/server'
 import { router, publicProcedure, protectedProcedure } from '../trpc'
 import { festivals, festivalSignups, dancers, referrals } from '../../database/schema'
 import { getTicketPriceCents, getReferralDiscountPercent } from '../../utils/ticket-prices'
+import { livePasses, passPriceCents } from '../../utils/eventPasses'
+import { ensureFestivalId } from '../../utils/festivalRow'
 import { festivalPath } from '../../../shared/utils/eventSlug'
 import { eventIdForFestival, recordLinkAction } from '../../utils/trackedLinks'
 import { trackServer } from '../../utils/posthog'
@@ -195,26 +197,40 @@ export const festivalSignupRouter = router({
       festivalSlug: z.string(),
       ticketNames: z.array(z.string().min(1).max(200)).min(1).max(10),
       referralCode: z.string().min(1).max(100).optional(),
+      // Coming with a partner (RAZ-995): the couple price, else twice the price.
+      people: z.union([z.literal(1), z.literal(2)]).default(1),
     }))
     .mutation(async ({ ctx, input }) => {
-      // Resolve each ticket price server-side.
+      // Resolve each ticket price server-side: the passes the organiser saved
+      // on the live event (RAZ-946), else the hard-coded registry.
+      const passes = await livePasses(ctx.db, input.festivalSlug)
       const resolved = input.ticketNames.map((name) => {
-        const ticket = getTicketPriceCents(input.festivalSlug, name)
+        const ticket = passes?.length
+          ? passPriceCents(passes, name, input.people)
+          : (() => { const t = getTicketPriceCents(input.festivalSlug, name); return t ? { ...t, priceCents: t.priceCents * input.people } : t })()
         if (!ticket) {
           throw new TRPCError({ code: 'NOT_FOUND', message: `Ticket not found: ${name}` })
         }
         if (ticket.soldOut) {
           throw new TRPCError({ code: 'BAD_REQUEST', message: `This ticket is sold out: ${name}` })
         }
+        // Stripe can't charge €0; a free pass needs no checkout.
+        if (ticket.priceCents < 50) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: `This pass is free, no ticket needed: ${name}` })
+        }
         return { name, priceCents: ticket.priceCents }
       })
 
       const totalCents = resolved.reduce((sum, t) => sum + t.priceCents, 0)
 
-      const [festival] = await ctx.db
+      const findFestival = async () => (await ctx.db
         .select({ id: festivals.id, name: festivals.name })
         .from(festivals)
-        .where(eq(festivals.slug, input.festivalSlug))
+        .where(eq(festivals.slug, input.festivalSlug)))[0] as { id: string; name: string } | undefined
+      let festival = await findFestival()
+      // A festival made in the event editor has no legacy `festivals` row yet;
+      // the sign-up the Stripe webhook writes needs one.
+      if (!festival && passes && await ensureFestivalId(ctx.db, input.festivalSlug)) festival = await findFestival()
 
       if (!festival) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Festival not found' })
@@ -328,7 +344,7 @@ export const festivalSignupRouter = router({
         price_data: {
           currency: 'eur',
           product_data: {
-            name: `${festival.name} — ${t.name}`,
+            name: `${festival.name} — ${t.name}${input.people === 2 ? ' · for two' : ''}`,
           },
           unit_amount: t.priceCents,
         },
@@ -364,6 +380,7 @@ export const festivalSignupRouter = router({
           festivalSlug: input.festivalSlug,
           ticketName: input.ticketNames.join(', '),
           ticketCount: String(input.ticketNames.length),
+          people: String(input.people),
           dancerId: ctx.dancerId,
           amountCents: String(chargedCents),
           ...(referrerId ? { referrerId, referralDiscount: String(refereeDiscountCents) } : {}),

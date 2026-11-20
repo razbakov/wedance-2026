@@ -10,10 +10,9 @@ const { data } = await useFetch('/api/mcp-tools', { key: 'mcp-tools' })
 
 const claudeCode = `claude mcp add --transport http wedance ${mcpUrl}`
 const chatgptSteps = [
-  'Settings → Apps & Connectors → Advanced settings: turn on Developer mode.',
-  'Back in Apps & Connectors, choose Create.',
-  `Name it WeDance, paste ${mcpUrl} as the MCP server URL, authentication OAuth.`,
+  'Open WeDance in ChatGPT (the button above) and add it.',
   'Sign in to WeDance in the window that opens and choose what ChatGPT may do.',
+  'In a chat, ask: “What’s on in Munich this weekend?”, or paste your event announcement and ask ChatGPT to put it on WeDance.',
 ]
 const claudeSteps = [
   'Claude (web or desktop): Settings → Connectors → Add custom connector.',
@@ -35,6 +34,18 @@ const examples = [
     title="Connect WeDance to Claude or ChatGPT"
     lead="Ask your assistant what’s on, plan your nights, or run your events, with your WeDance account behind it. You choose what it may do, and you can disconnect it any time."
   >
+    <DesignSection id="chatgpt" title="ChatGPT" lead="WeDance is an official app in ChatGPT. No Developer mode, no URL to paste.">
+      <AiAppCta surface="docs_connect_ai" label="Add WeDance to ChatGPT" title="WeDance in ChatGPT" class="mb-4">
+        Find events, plan your nights, or set up your events from a chat.
+      </AiAppCta>
+      <ol class="list-decimal pl-5 space-y-2 text-muted-foreground">
+        <li v-for="s in chatgptSteps" :key="s">{{ s }}</li>
+      </ol>
+      <p class="text-sm text-muted-foreground mt-3">
+        Using another MCP client, or a ChatGPT workspace that only allows custom connectors? Add the connector URL below, with OAuth.
+      </p>
+    </DesignSection>
+
     <DesignSection id="url" title="The connector URL">
       <DesignCode :code="mcpUrl" lang="text" />
       <p class="text-sm text-muted-foreground mt-3">
@@ -50,13 +61,6 @@ const examples = [
       </ol>
       <p class="text-sm text-muted-foreground mt-4 mb-2">Claude Code:</p>
       <DesignCode :code="claudeCode" lang="bash" />
-    </DesignSection>
-
-    <DesignSection id="chatgpt" title="ChatGPT">
-      <ol class="list-decimal pl-5 space-y-2 text-muted-foreground">
-        <li v-for="s in chatgptSteps" :key="s">{{ s }}</li>
-      </ol>
-      <p class="text-sm text-muted-foreground mt-3">Connectors need a ChatGPT plan that allows custom apps.</p>
     </DesignSection>
 
     <DesignSection id="permissions" title="What the permissions mean" lead="On the sign-in screen every permission has its own tick box. Untick what you don’t want.">

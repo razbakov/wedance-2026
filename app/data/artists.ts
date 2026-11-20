@@ -1,31 +1,10 @@
 import type { Teacher } from '~/types/festival'
-import type { City, CityEvent } from '~/types/city'
-import * as munich from '~/data/mock-city-munich'
-import * as berlin from '~/data/mock-city-berlin'
 
 /**
  * Artist display helpers for line-up cards: where an artist is from and
- * based (read off their bio and the mock city data), the flag for a place,
- * and the languages that implies. Profiles themselves live at /@handle.
+ * based (read off their bio), the flag for a place, and the languages that
+ * implies. Profiles themselves live at /@handle.
  */
-
-const citySources = [munich, berlin]
-
-export interface CityAppearance {
-  city: City
-  events: CityEvent[]
-}
-
-export function cityAppearances(id: string): CityAppearance[] {
-  return citySources
-    .filter((c) => [...c.teachers, ...c.djs, ...c.organisers].some((p) => p.id === id))
-    .map((c) => ({
-      city: c.city,
-      events: c.events.filter(
-        (e) => e.teacherId === id || e.djId === id || e.organizerId === id,
-      ),
-    }))
-}
 
 // Nationality adjective -> country of origin, for bios that state it
 // ("Cuban dancer", "Dominican Bachata artist", "Cuban-born"). Only the
@@ -59,13 +38,10 @@ export function artistOrigin(artist: Teacher): string | null {
 }
 
 /**
- * Where the artist is based now — derived, never invented. In order:
- *   1. A local artist's weekly city (from city data).
- *   2. Stated residence: "Berlin-based" or "based in Berlin".
- * Null if the bio states no residence.
+ * Where the artist is based now — derived, never invented. Stated residence
+ * ("Berlin-based" or "based in Berlin"). Null if the bio states none.
  */
-export function artistResidence(artist: Teacher, cityNames: string[]): string | null {
-  if (cityNames.length) return cityNames[0]
+export function artistResidence(artist: Teacher): string | null {
   const bio = artist.bio || ''
   let m = bio.match(/\b([A-Z][A-Za-zÀ-ÿ]+)-based\b/)
   if (m) return m[1]
@@ -74,10 +50,9 @@ export function artistResidence(artist: Teacher, cityNames: string[]): string | 
   return null
 }
 
-/** Origin + residence for one artist — resolves their city appearances. */
+/** Origin + residence for one artist, read from their bio. */
 export function artistPlaces(artist: Teacher): { origin: string | null; residence: string | null } {
-  const cityNames = cityAppearances(artist.id).map((c) => c.city.name)
-  return { origin: artistOrigin(artist), residence: artistResidence(artist, cityNames) }
+  return { origin: artistOrigin(artist), residence: artistResidence(artist) }
 }
 
 // Place (country or one of our cities) -> its country flag.

@@ -1,5 +1,15 @@
-import { createTRPCClient, httpBatchLink } from '@trpc/client'
+import { createTRPCClient, httpBatchLink, type TRPCLink } from '@trpc/client'
+import { tap } from '@trpc/server/observable'
 import type { AppRouter } from '../../server/trpc'
+import { isPlanMutation, notifyPlanChanged } from '~/lib/planChanged'
+
+// After a mutation that changes the dancer's plan succeeds, tell the plan
+// counts (My plan badge, "in your week" pill) to refetch — RAZ-889.
+const planChangedLink: TRPCLink<AppRouter> = () => ({ op, next }) => {
+  const result = next(op)
+  if (!isPlanMutation(op.type, op.path)) return result
+  return result.pipe(tap({ next: () => notifyPlanChanged() }))
+}
 
 export default defineNuxtPlugin({
   name: 'trpc',
@@ -39,6 +49,7 @@ export default defineNuxtPlugin({
 
     const trpc = createTRPCClient<AppRouter>({
       links: [
+        planChangedLink,
         httpBatchLink({
           url: '/api/trpc',
           headers() {

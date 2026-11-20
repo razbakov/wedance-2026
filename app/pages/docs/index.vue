@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ArrowRight, ArrowUpRight, BarChart3, Bug, Database, Github, GitPullRequest, Landmark, Palette, Scale, Terminal } from 'lucide-vue-next'
 import { componentItems } from '~/lib/design-nav'
-import { CONTRIBUTING_URL, GOVERNANCE_URL, ISSUES_URL, LICENSE_URL, REPO_URL } from '~/lib/docs-nav'
+import { CONTRIBUTING_URL, ISSUES_URL, LICENSE_URL, REPO_URL } from '~/lib/docs-nav'
 import { requestProblemReport } from '~/lib/report-problem'
 
 definePageMeta({ layout: 'docs' })
@@ -105,12 +105,12 @@ const steps = [
             </ul>
           </div>
 
-          <a :href="GOVERNANCE_URL" class="group rounded-2xl border border-border bg-card p-5 transition-colors hover:border-primary/40 hover:bg-accent/40">
+          <NuxtLink to="/docs/organization" class="group rounded-2xl border border-border bg-card p-5 transition-colors hover:border-primary/40 hover:bg-accent/40">
             <Landmark class="size-6 text-primary" aria-hidden="true" />
-            <h3 class="font-display font-bold text-xl mt-3">Governance</h3>
-            <p class="text-sm text-muted-foreground mt-1.5">How the WeDance organisation decides: the org's living docs, on org.wedance.vip.</p>
-            <span class="inline-flex items-center gap-1 text-sm font-bold text-primary mt-3">org.wedance.vip <ArrowUpRight class="size-4" aria-hidden="true" /></span>
-          </a>
+            <h3 class="font-display font-bold text-xl mt-3">How we're organised</h3>
+            <p class="text-sm text-muted-foreground mt-1.5">Why WeDance exists, what we're testing now, how we decide and where you can help.</p>
+            <span class="inline-flex items-center gap-1 text-sm font-bold text-primary mt-3">Open <ArrowRight class="size-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" /></span>
+          </NuxtLink>
 
           <NuxtLink to="/open" class="group rounded-2xl border border-border bg-card p-5 transition-colors hover:border-primary/40 hover:bg-accent/40">
             <BarChart3 class="size-6 text-primary" aria-hidden="true" />

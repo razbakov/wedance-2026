@@ -18,12 +18,12 @@ const examples = [
   { line: 'Pick your next one. Plan the year.', where: '/festivals' },
   { line: 'No partner, no experience, no commitment. See what sticks.', where: 'City taster' },
   { line: 'List your event for free. Ticket it on us.', where: 'Organizer CTA' },
-  { line: 'Going? → Going!', where: 'Every pick button' },
+  { line: '+ My plan → ✓ My plan', where: 'Every pick button' },
 ]
 
 const wordRules = [
   { use: 'dancers, the scene, the locals', avoid: 'users, customers, members' },
-  { use: 'Going? / Going!', avoid: 'Add to cart, RSVP, Subscribe' },
+  { use: '+ My plan / ✓ My plan', avoid: 'Add to cart, RSVP, Subscribe' },
   { use: 'night, social, class, festival', avoid: 'event instance, listing, session' },
   { use: 'not listed here yet', avoid: 'no results found, no data' },
   { use: 'Alösha (with ö)', avoid: 'Alex, Alosha, Alyosha' },

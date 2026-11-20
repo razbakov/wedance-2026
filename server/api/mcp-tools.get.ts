@@ -17,6 +17,7 @@ export default defineEventHandler((event) => {
       scopes: t.scopes,
       business: !!t.business,
       confirm: t.confirm === true ? 'always' : t.confirm ? 'when public' : null,
+      anyAuth: !!t.anyAuth,
       readOnly: !!t.annotations.readOnlyHint,
       destructive: !!t.annotations.destructiveHint,
       openWorld: !!t.annotations.openWorldHint,

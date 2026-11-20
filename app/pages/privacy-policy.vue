@@ -2,7 +2,7 @@
 /**
  * /privacy-policy — GDPR information (Art. 13/14 GDPR).
  * Keep it in step with the code: when a new processor, cookie or data flow is
- * added (see the env vars in server/ and the PostHog section in CLAUDE.md),
+ * added (see the env vars in server/ and docs/analytics/events.md),
  * add it here and bump LEGAL_UPDATED in shared/legal.ts.
  */
 import type { LegalSection } from '~/components/LegalDocument.vue'
@@ -53,7 +53,8 @@ const sections: LegalSection[] = [
     heading: '4. What other people can see',
     items: [
       '<b>Public profile and pages:</b> your handle, name, photo, bio, city, styles and links are public if you set a public handle. Pages of schools, venues, artists and organisers are public.',
-      '<b>Who’s going:</b> when you mark that you are going to an event, other dancers see you only if you turn on sharing for that event. You can turn it off at any time.',
+      '<b>Who’s going:</b> when you mark that you are going to an event, other dancers see you only if you turn on sharing for that event. You can turn it off at any time. The event’s organiser sees the name and photo of everyone who signed up for it (never your email or phone), so they can plan the night.',
+      '<b>Keeping in touch with an organiser:</b> after you answer an event’s poll you can choose “Let <page> keep in touch”. Only then does that page get your name and email, and your phone number if you add one, in its contacts, to tell you about that event and its next ones. “Stop sharing” on the event, or the unsubscribe link in their emails, ends it.',
       '<b>Your plans:</b> your week and festival plans are private unless you share a link to them.',
       '<b>Activity you post:</b> reviews, questions to locals, votes, hangouts, ride shares, roommate searches and gig applications are visible to the people the feature is meant for (for example the organiser who receives your application).',
       '<b>Messages to organisers and venues:</b> booking and event enquiries are forwarded to the page you contact, including your name and email so they can reply.',

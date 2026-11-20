@@ -70,7 +70,7 @@ export const venueAsksRouter = router({
       const rows = await ctx.db.select({
         username: profiles.username, name: profiles.name, photo: profiles.photo, address: profiles.address,
         status: profileInvites.status, request: profileInvites.request, terms: profileInvites.terms, alternative: profileInvites.alternative,
-        message: profileInvites.message, outcome: profileInvites.outcome, respondedAt: profileInvites.respondedAt, createdAt: profileInvites.createdAt,
+        message: profileInvites.message, outcome: profileInvites.outcome, emailConfirmedAt: profileInvites.emailConfirmedAt, respondedAt: profileInvites.respondedAt, createdAt: profileInvites.createdAt,
       }).from(profileInvites).innerJoin(profiles, eq(profiles.id, profileInvites.profileId))
         .where(and(eq(profileInvites.eventId, input.eventId), eq(profileInvites.kind, 'venue')))
         .orderBy(desc(profileInvites.createdAt))

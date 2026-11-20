@@ -9,6 +9,7 @@
 export type OutboundKind =
   | 'ticket' | 'website' | 'instagram' | 'facebook' | 'youtube' | 'tiktok'
   | 'map' | 'whatsapp' | 'telegram' | 'community_group' | 'email' | 'phone' | 'streaming'
+  | 'ai_app'
 
 export interface OutboundLink {
   kind: OutboundKind
@@ -25,6 +26,7 @@ const BY_HOST: Array<[RegExp, OutboundKind]> = [
   [/(^|\.)tiktok\.com$/, 'tiktok'],
   [/(^|\.)wa\.me$|(^|\.)whatsapp\.com$/, 'whatsapp'],
   [/(^|\.)t\.me$|(^|\.)telegram\.me$|(^|\.)telegram\.org$/, 'telegram'],
+  [/(^|\.)chatgpt\.com$|(^|\.)claude\.ai$/, 'ai_app'],
   [/(^|\.)spotify\.com$|(^|\.)soundcloud\.com$|(^|\.)mixcloud\.com$/, 'streaming'],
   [/^maps\.app\.goo\.gl$|^maps\.google\.|^maps\.apple\.com$|(^|\.)openstreetmap\.org$|^goo\.gl$/, 'map'],
   [/(^|\.)tickettailor\.com$|(^|\.)eventbrite\.[a-z.]+$|(^|\.)checkout\.stripe\.com$|(^|\.)pretix\.eu$|(^|\.)eventim\.[a-z.]+$|(^|\.)ticketmaster\.[a-z.]+$|(^|\.)universe\.com$|(^|\.)tito\.io$|(^|\.)ti\.to$/, 'ticket'],

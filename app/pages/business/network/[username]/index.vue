@@ -3,11 +3,12 @@ import { sizedImage, IMG } from '#shared/utils/image'
 /**
  * /business/network/<handle> — edit a profile you manage: details, photos (one is the main
  * photo used on cards and flyers), links (with the business's other Instagram accounts),
- * venue details for venues, its handle, and duplicates to merge into this page.
+ * venue details for venues, its handle, duplicates to merge into this page, and (owners) deleting it.
  */
-import { ExternalLink, Star, Trash2, Check, Users, Palette, Inbox, Globe, Contact, X } from 'lucide-vue-next'
+import { ExternalLink, Star, Trash2, Check, Users, Palette, Inbox, Globe, Contact, X, Rocket } from 'lucide-vue-next'
 import { parseInstagramHandle } from '#shared/utils/instagram'
 import type { VenueDetailsValue } from '~/components/business/BusinessVenueDetails.vue'
+import { venueInfoToForm, venueInfoFromForm } from '#shared/types/venueInfo'
 import type { Room } from '~/components/business/BusinessVenueRooms.vue'
 
 definePageMeta({ layout: 'business' })
@@ -32,7 +33,7 @@ const form = reactive({
   influencer: false,
 })
 // Venues: their details and rooms.
-const venue = reactive<VenueDetailsValue>({ address: '', venueType: '', floorType: '', capacity: null, amenities: [], openingHours: [], floorPlan: null, contact: {} })
+const venue = reactive<VenueDetailsValue>({ address: '', venueType: '', floorType: '', capacity: null, amenities: [], openingHours: [], floorPlan: null, contact: {}, info: venueInfoToForm(null) })
 const rooms = ref<Room[]>([])
 const keptRooms = ref<string[]>([])
 const newPhoto = ref('')
@@ -49,6 +50,15 @@ function socialOf(p: Profile, platform: string) {
 // New handle: the editor moves to its new address (the old one now redirects).
 async function onRenamed(handle: string) {
   await navigateTo(`/business/network/${handle}`, { replace: true })
+}
+
+// Deleted: back to Business home, where the page is gone from the list.
+const businessProfile = useBusinessProfile()
+const profilesVersion = useBusinessProfilesVersion()
+async function onDeleted(gone: string) {
+  if (businessProfile.value === gone) businessProfile.value = ''
+  profilesVersion.value++
+  await navigateTo('/business', { replace: true })
 }
 
 // quiet: refresh in place (after a merge) without unmounting the page.
@@ -70,6 +80,7 @@ async function load(quiet = false) {
     Object.assign(venue, {
       address: p.address, venueType: p.venueType, floorType: p.floorType, capacity: p.capacity,
       amenities: [...p.amenities], openingHours: p.openingHours.map(h => ({ ...h })), floorPlan: p.floorPlan, contact: { ...p.contact },
+      info: venueInfoToForm(p.venueInfo),
     })
     rooms.value = p.type === 'venue'
       ? (await $trpc.business.spaces.query({ username: username.value })).map((r: any) => ({ id: r.id, name: r.name, capacity: r.capacity, floorType: r.floorType ?? '', priceInfo: r.priceInfo ?? '', description: r.description ?? '', imageUrl: r.imageUrl }))
@@ -144,6 +155,7 @@ async function save() {
         address: venue.address, floorType: venue.floorType, venueType: venue.venueType,
         capacity: venue.capacity || null, amenities: venue.amenities, openingHours: venue.openingHours.filter(h => h.hours.trim()),
         floorPlan: venue.floorPlan || null,
+        venueInfo: venueInfoFromForm(venue.info),
         contact: Object.fromEntries(Object.entries(venue.contact).map(([k, v]) => [k, String(v ?? '').trim()]).filter(([, v]) => v)),
       } : {}),
     })
@@ -190,8 +202,13 @@ const photoHint = computed(() => loaded.value?.type === 'artist'
         :description="`@${loaded.username}`"
         :back="{ to: '/business/network', label: 'Network' }"
       >
+        <!-- Phones only: from sm up these are in the sidebar's page menu (layouts/business.vue). -->
+        <div class="contents sm:hidden">
         <Button v-if="loaded.type !== 'organizer'" variant="outline-pill" size="pill-sm" as-child>
           <NuxtLink :to="`/business/network/${loaded.username}/bookings`"><Inbox /> Bookings</NuxtLink>
+        </Button>
+        <Button variant="outline-pill" size="pill-sm" as-child>
+          <NuxtLink :to="`/business/network/${loaded.username}/launch`"><Rocket /> Launch</NuxtLink>
         </Button>
         <Button variant="outline-pill" size="pill-sm" as-child>
           <NuxtLink :to="`/business/network/${loaded.username}/team`"><Users /> Team</NuxtLink>
@@ -208,7 +225,10 @@ const photoHint = computed(() => loaded.value?.type === 'artist'
         <Button variant="outline-pill" size="pill-sm" as-child>
           <NuxtLink :to="`/@${loaded.username}`" target="_blank"><ExternalLink /> View page</NuxtLink>
         </Button>
+        </div>
       </AdminPageHeader>
+
+      <BusinessCityLink :username="loaded.username" class="mt-4" />
 
       <AdminState v-if="error" kind="error" :message="error" />
 
@@ -308,6 +328,8 @@ const photoHint = computed(() => loaded.value?.type === 'artist'
       <BusinessHandle :username="loaded.username" :instagram="socialOf(loaded, 'instagram')" class="mt-8" @renamed="onRenamed" />
 
       <BusinessDuplicates :username="loaded.username" :name="loaded.name" class="mt-8" @merged="load(true)" />
+
+      <BusinessDeletePage v-if="loaded.isOwner" :username="loaded.username" class="mt-8" @deleted="onDeleted" />
     </template>
   </div>
 </template>

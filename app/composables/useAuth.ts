@@ -26,6 +26,9 @@ const _role = ref<string | null>(null)
 const _intent = ref<string | null>(null)
 const _onboardedAt = ref<string | null>(null)
 const _justRegistered = ref(false)
+// auth.me responses applied in order. A slow one from onboarding must not
+// land after Settings saved a city and put the empty profile back.
+let authRead = 0
 
 // --- localStorage auth cache ---
 // Caches essential auth state so page refreshes show the signed-in UI
@@ -169,8 +172,10 @@ export function useAuth() {
 
   // Server round-trip to validate the session and refresh auth state.
   async function _validateSession(): Promise<void> {
+    const read = ++authRead
     try {
       const me = await $trpc.auth.me.query()
+      if (read !== authRead) return
       if (me) {
         _applyMe(me)
       } else {
@@ -259,6 +264,16 @@ export function useAuth() {
     return result
   }
 
+  // "That's me" in the email confirming an answer to an organizer's invite:
+  // proves the address and signs them in (creating the account the first time).
+  async function confirmInviteEmail(token: string, that: string) {
+    const result = await $trpc.artistInvites.confirmEmail.mutate({ token, that })
+    setSession(result)
+    useTrack().track(result.isNew ? 'signup_completed' : 'login_completed', { method: 'invite_email' })
+    useTrack().track('invite_email_confirmed', { owner: result.owner, new_account: result.isNew })
+    return result
+  }
+
   async function resetPassword(token: string, newPassword: string) {
     const result = await $trpc.auth.resetPassword.mutate({ token, newPassword })
     setSession(result)
@@ -303,11 +318,11 @@ export function useAuth() {
   // Re-pull the profile after a mutation that changes it (e.g. onboarding,
   // profile edit). Also refreshes name + username so the header reflects edits.
   async function refreshMe() {
+    const read = ++authRead
     try {
       const me = await $trpc.auth.me.query()
-      if (me) {
-        _applyMe(me)
-      }
+      if (read !== authRead || !me) return
+      _applyMe(me)
     } catch {
       // best-effort refresh; leave existing state on failure
     }
@@ -442,6 +457,7 @@ export function useAuth() {
     refreshMe,
     requestMagicLink,
     verifyMagicLink,
+    confirmInviteEmail,
     resetPassword,
     signOut,
   }

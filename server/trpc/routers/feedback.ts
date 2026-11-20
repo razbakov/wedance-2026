@@ -1,8 +1,10 @@
 import { z } from 'zod'
+import { TRPCError } from '@trpc/server'
 import { eq } from 'drizzle-orm'
 import { router, publicProcedure, protectedProcedure } from '../trpc'
 import { dancers } from '../../database/schema'
 import { trackServer } from '../../utils/posthog'
+import { buildBugIssue, redactBugReport, SUPPORT_EMAIL, SUPPORT_PROJECT_ID } from '../../mcp/bugReport'
 
 /**
  * Feedback router.
@@ -16,9 +18,14 @@ import { trackServer } from '../../utils/posthog'
  *   address to its Sentry feedback.
  *
  * The "Talk to us" widget itself (bug reports + ideas, app/components/
- * ReportProblem.vue) submits to Sentry User Feedback (app/lib/sentry-feedback.ts),
- * through our own origin (server/api/relay.post.ts). Only when Sentry fails does
- * it fall back to server/api/report.post.ts → `fileTriageIssue` below.
+ * ReportProblem.vue) submits to Sentry User Feedback (app/lib/sentry-feedback.ts)
+ * through our own origin (server/api/m.post.ts), with the screenshot as an
+ * attachment and the Session Replay linked. When that delivery fails, it falls
+ * back to server/api/report.post.ts → `fileTriageIssue` below.
+ *
+ * - `reportBug` — the MCP `report_bug` tool. A signed-in connection files a
+ *   Linear issue in WeDance Support after the user confirms the preview.
+ *   Arguments are redacted again here.
  */
 
 // Wedance (WED) team — same id wedance-org/api/comment.js files objections into.
@@ -132,6 +139,61 @@ export const feedbackRouter = router({
 
       trackServer(ctx, 'event_inquiry_submitted', { event_type: input.eventType || null, city: input.city || null })
       return { ok: d.issueCreate.success }
+    }),
+
+  reportBug: protectedProcedure
+    .input(z.object({
+      message: z.string().trim().min(10).max(4000),
+      tool: z.string().trim().max(80).nullable().optional(),
+      error: z.string().max(4000).nullable().optional(),
+      arguments: z.record(z.string(), z.unknown()).nullable().optional(),
+      contactEmail: z.string().trim().email().max(200).nullable().optional(),
+      clientApp: z.string().max(40).nullable().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const report = redactBugReport({
+        message: input.message,
+        tool: input.tool,
+        error: input.error,
+        arguments: input.arguments,
+        contactEmail: input.contactEmail,
+      })
+      let reporter: string | null = null
+      try {
+        const [d] = await ctx.db
+          .select({ username: dancers.username })
+          .from(dancers)
+          .where(eq(dancers.id, ctx.dancerId))
+        reporter = d?.username ?? null
+      } catch { /* the report still files without a handle */ }
+      const issue = buildBugIssue({ ...report, reporter, clientApp: input.clientApp ?? null })
+      try {
+        const [labelId, stateId] = await Promise.all([ensureLabelId(), triageStateId()])
+        const issueInput: Record<string, unknown> = {
+          teamId: TEAM_ID,
+          projectId: issue.projectId || SUPPORT_PROJECT_ID,
+          title: issue.title,
+          description: issue.description,
+          priority: 3,
+        }
+        if (labelId) issueInput.labelIds = [labelId]
+        if (stateId) issueInput.stateId = stateId
+        const d = await linear<{ issueCreate: { success: boolean; issue: { identifier: string } } }>(
+          `mutation($i:IssueCreateInput!){ issueCreate(input:$i){ success issue{ identifier } } }`,
+          { i: issueInput },
+        )
+        return { ok: d.issueCreate.success, reference: d.issueCreate.issue.identifier }
+      } catch (e) {
+        const msg = (e as Error)?.message || ''
+        console.error('[feedback] report_bug failed', msg.slice(0, 500))
+        const down = /LINEAR_API_KEY/.test(msg)
+        throw new TRPCError({
+          code: down ? 'PRECONDITION_FAILED' : 'INTERNAL_SERVER_ERROR',
+          message: down
+            ? `Bug reports are not being filed right now. Email ${SUPPORT_EMAIL} and include the tool name and the error.`
+            : `Could not file the report. Email ${SUPPORT_EMAIL} with what happened.`,
+        })
+      }
     }),
 
   reporter: protectedProcedure.query(async ({ ctx }) => {

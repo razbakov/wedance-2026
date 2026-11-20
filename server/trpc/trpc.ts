@@ -1,10 +1,18 @@
 import { initTRPC, TRPCError } from '@trpc/server'
 import type { Context } from './context'
+import { formatTrpcError } from './formatError'
 import { withAi } from '../utils/aiUsage'
 import { assertScope, checkProcedureScope } from './scopes'
 import type { Scope } from '../oauth/config'
 
-const t = initTRPC.context<Context>().create()
+// Internal errors (DB failures, bugs) never reach the browser as-is: the user
+// gets a friendly message with a short reference, the details go to the
+// server log and Sentry under that reference (RAZ-1075).
+const t = initTRPC.context<Context>().create({
+  errorFormatter({ shape, error, path }) {
+    return formatTrpcError({ shape, error, path })
+  },
+})
 
 export const router = t.router
 // Every procedure names itself and its caller for the AI usage log (an AI call

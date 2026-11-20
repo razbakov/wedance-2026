@@ -7,6 +7,8 @@ import { sizedImage, IMG } from '#shared/utils/image'
  * "People you work with" comes from shared events (businessNetwork.list), and
  * my team curates it: add anyone by search, hide a contact, restore it. It
  * follows the sidebar profile switcher: one page, or all pages I manage.
+ * With one page selected the whole page is that page's network; "Your pages"
+ * and "Your requests" (account-level) show only under "All pages".
  */
 import { ArrowRight, Search, Plus, EyeOff, Undo2, X, CalendarDays, UserPlus } from 'lucide-vue-next'
 
@@ -52,7 +54,12 @@ watch(businessProfile, loadNetwork)
 
 const typeLabel: Record<string, string> = { artist: 'Artist', venue: 'Venue', organizer: 'Organizer', promoter: 'Promoter' }
 
-// The switcher may point at one page; "Your pages" always lists them all.
+// The switcher may point at one page (a stale cookie for a page I no longer
+// manage counts as "All pages").
+const selectedPage = computed(() => (data.value?.managed ?? []).find(p => p.username === businessProfile.value) ?? null)
+const description = computed(() => selectedPage.value
+  ? `The artists, venues and organizers ${selectedPage.value.name} works with.`
+  : 'Your pages, and the artists, venues and organizers you work with.')
 const pageNames = computed(() => new Map((data.value?.managed ?? []).map(p => [p.username, p.name])))
 const multiplePages = computed(() => (net.value?.pages.length ?? 0) > 1)
 
@@ -156,7 +163,7 @@ async function add(username: string) {
 
 <template>
   <div>
-    <AdminPageHeader eyebrow="Business" title="Network" description="Your pages, and the artists, venues and organizers you work with.">
+    <AdminPageHeader eyebrow="Business" title="Network" :description="description">
       <Button variant="outline-pill" size="pill-sm" as-child>
         <NuxtLink to="/business/claim"><Search /> Find my page</NuxtLink>
       </Button>
@@ -176,7 +183,7 @@ async function add(username: string) {
         hint="It may already be here: WeDance lists thousands of artists, venues and organizers. Find yours and claim it, or create a new one."
       />
 
-      <section v-if="data.managed.length" class="mt-6">
+      <section v-if="data.managed.length && !selectedPage" class="mt-6">
         <h2 class="text-eyebrow font-bold uppercase tracking-[0.3em] text-secondary">Your pages</h2>
         <div class="mt-3 grid gap-3">
           <NuxtLink
@@ -200,7 +207,7 @@ async function add(username: string) {
       </section>
 
       <!-- People you work with (RAZ-408) -->
-      <section v-if="data.managed.length" class="mt-10">
+      <section v-if="data.managed.length" :class="selectedPage ? 'mt-6' : 'mt-10'">
         <div class="flex flex-wrap items-center gap-3">
           <h2 class="text-eyebrow font-bold uppercase tracking-[0.3em] text-secondary">People you work with</h2>
           <Button v-if="!adding" variant="outline-pill" size="pill-sm" class="ml-auto" @click="openAdd"><UserPlus /> Add</Button>
@@ -331,7 +338,7 @@ async function add(username: string) {
         </template>
       </section>
 
-      <section v-if="data.claims.length" class="mt-10">
+      <section v-if="data.claims.length && !selectedPage" class="mt-10">
         <h2 class="text-eyebrow font-bold uppercase tracking-[0.3em] text-secondary">Your requests</h2>
         <div class="mt-3 grid grid-cols-[minmax(0,1fr)] gap-2">
           <div v-for="c in data.claims" :key="c.id" class="rounded-2xl border bg-card p-4">

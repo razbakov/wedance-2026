@@ -2,6 +2,7 @@
 import { Menu, X, ArrowUpRight, Github } from 'lucide-vue-next'
 import type { DocSection } from '~/lib/design-nav'
 import { docsSectionFor, docsTabs, isExternal, REPO_URL, SITE_URL } from '~/lib/docs-nav'
+import { requestProblemReport } from '~/lib/report-problem'
 
 /**
  * Shared shell for the whole /docs tree (hub, /docs/design, /docs/architecture):
@@ -202,5 +203,12 @@ const isActive = (to: string) => activeTo.value === to
         </div>
       </aside>
     </div>
+
+    <footer class="border-t border-border">
+      <div class="max-w-[1400px] mx-auto px-4 py-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
+        <button type="button" class="hover:underline" @click="requestProblemReport">Report a problem</button>
+        <a href="mailto:hello@wedance.vip" class="hover:underline">hello@wedance.vip</a>
+      </div>
+    </footer>
   </div>
 </template>

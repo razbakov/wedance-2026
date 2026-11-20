@@ -1,23 +1,10 @@
 import { and, asc, eq, gte, inArray, or, sql } from 'drizzle-orm'
 import { events, profiles } from '../database/schema'
 import { eventPath } from '../../shared/utils/eventSlug'
+import type { SiteEvent } from '../../shared/types/profileSite'
 
-export type ProfileFeedEvent = {
-  id: string
-  name: string
-  type: string | null
-  startDate: string
-  endDate: string | null
-  timezone: string | null
-  venueName: string | null
-  venueAddress: string | null
-  price: string
-  cover: string | null
-  styles: string[]
-  artists: { handle: string; name: string }[]
-  /** The event on WeDance: where people sign up ("Going") or buy a ticket. */
-  url: string
-}
+/** One event of the feed: the contract in shared/types/profileSite.ts (`SiteEvent`). */
+export type ProfileFeedEvent = SiteEvent
 
 export type FeedProfile = { id: string; username: string; name: string }
 
@@ -33,7 +20,8 @@ export async function profileByHandle(db: any, handle: string): Promise<FeedProf
 /**
  * A profile's upcoming events: the ones it runs (host), organizes or is in the
  * line-up of (an artist teaching or playing at someone else's event), published
- * and not over, soonest first, starting within `days`. Renaming a handle
+ * and not over, soonest first, starting within `days`. A cancelled event stays
+ * in with `cancelled: true` and its reason, so the site can cross it out. Renaming a handle
  * rewrites line-ups (moveHandleRefs), so the current handle is enough.
  */
 export async function profileFeedEvents(db: any, profile: FeedProfile, days = 60): Promise<ProfileFeedEvent[]> {
@@ -42,6 +30,7 @@ export async function profileFeedEvents(db: any, profile: FeedProfile, days = 60
     id: events.id, name: events.name, type: events.type, startDate: events.startDate, endDate: events.endDate,
     timezone: events.timezone, venueName: events.venueName, venueAddress: events.venueAddress, price: events.price,
     cover: events.cover, styles: events.styles, artists: events.artists,
+    cancelledAt: events.cancelledAt, cancelReason: events.cancelReason,
   })
     .from(events)
     .where(and(
@@ -77,5 +66,7 @@ export async function profileFeedEvents(db: any, profile: FeedProfile, days = 60
     styles: r.styles ?? [],
     artists: (r.artists ?? []).map((h: string) => ({ handle: h, name: names.get(h) ?? h })),
     url: `${site}${eventPath(r)}`,
+    cancelled: !!r.cancelledAt,
+    cancelReason: r.cancelledAt ? (r.cancelReason || null) : null,
   }))
 }

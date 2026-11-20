@@ -23,6 +23,8 @@ describe('classifyOutbound', () => {
     ['https://www.google.com/search?q=x', 'website', 'google.com'],
     ['https://www.tickettailor.com/events/x/123', 'ticket', 'tickettailor.com'],
     ['https://www.eventbrite.de/e/x', 'ticket', 'eventbrite.de'],
+    ['https://chatgpt.com/plugins/plugin_x', 'ai_app', 'chatgpt.com'],
+    ['https://claude.ai/new', 'ai_app', 'claude.ai'],
     ['https://youtu.be/abc', 'youtube', 'youtu.be'],
     ['https://salsa-school.de/kurse?id=1', 'website', 'salsa-school.de'],
   ])('%s → %s', (href, kind, host) => {

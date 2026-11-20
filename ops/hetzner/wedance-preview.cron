@@ -1,0 +1,2 @@
+# /etc/cron.d/wedance-preview — refresh the production copy PR previews start from (RAZ-886).
+30 3 * * * root /usr/local/bin/wedance-preview seed >> /var/log/wedance-preview-seed.log 2>&1

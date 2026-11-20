@@ -23,7 +23,6 @@ export const TAILWIND_CSS = 'app/assets/css/tailwind.css'
 /** Paths (posix, relative to repo root) that may hold literal colours/fonts. */
 const EXEMPT: RegExp[] = [
   /^app\/pages\/sketches\//, // frozen design explorations
-  /^app\/data\/mock-[^/]*\.ts$/, // festival accents are content
   /^app\/lib\/brand\.ts$/, // the JS mirror of the tokens
   /^app\/assets\/css\/tailwind\.css$/, // where tokens are defined
   /\.test\.ts$/,
@@ -88,7 +87,9 @@ export function scanFontFamily(files = listAppFiles()) {
 }
 
 const GFONTS_RE = /https:\/\/fonts\.googleapis\.com\/css2?\?[^'"`\s)]+/g
-export const ALLOWED_GOOGLE_FAMILIES = ['Playfair Display', 'Caveat']
+// Anton is back (2026-11-13) for one surface only: the Share-my-weekend Instagram story, a poster drawn
+// on a canvas (app/lib/weekendStory.ts). Never in the UI. Browsers fetch it only where it is used.
+export const ALLOWED_GOOGLE_FAMILIES = ['Playfair Display', 'Caveat', 'Anton']
 
 export function scanGoogleFonts(files = [...listAppFiles(), 'nuxt.config.ts']) {
   const hits: Hit[] = []

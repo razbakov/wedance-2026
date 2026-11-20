@@ -7,7 +7,7 @@ import { grantKey, hit, ipKey, LIMITS } from '../oauth/rateLimit'
 import { buildMcpServer } from './server'
 import { mcpCaller } from './caller'
 import { useDb } from '../utils/db'
-import { visibleTools } from './tools'
+import { listingFrom, visibleTools } from './tools'
 import { listedTools, readListedTools, recordListedTools, rpcMethods } from './version'
 
 /**
@@ -36,7 +36,7 @@ async function serve(event: H3Event, req: Request, ctx: Context, origin: string)
   const grantId = ctx.oauthGrantId
   const previous = grantId && methods.some(m => m === 'tools/call' || m === 'tools/list') ? await readListedTools(ctx.db, grantId) : null
   if (grantId && methods.includes('tools/list')) {
-    const now = listedTools(visibleTools({ scopes: ctx.scopes ?? [], grantedProfileIds: ctx.grantedProfileIds ?? [], isAdmin: ctx.isAdmin }))
+    const now = listedTools(visibleTools(listingFrom(ctx)))
     event.waitUntil(recordListedTools(ctx.db, grantId, now, previous))
   }
   const server = buildMcpServer(ctx, origin, mcpCaller(event, ctx.oauthClientId), previous)

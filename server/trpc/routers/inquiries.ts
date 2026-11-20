@@ -4,6 +4,7 @@ import { TRPCError } from '@trpc/server'
 import { router, publicProcedure, protectedProcedure } from '../trpc'
 import { profiles, profileMembers, dancers, bookingInquiries, events } from '../../database/schema'
 import { inquirySchema } from '../../../shared/utils/bookingInquiry'
+import { pickLineupEvents } from '../../../shared/utils/lineupPicker'
 import { sendBookingInquiryEmail } from '../../utils/email'
 import { requireMember } from './business'
 import { requireEventManager } from './businessEvents'
@@ -26,22 +27,27 @@ const FORWARD_TO = 'hello@wedance.vip'
 
 export const inquiriesRouter = router({
   // For a signed-in asker: their name and email, the pages they run (to send
-  // as), and their upcoming events (to add the artist to).
+  // as), and a few of their upcoming events to add the artist to (RAZ-964):
+  // only those sharing one of the artist's styles, one row per series, pages
+  // they own first (shared/utils/lineupPicker.ts).
   me: protectedProcedure.input(z.object({ handle: z.string().min(1).max(200) })).query(async ({ ctx, input }) => {
     const [d] = await ctx.db.select({ name: dancers.name, email: dancers.email }).from(dancers).where(eq(dancers.id, ctx.dancerId))
-    const mine = await ctx.db.select({ id: profiles.id, username: profiles.username, name: profiles.name, type: profiles.type, city: profiles.city })
+    const mine = await ctx.db.select({ id: profiles.id, username: profiles.username, name: profiles.name, type: profiles.type, city: profiles.city, role: profileMembers.role })
       .from(profileMembers).innerJoin(profiles, eq(profiles.id, profileMembers.profileId))
       .where(and(eq(profileMembers.dancerId, ctx.dancerId), ne(profiles.username, input.handle)))
+    const [artist] = await ctx.db.select({ styles: profiles.styles }).from(profiles).where(eq(profiles.username, input.handle))
+    const roleOf = new Map(mine.map((p: any) => [p.id, p.role]))
     const evs = mine.length
-      ? await ctx.db.select({ id: events.id, name: events.name, startDate: events.startDate, timezone: events.timezone, artists: events.artists, host: profiles.name })
+      ? await ctx.db.select({ id: events.id, name: events.name, startDate: events.startDate, timezone: events.timezone, artists: events.artists, styles: events.styles, seriesId: events.seriesId, hostProfileId: events.hostProfileId, host: profiles.name })
         .from(events).innerJoin(profiles, eq(profiles.id, events.hostProfileId))
         .where(and(inArray(events.hostProfileId, mine.map((p: any) => p.id)), eq(events.archived, false), gte(events.startDate, new Date())))
-        .orderBy(asc(events.startDate)).limit(20)
+        .orderBy(asc(events.startDate)).limit(200)
       : []
+    const picked = pickLineupEvents(evs.map((e: any) => ({ ...e, role: roleOf.get(e.hostProfileId) })), artist?.styles ?? [])
     return {
       name: d?.name ?? '', email: d?.email ?? '',
-      profiles: mine.map(({ id: _id, ...p }: any) => p),
-      events: evs.map(({ artists, ...e }: any) => ({ ...e, inLineup: (artists ?? []).includes(input.handle) })),
+      profiles: mine.map(({ id: _id, role: _role, ...p }: any) => p),
+      events: picked.map(({ artists, styles: _s, hostProfileId: _h, role: _r, seriesId, ...e }: any) => ({ ...e, series: !!seriesId, inLineup: (artists ?? []).includes(input.handle) })),
     }
   }),
 

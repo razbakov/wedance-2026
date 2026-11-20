@@ -5,6 +5,7 @@ import {
   ChangePasswordSchema,
   CommunityGroupSchema,
   deleteAccountSchema,
+  EventLimitsSchema,
   FestivalBasicsSchema,
   GigSchema,
   GiveawaySchema,
@@ -19,6 +20,7 @@ import {
   VideoSubmissionSchema,
   validateForm,
 } from './index'
+import { EVENT_ARTISTS_MAX, PASS_DESCRIPTION_MAX, PRACTICAL_INFO_LINE_MAX } from '../utils/eventLimits'
 
 function errorOf(result: ReturnType<typeof validateForm>) {
   return result.success ? null : result.error
@@ -201,12 +203,14 @@ describe('date-window schemas', () => {
     expect(validateForm(GiveawaySchema, { ...giveaway, endsAt: '2026-05-02' }).success).toBe(true)
   })
 
-  it('splits community group styles', () => {
-    const result = validateForm(CommunityGroupSchema, {
-      citySlug: 'munich', name: 'Salsa MUC', platform: 'whatsapp', inviteUrl: 'https://chat.whatsapp.com/x',
-      styles: 'Salsa, Bachata,', source: '', verified: false,
-    })
+  it('takes community group styles from the picker and needs a picked city', () => {
+    const group = {
+      citySlug: 'munich', name: 'Salsa MUC', platform: 'whatsapp' as const, inviteUrl: 'https://chat.whatsapp.com/x',
+      styles: ['Salsa', 'Bachata'], source: '', verified: false,
+    }
+    const result = validateForm(CommunityGroupSchema, group)
     expect(result.success && result.data.styles).toEqual(['Salsa', 'Bachata'])
+    expect(errorOf(validateForm(CommunityGroupSchema, { ...group, citySlug: '' }))).toBe('Pick the city.')
   })
 })
 
@@ -239,5 +243,22 @@ describe('RenameHandleSchema', () => {
     expect(errorOf(validateForm(RenameHandleSchema, { handle: ' ' }))).toBe('Pick a handle.')
     const r = validateForm(RenameHandleSchema, { handle: 'Salsa_Munich' })
     expect(r.success && r.data.handle).toBe('salsa_munich')
+  })
+})
+
+describe('EventLimitsSchema (RAZ-991)', () => {
+  it('accepts a real festival and flags each too-long row by its path', () => {
+    const ok = validateForm(EventLimitsSchema, { artists: Array.from({ length: 46 }, (_, i) => `a${i}`), festival: { practicalInfo: ['x'.repeat(343)], passes: [] } })
+    expect(ok.success).toBe(true)
+    const bad = validateForm(EventLimitsSchema, { artists: [], festival: { practicalInfo: ['ok', 'x'.repeat(PRACTICAL_INFO_LINE_MAX + 1)], passes: [{ description: 'y'.repeat(PASS_DESCRIPTION_MAX + 1) }] } })
+    expect(bad.success).toBe(false)
+    if (bad.success) return
+    expect(Object.keys(bad.fieldErrors)).toEqual(['festival.practicalInfo.1', 'festival.passes.0.description'])
+  })
+
+  it('caps the line-up and allows an event without festival details', () => {
+    expect(validateForm(EventLimitsSchema, { artists: [], festival: null }).success).toBe(true)
+    const r = validateForm(EventLimitsSchema, { artists: Array.from({ length: EVENT_ARTISTS_MAX + 1 }, (_, i) => `a${i}`), festival: null })
+    expect(r.success ? null : r.fieldErrors.artists).toMatch(/line-up/)
   })
 })

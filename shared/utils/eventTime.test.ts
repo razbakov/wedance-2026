@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { eventLocalDate, eventLocalTime, eventLocalWeekday, formatEventWhen } from './eventTime'
+import { eventEndsAt, eventLocalDate, eventLocalTime, eventLocalWeekday, eventPhase, formatEventWhen } from './eventTime'
 
 describe('eventTime', () => {
   // 2026-10-10 18:00Z = 20:00 CEST in Munich
@@ -34,9 +34,52 @@ describe('eventTime', () => {
 
 describe('daysUntil for event datetimes', async () => {
   const { daysUntil } = await import('./festivalDateFormatter')
-  it('reads "Today" for an event later today, "Past" once started', () => {
-    const later = new Date(Date.now() + 60_000)
-    if (later.getDate() === new Date().getDate()) expect(daysUntil(later.toISOString())).toBe('Today')
-    expect(daysUntil(new Date(Date.now() - 60_000).toISOString())).toBe('Past')
+  // Zouk Munich Weekender: Fri 13 Nov 19:00 → Sun 15 Nov 23:00, Munich (CET = UTC+1).
+  const start = '2026-11-13T18:00:00.000Z'
+  const end = '2026-11-15T22:00:00.000Z'
+  const at = (iso: string) => new Date(iso)
+
+  it('reads "Today" for an event later today', () => {
+    expect(daysUntil(start, 'Europe/Berlin', end, at('2026-11-13T09:00:00Z'))).toBe('Today')
+    expect(daysUntil(start, 'Europe/Berlin', end, at('2026-11-12T09:00:00Z'))).toBe('Tomorrow')
+  })
+
+  it('a running weekender is not "Past" (RAZ-893)', () => {
+    expect(daysUntil(start, 'Europe/Berlin', end, at('2026-11-13T20:00:00Z'))).toBe('Today')
+    expect(daysUntil(start, 'Europe/Berlin', end, at('2026-11-14T12:00:00Z'))).toBe('On now')
+    expect(daysUntil(start, 'Europe/Berlin', end, at('2026-11-15T21:59:00Z'))).toBe('On now')
+    expect(daysUntil(start, 'Europe/Berlin', end, at('2026-11-15T22:01:00Z'))).toBe('Past')
+  })
+
+  it('date-only festivals run to the end of their last day in the event zone', () => {
+    expect(daysUntil('2026-11-13', 'Europe/Berlin', '2026-11-15', at('2026-11-14T12:00:00Z'))).toBe('On now')
+    // 23:30 Munich on the 15th = 22:30Z, still on; 00:30 on the 16th = 23:30Z, over.
+    expect(daysUntil('2026-11-13', 'Europe/Berlin', '2026-11-15', at('2026-11-15T22:30:00Z'))).toBe('On now')
+    expect(daysUntil('2026-11-13', 'Europe/Berlin', '2026-11-15', at('2026-11-15T23:30:00Z'))).toBe('Past')
+  })
+
+  it('without an end, an event runs to the end of its start day', () => {
+    expect(daysUntil(start, 'Europe/Berlin', null, at('2026-11-13T22:00:00Z'))).toBe('Today')
+    expect(daysUntil(start, 'Europe/Berlin', null, at('2026-11-13T23:30:00Z'))).toBe('Past')
+  })
+})
+
+describe('eventPhase / eventEndsAt', () => {
+  const start = '2026-11-13T18:00:00.000Z'
+  it('is upcoming, on, then past — decided by the end, not the start', () => {
+    const end = '2026-11-15T22:00:00.000Z'
+    expect(eventPhase(start, end, 'Europe/Berlin', new Date('2026-11-13T17:00:00Z'))).toBe('upcoming')
+    expect(eventPhase(start, end, 'Europe/Berlin', new Date('2026-11-14T12:00:00Z'))).toBe('on')
+    expect(eventPhase(start, end, 'Europe/Berlin', new Date('2026-11-16T00:00:00Z'))).toBe('past')
+  })
+
+  it('falls back to the end of the start day in the event zone', () => {
+    // Next Munich midnight after Fri 19:00 = Sat 00:00 CET = Fri 23:00Z
+    expect(eventEndsAt(start, null, 'Europe/Berlin').toISOString()).toBe('2026-11-13T23:00:00.000Z')
+    // An end at or before the start is ignored
+    expect(eventEndsAt(start, start, 'Europe/Berlin').toISOString()).toBe('2026-11-13T23:00:00.000Z')
+    // A date-only end (the event page fills it from the start day) = that whole day
+    expect(eventEndsAt(start, '2026-11-13', 'Europe/Berlin').toISOString()).toBe('2026-11-13T23:00:00.000Z')
+    expect(eventEndsAt(start, null, 'America/New_York').toISOString()).toBe('2026-11-14T05:00:00.000Z')
   })
 })

@@ -120,6 +120,25 @@ describe.skipIf(!DATABASE_URL)('businessEvents router', () => {
     expect(copy.festival.key).toBe(copy.slug)
   })
 
+  it('copies an event as a draft to a new date, optionally weekly (RAZ-939)', async () => {
+    const { upcoming } = await caller(owner).businessEvents.list({ profile: orgHandle })
+    const src = upcoming.find((e: any) => e.name === `${tag} Thursday`)!
+    const target = addDays(baseDate, 21)
+    const one = await caller(owner).businessEvents.copy({ id: src.id, date: target })
+    expect(one.created).toHaveLength(1)
+    expect(one.seriesId).toBeNull()
+    const copy = await caller(owner).businessEvents.get({ id: one.id })
+    expect(copy).toMatchObject({ date: target, startTime: '20:00', published: false, name: `${tag} Thursday`, city: 'Munich' })
+    const series = await caller(owner).businessEvents.copy({ id: src.id, date: addDays(baseDate, 28), repeatWeeks: 2 })
+    expect(series.created.map((c: any) => c.date)).toEqual([addDays(baseDate, 28), addDays(baseDate, 35), addDays(baseDate, 42)])
+    const rows = await db.select().from(schema.events).where(inArray(schema.events.id, series.created.map((c: any) => c.id)))
+    for (const r of rows) {
+      expect(r.published).toBe(false)
+      expect(r.seriesId).toBe(series.seriesId)
+    }
+    await expect(caller(stranger).businessEvents.copy({ id: src.id, date: target })).rejects.toThrow('You don’t manage this event.')
+  })
+
   it('adds an artist from an Instagram link once, then reuses them', async () => {
     const ig = `${tag.replace(/-/g, '_')}_dj`.slice(0, 30)
     const a = await caller(owner).businessEvents.addFromInstagram({ instagram: `https://www.instagram.com/${ig}/`, type: 'artist' })

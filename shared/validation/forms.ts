@@ -4,8 +4,11 @@
  * the server would reject, with a readable message instead of a zod dump.
  */
 import * as v from 'valibot'
+import { inviteUrlError } from '../utils/communityGroups'
 import { parseInstagramLink } from '../utils/instagram'
 import { DANCE_LEVELS } from '../utils/styleLevelMix'
+import { MAILING_BODY_MAX, MAILING_SUBJECT_MAX } from '../utils/contactMailing'
+import { EVENT_ARTISTS_MAX, PASS_DESCRIPTION_MAX, PRACTICAL_INFO_LINE_MAX, PRACTICAL_INFO_MAX } from '../utils/eventLimits'
 import {
   DANCE_ROLES,
   commaList,
@@ -46,6 +49,34 @@ export const RecoverySchema = v.object({
 /** Event poll (RAZ-718): the answer already counts, the email only confirms it. */
 export const RsvpEmailSchema = v.object({
   email: email(),
+})
+
+// rsvp.shareContact — "Let <page> keep in touch" (phone ≤ 40, CONTACT_PHONE_MAX).
+export const RsvpContactSchema = v.object({
+  phone: optionalText(40, 'Keep the number under 40 characters.'),
+})
+
+// rsvp.signUp — the contact step of signing up for a class (RAZ-995). Signed out: name, email, phone;
+// signed in: just the phone (and only when the account has none). Limits mirror the zod input.
+// The phone is required for classes and anything paid (shared/utils/eventSignup.ts signupNeedsPhone).
+const signupPhone = (required: boolean) => v.pipe(
+  v.string(),
+  v.trim(),
+  v.maxLength(40, 'Keep the number under 40 characters.'),
+  v.check(s => (!required && !s) || s.replace(/\D/g, '').length >= 7, required ? 'Enter your phone, so the organiser can reach you about this event.' : 'Enter a full phone number.'),
+)
+export const signupGuestSchema = (phoneRequired: boolean) => v.object({
+  name: v.pipe(
+    v.string(), v.trim(), v.nonEmpty('Enter your first and last name.'), v.maxLength(120, 'Keep your name under 120 characters.'),
+    v.check(s => s.split(/\s+/).filter(Boolean).length >= 2, 'Enter your first and last name, as the organiser will see it.'),
+  ),
+  email: email(),
+  phone: signupPhone(phoneRequired),
+  partnerName: optionalText(120, 'Keep the name under 120 characters.'),
+})
+export const signupMemberSchema = (phoneRequired: boolean) => v.object({
+  phone: signupPhone(phoneRequired),
+  partnerName: optionalText(120, 'Keep the name under 120 characters.'),
 })
 
 export const ResetPasswordSchema = v.pipe(
@@ -145,7 +176,7 @@ export const RidePostSchema = v.object({
   )),
 })
 
-// Discover dancers (festival page preview — mock data, no API).
+// Dance card on a festival page (role, styles, name, city).
 export const DanceCardSchema = v.object({
   role: v.pipe(v.unknown(), v.picklist(['lead', 'follow'], 'Pick lead or follow.')),
   styles: v.pipe(v.array(v.string()), v.minLength(1, 'Pick at least one style.')),
@@ -314,19 +345,57 @@ export const FestivalTicketSchema = v.object({ name: requiredText('name is requi
 
 // ── Admin (communityGroup.create / giveaway.create) ──────────────────────────
 
+// Admin → Community groups "New": the city comes from <CityCombobox> (its slug), the styles from <DanceStylePicker>.
 export const CommunityGroupSchema = v.object({
-  citySlug: requiredText('Add the city slug.'),
+  citySlug: requiredText('Pick the city.'),
   name: requiredText('Add the group name.'),
-  platform: v.picklist(['whatsapp', 'telegram', 'facebook', 'other']),
+  platform: v.picklist(['whatsapp', 'telegram', 'facebook', 'instagram', 'other']),
   inviteUrl: webUrl('Add the invite URL.'),
-  styles: commaList(),
+  styles: v.array(v.string()),
   source: optionalText(),
   verified: v.boolean(),
 })
 
+// The group's admin and how to reach them (communityGroup.setAdmin, RAZ-967). Both optional: blank clears.
+export const GroupAdminSchema = v.object({
+  adminName: optionalText(120, 'Keep the name under 120 characters.'),
+  adminContact: optionalText(200, 'Keep the contact under 200 characters.'),
+})
+
+// A dancer shares a local group (communityGroup.submit): the link must be that platform's invite link.
+export const SubmitGroupSchema = v.pipe(
+  v.object({
+    name: v.pipe(requiredText('Add the group’s name.'), v.maxLength(120, 'Keep the name under 120 characters.')),
+    platform: v.picklist(['whatsapp', 'telegram', 'facebook', 'other']),
+    inviteUrl: webUrl('Paste the group’s invite link.'),
+    // From <DanceStylePicker>; the router takes at most 10.
+    styles: v.pipe(v.array(v.string()), v.maxLength(10, 'Pick up to 10 styles.')),
+    description: optionalText(300, 'Keep it under 300 characters.'),
+  }),
+  v.forward(
+    v.check(i => !inviteUrlError(i.platform, i.inviteUrl), 'That isn’t an invite link of this platform.'),
+    ['inviteUrl'],
+  ),
+)
+
+// An official channel of a city's WeDance page (cityChannels.saveChannel).
+export const CityChannelSchema = v.pipe(
+  v.object({
+    name: v.pipe(requiredText('Add the channel’s name.'), v.maxLength(120, 'Keep the name under 120 characters.')),
+    platform: v.picklist(['telegram', 'whatsapp', 'instagram', 'facebook', 'other']),
+    inviteUrl: webUrl('Paste the channel’s link.'),
+    telegramChatId: optionalText(80),
+    description: optionalText(300, 'Keep it under 300 characters.'),
+  }),
+  v.forward(
+    v.check(i => !inviteUrlError(i.platform, i.inviteUrl), 'That link doesn’t match the platform.'),
+    ['inviteUrl'],
+  ),
+)
+
 export const GiveawaySchema = v.pipe(
   v.object({
-    citySlug: requiredText('Add the city slug.'),
+    citySlug: requiredText('Pick the city.'),
     sponsorName: requiredText('Add the sponsor name.'),
     title: requiredText('Add a title.'),
     description: requiredText('Add a short description.'),
@@ -372,4 +441,62 @@ export const InstagramPostImportSchema = v.object({
     v.check(s => parseInstagramLink(s)?.kind !== 'profile', 'That’s a page, not a post: open the event’s post and copy its link.'),
   ),
   profile: v.pipe(v.string(), v.nonEmpty('Pick who runs this event.')),
+})
+
+// ── Business (businessEvents.create / copy — the new-event start, RAZ-939) ───
+
+/**
+ * "From scratch": Run by, type, music, date and start time. The name is
+ * suggested (shared/utils/eventStart.ts) and may be left as it is.
+ */
+export const EventStartSchema = v.object({
+  hostUsername: v.pipe(v.string(), v.nonEmpty('Pick who runs this event.')),
+  type: v.picklist(['Party', 'Workshop', 'Course', 'Festival', 'Weekender', 'Congress', 'Concert', 'Show'], 'Pick a type.'),
+  styles: v.pipe(v.array(v.string()), v.maxLength(20, 'Pick up to 20 styles.')),
+  date: isoDate('Pick a date.'),
+  startTime: v.pipe(v.string(), v.nonEmpty('Pick a start time.'), v.isoTime('Pick a valid start time.')),
+  name: optionalText(160, 'Keep the name under 160 characters.'),
+  published: v.boolean(),
+})
+
+/** "Like my last event": which event, its new date, and how many weeks after. */
+export const EventCopySchema = v.object({
+  id: v.pipe(v.string(), v.nonEmpty('Pick the event to copy.')),
+  date: isoDate('Pick the new date.'),
+  repeatWeeks: v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(12)),
+})
+
+// ── Business (businessEvents.cancel — RAZ-948) ───────────────────────────────
+
+/** Cancel one or several events: an optional short reason, shown on the event and in the email. */
+export const EventCancelSchema = v.object({
+  reason: optionalText(280, 'Keep the reason under 280 characters.'),
+})
+
+// ── Business (contactMailing.send / sendTest — RAZ-975) ──────────────────────
+
+/** An email to a page's contacts: a subject and the text (plain; `{first_name}` is filled per person). */
+export const ContactMailingSchema = v.object({
+  subject: v.pipe(requiredText('Write a subject.'), v.maxLength(MAILING_SUBJECT_MAX, `Keep the subject under ${MAILING_SUBJECT_MAX} characters.`)),
+  body: v.pipe(requiredText('Write what you want to say.'), v.maxLength(MAILING_BODY_MAX, `Keep it under ${MAILING_BODY_MAX} characters.`)),
+})
+
+// ── Business (businessEvents.update — RAZ-991) ───────────────────────────────
+
+/**
+ * The editor's size limits (`shared/utils/eventLimits.ts`), checked before Save so
+ * a too-long line is flagged where it is instead of failing on the server. Paths
+ * match the form (`festival.practicalInfo.11`), so each error lands on its row.
+ */
+export const EventLimitsSchema = v.object({
+  artists: v.pipe(v.array(v.string()), v.maxLength(EVENT_ARTISTS_MAX, `Keep the line-up to ${EVENT_ARTISTS_MAX} artists.`)),
+  festival: v.nullish(v.object({
+    practicalInfo: v.optional(v.pipe(
+      v.array(v.pipe(v.string(), v.trim(), v.maxLength(PRACTICAL_INFO_LINE_MAX, `Keep each line under ${PRACTICAL_INFO_LINE_MAX} characters, or split it in two.`))),
+      v.maxLength(PRACTICAL_INFO_MAX, `Keep practical info to ${PRACTICAL_INFO_MAX} lines.`),
+    )),
+    passes: v.optional(v.array(v.object({
+      description: v.optional(v.pipe(v.string(), v.trim(), v.maxLength(PASS_DESCRIPTION_MAX, `Keep what's included under ${PASS_DESCRIPTION_MAX} characters.`))),
+    }))),
+  })),
 })

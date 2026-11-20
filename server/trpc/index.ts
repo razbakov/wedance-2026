@@ -11,6 +11,9 @@ import { giveawayRouter } from './routers/giveaway'
 import { profileRouter } from './routers/profile'
 import { reviewRouter } from './routers/review'
 import { communityGroupRouter } from './routers/communityGroup'
+import { cityChannelsRouter } from './routers/cityChannels'
+import { cityScheduleRouter } from './routers/citySchedule'
+import { cityOccasionsRouter } from './routers/cityOccasions'
 import { askLocalsRouter } from './routers/askLocals'
 import { entityRouter } from './routers/entity'
 import { bookingRouter } from './routers/booking'
@@ -34,15 +37,19 @@ import { inquiriesRouter } from './routers/inquiries'
 import { businessPostsRouter } from './routers/businessPosts'
 import { instagramRouter } from './routers/instagram'
 import { businessLooksRouter } from './routers/businessLooks'
+import { businessLaunchRouter } from './routers/businessLaunch'
 import { businessSiteRouter } from './routers/businessSite'
+import { contactMailingRouter } from './routers/contactMailing'
 import { businessTeamRouter } from './routers/businessTeam'
 import { businessNetworkRouter } from './routers/businessNetwork'
 import { waveRouter } from './routers/wave'
 import { rsvpRouter } from './routers/rsvp'
+import { weekendRouter } from './routers/weekend'
 import { organizerSubscriptionRouter } from './routers/organizerSubscription'
 import { attendanceRouter } from './routers/attendance'
 import { oauthRouter } from './routers/oauth'
 import { eventImportRouter } from './routers/eventImport'
+import { ritualRouter } from './routers/ritual'
 
 export const appRouter = router({
   auth: authRouter,
@@ -57,6 +64,9 @@ export const appRouter = router({
   profile: profileRouter,
   review: reviewRouter,
   communityGroup: communityGroupRouter,
+  cityChannels: cityChannelsRouter,
+  citySchedule: cityScheduleRouter,
+  cityOccasions: cityOccasionsRouter,
   askLocals: askLocalsRouter,
   entity: entityRouter,
   booking: bookingRouter,
@@ -80,14 +90,18 @@ export const appRouter = router({
   businessPosts: businessPostsRouter,
   instagram: instagramRouter,
   businessLooks: businessLooksRouter,
+  businessLaunch: businessLaunchRouter,
   businessSite: businessSiteRouter,
+  contactMailing: contactMailingRouter,
   businessTeam: businessTeamRouter,
   businessNetwork: businessNetworkRouter,
   roommate: roommateRouter,
   wave: waveRouter,
   rsvp: rsvpRouter,
+  weekend: weekendRouter,
   organizerSubscription: organizerSubscriptionRouter,
   attendance: attendanceRouter,
+  ritual: ritualRouter,
   oauth: oauthRouter,
 })
 

@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { eq, and, inArray, isNotNull, notInArray, ne } from 'drizzle-orm'
 import { router, publicProcedure, protectedProcedure } from '../trpc'
 import { festivalWaves, dancers, planItems } from '../../database/schema'
+import { afterYes } from '../../utils/meetMatchNotify'
 
 /** A swipe card is a photo: dancers without one never enter the deck. */
 const hasPhoto = () => [isNotNull(dancers.photo), ne(dancers.photo, '')]
@@ -17,7 +18,7 @@ export const waveRouter = router({
       targetDancerId: z.string().uuid(),
     }))
     .mutation(async ({ ctx, input }) => {
-      if (input.targetDancerId === ctx.dancerId) return
+      if (input.targetDancerId === ctx.dancerId) return { match: false }
       await ctx.db
         .insert(festivalWaves)
         .values({
@@ -26,6 +27,8 @@ export const waveRouter = router({
           targetDancerId: input.targetDancerId,
         })
         .onConflictDoNothing()
+      // A wave back makes a match (RAZ-985): the other dancer gets a "said yes too" email.
+      return afterYes(ctx as any, input.targetDancerId, { kind: 'wave', festivalSlug: input.festivalSlug })
     }),
 
   /**

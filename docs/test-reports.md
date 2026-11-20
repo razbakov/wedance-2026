@@ -11,7 +11,6 @@ All output directories are `.gitignore`d — they appear only after a test run.
 | **BDD E2E** | `bun run test:e2e` | `playwright-report/index.html` | `e2e/test-results/` |
 | **Design (contract + a11y)** | `bun run test:design` | `playwright-report/design/index.html` | `e2e/test-results/design/` |
 | **Visual regression** | `bun run test:visual` | `playwright-report/design/index.html` (shared) | `e2e/design/__screenshots__/{platform}/` |
-| **Argos (visual history)** | `bun run test:argos` | — (Argos CI uploads only) | `e2e/test-results/argos/` |
 
 ## Opening HTML reports
 
@@ -33,15 +32,21 @@ npx playwright show-report playwright-report/design
 | Unit | `vitest.config.ts` |
 | BDD E2E | `playwright.config.ts` |
 | Design / Visual | `playwright.design.config.ts` |
-| Argos | `playwright.argos.config.ts` |
 
 ## CI workflow
 
-`.github/workflows/test.yml` runs three jobs:
+`.github/workflows/test.yml` runs three jobs on every PR and every push to `main`.
+All three are **required checks** — branch protection on `main` refuses a merge
+while any of them is red or still running (ADR-013):
 
 1. **unit** — `bun run test -- --coverage` → uploads `coverage/` as artifact
 2. **integration** — same vitest with a Postgres service container
-3. **e2e-smoke** (post-merge only) — BDD `@smoke` tests + design contract/a11y → uploads `playwright-report/` and `e2e/test-results/` as artifacts
+3. **e2e-smoke / e2e** — BDD `@smoke` tests + design contract/a11y (reusable
+   `.github/workflows/e2e.yml`) → uploads `playwright-report/` and `e2e/test-results/` as artifacts
+
+`.github/workflows/nightly.yml` runs the **full** BDD suite through the same
+`e2e.yml` at 03:00 Europe/Berlin (or by hand: Actions → Nightly E2E → Run workflow). Not a
+merge gate.
 
 ## Notes
 
@@ -51,4 +56,3 @@ npx playwright show-report playwright-report/design
 - **Design** tests are read-only and can run against any live URL via `DESIGN_BASE_URL`.
 - **Visual regression** baselines are per-OS (`e2e/design/__screenshots__/{platform}/`).
   Update baselines with `bun run test:visual:update`.
-- **Argos** tests default to `https://2026.wedance.vip`. Override with `ARGOS_BASE_URL`.

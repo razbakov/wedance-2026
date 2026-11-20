@@ -10,9 +10,11 @@
  * "Friends" = mutual dancer follows (RAZ-319). Counts are real or absent —
  * never a placeholder number.
  */
-import { and, asc, eq, gte, inArray, isNotNull, lt, ne, notInArray, or, sql, ilike } from 'drizzle-orm'
-import { cities, dancers, discoverSwipes, events, festivals, follows, planItems } from '../database/schema'
+import { and, asc, eq, gte, inArray, isNotNull, isNull, lt, ne, notInArray, or, sql } from 'drizzle-orm'
+import { cities, dancers, discoverSwipes, eventRsvps, events, festivals, follows, planItems } from '../database/schema'
 import { relatedDanceStyles } from '../../shared/dance-styles'
+import { signupPrice } from '../../shared/utils/eventSignup'
+import { isNight, nightSummary } from '../../shared/utils/yourNight'
 
 type Db = any
 
@@ -111,6 +113,16 @@ export type WeekSocial = {
   venueName: string
   city: string
   friendsGoing: number
+  /** Signed up on the event page (RAZ-1003): taking it off the plan means "Cancel my spot" there. */
+  signedUp: boolean
+  /** The event page takes a sign-up (any dated event but a festival): "Sign up →" until signed up. */
+  takesSignup: boolean
+  /** What signing up costs ("€10", "from €8"); null = free. */
+  price: string | null
+  /** A night's programme (RAZ-1007): your pass, when to come, the parts you're at. Null = not a night. */
+  night: { pass: string | null; arrival: string | null; parts: string[] } | null
+  /** A class of a course or workshop the dancer planned (only with `classes: true`, RAZ-1006). */
+  isClass: boolean
 }
 
 type WeekRow = { id: string; seriesId: string | null; startDate: Date | string | null }
@@ -153,10 +165,18 @@ export function stylesForDancer(eventStyles: string[], myStyles: readonly string
  * "Where you're dancing" — ONLY the events the dancer put in their plan
  * (plan_items of type 'event', from any surface: RSVP, discover Yes, the
  * city or event page), happening in the next `days` days, soonest first.
- * Courses (metadata type 'class') have their own section and are left out.
+ * `everyClass` (with `classes`) lists each class of a planned course in the window, not just the next.
+ * Courses and workshops (CLASS_TYPES, or metadata type 'class') are left out unless `classes` is set:
+ * My plan's "Your week" shows each class on its day too (RAZ-1006); the plan badge counts nights only.
  * Suggestions never appear here; discovery lives on the city page.
  */
-export async function weekSocials(db: Db, dancerId: string, now = new Date(), days = 7): Promise<{ socials: WeekSocial[]; citySlug: string }> {
+export async function weekSocials(
+  db: Db,
+  dancerId: string,
+  now = new Date(),
+  days = 7,
+  opts: { friends?: boolean; classes?: boolean; everyClass?: boolean } = {},
+): Promise<{ socials: WeekSocial[]; citySlug: string }> {
   const [me] = await db.select({ danceStyles: dancers.danceStyles, city: dancers.city }).from(dancers).where(eq(dancers.id, dancerId))
   // The section's "Full week" link: the dancer's city page, by its real slug
   // ("München" → munich), for any city — not only the ones with a mock page.
@@ -166,18 +186,21 @@ export async function weekSocials(db: Db, dancerId: string, now = new Date(), da
     .select({ itemId: planItems.itemId, metadata: planItems.metadata })
     .from(planItems)
     .where(and(eq(planItems.dancerId, dancerId), eq(planItems.itemType, 'event')))
+  const classMeta = new Set<string>(planRows
+    .filter((r: any) => (r.metadata as Record<string, string> | null)?.type === 'class')
+    .map((r: any) => r.itemId as string))
   const plannedIds = planRows
-    .filter((r: any) => (r.metadata as Record<string, string> | null)?.type !== 'class')
     .map((r: any) => r.itemId as string)
-    .filter((id: string) => UUID_RE.test(id))
+    .filter((id: string) => UUID_RE.test(id) && (opts.classes || !classMeta.has(id)))
   if (!plannedIds.length) return { socials: [], citySlug }
 
-  // Courses (v3 type 'Course') have their own section, however they were added.
-  const planned: Array<{ id: string; seriesId: string | null }> = (await db
+  // Courses and workshops (CLASS_TYPES) are classes, however they were added.
+  const planned: Array<{ id: string; seriesId: string | null; isClass: boolean }> = (await db
     .select({ id: events.id, seriesId: events.seriesId, type: events.type })
     .from(events)
     .where(inArray(events.id, plannedIds)))
-    .filter((p: any) => !isClassType(p.type))
+    .map((p: any) => ({ id: p.id, seriesId: p.seriesId, isClass: isClassType(p.type) || classMeta.has(p.id) }))
+    .filter((p: any) => opts.classes || !p.isClass)
   if (!planned.length) return { socials: [], citySlug }
   const seriesIds = [...new Set(planned.map(p => p.seriesId).filter(Boolean) as string[])]
 
@@ -194,6 +217,8 @@ export async function weekSocials(db: Db, dancerId: string, now = new Date(), da
       timezone: events.timezone,
       venueName: events.venueName,
       city: events.city,
+      isFestival: events.isFestival,
+      festival: events.festival,
     })
     .from(events)
     .where(and(
@@ -208,11 +233,27 @@ export async function weekSocials(db: Db, dancerId: string, now = new Date(), da
     .limit(200)
 
   const picks = resolveWeekOccurrences(planned, rows)
+  // Every class of a planned course in the window, not only the next one (My plan's Month tab, RAZ-1006).
+  if (opts.classes && opts.everyClass) {
+    const used = new Set(picks.map(p => p.eventId))
+    for (const p of planned) {
+      if (!p.isClass || !p.seriesId) continue
+      for (const r of rows as WeekRow[]) {
+        if (r.seriesId !== p.seriesId || used.has(r.id)) continue
+        used.add(r.id)
+        picks.push({ eventId: r.id, planItemId: p.id })
+      }
+    }
+  }
   const byId = new Map<string, any>(rows.map((r: any) => [r.id, r]))
+  const classItem = new Set(planned.filter(p => p.isClass).map(p => p.id))
 
   const myStyles = (me?.danceStyles as string[] | null) ?? []
-  const friendIds = await friendIdsOf(db, dancerId)
+  // The plan badge only needs the rows, not who else is going.
+  const friendIds = opts.friends === false ? [] : await friendIdsOf(db, dancerId)
   const counts = await friendsGoingCounts(db, friendIds, 'event', picks.map(p => p.eventId))
+  const mine = await signedUpEventIds(db, dancerId, picks.map(p => p.eventId))
+  const nights = await nightRows(db, dancerId, picks.map(p => byId.get(p.eventId)).filter(Boolean))
 
   const socials: WeekSocial[] = picks
     .map(({ eventId, planItemId }) => {
@@ -229,6 +270,11 @@ export async function weekSocials(db: Db, dancerId: string, now = new Date(), da
         venueName: r.venueName ?? '',
         city: r.city ?? '',
         friendsGoing: counts.get(eventId) ?? 0,
+        signedUp: mine.has(eventId),
+        takesSignup: !r.isFestival,
+        price: signupPrice(r.festival?.passes),
+        night: nights.get(eventId) ?? null,
+        isClass: classItem.has(planItemId) || isClassType(r.type),
       }
     })
     .sort((a, b) => a.startDate.localeCompare(b.startDate))
@@ -236,12 +282,48 @@ export async function weekSocials(db: Db, dancerId: string, now = new Date(), da
   return { socials, citySlug }
 }
 
+/**
+ * My plan's line for each night (RAZ-1007): the dancer's pass (their booking) and the
+ * programme items they ticked (`<key>:<session>` workshop plan items).
+ */
+async function nightRows(db: Db, dancerId: string, rows: { id: string; festival: any }[]) {
+  const out = new Map<string, ReturnType<typeof nightSummary>>()
+  const nights = rows.filter(r => r.festival?.key && isNight(r.festival.sessions))
+  if (!nights.length) return out
+  const [bookings, picks] = await Promise.all([
+    db.select({ eventId: eventRsvps.eventId, pass: eventRsvps.pass, answer: eventRsvps.answer }).from(eventRsvps)
+      .where(and(eq(eventRsvps.dancerId, dancerId), inArray(eventRsvps.eventId, nights.map(n => n.id)))),
+    db.select({ itemId: planItems.itemId }).from(planItems)
+      .where(and(eq(planItems.dancerId, dancerId), eq(planItems.itemType, 'workshop'),
+        or(...nights.map(n => sql`${planItems.itemId} like ${`${n.festival.key}:%`}`)))),
+  ])
+  for (const n of nights) {
+    const b = (bookings as any[]).find(x => x.eventId === n.id && x.answer !== 'next')
+    const prefix = `${n.festival.key}:`
+    const ticked = (picks as any[]).map(p => String(p.itemId)).filter(id => id.startsWith(prefix)).map(id => id.slice(prefix.length))
+    out.set(n.id, nightSummary(n.festival.sessions, n.festival.passes, b?.pass ?? null, ticked))
+  }
+  return out
+}
+
+/** Of `eventIds`, the ones this dancer signed up for (an answer other than "next"). */
+export async function signedUpEventIds(db: Db, dancerId: string, eventIds: string[]): Promise<Set<string>> {
+  if (!eventIds.length) return new Set()
+  const rows = await db.select({ eventId: eventRsvps.eventId }).from(eventRsvps)
+    .where(and(eq(eventRsvps.dancerId, dancerId), inArray(eventRsvps.eventId, eventIds), ne(eventRsvps.answer, 'next')))
+  return new Set(rows.map((r: any) => r.eventId))
+}
+
 // ---------------------------------------------------------------------------
 // Month · courses
 // ---------------------------------------------------------------------------
 
-/** v3 event types that are a course (a class series), not a night out. */
-export const CLASS_TYPES = ['Course']
+/**
+ * v3 event types that go under "Month · courses", not the week's nights out:
+ * a course (a class series) and a workshop (RAZ-891 — "I'm going" on a
+ * workshop's event page must land in the courses section).
+ */
+export const CLASS_TYPES = ['Course', 'Workshop']
 export const isClassType = (type: string | null | undefined) => CLASS_TYPES.includes(type ?? '')
 
 export type MyCourse = {
@@ -256,11 +338,16 @@ export type MyCourse = {
   venueName: string
   organizerName: string
   organizerUsername: string | null
+  /** Signed up on the event page (RAZ-1003). */
+  signedUp: boolean
+  /** What signing up costs ("€10", "from €8"); null = free. */
+  price: string | null
 }
 
 /**
  * "Month · courses" — only the classes the dancer put in their plan: plan
- * items of type 'event' that are a course (event type 'Course', or saved
+ * items of type 'event' that are a course or workshop (event type 'Course' /
+ * 'Workshop' — e.g. an "I'm going" answer on the event page — or saved
  * from the course picker with metadata type 'class'), backed by a real
  * event. Shows each course's next upcoming class (same series_id); a course
  * with nothing upcoming has ended and is left out. No payment or attendance
@@ -286,6 +373,7 @@ export async function myCourses(db: Db, dancerId: string, now = new Date()): Pro
   const cols = {
     id: events.id, seriesId: events.seriesId, name: events.name, styles: events.styles, startDate: events.startDate,
     timezone: events.timezone, venueName: events.venueName, organizerName: events.organizerName, organizerUsername: events.organizerUsername,
+    festival: events.festival,
   }
   const upcoming = await db
     .select(cols)
@@ -317,9 +405,13 @@ export async function myCourses(db: Db, dancerId: string, now = new Date()): Pro
       venueName: next.venueName ?? '',
       organizerName: next.organizerName ?? '',
       organizerUsername: next.organizerUsername ?? null,
+      signedUp: false,
+      price: signupPrice((next.festival as any)?.passes),
     })
   }
   courses.sort((a, b) => a.startDate.localeCompare(b.startDate))
+  const mine = await signedUpEventIds(db, dancerId, courses.map(c => c.eventId))
+  for (const c of courses) c.signedUp = mine.has(c.eventId)
   return { courses }
 }
 
@@ -327,10 +419,21 @@ export async function myCourses(db: Db, dancerId: string, now = new Date()): Pro
 // Widen your year · discover
 // ---------------------------------------------------------------------------
 
+/** The night a dancer card is there for: they signed up to it (RAZ-981). */
+export type DiscoverNight = { eventId: string; eventName: string; eventDateISO: string; eventTimezone: string | null; eventVenue: string }
+
 export type DiscoverCard =
-  | { kind: 'dancer-local' | 'dancer-your-fest' | 'dancer-new-fest'; targetKind: 'dancer'; targetId: string; dancerName: string; dancerPhoto: string; dancerCity: string; dancerStyles: string[]; festivalSlug?: string; festivalName?: string; festivalColor?: string }
+  | { kind: 'dancer-your-fest' | 'dancer-new-fest'; targetKind: 'dancer'; targetId: string; dancerName: string; dancerPhoto: string; dancerCity: string; dancerStyles: string[]; festivalSlug?: string; festivalName?: string; festivalColor?: string }
+  | ({ kind: 'dancer-same-night' | 'dancer-going-out'; targetKind: 'dancer'; targetId: string; dancerName: string; dancerPhoto: string; dancerCity: string; dancerStyles: string[] } & DiscoverNight)
   | { kind: 'event-festival'; targetKind: 'festival'; targetId: string; eventName: string; eventSlug: string; eventDateISO: string; eventTimezone: string | null; eventVenue: string; eventCity: string; friendsGoing: number; color: string }
   | { kind: 'event-social'; targetKind: 'event'; targetId: string; eventName: string; eventDateISO: string; eventTimezone: string | null; eventVenue: string; eventCity: string; eventStyle: string; friendsGoing: number; color: string }
+
+/** Where the dancer is shown themselves (RAZ-981): their next night out and the festivals they share. */
+export type DiscoverMe = {
+  citySlug: string
+  nextNight: { eventId: string; eventName: string; eventDateISO: string; eventTimezone: string | null; city: string } | null
+  festivalsShown: number
+}
 
 export type DiscoverNudge = { festivalSlug: string; festivalName: string; festivalColor: string; dancerNames: string[] }
 
@@ -339,6 +442,8 @@ const STYLE_COLORS: Record<string, string> = {
 }
 
 export const DISCOVER_CAP = 20
+/** How far ahead a night out puts its dancers in the deck (RAZ-981). */
+export const GOING_OUT_DAYS = 14
 
 /** Fisher–Yates, in place. */
 function shuffle<T>(a: T[]): T[] {
@@ -349,12 +454,127 @@ function shuffle<T>(a: T[]): T[] {
   return a
 }
 
-export async function discoverDeck(db: Db, dancerId: string, now = new Date()): Promise<{ cards: DiscoverCard[]; nudges: DiscoverNudge[] }> {
+/**
+ * RAZ-982: a dancer card may say "Going to <festival>" only when the plan item
+ * points at a real, upcoming festival. Plan items of type 'festival' are also
+ * written for one-off events with a programme (a workshop page uses the
+ * festival view, and gets a legacy `festivals` row on its first sign-up), so
+ * the legacy table alone is not proof. The festival is the `events` row
+ * (migration 0032): marked `is_festival`, published, not archived, not
+ * cancelled, and not over yet.
+ */
+export type FestivalEventRow = {
+  isFestival: boolean | null
+  published: boolean | null
+  archived: boolean | null
+  cancelledAt: Date | string | null
+  startDate: Date | string | null
+  endDate: Date | string | null
+}
+
+/**
+ * RAZ-983: the dancer's year (`plan.myPlan`, `plan.sharedPlan`) and the header badge
+ * (`planCounts`) list only the festival plan items whose event is a real festival.
+ * Past festivals stay in the year, so — unlike `isClaimableFestival` — no date,
+ * publish or cancel gate here; only `events.is_festival`.
+ */
+export function isFestivalEvent(ev: Pick<FestivalEventRow, 'isFestival'>): boolean {
+  return !!ev.isFestival
+}
+
+type PlanSlugEvent = { id: string; slug: string | null; key: string | null; isFestival: boolean | null }
+
+async function eventsForPlanSlugs(db: Db, slugs: string[]): Promise<PlanSlugEvent[]> {
+  return db
+    .select({ id: events.id, slug: events.slug, key: sql<string | null>`${events.festival}->>'key'`, isFestival: events.isFestival })
+    .from(events)
+    .where(or(inArray(events.slug, slugs), inArray(sql`${events.festival}->>'key'`, slugs)))
+}
+
+/**
+ * Of `slugs` (festival plan item ids: a festival key or an event slug), the ones
+ * that point at a real festival event. Pure — unit-tested.
+ */
+export function pickFestivalSlugs(slugs: string[], rows: PlanSlugEvent[]): Set<string> {
+  const wanted = new Set(slugs)
+  const out = new Set<string>()
+  for (const r of rows) {
+    if (!isFestivalEvent(r)) continue
+    for (const s of [r.key, r.slug]) if (s && wanted.has(s)) out.add(s)
+  }
+  return out
+}
+
+export async function festivalPlanSlugs(db: Db, slugs: string[]): Promise<Set<string>> {
+  const wanted = [...new Set(slugs.filter(Boolean))]
+  if (!wanted.length) return new Set()
+  return pickFestivalSlugs(wanted, await eventsForPlanSlugs(db, wanted))
+}
+
+/**
+ * RAZ-983: where a "festival" plan item for `slug` really belongs. A one-off event
+ * with a programme (a workshop, a class) uses the festival page, so its "I'm going"
+ * arrives as a festival; it is saved as an event, by the event's id. A slug that
+ * matches a festival — or no event at all — stays a festival. Pure — unit-tested.
+ */
+export function eventIdForNonFestival(slug: string, rows: PlanSlugEvent[]): string | null {
+  const mine = rows.filter(r => r.slug === slug || r.key === slug)
+  if (!mine.length || mine.some(isFestivalEvent)) return null
+  return (mine.find(r => r.slug === slug) ?? mine[0])!.id
+}
+
+export async function nonFestivalEventId(db: Db, slug: string): Promise<string | null> {
+  if (!slug) return null
+  return eventIdForNonFestival(slug, await eventsForPlanSlugs(db, [slug]))
+}
+
+export function isClaimableFestival(ev: FestivalEventRow, now = new Date()): boolean {
+  if (!isFestivalEvent(ev) || !ev.published || ev.archived || ev.cancelledAt) return false
+  const last = ev.endDate ?? ev.startDate
+  if (!last) return false
+  return new Date(last).getTime() >= now.getTime()
+}
+
+export type ClaimedFestival = { slug: string; name: string; color: string | null }
+
+/**
+ * The festivals among `slugs` (plan item ids: a festival key or an event slug)
+ * that a card may claim someone is going to, keyed by that slug. Name comes
+ * from the festival's event; the colour from its legacy row when it has one.
+ */
+export async function claimableFestivals(db: Db, slugs: string[], now = new Date()): Promise<Map<string, ClaimedFestival>> {
+  const out = new Map<string, ClaimedFestival>()
+  const wanted = [...new Set(slugs.filter(Boolean))]
+  if (!wanted.length) return out
+  const [rows, legacy] = await Promise.all([
+    db
+      .select({
+        slug: events.slug, key: sql<string | null>`${events.festival}->>'key'`, name: events.name,
+        isFestival: events.isFestival, published: events.published, archived: events.archived,
+        cancelledAt: events.cancelledAt, startDate: events.startDate, endDate: events.endDate,
+      })
+      .from(events)
+      .where(or(inArray(events.slug, wanted), inArray(sql`${events.festival}->>'key'`, wanted))),
+    db.select({ slug: festivals.slug, accentColor: festivals.accentColor }).from(festivals).where(inArray(festivals.slug, wanted)),
+  ])
+  const colors = new Map<string, string | null>(legacy.map((f: any) => [f.slug, f.accentColor ?? null]))
+  const wantedSet = new Set(wanted)
+  for (const r of rows as any[]) {
+    if (!isClaimableFestival(r, now) || !r.name) continue
+    for (const slug of [r.key, r.slug]) {
+      if (!slug || !wantedSet.has(slug) || out.has(slug)) continue
+      out.set(slug, { slug, name: r.name, color: colors.get(slug) ?? null })
+    }
+  }
+  return out
+}
+
+export async function discoverDeck(db: Db, dancerId: string, now = new Date()): Promise<{ cards: DiscoverCard[]; nudges: DiscoverNudge[]; me: DiscoverMe }> {
   const [me] = await db
     .select({ id: dancers.id, city: dancers.city, danceStyles: dancers.danceStyles })
     .from(dancers)
     .where(eq(dancers.id, dancerId))
-  if (!me) return { cards: [], nudges: [] }
+  if (!me) return { cards: [], nudges: [], me: { citySlug: '', nextNight: null, festivalsShown: 0 } }
 
   const myCity = (me.city ?? '').trim()
   const myStyles = (me.danceStyles as string[] | null) ?? []
@@ -371,7 +591,7 @@ export async function discoverDeck(db: Db, dancerId: string, now = new Date()): 
 
   // What's already in the plan.
   const myPlan = await db
-    .select({ itemType: planItems.itemType, itemId: planItems.itemId })
+    .select({ itemType: planItems.itemType, itemId: planItems.itemId, shareGoing: planItems.shareGoing })
     .from(planItems)
     .where(eq(planItems.dancerId, dancerId))
   const myFestivalSlugs = new Set<string>(myPlan.filter((r: any) => r.itemType === 'festival').map((r: any) => r.itemId))
@@ -382,6 +602,9 @@ export async function discoverDeck(db: Db, dancerId: string, now = new Date()): 
   const dancerCards: DiscoverCard[] = []
 
   // 1. Dancers heading to festivals — the same ones as mine, or ones I haven't picked.
+  //    Only those who share that they're going (RAZ-981): the same opt-in as
+  //    "Who's going" on the festival page, where the Yes turns into a wave.
+  //    Festival-goers come from any city.
   try {
     const otherPlans = await db
       .select({ dancerId: planItems.dancerId, itemId: planItems.itemId })
@@ -389,6 +612,7 @@ export async function discoverDeck(db: Db, dancerId: string, now = new Date()): 
       .innerJoin(dancers, eq(planItems.dancerId, dancers.id))
       .where(and(
         eq(planItems.itemType, 'festival'),
+        eq(planItems.shareGoing, true),
         ne(planItems.dancerId, dancerId),
         eq(dancers.profilePublic, true),
         ...hasPhoto(),
@@ -399,17 +623,18 @@ export async function discoverDeck(db: Db, dancerId: string, now = new Date()): 
     const slugs = [...new Set<string>(otherPlans.map((p: any) => p.itemId))].filter(s => !swiped.festival.has(s) || myFestivalSlugs.has(s))
     const ids = [...new Set<string>(otherPlans.map((p: any) => p.dancerId))]
     if (slugs.length && ids.length) {
-      const [festRows, people] = await Promise.all([
-        db.select({ slug: festivals.slug, name: festivals.name, accentColor: festivals.accentColor }).from(festivals).where(inArray(festivals.slug, slugs)),
+      const [festMap, people] = await Promise.all([
+        claimableFestivals(db, slugs, now),
         db.select({ id: dancers.id, name: dancers.name, photo: dancers.photo, city: dancers.city, danceStyles: dancers.danceStyles }).from(dancers).where(inArray(dancers.id, ids)),
       ])
-      const festMap = new Map<string, any>(festRows.map((f: any) => [f.slug, f]))
       const peopleMap = new Map<string, any>(people.map((d: any) => [d.id, d]))
       for (const p of otherPlans) {
         if (usedDancers.has(p.dancerId)) continue
         const d = peopleMap.get(p.dancerId)
         const fest = festMap.get(p.itemId)
-        if (!d || !fest || !d.photo) continue
+        // Not a real upcoming festival (a workshop, an old one…) → no claim;
+        // they can still come in below, through a night out.
+        if (!d || !fest || !d.photo || d.id === dancerId) continue
         usedDancers.add(d.id)
         const mine = myFestivalSlugs.has(p.itemId)
         dancerCards.push({
@@ -422,48 +647,106 @@ export async function discoverDeck(db: Db, dancerId: string, now = new Date()): 
           dancerStyles: (d.danceStyles as string[] | null) ?? [],
           festivalSlug: p.itemId,
           festivalName: fest.name,
-          festivalColor: fest.accentColor ?? (mine ? '#7c3aed' : '#0ea5e9'),
+          festivalColor: fest.color ?? (mine ? '#7c3aed' : '#0ea5e9'),
         })
       }
     }
   } catch { /* non-critical */ }
 
-  // 2. Dancers in my city, shared styles first. Falls back to anyone when the
-  //    city is unknown or has nobody left to show.
-  const peopleQuery = (cityFilter: boolean) => db
-    .select({ id: dancers.id, name: dancers.name, photo: dancers.photo, city: dancers.city, danceStyles: dancers.danceStyles })
-    .from(dancers)
-    .where(and(
-      ...(cityFilter ? [ilike(dancers.city, myCity)] : []),
-      ne(dancers.id, dancerId),
-      eq(dancers.profilePublic, true),
-      ...hasPhoto(),
-      ...notSwipedDancer,
-    ))
-    .limit(30)
-  try {
-    let locals: any[] = myCity ? await peopleQuery(true) : []
-    if (!locals.length && !dancerCards.length) locals = await peopleQuery(false)
-    const scored = locals
-      .filter(d => !usedDancers.has(d.id) && d.photo)
-      .map(d => {
-        const styles = (d.danceStyles as string[] | null) ?? []
-        return { d, styles, shared: myStyles.length ? styles.filter(s => myStyles.some(m => relatedDanceStyles(s, m))).length : 0 }
-      })
-      .sort((a, b) => b.shared - a.shared)
-    for (const { d, styles } of scored) {
-      usedDancers.add(d.id)
-      dancerCards.push({
-        kind: 'dancer-local',
-        targetKind: 'dancer',
-        targetId: d.id,
-        dancerName: d.name,
-        dancerPhoto: d.photo,
-        dancerCity: d.city ?? '',
-        dancerStyles: styles,
-      })
-    }
-  } catch { /* non-critical */ }
+  // 2. Dancers going out in my city in the next two weeks (RAZ-981): a confirmed
+  //    poll answer other than "next", or the night on their plan. Public profile
+  //    and a photo — the same people the deck has always required. Nobody is in
+  //    the deck just for living here: you get shown by going out, and each card
+  //    leads to the night.
+  if (citySlug) {
+    try {
+      const goingCols = {
+        id: dancers.id, name: dancers.name, photo: dancers.photo, city: dancers.city, danceStyles: dancers.danceStyles,
+        eventId: events.id, eventName: events.name, startDate: events.startDate, timezone: events.timezone, venueName: events.venueName,
+      }
+      const nightOn = and(
+        eq(events.citySlug, citySlug),
+        live(),
+        isNull(events.cancelledAt),
+        ne(events.isFestival, true),
+        gte(sql`coalesce(${events.endDate}, ${events.startDate})`, now),
+        lt(events.startDate, new Date(now.getTime() + GOING_OUT_DAYS * DAY)),
+      )
+      const visible = [
+        ne(dancers.id, dancerId),
+        eq(dancers.profilePublic, true),
+        ...hasPhoto(),
+        ...notSwipedDancer,
+      ]
+      const [rsvpRows, planRows]: [any[], any[]] = await Promise.all([
+        db.select(goingCols).from(eventRsvps)
+          .innerJoin(events, eq(eventRsvps.eventId, events.id))
+          .innerJoin(dancers, eq(eventRsvps.dancerId, dancers.id))
+          .where(and(nightOn, ne(eventRsvps.answer, 'next'), isNotNull(eventRsvps.confirmedAt), ...visible))
+          .orderBy(asc(events.startDate))
+          .limit(300),
+        db.select(goingCols).from(planItems)
+          .innerJoin(events, sql`${events.id}::text = ${planItems.itemId}`)
+          .innerJoin(dancers, eq(planItems.dancerId, dancers.id))
+          .where(and(
+            eq(planItems.itemType, 'event'),
+            nightOn,
+            notInArray(sql`coalesce(${events.type}, '')`, NON_SOCIAL_TYPES),
+            ...visible,
+          ))
+          .orderBy(asc(events.startDate))
+          .limit(300),
+      ])
+      const rows = [...rsvpRows, ...planRows]
+
+      // Nights I'm going to — a sign-up or the plan. Someone on one of those comes first.
+      const eventIds = [...new Set(rows.map(r => r.eventId))]
+      const myNights = new Set<string>()
+      if (eventIds.length) {
+        const [mineRsvp, minePlan] = await Promise.all([
+          db.select({ id: eventRsvps.eventId }).from(eventRsvps).where(and(
+            eq(eventRsvps.dancerId, dancerId), ne(eventRsvps.answer, 'next'), isNotNull(eventRsvps.confirmedAt),
+            inArray(eventRsvps.eventId, eventIds),
+          )),
+          db.select({ id: planItems.itemId }).from(planItems).where(and(
+            eq(planItems.dancerId, dancerId), eq(planItems.itemType, 'event'), inArray(planItems.itemId, eventIds),
+          )),
+        ])
+        for (const r of mineRsvp) myNights.add(r.id)
+        for (const r of minePlan) myNights.add(r.id)
+      }
+      const pick = new Map<string, any>()
+      for (const r of rows) {
+        const had = pick.get(r.id)
+        if (!had || (!myNights.has(had.eventId) && myNights.has(r.eventId))) pick.set(r.id, r)
+      }
+      const going = [...pick.values()]
+        .filter(r => !usedDancers.has(r.id))
+        .map(r => {
+          const styles = (r.danceStyles as string[] | null) ?? []
+          return { r, styles, same: myNights.has(r.eventId), shared: myStyles.length ? styles.filter(s => myStyles.some(m => relatedDanceStyles(s, m))).length : 0 }
+        })
+        // Same night first, then the sooner night, then shared styles.
+        .sort((a, b) => Number(b.same) - Number(a.same) || +new Date(a.r.startDate) - +new Date(b.r.startDate) || b.shared - a.shared)
+      for (const { r, styles, same } of going) {
+        usedDancers.add(r.id)
+        dancerCards.push({
+          kind: same ? 'dancer-same-night' : 'dancer-going-out',
+          targetKind: 'dancer',
+          targetId: r.id,
+          dancerName: r.name,
+          dancerPhoto: r.photo,
+          dancerCity: r.city ?? '',
+          dancerStyles: styles,
+          eventId: r.eventId,
+          eventName: r.eventName ?? '',
+          eventDateISO: new Date(r.startDate).toISOString(),
+          eventTimezone: r.timezone ?? null,
+          eventVenue: r.venueName ?? '',
+        })
+      }
+    } catch { /* non-critical */ }
+  }
 
   // 3. Upcoming events in my city (90 days): socials and festivals not decided yet.
   const eventCards: DiscoverCard[] = []
@@ -523,18 +806,17 @@ export async function discoverDeck(db: Db, dancerId: string, now = new Date()): 
     } catch { /* non-critical */ }
   }
 
-  // Mix: up to 14 people — festival-goers (same festival first) and locals
-  // share the slots, so neither crowds the other out — and 6 events, then shuffle.
-  const festGoers = [
-    ...dancerCards.filter(c => c.kind === 'dancer-your-fest'),
-    ...dancerCards.filter(c => c.kind === 'dancer-new-fest'),
-  ]
-  const locals = dancerCards.filter(c => c.kind === 'dancer-local')
-  const peopleCap = DISCOVER_CAP - Math.min(6, eventCards.length)
-  const half = Math.ceil(peopleCap / 2)
-  const people = [...festGoers.slice(0, half), ...locals, ...festGoers.slice(half)].slice(0, peopleCap)
-  const places = eventCards.slice(0, DISCOVER_CAP - people.length)
-  const cards = shuffle([...people, ...places])
+  // Order (RAZ-981): the same night as me, my festivals, nights out here, then
+  // festivals I haven't picked. People first, in that order; the event cards
+  // (used by My plan only) fill what's left.
+  const rank: Record<string, number> = { 'dancer-same-night': 0, 'dancer-your-fest': 1, 'dancer-going-out': 2, 'dancer-new-fest': 3 }
+  const people = dancerCards
+    .map((c, i) => ({ c, i }))
+    .sort((a, b) => (rank[a.c.kind] ?? 9) - (rank[b.c.kind] ?? 9) || a.i - b.i)
+    .map(x => x.c)
+    .slice(0, DISCOVER_CAP - Math.min(6, eventCards.length))
+  const places = shuffle(eventCards.slice(0, DISCOVER_CAP - people.length))
+  const cards = [...people, ...places]
 
   // Nudges: Yes on dancers heading to a festival I haven't picked (or turned down).
   const nudges: DiscoverNudge[] = []
@@ -549,17 +831,57 @@ export async function discoverDeck(db: Db, dancerId: string, now = new Date()): 
       const ids = [...new Set([...byFest.values()].flat())].filter(id => UUID_RE.test(id))
       const [names, fests] = await Promise.all([
         ids.length ? db.select({ id: dancers.id, name: dancers.name }).from(dancers).where(and(inArray(dancers.id, ids), eq(dancers.profilePublic, true))) : [],
-        db.select({ slug: festivals.slug, name: festivals.name, accentColor: festivals.accentColor }).from(festivals).where(inArray(festivals.slug, [...byFest.keys()])),
+        claimableFestivals(db, [...byFest.keys()], now),
       ])
       const nameMap = new Map<string, string>(names.map((n: any) => [n.id, n.name]))
-      for (const f of fests) {
+      for (const f of fests.values()) {
         const dancerNames = (byFest.get(f.slug) ?? []).map(id => nameMap.get(id)).filter(Boolean) as string[]
-        if (dancerNames.length) nudges.push({ festivalSlug: f.slug, festivalName: f.name, festivalColor: f.accentColor ?? '#0ea5e9', dancerNames })
+        if (dancerNames.length) nudges.push({ festivalSlug: f.slug, festivalName: f.name, festivalColor: f.color ?? '#0ea5e9', dancerNames })
       }
     }
   } catch { /* non-critical */ }
 
-  return { cards, nudges }
+  return { cards, nudges, me: await discoverMe(db, dancerId, citySlug, myPlan, now) }
+}
+
+/**
+ * Where the dancer shows up in other decks (RAZ-981): their next night out
+ * (a sign-up or the night on their plan, any city) and the festivals they chose
+ * "Show me" for. Their photo and public profile are checked on the page.
+ */
+async function discoverMe(db: Db, dancerId: string, citySlug: string, myPlan: any[], now: Date): Promise<DiscoverMe> {
+  let nextNight: DiscoverMe['nextNight'] = null
+  try {
+    const soon = and(
+      live(),
+      isNull(events.cancelledAt),
+      ne(events.isFestival, true),
+      gte(sql`coalesce(${events.endDate}, ${events.startDate})`, now),
+      lt(events.startDate, new Date(now.getTime() + GOING_OUT_DAYS * DAY)),
+    )
+    const cols = { id: events.id, name: events.name, startDate: events.startDate, timezone: events.timezone, city: events.city }
+    const [rsvpNight] = await db.select(cols).from(eventRsvps)
+      .innerJoin(events, eq(eventRsvps.eventId, events.id))
+      .where(and(eq(eventRsvps.dancerId, dancerId), ne(eventRsvps.answer, 'next'), isNotNull(eventRsvps.confirmedAt), soon))
+      .orderBy(asc(events.startDate))
+      .limit(1)
+    const [planNight] = await db.select(cols).from(planItems)
+      .innerJoin(events, sql`${events.id}::text = ${planItems.itemId}`)
+      .where(and(
+        eq(planItems.dancerId, dancerId), eq(planItems.itemType, 'event'), soon,
+        notInArray(sql`coalesce(${events.type}, '')`, NON_SOCIAL_TYPES),
+      ))
+      .orderBy(asc(events.startDate))
+      .limit(1)
+    const n = [rsvpNight, planNight].filter(x => x?.startDate).sort((a, b) => +new Date(a.startDate) - +new Date(b.startDate))[0]
+    if (n?.startDate) nextNight = { eventId: n.id, eventName: n.name ?? '', eventDateISO: new Date(n.startDate).toISOString(), eventTimezone: n.timezone ?? null, city: n.city ?? '' }
+  } catch { /* non-critical */ }
+  let festivalsShown = 0
+  try {
+    const shared = myPlan.filter((r: any) => r.itemType === 'festival' && r.shareGoing).map((r: any) => r.itemId)
+    if (shared.length) festivalsShown = (await claimableFestivals(db, shared, now)).size
+  } catch { /* non-critical */ }
+  return { citySlug, nextNight, festivalsShown }
 }
 
 /** Record a Yes / Skip. Re-deciding the same card overwrites the old decision. */

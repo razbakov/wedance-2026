@@ -344,6 +344,18 @@ describe.skipIf(!DATABASE_URL)('C3 Going journey — integration', () => {
     })
   })
 
+  // RAZ-1004: a party with passes (events.festival set, RAZ-995) is not a festival.
+  describe('RAZ-1004 /festivals lists festivals only', () => {
+    it('leaves out a party that carries passes, keeps a festival', async () => {
+      const start = new Date(Date.now() + 20 * DAY)
+      await addEvent('evPartyPasses', { type: 'Party', festival: { key: `c3-party-${RUN}`, passes: [] } as any, startDate: start })
+      await addEvent('evRealFest', { isFestival: true, type: 'Festival', startDate: start, endDate: new Date(start.getTime() + 2 * DAY) })
+      const names = (await listFestivals(db)).map(r => r.name)
+      expect(names).toContain(`evRealFest ${RUN}`)
+      expect(names).not.toContain(`evPartyPasses ${RUN}`)
+    })
+  })
+
   // ── RAZ-708 ──────────────────────────────────────────────────────────────
   describe('RAZ-708 discovery pool = opted-in public attendees of this exact event', () => {
     beforeAll(async () => {

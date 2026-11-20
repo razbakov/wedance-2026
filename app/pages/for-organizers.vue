@@ -41,7 +41,7 @@ const POSTS = ['The flyer', 'One post per artist', 'The line-up', 'Programme', '
 const STEPS = [
   { icon: CalendarSearch, title: 'Pick the night', detail: 'See what else is on in your city that day, and the festivals around, filtered by your music. Choose the date knowing who you’re up against.' },
   { icon: MapPin, title: 'Find the venue', detail: 'Venues that host nights like yours, and whether they already have one that day. Ask a few through WeDance: they answer with their terms, you book one.' },
-  { icon: UserCheck, title: 'Confirm your artists', detail: 'Send each artist one link. They check their name, photos and programme, approve the posts about them, and their page on WeDance becomes theirs.' },
+  { icon: UserCheck, title: 'Confirm your artists', detail: 'Send each artist a link. They say yes or no, and check their name and photo, so your flyer shows the people who are actually coming.' },
   { icon: Sparkles, title: 'Promote it', detail: 'Draft your content plan in one click. Each post is painted when you ask for it, every word read back and checked, with the caption written.' },
 ]
 const tones = [WD.red600, WD.cyan600, WD.amber500, WD.green600]
@@ -158,6 +158,9 @@ const networkCta = () => useTrack().track('organizer_cta_click', { surface: 'for
         </div>
       </div>
       <p class="mt-6 text-sm text-muted-foreground font-sans">And dancers find it: your event goes on its own page and on your city’s calendar, where dancers plan their week.</p>
+      <AiAppCta surface="for_organizers" title="Or run it from ChatGPT" class="mt-6 font-sans">
+        WeDance is an app in ChatGPT. Paste your announcement and it sets up the event, venue, line-up and flyer, then asks you before anything goes public.
+      </AiAppCta>
     </section>
 
     <!-- Ticketing on WeDance: early access -->

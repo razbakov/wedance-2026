@@ -17,7 +17,7 @@ Feature: C3 — Regular: find your floor
     Given the test environment is safe to write
     And Munich has a weekly practica and a one-off social this week
     And the browser clock is the day before them
-    When I open the home page
+    When I open the About page
     Then the journey stage "Regular" promises "Find your floor" with weekly socials, practicas and friends
     When I follow the "Find your floor" stage
     Then I am on the "munich" city page

@@ -39,3 +39,17 @@ export const VENUE_ANSWER_LABEL: Record<VenueAnswer, string> = {
   proposed: 'Suggests another date',
   declined: 'Can’t host it',
 }
+
+/** "Rent €300 · Min. spend €1,500 · Includes Sound system, Bar staff · Up to 120" — empty when they set nothing. */
+export function venueTermsText(t: VenueTerms | null | undefined): string {
+  if (!t) return ''
+  return [
+    t.rent && `Rent ${t.rent}`,
+    t.minSpend && `Min. spend ${t.minSpend}`,
+    t.doorSplit && `Door split ${t.doorSplit}`,
+    t.deposit && `Deposit ${t.deposit}`,
+    t.includes?.length && `Includes ${t.includes.join(', ')}`,
+    t.capacity && `Up to ${t.capacity}`,
+    t.notes,
+  ].filter(Boolean).join(' · ')
+}

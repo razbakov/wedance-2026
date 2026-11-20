@@ -1,8 +1,8 @@
 import { z } from 'zod'
-import { eq, and, or, gte, lt, inArray, isNull, desc, asc, sql } from 'drizzle-orm'
+import { eq, and, or, gte, lt, inArray, isNull, isNotNull, ne, desc, asc, sql } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { router, protectedProcedure, publicProcedure } from '../trpc'
-import { events, profiles, profileMembers, profileClaims, cities, profileSuggestions, bookingInquiries, planItems, attendances, festivals, festivalSignups, dancers, eventFlyers } from '../../database/schema'
+import { events, profiles, profileMembers, profileClaims, cities, profileSuggestions, bookingInquiries, planItems, attendances, festivals, festivalSignups, dancers, eventFlyers, eventRsvps, follows } from '../../database/schema'
 import { slugify, randomSuffix } from '../../utils/slug'
 import { resolveTimezone, seriesKey } from '../../utils/v3EventSync'
 import { zonedToUtc, eventLocalDate, eventLocalTime, eventLocalWeekday } from '../../../shared/utils/eventTime'
@@ -21,9 +21,13 @@ import { cleanSession, inferDurations } from '../../../shared/utils/programme'
 import { seriesDates, weekdayOf, MAX_SERIES } from '../../../shared/utils/recurrence'
 import { eventGaps } from '../../../shared/utils/eventChecklist'
 import { cleanCoOrganizers, CO_ORGANIZERS_MAX, CO_ORGANIZER_ROLE_MAX, type CoOrganizer } from '../../../shared/utils/coOrganizers'
+import { EVENT_ARTISTS_MAX, PASS_DESCRIPTION_MAX, PRACTICAL_INFO_LINE_MAX, PRACTICAL_INFO_MAX } from '../../../shared/utils/eventLimits'
 import { randomUUID } from 'node:crypto'
 import { profileGroup, trackServer } from '../../utils/posthog'
 import { scheduleInstagramImport } from '../../utils/instagram/profileImport'
+import { cancelEvent, uncancelEvent, signupsOf, backOnRecipients, CANCEL_REASON_MAX } from '../../utils/eventCancel'
+import { siteUrl } from '../../utils/profileFeed'
+import { wantsFlyerReminder, PULSE_MIN, type PulseNumber } from '../../../shared/utils/businessHome'
 
 /**
  * Business mode — events a profile runs, and the /business home inbox.
@@ -57,16 +61,19 @@ const festivalInput = z.object({
   logo: z.string().url().or(z.literal('')).optional(),
   accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).or(z.literal('')).optional(),
   socialLinks: z.array(z.object({ platform: text(20), url: z.string().url() })).max(10).default([]),
-  practicalInfo: z.array(text(300)).max(30).default([]),
+  practicalInfo: z.array(text(PRACTICAL_INFO_LINE_MAX)).max(PRACTICAL_INFO_MAX).default([]),
   passes: z.array(z.object({
     name: text(80).min(1, 'Name every pass.'),
     price: z.number().min(0).max(100000),
     days: z.array(text(12)).max(14).default([]),
-    description: text(300).optional(),
+    description: text(PASS_DESCRIPTION_MAX).optional(),
     soldOut: z.boolean().optional(),
     workshopCount: z.number().int().min(0).max(100).optional(),
     includesParty: z.boolean().optional(),
+    couplePrice: z.number().min(0).max(200000).optional(),
+    sessions: z.array(z.string().trim().min(1).max(60)).max(200).optional(),
   })).max(30).default([]),
+  payAtDoor: z.boolean().optional(),
   sessions: z.array(z.object({
     id: z.string().trim().min(1).max(60),
     date: ymdStr,
@@ -86,7 +93,7 @@ const festivalInput = z.object({
   })).max(300).default([]),
   videos: z.record(z.string(), z.string().url()).default({}),
 })
-const eventInput = z.object({
+export const eventInput = z.object({
   name: z.string().trim().min(1, 'Add a name.').max(160),
   type: z.enum(EVENT_TYPES),
   date: ymd,
@@ -98,7 +105,7 @@ const eventInput = z.object({
   venueUsername: z.string().max(200).nullable().optional(),
   venueName: z.string().trim().max(200).nullable().optional(),
   venueAddress: z.string().trim().max(300).nullable().optional(),
-  artists: z.array(z.string().min(1).max(200)).max(40).default([]),
+  artists: z.array(z.string().min(1).max(200)).max(EVENT_ARTISTS_MAX).default([]),
   // Other pages that run it with the organiser (#456): credit, no edit rights.
   coOrganizers: z.array(z.object({
     username: z.string().trim().min(1).max(200),
@@ -307,6 +314,7 @@ const listColumns = {
   organizerName: events.organizerName, organizerUsername: events.organizerUsername, slug: events.slug,
   // What a flyer is made from (flyerStatusFor).
   venueAddress: events.venueAddress, styles: events.styles, agenda: events.agenda, flyerOptions: events.flyerOptions,
+  cancelledAt: events.cancelledAt, cancelReason: events.cancelReason,
 }
 
 // A recurring series (recurring_series): the template event plus the rule.
@@ -414,6 +422,39 @@ const csvCell = (v: unknown) => {
 export const attendeesCsv = (rows: { name: string; handle: string | null; city: string | null; status: string }[]) =>
   ['name,handle,city,status', ...rows.map(r => [r.name, r.handle ?? '', r.city, r.status].map(csvCell).join(','))].join('\n')
 
+// A copy of an event row, moved by `shift` ms: the same wall-clock time in the
+// event's zone (so a copy across the DST switch doesn't drift by an hour),
+// festival session dates moved along, a fresh slug and festival key (the DB
+// has a unique index on festival->>'key'). `extra` overrides fields.
+function shiftedCopy(ev: any, shift: number, extra: Record<string, unknown> = {}) {
+  const { id: _i, slug: _s, sourceId: _si, createdAt: _c, syncedAt: _y, editedAt: _ea, editedBy: _eb, ...copy } = ev
+  const slug = `${slugify(ev.name ?? 'event')}-${randomSuffix(5)}`
+  const shifted = shiftFestivalSessions(ev.festival, shift)
+  const move = (d: Date | string) => zonedToUtc(eventLocalDate(new Date(new Date(d).getTime() + shift), ev.timezone), eventLocalTime(d, ev.timezone), ev.timezone)
+  return {
+    ...copy,
+    slug,
+    // A caption is written for one date; each copy writes its own.
+    caption: null,
+    startDate: move(ev.startDate),
+    endDate: ev.endDate ? move(ev.endDate) : null,
+    festival: shifted ? { ...shifted, key: slug } : null,
+    updatedAt: new Date(),
+    ...extra,
+  }
+}
+
+const MAX_CANCEL = 50
+
+/** An event I manage that can be cancelled: live (published, not archived) and not over yet. */
+async function cancellable(ctx: any, id: string) {
+  const ev = await requireEventManager(ctx, id)
+  if (ev.archived || !ev.published) throw new TRPCError({ code: 'BAD_REQUEST', message: `“${ev.name ?? 'This event'}” isn’t published, so nobody can have signed up: archive it instead.` })
+  const end = ev.endDate ?? ev.startDate
+  if (end && new Date(end).getTime() < Date.now()) throw new TRPCError({ code: 'BAD_REQUEST', message: `“${ev.name ?? 'This event'}” is already over.` })
+  return ev
+}
+
 export const businessEventsRouter = router({
   // Events of the profiles I manage (optionally one), newest-relevant first.
   list: protectedProcedure
@@ -485,6 +526,9 @@ export const businessEventsRouter = router({
         // A synced weekly date: archiving can take the whole series off.
         recurring: !ev.hostProfileId && !!seriesKey(ev.sourceId, ev.seriesId),
         archived: !!ev.archived,
+        // Cancelled by its organiser (RAZ-948): still listed, marked with the reason.
+        cancelledAt: (ev.cancelledAt ?? null) as Date | null,
+        cancelReason: (ev.cancelReason ?? null) as string | null,
         editedAt: ev.editedAt as Date | null,
         name: ev.name ?? '',
         type: (EVENT_TYPES as readonly string[]).includes(ev.type) ? ev.type : 'Party',
@@ -580,35 +624,45 @@ export const businessEventsRouter = router({
       if (ev.published) assertScope(ctx, 'business:publish')
       const seriesId = ev.seriesId ?? `host-${ev.id}`
       if (!ev.seriesId) await ctx.db.update(events).set({ seriesId }).where(eq(events.id, ev.id))
-      const { id: _i, slug: _s, sourceId: _si, createdAt: _c, syncedAt: _y, editedAt: _ea, editedBy: _eb, ...copy } = ev
-      const rows = Array.from({ length: input.weeks }, (_, i) => {
-        const shift = (i + 1) * 7 * 86400_000
-        const slug = `${slugify(ev.name ?? 'event')}-${randomSuffix(5)}`
-        const shifted = shiftFestivalSessions(ev.festival, shift)
-        return {
-          ...copy,
-          seriesId,
-          slug,
-          // A caption is written for one date; each copy writes its own.
-          caption: null,
-          // Same wall-clock time a week later: re-derive in the event's zone so
-          // a series crossing the DST switch doesn't drift by an hour.
-          startDate: zonedToUtc(eventLocalDate(new Date(new Date(ev.startDate).getTime() + shift), ev.timezone), eventLocalTime(ev.startDate, ev.timezone), ev.timezone),
-          endDate: ev.endDate
-            ? zonedToUtc(eventLocalDate(new Date(new Date(ev.endDate).getTime() + shift), ev.timezone), eventLocalTime(ev.endDate, ev.timezone), ev.timezone)
-            : null,
-          // Shift festival session dates and assign a fresh key (the DB has a
-          // unique index on festival->>'key').
-          festival: shifted ? { ...shifted, key: slug } : null,
-          updatedAt: new Date(),
-        }
-      })
+      const rows = Array.from({ length: input.weeks }, (_, i) => shiftedCopy(ev, (i + 1) * 7 * 86400_000, { seriesId }))
       try {
         const created = await ctx.db.insert(events).values(rows).returning({ id: events.id, startDate: events.startDate })
         return { created }
       } catch (err) {
         console.error('[businessEvents.duplicate] insert failed for event', input.id, err)
         throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Could not repeat the event. Please try again.' })
+      }
+    }),
+
+  // "Like my last event" (RAZ-939): a DRAFT copy of one of my events on a new
+  // date (same local start time), plus `repeatWeeks` weekly dates after it,
+  // all drafts in one series. Unlike duplicate, the copies never go live.
+  copy: protectedProcedure
+    .input(z.object({ id: z.string().uuid(), date: ymd, repeatWeeks: z.number().int().min(0).max(12).default(0) }))
+    .mutation(async ({ ctx, input }) => {
+      const ev = await requireEventManager(ctx, input.id)
+      const host = await eventHostProfile(ctx.db, ev)
+      if (!host) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Only events run by one of your pages can be copied.' })
+      await requireMember(ctx, host.username)
+      const tz = ev.timezone || 'Europe/Berlin'
+      const days = Math.round((new Date(`${input.date}T12:00:00Z`).getTime() - new Date(`${eventLocalDate(ev.startDate, tz)}T12:00:00Z`).getTime()) / 86400_000)
+      const firstId = randomUUID()
+      const seriesId = input.repeatWeeks ? `host-${firstId}` : null
+      const rows = Array.from({ length: input.repeatWeeks + 1 }, (_, i) => shiftedCopy({ ...ev, timezone: tz }, (days + i * 7) * 86400_000, {
+        ...(i === 0 ? { id: firstId } : {}),
+        seriesId,
+        hostProfileId: host.id,
+        source: 'wedance-business',
+        published: false,
+        archived: false,
+      }))
+      const created = await ctx.db.insert(events).values(rows).returning({ id: events.id, startDate: events.startDate })
+      created.sort((a: any, b: any) => +new Date(a.startDate) - +new Date(b.startDate))
+      trackServer(ctx, 'event_created', { event_id: firstId, is_festival: !!ev.isFestival, host_type: host.type, city: ev.city || null, published: false, copied_from: ev.id, ...(seriesId ? { series_id: seriesId, dates: created.length } : {}), ...profileGroup(host.username) })
+      return {
+        id: firstId,
+        seriesId,
+        created: created.map((e: any) => ({ id: e.id, date: eventLocalDate(e.startDate, tz) })),
       }
     }),
 
@@ -740,9 +794,86 @@ export const businessEventsRouter = router({
       return { archived: dates.length }
     }),
 
+  // Cancel (RAZ-948): the event stays published and listed, marked "Cancelled"
+  // with the reason, and everyone who signed up (plan, poll "yes", tickets) is
+  // emailed once. Several at once for a host page (the Tanzverbot case).
+  // cancelPreview counts who would be told, without changing anything.
+  cancelPreview: protectedProcedure
+    .input(z.object({ ids: z.array(z.string().uuid()).min(1).max(MAX_CANCEL) }))
+    .query(async ({ ctx, input }) => {
+      const out = []
+      for (const id of input.ids) {
+        const ev = await cancellable(ctx, id)
+        const people = await signupsOf(ctx.db, ev, ctx.dancerId)
+        const tz = ev.timezone || 'Europe/Berlin'
+        out.push({
+          id: ev.id, name: ev.name ?? '', date: eventLocalDate(ev.startDate, tz), startTime: eventLocalTime(ev.startDate, tz),
+          alreadyCancelled: !!ev.cancelledAt, toNotify: ev.cancelledAt ? 0 : people.length, ticketHolders: ev.cancelledAt ? 0 : people.filter(p => p.ticket).length,
+        })
+      }
+      return { events: out, toNotify: out.reduce((n, e) => n + e.toNotify, 0) }
+    }),
+
+  cancel: protectedProcedure
+    .input(z.object({
+      ids: z.array(z.string().uuid()).min(1).max(MAX_CANCEL),
+      reason: z.string().trim().max(CANCEL_REASON_MAX).nullable().optional(),
+      surface: z.enum(['web', 'mcp']).default('web'),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const results = []
+      for (const id of input.ids) {
+        const ev = await cancellable(ctx, id)
+        const host = await eventHostProfile(ctx.db, ev)
+        const r = await cancelEvent(ctx, ev, input.reason ?? null, { siteUrl: siteUrl(), organizer: host?.name || ev.organizerName || null })
+        if (!r.alreadyCancelled) {
+          trackServer(ctx, 'event_cancelled', {
+            event_id: ev.id, notified: r.notified, has_reason: !!input.reason?.trim(), bulk: input.ids.length > 1,
+            is_festival: !!ev.isFestival, host_type: host?.type ?? null, ...profileGroup(host?.username),
+          })
+        }
+        results.push(r)
+      }
+      return { events: results, notified: results.reduce((n, r) => n + r.notified, 0) }
+    }),
+
+  // Back on (RAZ-969): the "Cancelled" mark goes. uncancelPreview counts who
+  // got the cancellation email and would hear "Good news, it's on again";
+  // uncancel emails them only with notify (the organiser's choice).
+  uncancelPreview: protectedProcedure
+    .input(z.object({ ids: z.array(z.string().uuid()).min(1).max(MAX_CANCEL) }))
+    .query(async ({ ctx, input }) => {
+      const out = []
+      for (const id of input.ids) {
+        const ev = await requireEventManager(ctx, id)
+        const people = await backOnRecipients(ctx.db, ev, ctx.dancerId)
+        const tz = ev.timezone || 'Europe/Berlin'
+        out.push({
+          id: ev.id, name: ev.name ?? '', date: ev.startDate ? eventLocalDate(ev.startDate, tz) : null, startTime: ev.startDate ? eventLocalTime(ev.startDate, tz) : null,
+          cancelled: !!ev.cancelledAt, toNotify: people.length, ticketHolders: people.filter(p => p.ticket).length,
+        })
+      }
+      return { events: out, toNotify: out.reduce((n, e) => n + e.toNotify, 0) }
+    }),
+
+  uncancel: protectedProcedure
+    .input(z.object({ id: z.string().uuid(), notify: z.boolean().default(false) }))
+    .mutation(async ({ ctx, input }) => {
+      const ev = await requireEventManager(ctx, input.id)
+      if (!ev.cancelledAt) return { uncancelled: false, notified: 0 }
+      const host = await eventHostProfile(ctx.db, ev)
+      const r = await uncancelEvent(ctx, ev, { siteUrl: siteUrl(), organizer: host?.name || ev.organizerName || null, notify: input.notify })
+      trackServer(ctx, 'event_uncancelled', {
+        event_id: ev.id, notified: r.notified, notify: input.notify,
+        hours_cancelled: Math.round((Date.now() - new Date(ev.cancelledAt).getTime()) / 3600_000),
+        is_festival: !!ev.isFestival, host_type: host?.type ?? null, ...profileGroup(host?.username),
+      })
+      return r
+    }),
+
   // The line-up's names and photos, for picking each artist's flyer photo.
   lineupPhotos: protectedProcedure
-    .input(z.object({ handles: z.array(z.string().min(1).max(200)).max(40) }))
+    .input(z.object({ handles: z.array(z.string().min(1).max(200)).max(EVENT_ARTISTS_MAX) }))
     .query(async ({ ctx, input }) => {
       if (!input.handles.length) return []
       const rows = await ctx.db.select({ username: profiles.username, name: profiles.name, photo: profiles.photo, photos: profiles.photos, styles: profiles.styles })
@@ -1031,6 +1162,8 @@ export const businessEventsRouter = router({
         const st = flyers.get(e.id)!
         const key = e.seriesId ?? e.id
         if (seenSeries.has(key)) continue
+        // No reminder for an event within 24 h or a weekly class (RAZ-973).
+        if (!wantsFlyerReminder(e, now)) continue
         if (!st.kept) { seenSeries.add(key); needs.push({ kind: 'flyer', tone: 'info', title: `${e.name} has no flyer yet`, detail: `${fmtDay(e)} · check the details, then make it in about a minute.`, to: `/business/events/${e.id}?flyer=1` }) }
         else if (st.changes.length) { seenSeries.add(key); needs.push({ kind: 'flyer', tone: 'warning', title: `${e.name}: the flyer is out of date`, detail: `${fmtDay(e)} · you changed the details after it was made.`, to: `/business/events/${e.id}` }) }
       }
@@ -1039,15 +1172,111 @@ export const businessEventsRouter = router({
       const othersGigs = await eventsImIn(ctx.db, mine, and(gte(events.endDate, now), lt(events.startDate, in60)))
 
       const comingUp = [
-        ...hosted.map((e: any) => ({ id: e.id, name: e.name, startDate: e.startDate, timezone: e.timezone, published: e.published, role: 'host' as const, to: `/business/events/${e.id}`, missing: checks.get(e.id) ?? [] })),
-        ...othersGigs.map((g: any) => ({ id: g.id, name: g.name, startDate: g.startDate, timezone: g.timezone, published: true, role: g.role, to: g.to, missing: [] as string[] })),
+        ...hosted.map((e: any) => ({ id: e.id, name: e.name, startDate: e.startDate, timezone: e.timezone, published: e.published, role: 'host' as const, to: `/business/events/${e.id}`, publicPath: e.published ? eventPath(e) : null, missing: checks.get(e.id) ?? [] })),
+        ...othersGigs.map((g: any) => ({ id: g.id, name: g.name, startDate: g.startDate, timezone: g.timezone, published: true, role: g.role, to: g.to, publicPath: eventPath(g) as string | null, missing: [] as string[] })),
       ]
         .filter(e => new Date(e.startDate) < in14)
         .sort((a, b) => +new Date(a.startDate) - +new Date(b.startDate))
 
-      return { profiles: all, needs, comingUp, lineupCount: othersGigs.length }
+      // ── Home (RAZ-973): tonight with faces, the last 7 days, new followers, an idea ──
+      const signups = await signupFaces(ctx.db, comingUp.filter(e => e.published).map(e => e.id))
+      const isToday = (e: { startDate: any; timezone: string | null }) => {
+        const tz = e.timezone || 'Europe/Berlin'
+        return eventLocalDate(e.startDate, tz) === eventLocalDate(now, tz)
+      }
+      const cancelled = new Set([...hosted, ...othersGigs].filter((e: any) => e.cancelledAt).map((e: any) => e.id))
+      const today = comingUp
+        .filter(e => e.published && !cancelled.has(e.id) && isToday(e))
+        .map(e => ({ ...e, going: signups.get(e.id)?.count ?? 0, faces: signups.get(e.id)?.faces ?? [] }))
+      const best = comingUp
+        .filter(e => e.published && !cancelled.has(e.id))
+        .map(e => ({ e, n: signups.get(e.id)?.count ?? 0 }))
+        .sort((a, b) => b.n - a.n)[0]
+      const highlight = best && best.n >= PULSE_MIN
+        ? { eventId: best.e.id, name: best.e.name, going: best.n, today: isToday(best.e), to: best.e.to }
+        : null
+
+      const pulse = await pulseFor(ctx.db, mine.map((p: any) => p.id), now)
+      const followers = mine.length
+        ? await ctx.db.select({ name: dancers.name, photo: dancers.photo, at: follows.createdAt })
+          .from(follows).innerJoin(dancers, eq(dancers.id, follows.dancerId))
+          .where(and(inArray(follows.profileId, mine.map((p: any) => p.id)), gte(follows.createdAt, new Date(now.getTime() - 7 * 86400_000))))
+          .orderBy(desc(follows.createdAt)).limit(50)
+        : []
+      const newFollowers = followers.length
+        ? { count: followers.length, names: followers.slice(0, 2).map((f: any) => f.name), faces: followers.slice(0, 3).map((f: any) => ({ name: f.name, photo: f.photo })), profile: mine.length === 1 ? mine[0].name : null }
+        : null
+
+      // An empty week: nothing of mine published in the next 7 days, but I've run events before.
+      const in7 = new Date(now.getTime() + 7 * 86400_000)
+      let idea: { lastName: string; to: string } | null = null
+      if (mine.length && !hosted.some((e: any) => e.published && new Date(e.startDate) < in7)) {
+        const [last] = await ctx.db.select({ id: events.id, name: events.name }).from(events)
+          .where(and(inArray(events.hostProfileId, mine.map((p: any) => p.id)), lt(events.startDate, now)))
+          .orderBy(desc(events.startDate)).limit(1)
+        if (last?.name) idea = { lastName: last.name, to: '/business/events/new' }
+      }
+
+      return { profiles: all, needs, comingUp, lineupCount: othersGigs.length, today, highlight, pulse, newFollowers, idea }
     }),
 })
+
+// Who signed up for each event (Going!, a "coming" poll answer, a ticket), with up to five faces —
+// the organiser's view, like rsvp.people (names only, no contact details).
+async function signupFaces(db: any, ids: string[]) {
+  const out = new Map<string, { count: number; faces: { name: string | null; photo: string | null }[] }>()
+  if (!ids.length) return out
+  const [plans, polls, att] = await Promise.all([
+    db.select({ eventId: planItems.itemId, dancerId: planItems.dancerId }).from(planItems)
+      .where(and(eq(planItems.itemType, 'event'), inArray(planItems.itemId, ids))),
+    db.select({ eventId: eventRsvps.eventId, dancerId: eventRsvps.dancerId }).from(eventRsvps)
+      .where(and(inArray(eventRsvps.eventId, ids), isNotNull(eventRsvps.dancerId), ne(eventRsvps.answer, 'next'))),
+    db.select({ eventId: attendances.eventId, dancerId: attendances.dancerId }).from(attendances)
+      .where(and(inArray(attendances.eventId, ids), isNotNull(attendances.dancerId), inArray(attendances.status, ['going', 'ticket_holder']))),
+  ])
+  const byEvent = new Map<string, string[]>()
+  for (const r of [...plans, ...polls, ...att]) {
+    const list = byEvent.get(r.eventId) ?? []
+    if (!list.includes(r.dancerId)) list.push(r.dancerId)
+    byEvent.set(r.eventId, list)
+  }
+  const faceIds = [...new Set([...byEvent.values()].flatMap(l => l.slice(0, 5)))]
+  const people = faceIds.length
+    ? new Map<string, any>((await db.select({ id: dancers.id, name: dancers.name, photo: dancers.photo }).from(dancers).where(inArray(dancers.id, faceIds))).map((d: any) => [d.id, d]))
+    : new Map<string, any>()
+  for (const [id, list] of byEvent) {
+    out.set(id, { count: list.length, faces: list.slice(0, 5).map(d => people.get(d)).filter(Boolean).map((d: any) => ({ name: d.name, photo: d.photo })) })
+  }
+  return out
+}
+
+// The last 7 days vs. the 7 before, for the pages I manage: Going! on their events, new
+// followers, poll answers ("coming" ones). Database only; clicks live in PostHog.
+async function pulseFor(db: any, profileIds: string[], now: Date): Promise<PulseNumber[]> {
+  if (!profileIds.length) return []
+  const d7 = new Date(now.getTime() - 7 * 86400_000)
+  const d14 = new Date(now.getTime() - 14 * 86400_000)
+  const ids = sql.join(profileIds.map(id => sql`${id}::uuid`), sql`, `)
+  const hostedIds = sql`(select id from events where host_profile_id in (${ids}))`
+  const split = (col: any) => ({
+    cur: sql<number>`count(*) filter (where ${col} >= ${d7})::int`,
+    prev: sql<number>`count(*) filter (where ${col} < ${d7})::int`,
+  })
+  const [[plans], [fol], [ans]] = await Promise.all([
+    db.select(split(planItems.createdAt)).from(planItems)
+      .where(and(eq(planItems.itemType, 'event'), sql`${planItems.itemId} in (select id::text from events where host_profile_id in (${ids}))`, gte(planItems.createdAt, d14))),
+    db.select(split(follows.createdAt)).from(follows)
+      .where(and(inArray(follows.profileId, profileIds), gte(follows.createdAt, d14))),
+    db.select(split(eventRsvps.createdAt)).from(eventRsvps)
+      .where(and(sql`${eventRsvps.eventId} in ${hostedIds}`, ne(eventRsvps.answer, 'next'), gte(eventRsvps.createdAt, d14))),
+  ])
+  const n = (r: any) => ({ value: r?.cur ?? 0, delta: (r?.cur ?? 0) - (r?.prev ?? 0) })
+  return [
+    { id: 'plans', label: 'Put your events in their plan', ...n(plans) },
+    { id: 'followers', label: 'New followers', ...n(fol) },
+    { id: 'answers', label: 'Said they’re coming in your poll', ...n(ans) },
+  ]
+}
 
 // Published events run by someone else that my pages take part in: at my
 // venue, organised by my organizer page (events synced from wedance.vip carry

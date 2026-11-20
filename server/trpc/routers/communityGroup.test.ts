@@ -13,8 +13,12 @@ vi.mock('drizzle-orm', async () => {
     const jsKey = resolveKey(col)
     return (row) => (jsKey ? row[jsKey] === val : false)
   }
-  const and = (...preds: FilterFn[]): FilterFn => (row) => preds.every(p => p(row))
-  return { eq, and, gt: () => () => false, desc: (x: any) => x, sql: (..._a: any[]) => ({}) }
+  const ne = (col: any, val: any): FilterFn => {
+    const jsKey = resolveKey(col)
+    return (row) => (jsKey ? row[jsKey] !== val : true)
+  }
+  const and = (...preds: FilterFn[]): FilterFn => (row) => preds.filter(Boolean).every(p => p(row))
+  return { eq, ne, and, gt: () => () => false, desc: (x: any) => x, asc: (x: any) => x, inArray: () => () => true, or: () => () => true, isNull: () => () => true, sql: (..._a: any[]) => ({}) }
 })
 
 import { appRouter } from '../index'
@@ -25,11 +29,17 @@ class FakeDb {
   communityGroups: FakeRow[] = []
   reports: FakeRow[] = []
 
-  select(_c: any) {
+  select(cols?: Record<string, unknown>) {
+    // Like Postgres: only the selected columns come back (so a column left out of a select can't leak).
+    const project = (r: FakeRow) => (cols ? Object.fromEntries(Object.keys(cols).map(k => [k, r[k]])) : r)
     return {
-      from: (t: any) => ({
-        where: (f: FilterFn) => Promise.resolve(this.tableFor(t).filter(f)),
-      }),
+      from: (t: any) => {
+        // Rows from before 0067 are ordinary community groups with an unchecked link.
+        const where = (f: FilterFn) => Promise.resolve(this.tableFor(t).map(r => (t === communityGroups ? { kind: 'community', linkStatus: 'unknown', ...r } : r)).filter(f).map(project))
+        const q: any = { where }
+        q.leftJoin = () => q
+        return q
+      },
     }
   }
 
@@ -112,6 +122,25 @@ describe('communityGroup router', () => {
 
     expect(result).toHaveLength(1)
     expect(result[0].name).toBe('Salsa Munich')
+  })
+
+  it('listByCity: never carries the group admin or their contact (RAZ-967)', async () => {
+    const db = new FakeDb()
+    db.communityGroups = [{
+      id: '550e8400-e29b-41d4-a716-446655440001', citySlug: 'munich', name: 'Salsa Munich', platform: 'whatsapp',
+      inviteUrl: 'https://chat.whatsapp.com/abc', styles: [], verified: true, status: 'visible', reportCount: 0,
+      adminName: 'Maria Lopez', adminContact: '+49 151 2345678',
+    }]
+    const caller = appRouter.createCaller({ db: db as any, dancerId: null, isAdmin: false })
+    const [row] = await caller.communityGroup.listByCity({ citySlug: 'munich' })
+    expect(row).toMatchObject({ name: 'Salsa Munich' })
+    expect(row).not.toHaveProperty('adminName')
+    expect(row).not.toHaveProperty('adminContact')
+  })
+
+  it('setAdmin: signed-in only', async () => {
+    const caller = appRouter.createCaller({ db: new FakeDb() as any, dancerId: null, isAdmin: false })
+    await expect(caller.communityGroup.setAdmin({ id: '550e8400-e29b-41d4-a716-446655440001', adminName: 'A' })).rejects.toThrow('Not signed in')
   })
 
   it('report: requires authentication', async () => {

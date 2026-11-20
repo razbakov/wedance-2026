@@ -1,8 +1,8 @@
 import { z } from 'zod'
 
 /**
- * "Talk to us" fallback: when the report can't reach Sentry (even through our
- * relay), the widget posts it to server/api/report.post.ts, which files it as
+ * "Talk to us" fallback: when the report can't reach Sentry (even through the
+ * /api/m tunnel), the widget posts it to server/api/report.post.ts, which files it as
  * a Linear triage issue so no report is lost. No screenshot here — too big for
  * an issue body; the PostHog replay link covers it.
  */

@@ -11,9 +11,11 @@
  * Session ids are kept as they are: dancers' picks are stored by them.
  */
 import type { PropType } from 'vue'
-import { Plus, X, ChevronDown, ChevronUp, Pencil, Check } from 'lucide-vue-next'
+import { Plus, X, ChevronDown, ChevronUp, Pencil, Check, AlertTriangle } from 'lucide-vue-next'
 import type { FestivalDetails, FestivalPass, FestivalSession, SessionType } from '#shared/types/festivalDetails'
-import { SESSION_TYPES, SESSION_TYPE_LABEL, DEFAULT_DURATION, inferDurations, isWorkshop, sessionKindLabel, sessionTimeRange } from '#shared/utils/programme'
+import { entryWords, type EntryNoun } from '#shared/utils/entryWord'
+import { PASS_DESCRIPTION_MAX, PRACTICAL_INFO_LINE_MAX } from '#shared/utils/eventLimits'
+import { SESSION_TYPES, SESSION_TYPE_LABEL, DEFAULT_DURATION, hasArtist, inferDurations, isWorkshop, outsideHoursNote, sessionKindLabel, sessionTimeRange } from '#shared/utils/programme'
 
 type Editable = Omit<FestivalDetails, 'key'>
 const model = defineModel<Editable>({ required: true })
@@ -28,7 +30,12 @@ const props = defineProps({
   /** The event's end, for the last session's length: last day ('' = single-day, as saved) + time. */
   endDate: { type: String, default: '' },
   endTime: { type: String, default: '' },
+  /** The event's start, so a programme time outside its hours can be flagged (not refused). */
+  startTime: { type: String, default: '' },
+  /** A festival sells passes; a party or class sells tickets (RAZ-1029). The stored field stays `passes`. */
+  word: { type: String as PropType<EntryNoun>, default: 'pass' },
 })
+const words = computed(() => entryWords(props.word === 'ticket' ? 'ticket' : 'pass'))
 
 // Lists always exist, so rows can be added straight away.
 model.value.socialLinks ??= []
@@ -60,10 +67,23 @@ const weekdays = computed(() => [...new Set(props.days.map(weekday))])
 const PLATFORMS = ['website', 'instagram', 'facebook', 'youtube', 'tiktok', 'whatsapp', 'telegram']
 const links = computed(() => model.value.socialLinks!)
 const info = computed(() => model.value.practicalInfo!)
+// Over the server's limit (shared/utils/eventLimits.ts): flagged as it's typed (RAZ-991).
+const tooLong = (v: string | undefined, max: number) => (v ?? '').trim().length > max
 
 // --- passes
 const passes = computed(() => model.value.passes!)
 const openPass = ref<number | null>(null)
+// Programme items a pass can cover (doors are a moment, not a part of the night).
+const coverable = computed(() => (model.value.sessions ?? []).filter(x => x.type !== 'doors')
+  .slice().sort((a, b) => a.date.localeCompare(b.date) || (a.time || '').localeCompare(b.time || '')))
+function toggleCovers(p: { sessions?: string[] }, id: string) {
+  // None ticked means "all"; the first untick lists the rest explicitly.
+  const all = coverable.value.map(x => x.id)
+  const now = new Set(p.sessions?.length ? p.sessions : all)
+  now.has(id) ? now.delete(id) : now.add(id)
+  const list = all.filter(x => now.has(x))
+  p.sessions = list.length === all.length ? undefined : list
+}
 function addPass() { passes.value.push({ name: '', price: 0, days: [] }); openPass.value = passes.value.length - 1 }
 function toggleDay(p: FestivalPass, d: string) {
   const i = p.days.indexOf(d)
@@ -101,11 +121,22 @@ const settled = computed(() => {
   return new Map(out.map(s => [s.id, s]))
 })
 const rangeOf = (s: FestivalSession) => sessionTimeRange(settled.value.get(s.id) ?? s)
-// Changing the type: a level only on a workshop; an untouched length follows the new type.
+// RAZ-1027: warn, don't block. A night past midnight (20:00–02:00) already counts
+// 01:00 as inside; this only flags a time that really sits outside those hours.
+const hoursNote = (s: { date: string; time: string }) => outsideHoursNote(s, {
+  date: props.days[0], startTime: props.startTime, endDate: props.endDate || null, endTime: props.endTime || null,
+})
+// Changing the type: a level only on a workshop; an artist, style and partner only
+// where someone performs. An untouched length follows the new type.
 function setType(s: FestivalSession, t: SessionType) {
   s.type = t
   if (!isWorkshop(t)) delete s.level
   else s.level ??= 'Beginner'
+  if (!hasArtist(t)) {
+    s.artist = ''
+    s.style = ''
+    delete s.with
+  }
 }
 const autoHint = (s: FestivalSession) => (typeof s.duration === 'number' && Number.isFinite(s.duration)) ? undefined : `Empty = until the next item, the event’s end, or ${DEFAULT_DURATION[s.type] || 0} min.`
 function removeSession(id: string) {
@@ -147,46 +178,92 @@ const LEVELS = ['Beginner', 'Intermediate', 'Advanced']
       <p class="text-sm font-bold">Practical info <span class="font-normal text-muted-foreground">(optional)</span></p>
       <p class="text-xs text-muted-foreground">Venues, transport, payment, what to bring: one line each.</p>
       <div class="mt-2 grid gap-2">
-        <div v-for="(_, i) in info" :key="i" class="flex gap-2">
-          <Input v-model="info[i]" class="flex-1" :aria-label="`Practical info, line ${i + 1}`" />
-          <Button type="button" variant="ghost" size="icon-sm" :aria-label="`Remove line ${i + 1}`" @click="info.splice(i, 1)"><X /></Button>
+        <div v-for="(_, i) in info" :key="i" class="min-w-0">
+          <div class="flex gap-2">
+            <Input
+              v-model="info[i]"
+              class="min-w-0 flex-1"
+              :aria-label="`Practical info, line ${i + 1}`"
+              :aria-invalid="tooLong(info[i], PRACTICAL_INFO_LINE_MAX) ? 'true' : undefined"
+              :aria-describedby="tooLong(info[i], PRACTICAL_INFO_LINE_MAX) ? `pi-${i}-error` : undefined"
+            />
+            <Button type="button" variant="ghost" size="icon-sm" :aria-label="`Remove line ${i + 1}`" @click="info.splice(i, 1)"><X /></Button>
+          </div>
+          <FieldError :id="`pi-${i}-error`" :message="tooLong(info[i], PRACTICAL_INFO_LINE_MAX) ? `${(info[i] ?? '').trim().length} characters: keep each line under ${PRACTICAL_INFO_LINE_MAX}, or split it in two.` : undefined" />
         </div>
         <Button type="button" variant="ghost" size="sm" class="justify-self-start" @click="info.push('')"><Plus /> Add a line</Button>
       </div>
   </div>
 
-  <!-- Passes -->
-  <div v-else-if="part === 'passes'">
-      <p class="text-sm font-bold">Passes</p>
-      <p class="text-xs text-muted-foreground">What dancers can buy. The page recommends the best-value pass for the sessions they pick.</p>
-      <div class="mt-3 grid gap-3">
-        <div v-for="(p, i) in passes" :key="i" class="rounded-xl border">
+  <!-- Passes for a festival, tickets for a party or class (RAZ-1029). -->
+  <div v-else-if="part === 'passes'" class="min-w-0">
+      <p class="text-sm font-bold">{{ words.Many }}</p>
+      <p class="text-xs text-muted-foreground">What dancers can buy. The page recommends the best-value {{ words.one }} for the sessions they pick.</p>
+      <!-- min-w-0 everywhere: a grid/flex child is otherwise as wide as its
+           longest unbroken line, and the rows pushed the card open (RAZ-991). -->
+      <div class="mt-3 grid min-w-0 grid-cols-1 gap-3">
+        <div v-for="(p, i) in passes" :key="i" class="min-w-0 rounded-xl border" data-pass-row>
           <div class="flex items-center gap-3 px-3 py-2 text-sm">
-            <span class="min-w-0 flex-1 truncate">
-              <span class="font-bold">{{ p.name || 'Untitled pass' }}</span>
-              <span class="tabular-nums"> · {{ p.price }} €</span>
-              <span class="text-muted-foreground"> · {{ p.days.length ? p.days.join(', ') : 'All days' }}</span>
-              <span v-if="p.description" class="text-muted-foreground"> · {{ p.description }}</span>
-              <Badge v-if="p.soldOut" variant="outline" class="ml-1.5">Sold out</Badge>
+            <span class="min-w-0 flex-1">
+              <span class="flex min-w-0 items-center gap-1.5">
+                <span class="min-w-0 truncate font-bold">{{ p.name || `Untitled ${words.one}` }}</span>
+                <span class="shrink-0 whitespace-nowrap tabular-nums">· {{ p.price }} €</span>
+                <Badge v-if="p.soldOut" variant="outline" class="shrink-0">Sold out</Badge>
+              </span>
+              <span class="block break-words text-xs text-muted-foreground">{{ p.days.length ? p.days.join(', ') : 'All days' }}<template v-if="p.description"> · {{ p.description }}</template></span>
             </span>
-            <Button type="button" variant="ghost" size="sm" :aria-expanded="openPass === i" @click="openPass = openPass === i ? null : i"><template v-if="openPass === i"><Check /> Done</template><template v-else><Pencil /> Edit</template></Button>
+            <Button type="button" variant="ghost" size="sm" class="shrink-0" :aria-expanded="openPass === i" @click="openPass = openPass === i ? null : i"><template v-if="openPass === i"><Check /> Done</template><template v-else><Pencil /> Edit</template></Button>
           </div>
           <div v-if="openPass === i" class="border-t p-3">
-            <div class="flex flex-wrap items-end gap-2">
-              <Field :id="`pass-name-${i}`" label="Name" class="min-w-[10rem] flex-1"><Input v-model="p.name" placeholder="Full Pass" /></Field>
-              <Field :id="`pass-price-${i}`" label="Price (€)" class="w-28"><Input v-model.number="p.price" type="number" min="0" step="1" /></Field>
+            <!-- RAZ-1030: Price and For two share one line at every width.
+                 Both labels reserve two lines, so "(optional)" wrapping under
+                 For two doesn't drop that input. The couple hint is out of the
+                 flow — in the row it lifted that input above Price — and the
+                 row's extra gap and padding are the space it hangs in. The pair
+                 shrinks instead of spilling out of a narrow card. -->
+            <div class="flex flex-wrap items-end gap-x-2" :class="p.price ? 'gap-y-8 pb-7' : 'gap-y-2'">
+              <Field :id="`pass-name-${i}`" label="Name" class="min-w-[10rem] flex-1 [&_label]:min-h-10"><Input v-model="p.name" :placeholder="words.one === 'pass' ? 'Full Pass' : 'Early bird'" /></Field>
+              <div class="inline-grid shrink-0 min-w-0 max-w-full grid-cols-[minmax(0,7rem)_minmax(0,8rem)] items-end gap-x-2" data-pass-prices>
+                <Field :id="`pass-price-${i}`" label="Price (€)" class="min-w-0 [&_label]:min-h-10"><Input v-model.number="p.price" type="number" min="0" step="1" /></Field>
+                <Field
+                  :id="`pass-couple-${i}`"
+                  label="For two (€)"
+                  optional
+                  class="relative min-w-0 [&_label]:min-h-10 [&>p]:absolute [&>p]:inset-x-0 [&>p]:top-full [&>p]:mt-1.5"
+                  :hint="p.price ? `Empty = ${p.price * 2} €` : undefined"
+                >
+                  <Input :model-value="p.couplePrice ?? ''" type="number" min="0" step="1" :placeholder="p.price ? String(p.price * 2) : ''" @update:model-value="(v: any) => (p.couplePrice = v === '' || v == null || Number.isNaN(Number(v)) ? undefined : Number(v))" />
+                </Field>
+              </div>
               <label class="mb-2 inline-flex items-center gap-2 text-sm"><Checkbox v-model="p.soldOut" /> Sold out</label>
-              <Button type="button" variant="ghost" size="icon-sm" class="mb-1" :aria-label="`Remove pass ${p.name || i + 1}`" @click="passes.splice(i, 1); openPass = null"><X /></Button>
+              <Button type="button" variant="ghost" size="icon-sm" class="mb-1" :aria-label="`Remove ${words.one} ${p.name || i + 1}`" @click="passes.splice(i, 1); openPass = null"><X /></Button>
             </div>
-            <Field :id="`pass-desc-${i}`" label="What’s included" optional class="mt-2"><Input v-model="p.description" placeholder="All workshops + all parties" /></Field>
+            <Field :id="`pass-desc-${i}`" label="What’s included" optional class="mt-2" :error="tooLong(p.description, PASS_DESCRIPTION_MAX) ? `Keep it under ${PASS_DESCRIPTION_MAX} characters.` : undefined"><Input v-model="p.description" placeholder="All workshops + all parties" /></Field>
             <div class="mt-2 flex flex-wrap items-center gap-2 text-sm">
               <span class="text-xs text-muted-foreground">Days:</span>
               <label v-for="d in weekdays" :key="d" class="inline-flex items-center gap-1.5"><Checkbox :model-value="p.days.includes(d)" @update:model-value="toggleDay(p, d)" /> {{ d }}</label>
               <span class="text-xs text-muted-foreground">{{ p.days.length ? '' : '(none ticked = all days)' }}</span>
             </div>
+            <!-- RAZ-1007: which programme items this pass gets you into ("Party only" = 20:00 + 22:00).
+                 None ticked = everything on its days. Dancers see "Includes …" and get them on their plan. -->
+            <div v-if="coverable.length" class="mt-2 text-sm" :data-pass-covers="i">
+              <span class="text-xs text-muted-foreground">Gets you into:</span>
+              <div class="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                <label v-for="it in coverable" :key="it.id" class="inline-flex items-center gap-1.5">
+                  <Checkbox :model-value="!p.sessions?.length || p.sessions.includes(it.id)" @update:model-value="toggleCovers(p, it.id)" />
+                  <span class="tabular-nums">{{ it.time }}</span> {{ it.title || 'Untitled' }}
+                </label>
+              </div>
+              <span v-if="!p.sessions?.length" class="text-xs text-muted-foreground">(all of the programme on its days)</span>
+            </div>
           </div>
         </div>
-        <Button type="button" variant="ghost" size="sm" class="justify-self-start" @click="addPass"><Plus /> Add a pass</Button>
+        <Button type="button" variant="ghost" size="sm" class="justify-self-start" @click="addPass"><Plus /> Add a {{ words.one }}</Button>
+        <!-- RAZ-995: dancers can sign up now and pay when they arrive -->
+        <label v-if="passes.length" class="inline-flex items-start gap-2 text-sm" data-pay-at-door>
+          <Checkbox v-model="model.payAtDoor" class="mt-0.5" />
+          <span><span class="font-bold">Dancers can pay at the door</span> <span class="text-muted-foreground">— they sign up now and pay when they arrive. Off: {{ words.many }} are paid online.</span></span>
+        </label>
       </div>
   </div>
 
@@ -196,13 +273,19 @@ const LEVELS = ['Beginner', 'Intermediate', 'Advanced']
       <p v-if="!days.length" class="mt-3 text-sm text-muted-foreground">Set the date under “When” to plan its days.</p>
       <div v-for="d in byDay" :key="d.date" class="mt-4 first:mt-0">
         <h3 class="text-xs font-bold uppercase tracking-wider text-secondary">{{ fmtDay(d.date) }} <span v-if="!days.includes(d.date)" class="normal-case text-destructive">· outside the event’s dates</span></h3>
-        <ul class="mt-2 grid gap-2">
-          <li v-for="s in d.items" :key="s.id" class="rounded-xl border">
+        <ul class="mt-2 grid grid-cols-1 gap-2">
+          <li v-for="s in d.items" :key="s.id" class="min-w-0 rounded-xl border">
             <button type="button" class="flex w-full items-center gap-3 px-3 py-2 text-left text-sm" :aria-expanded="open === s.id" @click="open = open === s.id ? null : s.id">
               <span class="w-24 shrink-0 font-bold tabular-nums">{{ rangeOf(s) }}</span>
-              <span class="min-w-0 flex-1 truncate">
-                <span class="font-bold">{{ s.title || 'Untitled' }}</span>
-                <span class="text-muted-foreground">{{ [sessionKindLabel(s), s.artist && [s.artist, ...(s.with ?? [])].map(nameOf).join(' & '), s.room].filter(Boolean).map(x => ` · ${x}`).join('') }}</span>
+              <span class="min-w-0 flex-1">
+                <span class="block truncate">
+                  <span class="font-bold">{{ s.title || 'Untitled' }}</span>
+                  <span class="text-muted-foreground">{{ [sessionKindLabel(s), hasArtist(s.type) && s.artist && [s.artist, ...(s.with ?? [])].map(nameOf).join(' & '), s.room].filter(Boolean).map(x => ` · ${x}`).join('') }}</span>
+                </span>
+                <span v-if="open !== s.id && hoursNote(s)" class="mt-1 flex items-start gap-1 rounded-lg bg-warning/15 px-2 py-1 text-xs font-bold leading-snug text-wd-amber-800" data-outside-hours>
+                  <AlertTriangle class="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                  {{ hoursNote(s) }}
+                </span>
               </span>
               <ChevronUp v-if="open === s.id" class="size-4 shrink-0" aria-hidden="true" /><ChevronDown v-else class="size-4 shrink-0" aria-hidden="true" />
             </button>
@@ -210,12 +293,16 @@ const LEVELS = ['Beginner', 'Intermediate', 'Advanced']
               <Field :id="`s-title-${s.id}`" label="Title" class="sm:col-span-4"><Input v-model="s.title" placeholder="Bootcamp Son" /></Field>
               <Field :id="`s-type-${s.id}`" label="Type"><Select :model-value="s.type" :options="TYPE_OPTIONS" @update:model-value="(v: any) => setType(s, v)" /></Field>
               <Field :id="`s-date-${s.id}`" label="Day"><Select v-model="s.date" :options="(days.includes(s.date) ? days : [...days, s.date]).map(x => ({ label: fmtDay(x), value: x }))" /></Field>
-              <Field :id="`s-time-${s.id}`" label="Starts"><Input v-model="s.time" type="time" /></Field>
+              <Field :id="`s-time-${s.id}`" label="Starts"><Input v-model="s.time" type="time" :aria-describedby="hoursNote(s) ? `s-hours-${s.id}` : undefined" /></Field>
               <Field :id="`s-dur-${s.id}`" label="Minutes" :hint="autoHint(s)"><Input :model-value="s.duration ?? ''" type="number" min="0" step="5" :placeholder="`${settled.get(s.id)?.duration ?? ''} (auto)`" @update:model-value="(v: any) => (s.duration = v === '' || v == null || Number.isNaN(Number(v)) ? (undefined as any) : Number(v))" /></Field>
-              <Field :id="`s-artist-${s.id}`" label="Artist" class="sm:col-span-2" hint="From the line-up.">
+              <p v-if="hoursNote(s)" :id="`s-hours-${s.id}`" class="flex items-start gap-1.5 rounded-lg bg-warning/15 px-2.5 py-1.5 text-xs font-bold leading-snug text-wd-amber-800 sm:col-span-4" role="status" data-outside-hours>
+                <AlertTriangle class="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                {{ hoursNote(s) }}
+              </p>
+              <Field v-if="hasArtist(s.type)" :id="`s-artist-${s.id}`" label="Artist" class="sm:col-span-2" hint="From the line-up.">
                 <Select v-model="s.artist" :options="[{ label: 'Nobody', value: '' }, ...lineup.map(h => ({ label: nameOf(h), value: h }))]" />
               </Field>
-              <div v-if="lineup.length > 1" class="sm:col-span-4">
+              <div v-if="hasArtist(s.type) && lineup.length > 1" class="sm:col-span-4">
                 <p class="text-sm font-bold">{{ isWorkshop(s.type) ? 'Teaching with' : 'With' }} <span class="font-normal text-muted-foreground">(optional)</span></p>
                 <div class="mt-1 flex flex-wrap gap-1.5">
                   <Button
@@ -229,7 +316,7 @@ const LEVELS = ['Beginner', 'Intermediate', 'Advanced']
                   >{{ nameOf(h) }}</Button>
                 </div>
               </div>
-              <Field :id="`s-style-${s.id}`" label="Style" class="sm:col-span-4" :hint="styles.length ? 'From the event’s music.' : undefined">
+              <Field v-if="hasArtist(s.type)" :id="`s-style-${s.id}`" label="Style" class="sm:col-span-4" :hint="styles.length ? 'From the event’s music.' : undefined">
                 <DanceStylePicker
                   :model-value="s.style ? [s.style] : []"
                   single

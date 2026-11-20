@@ -12,8 +12,9 @@ export default defineConfig({
   testDir,
   outputDir: './e2e/test-results',
   // CI also writes JSON for the Grafana Loki push (scripts/ci/loki-test-results.ts).
+  // E2E_SUITE names the run: playwright-smoke (PR gate) or playwright-full (nightly).
   reporter: process.env.CI
-    ? [['html'], ['json', { outputFile: 'test-results/playwright-smoke.json' }]]
+    ? [['html'], ['json', { outputFile: `test-results/${process.env.E2E_SUITE || 'playwright-smoke'}.json` }]]
     : 'html',
   /* Give CI builds extra time — nuxt preview cold-starts can be slow. */
   timeout: 60_000,

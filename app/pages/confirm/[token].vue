@@ -23,7 +23,7 @@ useHead({ title: 'Your answer | WeDance', meta: [{ name: 'robots', content: 'noi
 
 const route = useRoute()
 const { $trpc } = useNuxtApp()
-const { isSignedIn, register } = useAuth()
+const { isSignedIn, register, confirmInviteEmail } = useAuth()
 const param = computed(() => String(route.params.token))
 const key = computed(() => (param.value.startsWith('@') ? { username: param.value.slice(1) } : { token: param.value }))
 
@@ -34,6 +34,36 @@ const error = ref<string | null>(null)
 // needs an account (account), then the form (edit). An artist does it on one page.
 const step = ref<'check' | 'page' | 'account' | 'edit' | 'done'>('check')
 const pageSaved = ref(false)
+// Saved for this event's flyer only (they don't run the page): the done screen says so.
+const eventSaved = ref(false)
+const initialPhoto = ref<string | null>(null)
+// Where their answer goes in writing (signed out). The email's "That's me" proves it's theirs.
+const answerEmail = ref('')
+const sentTo = ref<string | null>(null)
+const emailError = ref<string | null>(null)
+const emailOk = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e)
+/** The email for this answer: required to say yes (or another date), optional to say no. */
+function emailFor(positive: boolean): { email?: string } | null {
+  emailError.value = null
+  if (isSignedIn.value) return {}
+  const e = answerEmail.value.trim()
+  if (!e && !positive) return {}
+  if (!emailOk(e)) { emailError.value = positive ? 'Add your email: your answer and the next steps go there.' : 'Check your email address.'; return null }
+  return { email: e }
+}
+// Back from "That's me" in the answer email (?that=…): confirm it and sign them in.
+const confirmedNow = ref(false)
+async function confirmFromEmail() {
+  const that = route.query.that
+  if (typeof that !== 'string' || !('token' in key.value)) return
+  try {
+    await confirmInviteEmail(key.value.token, that)
+    confirmedNow.value = true
+  } catch (e: any) {
+    error.value = e?.message || 'This confirmation link doesn’t work any more.'
+  }
+  navigateTo({ query: { ...route.query, that: undefined } }, { replace: true })
+}
 
 // The answer, built up on the page.
 const form = reactive({ name: '', bio: '', city: '', styles: [] as string[], instagram: '', website: '', facebook: '', mainPhoto: null as string | null, address: '', floorType: '' })
@@ -65,13 +95,20 @@ async function load() {
     Object.assign(form, { name: p.name, bio: p.bio, city: p.city, styles: [...p.styles], instagram: p.instagram, website: p.website, facebook: p.facebook, mainPhoto: p.photo, address: p.address, floorType: p.floorType })
     // Fields the organizer sent are approved by default (the field shows them). Their
     // photos of an artist are not: only the ones the artist ticks go on the page.
+    // Not their team (yet): the link changes this event's flyer only, so start from what it uses.
+    const ev = data.value.event
+    if (ev && data.value.kind !== 'venue' && !data.value.member) {
+      form.name = ev.lineupName || p.name
+      form.mainPhoto = ev.flyerPhoto !== undefined ? ev.flyerPhoto : p.photo
+    }
+    initialPhoto.value = form.mainPhoto
     decisions.value = Object.fromEntries(data.value.pending.map(s => [s.id, !(s.kind === 'photo' && data.value!.kind !== 'venue' && data.value!.event)]))
     for (const s of data.value.pending) if (FIELDS.some(f => f.kind === s.kind)) setField(s.kind as FieldKind, s.value)
   } catch (e: any) {
     error.value = e?.message || 'This link doesn’t work.'
   }
 }
-onMounted(load)
+onMounted(async () => { await confirmFromEmail(); await load() })
 watch(isSignedIn, () => load())
 
 const pendingFields = computed(() => (data.value?.pending ?? [])
@@ -174,37 +211,47 @@ async function save() {
   try {
     // A venue's answer alone: its page comes after, and only if they want to change it.
     if (isVenue.value && step.value === 'check') {
+      const em = emailFor(venue.answer !== 'declined')
+      if (!em) return
       await $trpc.artistInvites.respond.mutate({
         ...key.value,
+        ...em,
         venueAnswer: venue.answer!,
         alternative: venue.alternative,
         ...(venue.answer !== 'declined' ? { terms: { rent: venue.rent, minSpend: venue.minSpend, doorSplit: venue.doorSplit, deposit: venue.deposit, capacity: venue.capacity || null, includes: venue.includes, notes: venue.notes } } : {}),
         message: answer.message,
       })
+      sentTo.value = em.email ?? null
       step.value = venue.answer === 'declined' ? 'done' : 'page'
       window.scrollTo({ top: 0, behavior: 'smooth' })
       return
     }
     // An artist's review, all in one answer: in or not, the classes, name and photo, posts.
     if (staged.value && step.value === 'check') {
-      // The flyer photo must be on the page: an organizer's photo they picked counts as kept.
-      for (const ph of pendingPhotos.value) if (form.mainPhoto === ph.value) decisions.value[ph.id] = true
+      const team = !!data.value?.member
+      // Their team: the flyer photo must be on the page, so an organizer's photo they picked counts as kept.
+      if (team) for (const ph of pendingPhotos.value) if (form.mainPhoto === ph.value) decisions.value[ph.id] = true
+      const em = emailFor(!declined.value)
+      if (!em) return
       await $trpc.artistInvites.respond.mutate({
         ...key.value,
+        ...em,
         participation: answer.participation!,
         ...(declined.value ? {} : {
           programmeOk: answer.programmeOk ?? true,
           programmeNote: answer.programmeNote,
           postsOk: answer.postsOk,
-          decisions: Object.entries(decisions.value).map(([id, approve]) => ({ id, approve })),
+          // Anyone else with the link changes this event's flyer only (name and photo).
+          ...(team ? { decisions: Object.entries(decisions.value).map(([id, approve]) => ({ id, approve })), addPhotos: addPhotos.value } : {}),
           name: form.name.trim(),
-          addPhotos: addPhotos.value,
-          ...(form.mainPhoto ? { mainPhoto: form.mainPhoto } : {}),
+          ...(form.mainPhoto && form.mainPhoto !== initialPhoto.value ? { mainPhoto: form.mainPhoto } : {}),
           artistTerms: { fee: deal.fee, needs: deal.needs },
         }),
         message: answer.message,
       })
-      pageSaved.value = !declined.value
+      pageSaved.value = team && !declined.value
+      eventSaved.value = !team && !declined.value
+      sentTo.value = em.email ?? null
       step.value = 'done'
       window.scrollTo({ top: 0, behavior: 'smooth' })
       return
@@ -302,7 +349,9 @@ async function uploadMain(e: Event) {
   await upload(e)
   if (addPhotos.value.length > before) form.mainPhoto = addPhotos.value[addPhotos.value.length - 1]!
 }
-const photoChanged = computed(() => !!form.mainPhoto && form.mainPhoto !== data.value?.profile.photo)
+const photoChanged = computed(() => !!form.mainPhoto && form.mainPhoto !== initialPhoto.value)
+// The photos they can pick for the flyer: their page's, new ones, and (not their team) the organizer's.
+const flyerPhotoChoices = computed(() => [...new Set([...currentPhotos.value, ...addPhotos.value, ...(data.value?.member ? [] : pendingPhotos.value.map(s => s.value)), ...(form.mainPhoto && !data.value?.member ? [form.mainPhoto] : [])])])
 const nameSuggestion = computed(() => pendingFields.value.find(s => s.kind === 'name') ?? null)
 // "Change something" on the venue's page: theirs already → the form; else an account first.
 function changePage() {
@@ -331,17 +380,21 @@ const fmtDate = (d: string | Date | null, tz?: string | null) => d ? new Date(d)
 <template>
   <div class="min-h-screen bg-background text-foreground">
     <SiteHeader />
-    <main class="mx-auto max-w-2xl px-4 py-10 font-sans" :class="(artistCheck || venueCheck) && data?.canAnswer && 'pb-48'">
+    <main class="mx-auto max-w-2xl px-4 py-10 font-sans" :class="(artistCheck || venueCheck) && data?.canAnswer && (isSignedIn ? 'pb-48' : 'pb-64')">
       <AdminState v-if="!data && !error" kind="loading" />
       <AdminState v-else-if="!data" kind="error" :message="error!" />
 
       <template v-else>
+        <p v-if="confirmedNow" class="mb-4 flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 p-3 text-sm" role="status">
+          <Check class="size-4 shrink-0 text-primary" aria-hidden="true" /> Confirmed, thank you. {{ data.event?.host?.name || 'The organizer' }} now sees your answer as confirmed{{ data.member ? ', and the page is yours: you’re signed in.' : '.' }}
+        </p>
         <!-- Done -->
         <section v-if="step === 'done'" class="rounded-2xl border bg-card p-6 text-center shadow-wd-card">
           <PartyPopper class="mx-auto size-8 text-primary" aria-hidden="true" />
           <h1 class="mt-2 font-display text-2xl font-bold">Thank you, {{ form.name }}</h1>
-          <p v-if="staged" class="mt-1 text-sm text-muted-foreground">{{ pageSaved ? 'Your page is up to date. ' : '' }}{{ data.event?.host?.name || 'The organizer' }} sees your answer{{ data.event ? ` for ${data.event.name}` : '' }}{{ isVenue ? ' and will get back to you' : '' }}.</p>
-          <p v-else class="mt-1 text-sm text-muted-foreground">Your page is up to date{{ data.event ? ` and ${data.event.host?.name || 'the organizer'} can use it for ${data.event.name}` : '' }}.</p>
+          <p v-if="staged" class="mt-1 text-sm text-muted-foreground">{{ pageSaved ? 'Your page is up to date. ' : eventSaved ? `Your name and photo are saved for ${data.event?.name || 'this event'}’s flyer. ` : '' }}{{ data.event?.host?.name || 'The organizer' }} sees your answer{{ data.event ? ` for ${data.event.name}` : '' }}{{ isVenue ? ' and will get back to you' : '' }}.</p>
+          <p v-if="sentTo" class="mx-auto mt-3 max-w-sm rounded-xl bg-secondary/10 p-3 text-sm">We emailed your answer to <strong>{{ sentTo }}</strong>. Tap <strong>That’s me</strong> in it so {{ data.event?.host?.name || 'the organizer' }} knows it was you.</p>
+          <p v-else-if="!staged" class="mt-1 text-sm text-muted-foreground">Your page is up to date{{ data.event ? ` and ${data.event.host?.name || 'the organizer'} can use it for ${data.event.name}` : '' }}.</p>
           <div class="mt-5 flex flex-wrap justify-center gap-2">
             <Button variant="pill" as-child><NuxtLink :to="`/@${data.profile.username}`">See your page</NuxtLink></Button>
             <Button v-if="isSignedIn" variant="outline-pill" as-child><NuxtLink :to="`/business/network/${data.profile.username}`">Manage it in Business</NuxtLink></Button>
@@ -532,7 +585,12 @@ const fmtDate = (d: string | Date | null, tz?: string | null) => d ? new Date(d)
               <p v-if="error" class="text-sm text-destructive" role="alert">{{ error }}</p>
 
               <!-- The one answer (right-aligned: the help bubble sits bottom-left) -->
-              <div class="fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 backdrop-blur"><div class="mx-auto max-w-2xl px-4 py-3">
+              <div class="fixed inset-x-0 bottom-[var(--wd-tabbar-h,0px)] z-30 border-t bg-background/95 backdrop-blur"><div class="mx-auto max-w-2xl px-4 py-3">
+                <div v-if="!isSignedIn" class="mb-2 flex flex-wrap items-center justify-end gap-x-2 gap-y-1">
+                  <label for="c-email" class="text-xs text-muted-foreground">{{ data.answer?.email ? `Your copy went to ${data.answer.email}${data.answer.emailConfirmed ? ' (confirmed)' : ''}. Email:` : 'Your email, for your copy:' }}</label>
+                  <Input id="c-email" v-model="answerEmail" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com" class="h-9 w-full max-w-64 text-sm" :aria-invalid="emailError ? true : undefined" aria-describedby="c-email-error" />
+                  <FieldError id="c-email-error" :message="emailError ?? undefined" class="w-full text-right" />
+                </div>
                 <template v-if="proposing">
                   <Field id="v-alt" label="Which dates work instead?" hint="E.g. “Friday 16 October”, “any Wednesday in November”.">
                     <Input v-model="venue.alternative" autofocus />
@@ -547,7 +605,7 @@ const fmtDate = (d: string | Date | null, tz?: string | null) => d ? new Date(d)
                   <Button type="button" variant="outline-pill" :disabled="saving" @click="proposing = true">Another date</Button>
                   <Button type="button" variant="pill" :loading="saving && venue.answer === 'confirmed'" :disabled="saving" @click="sendVenue('confirmed')"><Check /> Yes, we can</Button>
                 </div>
-                <p class="mt-1.5 text-right text-xs text-muted-foreground">No account needed.<template v-if="data.event?.host?.instagram"> Rather talk? <a :href="data.event.host.instagram" target="_blank" rel="noopener" class="font-bold text-secondary hover:underline">Message {{ data.event.host.name }}</a></template></p>
+                <p v-if="data.event?.host?.instagram" class="mt-1.5 text-right text-xs text-muted-foreground"><template v-if="data.event?.host?.instagram">Rather talk? <a :href="data.event.host.instagram" target="_blank" rel="noopener" class="font-bold text-secondary hover:underline">Message {{ data.event.host.name }}</a></template></p>
               </div></div>
             </template>
             <template v-else-if="artistCheck && data.event">
@@ -585,7 +643,7 @@ const fmtDate = (d: string | Date | null, tz?: string | null) => d ? new Date(d)
               <!-- Name and photo, as the flyer shows them -->
               <section class="rounded-2xl border bg-card p-4">
                 <p class="text-sm font-bold">{{ data.event.flyer ? 'You on the flyer' : 'Your name and photo' }}</p>
-                <p class="text-xs text-muted-foreground">{{ data.event.flyer ? 'The flyer uses this name and photo. Fix them if they’re wrong.' : 'Used on the flyer and the event page.' }}</p>
+                <p class="text-xs text-muted-foreground">{{ data.event.flyer ? 'The flyer uses this name and photo. Fix them if they’re wrong.' : 'Used on the flyer and the event page.' }}<template v-if="!data.member"> This changes {{ data.event.name }} only: your WeDance page stays as it is.</template></p>
                 <Field id="f-name" label="Your name as it should appear" class="mt-3"><Input v-model="form.name" /></Field>
                 <p v-if="nameSuggestion" class="mt-1 text-xs text-muted-foreground">{{ data.event.host?.name || 'They' }} wrote “{{ nameSuggestion.value }}”, your page says “{{ data.profile.name }}”.
                   <button type="button" class="font-bold text-secondary hover:underline" @click="useTheirs(nameSuggestion.id, !decisions[nameSuggestion.id])">{{ decisions[nameSuggestion.id] ? 'Keep mine' : 'Use theirs' }}</button>
@@ -593,7 +651,7 @@ const fmtDate = (d: string | Date | null, tz?: string | null) => d ? new Date(d)
                 <p class="mt-4 text-sm font-bold">Your photo</p>
                 <p class="text-xs text-muted-foreground">Tap another one, or add a new one.</p>
                 <div class="mt-2 flex flex-wrap gap-3">
-                  <button v-for="url in [...currentPhotos, ...addPhotos]" :key="url" type="button" class="relative rounded-xl focus-visible:shadow-wd-focus" :aria-pressed="form.mainPhoto === url" :aria-label="form.mainPhoto === url ? 'Your flyer photo' : 'Use this photo'" @click="form.mainPhoto = url">
+                  <button v-for="url in flyerPhotoChoices" :key="url" type="button" class="relative rounded-xl focus-visible:shadow-wd-focus" :aria-pressed="form.mainPhoto === url" :aria-label="form.mainPhoto === url ? 'Your flyer photo' : 'Use this photo'" @click="form.mainPhoto = url">
                     <img :src="sizedImage(url, IMG.card)" alt="" class="h-32 w-24 rounded-xl border-2 object-cover" :class="form.mainPhoto === url ? 'border-primary' : 'border-transparent opacity-70'">
                     <span v-if="form.mainPhoto === url" class="absolute inset-x-1 bottom-1 flex items-center justify-center gap-1 rounded-lg bg-card/90 py-0.5 text-[11px] font-bold"><Star class="size-3 fill-current text-wd-amber-600" aria-hidden="true" /> {{ data.event.flyer ? 'On the flyer' : 'Your photo' }}</span>
                   </button>
@@ -602,7 +660,7 @@ const fmtDate = (d: string | Date | null, tz?: string | null) => d ? new Date(d)
                     <input type="file" accept="image/*" class="sr-only" @change="uploadMain">
                   </label>
                 </div>
-                <template v-if="pendingPhotos.length">
+                <template v-if="pendingPhotos.length && data.member">
                   <p class="mt-4 text-sm font-bold">Photos {{ data.event.host?.name || 'the organizer' }} added</p>
                   <p class="text-xs text-muted-foreground">Tick the ones they may use. The others stay off your page.</p>
                   <div class="mt-2 flex flex-wrap gap-3">
@@ -633,13 +691,18 @@ const fmtDate = (d: string | Date | null, tz?: string | null) => d ? new Date(d)
               <p v-if="error" class="text-sm text-destructive" role="alert">{{ error }}</p>
 
               <!-- The one answer -->
-              <div class="fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 backdrop-blur"><div class="mx-auto max-w-2xl px-4 py-3">
+              <div class="fixed inset-x-0 bottom-[var(--wd-tabbar-h,0px)] z-30 border-t bg-background/95 backdrop-blur"><div class="mx-auto max-w-2xl px-4 py-3">
                 <!-- Right-aligned: the help bubble sits bottom-left. -->
+                <div v-if="!isSignedIn" class="mb-2 flex flex-wrap items-center justify-end gap-x-2 gap-y-1">
+                  <label for="c-email" class="text-xs text-muted-foreground">{{ data.answer?.email ? `Your copy went to ${data.answer.email}${data.answer.emailConfirmed ? ' (confirmed)' : ''}. Email:` : 'Your email, for your copy:' }}</label>
+                  <Input id="c-email" v-model="answerEmail" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com" class="h-9 w-full max-w-64 text-sm" :aria-invalid="emailError ? true : undefined" aria-describedby="c-email-error" />
+                  <FieldError id="c-email-error" :message="emailError ?? undefined" class="w-full text-right" />
+                </div>
                 <div class="flex flex-wrap items-center justify-end gap-2">
                   <Button type="button" variant="outline-pill" :loading="saving && answer.participation === 'declined'" :disabled="saving" @click="send('declined')">I can’t make it</Button>
                   <Button type="button" variant="pill" :loading="saving && answer.participation === 'confirmed'" :disabled="saving" @click="send('confirmed')"><Check /> Yes, I’m in</Button>
                 </div>
-                <p class="mt-1.5 text-right text-xs text-muted-foreground">No account needed.<template v-if="data.event.host?.instagram"> Rather talk? <a :href="data.event.host.instagram" target="_blank" rel="noopener" class="font-bold text-secondary hover:underline">Message {{ data.event.host.name }}</a></template></p>
+                <p v-if="data.event.host?.instagram" class="mt-1.5 text-right text-xs text-muted-foreground"><template v-if="data.event.host?.instagram">Rather talk? <a :href="data.event.host.instagram" target="_blank" rel="noopener" class="font-bold text-secondary hover:underline">Message {{ data.event.host.name }}</a></template></p>
               </div></div>
             </template>
             <template v-if="!staged || step === 'edit'">

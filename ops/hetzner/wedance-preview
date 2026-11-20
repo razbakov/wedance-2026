@@ -1,0 +1,259 @@
+#!/usr/bin/env python3
+"""PR previews on the Hetzner dev server, run by Dokploy (RAZ-886). See ops/hetzner/README.md.
+
+  wedance-preview up <pr> <image>   create/update the preview of PR <pr> → https://pr-<pr>.dev.wedance.vip
+  wedance-preview down <pr>         remove the preview and its database
+  wedance-preview list              previews that exist now
+  wedance-preview seed              refresh the database copy previews start from (nightly cron)
+  wedance-preview deploy-compose <composeId> [KEY=VALUE ...]
+                                    set env vars on any Dokploy compose and redeploy it (Brievcase uses this)
+
+Each preview = one Dokploy compose `pr-<n>` (app + Neon-HTTP stand-in) in project `wedance-previews`,
+and its own database `pr_<n>` on the shared `wedance-preview-db`, cloned from `wedance_seed` — a nightly
+copy of production with sessions/tokens left out and every dancer's email, phone and password scrubbed.
+Nothing here ever writes to production. Config: /etc/wedance-preview/config.json (root:deploy, 0640).
+"""
+import json
+import re
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+
+CONFIG = '/etc/wedance-preview/config.json'
+DB = 'wedance-preview-db'  # container name + network alias
+# Left out of the copy: logins and third-party tokens. Dancers stay (pages, events and plans point at them)
+# but with their email, phone and password scrubbed, so nobody can sign in as a real person on a preview.
+# (oauth_grants stays: mcp_audit points at it, and it holds no secrets — only who connected which app.)
+EXCLUDE_DATA = ['sessions', 'instagram_connections', 'instagram_webhook_events', 'oauth_codes', 'oauth_tokens']
+SCRUB = """
+UPDATE dancers SET email = 'dancer-' || id || '@preview.invalid', phone = NULL, salt = '', hash = '',
+  magic_token = NULL, magic_token_expires_at = NULL, neon_auth_id = NULL;
+"""
+
+
+def cfg():
+    return json.load(open(CONFIG))
+
+
+def api(path, body=None, query=None):
+    c = cfg()
+    url = c['dokploy_url'].rstrip('/') + '/api/' + path
+    if query:
+        url += '?' + urllib.parse.urlencode(query)
+    req = urllib.request.Request(url, method='GET' if body is None else 'POST',
+                                 data=None if body is None else json.dumps(body).encode(),
+                                 headers={'x-api-key': c['api_key'], 'Content-Type': 'application/json'})
+    try:
+        raw = urllib.request.urlopen(req, timeout=120).read().decode()
+    except urllib.error.HTTPError as e:
+        sys.exit(f'dokploy {path}: HTTP {e.code} {e.read().decode()[:500]}')
+    return json.loads(raw) if raw.strip() else None
+
+
+def psql(sql, db='postgres'):
+    out = subprocess.run(['docker', 'exec', '-i', DB, 'psql', '-U', 'wedance', '-d', db, '-v', 'ON_ERROR_STOP=1',
+                          '-tAq', '-c', sql], capture_output=True, text=True)
+    if out.returncode:
+        sys.exit(f'psql: {out.stderr.strip()}')
+    return out.stdout.strip()
+
+
+def pr_num(s):
+    if not re.fullmatch(r'\d{1,6}', s):
+        sys.exit(f'not a PR number: {s}')
+    return int(s)
+
+
+def previews():
+    """Composes named pr-<n> in the previews environment → {n: compose}."""
+    env = api('environment.one', query={'environmentId': cfg()['environment_id']})
+    return {int(m.group(1)): c for c in env.get('compose', []) if (m := re.fullmatch(r'pr-(\d+)', c['name']))}
+
+
+def host(n):
+    return f"pr-{n}.{cfg()['domain']}"
+
+
+def compose_file(n):
+    c = cfg()
+    tls = [f'      - traefik.http.routers.wd-pr-{n}.tls.certresolver={c["cert_resolver"]}']
+    if c.get('wildcard'):  # one *.dev.wedance.vip certificate for every preview (DNS challenge)
+        tls += [f'      - traefik.http.routers.wd-pr-{n}.tls.domains[0].main={c["domain"]}',
+                f'      - traefik.http.routers.wd-pr-{n}.tls.domains[0].sans=*.{c["domain"]}']
+    db_url = f'postgresql://wedance:${{PREVIEW_DB_PASSWORD}}@{DB}:5432/pr_{n}'
+    # Service names are unique on purpose: every preview (and Brievcase) shares dokploy-network, where a
+    # plain `app` / `proxy` / `db` would resolve to some other stack's container.
+    return f"""services:
+  pr-{n}-app:
+    image: ${{IMAGE}}
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      DATABASE_URL: {db_url}
+      NUXT_DATABASE_URL: {db_url}
+      NEON_FETCH_ENDPOINT: http://pr-{n}-proxy:4444/sql
+      SITE_URL: https://{host(n)}
+      NUXT_SITE_URL: https://{host(n)}
+    depends_on: [pr-{n}-proxy]
+    mem_limit: 768m
+    networks: [default, dokploy-network]
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=dokploy-network
+      - traefik.http.routers.wd-pr-{n}.rule=Host(`{host(n)}`)
+      - traefik.http.routers.wd-pr-{n}.entrypoints=websecure
+      - traefik.http.routers.wd-pr-{n}.tls=true
+{chr(10).join(tls)}
+      - traefik.http.routers.wd-pr-{n}-http.rule=Host(`{host(n)}`)
+      - traefik.http.routers.wd-pr-{n}-http.entrypoints=web
+      - traefik.http.routers.wd-pr-{n}-http.middlewares=redirect-to-https@file
+      - traefik.http.services.wd-pr-{n}.loadbalancer.server.port=3000
+  pr-{n}-proxy:
+    image: ${{IMAGE}}
+    restart: unless-stopped
+    command: ["bun", "scripts/dev/neon-http-proxy.ts"]
+    environment:
+      LOCAL_PG_URL: {db_url}
+    mem_limit: 192m
+    networks: [default, dokploy-network]
+networks:
+  dokploy-network:
+    external: true
+"""
+
+
+def wait_deployed(compose_id, timeout=600):
+    end = time.time() + timeout
+    time.sleep(5)
+    while time.time() < end:
+        st = api('compose.one', query={'composeId': compose_id}).get('composeStatus')
+        if st == 'done':
+            return
+        if st == 'error':
+            sys.exit('deployment failed — see the compose in Dokploy')
+        time.sleep(5)
+    sys.exit('deployment timed out')
+
+
+def wait_up(n, timeout=240):
+    end = time.time() + timeout
+    while time.time() < end:
+        r = subprocess.run(['curl', '-sk', '-o', '/dev/null', '-w', '%{http_code}', '--max-time', '10',
+                            '--resolve', f'{host(n)}:443:127.0.0.1', f'https://{host(n)}/'],
+                           capture_output=True, text=True).stdout
+        if r in ('200', '301', '302'):
+            return
+        time.sleep(5)
+    sys.exit(f'https://{host(n)}/ did not answer within {timeout}s')
+
+
+def up(n, image):
+    if not re.fullmatch(r'ghcr\.io/razbakov/wedance-2026:[\w.-]+', image):
+        sys.exit(f'unexpected image: {image}')
+    c = cfg()
+    if not psql(f"SELECT 1 FROM pg_database WHERE datname = 'pr_{n}'"):
+        if not psql("SELECT 1 FROM pg_database WHERE datname = 'wedance_seed'"):
+            sys.exit('no wedance_seed yet — run: wedance-preview seed')
+        psql(f'CREATE DATABASE pr_{n} TEMPLATE wedance_seed')
+        print(f'database pr_{n} cloned from wedance_seed')
+    existing = previews()
+    if n not in existing:
+        # Room for a new one: drop the oldest previews beyond the cap.
+        others = sorted(existing.items(), key=lambda kv: kv[1].get('createdAt', ''))
+        while len(others) >= c['max_previews']:
+            old, _ = others.pop(0)
+            print(f'cap of {c["max_previews"]} previews reached — removing pr-{old}')
+            down(old)
+        created = api('compose.create', {'name': f'pr-{n}', 'environmentId': c['environment_id'],
+                                          'composeType': 'docker-compose', 'appName': f'wd-pr-{n}'})
+        compose_id = created['composeId']
+    else:
+        compose_id = existing[n]['composeId']
+    # Pull with this user's ghcr login: Dokploy's own docker client has none, and a local image is used as is.
+    if subprocess.run(['docker', 'pull', '-q', image], capture_output=True).returncode:
+        sys.exit(f'could not pull {image}')
+    env = open(c['app_env_file']).read().rstrip() + f'\nIMAGE={image}\nPREVIEW_DB_PASSWORD={c["db_password"]}\n'
+    api('compose.update', {'composeId': compose_id, 'sourceType': 'raw', 'composeFile': compose_file(n), 'env': env})
+    api('compose.deploy', {'composeId': compose_id})
+    wait_deployed(compose_id)
+    wait_up(n)
+    remove_images(n, keep=image)
+    print(f'https://{host(n)}')
+
+
+def remove_images(n, keep=None):
+    """This PR's older images on the box (each push is a new tag)."""
+    out = subprocess.run(['docker', 'images', 'ghcr.io/razbakov/wedance-2026', '--format', '{{.Repository}}:{{.Tag}}'],
+                         capture_output=True, text=True).stdout.split()
+    old = [i for i in out if i.split(':')[1].startswith(f'pr-{n}-') and i != keep]
+    if old:
+        subprocess.run(['docker', 'rmi', *old], capture_output=True)
+
+
+def down(n):
+    p = previews().get(n)
+    if p:
+        api('compose.delete', {'composeId': p['composeId'], 'deleteVolumes': True})
+        print(f'compose pr-{n} removed')
+    psql(f'DROP DATABASE IF EXISTS pr_{n} WITH (FORCE)')
+    print(f'database pr_{n} dropped')
+    remove_images(n)
+
+
+def seed():
+    c = cfg()
+    src = open(c['prod_url_file']).read().strip()
+    psql('DROP DATABASE IF EXISTS wedance_seed_next WITH (FORCE)')
+    psql('CREATE DATABASE wedance_seed_next')
+    excl = ' '.join(f'--exclude-table-data={t}' for t in EXCLUDE_DATA)
+    # Read-only against production: pg_dump only.
+    # Neon adds column options plain Postgres rejects (ALTER COLUMN … SET (pg_attver=…)): drop those lines.
+    cmd = (f'pg_dump "$SRC" --no-owner --no-privileges {excl} | grep -v "SET (pg_attver=" '
+           f'| psql -q -U wedance -d wedance_seed_next -v ON_ERROR_STOP=1 >/dev/null')
+    r = subprocess.run(['docker', 'exec', '-i', '-e', f'SRC={src}', DB, 'sh', '-c', 'set -o pipefail; ' + cmd],
+                       capture_output=True, text=True)
+    if r.returncode:
+        sys.exit(f'copy failed: {r.stderr.strip()[-800:]}')
+    psql(SCRUB, db='wedance_seed_next')
+    psql('DROP DATABASE IF EXISTS wedance_seed WITH (FORCE)')
+    psql('ALTER DATABASE wedance_seed_next RENAME TO wedance_seed')
+    print('wedance_seed refreshed:', psql('SELECT count(*) FROM events', db='wedance_seed'), 'events')
+
+
+def deploy_compose(compose_id, pairs):
+    if not re.fullmatch(r'[\w-]{10,40}', compose_id):
+        sys.exit('bad compose id')
+    comp = api('compose.one', query={'composeId': compose_id})
+    env = comp.get('env') or ''
+    for kv in pairs:
+        k, _, v = kv.partition('=')
+        if not re.fullmatch(r'[A-Z_][A-Z0-9_]*', k) or not re.fullmatch(r'[\w.:/@-]*', v):
+            sys.exit(f'bad env pair: {kv}')
+        env = re.sub(rf'(?m)^{k}=.*\n?', '', env).rstrip('\n') + f'\n{k}={v}\n'
+    api('compose.update', {'composeId': compose_id, 'env': env})
+    api('compose.deploy', {'composeId': compose_id})
+    wait_deployed(compose_id)
+    print(f'{comp["name"]} deployed')
+
+
+def main(argv):
+    if len(argv) >= 3 and argv[0] == 'up':
+        return up(pr_num(argv[1]), argv[2])
+    if len(argv) == 2 and argv[0] == 'down':
+        return down(pr_num(argv[1]))
+    if argv == ['list']:
+        for n, p in sorted(previews().items()):
+            print(f'pr-{n}\t{p.get("composeStatus")}\thttps://{host(n)}')
+        return
+    if argv == ['seed']:
+        return seed()
+    if len(argv) >= 2 and argv[0] == 'deploy-compose':
+        return deploy_compose(argv[1], argv[2:])
+    sys.exit(__doc__)
+
+
+if __name__ == '__main__':
+    main(sys.argv[1:])

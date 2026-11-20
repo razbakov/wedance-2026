@@ -2,11 +2,11 @@
 import { sizedImage, IMG } from '#shared/utils/image'
 /**
  * ActivitiesTab — rides, rooms, dinners & activities around a festival.
- * V3 tropical style. Collapsible sections; same props/emits as before.
+ * A row of chips with counts; one panel open at a time (RAZ-996).
  */
 import type { RideShare, GroupDinner, ExtraActivity } from '~/types/festival'
 import type { RoommateEntry } from '~/composables/useRoommates'
-import { Car, BedDouble, UtensilsCrossed, Compass, ChevronDown, Check, MessageCircle, MapPin, ExternalLink, Coffee, GlassWater, MoonStar, X, Plus } from 'lucide-vue-next'
+import { Car, BedDouble, UtensilsCrossed, Compass, Check, MessageCircle, MapPin, ExternalLink, Coffee, GlassWater, MoonStar, X, Plus } from 'lucide-vue-next'
 
 export type HangoutKind = 'dinner' | 'bar' | 'ride' | 'floor' | 'coffee'
 export interface EventHangout {
@@ -55,12 +55,11 @@ const emit = defineEmits<{
   'sign-in': []
 }>()
 
-const expandedSections = ref(new Set<string>())
+// One panel open at a time, picked from the chip row (RAZ-996).
+const open = ref<SectionKey | null>(null)
 const failedRidePhotos = ref(new Set<string>())
-function toggleSection(section: string) {
-  const next = new Set(expandedSections.value)
-  next.has(section) ? next.delete(section) : next.add(section)
-  expandedSections.value = next
+function toggleSection(section: SectionKey) {
+  open.value = open.value === section ? null : section
 }
 
 // Ride form
@@ -126,62 +125,71 @@ const AMBER = readableAccent(WD.amber500)
 const AMBER_CHIP = accentText(WD.amber500)
 const GREEN_CHIP = accentText(WD.green600)
 
-// Section definitions drive the accordion headers
+// Chips name what the dancer gets, not the feature (RAZ-996).
+type SectionKey = 'rides' | 'rooms' | 'dinners'
 const sections = [
-  { key: 'rides',   icon: Car,             label: 'Share a ride',        accent: WD.cyan600 },
-  { key: 'rooms',   icon: BedDouble,       label: 'Share a room',        accent: WD.green600 },
-  { key: 'dinners', icon: UtensilsCrossed, label: 'Dinners & activities', accent: WD.amber500 },
+  { key: 'rides',   icon: Car,             label: 'Need a lift?',     accent: WD.cyan600 },
+  { key: 'rooms',   icon: BedDouble,       label: 'Split a room',     accent: WD.green600 },
+  { key: 'dinners', icon: UtensilsCrossed, label: "Don't eat alone", accent: WD.amber500 },
 ] as const
 
-function badgeFor(key: string): string | null {
-  if (key === 'rides') return props.rideShares.length ? `${props.rideShares.length} sharing` : null
-  if (key === 'rooms') {
-    if (props.roommateOthers.length > 0) return `${props.roommateOthers.length} looking`
-    if (props.lookingForRoommate) return 'Looking'
-    return null
-  }
-  if (key === 'dinners') return totalEvents.value ? `${totalEvents.value} events` : null
-  return null
+function countFor(key: SectionKey): number {
+  if (key === 'rides') return props.rideShares.length
+  if (key === 'rooms') return props.roommateOthers.length + (props.lookingForRoommate ? 1 : 0)
+  return totalEvents.value
 }
+
+const openSection = computed(() => sections.find(s => s.key === open.value) ?? null)
+
+/** One line on what is going on, so an empty block costs one line, not a screen. */
+const summary = computed(() => {
+  const parts: string[] = []
+  const rides = props.rideShares.length
+  const rooms = props.roommateOthers.length
+  const plans = totalEvents.value
+  if (rides) parts.push(`${rides} ${rides === 1 ? 'ride' : 'rides'}`)
+  if (rooms) parts.push(`${rooms} looking for a roommate`)
+  if (plans) parts.push(`${plans} ${plans === 1 ? 'dinner or plan' : 'dinners and plans'}`)
+  return parts.length
+    ? `${parts.join(' · ')} so far.`
+    : 'Nobody has posted yet. Offer a lift, a bed or a dinner and others can join you.'
+})
 </script>
 
 <template>
   <div class="grid gap-3">
-    <div
-      v-for="sec in sections"
-      :key="sec.key"
-      class="rounded-2xl bg-card border overflow-hidden"
-      :style="{ borderColor: sec.accent + '55', boxShadow: '0 1px 0 ' + sec.accent + '18, 0 4px 14px rgba(59,31,18,0.04)' }"
-    >
-      <!-- Header (disclosure) -->
+    <p class="text-sm font-sans text-muted-foreground">{{ summary }}</p>
+    <div class="flex flex-wrap gap-2">
       <button
+        v-for="sec in sections"
+        :key="sec.key"
         type="button"
-        class="w-full flex items-center gap-3 px-4 py-3.5 text-left cursor-pointer"
-        :aria-expanded="expandedSections.has(sec.key)"
+        class="inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-bold font-sans cursor-pointer transition-colors"
+        :aria-expanded="open === sec.key"
+        :aria-controls="`going-panel-${sec.key}`"
+        :style="open === sec.key
+          ? { background: sec.accent + '18', borderColor: sec.accent, color: accentText(sec.accent) }
+          : { borderColor: sec.accent + '55', color: 'var(--foreground)' }"
         @click="toggleSection(sec.key)"
       >
-        <span class="w-8 h-8 rounded-full flex items-center justify-center shrink-0" :style="{ background: sec.accent + '18' }">
-          <component :is="sec.icon" class="w-4 h-4" :style="{ color: sec.accent }" aria-hidden="true" />
-        </span>
-        <span class="flex-1 text-base font-bold font-display text-foreground">
-          {{ sec.label }}
-        </span>
+        <component :is="sec.icon" class="w-4 h-4" :style="{ color: sec.accent }" aria-hidden="true" />
+        {{ sec.label }}
         <span
-          v-if="badgeFor(sec.key) && !expandedSections.has(sec.key)"
-          class="text-eyebrow font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
+          v-if="countFor(sec.key)"
+          class="text-eyebrow font-bold px-1.5 py-0.5 rounded-full"
           :style="{ background: sec.accent + '18', color: accentText(sec.accent) }"
-        >
-          {{ badgeFor(sec.key) }}
-        </span>
-        <ChevronDown
-          class="w-4 h-4 transition-transform text-secondary"
-          :class="expandedSections.has(sec.key) ? 'rotate-180' : ''"
-          aria-hidden="true"
-        />
+        >{{ countFor(sec.key) }}</span>
       </button>
+    </div>
 
+    <div
+      v-if="openSection"
+      :id="`going-panel-${openSection.key}`"
+      class="rounded-2xl bg-card border overflow-hidden pt-4"
+      :style="{ borderColor: openSection.accent + '55', boxShadow: '0 4px 14px rgba(59,31,18,0.04)' }"
+    >
       <!-- RIDES -->
-      <div v-if="sec.key === 'rides' && expandedSections.has('rides')" class="px-4 pb-4 grid gap-3">
+      <div v-if="open === 'rides'" class="px-4 pb-4 grid gap-3">
         <div v-if="isSignedIn" class="rounded-xl border p-3 grid gap-2" style="border-color:color-mix(in srgb, var(--wd-brown-900) 8.2%, transparent); background:color-mix(in srgb, var(--wd-brown-900) 2%, transparent);">
           <div class="flex gap-2">
             <Button
@@ -251,7 +259,7 @@ function badgeFor(key: string): string | null {
       </div>
 
       <!-- ROOMS -->
-      <div v-if="sec.key === 'rooms' && expandedSections.has('rooms')" class="px-4 pb-4 grid gap-3">
+      <div v-if="open === 'rooms'" class="px-4 pb-4 grid gap-3">
         <div v-if="!isSignedIn" class="rounded-xl border p-3 text-center" style="border-color:color-mix(in srgb, var(--wd-brown-900) 8.2%, transparent); background:color-mix(in srgb, var(--wd-brown-900) 2%, transparent);">
           <p class="text-sm mb-2 font-sans text-muted-foreground">Sign in to find a roommate</p>
           <Button type="button" variant="pill" size="pill-sm" accent="var(--wd-green-700)" @click="emit('sign-in')">Sign in</Button>
@@ -308,7 +316,7 @@ function badgeFor(key: string): string | null {
       </div>
 
       <!-- DINNERS & ACTIVITIES -->
-      <div v-if="sec.key === 'dinners' && expandedSections.has('dinners')" class="px-4 pb-4 grid gap-4">
+      <div v-if="open === 'dinners'" class="px-4 pb-4 grid gap-4">
         <!-- Hangout creation (signed-in users) -->
         <div v-if="isSignedIn && !showHangoutForm" class="flex justify-end">
           <Button type="button" variant="outline-pill" size="pill-sm" :accent="AMBER" class="gap-1" @click="showHangoutForm = true">

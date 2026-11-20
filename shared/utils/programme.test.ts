@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
-  agendaToSessions, agendaType, cleanSession, defaultDuration, inferDurations, isEveningItem, isWorkshop,
-  minutesUntil, programmePostItems, programmePostLine, sessionEnd, sessionKindLabel, sessionTimeRange, sessionType, untilInText,
+  agendaToSessions, agendaType, cleanSession, defaultDuration, hasArtist, inferDurations, isEveningItem, isWorkshop,
+  minutesUntil, outsideEventHours, outsideHoursNote, programmePostItems, programmePostLine, sessionEnd, sessionKindLabel, sessionTimeRange, sessionType, untilInText,
   type DraftSession,
 } from './programme'
 
@@ -22,6 +22,10 @@ describe('session types (#455)', () => {
     expect(isEveningItem('doors')).toBe(false)
     expect(isEveningItem('workshop')).toBe(false)
   })
+  it('doors open names nobody; a class, party, show, concert and other still do', () => {
+    expect(hasArtist('doors')).toBe(false)
+    expect(['workshop', 'party', 'show', 'concert', 'other', undefined].every(hasArtist)).toBe(true)
+  })
   it('per-type defaults: doors a moment, show 60, concert 90, party 180, workshop 60', () => {
     expect(['doors', 'show', 'concert', 'party', 'workshop', 'other'].map(t => defaultDuration(t as any))).toEqual([0, 60, 90, 180, 60, 60])
   })
@@ -40,6 +44,12 @@ describe('a level only on a workshop', () => {
     expect(cleanSession({ type: 'party', level: 'Beginner' as const, title: 'x' })).toEqual({ type: 'party', title: 'x' })
     expect(cleanSession({ type: 'doors', level: 'Beginner' as const })).not.toHaveProperty('level')
     expect(cleanSession({ type: 'workshop', level: 'Advanced' as const })).toEqual({ type: 'workshop', level: 'Advanced' })
+  })
+  it('cleanSession drops artist, style and partner on doors open and keeps them on a show', () => {
+    const doors = cleanSession({ type: 'doors', title: 'Open doors', artist: 'ana', style: 'Salsa', with: ['max'], level: 'Beginner' as const })
+    expect(doors).toEqual({ type: 'doors', title: 'Open doors', artist: '', style: '' })
+    expect(doors).not.toHaveProperty('with')
+    expect(cleanSession({ type: 'show', artist: 'ana', style: 'Salsa', with: ['max'] })).toEqual({ type: 'show', artist: 'ana', style: 'Salsa', with: ['max'] })
   })
   it('agendaToSessions puts "Beginner" on classes only', () => {
     const s = agendaToSessions([{ time: '18:00', what: 'Open doors' }, { time: '18:30', what: 'Salsa class' }, { time: '19:30', what: 'Party' }], { date: '2026-10-31', startTime: '18:00' })
@@ -127,5 +137,87 @@ describe('rendering helpers', () => {
   it('programmePostLine: a range for the night, the plain start for a class', () => {
     expect(programmePostLine({ date: '2026-10-31', time: '19:00', duration: 90, type: 'show', title: 'B-FEST show' }, 'Sat', '')).toBe('Sat 19:00–20:30 · B-FEST show')
     expect(programmePostLine({ date: '2026-10-31', time: '18:00', duration: 60, type: 'workshop', title: 'Salsa' }, 'Sat', 'Ana')).toBe('Sat 18:00 · Salsa · Ana')
+  })
+})
+
+describe('outside the event’s hours (RAZ-1027)', () => {
+  const night = { date: '2026-11-19', startTime: '20:00', endTime: '02:00' }
+  const at = (time: string, date = '2026-11-19') => ({ date, time })
+
+  it('a party 20:00–02:00: the afternoon is before, the evening and the hours after midnight are inside', () => {
+    expect(outsideEventHours(at('15:00'), night)).toBe('before')
+    expect(outsideEventHours(at('20:00'), night)).toBeNull()
+    expect(outsideEventHours(at('23:30'), night)).toBeNull()
+    expect(outsideEventHours(at('00:00'), night)).toBeNull()
+    expect(outsideEventHours(at('01:00'), night)).toBeNull()
+    expect(outsideEventHours(at('02:00'), night)).toBeNull()
+    expect(outsideEventHours(at('02:01'), night)).toBe('after')
+    expect(outsideEventHours(at('03:00'), night)).toBe('after')
+  })
+
+  it('the same 01:00 on the next calendar day is still inside; 03:00 that morning is after', () => {
+    expect(outsideEventHours(at('01:00', '2026-11-20'), night)).toBeNull()
+    expect(outsideEventHours(at('03:00', '2026-11-20'), night)).toBe('after')
+    expect(outsideEventHours(at('15:00', '2026-11-20'), night)).toBe('after')
+  })
+
+  it('a night that does not cross midnight does not treat 01:00 as inside', () => {
+    const evening = { date: '2026-11-19', startTime: '20:00', endTime: '23:00' }
+    expect(outsideEventHours(at('19:30'), evening)).toBe('before')
+    expect(outsideEventHours(at('21:00'), evening)).toBeNull()
+    expect(outsideEventHours(at('23:00'), evening)).toBeNull()
+    expect(outsideEventHours(at('23:30'), evening)).toBe('after')
+    expect(outsideEventHours(at('01:00'), evening)).toBe('before')
+  })
+
+  it('a daytime event: before the start, after the end, nothing about midnight', () => {
+    const day = { date: '2026-11-19', startTime: '10:00', endTime: '18:00' }
+    expect(outsideEventHours(at('09:00'), day)).toBe('before')
+    expect(outsideEventHours(at('10:00'), day)).toBeNull()
+    expect(outsideEventHours(at('18:00'), day)).toBeNull()
+    expect(outsideEventHours(at('18:30'), day)).toBe('after')
+  })
+
+  it('no end yet: only a time before the start is outside', () => {
+    const open = { date: '2026-11-19', startTime: '20:00' }
+    expect(outsideEventHours(at('15:00'), open)).toBe('before')
+    expect(outsideEventHours(at('01:00'), open)).toBe('before')
+    expect(outsideEventHours(at('22:00'), open)).toBeNull()
+  })
+
+  it('a festival is one span: midday on the middle day is inside, the first morning is before, the last morning after the end is after', () => {
+    const fest = { date: '2026-11-06', startTime: '18:00', endDate: '2026-11-08', endTime: '02:00' }
+    expect(outsideEventHours({ date: '2026-11-06', time: '01:00' }, fest)).toBe('before')
+    expect(outsideEventHours({ date: '2026-11-06', time: '15:00' }, fest)).toBe('before')
+    expect(outsideEventHours({ date: '2026-11-06', time: '19:00' }, fest)).toBeNull()
+    expect(outsideEventHours({ date: '2026-11-07', time: '01:00' }, fest)).toBeNull()
+    expect(outsideEventHours({ date: '2026-11-07', time: '15:00' }, fest)).toBeNull()
+    expect(outsideEventHours({ date: '2026-11-08', time: '01:00' }, fest)).toBeNull()
+    expect(outsideEventHours({ date: '2026-11-08', time: '03:00' }, fest)).toBe('after')
+  })
+
+  it('says nothing when there is no start, no clock time, or the time is inside', () => {
+    expect(outsideEventHours(at('21:00'), { date: '2026-11-19', startTime: '' })).toBeNull()
+    expect(outsideEventHours(at(''), night)).toBeNull()
+    expect(outsideEventHours(at('25:00'), night)).toBeNull()
+    expect(outsideEventHours({ date: '', time: '21:00' }, night)).toBeNull()
+  })
+
+  it('the note names the hours and says a pre-party or an after-party can stay', () => {
+    expect(outsideHoursNote(at('15:00'), night)).toBe('Before the event’s hours (20:00–02:00). A pre-party can stay.')
+    expect(outsideHoursNote(at('03:00'), night)).toBe('After the event’s hours (20:00–02:00). An after-party can stay.')
+    expect(outsideHoursNote(at('01:00'), night)).toBeNull()
+    expect(outsideHoursNote(at('18:00'), { date: '2026-11-19', startTime: '20:00' })).toBe('Before the event starts (20:00). A pre-party can stay.')
+  })
+})
+
+describe('stylesOf (RAZ-1008)', () => {
+  it('splits combined styles and drops empty ones', async () => {
+    const { stylesOf } = await import('./programme')
+    expect(stylesOf('Bachata Dominicana, Timba')).toEqual(['Bachata Dominicana', 'Timba'])
+    expect(stylesOf('Salsa / Bachata')).toEqual(['Salsa', 'Bachata'])
+    expect(stylesOf('')).toEqual([])
+    expect(stylesOf(undefined)).toEqual([])
+    expect(stylesOf(' Reparto ')).toEqual(['Reparto'])
   })
 })

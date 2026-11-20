@@ -111,7 +111,7 @@ function formatDateRange(start: string, end: string): string {
         {{ initialsOf(sharer.name, 2, '') }}
       </div>
       <div>
-        <h1 class="text-xl font-bold font-display text-foreground">{{ sharer.name }}'s 2026 Dance Year</h1>
+        <h1 class="text-xl font-bold font-display text-foreground">{{ sharer.name }}'s dance year</h1>
         <div class="flex items-center justify-center gap-2 mt-2 flex-wrap">
           <span class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium text-foreground" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent); background:rgba(251,245,234,0.8);">{{ sharer.role === 'lead' ? 'Lead' : 'Follow' }}</span>
           <span class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium text-secondary" style="border-color:color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);">{{ festivals.length }} festivals</span>

@@ -56,44 +56,38 @@ async function copy(what: 'link' | 'message') {
 
 <template>
   <Dialog v-model:open="open">
-    <DialogContent class="sm:max-w-lg">
+    <DialogContent class="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
       <DialogHeader>
         <DialogTitle>Ask {{ name }} to confirm</DialogTitle>
-        <DialogDescription>Send them their personal link. It takes them a minute, and you get the right photo and spelling for the flyer.</DialogDescription>
+        <DialogDescription>Send them the message with their link. They confirm, fix their name and photo for the flyer, and can tell you their fee.</DialogDescription>
       </DialogHeader>
-
-      <ol class="grid gap-2 text-sm">
-        <li class="flex gap-2"><span class="font-bold text-secondary">1.</span> They see their classes and slots at {{ link?.eventName || 'your event' }} and say if they’re in and if the programme is right.</li>
-        <li class="flex gap-2"><span class="font-bold text-secondary">2.</span> They see what you offer and can answer with their own fee and needs.</li>
-        <li class="flex gap-2"><span class="font-bold text-secondary">3.</span> They see the flyer, fix the spelling of their name and pick or upload the photo it should use, with no account. Photos you added go on only if they tick them.</li>
-        <li class="flex gap-2"><span class="font-bold text-secondary">4.</span>
-          <span v-if="link?.managed">Their page has an owner: they answer signed in. Until they do, it waits under “Needs you” on their Business home.</span>
-          <span v-else>No one manages their page yet: they can create an account with email and password and make it theirs.</span>
-        </li>
-      </ol>
 
       <AdminState v-if="error" kind="error" :message="error" />
       <div v-else-if="!link" class="flex justify-center py-4"><Loader2 class="size-5 animate-spin text-muted-foreground" aria-hidden="true" /></div>
       <template v-else>
-        <Field :id="`confirm-link-${handle}`" label="Their link">
-          <div class="flex gap-2">
-            <Input :model-value="link.url" readonly class="min-w-0 flex-1 font-mono text-xs" @focus="(e: FocusEvent) => (e.target as HTMLInputElement).select()" />
-            <Button type="button" variant="outline-pill" size="pill-sm" @click="copy('link')"><Check v-if="copied === 'link'" /><Link2 v-else /> {{ copied === 'link' ? 'Copied' : 'Copy link' }}</Button>
-          </div>
-        </Field>
-        <Field :id="`confirm-offer-${handle}`" label="What you offer" optional hint="Only they see it. Empty: they can tell you their fee, or say they come for free.">
+        <Field :id="`confirm-offer-${handle}`" label="What you offer" optional hint="Only they see it. Empty: they name their fee.">
           <Input v-model="offer" placeholder="e.g. €80 per class + free pass" maxlength="200" />
           <div class="mt-1.5 flex flex-wrap gap-1.5">
             <Button v-for="x in ARTIST_OFFERS" :key="x" type="button" size="sm" variant="outline" @click="addOffer(x)">+ {{ x }}</Button>
           </div>
         </Field>
-        <Field :id="`confirm-msg-${handle}`" :label="savingOffer ? 'A message to send (updating…)' : 'A message to send'">
-          <Textarea :model-value="message" readonly :rows="8" class="text-sm" />
+        <Field :id="`confirm-msg-${handle}`" :label="savingOffer ? 'Message (updating…)' : 'Message'">
+          <Textarea :model-value="message" readonly :rows="5" class="text-sm" />
         </Field>
-        <div>
+        <div class="flex flex-wrap gap-2">
           <Button type="button" variant="pill" @click="copy('message')"><Check v-if="copied === 'message'" /><MessageCircle v-else /> {{ copied === 'message' ? 'Copied' : 'Copy message' }}</Button>
+          <Button type="button" variant="outline-pill" @click="copy('link')"><Check v-if="copied === 'link'" /><Link2 v-else /> {{ copied === 'link' ? 'Copied' : 'Just the link' }}</Button>
         </div>
         <BusinessContactLinks :contacts="link.contacts" :managed="link.managed" :answered="link.answered" :event-id="eventId" :handle="handle" :notified-at="link.notifiedAt" />
+        <details class="text-sm text-muted-foreground">
+          <summary class="cursor-pointer font-medium text-foreground">What they’ll see</summary>
+          <ul class="mt-2 grid list-disc gap-1 pl-5">
+            <li>Their classes and slots at {{ link.eventName || 'your event' }}: they say if they’re in.</li>
+            <li>Your offer: they can answer with their own fee.</li>
+            <li>The flyer: they fix their name and pick the photo. Their WeDance page changes only once they make it theirs.</li>
+            <li v-if="!link.managed">No one runs their page yet: they can sign up and make it theirs.</li>
+          </ul>
+        </details>
       </template>
     </DialogContent>
   </Dialog>

@@ -35,6 +35,8 @@ const reviewerNotes = reactive<Record<string, string>>({})
 // Which claim has the "request info" form open.
 const infoFormOpen = ref<string | null>(null)
 
+const { refresh: refreshAttention } = useAdminAttention()
+
 async function decide(c: Claim, approve: boolean) {
   busyId.value = c.id
   error.value = null
@@ -44,6 +46,7 @@ async function decide(c: Claim, approve: boolean) {
       reviewerNote: reviewerNotes[c.id] || '',
     })
     items.value = items.value.filter(x => x.id !== c.id)
+    refreshAttention(true)
   } catch (e: any) {
     error.value = e?.message || 'Could not update that claim.'
   } finally {
@@ -62,6 +65,7 @@ async function requestInfo(c: Claim) {
       reviewerNote: note,
     })
     items.value = items.value.filter(x => x.id !== c.id)
+    refreshAttention(true)
   } catch (e: any) {
     error.value = e?.message || 'Could not request more info.'
   } finally {

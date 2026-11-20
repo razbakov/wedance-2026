@@ -57,7 +57,12 @@ vi.mock('drizzle-orm', async () => {
   // need integration tests against a real DB)
   const sql = (..._args: any[]): FilterFn => () => false
 
-  return { eq, and, or, gt, sql }
+  const isNull = (col: any): FilterFn => {
+    const jsKey = resolveKey(col)
+    return (row) => (jsKey ? row[jsKey] == null : false)
+  }
+
+  return { eq, and, or, gt, isNull, sql }
 })
 
 // Mock email sending so requestMagicLink doesn't need a real mailer.
