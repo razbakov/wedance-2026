@@ -88,6 +88,7 @@ bun run dev:db-proxy          # Neon-HTTP-compatible proxy on :4444
 - Nothing reaches other people without a click: posting (Instagram, Telegram), emailing contacts and cancelling
   events are web-only or preview → `confirm_token` on MCP; MCP tokens can't publish or send.
 - Personal data (emails, phones, group admin contacts) never goes to PostHog, MCP or public endpoints.
+- A PR that changes a journey step updates the matching `app/lib/blueprint-*.ts` in the same PR and names the step ids (`meet-friends: match-them`). A step that is still missing, partial or gap must not cite a Done or Canceled issue in `refs`. See `.claude/rules/blueprints.md`.
 
 ## Analytics (PostHog)
 
@@ -113,4 +114,5 @@ relevant one before working on a feature from another entry point (MCP tools, sc
 - `events.md` — new event flow, venue hints, signing up / booking, cancelling, reviews
 - `contacts.md` — Who's coming, Contacts, audience, email to contacts
 - `my-plan.md` — My plan tabs, Share my weekend, dance friends, year in dance
+- `blueprints.md` — the seven service blueprints stay with the code; a closed issue cannot sit on an unfinished step
 - `backlog.md` — landing-promise backlog (`docs/issues/`, Linear, sheet)

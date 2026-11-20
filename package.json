@@ -15,6 +15,7 @@
     "test:e2e:ui": "bddgen && playwright test --ui",
     "test:e2e:headed": "bddgen && playwright test --headed",
     "test": "vitest run",
+    "blueprint:issues": "bun scripts/check-blueprint-issues.ts",
     "test:watch": "vitest",
     "test:tokens": "vitest run scripts/design-guardrails",
     "test:design": "playwright test -c playwright.design.config.ts contract a11y",

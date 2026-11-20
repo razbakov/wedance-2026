@@ -6,12 +6,13 @@
  * from the code (procedures named in `code`): /@handle/book (inquiries.*,
  * RAZ-964), line-up invites (artistInvites.*), /gigs (gigs.*), /artists,
  * /@handle, the MCP tools (invite_artist, respond_invite, find_lineup), the
- * Instagram import (#452) and claiming a page. Not run end to end yet.
- * Shown at /docs/blueprints/artist-booking.
+ * Instagram import (#452) and claiming a page. Re-read against the code on
+ * 2026-11-18 (RAZ-1072). Not run end to end yet. Shown at
+ * /docs/blueprints/artist-booking.
  */
 import type { Blueprint, BpGap, BpLaneDef, BpPhaseDef, BpStep } from './blueprint'
 
-export const ARTIST_BLUEPRINT_UPDATED = '2026-11-16'
+export const ARTIST_BLUEPRINT_UPDATED = '2026-11-18'
 
 export type ArtistLane = 'artist' | 'system' | 'organizer'
 export type ArtistPhase = 'listed' | 'found' | 'asked' | 'answer' | 'lineup' | 'night' | 'after'
@@ -98,8 +99,8 @@ export const artistSteps: BpStep<ArtistLane, ArtistPhase>[] = [
     note: 'The fee agreed in the invite is paid outside WeDance, which holds no money. Nothing records whether it was paid.' },
 
   // After
-  { id: 'review', phase: 'after', lane: 'system', name: 'Ask for a review', status: 'missing', marks: ['silent'], code: 'review.create · ReviewsSection',
-    note: 'Dancers can review an artist on /@handle or the event on its page, but nobody is asked after the night, and the artist isn’t told when a review arrives.' },
+  { id: 'review', phase: 'after', lane: 'system', name: 'Ask for a review', status: 'partial', marks: ['silent'], code: 'reviewAsk · review.create · ReviewsSection',
+    note: 'The morning after, people who went are asked to rate the event. Nothing asks them to review the artist, and the artist isn’t told when a review arrives.' },
   { id: 'recap', phase: 'after', lane: 'artist', name: 'See how it went', status: 'missing', marks: [],
     note: 'No recap: how many signed up and came, reviews, or a link to share. Nothing on the artist’s page builds up a track record either, beyond the schedule of past events.' },
   { id: 'book-again', phase: 'after', lane: 'organizer', name: 'Book them again', status: 'live', marks: [], code: 'app/lib/eventSteps.ts pastEventHints · businessEvents.copy',
@@ -128,8 +129,8 @@ export const artistGaps: BpGap[] = [
     fix: 'Email the confirmed line-up when the event is published (with the link and flyer to share), when its date, time or venue changes, and when it is cancelled (add confirmed invites to signupsOf). A decline takes the artist off the line-up, with an undo. Send the line-up a short note the day before.',
     steps: ['told-live', 'decline-stays', 'changes', 'perform'] },
   { title: 'Nothing comes back after the night',
-    why: 'Reviews exist but nobody is asked for one, the artist isn’t told when one arrives, and there’s no recap. An artist’s page never builds the record that would get them booked again.',
-    fix: 'The day after, ask the dancers who signed up to review the night and its artists. Email the artist each review and a recap (sign-ups, reviews, a link to share), and show past line-ups and reviews on /@handle and /artists.',
+    why: 'The morning-after email asks for a rating of the event, not of the artist. The artist isn’t told when a review arrives, and there’s no recap, so the page never builds the record that would get them booked again.',
+    fix: 'Ask those dancers about the artists too. Email the artist each review and a recap (sign-ups, reviews, a link to share), and show past line-ups and reviews on /@handle and /artists.',
     steps: ['review', 'recap', 'directory', 'book-again'] },
 ]
 

@@ -1,0 +1,27 @@
+# Weekly re-read of the seven service blueprints (RAZ-1072).
+# Not a merge gate. The unit test already fails a PR that leaves a known-closed
+# issue on an unfinished step. This job asks Linear, when LINEAR_API_KEY is set,
+# so a newly Done or Canceled issue shows up within a week.
+#
+# The other half of the re-read is a person: open each app/lib/blueprint-*.ts
+# and check its steps against the code they name. Update the file in the same
+# change, and name the step ids in the PR.
+name: Blueprint re-read
+
+on:
+  schedule:
+    - cron: '0 8 * * 1' # Monday 08:00 UTC
+  workflow_dispatch:
+
+jobs:
+  issues:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: Closed issues still cited by an unfinished step
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+        run: bun scripts/check-blueprint-issues.ts
