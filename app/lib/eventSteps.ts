@@ -11,7 +11,7 @@ import type { EventGapKey } from '#shared/utils/eventChecklist'
 import { entryNoun } from '#shared/utils/entryWord'
 
 export type EventStepKey = 'when' | 'where' | 'lineup' | 'entry' | 'flyer' | 'publish'
-/** Which editor card a step opens (`null` = not a form card). */
+/** Which editor card a step opens. `null` scrolls to `#ev-step-<key>` (flyer panel, Publish button). */
 export const STEP_CARD: Record<EventStepKey, string | null> = {
   when: 'when', where: 'where', lineup: 'lineup', entry: 'entry', flyer: null, publish: null,
 }

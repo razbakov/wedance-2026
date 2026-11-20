@@ -19,7 +19,10 @@ type, music, date, start time; city from the host; name suggested by `shared/uti
 `suggestEventName`, e.g. "Salsa Party · Thursday", editable). Each makes a draft ("Publish it now" stays) and
 opens the editor, which shows **Steps** (`BusinessEventSteps`, `app/lib/eventSteps.ts`): what and when → venue →
 line-up → entry → flyer → publish, done/to do from the saved event's gaps/flyer/published, one card open at a
-time (`BusinessEventForm` `focus()`). A new draft opens on its first step to do. Line-up and entry show what the
+time (`BusinessEventForm` `focus()`). A new draft opens on its first step to do. **Publish** (RAZ-1026) is a big
+button on that step while the event is still a draft: one click saves and publishes, then a dialog confirms it
+(dancers can see it now, with the event's link). The save bar's Published checkbox stays only once it's live
+(to take it offline), and on synced or archived events, which have no steps. Line-up and entry show what the
 host's other events suggest (`pastEventHints`: artists booked before, last time's price). Same order as MCP
 `create_event`.
 

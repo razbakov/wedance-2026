@@ -105,7 +105,7 @@ export const bpSteps: BpStep<BpLane, BpPhase>[] = [
 
   // Publish
   { id: 'publish', phase: 'publish', lane: 'organizer', name: 'Publish', status: 'live', marks: [], code: 'businessEvents.update (draft → live) · MCP publish_event',
-    note: 'Not gated: an event publishes with unanswered venues, unconfirmed artists or an out-of-date flyer, and nothing warns. From the form it is live from the first save (RAZ-927).' },
+    note: 'Not gated: an event publishes with unanswered venues, unconfirmed artists or an out-of-date flyer, and nothing warns. In the editor the Publish step is one button while it’s a draft, then a dialog with the link (RAZ-1026). “Publish it now” on the create form still publishes on the first save (RAZ-927).' },
   { id: 'listed', phase: 'publish', lane: 'system', name: 'Listed everywhere', status: 'live', marks: [], route: '/cities/[city]',
     note: 'City page (this week, coming up), the event page, the RSVP poll, the organiser’s and venue’s /@handle schedule.' },
   { id: 'announce', phase: 'publish', lane: 'system', name: 'Tell followers', status: 'missing', marks: ['silent'],
