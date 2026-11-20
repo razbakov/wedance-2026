@@ -208,12 +208,26 @@ const LEVELS = ['Beginner', 'Intermediate', 'Advanced']
             <Button type="button" variant="ghost" size="sm" class="shrink-0" :aria-expanded="openPass === i" @click="openPass = openPass === i ? null : i"><template v-if="openPass === i"><Check /> Done</template><template v-else><Pencil /> Edit</template></Button>
           </div>
           <div v-if="openPass === i" class="border-t p-3">
-            <div class="flex flex-wrap items-end gap-2">
-              <Field :id="`pass-name-${i}`" label="Name" class="min-w-[10rem] flex-1"><Input v-model="p.name" :placeholder="words.one === 'pass' ? 'Full Pass' : 'Early bird'" /></Field>
-              <Field :id="`pass-price-${i}`" label="Price (€)" class="w-28"><Input v-model.number="p.price" type="number" min="0" step="1" /></Field>
-              <Field :id="`pass-couple-${i}`" label="For two (€)" optional class="w-32" :hint="p.price ? `Empty = ${p.price * 2} €` : undefined">
-                <Input :model-value="p.couplePrice ?? ''" type="number" min="0" step="1" :placeholder="p.price ? String(p.price * 2) : ''" @update:model-value="(v: any) => (p.couplePrice = v === '' || v == null || Number.isNaN(Number(v)) ? undefined : Number(v))" />
-              </Field>
+            <!-- RAZ-1030: Price and For two share one line at every width.
+                 Both labels reserve two lines, so "(optional)" wrapping under
+                 For two doesn't drop that input. The couple hint is out of the
+                 flow — in the row it lifted that input above Price — and the
+                 row's extra gap and padding are the space it hangs in. The pair
+                 shrinks instead of spilling out of a narrow card. -->
+            <div class="flex flex-wrap items-end gap-x-2" :class="p.price ? 'gap-y-8 pb-7' : 'gap-y-2'">
+              <Field :id="`pass-name-${i}`" label="Name" class="min-w-[10rem] flex-1 [&_label]:min-h-10"><Input v-model="p.name" :placeholder="words.one === 'pass' ? 'Full Pass' : 'Early bird'" /></Field>
+              <div class="inline-grid shrink-0 min-w-0 max-w-full grid-cols-[minmax(0,7rem)_minmax(0,8rem)] items-end gap-x-2" data-pass-prices>
+                <Field :id="`pass-price-${i}`" label="Price (€)" class="min-w-0 [&_label]:min-h-10"><Input v-model.number="p.price" type="number" min="0" step="1" /></Field>
+                <Field
+                  :id="`pass-couple-${i}`"
+                  label="For two (€)"
+                  optional
+                  class="relative min-w-0 [&_label]:min-h-10 [&>p]:absolute [&>p]:inset-x-0 [&>p]:top-full [&>p]:mt-1.5"
+                  :hint="p.price ? `Empty = ${p.price * 2} €` : undefined"
+                >
+                  <Input :model-value="p.couplePrice ?? ''" type="number" min="0" step="1" :placeholder="p.price ? String(p.price * 2) : ''" @update:model-value="(v: any) => (p.couplePrice = v === '' || v == null || Number.isNaN(Number(v)) ? undefined : Number(v))" />
+                </Field>
+              </div>
               <label class="mb-2 inline-flex items-center gap-2 text-sm"><Checkbox v-model="p.soldOut" /> Sold out</label>
               <Button type="button" variant="ghost" size="icon-sm" class="mb-1" :aria-label="`Remove ${words.one} ${p.name || i + 1}`" @click="passes.splice(i, 1); openPass = null"><X /></Button>
             </div>
