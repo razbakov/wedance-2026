@@ -14,12 +14,15 @@
  * One audience (RAZ-963): the list also holds the page's followers and the people who went /
  * are going to its events without being contacts — each person once, marked Contact /
  * Follower / Event-goer. They show no email or phone, can't be emailed, aren't in the CSV and
- * have no note / unsubscribe / delete; "Who" in the rail narrows to contacts or the rest.
+ * have no note / unsubscribe / delete; "On WeDance, not a contact" under Came from narrows to the rest.
+ * The rail (redesigned 19 Nov 2026): Email · Events (coming to one, going next, regulars, lapsed) ·
+ * Came from (top 4, rest behind "more") · Channel (RAZ-1074) · More filters (new, follows, on WeDance), folded.
  * Data: businessSite.contactsOverview.
  */
-import { Download, Search, Trash2, Globe, Route, StickyNote, Check, X, SlidersHorizontal, MailCheck, MailX, Users, CalendarCheck, Repeat, Moon, Sparkles, Heart, CalendarDays, Ticket, Contact, UserRound } from 'lucide-vue-next'
-import { ACTIVITY_FILTERS, COMING_AS_LABEL, COMING_AS_ORDER, contactSegments, emailBlock, type ActivityFilter, type ComingAs, type ContactSourceKey } from '#shared/utils/contactSegments'
-import { comingCounts, contactsCsv, describeFilter, emptyFilter, filterContacts, isFiltered, sourceDetail, toggle, type ContactFilter } from '~/lib/contactFilters'
+import { Download, Search, Trash2, Globe, Route, StickyNote, Check, X, SlidersHorizontal, MailCheck, MailX, Users, CalendarCheck, Repeat, Moon, Sparkles, Heart, CalendarDays, Ticket, ChevronDown, Ellipsis } from 'lucide-vue-next'
+import { DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenuRoot, DropdownMenuTrigger } from 'reka-ui'
+import { COMING_AS_LABEL, COMING_AS_ORDER, contactSegments, emailBlock, type ActivityFilter, type ComingAs, type ContactSourceKey } from '#shared/utils/contactSegments'
+import { comingCounts, contactsCsv, describeFilter, emptyFilter, EVENT_ACTIVITY, filterContacts, isFiltered, OTHER_ACTIVITY, railOptions, sourceDetail, toggle, type ContactFilter } from '~/lib/contactFilters'
 
 definePageMeta({ layout: 'business' })
 const route = useRoute()
@@ -81,7 +84,15 @@ const toggleSource = (k: ContactSourceKey) => { f.sources = toggle(f.sources, k)
 const toggleChannel = (k: string) => { f.channels = toggle(f.channels, k) }
 const toggleAct = (a: ActivityFilter) => { f.activity = toggle(f.activity, a) }
 const setEmail = (e: ContactFilter['email']) => { f.email = f.email === e ? 'any' : e }
-const setWho = (w: ContactFilter['who']) => { f.who = f.who === w ? 'any' : w }
+// The rail, kept short: top sources up front, the rest behind "more"; event activity together;
+// the rarely used filters folded away. Empty options are hidden unless picked.
+const sourceRail = computed(() => railOptions(segs.value.sources, f.sources, 4))
+const moreSources = ref(false)
+const actOptions = (keys: readonly ActivityFilter[]) => railOptions(keys.map(key => ({ key, count: segs.value.activity[key] })), f.activity, keys.length).shown
+const eventAct = computed(() => actOptions(EVENT_ACTIVITY))
+const otherAct = computed(() => actOptions(OTHER_ACTIVITY))
+const moreFilters = ref(OTHER_ACTIVITY.some(a => f.activity.includes(a)))
+const cantEmailWhy = computed(() => [`${segs.value.blocked.not_opted_in} never asked for your emails`, segs.value.blocked.event_only ? `${segs.value.blocked.event_only} only for their event` : '', `${segs.value.blocked.unsubscribed} unsubscribed`, segs.value.blocked.not_a_contact ? `${segs.value.blocked.not_a_contact} not contacts (no email)` : ''].filter(Boolean).join(' · '))
 // The CSV and "Email N" only ever get contacts.
 const shownContacts = computed(() => onlyContacts(shown.value))
 const clear = () => Object.assign(f, emptyFilter())
@@ -160,53 +171,57 @@ function csv() {
         <Button type="button" variant="outline" size="sm" class="mb-3 lg:hidden" :aria-expanded="railOpen" aria-controls="contacts-filters" @click="railOpen = !railOpen">
           <SlidersHorizontal /> Filters<template v-if="filterCount"> · {{ filterCount }}</template>
         </Button>
-        <aside id="contacts-filters" class="mb-4 content-start gap-5 rounded-2xl border bg-card p-4 text-sm shadow-wd-card lg:sticky lg:top-6 lg:mb-0 lg:grid lg:self-start" :class="railOpen ? 'grid' : 'hidden'" aria-label="Filter contacts">
-          <section v-if="pageEvents.length">
-            <h2 class="mb-1 text-eyebrow font-black uppercase tracking-widest text-muted-foreground"><label for="contacts-event">Coming to</label></h2>
-            <select id="contacts-event" v-model="f.event" class="w-full rounded-lg border bg-background px-2 py-1.5 text-sm" data-contacts-event-select>
-              <option :value="null">Any event</option>
-              <option v-for="e in pageEvents" :key="e.id" :value="e.id">{{ eventLabel(e) }} ({{ e.coming }})</option>
-            </select>
-            <template v-if="f.event">
-              <button v-for="a in COMING_AS_ORDER.filter(a => eventCounts.by[a])" :key="a" type="button" class="mt-1 flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-accent" :class="f.as === a ? 'bg-primary/8 font-bold text-wd-red-800' : ''" :aria-pressed="f.as === a" @click="setAs(a)">
-                <span>{{ COMING_AS_LABEL[a] }}</span><span class="tabular-nums">{{ eventCounts.by[a] }}</span>
-              </button>
-            </template>
-          </section>
-          <section v-if="segs.others">
-            <h2 class="mb-1 text-eyebrow font-black uppercase tracking-widest text-muted-foreground">Who</h2>
-            <button v-for="w in (['contacts', 'others'] as const)" :key="w" type="button" class="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left hover:bg-accent" :class="f.who === w ? 'bg-primary/8 font-bold text-wd-red-800' : ''" :aria-pressed="f.who === w" data-contacts-who @click="setWho(w)">
-              <span class="inline-flex items-center gap-2"><component :is="w === 'contacts' ? Contact : UserRound" class="size-4" aria-hidden="true" /> {{ w === 'contacts' ? 'Contacts' : 'Not contacts' }}</span>
-              <span class="tabular-nums">{{ w === 'contacts' ? segs.contacts : segs.others }}</span>
-            </button>
-            <p class="mt-1 px-2 text-xs text-muted-foreground">Not contacts = follow you or came to your events, no email.</p>
-          </section>
+        <aside id="contacts-filters" class="mb-4 content-start gap-4 rounded-2xl border bg-card p-4 text-sm shadow-wd-card lg:sticky lg:top-6 lg:mb-0 lg:grid lg:self-start" :class="railOpen ? 'grid' : 'hidden'" aria-label="Filter contacts" data-contacts-rail>
           <section>
             <h2 class="mb-1 text-eyebrow font-black uppercase tracking-widest text-muted-foreground">Email</h2>
-            <button v-for="e in (['can', 'cant'] as const)" :key="e" type="button" class="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left hover:bg-accent" :class="f.email === e ? 'bg-primary/8 font-bold text-wd-red-800' : ''" :aria-pressed="f.email === e" @click="setEmail(e)">
-              <span class="inline-flex items-center gap-2"><component :is="e === 'can' ? MailCheck : MailX" class="size-4" aria-hidden="true" /> {{ e === 'can' ? 'Can email' : 'Can’t email' }}</span>
-              <span class="tabular-nums">{{ e === 'can' ? segs.canEmail : segs.cantEmail }}</span>
-            </button>
-            <p class="mt-1 px-2 text-xs text-muted-foreground">{{ segs.blocked.not_opted_in }} never asked for your emails<template v-if="segs.blocked.event_only"> · {{ segs.blocked.event_only }} only for their event</template> · {{ segs.blocked.unsubscribed }} unsubscribed<template v-if="segs.blocked.not_a_contact"> · {{ segs.blocked.not_a_contact }} not contacts</template></p>
+            <div class="grid grid-cols-2 gap-1">
+              <button v-for="e in (['can', 'cant'] as const)" :key="e" type="button" class="flex flex-col items-start rounded-lg border px-2 py-1.5 text-left hover:bg-accent" :class="f.email === e ? 'bg-primary/8 font-bold text-wd-red-800 border-primary/40' : ''" :aria-pressed="f.email === e" :title="e === 'cant' ? cantEmailWhy : 'Signed up for your emails themselves'" data-contacts-email @click="setEmail(e)">
+                <span class="inline-flex items-center gap-1 text-xs"><component :is="e === 'can' ? MailCheck : MailX" class="size-3.5" aria-hidden="true" /> {{ e === 'can' ? 'Can email' : 'Can’t email' }}</span>
+                <span class="text-base font-bold tabular-nums">{{ e === 'can' ? segs.canEmail : segs.cantEmail }}</span>
+              </button>
+            </div>
           </section>
-          <section>
+          <section v-if="pageEvents.length || eventAct.length" data-contacts-events>
+            <h2 class="mb-1 text-eyebrow font-black uppercase tracking-widest text-muted-foreground">Events</h2>
+            <label for="contacts-event" class="sr-only">Coming to</label>
+            <select v-if="pageEvents.length" id="contacts-event" v-model="f.event" class="mb-1 w-full rounded-lg border bg-background px-2 py-1.5 text-sm" data-contacts-event-select>
+              <option :value="null">Coming to any event</option>
+              <option v-for="e in pageEvents" :key="e.id" :value="e.id">{{ eventLabel(e) }} ({{ e.coming }})</option>
+            </select>
+            <div v-if="f.event" class="mb-1 border-l-2 pl-2">
+              <button v-for="a in COMING_AS_ORDER.filter(a => eventCounts.by[a])" :key="a" type="button" class="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1 text-left hover:bg-accent" :class="f.as === a ? 'bg-primary/8 font-bold text-wd-red-800' : ''" :aria-pressed="f.as === a" @click="setAs(a)">
+                <span>{{ COMING_AS_LABEL[a] }}</span><span class="tabular-nums">{{ eventCounts.by[a] }}</span>
+              </button>
+            </div>
+            <button v-for="a in eventAct" :key="a.key" type="button" class="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1 text-left hover:bg-accent" :class="f.activity.includes(a.key) ? 'bg-primary/8 font-bold text-wd-red-800' : ''" :aria-pressed="f.activity.includes(a.key)" @click="toggleAct(a.key)">
+              <span class="inline-flex items-center gap-2"><component :is="ACT_ICON[a.key]" class="size-4" aria-hidden="true" /> {{ SHORT[a.key] }}</span><span class="tabular-nums">{{ a.count }}</span>
+            </button>
+          </section>
+          <section data-contacts-sources>
             <h2 class="mb-1 text-eyebrow font-black uppercase tracking-widest text-muted-foreground">Came from</h2>
-            <button v-for="s in segs.sources" :key="s.key" type="button" class="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-accent" :class="f.sources.includes(s.key) ? 'bg-primary/8 font-bold text-wd-red-800' : ''" :aria-pressed="f.sources.includes(s.key)" @click="toggleSource(s.key)">
-              <span>{{ s.label }}</span><span class="tabular-nums">{{ s.count }}</span>
+            <button v-for="s in [...sourceRail.shown, ...(moreSources ? sourceRail.more : [])]" :key="s.key" type="button" class="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1 text-left hover:bg-accent" :class="f.sources.includes(s.key) ? 'bg-primary/8 font-bold text-wd-red-800' : ''" :aria-pressed="f.sources.includes(s.key)" @click="toggleSource(s.key)">
+              <span class="truncate">{{ s.label }}</span><span class="tabular-nums">{{ s.count }}</span>
+            </button>
+            <button v-if="sourceRail.more.length" type="button" class="mt-0.5 inline-flex items-center gap-1 px-2 text-xs text-muted-foreground hover:text-foreground" :aria-expanded="moreSources" @click="moreSources = !moreSources">
+              <ChevronDown class="size-3.5 transition-transform" :class="moreSources ? 'rotate-180' : ''" aria-hidden="true" />{{ moreSources ? 'Fewer' : `${sourceRail.more.length} more` }}
             </button>
           </section>
           <section v-if="segs.channels?.some(c => c.key !== 'unknown')" data-contacts-channels>
             <h2 class="mb-1 text-eyebrow font-black uppercase tracking-widest text-muted-foreground">Channel</h2>
-            <button v-for="c in segs.channels" :key="c.key" type="button" class="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-accent" :class="f.channels.includes(c.key) ? 'bg-primary/8 font-bold text-wd-red-800' : ''" :aria-pressed="f.channels.includes(c.key)" data-contacts-channel @click="toggleChannel(c.key)">
+            <button v-for="c in segs.channels" :key="c.key" type="button" class="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1 text-left hover:bg-accent" :class="f.channels.includes(c.key) ? 'bg-primary/8 font-bold text-wd-red-800' : ''" :aria-pressed="f.channels.includes(c.key)" data-contacts-channel @click="toggleChannel(c.key)">
               <span class="inline-flex min-w-0 items-center gap-2"><Route class="size-4 shrink-0" aria-hidden="true" /> <span class="truncate">{{ c.label }}</span></span><span class="tabular-nums">{{ c.count }}</span>
             </button>
             <p class="mt-1 px-2 text-xs text-muted-foreground">The link or site that brought them. Tag the links you share (utm_source) to see more here.</p>
           </section>
-          <section>
-            <h2 class="mb-1 text-eyebrow font-black uppercase tracking-widest text-muted-foreground">On WeDance</h2>
-            <button v-for="a in ACTIVITY_FILTERS" :key="a" type="button" class="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-accent" :class="f.activity.includes(a) ? 'bg-primary/8 font-bold text-wd-red-800' : ''" :aria-pressed="f.activity.includes(a)" @click="toggleAct(a)">
-              <span class="inline-flex items-center gap-2"><component :is="ACT_ICON[a]" class="size-4" aria-hidden="true" /> {{ SHORT[a] }}</span><span class="tabular-nums">{{ segs.activity[a] }}</span>
+          <section v-if="otherAct.length" data-contacts-more>
+            <button type="button" class="flex w-full items-center justify-between mb-1 text-eyebrow font-black uppercase tracking-widest text-muted-foreground hover:text-foreground" :aria-expanded="moreFilters" @click="moreFilters = !moreFilters">
+              <span>More filters</span><ChevronDown class="size-3.5 transition-transform" :class="moreFilters ? 'rotate-180' : ''" aria-hidden="true" />
             </button>
+            <template v-if="moreFilters">
+              <button v-for="a in otherAct" :key="a.key" type="button" class="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1 text-left hover:bg-accent" :class="f.activity.includes(a.key) ? 'bg-primary/8 font-bold text-wd-red-800' : ''" :aria-pressed="f.activity.includes(a.key)" @click="toggleAct(a.key)">
+                <span class="inline-flex items-center gap-2"><component :is="ACT_ICON[a.key]" class="size-4" aria-hidden="true" /> {{ SHORT[a.key] }}</span><span class="tabular-nums">{{ a.count }}</span>
+              </button>
+            </template>
           </section>
           <Button v-if="isFiltered(f)" type="button" variant="ghost" size="sm" @click="clear"><X /> Clear filters</Button>
         </aside>
@@ -220,7 +235,7 @@ function csv() {
             <span class="text-sm text-muted-foreground tabular-nums" aria-live="polite">{{ shown.length }}</span>
           </div>
           <ul class="divide-y rounded-2xl border bg-card shadow-wd-card">
-            <li v-for="r in visible" :key="r.id" class="grid gap-2 p-4 sm:grid-cols-[1fr_auto]">
+            <li v-for="r in visible" :key="r.id" class="grid grid-cols-[1fr_auto] gap-2 p-4">
               <div class="min-w-0">
                 <ContactsPersonRow :contact="r" :detail="detail(r)" :hide-note="editing === r.id" />
                 <div v-if="editing === r.id" class="mt-2 grid gap-2 sm:pl-13">
@@ -228,15 +243,24 @@ function csv() {
                   <div class="flex gap-2"><Button type="button" size="sm" variant="cta" @click="saveNote(r)"><Check /> Save note</Button><Button type="button" size="sm" variant="ghost" @click="editing = null">Cancel</Button></div>
                 </div>
               </div>
-              <div v-if="r.isContact" class="flex flex-wrap items-start gap-1 pl-13 sm:pl-0">
-                <Button type="button" size="sm" variant="ghost" @click="editing = r.id; note = r.note ?? ''"><StickyNote /> Note</Button>
-                <Button v-if="r.status === 'subscribed'" type="button" size="sm" variant="ghost" @click="setStatus(r, 'unsubscribed')">Unsubscribe</Button>
-                <Button v-else type="button" size="sm" variant="ghost" @click="setStatus(r, 'subscribed')">Resubscribe</Button>
-                <Button v-if="confirmRemove !== r.id" type="button" size="icon" variant="ghost" aria-label="Delete contact" @click="confirmRemove = r.id"><Trash2 /></Button>
-                <template v-else>
+              <div v-if="r.isContact" class="flex items-start gap-1" data-contacts-row-actions>
+                <template v-if="confirmRemove === r.id">
                   <Button type="button" size="sm" variant="destructive" @click="remove(r)">Delete</Button>
                   <Button type="button" size="sm" variant="ghost" @click="confirmRemove = null">Keep</Button>
                 </template>
+                <DropdownMenuRoot v-else>
+                  <DropdownMenuTrigger as-child>
+                    <Button type="button" variant="ghost" size="icon" class="text-muted-foreground" :aria-label="`Actions for ${r.name || r.account?.name || r.email}`" data-contacts-row-menu><Ellipsis /></Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuPortal>
+                    <DropdownMenuContent align="end" :side-offset="4" class="z-50 min-w-[10rem] rounded-xl border bg-popover p-1 text-popover-foreground shadow-md">
+                      <DropdownMenuItem class="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm outline-none data-[highlighted]:bg-accent [&_svg]:size-4" @select="editing = r.id; note = r.note ?? ''"><StickyNote /> Note</DropdownMenuItem>
+                      <DropdownMenuItem v-if="r.status === 'subscribed'" class="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm outline-none data-[highlighted]:bg-accent [&_svg]:size-4" @select="setStatus(r, 'unsubscribed')"><MailX /> Unsubscribe</DropdownMenuItem>
+                      <DropdownMenuItem v-else class="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm outline-none data-[highlighted]:bg-accent [&_svg]:size-4" @select="setStatus(r, 'subscribed')"><MailCheck /> Resubscribe</DropdownMenuItem>
+                      <DropdownMenuItem class="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm outline-none data-[highlighted]:bg-accent [&_svg]:size-4 text-destructive data-[highlighted]:text-destructive" @select="confirmRemove = r.id"><Trash2 /> Delete</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenuPortal>
+                </DropdownMenuRoot>
               </div>
             </li>
             <li v-if="!shown.length" class="p-4 text-sm text-muted-foreground">Nobody matches. <button v-if="isFiltered(f)" type="button" class="underline underline-offset-2" @click="clear">Clear filters</button></li>
