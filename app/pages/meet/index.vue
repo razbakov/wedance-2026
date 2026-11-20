@@ -348,13 +348,14 @@ const matchBanners = computed(() => notices.value.filter(n => n.kind === 'match'
             </div>
           </div>
 
-          <!-- Action buttons -->
+          <!-- RAZ-1022: each button explains itself on hover. Same words for the screen reader. -->
           <div v-if="deckCurrent" class="mt-8 flex items-center justify-center gap-6">
             <button
               type="button"
               class="w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95 text-primary"
               style="background:white; border:2px solid color-mix(in srgb, var(--wd-red-600) 33.3%, transparent);"
-              aria-label="Skip"
+              aria-label="Skip — not for you"
+              title="Skip — not for you"
               @click="commitSwipe('skip')"
             >
               <X class="w-6 h-6" />
@@ -373,7 +374,8 @@ const matchBanners = computed(() => notices.value.filter(n => n.kind === 'match'
               type="button"
               class="w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95 text-wd-green-600"
               style="background:white; border:2px solid color-mix(in srgb, var(--wd-green-600) 33.3%, transparent);"
-              aria-label="Yes"
+              aria-label="Yes — dance or just meet with them"
+              title="Yes — dance or just meet with them"
               @click="commitSwipe('yes')"
             >
               <Heart class="w-6 h-6" />
@@ -401,7 +403,7 @@ const matchBanners = computed(() => notices.value.filter(n => n.kind === 'match'
           <details class="mt-8 text-sm text-muted-foreground font-sans" data-testid="meet-how">
             <summary class="cursor-pointer text-center font-bold text-foreground">How does this work?</summary>
             <ul class="mt-3 space-y-1.5">
-              <li><span class="font-bold text-wd-green-600">♥</span> — you’d like to dance with them. If they say yes too, we tell you both.</li>
+              <li><span class="font-bold text-wd-green-600">♥</span> — you’d like to dance or just meet with them. If they say yes too, we tell you both.</li>
               <li><span class="font-bold text-foreground">Their night</span> — tap it on the card and go. That’s where you meet.</li>
               <li><span class="font-bold text-primary">✕</span> — not for you. <span class="font-bold text-wd-amber-500">◷</span> — show again later.</li>
               <li><span class="font-bold text-foreground">You show up here</span> when you’re going to a night out, too.</li>
