@@ -70,7 +70,10 @@ describe('service blueprints', () => {
     expect(meet.bp.gaps.map(g => g.fix).join('\n')).not.toMatch(/Ship RAZ-985/)
 
     const setup = serviceBlueprints.find(b => b.id === 'event-setup')!
-    expect(setup.bp.steps.find(s => s.id === 'publish')!.note).not.toMatch(/live from the first save/)
+    const publish = setup.bp.steps.find(s => s.id === 'publish')!
+    expect(publish.note).not.toMatch(/live from the first save/)
+    expect(publish.note).toMatch(/one button/)
+    expect(publish.note).toMatch(/dialog/)
     expect(setup.bp.steps.find(s => s.id === 'ask-answer')!.note).toMatch(/above the tab bar/)
     expect(setup.bp.steps.find(s => s.id === 'invite-answer')!.note).toMatch(/above the tab bar/)
     expect(setup.bp.steps.find(s => s.id === 'after')!.status).not.toBe('missing')

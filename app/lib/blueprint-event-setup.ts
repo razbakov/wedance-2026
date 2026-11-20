@@ -6,11 +6,11 @@
  * then run end to end on 2026-11-14 (RAZ-898) with a test organiser page, a
  * venue and an artist on a local copy of the database. Not run yet: flyer,
  * content plan, Instagram, admin claim review, emails (RAZ-931). Re-read against
- * the code on 2026-11-18 (RAZ-1072). Shown at /docs/blueprints/event-setup.
+ * the code on 2026-11-20 (RAZ-1072). Shown at /docs/blueprints/event-setup.
  */
 import type { Blueprint, BpGap, BpLaneDef, BpPhaseDef, BpStep } from './blueprint'
 
-export const BLUEPRINT_UPDATED = '2026-11-18'
+export const BLUEPRINT_UPDATED = '2026-11-20'
 
 export type BpLane = 'organizer' | 'system' | 'venue' | 'artist' | 'dancers'
 export type BpPhase = 'page' | 'draft' | 'venue' | 'lineup' | 'flyer' | 'promote' | 'publish' | 'night'
@@ -104,8 +104,8 @@ export const bpSteps: BpStep<BpLane, BpPhase>[] = [
     note: 'Artists and venues are the biggest audience, and sharing depends entirely on the organiser asking them.' },
 
   // Publish
-  { id: 'publish', phase: 'publish', lane: 'organizer', name: 'Publish', status: 'live', marks: [], code: 'businessEvents.update (draft → live) · MCP publish_event',
-    note: 'Not gated: an event publishes with unanswered venues, unconfirmed artists or an out-of-date flyer, and nothing warns. The form starts a draft (RAZ-927); “Publish it now” on From scratch is the only way the first save is live.' },
+  { id: 'publish', phase: 'publish', lane: 'organizer', name: 'Publish', status: 'live', marks: [], code: 'BusinessEventPublish · businessEvents.update (draft → live) · MCP publish_event', refs: ['RAZ-1026'],
+    note: 'Not gated: an event publishes with unanswered venues, unconfirmed artists or an out-of-date flyer, and nothing warns. In the editor the Publish step is one button while it’s a draft: one click saves and publishes, then a dialog confirms it with the event’s link (RAZ-1026). The create form still starts a draft (RAZ-927); “Publish it now” on From scratch is the only way that first save is live.' },
   { id: 'listed', phase: 'publish', lane: 'system', name: 'Listed everywhere', status: 'live', marks: [], route: '/cities/[city]',
     note: 'City page (this week, coming up), the event page, the RSVP poll, the organiser’s and venue’s /@handle schedule.' },
   { id: 'announce', phase: 'publish', lane: 'system', name: 'Tell followers', status: 'missing', marks: ['silent'],

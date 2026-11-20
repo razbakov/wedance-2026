@@ -3,7 +3,8 @@
  * The event editor's steps (RAZ-939): what and when → venue → line-up →
  * entry → flyer → publish, each done or to do, one open at a time. Picking a
  * step emits `go`; the page opens that card of the form (or scrolls to the
- * flyer / publish panel).
+ * flyer). Publish is the last step: the page's slot is the big Publish
+ * button, shown in place, not the save bar (RAZ-1026).
  *
  *   <BusinessEventSteps :steps="eventSteps(ev)" v-model="step" @go="goStep" />
  */
@@ -51,12 +52,16 @@ function go(k: EventStepKey) {
           <span class="min-w-0 flex-1 font-bold">{{ s.label }}</span>
           <span class="text-xs" :class="s.done ? 'text-wd-green-700' : 'text-muted-foreground'">{{ s.done ? 'Done' : 'To do' }}</span>
         </button>
-        <div v-if="current === s.key" class="ml-11 mt-1 mb-2 grid gap-2 text-sm">
-          <p class="text-muted-foreground">{{ s.hint }}</p>
-          <div v-if="after" class="flex flex-wrap items-center gap-2">
-            <Button type="button" variant="outline-pill" size="pill-sm" @click="go(after)">Next: {{ labelOf(after) }} <ArrowRight aria-hidden="true" /></Button>
-            <span v-if="!s.done && s.key !== 'flyer' && s.key !== 'publish'" class="text-xs text-muted-foreground">Save your changes to mark it done.</span>
-          </div>
+        <div v-if="current === s.key" :class="s.key === 'publish' ? 'mt-2' : 'ml-11 mt-1 mb-2'" class="grid gap-2 text-sm">
+          <!-- Publish finishes the setup here: a big button, then a confirmation. -->
+          <slot v-if="s.key === 'publish'" name="publish" :hint="s.hint" />
+          <template v-else>
+            <p class="text-muted-foreground">{{ s.hint }}</p>
+            <div v-if="after" class="flex flex-wrap items-center gap-2">
+              <Button type="button" variant="outline-pill" size="pill-sm" @click="go(after)">Next: {{ labelOf(after) }} <ArrowRight aria-hidden="true" /></Button>
+              <span v-if="!s.done && s.key !== 'flyer'" class="text-xs text-muted-foreground">Save your changes to mark it done.</span>
+            </div>
+          </template>
         </div>
       </li>
     </ol>
