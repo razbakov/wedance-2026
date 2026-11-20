@@ -337,7 +337,7 @@ Then('the tab lists the active {word} only', async ({ page, c3 }, role: string) 
   await expect(page.getByText(c3.data.people[`${role}:idle`].name)).toHaveCount(0)
 })
 
-Then('I am on the full {word} directory, listing the active and the idle {word}', async ({ page, c3 }, role: string) => {
+Then('I am on the full {word} directory, listing the active and the idle {word}', async ({ page, c3 }, role: string, _sameRole: string) => {
   await expect(page).toHaveURL(new RegExp(`/cities/${c3.data.city.slug}/${role}$`))
   await expect(page.getByText(c3.data.people[`${role}:active`].name).first()).toBeVisible()
   await expect(page.getByText(c3.data.people[`${role}:idle`].name).first()).toBeVisible()
