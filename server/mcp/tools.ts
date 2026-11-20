@@ -19,6 +19,7 @@ import { SITE_FONTS, SITE_THEMES } from '../../shared/utils/siteThemes'
 import { applySitePatch, sectionKinds, siteChanges, sitePatchInput, SitePatchError, type SitePatch } from './site'
 import { TRPCError } from '@trpc/server'
 import type { DoorGuest } from '../../shared/utils/doorList'
+import { redactBugReport } from './bugReport'
 import { venueInfoInput, type VenueInfoInput } from '../utils/venueInfo'
 import type { ProfileSite } from '../../shared/types/profileSite'
 
@@ -38,8 +39,10 @@ function sitePatchOrError(site: ProfileSite, a: SitePatch): ProfileSite {
  * trim results.
  *
  * `scopes` decide whether a tool is listed (all must be held); `business`
- * tools also need at least one business profile in the grant. `confirm`
- * tools are business:publish: preview first, commit with confirm_token.
+ * tools also need at least one business profile in the grant. `anyAuth`
+ * tools are listed for every signed-in connection and hidden from anonymous
+ * callers. `confirm` tools preview first and commit with confirm_token;
+ * publishing ones also need business:publish.
  */
 
 export type Caller = ReturnType<typeof appRouter.createCaller>
@@ -57,6 +60,10 @@ export interface ToolDef {
   run: (t: ToolCtx, args: any) => Promise<unknown>
   /** Two-step tool: always (true) or only when this says the call goes public. */
   confirm?: true | ((t: ToolCtx, args: any) => Promise<boolean>)
+  /** Confirmation asks the user, but any signed-in connection can confirm (a report to the team, not a public change). */
+  confirmWithoutPublish?: boolean
+  /** Listed for every signed-in connection, whatever they allowed. Hidden from anonymous callers. */
+  anyAuth?: boolean
   /** What the user is asked to approve. Required for confirm tools. */
   preview?: (t: ToolCtx, args: any) => Promise<unknown>
 }
@@ -418,6 +425,27 @@ export const TOOLS: ToolDef[] = [
     description: 'Open gigs on WeDance: roles organizers want filled (teacher, DJ, photographer…) and offers from artists.',
     input: { kind: z.enum(['role', 'offer']).optional().describe('"role" = someone is hiring, "offer" = someone offers a service.'), category: z.string().max(60).optional() },
     run: (t, a) => t.caller.gigs.list({ kind: a.kind, category: a.category }),
+  },
+  {
+    name: 'report_bug', title: 'Report a bug to WeDance', scopes: [], anyAuth: true,
+    confirm: true, confirmWithoutPublish: true, annotations: OUTWARD,
+    description: 'File a bug with the WeDance team: what the user was doing, the tool you called, the arguments you sent and the error text. Shows a preview first; call again with confirm_token only after the user agrees. Emails, phones, passwords and tokens in the arguments are removed before the report is stored. The same channel on the website is “Report a problem” in the footer, or hello@wedance.vip.',
+    input: {
+      what_happened: z.string().trim().min(10).max(4000).describe('What the user was trying to do and what went wrong, in their words.'),
+      tool: z.string().trim().max(80).optional().describe('The WeDance tool that failed, e.g. "update_event".'),
+      arguments: z.record(z.string(), z.unknown()).optional().describe('The arguments of that call. Secrets are stripped before the report is stored.'),
+      error: z.string().trim().max(4000).optional().describe('The error text the tool returned, e.g. "co_organizers.0: Invalid input".'),
+      contact_email: z.string().trim().email().max(200).optional().describe('Only if the user wants a reply. Leave out otherwise.'),
+      confirm_token: confirmToken,
+    },
+    preview: async (_t, a) => {
+      const r = redactBugReport({ message: a.what_happened, tool: a.tool, error: a.error, arguments: a.arguments, contactEmail: a.contact_email })
+      return { filing: 'A bug report to the WeDance team', message: r.message, tool: r.tool, error: r.error, arguments: r.arguments, reply_to: r.contactEmail }
+    },
+    run: async (t, a) => {
+      const r = redactBugReport({ message: a.what_happened, tool: a.tool, error: a.error, arguments: a.arguments, contactEmail: a.contact_email })
+      return t.caller.feedback.reportBug({ message: r.message, tool: r.tool, error: r.error, arguments: r.arguments, contactEmail: r.contactEmail, clientApp: t.client?.app ?? null })
+    },
   },
 
   // ── Dancers ─────────────────────────────────────────────────────────────────
@@ -1446,11 +1474,18 @@ export const TOOLS: ToolDef[] = [
 export const TOOL_BY_NAME = new Map(TOOLS.map(t => [t.name, t]))
 
 /** Who's calling, as far as tool listing cares. */
-export interface ListingCtx { scopes: readonly string[]; grantedProfileIds: readonly string[]; isAdmin: boolean }
+export interface ListingCtx { scopes: readonly string[]; grantedProfileIds: readonly string[]; isAdmin: boolean; /** Omitted: signed in when they hold a scope or are an admin. */ signedIn?: boolean }
+
+/** The same listing buildMcpServer and tools/list use. */
+export function listingFrom(ctx: { scopes?: readonly string[] | null; grantedProfileIds?: readonly string[] | null; isAdmin?: boolean; oauthGrantId?: string | null }): ListingCtx {
+  return { scopes: ctx.scopes ?? [], grantedProfileIds: ctx.grantedProfileIds ?? [], isAdmin: !!ctx.isAdmin, signedIn: !!ctx.oauthGrantId }
+}
 
 /** The tools this caller may see: every scope held; business tools need a granted profile (or admin). */
 export function visibleTools(c: ListingCtx): ToolDef[] {
+  const signedIn = c.signedIn ?? (c.scopes.length > 0 || c.isAdmin)
   return TOOLS.filter((tool) => {
+    if (tool.anyAuth && !signedIn) return false
     if (!tool.scopes.every(s => s === 'admin' ? c.isAdmin : hasScope(c.scopes, s))) return false
     if (tool.business && !c.isAdmin && !c.grantedProfileIds.length) return false
     return true
