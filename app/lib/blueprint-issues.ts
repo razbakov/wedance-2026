@@ -7,7 +7,7 @@
  * remaining work and must leave `refs`. The note may still name it as history.
  *
  * `CLOSED_BLUEPRINT_ISSUES` is every RAZ issue a step cites that Linear had as
- * completed or canceled on the last refresh (2026-11-18). The unit test uses
+ * completed or canceled on the last refresh (2026-11-20). The unit test uses
  * this list, so a pull request fails without an API key. `bun run blueprint:issues`
  * re-reads Linear when `LINEAR_API_KEY` is set; the weekly workflow does that.
  */
@@ -59,6 +59,7 @@ export const CLOSED_BLUEPRINT_ISSUES: readonly string[] = [
   'RAZ-995',
   'RAZ-1003',
   'RAZ-1005',
+  'RAZ-1022',
   'RAZ-1024',
   'RAZ-1071',
 ]

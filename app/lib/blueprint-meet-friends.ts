@@ -7,12 +7,13 @@
  * dance?" waves (festival_waves; the festival-page deck itself is gone),
  * meetMatches, the "said yes too" email (RAZ-985, My plan → Your dance friends),
  * and the in-app match card, toast and bell (RAZ-1071). Re-read against the
- * code on 2026-11-18 (RAZ-1072). Not run end to end with two test dancers yet.
+ * code on 2026-11-20 (RAZ-1072), including the Skip and Yes hover lines (RAZ-1022).
+ * Not run end to end with two test dancers yet.
  * Shown at /docs/blueprints/meet-friends.
  */
 import type { Blueprint, BpGap, BpLaneDef, BpPhaseDef, BpStep } from './blueprint'
 
-export const MEET_BLUEPRINT_UPDATED = '2026-11-18'
+export const MEET_BLUEPRINT_UPDATED = '2026-11-20'
 
 export type MeetLane = 'me' | 'system' | 'other'
 export type MeetPhase = 'join' | 'findable' | 'browse' | 'yes' | 'match' | 'floor' | 'after'
@@ -53,8 +54,8 @@ export const meetSteps: BpStep<MeetLane, MeetPhase>[] = [
   // Browse
   { id: 'deck', phase: 'browse', lane: 'system', name: 'Build the deck', status: 'live', marks: [], refs: ['#608'], code: 'plan.discover → discoverDeck (server/utils/myPlanFeeds.ts)',
     note: 'Only dancers going somewhere: signed up to a night near you in the next 14 days — the same night as you first, then the soonest — and festival-goers who chose “Show me”. Nobody is in it just for living here, and there is no fallback to strangers (#608).' },
-  { id: 'swipe', phase: 'browse', lane: 'me', name: 'Yes / Skip / Later', status: 'live', marks: [], route: '/meet', code: 'plan.discoverSwipe · discoverUnswipe',
-    note: 'Swipe or buttons, undo. Yes and Skip are stored and never come back; Later moves the card to the end for this visit. Explainer on top: who’s here, whether you are, how it works.' },
+  { id: 'swipe', phase: 'browse', lane: 'me', name: 'Yes / Skip / Later', status: 'live', marks: [], route: '/meet', code: 'plan.discoverSwipe · discoverUnswipe', refs: ['RAZ-1022'],
+    note: 'Swipe or buttons, undo. Yes and Skip are stored and never come back; Later moves the card to the end for this visit. Hover on ✕ says “Skip — not for you” and hover on ♥ says “Yes — dance or just meet with them” (RAZ-1022), the same words the screen reader gets. “How does this work?” says a Yes is dance or just meet, and if they say yes too we tell you both.' },
   { id: 'fest-deck', phase: 'browse', lane: 'me', name: 'Festival dancers', status: 'partial', marks: [], route: '/meet', code: 'plan.setShareGoing · discoverDeck · EventWhosComing wave.send',
     note: 'There is no second deck on the festival page. “Show me” puts those dancers in this /meet deck. A Yes to one still links to #discover on the festival, where that deck no longer is. A wave still exists as pairing on Who’s coming (wave.send), a separate record from a deck Yes.' },
   { id: 'empty', phase: 'browse', lane: 'system', name: 'Deck runs out', status: 'partial', marks: ['wait'], route: '/meet',
