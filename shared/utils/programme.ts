@@ -162,6 +162,77 @@ export function clockTime(t: string | null | undefined): string | null {
   return /^\d{1,2}:\d{2}$/.test(s) ? s.padStart(5, '0') : null
 }
 
+/** Minutes from midnight, or null when it isn't a clock time within the day (24:00 is null). */
+function clockMinutes(t: string | null | undefined): number | null {
+  const c = clockTime(t)
+  if (!c) return null
+  const h = Number(c.slice(0, 2)); const m = Number(c.slice(3))
+  return h < 24 && m < 60 ? h * 60 + m : null
+}
+
+const ymd = (d: string | null | undefined): d is string => !!d && /^\d{4}-\d{2}-\d{2}$/.test(d)
+
+/**
+ * A programme item's start against the event's hours (RAZ-1027).
+ * 'before' or 'after' when it falls outside; null when it is inside, or when
+ * there is nothing to judge (no event start, no clock time). It is never a
+ * reason to refuse the item: a pre-party or an after-party can stay.
+ *
+ * A night that runs past midnight — 20:00–02:00 on one date — includes the
+ * hours after midnight up to its end. That 01:00 is stored on the event's own
+ * date and still counts as inside. A later last day is a real span, so 01:00
+ * on the first morning is before the event, and 01:00 on the last morning is inside.
+ */
+export function outsideEventHours(
+  session: { date?: string | null; time?: string | null },
+  event: { date?: string | null; startTime?: string | null; endDate?: string | null; endTime?: string | null },
+): 'before' | 'after' | null {
+  const origin = event.date ?? ''
+  const start = clockMinutes(event.startTime)
+  const time = clockMinutes(session.time)
+  if (!ymd(origin) || !ymd(session.date) || start == null || time == null) return null
+
+  const endClock = clockMinutes(event.endTime)
+  const span = ymd(event.endDate) && event.endDate !== origin ? dayNo(event.endDate) - dayNo(origin) : 0
+  // Same date, end at or before the start: the party ends the next morning.
+  const overnightTail = span <= 0 && endClock != null && endClock <= start ? endClock : null
+  const end = endClock == null ? null : span > 0 ? span * 1440 + endClock : overnightTail != null ? 1440 + endClock : endClock
+
+  const day = dayNo(session.date) - dayNo(origin)
+  if (!Number.isFinite(day)) return null
+  const at = day * 1440 + time + (day === 0 && overnightTail != null && time <= overnightTail ? 1440 : 0)
+
+  if (at < start) {
+    // Between a night's end and its start (02:00–20:00): the early part is after
+    // the night, the later part is before it.
+    if (overnightTail != null && day === 0 && time > overnightTail) {
+      return time < (overnightTail + start) / 2 ? 'after' : 'before'
+    }
+    return 'before'
+  }
+  if (end != null && at > end) return 'after'
+  return null
+}
+
+/** The note shown next to a programme item whose time is outside the event's hours. */
+export function outsideHoursNote(
+  session: { date?: string | null; time?: string | null },
+  event: { date?: string | null; startTime?: string | null; endDate?: string | null; endTime?: string | null },
+): string | null {
+  const side = outsideEventHours(session, event)
+  if (!side) return null
+  const start = clockTime(event.startTime)
+  if (!start) return null
+  const end = clockTime(event.endTime)
+  const hours = end ? `${start}–${end}` : start
+  if (side === 'before') {
+    return end
+      ? `Before the event’s hours (${hours}). A pre-party can stay.`
+      : `Before the event starts (${hours}). A pre-party can stay.`
+  }
+  return `After the event’s hours (${hours}). An after-party can stay.`
+}
+
 /** The old agenda as programme sessions on the event's day (the editor's "Put it in the programme"). */
 export function agendaToSessions(agenda: AgendaLine[], at: { date: string; startTime: string; endDate?: string | null; endTime?: string | null }): FestivalSession[] {
   const drafts: DraftSession[] = agenda.filter(a => a.what?.trim()).map((a, i) => {
