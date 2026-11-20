@@ -10,7 +10,7 @@ import type { PropType } from 'vue'
 import { MapPin, CalendarDays, Send, Pencil, Check, Plus, X, FileText, ListOrdered, Ticket, Users, Palette, Handshake } from 'lucide-vue-next'
 import { entryNoun, entryWords } from '#shared/utils/entryWord'
 import { priceLines } from '#shared/utils/flyer'
-import { agendaToSessions, emptyEventDetails, legacyAgendaOf } from '#shared/utils/programme'
+import { agendaToSessions, emptyEventDetails, legacyAgendaOf, outsideHoursNote } from '#shared/utils/programme'
 import { blankBusinessEvent, lineupSummary } from '~/lib/businessEvent'
 import { eventErrorCard, eventFieldLabel, type SaveError } from '~/lib/eventSaveError'
 import { EventLimitsSchema, validateForm } from '#shared/validation'
@@ -232,6 +232,11 @@ const sessionsText = computed(() => {
   const n = form.festival?.sessions?.length ?? 0
   return n ? `${n} session${n === 1 ? '' : 's'} over ${festivalDays.value.length || 1} day${festivalDays.value.length === 1 ? '' : 's'}` : 'Workshops and parties, day by day.'
 })
+// RAZ-1027: still visible when the programme card is closed. Not a save error.
+const outsideHoursCount = computed(() => {
+  const event = { date: form.date, startTime: form.startTime, endDate: (multiDay.value && form.endDate) || null, endTime: form.endTime || null }
+  return (form.festival?.sessions ?? []).filter(s => outsideHoursNote(s, event)).length
+})
 const publishHint = computed(() => props.mode === 'create'
   ? (form.published ? 'Dancers see it as soon as you create it.' : 'It starts as a draft: only you see it. Add the venue, line-up and flyer, then publish.')
   : (form.published ? 'Dancers can see it.' : 'Only you can see it until you publish.'))
@@ -392,8 +397,8 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
         <Button v-if="mode === 'edit'" type="button" variant="ghost" size="sm" :aria-expanded="isOpen('agenda')" @click="toggle('agenda')"><template v-if="isOpen('agenda')"><Check /> Done</template><template v-else><Pencil /> Edit</template></Button>
       </div>
       <template v-if="form.festival">
-        <BusinessFestivalEditor v-if="isOpen('agenda')" v-model="form.festival" part="programme" :days="festivalDays" :lineup="form.artists" :styles="form.styles" :end-date="multiDay ? form.endDate : ''" :end-time="form.endTime" class="mt-3" />
-        <p v-else class="mt-1 text-sm text-muted-foreground">{{ sessionsText }}</p>
+        <BusinessFestivalEditor v-if="isOpen('agenda')" v-model="form.festival" part="programme" :days="festivalDays" :lineup="form.artists" :styles="form.styles" :start-time="form.startTime" :end-date="multiDay ? form.endDate : ''" :end-time="form.endTime" class="mt-3" />
+        <p v-else class="mt-1 text-sm text-muted-foreground">{{ sessionsText }}<template v-if="outsideHoursCount"> · <span class="font-bold text-wd-amber-800">{{ outsideHoursCount }} {{ outsideHoursCount === 1 ? 'time' : 'times' }} outside the event’s hours</span></template></p>
       </template>
       <!-- An event from before the programme: its old agenda, until it's in the programme. -->
       <div v-if="legacyAgenda.length" class="mt-3 rounded-xl bg-muted/60 p-3 text-sm">
