@@ -8,10 +8,11 @@ const { data } = await useFetch('/api/mcp-tools', { key: 'mcp-tools' })
 type Tool = NonNullable<typeof data.value>['tools'][number]
 const group = (t: Tool) => t.scopes.includes('admin') ? 'Admin'
   : t.business ? 'Organizers, artists, promoters, influencers'
+  : t.anyAuth ? 'Signed in'
   : t.scopes.length ? 'Dancers'
   : 'Everyone (no sign-in)'
 const groups = computed(() => {
-  const order = ['Everyone (no sign-in)', 'Dancers', 'Organizers, artists, promoters, influencers', 'Admin']
+  const order = ['Everyone (no sign-in)', 'Signed in', 'Dancers', 'Organizers, artists, promoters, influencers', 'Admin']
   const by = new Map<string, Tool[]>(order.map(o => [o, []]))
   for (const t of data.value?.tools ?? []) by.get(group(t))!.push(t)
   return order.map(o => ({ title: o, tools: by.get(o)! })).filter(g => g.tools.length)

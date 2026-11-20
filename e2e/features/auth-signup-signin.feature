@@ -26,3 +26,11 @@ Feature: Sign up, sign in, and sign out
     And I fill in "Password" with "SmokeyPass88!"
     And I click "Sign in" in the modal
     Then I should be signed in
+
+  Scenario: A failed sign-in shows the server's message
+    Given I am on the home page
+    When I click "Sign in" in the header
+    And I fill in "Email" with a unique test email
+    And I fill in "Password" with "SmokeyPass88!"
+    And I click "Sign in" in the modal
+    Then I see "Invalid email or password."

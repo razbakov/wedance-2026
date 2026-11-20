@@ -20,11 +20,7 @@ on:
 
 jobs:
   e2e:
-    # ubuntu-latest moved to 26.04 on 2026-11-18. Playwright 1.58 has no
-    # Chromium build for ubuntu26.04-x64, so `playwright install` failed
-    # before any test and the required smoke check went red. Stay on 24.04
-    # until Playwright ships that build.
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-24.04 # Playwright has no Chromium for ubuntu-26.04 yet
     # ~4 min typical for @smoke (DB + build + cached browser + tests). 25 min
     # absorbs occasional slow apt mirrors (observed 10min+ on westus3, run #442)
     # and the longer full suite.

@@ -45,6 +45,13 @@ export const SELF_OPT_IN_SOURCES: readonly ContactSourceKey[] = ['website', 'rsv
 
 export type ContactSource = Record<string, string> | null | undefined
 
+/** A contact's source in words; a sign-up or poll contact names its event (RAZ-1074): "Signed up for La Timberia". */
+export function sourceLabelFor(key: ContactSourceKey, eventName?: string | null): string {
+  if (eventName && key === 'signup') return `Signed up for ${eventName}`
+  if (eventName && key === 'rsvp') return `Shared at ${eventName}`
+  return SOURCE_LABEL[key]
+}
+
 /** Which segment a contact's `source` puts it in. Website sign-ups carry no `from`. */
 export function contactSourceKey(source: ContactSource): ContactSourceKey {
   const s = source ?? {}
@@ -63,13 +70,51 @@ export function contactSourceKey(source: ContactSource): ContactSourceKey {
   return 'other'
 }
 
-export type EmailBlock = 'unsubscribed' | 'not_opted_in' | 'not_a_contact'
+/**
+ * Why the page may not email a contact. `event_only` (RAZ-1074): they signed up for one of the page's events and
+ * gave their email to run THAT event — not "never asked", but not an opt-in to the page's emails either.
+ */
+// ---------------------------------------------------------------------------
+// Channel (RAZ-1074): the route that brought a contact — the link's utm_source, else the site that
+// referred them. Known aliases fold together (ig, instagram, l.instagram.com → instagram).
+// ---------------------------------------------------------------------------
+
+export const UNKNOWN_CHANNEL = 'unknown'
+
+const CHANNEL_ALIASES: Record<string, string> = {
+  ig: 'instagram', insta: 'instagram', 'instagram.com': 'instagram',
+  fb: 'facebook', 'facebook.com': 'facebook',
+  'google.com': 'google', 'chatgpt.com': 'chatgpt', 'chat.openai.com': 'chatgpt',
+  'whatsapp.com': 'whatsapp', wa: 'whatsapp', 't.me': 'telegram', 'telegram.org': 'telegram',
+}
+const CHANNEL_LABEL: Record<string, string> = {
+  instagram: 'Instagram', facebook: 'Facebook', google: 'Google', chatgpt: 'ChatGPT',
+  whatsapp: 'WhatsApp', telegram: 'Telegram', [UNKNOWN_CHANNEL]: 'Not known',
+}
+
+function referrerHost(ref: string | undefined): string {
+  if (!ref) return ''
+  try { return new URL(ref).hostname.toLowerCase().replace(/^(www|l|lm|m|web)\./, '') } catch { return '' }
+}
+
+/** The channel key of a contact: "instagram", "montuno.club", "google"… or "unknown". */
+export function contactChannel(source: ContactSource): string {
+  const s = source ?? {}
+  const raw = (s.utm_source?.trim().toLowerCase() || referrerHost(s.referrer)).replace(/^www\./, '')
+  if (!raw) return UNKNOWN_CHANNEL
+  return CHANNEL_ALIASES[raw] ?? CHANNEL_ALIASES[raw.replace(/^[a-z]+\./, '')] ?? raw
+}
+
+export const channelLabel = (key: string) => CHANNEL_LABEL[key] ?? key
+
+export type EmailBlock = 'unsubscribed' | 'not_opted_in' | 'event_only' | 'not_a_contact'
 
 /** Why the page may not email this contact, or null when it may. */
 export function emailBlock(c: { status: string, source: ContactSource, isContact?: boolean }): EmailBlock | null {
   if (c.isContact === false) return 'not_a_contact'
   if (c.status !== 'subscribed') return 'unsubscribed'
   if (c.source?.opted_in) return null
+  if (contactSourceKey(c.source) === 'signup') return 'event_only'
   if (!SELF_OPT_IN_SOURCES.includes(contactSourceKey(c.source))) return 'not_opted_in'
   return null
 }
@@ -77,6 +122,7 @@ export function emailBlock(c: { status: string, source: ContactSource, isContact
 export const EMAIL_BLOCK_LABEL: Record<EmailBlock, string> = {
   unsubscribed: 'Unsubscribed',
   not_opted_in: 'Never asked for your emails',
+  event_only: 'Only for their event',
   not_a_contact: 'Not a contact · no email',
 }
 
@@ -255,6 +301,8 @@ export interface ContactSegments {
   contacts: number
   others: number
   sources: { key: ContactSourceKey, label: string, count: number, selfOptIn: boolean }[]
+  /** Contacts by the channel that brought them (contactChannel); "unknown" last. */
+  channels: { key: string, label: string, count: number }[]
   canEmail: number
   cantEmail: number
   /** Can't email, by reason. */
@@ -264,7 +312,8 @@ export interface ContactSegments {
 
 export function contactSegments(contacts: SegmentContact[], now = new Date()): ContactSegments {
   const bySource = new Map<ContactSourceKey, number>()
-  const blocked: Record<EmailBlock, number> = { unsubscribed: 0, not_opted_in: 0, not_a_contact: 0 }
+  const blocked: Record<EmailBlock, number> = { unsubscribed: 0, not_opted_in: 0, event_only: 0, not_a_contact: 0 }
+  const byChannel = new Map<string, number>()
   const activity = Object.fromEntries(ACTIVITY_FILTERS.map(f => [f, 0])) as Record<ActivityFilter, number>
   let canEmail = 0
   let others = 0
@@ -275,6 +324,10 @@ export function contactSegments(contacts: SegmentContact[], now = new Date()): C
     const b = emailBlock(c)
     if (b) blocked[b]++
     else canEmail++
+    if (c.isContact !== false) {
+      const ch = contactChannel(c.source)
+      byChannel.set(ch, (byChannel.get(ch) ?? 0) + 1)
+    }
     for (const f of ACTIVITY_FILTERS) if (matchesActivity(c, f, now)) activity[f]++
   }
   return {
@@ -284,6 +337,8 @@ export function contactSegments(contacts: SegmentContact[], now = new Date()): C
     sources: CONTACT_SOURCES.filter(k => bySource.has(k))
       .map(key => ({ key, label: SOURCE_LABEL[key], count: bySource.get(key)!, selfOptIn: SELF_OPT_IN_SOURCES.includes(key) }))
       .sort((a, b) => b.count - a.count),
+    channels: [...byChannel.entries()].map(([key, count]) => ({ key, label: channelLabel(key), count }))
+      .sort((a, b) => (a.key === UNKNOWN_CHANNEL ? 1 : 0) - (b.key === UNKNOWN_CHANNEL ? 1 : 0) || b.count - a.count),
     canEmail,
     cantEmail: contacts.length - canEmail,
     blocked,

@@ -7,7 +7,7 @@ import { heroTagline } from '#shared/utils/heroTagline'
  * content, so an event can grow into a full festival-grade page over time.
  */
 import { Check, ArrowLeft, Globe, User, Euro, Pencil, EyeOff } from 'lucide-vue-next'
-import { findMockEvent, festivalSessionEvent } from '~/lib/mockEvents'
+import { festivalSessionEvent } from '~/lib/sessionEvent'
 import { formatEventWhen, eventLocalDate } from '#shared/utils/eventTime'
 import { Button } from '~/components/ui/button'
 import { WD } from '~/lib/brand'
@@ -60,15 +60,14 @@ const festivalData = ref<Awaited<ReturnType<typeof $trpc.events.festival.query>>
 
 // The page's data loads in the browser, so without this the server answered
 // 200 with an empty shell for events that don't exist or were unpublished.
-// During SSR, ask whether anything is behind this address; if not (and it
-// isn't a mock city/festival-programme page either), answer HTTP 404 and
-// render "Event not found" straight away. useState carries the verdict to the
-// browser so it doesn't load (or flash a spinner) again.
+// During SSR, ask whether anything is behind this address; if not, answer
+// HTTP 404 and render "Event not found" straight away. useState carries the
+// verdict to the browser so it doesn't load (or flash a spinner) again.
 const notFound = useState(`event-404:${id.value}`, () => false)
 if (import.meta.server) {
   try {
     const { found } = await $fetch<{ found: boolean }>('/api/event-status', { query: { id: id.value, preview: previewToken.value } })
-    if (!found && !findMockEvent(id.value)) {
+    if (!found) {
       notFound.value = true
       const reqEvent = useRequestEvent()
       if (reqEvent) setResponseStatus(reqEvent, 404, 'Event not found')
@@ -90,7 +89,7 @@ async function load() {
     try {
       // One item of a festival's programme (f~<key>~<session id>).
       const session = sessionKey(id.value)
-      if (session && !findMockEvent(id.value)) {
+      if (session) {
         const fest = await $trpc.events.get.query({ id: session.key })
         ev.value = festivalSessionEvent(await $trpc.events.festival.query({ id: fest.id }), session.sessionId)
         if (!ev.value) throw new Error('no such session')
@@ -112,10 +111,7 @@ async function load() {
         if (id.value !== canonical) router.replace({ path: `/events/${canonical}`, query: route.query, hash: route.hash })
       }
     } catch {
-      // Neither — fall back to a mock city event so it still has a page.
-      const mock = findMockEvent(id.value)
-      if (mock) ev.value = mock
-      else failed.value = true
+      failed.value = true
     }
   } finally { pending.value = false }
   // A preview isn't a public view (and the event isn't live yet).

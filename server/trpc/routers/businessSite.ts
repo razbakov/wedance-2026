@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { and, desc, eq, inArray } from 'drizzle-orm'
 import { router, protectedProcedure } from '../trpc'
-import { dancers, profileContacts, profileSites, profileSiteVersions } from '../../database/schema'
+import { dancers, events, profileContacts, profileSites, profileSiteVersions } from '../../database/schema'
 import { profileSiteSchema, type ProfileSite } from '../../../shared/types/profileSite'
 import { requireMember } from './business'
 import { profileGroup, trackServer } from '../../utils/posthog'
@@ -11,7 +11,7 @@ import { sitePreviewToken } from '../../utils/sitePreview'
 import { SITE_PREVIEW_TTL_S, hostedSiteUrl } from '../../../shared/utils/hostedSite'
 import { isPublished } from '../../../shared/types/profileSite'
 import { loadContactActivity, loadPageEvents, activityFor } from '../../utils/contactActivity'
-import { audienceOnly, contactSegments, contactSourceKey, emailBlock, SOURCE_LABEL } from '../../../shared/utils/contactSegments'
+import { audienceOnly, contactSegments, contactSourceKey, emailBlock, sourceLabelFor, SOURCE_LABEL } from '../../../shared/utils/contactSegments'
 
 /**
  * A profile's website and contacts, managed on WeDance (RAZ-412):
@@ -136,12 +136,17 @@ export const businessSiteRouter = router({
       loadContactActivity(ctx.db, { id: p.id, username: p.username }),
       loadPageEvents(ctx.db, { id: p.id, username: p.username }),
     ])
+    // The event a sign-up / poll contact came through, by name (RAZ-1074): "Signed up for La Timberia".
+    const eventIds = [...new Set<string>(rows.map((r: any) => r.source?.event).filter((id: unknown): id is string => typeof id === 'string' && /^[0-9a-f-]{36}$/i.test(id)))]
+    const eventNames = new Map<string, string>(eventIds.length
+      ? (await ctx.db.select({ id: events.id, name: events.name }).from(events).where(inArray(events.id, eventIds))).map((e: any) => [e.id, e.name])
+      : [])
     const contacts = rows.map((r: any) => {
       const sourceKey = contactSourceKey(r.source)
       return {
         id: r.id, email: r.email, name: r.name, phone: r.phone, locale: r.locale, source: r.source as Record<string, string>,
         note: r.note, status: r.status as 'subscribed' | 'unsubscribed', createdAt: r.createdAt as Date | null,
-        sourceKey, sourceLabel: SOURCE_LABEL[sourceKey],
+        sourceKey, sourceLabel: sourceLabelFor(sourceKey, eventNames.get(r.source?.event)),
         emailBlock: emailBlock(r),
         isContact: true,
         dancerId: (r.dancerId as string | null) ?? null,

@@ -72,8 +72,10 @@ the steps: "Imported by WeDance" (v3 sync) / "Added by WeDance", where from (`ev
 and a "Book on <site>" link. `rsvp.signUp` itself doesn't refuse yet (MCP).
 **One layout (RAZ-1007):** every `events` row renders through `FestivalView` (`events.festival` serves plain events too —
 `festivalView` keys them by `eventSlug`); a plain event adds `EventFacts` (type, styles, price, website, agenda), the
-"Checked by" badge, the archived note and "More dancing in <city>" via the `event` prop. Only booking requests, single
-programme sessions (`f~key~id`) and mock city events still use the old template in `events/[id].vue`.
+"Checked by" badge, the archived note and "More dancing in <city>" via the `event` prop. Booking requests and a single
+programme session (`f~key~id`, read from the parent event) still use the session template in `events/[id].vue`.
+There is no mock-event fallback: an unknown address is 404. City weeks and festivals are real events — create one
+in Business → Events.
 **Back (RAZ-1020):** the sticky bar on `FestivalView` (and the old template, under the header) starts with a back
 link. It returns to the in-app page the dancer opened the event from — My plan, the city, a profile — and ignores
 `?tab=` (a tab change stays on this page). Opened directly, it goes to the event's city (`/cities/<slug>`), or

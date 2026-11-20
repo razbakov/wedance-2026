@@ -176,7 +176,7 @@ export const RidePostSchema = v.object({
   )),
 })
 
-// Discover dancers (festival page preview — mock data, no API).
+// Dance card on a festival page (role, styles, name, city).
 export const DanceCardSchema = v.object({
   role: v.pipe(v.unknown(), v.picklist(['lead', 'follow'], 'Pick lead or follow.')),
   styles: v.pipe(v.array(v.string()), v.minLength(1, 'Pick at least one style.')),

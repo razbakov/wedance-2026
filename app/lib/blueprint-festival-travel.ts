@@ -7,13 +7,13 @@
  * (listFestivals), the festival page (FestivalView: + My plan, workshops,
  * passes, rides, roommates, dinners, hangouts, sharing), My plan's Year
  * tab, festivalSignup.*, the Stripe and TicketTailor webhooks,
- * /charanga/claim, and the MCP tools. Re-read against the code on 2026-11-18
+ * /charanga/claim, and the MCP tools. Re-read against the code on 2026-11-20
  * (RAZ-1072). Not run end to end with a test dancer and a real checkout yet.
  * Shown at /docs/blueprints/festival-travel.
  */
 import type { Blueprint, BpGap, BpLaneDef, BpPhaseDef, BpStep } from './blueprint'
 
-export const TRAVEL_BLUEPRINT_UPDATED = '2026-11-18'
+export const TRAVEL_BLUEPRINT_UPDATED = '2026-11-20'
 
 export type TravelLane = 'me' | 'system' | 'organiser' | 'friends' | 'provider'
 export type TravelPhase = 'find' | 'year' | 'workshops' | 'tickets' | 'travel' | 'share' | 'festival' | 'after'
@@ -52,7 +52,7 @@ export const travelSteps: BpStep<TravelLane, TravelPhase>[] = [
   { id: 'going', phase: 'year', lane: 'me', name: '+ My plan', status: 'live', marks: [], route: '/events/[id]', code: 'useYearPlan.toggleFestival → plan.add (festival)',
     note: 'One tap on the festival page or a /festivals card puts it in the year plan; signed out it opens sign-up first. A festival event without festival details is saved as an event instead, by its id.' },
   { id: 'this-year', phase: 'year', lane: 'system', name: 'My plan, Year tab', status: 'partial', marks: [], route: '/my-plan', code: 'plan.myPlan',
-    note: 'Lists the picked festivals with dates and place. For real festivals the rows carry no ticket price and no early-bird deadline — only the hard-coded mock catalogue (and ?preview=1) has them.' },
+    note: 'Lists the picked festivals with dates and place. Price and early-bird live on the festival page (its passes), which the ticket row opens. The year tab itself still has no price (RAZ-1006 shipped the tabs).' },
   { id: 'checklist', phase: 'year', lane: 'me', name: 'Tick ticket / travel / stay', status: 'partial', marks: ['manual'], route: '/my-plan', code: 'localStorage wedance-plan-progress · attendance.updateLogistics (no caller)',
     note: 'Per festival: ticket bought, travel, stay, partner, holiday — ticked by hand and kept in this browser only. Only “ticket bought” syncs, from festivalSignup.myTickets. attendance.updateLogistics would store the rest but nothing calls it.' },
   { id: 'budget', phase: 'year', lane: 'system', name: 'What the year costs', status: 'missing', marks: [], code: 'YearDrawer (not mounted)',

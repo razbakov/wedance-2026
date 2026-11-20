@@ -7,7 +7,7 @@
  * Since RAZ-963 the list is the page's whole audience: contacts plus the followers and
  * event-goers who aren't contacts (`isContact: false`); `who` narrows it to either.
  */
-import { ACTIVITY_FILTER_LABEL, COMING_AS_LABEL, EMAIL_BLOCK_LABEL, SOURCE_LABEL, matchesActivity, type ActivityFilter, type ComingAs, type ContactSourceKey, type EmailBlock, type SegmentContact } from '#shared/utils/contactSegments'
+import { ACTIVITY_FILTER_LABEL, COMING_AS_LABEL, EMAIL_BLOCK_LABEL, SOURCE_LABEL, channelLabel, contactChannel, matchesActivity, type ActivityFilter, type ComingAs, type ContactSourceKey, type EmailBlock, type SegmentContact } from '#shared/utils/contactSegments'
 
 export interface FilterableContact extends SegmentContact {
   name: string | null
@@ -22,6 +22,8 @@ export interface FilterableContact extends SegmentContact {
 export interface ContactFilter {
   /** Empty = every source. */
   sources: ContactSourceKey[]
+  /** Empty = every channel (contactChannel: instagram, montuno.club, unknown…). */
+  channels: string[]
   email: 'any' | 'can' | 'cant'
   /** All of these must match. */
   activity: ActivityFilter[]
@@ -34,10 +36,10 @@ export interface ContactFilter {
   q: string
 }
 
-export const emptyFilter = (): ContactFilter => ({ sources: [], email: 'any', activity: [], who: 'any', event: null, as: null, q: '' })
+export const emptyFilter = (): ContactFilter => ({ sources: [], channels: [], email: 'any', activity: [], who: 'any', event: null, as: null, q: '' })
 
 export function isFiltered(f: ContactFilter): boolean {
-  return f.sources.length > 0 || f.email !== 'any' || f.activity.length > 0 || f.who !== 'any' || !!f.event || f.q.trim() !== ''
+  return f.sources.length > 0 || f.channels.length > 0 || f.email !== 'any' || f.activity.length > 0 || f.who !== 'any' || !!f.event || f.q.trim() !== ''
 }
 
 export function filterContacts<T extends FilterableContact>(list: T[], f: ContactFilter, now = new Date()): T[] {
@@ -46,6 +48,7 @@ export function filterContacts<T extends FilterableContact>(list: T[], f: Contac
     if (f.who === 'contacts' && c.isContact === false) return false
     if (f.who === 'others' && c.isContact !== false) return false
     if (f.sources.length && !f.sources.includes(c.sourceKey)) return false
+    if (f.channels.length && (c.isContact === false || !f.channels.includes(contactChannel(c.source)))) return false
     if (f.email === 'can' && c.emailBlock) return false
     if (f.email === 'cant' && !c.emailBlock) return false
     if (!f.activity.every(a => matchesActivity(c, a, now))) return false
@@ -70,6 +73,7 @@ export function describeFilter(f: ContactFilter, eventLabel?: string | null): st
     f.who === 'contacts' ? 'Contacts' : f.who === 'others' ? 'Not contacts' : '',
     f.email === 'can' ? 'Can email' : f.email === 'cant' ? 'Can’t email' : '',
     ...f.sources.map(s => SOURCE_LABEL[s]),
+    ...f.channels.map(ch => `via ${channelLabel(ch)}`),
     ...f.activity.map(a => ACTIVITY_FILTER_LABEL[a]),
     f.q.trim() ? `search “${f.q.trim()}”` : '',
   ].filter(Boolean).join(' · ')
@@ -105,12 +109,19 @@ export function contactSince(createdAt: string | Date | null, source: Record<str
   return new Date(createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-/** Where a website sign-up came from, in a few words: UTM, else the form, else the referrer. */
+/**
+ * Where a contact came from, in a few words: the UTM tags, else the site that referred them, else the form.
+ * The referrer comes before the form (RAZ-1074): "google.com" says more than the site's own form name.
+ */
 export function sourceDetail(source: Record<string, string> | null | undefined): string {
   const s = source ?? {}
   // wedance.vip subscribers: the source label already says it all.
   if (s.from === 'wedance-v3') return ''
-  return [s.utm_source, s.utm_medium, s.utm_campaign].filter(Boolean).join(' / ') || s.form || s.referrer || ''
+  const utm = [s.utm_source, s.utm_medium, s.utm_campaign].filter(Boolean).join(' / ')
+  if (utm) return utm
+  let ref = ''
+  try { ref = s.referrer ? new URL(s.referrer).hostname.replace(/^www\./, '') : '' } catch { ref = s.referrer || '' }
+  return ref || s.form || ''
 }
 
 export interface CsvContact extends FilterableContact {

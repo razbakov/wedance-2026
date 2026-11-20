@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Calendar, MapPin, Users, ChevronRight, Ticket } from 'lucide-vue-next'
 import { WD } from '~/lib/brand'
-import { mockFestival, mockTeachers } from '~/data/mock-meneate'
+import type { Teacher } from '~/types/festival'
 import { daysUntil } from '#shared/utils/festivalDateFormatter'
 import { sizedImage, IMG } from '#shared/utils/image'
 
@@ -9,16 +9,17 @@ definePageMeta({ layout: 'docs' })
 
 // Accent = content colour (the festival's own, or the event's first style).
 // Everything around it is derived with the same alpha steps the product uses.
-const accent = mockFestival.accentColor || WD.amber600
+const accent = WD.amber600
 
+// Sample content for this page only — not a product data source.
 const festival = {
-  name: mockFestival.name,
-  logo: mockFestival.logo,
-  startDate: mockFestival.startDate,
+  name: '¡Menéate Viena! 2026',
+  logo: '/people/silvio.jpg',
+  startDate: '2026-11-26',
   dates: 'Nov 26–29, 2026',
   location: 'Vienna, Austria',
   styles: ['Timba', 'Salsa', 'Son', 'Rumba', 'Afro', 'Reggaeton'],
-  planning: mockFestival.attendeeCount,
+  planning: 12,
 }
 
 // Real component: EventSchedule. Dates relative to today so "Tonight" shows.
@@ -30,7 +31,11 @@ const events = [
   { id: 'doc-ev-2', title: 'Casino beginners', eventType: 'Class', styles: ['Casino', 'Rueda'], eventDate: iso(tomorrow), startTime: '19:00', endTime: '20:00', location: 'Altstadt', artists: ['Ivan', 'Ivana'] },
 ]
 
-const artists = mockTeachers.filter(t => ['silvio', 'lisandra', 'ivana'].includes(t.id))
+const artists: Teacher[] = [
+  { id: 'silvio', name: 'Silvio Leroy', photo: '/people/silvio.jpg', bio: 'Rumba, Son and Afrocuban.', styles: ['Rumba', 'Son', 'Afro'] },
+  { id: 'lisandra', name: 'Lisandra Garcia', photo: '/people/lisandra.jpg', bio: 'Son Cubano and lady style.', styles: ['Son', 'Ladies', 'Timba'] },
+  { id: 'ivana', name: 'Ivana Jovanovic', photo: '/people/ivana.jpg', bio: 'Casino and rueda.', styles: ['Casino', 'Rueda'] },
+]
 
 const styleColor: Record<string, string> = {
   salsa: WD.red600, bachata: WD.purple500, kizomba: WD.pink500, timba: WD.amber500,
@@ -220,7 +225,7 @@ const a11y = [
       </div>
     </DesignSection>
 
-    <DesignSection id="event" title="Event row" lead="Live EventSchedule component with mock events. Time column in the style accent, type badge, style chips, place, then + My plan. (Interaction is disabled here so the docs never write to your plan.)">
+    <DesignSection id="event" title="Event row" lead="Live EventSchedule component with sample events. Time column in the style accent, type badge, style chips, place, then + My plan. (Interaction is disabled here so the docs never write to your plan.)">
       <DesignExample :code="eventCode">
         <div class="w-full max-w-2xl" inert>
           <EventSchedule :events="events" />
@@ -232,7 +237,7 @@ const a11y = [
       <DesignCode :code="recipe" />
     </DesignSection>
 
-    <DesignSection id="artist" title="Artist card" lead="Live ArtistCard with real lineup data from ¡Menéate Viena! Face first, whole card links to the profile.">
+    <DesignSection id="artist" title="Artist card" lead="Live ArtistCard. Face first, whole card links to the profile.">
       <DesignExample :code="artistCode">
         <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 w-full max-w-2xl">
           <ArtistCard

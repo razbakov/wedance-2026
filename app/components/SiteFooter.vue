@@ -3,6 +3,8 @@
  * SiteFooter — the shared V3 footer on every page. One place to change
  * footer links, tagline, or legal.
  */
+import { requestProblemReport } from '~/lib/report-problem'
+
 // Hydration-safe (raw isSignedIn is false on the server, true on the client's first pass).
 const { appearsSignedIn } = useAccountNav('dance')
 
@@ -82,6 +84,8 @@ const year = 2026
         <NuxtLink to="/terms" class="text-xs hover:underline text-muted-foreground font-sans">Terms</NuxtLink>
         <NuxtLink to="/booking-terms" class="text-xs hover:underline text-muted-foreground font-sans">Booking Terms</NuxtLink>
         <NuxtLink to="/whats-new" class="text-xs hover:underline text-muted-foreground font-sans">What’s new</NuxtLink>
+        <button type="button" class="text-xs hover:underline text-muted-foreground font-sans" @click="requestProblemReport">Report a problem</button>
+        <a href="mailto:hello@wedance.vip" class="text-xs hover:underline text-muted-foreground font-sans">hello@wedance.vip</a>
       </div>
 
       <!-- Bottom bar -->
