@@ -18,13 +18,14 @@ import { buildBugIssue, redactBugReport, SUPPORT_EMAIL, SUPPORT_PROJECT_ID } fro
  *   address to its Sentry feedback.
  *
  * The "Talk to us" widget itself (bug reports + ideas, app/components/
- * ReportProblem.vue) no longer goes through the server: it submits straight
- * to Sentry User Feedback (app/lib/sentry-feedback.ts), with the screenshot as
- * an attachment and the Session Replay linked.
+ * ReportProblem.vue) submits to Sentry User Feedback (app/lib/sentry-feedback.ts)
+ * through our own origin (server/api/m.post.ts), with the screenshot as an
+ * attachment and the Session Replay linked. When that delivery fails, it falls
+ * back to server/api/report.post.ts → `fileTriageIssue` below.
  *
  * - `reportBug` — the MCP `report_bug` tool. A signed-in connection files a
  *   Linear issue in WeDance Support after the user confirms the preview.
- *   Arguments are redacted again here. The website widget stays on Sentry.
+ *   Arguments are redacted again here.
  */
 
 // Wedance (WED) team — same id wedance-org/api/comment.js files objections into.
@@ -79,6 +80,20 @@ async function triageStateId(): Promise<string | null> {
   } catch {
     return null
   }
+}
+
+/** A Linear issue in WED triage with the `user-report` label. Returns its identifier. */
+export async function fileTriageIssue(title: string, description: string, priority = 2): Promise<string> {
+  const [labelId, stateId] = await Promise.all([ensureLabelId(), triageStateId()])
+  const issueInput: Record<string, unknown> = { teamId: TEAM_ID, title, description, priority }
+  if (labelId) issueInput.labelIds = [labelId]
+  if (stateId) issueInput.stateId = stateId
+  const d = await linear<{ issueCreate: { success: boolean; issue: { identifier: string } } }>(
+    `mutation($i:IssueCreateInput!){ issueCreate(input:$i){ success issue{ identifier } } }`,
+    { i: issueInput },
+  )
+  if (!d.issueCreate.success) throw new Error('Linear issueCreate failed')
+  return d.issueCreate.issue.identifier
 }
 
 export const feedbackRouter = router({

@@ -10,7 +10,9 @@
  *
  * Both paths submit to Sentry User Feedback (app/lib/sentry-feedback.ts) with
  * the context bundle from useReportContext() and the current Session Replay
- * linked. The bug screenshot comes from the browser's own screen capture
+ * linked, through our own origin (server/api/m.post.ts) so blockers don't
+ * drop it. If Sentry still fails, the report goes to /api/report (a Linear
+ * triage issue, no screenshot). The bug screenshot comes from the browser's own screen capture
  * (app/lib/screen-capture.ts, getDisplayMedia): one frame, then the stream is
  * stopped. Declined / unsupported (mobile) → no screenshot; the replay covers it.
  */
@@ -22,7 +24,7 @@ import { ReportProblemSchema } from '#shared/validation'
 import { REPORT_PROBLEM_EVENT } from '~/lib/report-problem'
 import { KEEP_POPUPS_OPEN } from '~/lib/popup-layers'
 import { captureScreenFrame, isScreenCaptureSupported, type ScreenFrame } from '~/lib/screen-capture'
-import { failureMessage, feedbackFailure, submitFeedback } from '~/lib/sentry-feedback'
+import { failureMessage, feedbackFailure, getSentry, submitFeedback } from '~/lib/sentry-feedback'
 
 const { collect } = useReportContext()
 const { isSignedIn, dancerId, dancerName, username } = useAuth()
@@ -40,7 +42,7 @@ const capturing = ref(false)
 const canCapture = ref(false)
 const submitting = ref(false)
 const error = ref('')
-/** Sentry event id of the submitted feedback — set = success state. */
+/** Sentry event id (or Linear id, via the fallback) — set = success state. */
 const doneId = ref<string | null>(null)
 /** The report went out, but only without its screenshot. */
 const screenshotDropped = ref(false)
@@ -48,6 +50,8 @@ const { errors, validate, reset: resetValidation, fieldAttrs } = useFormValidati
   description: description.value,
   email: email.value,
 }))
+
+const DEV_ERROR = 'Sentry isn\'t set up on this local build (no SENTRY_DSN). Reports work on previews and production.'
 
 const PIPELINE_STEPS = [
   { icon: MessageSquare, label: 'You describe your idea', color: 'text-primary' },
@@ -164,7 +168,7 @@ async function submit() {
   submitting.value = true
   try {
     const who = await reporter()
-    const sent = await submitFeedback({
+    const report = {
       type,
       description: result.data.description,
       name: who.name || dancerName.value,
@@ -172,15 +176,42 @@ async function submit() {
       dancerId: dancerId.value,
       username: username.value,
       context: collect(),
-      screenshot: type === 'bug' ? screenshot.value?.bytes : null,
-    })
-    doneId.value = sent.id
-    screenshotDropped.value = sent.screenshotDropped
+    }
+    let id: string
+    let via: 'sentry' | 'fallback' = 'sentry'
+    let dropped = false
+    try {
+      // submitFeedback retries once without the screenshot before throwing (RAZ-976).
+      const sent = await submitFeedback({ ...report, screenshot: type === 'bug' ? screenshot.value?.bytes : null })
+      id = sent.id
+      dropped = sent.screenshotDropped
+    } catch (e) {
+      // Local dev has no Sentry DSN: say so instead of filing a real issue.
+      if (import.meta.dev && !getSentry()) {
+        error.value = DEV_ERROR
+        track('problem_report_failed', {
+          type,
+          reason: feedbackFailure(e),
+          has_screenshot: type === 'bug' && !!screenshot.value,
+        })
+        return
+      }
+      console.warn('[ReportProblem] Sentry failed, using the fallback:', e)
+      via = 'fallback'
+      const res = await $fetch<{ id: string }>('/api/report', {
+        method: 'POST',
+        body: { ...report, sentryError: String((e as Error)?.message || e).slice(0, 500) },
+      })
+      id = res.id
+    }
+    doneId.value = id
+    screenshotDropped.value = via === 'sentry' && dropped
     track('problem_report_submitted', {
       type,
-      identifier: sent.id,
-      has_screenshot: type === 'bug' && !!screenshot.value && !sent.screenshotDropped,
-      screenshot_dropped: sent.screenshotDropped,
+      identifier: id,
+      via,
+      has_screenshot: via === 'sentry' && type === 'bug' && !!screenshot.value && !dropped,
+      screenshot_dropped: via === 'sentry' && dropped,
     })
   } catch (e) {
     console.warn('[ReportProblem] submit failed:', e)
