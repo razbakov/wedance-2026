@@ -20,6 +20,7 @@
  * nothing new).
  */
 import { LoginSchema, RecoverySchema, RegisterSchema } from '#shared/validation'
+import { friendlyError } from '~/lib/friendlyError'
 
 const props = defineProps<{
   open: boolean
@@ -185,7 +186,7 @@ async function submitWith(action: () => Promise<void>) {
   try {
     await action()
   } catch (e: any) {
-    error.value = e?.message || 'Something went wrong. Please try again.'
+    error.value = friendlyError(e)
   } finally {
     loading.value = false
   }
@@ -226,7 +227,7 @@ async function handleRecovery() {
     const res = await requestMagicLink({ ...result.data, purpose: 'recovery' })
     recoveryResult.value = res.accountExists === false ? 'no-account' : 'sent'
   } catch (e: any) {
-    error.value = e?.message || 'Something went wrong. Please try again.'
+    error.value = friendlyError(e)
   } finally {
     loading.value = false
   }

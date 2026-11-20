@@ -4,7 +4,7 @@
  * in RAZ-949 as layout A, "segment sidebar"): everyone who gave the page their
  * email — website sign-ups and imported lists (HubSpot, wedance.vip subscribers).
  * A rail on the left counts and filters by whether the page may email them,
- * where they came from and what they do on WeDance; on a phone it hides behind
+ * where they came from (segment, and the channel — utm_source or referrer, RAZ-1074) and what they do on WeDance; on a phone it hides behind
  * a Filters button. Each contact shows its WeDance activity around the page's
  * events. Search, note, unsubscribe / resubscribe, delete, CSV of what's shown.
  * An event filter (`?event=<id>&as=<how>`, linked from the event's "Who's coming")
@@ -16,10 +16,10 @@
  * Follower / Event-goer. They show no email or phone, can't be emailed, aren't in the CSV and
  * have no note / unsubscribe / delete; "On WeDance, not a contact" under Came from narrows to the rest.
  * The rail (redesigned 19 Nov 2026): Email · Events (coming to one, going next, regulars, lapsed) ·
- * Came from (top 4, rest behind "more") · More filters (new, follows, on WeDance), folded.
+ * Came from (top 4, rest behind "more") · Channel (RAZ-1074) · More filters (new, follows, on WeDance), folded.
  * Data: businessSite.contactsOverview.
  */
-import { Download, Search, Trash2, Globe, StickyNote, Check, X, SlidersHorizontal, MailCheck, MailX, Users, CalendarCheck, Repeat, Moon, Sparkles, Heart, CalendarDays, Ticket, ChevronDown, Ellipsis } from 'lucide-vue-next'
+import { Download, Search, Trash2, Globe, Route, StickyNote, Check, X, SlidersHorizontal, MailCheck, MailX, Users, CalendarCheck, Repeat, Moon, Sparkles, Heart, CalendarDays, Ticket, ChevronDown, Ellipsis } from 'lucide-vue-next'
 import { DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenuRoot, DropdownMenuTrigger } from 'reka-ui'
 import { COMING_AS_LABEL, COMING_AS_ORDER, contactSegments, emailBlock, type ActivityFilter, type ComingAs, type ContactSourceKey } from '#shared/utils/contactSegments'
 import { comingCounts, contactsCsv, describeFilter, emptyFilter, EVENT_ACTIVITY, filterContacts, isFiltered, OTHER_ACTIVITY, railOptions, sourceDetail, toggle, type ContactFilter } from '~/lib/contactFilters'
@@ -70,7 +70,7 @@ const eventContacts = computed(() => (f.event ? comingCounts(onlyContacts(all.va
 const eventLabel = (e: { name: string, startDate: string, timezone: string | null }) =>
   `${new Date(e.startDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: e.timezone || 'Europe/Berlin' })} · ${e.name}`
 const segment = computed(() => describeFilter(f, chosenEvent.value ? eventLabel(chosenEvent.value) : null))
-const filterData = computed(() => ({ ...f, sources: [...f.sources], activity: [...f.activity] }))
+const filterData = computed(() => ({ ...f, sources: [...f.sources], channels: [...f.channels], activity: [...f.activity] }))
 const setAs = (a: ComingAs) => { f.as = f.as === a ? null : a }
 const shown = computed(() => filterContacts(all.value, f))
 const LIMIT = 60
@@ -81,6 +81,7 @@ const visible = computed(() => shown.value.slice(0, more.value))
 const ACT_ICON: Record<ActivityFilter, any> = { account: Users, follows: Heart, came: Ticket, going: CalendarCheck, regular: Repeat, lapsed: Moon, new: Sparkles }
 const SHORT: Record<ActivityFilter, string> = { account: 'On WeDance', follows: 'Follow you', came: 'Came or coming', going: 'Going next', regular: 'Regulars', lapsed: 'Haven’t come in 3 months', new: 'New this month' }
 const toggleSource = (k: ContactSourceKey) => { f.sources = toggle(f.sources, k) }
+const toggleChannel = (k: string) => { f.channels = toggle(f.channels, k) }
 const toggleAct = (a: ActivityFilter) => { f.activity = toggle(f.activity, a) }
 const setEmail = (e: ContactFilter['email']) => { f.email = f.email === e ? 'any' : e }
 // The rail, kept short: top sources up front, the rest behind "more"; event activity together;
@@ -91,11 +92,11 @@ const actOptions = (keys: readonly ActivityFilter[]) => railOptions(keys.map(key
 const eventAct = computed(() => actOptions(EVENT_ACTIVITY))
 const otherAct = computed(() => actOptions(OTHER_ACTIVITY))
 const moreFilters = ref(OTHER_ACTIVITY.some(a => f.activity.includes(a)))
-const cantEmailWhy = computed(() => [`${segs.value.blocked.not_opted_in} never asked for your emails`, `${segs.value.blocked.unsubscribed} unsubscribed`, segs.value.blocked.not_a_contact ? `${segs.value.blocked.not_a_contact} not contacts (no email)` : ''].filter(Boolean).join(' · '))
+const cantEmailWhy = computed(() => [`${segs.value.blocked.not_opted_in} never asked for your emails`, segs.value.blocked.event_only ? `${segs.value.blocked.event_only} only for their event` : '', `${segs.value.blocked.unsubscribed} unsubscribed`, segs.value.blocked.not_a_contact ? `${segs.value.blocked.not_a_contact} not contacts (no email)` : ''].filter(Boolean).join(' · '))
 // The CSV and "Email N" only ever get contacts.
 const shownContacts = computed(() => onlyContacts(shown.value))
 const clear = () => Object.assign(f, emptyFilter())
-const filterCount = computed(() => f.sources.length + f.activity.length + (f.email !== 'any' ? 1 : 0) + (f.who !== 'any' ? 1 : 0) + (f.event ? 1 : 0))
+const filterCount = computed(() => f.sources.length + f.channels.length + f.activity.length + (f.email !== 'any' ? 1 : 0) + (f.who !== 'any' ? 1 : 0) + (f.event ? 1 : 0))
 
 const detail = (r: Row) => [r.locale?.toUpperCase(), sourceDetail(r.source), r.source?.promo_code ? `code ${r.source.promo_code}` : ''].filter(Boolean).join(' · ')
 
@@ -204,6 +205,13 @@ function csv() {
             <button v-if="sourceRail.more.length" type="button" class="mt-0.5 inline-flex items-center gap-1 px-2 text-xs text-muted-foreground hover:text-foreground" :aria-expanded="moreSources" @click="moreSources = !moreSources">
               <ChevronDown class="size-3.5 transition-transform" :class="moreSources ? 'rotate-180' : ''" aria-hidden="true" />{{ moreSources ? 'Fewer' : `${sourceRail.more.length} more` }}
             </button>
+          </section>
+          <section v-if="segs.channels?.some(c => c.key !== 'unknown')" data-contacts-channels>
+            <h2 class="mb-1 text-eyebrow font-black uppercase tracking-widest text-muted-foreground">Channel</h2>
+            <button v-for="c in segs.channels" :key="c.key" type="button" class="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1 text-left hover:bg-accent" :class="f.channels.includes(c.key) ? 'bg-primary/8 font-bold text-wd-red-800' : ''" :aria-pressed="f.channels.includes(c.key)" data-contacts-channel @click="toggleChannel(c.key)">
+              <span class="inline-flex min-w-0 items-center gap-2"><Route class="size-4 shrink-0" aria-hidden="true" /> <span class="truncate">{{ c.label }}</span></span><span class="tabular-nums">{{ c.count }}</span>
+            </button>
+            <p class="mt-1 px-2 text-xs text-muted-foreground">The link or site that brought them. Tag the links you share (utm_source) to see more here.</p>
           </section>
           <section v-if="otherAct.length" data-contacts-more>
             <button type="button" class="flex w-full items-center justify-between mb-1 text-eyebrow font-black uppercase tracking-widest text-muted-foreground hover:text-foreground" :aria-expanded="moreFilters" @click="moreFilters = !moreFilters">
