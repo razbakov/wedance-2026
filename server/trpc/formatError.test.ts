@@ -61,6 +61,32 @@ describe('formatTrpcError', () => {
     expect(report).toHaveBeenCalledWith(cause, { trpc_path: 'auth.login', error_ref: out.data.ref })
   })
 
+  it('carries where to book on a refused sign-up', () => {
+    const shape = {
+      message: 'Nobody on WeDance takes bookings for this event. Book on megano-tanzschule.de.',
+      code: -32001,
+      data: { code: 'PRECONDITION_FAILED' as const, httpStatus: 412, stack: 'Error: book elsewhere' },
+    }
+    const cause = Object.assign(new Error('book elsewhere'), {
+      name: 'BookElsewhere',
+      link: 'https://www.megano-tanzschule.de/kurs',
+    })
+    const out = formatTrpcError({ shape, error: { code: 'PRECONDITION_FAILED', cause }, path: 'rsvp.signUp' })
+    expect(out.message).toBe(shape.message)
+    expect(out.data).toMatchObject({ code: 'PRECONDITION_FAILED', link: 'https://www.megano-tanzschule.de/kurs' })
+  })
+
+  it('carries a null link when the event has nowhere else to book', () => {
+    const shape = {
+      message: 'Nobody on WeDance takes bookings for this event. Ask the organiser directly.',
+      code: -32001,
+      data: { code: 'PRECONDITION_FAILED' as const, httpStatus: 412, stack: 'Error: book elsewhere' },
+    }
+    const cause = Object.assign(new Error('book elsewhere'), { name: 'BookElsewhere', link: null })
+    const out = formatTrpcError({ shape, error: { code: 'PRECONDITION_FAILED', cause }, path: 'rsvp.answer' })
+    expect(out.data).toMatchObject({ link: null })
+  })
+
   it('still returns the friendly message when Sentry is not initialised', () => {
     expect(Sentry.isInitialized()).toBe(false)
     const log = vi.spyOn(console, 'error').mockImplementation(() => {})

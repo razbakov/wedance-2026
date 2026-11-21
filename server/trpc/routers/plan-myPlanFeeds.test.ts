@@ -90,7 +90,11 @@ describe.skipIf(!DATABASE_URL)('my-plan feeds', () => {
     await addEvent('courseNext', { type: 'Course', seriesId: `course-${RUN}`, startDate: new Date(now + 4 * DAY), endDate: new Date(now + 4 * DAY + 3600_000), organizerName: `School ${RUN}`, organizerUsername: `school-${RUN}` })
     await addEvent('courseAfter', { type: 'Course', seriesId: `course-${RUN}`, startDate: new Date(now + 11 * DAY), endDate: new Date(now + 11 * DAY + 3600_000) })
     // A weekend workshop that started yesterday and runs until tomorrow (RAZ-891).
-    await addEvent('workshop', { type: 'Workshop', styles: ['Zouk'], startDate: new Date(now - DAY), endDate: new Date(now + DAY) })
+    // The workshop is signed up for below. That needs a page with a team (RAZ-1016).
+    const [school] = await db.insert(schema.profiles).values({ username: `ws-org-${RUN}`, name: `School ${RUN}`, type: 'organizer' }).returning({ id: schema.profiles.id })
+    ids.school = school.id
+    await db.insert(schema.profileMembers).values({ profileId: ids.school, dancerId: ids.me, role: 'owner' })
+    await addEvent('workshop', { type: 'Workshop', styles: ['Zouk'], startDate: new Date(now - DAY), endDate: new Date(now + DAY), organizerUsername: `ws-org-${RUN}` })
     await addEvent('courseEnded', { type: 'Course', startDate: new Date(now - 10 * DAY), endDate: new Date(now - 10 * DAY + 3600_000) })
     await addEvent('nightA', { startDate: new Date(now + 5 * DAY), endDate: new Date(now + 5 * DAY + 3600_000) })
     await addEvent('nightB', { startDate: new Date(now + 9 * DAY), endDate: new Date(now + 9 * DAY + 3600_000) })
@@ -142,6 +146,7 @@ describe.skipIf(!DATABASE_URL)('my-plan feeds', () => {
     await db.delete(schema.follows).where(inArray(schema.follows.dancerId, dancerIds))
     await db.delete(schema.events).where(inArray(schema.events.id, eventIds))
     await db.delete(schema.festivals).where(inArray(schema.festivals.slug, [FEST, WORKSHOP]))
+    await db.delete(schema.profiles).where(eq(schema.profiles.username, `ws-org-${RUN}`))
     await db.delete(schema.dancers).where(like(schema.dancers.email, `%-${RUN}@test.wedance.local`))
   })
 

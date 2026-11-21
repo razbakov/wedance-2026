@@ -7,6 +7,7 @@ import { festivalView, venueInfoOf } from '../../utils/festivalView'
 import { festivalEventsWhere, listFestivals } from '../../utils/festivalListing'
 import { inviteEventId, previewEventWhere, publicEventWhere } from '../../utils/eventLookup'
 import { resolveCoOrganizers } from '../../utils/coOrganizers'
+import { bookableSql } from '../../utils/eventBookable'
 
 /**
  * Public dated events from the `events` table — today the live mirror of
@@ -149,7 +150,7 @@ export const eventsRouter = router({
         syncedAt: events.syncedAt,
         // Someone on WeDance gets the bookings: the page they go to (host, else organiser —
         // contactPageFor) has a team. Otherwise "Book my spot" says it's imported, and where from.
-        bookable: sql<boolean>`exists (select 1 from profile_members m where m.profile_id = coalesce(${events.hostProfileId}, (select p.id from profiles p where p.username = ${events.organizerUsername} limit 1)))`,
+        bookable: bookableSql(events.hostProfileId, events.organizerUsername),
       }
       let ev: any
       for (const where of publicEventWhere(input.id)) {

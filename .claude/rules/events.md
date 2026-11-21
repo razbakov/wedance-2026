@@ -73,10 +73,11 @@ The pass step suggests ("Fits your plan", preselected) the pass covering the wor
 the Passes tab's buttons open the steps on that pass. Unset `workshopCount` / `includesParty` are read from the pass's
 words (`passCoverage`: "Party only", "no workshops", masterclass), else a party pass looked like it covered every workshop.
 Not yet: Stripe without an account, a 1,000-person Who's coming with search for festivals.
-**Nobody to book with (RAZ-1007):** an event takes bookings only when the page they go to (host, else organiser —
-`contactPageFor`) has a team (`events.get` → `bookable`). Otherwise "Book my spot" opens `EventImportedNotice` instead of
-the steps: "Imported by WeDance" (v3 sync) / "Added by WeDance", where from (`events.link`), last checked (`synced_at`),
-and a "Book on <site>" link. `rsvp.signUp` itself doesn't refuse yet (MCP).
+**Nobody to book with (RAZ-1007, RAZ-1016):** an event takes bookings only when the page they go to (host, else organiser —
+`contactPageFor`) has a team (`bookableSql` in `server/utils/eventBookable.ts`, used by `events.get` → `bookable`).
+Otherwise "Book my spot" opens `EventImportedNotice` instead of the steps: "Imported by WeDance" (v3 sync) / "Added by
+WeDance", where from (`events.link`), last checked (`synced_at`), and a "Book on <site>" link. `rsvp.signUp` and
+`rsvp.answer` refuse the same events with `PRECONDITION_FAILED` and that link (`Book elsewhere`). MCP does not call them.
 **One layout (RAZ-1007):** every `events` row renders through `FestivalView` (`events.festival` serves plain events too —
 `festivalView` keys them by `eventSlug`); a plain event adds `EventFacts` (type, styles, price, website, agenda), the
 "Checked by" badge, the archived note and "More dancing in <city>" via the `event` prop. Booking requests and a single
