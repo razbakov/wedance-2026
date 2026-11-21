@@ -102,13 +102,19 @@ export async function paintWithRetries(prompt: string, images: InlineImage[], as
   throw new Error(lastError instanceof Error ? lastError.message : 'Gemini didn’t return an image after several tries.')
 }
 
+/**
+ * Proofreading instructions for the finished poster. Letters a head covers,
+ * or that the edge cuts, come back as "_" — otherwise the reader fills them
+ * in (it read "THURSDAY" off "TH[head]DAY") and the check passes a broken flyer.
+ * A line only slightly cut still counts: the address bar in RAZ-1032 was readable.
+ */
+export const READ_TEXT_PROMPT = 'You are proofreading a poster before it is printed. Transcribe only the letters you can actually see, exactly as printed: keep spelling, accents, umlauts, numbers and symbols, and do not correct anything. If any letters of a word are hidden — covered by a person, an object, cut by the edge, or unreadable — do not guess them: write each hidden letter as "_" (for example "TH___DAY"). A letter cut by the edge counts even when you can still tell the word. One entry per line of text.'
+
 /** Every line of text visible on the image, exactly as printed. */
 export async function readText(image: InlineImage): Promise<string[]> {
   const json = await call(TEXT_MODEL, {
     contents: [{ parts: [
-      // Without the "_" rule the reader fills in letters a person's head covers
-      // (it read "THURSDAY" off "TH[head]DAY"), and the check passes a broken flyer.
-      { text: 'You are proofreading a poster before it is printed. Transcribe only the letters you can actually see, exactly as printed: keep spelling, accents, umlauts, numbers and symbols, and do not correct anything. If any letters of a word are hidden — covered by a person, an object, cropped off or unreadable — do not guess them: write each hidden letter as "_" (for example "TH___DAY"). One entry per line of text.' },
+      { text: READ_TEXT_PROMPT },
       { inlineData: image },
     ] }],
     generationConfig: {

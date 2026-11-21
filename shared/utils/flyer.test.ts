@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { flyerLines, flyerChanges, checkFlyerText, paintPrompt, priceLines } from './flyer'
+import { flyerLines, flyerChanges, checkFlyerText, paintPrompt, recomposePrompt, fixPrompt, refreshPrompt, priceLines } from './flyer'
 
 // Thu 15 Oct 2026, 19:00–23:00 Berlin (UTC+2)
 const ev = {
@@ -95,6 +95,30 @@ describe('paintPrompt', () => {
   })
 })
 
+describe('text stays off the edges', () => {
+  const lines = flyerLines(ev)
+  const look = { description: 'Red neon street.' }
+  it('keeps every line inside a margin, including the location bar', () => {
+    const p = paintPrompt(lines, look, { people: ['Yunior'] })
+    expect(p).toContain('clear margin')
+    expect(p).toContain('all four edges')
+    expect(p).not.toContain('the details in the bottom 15%')
+    expect(p).not.toContain('at the very top')
+    expect(p).toContain('above the bottom margin')
+  })
+  it('asks for the same margin when there is nobody to picture', () => {
+    const p = paintPrompt(lines, look)
+    expect(p).toContain('clear margin')
+    expect(p).toContain('bottom margin')
+  })
+  it('keeps the margin when a poster is recomposed, fixed or refreshed', () => {
+    for (const p of [recomposePrompt(lines), fixPrompt(lines, 'make the title bigger'), refreshPrompt(lines)]) {
+      expect(p).toContain('clear margin')
+      expect(p).toContain('cut by the edge')
+    }
+  })
+})
+
 describe('paintPrompt, the house way', () => {
   it('names the style reference as image 1 and numbers the photos after it', () => {
     const p = paintPrompt(flyerLines(ev), { description: 'Red neon street.' }, { styleRef: true, people: ['Yunior', 'Alösha'] })
@@ -109,6 +133,16 @@ describe('a covered word', () => {
     const lines = flyerLines(ev)
     const seen = lines.map(l => l.text).map(t => t === 'LA CLAVE THURSDAY' ? 'LA CLAVE TH___DAY' : t)
     expect(checkFlyerText(lines, seen).missing).toEqual(['LA CLAVE THURSDAY'])
+  })
+})
+
+describe('text cut by the edge', () => {
+  it('fails the check when the reader marks letters cut off the bottom', () => {
+    const lines = flyerLines(ev)
+    const seen = lines.map(l => l.label === 'venue' ? 'LUMA · NEUHAUSER STR. 47 · MÜN____' : l.text)
+    const c = checkFlyerText(lines, seen)
+    expect(c.ok).toBe(false)
+    expect(c.missing).toEqual(['LUMA · NEUHAUSER STR. 47 · MÜNCHEN'])
   })
 })
 

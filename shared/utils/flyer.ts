@@ -141,8 +141,8 @@ function textBlock(lines: FlyerLine[]) {
   const [entry] = by('entry'); const [venue] = by('venue')
   const [kicker] = by('kicker'); const [subtitle] = by('subtitle'); const details = by('detail')
   return [
-    kicker ? `Small label "${kicker}" at the very top.` : null,
-    date ? `"${date}" ${kicker ? 'under it' : 'at the top'}.` : null,
+    kicker ? `Small label "${kicker}" near the top, below the top margin.` : null,
+    date ? `"${date}" ${kicker ? 'under it' : 'near the top, below the top margin'}.` : null,
     `Huge title "${title}".`,
     subtitle ? `Under the title, smaller: "${subtitle}".` : null,
     details.length ? `A short list, one line each: ${details.map(d => `"${d}"`).join(', ')}.` : null,
@@ -152,12 +152,12 @@ function textBlock(lines: FlyerLine[]) {
     time ? `Big time badge "${time}".` : null,
     agenda.length ? `A small programme list, one line each: ${agenda.map(a => `"${a}"`).join(', ')}.` : null,
     entry ? `Entry line "${entry}".` : null,
-    venue ? `Bottom bar with a location pin: "${venue}".` : null,
+    venue ? `Location bar with a pin, sitting above the bottom margin: "${venue}".` : null,
   ].filter(Boolean).join(' ')
 }
 
-// The reader marks covered letters; this keeps the painter from covering them.
-const CLEAR_TEXT = 'Keep every letter fully visible: no person, hand, hat or object may cover or cut off any part of the text.'
+// The reader marks covered or edge-cut letters; this keeps the painter from doing either.
+const CLEAR_TEXT = 'Keep every letter fully visible: no person, hand, hat or object may cover or cut off any part of the text. Leave a clear margin of background between every line and all four edges, so no letter touches or is cut by the edge.'
 
 /**
  * A full painting, the way the house process does it (~/Orgs/LaClave/assets/
@@ -188,8 +188,8 @@ export function paintPrompt(lines: FlyerLine[], look: FlyerLook, opts: { people?
     clean(look.description),
     palette,
     hasPeople
-      ? 'Layout: the date and the title in the top 38%; the artists from 40% to 85% of the height, below the title, never covering any text; the details in the bottom 15%.'
-      : 'Layout: the date and the title in the top third; the details below, with room to breathe.',
+      ? 'Layout: the date and the title in the top 38%, starting below the top margin; the artists from 40% to 82% of the height, below the title, never covering any text; the details above the bottom margin, ending by 96% of the height.'
+      : 'Layout: the date and the title in the top third, below the top margin; the details below, ending above the bottom margin, with room to breathe.',
     opts.inspiration ? 'The last image is a flyer the organizer likes: borrow its mood only. Do not copy its text, people or layout.' : null,
     opts.notes?.trim() ? `Also: ${clean(opts.notes)}` : null,
     `Exact text on the poster, spelled exactly, nothing else: ${textBlock(lines)}`,
