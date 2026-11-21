@@ -16,6 +16,7 @@ import { sizedImage, IMG } from '#shared/utils/image'
 import { Upload, Sparkles, Check, ArrowLeft, ArrowRight, Loader2, Wand2, Download, ImagePlus, X, PartyPopper, CalendarDays, Pencil, AlertTriangle, RotateCcw, Palette } from 'lucide-vue-next'
 import { DIRECTIONS, flyerChanges } from '#shared/utils/flyer'
 import { FLYER_SITTING_STEPS, landOnSitting, resumeFlyer, type FlyerDraft, type FlyerStep } from '#shared/utils/flyerDraft'
+import { createFlyerDrop } from '~/lib/flyerDrop'
 
 definePageMeta({ layout: 'business' })
 
@@ -132,16 +133,18 @@ async function uploadFile(file: File) {
   if (!res.ok) throw new Error('upload')
   return (await res.json()).url as string
 }
-async function addFiles(e: Event) {
-  const input = e.target as HTMLInputElement
-  const files = Array.from(input.files ?? []).filter(f => f.type.startsWith('image/')).slice(0, 5 - uploads.value.length)
-  input.value = ''
+async function addFiles(files: File[]) {
   uploadError.value = null
   uploading.value += files.length
   await Promise.all(files.map(async (f) => {
     try { uploads.value.push({ url: await uploadFile(f), name: f.name }) } catch { uploadError.value = `${f.name} didn’t upload. Try again.` } finally { uploading.value-- }
   }))
 }
+const { dragOver, onDragOver, onDragLeave, onDrop, onInput } = createFlyerDrop({
+  slotsLeft: () => 5 - uploads.value.length - uploading.value,
+  add: files => { void addFiles(files) },
+  reject: message => { uploadError.value = message },
+})
 const look = reactive({ name: 'Main look', description: '', palette: [] as { name: string; hex: string }[] })
 async function readStyle() {
   if (!uploads.value.length) { uploadError.value = 'Add at least one flyer you’ve made.'; return }
@@ -679,18 +682,25 @@ const faces = computed(() => st.value?.pictured.length ?? 0)
       </section>
 
       <!-- 1a · Upload -->
-      <section v-else-if="step === 'upload'" class="mt-6">
+      <section
+        v-else-if="step === 'upload'"
+        class="mt-6"
+        @dragenter.prevent="onDragOver"
+        @dragover.prevent="onDragOver"
+        @dragleave="onDragLeave"
+        @drop.prevent="onDrop"
+      >
         <h2 class="font-display text-2xl font-bold">Add flyers you’ve made</h2>
-        <p class="mt-1 text-sm text-muted-foreground">2–5 is best, any size, from your phone or computer.</p>
+        <p class="mt-1 text-sm text-muted-foreground">2–5 is best. Drop them here, or click Add flyers.</p>
         <div class="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-5">
           <div v-for="(u, i) in uploads" :key="u.url" class="relative">
             <img :src="sizedImage(u.url, IMG.card)" :alt="u.name" class="aspect-[4/5] w-full rounded-xl border object-cover">
             <button type="button" class="absolute right-1 top-1 rounded-full bg-card/90 p-1" :aria-label="`Remove ${u.name}`" @click="uploads.splice(i, 1)"><X class="size-3.5" /></button>
           </div>
           <div v-for="n in uploading" :key="`up-${n}`" class="flex aspect-[4/5] items-center justify-center rounded-xl border bg-muted"><Loader2 class="size-5 animate-spin text-muted-foreground" aria-hidden="true" /></div>
-          <label v-if="uploads.length + uploading < 5" class="flex aspect-[4/5] cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-input text-center text-xs text-muted-foreground hover:border-primary/50 has-[:focus-visible]:shadow-wd-focus">
+          <label v-if="uploads.length + uploading < 5" class="flex aspect-[4/5] cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed text-center text-xs text-muted-foreground has-[:focus-visible]:shadow-wd-focus" :class="dragOver ? 'border-primary bg-primary/3' : 'border-input hover:border-primary/50'">
             <ImagePlus class="size-5" aria-hidden="true" /> Add flyers
-            <input type="file" accept="image/*" multiple class="sr-only" @change="addFiles">
+            <input type="file" accept="image/*" multiple class="sr-only" @change="onInput">
           </label>
         </div>
         <p v-if="uploadError" class="mt-2 text-sm text-destructive" role="alert">{{ uploadError }}</p>

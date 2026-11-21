@@ -8,6 +8,7 @@ import { sizedImage, IMG } from '#shared/utils/image'
  * ideas (text only: nothing is painted until one is picked on a flyer).
  */
 import { Palette, Sparkles, Plus, Trash2, Copy, Check, X, Wand2, Pencil, Image as ImageIcon } from 'lucide-vue-next'
+import { createFlyerDrop } from '~/lib/flyerDrop'
 
 definePageMeta({ layout: 'business' })
 const route = useRoute()
@@ -75,22 +76,26 @@ async function blank() {
 // --- from the organizer's own flyers (the house way)
 const uploads = ref<string[]>([])
 const uploading = ref(0)
+const uploadError = ref<string | null>(null)
 const reading = ref(false)
-async function addFlyers(e: Event) {
-  const input = e.target as HTMLInputElement
-  const files = Array.from(input.files ?? []).filter(f => f.type.startsWith('image/')).slice(0, 5 - uploads.value.length)
-  input.value = ''
+async function addFlyers(files: File[]) {
+  uploadError.value = null
+  uploading.value += files.length
   for (const f of files) {
-    uploading.value++
     try {
       const body = new FormData()
       body.append('file', f)
       const res = await fetch('/api/media/image?folder=flyers', { method: 'POST', body })
       if (!res.ok) throw new Error()
       uploads.value.push((await res.json()).url)
-    } catch { error.value = 'A flyer didn’t upload. Try again.' } finally { uploading.value-- }
+    } catch { uploadError.value = 'A flyer didn’t upload. Try again.' } finally { uploading.value-- }
   }
 }
+const { dragOver, onDragOver, onDragLeave, onDrop, onInput } = createFlyerDrop({
+  slotsLeft: () => 5 - uploads.value.length - uploading.value,
+  add: files => { void addFlyers(files) },
+  reject: message => { uploadError.value = message },
+})
 async function readStyle() {
   reading.value = true
   error.value = null
@@ -140,18 +145,26 @@ function addColour(id: string) {
       <p v-if="notice" role="status" class="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-success/10 px-3 py-2 text-sm font-bold text-wd-green-700"><Check class="size-4" aria-hidden="true" /> {{ notice }}</p>
 
       <!-- From your flyers: the house way to a style -->
-      <section class="mt-6 rounded-2xl border-2 border-primary/30 bg-gradient-to-br from-primary/10 via-card to-secondary/10 p-5">
+      <section
+        class="mt-6 rounded-2xl border-2 bg-gradient-to-br from-primary/10 via-card to-secondary/10 p-5"
+        :class="dragOver ? 'border-primary bg-primary/3' : 'border-primary/30'"
+        @dragenter.prevent="onDragOver"
+        @dragover.prevent="onDragOver"
+        @dragleave="onDragLeave"
+        @drop.prevent="onDrop"
+      >
         <p class="flex items-center gap-1.5 text-eyebrow font-bold uppercase tracking-[0.3em] text-primary"><ImageIcon class="size-4" aria-hidden="true" /> A style from your flyers</p>
         <p class="mt-1 font-display text-xl font-bold">Add 2–5 flyers you’ve posted</p>
-        <p class="mt-1 text-sm text-muted-foreground">WeDance reads the scene, colours and lettering, and every new flyer in this style is painted with your flyers as its reference, so it looks like yours.</p>
+        <p class="mt-1 text-sm text-muted-foreground">WeDance reads the scene, colours and lettering, and every new flyer in this style is painted with your flyers as its reference, so it looks like yours. Drop them here, or click Add flyers.</p>
         <div class="mt-3 flex flex-wrap items-center gap-2">
           <img v-for="u in uploads" :key="u" :src="sizedImage(u, IMG.avatar)" alt="" class="h-24 rounded-lg border">
           <span v-for="n in uploading" :key="`u${n}`" class="grid h-24 w-16 place-items-center rounded-lg border bg-muted text-xs text-muted-foreground">…</span>
-          <label v-if="uploads.length + uploading < 5" class="flex h-24 w-20 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-input text-center text-[11px] text-muted-foreground has-[:focus-visible]:shadow-wd-focus">
+          <label v-if="uploads.length + uploading < 5" class="flex h-24 w-20 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed text-center text-[11px] text-muted-foreground has-[:focus-visible]:shadow-wd-focus" :class="dragOver ? 'border-primary bg-primary/3' : 'border-input'">
             <Plus class="size-4" aria-hidden="true" /> Add flyers
-            <input type="file" accept="image/*" multiple class="sr-only" @change="addFlyers">
+            <input type="file" accept="image/*" multiple class="sr-only" @change="onInput">
           </label>
         </div>
+        <p v-if="uploadError" class="mt-2 text-sm text-destructive" role="alert">{{ uploadError }}</p>
         <Button variant="cta" class="mt-4" :disabled="!uploads.length || uploading > 0" :loading="reading" @click="readStyle"><Wand2 /> Read my style</Button>
       </section>
 
