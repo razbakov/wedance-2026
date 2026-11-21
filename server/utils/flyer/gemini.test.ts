@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import sharp from 'sharp'
-import { asInline, requestOf } from './gemini'
+import { asInline, requestOf, READ_TEXT_PROMPT } from './gemini'
 
 describe('asInline', () => {
   it('reads the format off the bytes, not the content-type (v3 photos come as octet-stream)', async () => {
@@ -13,6 +13,13 @@ describe('asInline', () => {
   })
   it('is null for bytes that are not an image', async () => {
     expect(await asInline(Buffer.from('<html>not found</html>'))).toBeNull()
+  })
+})
+
+describe('READ_TEXT_PROMPT', () => {
+  it('marks letters cut by the edge, even when the word is still guessable', () => {
+    expect(READ_TEXT_PROMPT).toContain('cut by the edge')
+    expect(READ_TEXT_PROMPT).toContain('even when you can still tell the word')
   })
 })
 

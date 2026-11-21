@@ -10,7 +10,7 @@
  */
 import type { Blueprint, BpGap, BpLaneDef, BpPhaseDef, BpStep } from './blueprint'
 
-export const BLUEPRINT_UPDATED = '2026-11-20'
+export const BLUEPRINT_UPDATED = '2026-11-21'
 
 export type BpLane = 'organizer' | 'system' | 'venue' | 'artist' | 'dancers'
 export type BpPhase = 'page' | 'draft' | 'venue' | 'lineup' | 'flyer' | 'promote' | 'publish' | 'night'
@@ -87,7 +87,7 @@ export const bpSteps: BpStep<BpLane, BpPhase>[] = [
   { id: 'paint', phase: 'flyer', lane: 'organizer', name: 'Pick a look, paint', status: 'live', marks: [], route: '/business/events/[id]/flyer', code: 'businessFlyers.make / directions · MCP make_flyer',
     note: 'Saved brand looks or new directions; can be started before the venue or artists said yes.' },
   { id: 'painting', phase: 'flyer', lane: 'system', name: 'Paint variants', status: 'live', marks: ['wait'], code: 'server/utils/flyer/paint.ts',
-    note: 'Gemini paints from the line-up photos, venue, date and prices. Takes a while; the page picks a running batch up after a reload.' },
+    note: 'Gemini paints from the line-up photos, venue, date and prices, with every line inset from the edges. The read-back of the finished poster flags a line cut by an edge. Takes a while; the page picks a running batch up after a reload.' },
   { id: 'keep', phase: 'flyer', lane: 'organizer', name: 'Keep one', status: 'live', marks: [], code: 'businessFlyers.keep',
     note: 'The kept flyer becomes the cover option and the first post in the content plan.' },
   { id: 'stale', phase: 'flyer', lane: 'system', name: 'Spot changes since kept', status: 'partial', marks: ['silent'], code: 'flyerChanges · BusinessFlyerPanel',

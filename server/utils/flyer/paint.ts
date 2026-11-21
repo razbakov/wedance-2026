@@ -12,9 +12,9 @@ import cloudinary from 'cloudinary'
 import { eq, and, inArray, isNotNull, desc } from 'drizzle-orm'
 import { events, profiles, eventFlyers, eventPosts, brandLooks } from '../../database/schema'
 import { postLines, flyerChanges, paintPrompt, fixPrompt, refreshPrompt, recomposePrompt, checkFlyerText, programmeLines, type FlyerLine, type FlyerCheck } from '../../../shared/utils/flyer'
-import sharp from 'sharp'
 import type { PostKind } from '../../../shared/utils/posts'
 import { paintWithRetries, readText, fetchImage, IMAGE_MODEL, type InlineImage } from './gemini'
+import { fitFlyer } from './fit'
 import { faceGrid } from './grid'
 import { programmePostItems, programmePostLine } from '../../../shared/utils/programme'
 import { withAi } from '../aiUsage'
@@ -128,15 +128,12 @@ async function formatOf(db: any, postId: string | null): Promise<'post' | 'story
   return p?.format === 'post' ? 'post' : 'story'
 }
 
-// Instagram's exact sizes: Gemini returns near-sizes (768×1376, 928×1152).
-const SIZE = { '9:16': { width: 1080, height: 1920 }, '4:5': { width: 1080, height: 1350 } } as const
-
-async function upload(img: InlineImage, folder: string, aspect: '9:16' | '4:5') {
+async function upload(img: InlineImage, folder: string) {
   const config = useRuntimeConfig()
   cloudinary.v2.config({ cloud_name: config.public.cloudinaryCloudName, api_key: config.cloudinaryApiKey, api_secret: config.cloudinaryApiSecret })
-  const fitted = await sharp(Buffer.from(img.data, 'base64')).resize({ ...SIZE[aspect], fit: 'cover', position: 'centre' }).png().toBuffer()
   // Data URI, not a file path: Bun's file uploads to Cloudinary fail.
-  const res = await cloudinary.v2.uploader.upload(`data:image/png;base64,${fitted.toString('base64')}`, { folder: `wedance-2026/flyers/${folder}` })
+  // `img` is already the fitted poster (fitFlyer): the file dancers see.
+  const res = await cloudinary.v2.uploader.upload(`data:image/png;base64,${img.data}`, { folder: `wedance-2026/flyers/${folder}` })
   return { url: res.secure_url as string, width: res.width as number, height: res.height as number }
 }
 
@@ -216,10 +213,13 @@ async function paintRow(db: any, f: any, flyerId: string) {
     // repaints: each costs money, so the organizer sees the result and decides.
     const img = await paintWithRetries(prompt, images, aspect)
     if (await stopped()) return
-    const up = await upload(img, host?.username ?? 'unknown', aspect)
+    // The cover crop is the finished poster. Read that, not Gemini's raw
+    // near-size: a line on the edge is cut by the trim (RAZ-1032).
+    const poster = await fitFlyer(img, aspect)
+    const up = await upload(poster, host?.username ?? 'unknown')
     // The picture shows now; the words are read back while the organizer looks at it.
     await set({ status: 'checking', url: up.url, width: up.width, height: up.height, prompt, model: IMAGE_MODEL, error: null })
-    const check: FlyerCheck = checkFlyerText(lines, await readText(img))
+    const check: FlyerCheck = checkFlyerText(lines, await readText(poster))
     await set({ status: 'ready', check })
     // A feed post (4:5): recompose the story into it, the house way.
     if (f.mode === 'paint' && (await formatOf(db, f.postId)) === 'post') {
