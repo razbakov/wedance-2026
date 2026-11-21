@@ -31,6 +31,8 @@ describe.skipIf(!DATABASE_URL)('rsvp router', () => {
     }
     const [org] = await db.insert(schema.profiles).values({ username: `org-${RUN}`, name: `Org ${RUN}`, type: 'organizer' }).returning({ id: schema.profiles.id })
     ids.org = org.id
+    // Someone on WeDance gets these bookings (RAZ-1016). Without a team the sign-up is refused.
+    await db.insert(schema.profileMembers).values({ profileId: ids.org, dancerId: ids.ana, role: 'owner' })
     const start = new Date(Date.now() + 2 * 86400_000)
     const [ev] = await db.insert(schema.events).values({
       name: `Salsa From Zero ${RUN}`, type: 'Course', styles: ['Salsa', 'Casino'], startDate: start, timezone: 'Europe/Berlin',
@@ -38,7 +40,8 @@ describe.skipIf(!DATABASE_URL)('rsvp router', () => {
     }).returning({ id: schema.events.id })
     ids.event = ev.id
     const [solo] = await db.insert(schema.events).values({
-      name: `Reggaeton ${RUN}`, type: 'Class', styles: ['Reggaeton'], startDate: start, timezone: 'Europe/Berlin', published: true, archived: false,
+      name: `Reggaeton ${RUN}`, type: 'Class', styles: ['Reggaeton'], startDate: start, timezone: 'Europe/Berlin',
+      published: true, archived: false, organizerUsername: `org-${RUN}`,
     }).returning({ id: schema.events.id })
     ids.solo = solo.id
   })
@@ -233,6 +236,7 @@ describe.skipIf(!DATABASE_URL)('rsvp.signUp', () => {
     S.maria = d.id
     const [org] = await db.insert(schema.profiles).values({ username: `signup-org-${RUN}`, name: `Signup Org ${RUN}`, type: 'organizer' }).returning({ id: schema.profiles.id })
     S.org = org.id
+    await db.insert(schema.profileMembers).values({ profileId: S.org, dancerId: S.maria, role: 'owner' })
     const start = new Date(Date.now() + 3 * 86400_000)
     const [ev] = await db.insert(schema.events).values({
       name: `Casino Partnerwork ${RUN}`, type: 'class', styles: ['Casino'], startDate: start, timezone: 'Europe/Berlin',
@@ -298,5 +302,85 @@ describe.skipIf(!DATABASE_URL)('rsvp.signUp', () => {
     const [contact] = await db.select().from(schema.profileContacts).where(eq(schema.profileContacts.profileId, S.org))
     expect(contact.source).toMatchObject({ opted_in: 'signup', opted_in_event: S.online, utm_source: 'montuno.club' })
     expect(contact.phone).toBe('+49 171 7654321')
+  })
+})
+
+// RAZ-1016 — an event whose page has no team takes no sign-ups. The refusal says where to book.
+describe.skipIf(!DATABASE_URL)('rsvp refuses an event nobody manages', () => {
+  const U: Record<string, string> = {}
+  const LINK = 'https://www.megano-tanzschule.de/kurs'
+  const guest = crypto.randomUUID()
+
+  beforeAll(async () => {
+    const [dancer] = await db.insert(schema.dancers).values({ email: `unmanaged-${RUN}@test.wedance.local`, name: `Unmanaged ${RUN}` }).returning({ id: schema.dancers.id })
+    U.dancer = dancer.id
+    const [org] = await db.insert(schema.profiles).values({ username: `unmanaged-org-${RUN}`, name: `Megano ${RUN}`, type: 'organizer' }).returning({ id: schema.profiles.id })
+    U.org = org.id
+    const [host] = await db.insert(schema.profiles).values({ username: `unmanaged-host-${RUN}`, name: `Host ${RUN}`, type: 'organizer' }).returning({ id: schema.profiles.id })
+    U.host = host.id
+    const [managedHost] = await db.insert(schema.profiles).values({ username: `managed-host-${RUN}`, name: `Managed Host ${RUN}`, type: 'organizer' }).returning({ id: schema.profiles.id })
+    U.managedHost = managedHost.id
+    await db.insert(schema.profileMembers).values({ profileId: U.managedHost, dancerId: U.dancer, role: 'owner' })
+    const start = new Date(Date.now() + 4 * 86400_000)
+    const base = { type: 'Party', styles: ['Salsa'], startDate: start, timezone: 'Europe/Berlin', published: true, archived: false }
+    const [imported] = await db.insert(schema.events).values({
+      ...base, name: `Salsa Cubana ${RUN}`, organizerUsername: `unmanaged-org-${RUN}`, link: LINK,
+    }).returning({ id: schema.events.id })
+    U.imported = imported.id
+    const [nolink] = await db.insert(schema.events).values({
+      ...base, name: `No Link ${RUN}`, organizerUsername: `unmanaged-org-${RUN}`,
+    }).returning({ id: schema.events.id })
+    U.nolink = nolink.id
+    // Host wins over the organiser: a team on the organiser does not make a team-less host bookable.
+    const [hostBlocks] = await db.insert(schema.events).values({
+      ...base, name: `Host Blocks ${RUN}`, hostProfileId: U.host, organizerUsername: `managed-host-${RUN}`, link: LINK,
+    }).returning({ id: schema.events.id })
+    U.hostBlocks = hostBlocks.id
+    const [hostOk] = await db.insert(schema.events).values({
+      ...base, name: `Host Ok ${RUN}`, hostProfileId: U.managedHost,
+    }).returning({ id: schema.events.id })
+    U.hostOk = hostOk.id
+  })
+
+  afterAll(async () => {
+    if (!db) return
+    const eventIds = [U.imported, U.nolink, U.hostBlocks, U.hostOk].filter(Boolean)
+    await db.delete(schema.eventRsvps).where(inArray(schema.eventRsvps.eventId, eventIds))
+    await db.delete(schema.planItems).where(eq(schema.planItems.dancerId, U.dancer))
+    await db.delete(schema.events).where(inArray(schema.events.id, eventIds))
+    await db.delete(schema.profiles).where(inArray(schema.profiles.id, [U.org, U.host, U.managedHost]))
+    await db.delete(schema.dancers).where(eq(schema.dancers.id, U.dancer))
+  })
+
+  async function refused(run: Promise<unknown>, link: string | null) {
+    const err = await run.then(() => null, (e: unknown) => e) as { code?: string, message?: string, cause?: { name?: string, link?: string | null } }
+    expect(err?.code).toBe('PRECONDITION_FAILED')
+    expect(err?.cause).toMatchObject({ name: 'BookElsewhere', link })
+    if (link) expect(err?.message).toBe('Nobody on WeDance takes bookings for this event. Book on megano-tanzschule.de.')
+    else expect(err?.message).toBe('Nobody on WeDance takes bookings for this event. Ask the organiser directly.')
+  }
+
+  it('refuses a sign-up and a poll answer, and writes no row', async () => {
+    expect((await caller(null).events.get({ id: U.imported })).bookable).toBe(false)
+    await refused(caller(null).rsvp.signUp({
+      event: U.imported, answer: 'yes', guestToken: guest, name: 'Mina Guest', phone: '+49 171 0000000',
+    }), LINK)
+    await refused(caller(null).rsvp.answer({ event: U.imported, answer: 'yes', guestToken: guest }), LINK)
+    await refused(caller(U.dancer).rsvp.answer({ event: U.imported, answer: 'yes' }), LINK)
+    await refused(caller(U.dancer).rsvp.signUp({ event: U.imported, answer: 'yes', phone: '' }), LINK)
+    expect(await db.select().from(schema.eventRsvps).where(eq(schema.eventRsvps.eventId, U.imported))).toEqual([])
+  })
+
+  it('says to ask the organiser when the event has no link', async () => {
+    await refused(caller(U.dancer).rsvp.answer({ event: U.nolink, answer: 'needLeader' }), null)
+    expect(await db.select().from(schema.eventRsvps).where(eq(schema.eventRsvps.eventId, U.nolink))).toEqual([])
+  })
+
+  it('follows the host page: a team-less host is refused, a host with a team is booked', async () => {
+    await refused(caller(U.dancer).rsvp.answer({ event: U.hostBlocks, answer: 'yes' }), LINK)
+    expect(await db.select().from(schema.eventRsvps).where(eq(schema.eventRsvps.eventId, U.hostBlocks))).toEqual([])
+    expect((await caller(null).events.get({ id: U.hostOk })).bookable).toBe(true)
+    const p = await caller(U.dancer).rsvp.answer({ event: U.hostOk, answer: 'yes' })
+    expect(p.mine).toMatchObject({ answer: 'yes', confirmed: true })
   })
 })
