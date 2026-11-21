@@ -23,6 +23,7 @@ import {
 } from '../../../shared/utils/rsvp'
 import { mergeSignups } from '../../../shared/utils/rsvpPeople'
 import { CONTACT_PHONE_MAX, contactPageFor, contactState, recordSignupContact, setContactShared } from '../../utils/rsvpContact'
+import { eventBooking, unbookableError } from '../../utils/eventBookable'
 import { PHONE_MAX, chosenPass, fullNameOk, phoneOk, pricedPasses, signupNeedsPhone } from '../../../shared/utils/eventSignup'
 import { cameFromInput, cleanCameFrom } from '../../../shared/utils/cameFrom'
 import type { FestivalDetails } from '../../../shared/types/festivalDetails'
@@ -256,6 +257,8 @@ export const rsvpRouter = router({
     .input(z.object({ event: eventParam, answer: z.enum(RSVP_ANSWERS), guestToken: guestToken.optional() }))
     .mutation(async ({ ctx, input }) => {
       const ev = await findEvent(ctx.db, input.event)
+      const booking = await eventBooking(ctx.db, ev.id)
+      if (!booking.bookable) throw unbookableError(booking.link)
       const now = new Date()
       const dancerId = ctx.dancerId ?? null
 
@@ -334,6 +337,8 @@ export const rsvpRouter = router({
     }))
     .mutation(async ({ ctx, input }) => {
       const ev = await findEvent(ctx.db, input.event)
+      const booking = await eventBooking(ctx.db, ev.id)
+      if (!booking.bookable) throw unbookableError(booking.link)
       const bad = (message: string) => new TRPCError({ code: 'BAD_REQUEST', message })
       let pass: string | null = null
       let pay: 'now' | 'door' | null = null

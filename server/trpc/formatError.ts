@@ -6,7 +6,15 @@ type ErrorTags = { trpc_path: string; error_ref: string }
 type ErrorShape = {
   message: string
   code?: number
-  data: { stack?: string; ref?: string }
+  data: { stack?: string; ref?: string; link?: string | null }
+}
+
+/** A refused sign-up (BookElsewhere) carries events.link out to the caller. */
+function bookElsewhereLink(cause: unknown): string | null | undefined {
+  if (!cause || typeof cause !== 'object') return undefined
+  if ((cause as { name?: string }).name !== 'BookElsewhere' || !('link' in cause)) return undefined
+  const link = (cause as { link: unknown }).link
+  return link === null || typeof link === 'string' ? link : undefined
 }
 
 type WithRef<T extends ErrorShape> = Omit<T, 'message' | 'data'> & {
@@ -42,7 +50,11 @@ export function formatTrpcError<T extends ErrorShape>(opts: {
   report?: (err: unknown, tags: ErrorTags) => void
 }): T | WithRef<T> {
   const { shape, error, path } = opts
-  if (error.code !== 'INTERNAL_SERVER_ERROR') return shape
+  if (error.code !== 'INTERNAL_SERVER_ERROR') {
+    const link = bookElsewhereLink(error.cause)
+    if (link === undefined) return shape
+    return { ...shape, data: { ...shape.data, link } }
+  }
   const ref = randomUUID().slice(0, 8)
   const tags: ErrorTags = { trpc_path: path ?? 'unknown', error_ref: ref }
   const report = opts.report ?? ((err, reported) => {

@@ -17,7 +17,9 @@ Friends tap "I'm in" per party (`weekend_share_joins`): signed in → it goes on
 name + the RSVP guest token, mirrored as an unconfirmed "yes" on the event's poll. After a guest's tap the page offers an
 optional email: a magic link back to `/w/<code>?confirm=<event>&guest=<token>`, which (signed in) folds that
 browser's guest joins into the account — on their plan, confirmed "yes" on the poll, no second email to the
-sharer. Signed-in joins also add a confirmed "yes" on the poll. The sharer gets `sendWeekendJoinEmail` per new join. Entry points: My plan → "Your week" shows the story in place (nights only — classes stay off it) (`app/components/WeekendStory.vue`, shared with `/w/<code>`; the link is made when the list loads and again when its parties change — RAZ-895), MCP `share_my_weekend`
+sharer. Signed-in joins also add a confirmed "yes" on the poll. When nobody manages the event (RAZ-1016, the page
+bookings go to has no team), "I'm in" still puts the night on the friend's plan and on the weekend page, and writes
+nothing on the event's sign-up list. The sharer gets `sendWeekendJoinEmail` per new join. Entry points: My plan → "Your week" shows the story in place (nights only — classes stay off it) (`app/components/WeekendStory.vue`, shared with `/w/<code>`; the link is made when the list loads and again when its parties change — RAZ-895), MCP `share_my_weekend`
 (returns `storyUrl` = the link + `?story=1`, which shows the story maker to whoever opens it).
 Code: `server/trpc/routers/weekend.ts`, `shared/utils/weekendShare.ts`, `app/pages/w/[code].vue`.
 **One event (RAZ-1001):** an event page's "Bring friends" (`SharePlanModal`) shows the same `WeekendStory` card for

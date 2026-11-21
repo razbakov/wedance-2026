@@ -2,7 +2,8 @@
  * Share my weekend (#527). A dancer shares the parties they're going to this
  * week as /w/<code> plus an Instagram story made in the browser. Friends open
  * the link and tap "I'm in" on a party — signed in (it goes on their plan) or
- * as a guest with a first name (an unconfirmed "yes" on the event's poll) —
+ * as a guest with a first name (an unconfirmed "yes" on the event's poll,
+ * unless nobody on WeDance manages that event) —
  * and the sharer gets an email for each new friend. The share is a snapshot
  * of event ids, so a posted story never changes under the people reading it.
  */
@@ -15,6 +16,7 @@ import { weekSocials } from '../../utils/myPlanFeeds'
 import { sendWeekendJoinEmail } from '../../utils/email'
 import { trackServer } from '../../utils/posthog'
 import { eventPath } from '../../../shared/utils/eventSlug'
+import { eventBooking } from '../../utils/eventBookable'
 import { formatEventWhen } from '../../../shared/utils/eventTime'
 import {
   WEEKEND_CODE_RE, WEEKEND_MAX_EVENTS, WEEKEND_REUSE_DAYS,
@@ -142,13 +144,16 @@ async function liveUpcoming(db: Db, ids: string[]): Promise<string[]> {
 
 /**
  * Put a party on a signed-in friend's plan, as Going! does, and count them as a
- * confirmed "yes" on the event's poll (an answer they already gave there stays). Best-effort.
+ * confirmed "yes" on the event's poll (an answer they already gave there stays).
+ * An event nobody manages stays on the plan only: no sign-up row (RAZ-1016). Best-effort.
  */
 async function addToPlan(db: Db, dancerId: string, eventId: string) {
   try {
     await db.insert(planItems).values({ dancerId, itemType: 'event', itemId: eventId }).onConflictDoNothing()
     await db.insert(attendances).values({ eventId, dancerId, status: 'going', source: 'click', visibility: 'hidden' }).onConflictDoNothing()
-    await db.insert(eventRsvps).values({ eventId, dancerId, answer: 'yes', confirmedAt: new Date() }).onConflictDoNothing()
+    if ((await eventBooking(db, eventId)).bookable) {
+      await db.insert(eventRsvps).values({ eventId, dancerId, answer: 'yes', confirmedAt: new Date() }).onConflictDoNothing()
+    }
   } catch (e) {
     console.warn('[weekend] plan add failed', (e as Error)?.message ?? e)
   }
@@ -232,9 +237,11 @@ export const weekendRouter = router({
     }),
 
   /**
-   * "I'm in" on one party. Signed in: it goes on the friend's plan. Signed
-   * out: a first name + this browser's token, and an unconfirmed "yes" on the
-   * event's poll (it counts for the organiser like any signed-out answer).
+ * "I'm in" on one party. Signed in: it goes on the friend's plan. Signed
+ * out: a first name + this browser's token, and an unconfirmed "yes" on the
+ * event's poll (it counts for the organiser like any signed-out answer).
+ * When nobody on WeDance manages the event, the plan (and the join) still
+ * happen and the poll is left alone.
    * Signed in WITH a guest token (the magic link from the reminder sheet came
    * back): this browser's guest joins on the share are folded into the account
    * first. The sharer gets an email the first time each friend joins a party —
@@ -278,9 +285,13 @@ export const weekendRouter = router({
           .values({ shareId: share.id, eventId: input.eventId, guestToken: input.guestToken, name })
           .onConflictDoNothing().returning({ id: weekendShareJoins.id })
         try {
-          await ctx.db.insert(eventRsvps)
-            .values({ eventId: input.eventId, guestToken: input.guestToken, answer: 'yes' })
-            .onConflictDoNothing()
+          // A guest "I'm in" is an unconfirmed yes — except when nobody on WeDance
+          // would see it (RAZ-1016). The join itself still stands.
+          if ((await eventBooking(ctx.db, input.eventId)).bookable) {
+            await ctx.db.insert(eventRsvps)
+              .values({ eventId: input.eventId, guestToken: input.guestToken, answer: 'yes' })
+              .onConflictDoNothing()
+          }
         } catch (e) {
           console.warn('[weekend] rsvp mirror failed', (e as Error)?.message ?? e)
         }
