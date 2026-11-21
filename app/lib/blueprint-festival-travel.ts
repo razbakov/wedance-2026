@@ -5,15 +5,15 @@
  * the ticket provider (Stripe, TicketTailor, or the organiser's own shop).
  * Hand-maintained from the code (procedures named in `code`): /festivals
  * (listFestivals), the festival page (FestivalView: + My plan, workshops,
- * passes, rides, roommates, dinners, hangouts, sharing), My plan's Year
- * tab, festivalSignup.*, the Stripe and TicketTailor webhooks,
- * /charanga/claim, and the MCP tools. Re-read against the code on 2026-11-20
- * (RAZ-1072). Not run end to end with a test dancer and a real checkout yet.
+ * passes, rides, roommates, dinners, hangouts), My plan's week and year
+ * stories, festivalSignup.*, the Stripe and TicketTailor webhooks,
+ * /charanga/claim, and the MCP tools. Re-read against the code on 2026-11-21
+ * (RAZ-1010). Not run end to end with a test dancer and a real checkout yet.
  * Shown at /docs/blueprints/festival-travel.
  */
 import type { Blueprint, BpGap, BpLaneDef, BpPhaseDef, BpStep } from './blueprint'
 
-export const TRAVEL_BLUEPRINT_UPDATED = '2026-11-20'
+export const TRAVEL_BLUEPRINT_UPDATED = '2026-11-21'
 
 export type TravelLane = 'me' | 'system' | 'organiser' | 'friends' | 'provider'
 export type TravelPhase = 'find' | 'year' | 'workshops' | 'tickets' | 'travel' | 'share' | 'festival' | 'after'
@@ -101,8 +101,8 @@ export const travelSteps: BpStep<TravelLane, TravelPhase>[] = [
     note: 'Off the platform; only the checklist tick on My plan (this browser) remembers it.' },
 
   // Share with friends
-  { id: 'share-plan', phase: 'share', lane: 'me', name: 'Share my festival plan', status: 'live', marks: ['manual'], route: '/events/[id]', code: 'SharePlanModal · useSharePlan (plan in the link)',
-    note: '“Bring friends”: one link — your workshops encoded in it (?invite=) when you picked some, else the event itself; ?ref= only when the festival has a referral discount. Send to friends opens the share sheet.' },
+  { id: 'share-plan', phase: 'share', lane: 'me', name: 'Share my festival plan', status: 'live', marks: ['manual'], route: '/my-plan', code: 'TellYourStory · storyAfterBooking · WeekendStory · YearStory', refs: ['RAZ-1010'],
+    note: 'After you book, “Tell your story” on the event page opens My plan: the week story when the night is this week, the year story when the festival is later. Nothing asks before you book, and a class has no button. Going together is rides, rooms and dinners. An old ?invite= link still opens (useSharePlan).' },
   { id: 'open-shared', phase: 'share', lane: 'friends', name: 'Open a shared plan', status: 'live', marks: [], route: '/events/[id]?invite=…', code: 'SharedPlanView · follow.toggleDancer',
     note: 'Sees your picks and pass, can add the sharer as a friend and sign up.' },
   { id: 'year-story', phase: 'share', lane: 'me', name: 'Share the festival year', status: 'live', marks: ['manual'], route: '/my-plan', code: 'YearStory · shared/utils/yearStory.ts', refs: ['RAZ-897'],
@@ -110,7 +110,7 @@ export const travelSteps: BpStep<TravelLane, TravelPhase>[] = [
   { id: 'shared-year', phase: 'share', lane: 'friends', name: 'See a friend’s year', status: 'live', marks: [], route: '/my-year?user=…', code: 'plan.sharedPlan · SharedYearPlan · MCP view_shared_plan',
     note: 'Their festivals, whether they have a ticket and, where the festival set one, the referral discount; open a festival to add it to your own year, or start your own.' },
   { id: 'referral', phase: 'share', lane: 'system', name: 'Referral discount', status: 'partial', marks: ['silent'], code: 'getReferralDiscountPercent (ticket-prices.ts) · referral.myReferrals',
-    note: 'The festival page’s share modal says you both get a discount, but the percent is a code registry with four festivals; elsewhere it is 0. The sharer isn’t told when a friend buys — only my_referrals shows it, when asked.' },
+    note: 'The percent is a code registry with four festivals; elsewhere it is 0. The event page no longer offers a share link carrying ?ref= (the popup went away). The sharer isn’t told when a friend buys — only my_referrals shows it, when asked.' },
   { id: 'friend-going', phase: 'share', lane: 'friends', name: 'Told a friend is going', status: 'missing', marks: ['silent'],
     note: 'When a friend adds the same festival or buys a pass, nothing reaches you; their plan reaches you only through a link they send.' },
 

@@ -2,10 +2,9 @@
 import { entryNoun, entryWords } from '#shared/utils/entryWord'
 import { CLASS_EVENT_TYPES, passCoverage, passesFor } from '#shared/utils/eventSignup'
 import { heroGoingCount } from '#shared/utils/rsvp'
-import { eventNoun } from '~/lib/shareInvite'
 import { sizedImage, IMG } from '#shared/utils/image'
 import type { Festival, Teacher, Workshop, PlanEntry, DanceRole, DancePartner, ExtraActivity, FreemiumState } from '~/types/festival'
-import { ArrowRight, Sparkles, Check, Plus, Pencil, Ticket, Share2, Users } from 'lucide-vue-next'
+import { ArrowRight, Sparkles, Check, Plus, Pencil, Ticket, Users } from 'lucide-vue-next'
 import { isWorkshop, isEveningItem, stylesOf } from '#shared/utils/programme'
 import { heroTagline } from '#shared/utils/heroTagline'
 import { includesLine, isNight } from '#shared/utils/yourNight'
@@ -791,11 +790,11 @@ function tryUnlockSocialActivity(action: () => void) {
 
 // Sign-up gate
 const showSignUp = ref(false)
-const signUpAction = ref('share')
+const signUpAction = ref('signin')
 const signUpPrefill = ref<{ name?: string; danceStyles?: string[]; role?: 'lead' | 'follow' | 'both'; city?: string }>({})
 
 function onSignIn(action?: string) {
-  signUpAction.value = action || 'share'
+  signUpAction.value = action || 'signin'
   showSignUp.value = true
 }
 
@@ -817,19 +816,6 @@ function onPick() {
   liveAttendeeCount.value = Math.max(0, liveAttendeeCount.value + (wasGoing ? -1 : 1))
   if (planAsEvent) toggleEvent(data.eventId, { event_type: props.type ?? null, surface: 'festival' })
   else toggleFestival(festival.slug, { surface: 'festival' })
-}
-
-// Share modal
-const showSharePlan = ref(false)
-
-// A workshop plan needs an account; the event's own link doesn't (RAZ-1001).
-function onShare() {
-  if (!isSignedIn.value && workshops.length > 1) {
-    signUpAction.value = 'share'
-    showSignUp.value = true
-  } else {
-    showSharePlan.value = true
-  }
 }
 
 // Cart state — badge count only. The desktop sidebar + mobile drawer
@@ -1442,6 +1428,16 @@ useHead({
              once it's on your plan or you have a pass (RAZ-1008, RAZ-981). Festival-goers
              show only after "Show me" (plan_items.share_going, opt-in — ADR-008). -->
         <template v-if="!rsvp && (inPlan || hasTicket) && shareGoing !== null" #after-cta>
+          <!-- A pass, with no poll to book through: the same "Tell your story" as a booked spot (RAZ-1010). -->
+          <TellYourStory
+            v-if="hasTicket"
+            class="mt-3 max-w-xl"
+            :type="type"
+            :is-festival="!planAsEvent"
+            :start-date="festival.startDate"
+            :timezone="festival.timezone"
+            surface="pass"
+          />
           <div class="mt-3 max-w-xl" data-festival-meet>
             <template v-if="shareGoing">
               <EventMeetPrompt :event-id="data.eventId" surface="festival" />
@@ -1785,21 +1781,8 @@ useHead({
         <!-- The venue, its address and its practical info live in the hero (RAZ-1008). -->
 
         <section v-if="currentTab === 'overview'" id="activities" class="scroll-mt-16">
-          <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 mb-1">
-            <h2 class="text-2xl font-black leading-tight text-foreground">Going together</h2>
-            <!-- The old empty "Friends' Plans" box, as one button (RAZ-996). -->
-            <Button
-              v-if="workshops.length > 0"
-              type="button"
-              variant="link"
-              size="sm"
-              class="h-auto p-0 gap-1 text-xs font-bold font-sans"
-              @click="onShare"
-            >
-              <Share2 class="w-3.5 h-3.5" aria-hidden="true" />
-              {{ workshops.length > 1 ? 'Coming with friends? Share your plan' : `Bring friends to this ${eventNoun(props.type)}` }}
-            </Button>
-          </div>
+          <!-- Rides, rooms and dinners. Telling people you're going is "Tell your story" on the booked card (RAZ-1010). -->
+          <h2 class="mb-1 text-2xl font-black leading-tight text-foreground">Going together</h2>
           <ActivitiesTab
             :ride-shares="rideShares"
             :group-dinners="groupDinners"
@@ -2149,19 +2132,6 @@ useHead({
         </div>
       </Transition>
     </Teleport>
-
-    <SharePlanModal
-      v-model:open="showSharePlan"
-      :workshops="workshops"
-      :teachers="teachers"
-      :plan="plan"
-      :plan-ids="planIds"
-      :festival-name="festival.name"
-      :festival-slug="festival.slug"
-      :event-type="props.type"
-      :event-id="data.eventId"
-    />
-
 
     <SiteFooter />
   </div>

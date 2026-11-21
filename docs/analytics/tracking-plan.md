@@ -105,7 +105,7 @@ Data-hygiene problems (fix before trusting any number):
 | Checkout started | `server_ticket_checkout_started` S | ✅ | `festival`, `tickets`, `referral` | — |
 | **Ticket paid** | `server_ticket_purchased` S | ✅ (#404) Stripe `checkout.session.completed` + TicketTailor first of `order.created`/`order.completed` per order; buyer's dancer id, dedupe uuid per session/order | `festival`, `amount`, `currency`, `tickets`, `provider`, `product`, `referral`, `referral_code`, `discount`, `$revenue` | — |
 | Checkout abandoned | `server_ticket_checkout_expired` S | ✅ (#404) | `festival`, `tickets`, `product`, `referral` | — |
-| Share plan link | `plan_shared` C | ✅ (#407) festival + year share modals; `SharePlanModal` no longer fires `shared_plan_signup` on share | `object` (festival/event/year), `method` (copy/native), `referral` | — |
+| Share plan link | `plan_shared` C | retired in RAZ-1010 (the event-page popup is gone; the tap is `story_prompt_opened`, the picture is `weekend_story_shared` / `year_story_shared`) | `object` (festival/event/year), `method` (copy/native), `referral` | — |
 | Shared plan viewed | `shared_plan_viewed` C | ✅ (#407) | `object`, `signed_in`, `has_referral` | — |
 | Dinner / ride / roommate | `dinner_joined`, `ride_share_posted`, `roommate_search_toggled` C | ✅ | — | — |
 | Check-in at festival | `server_checked_in` S | ✅ (#407) `attendance.checkIn` | `event_id`, `is_festival` | — |

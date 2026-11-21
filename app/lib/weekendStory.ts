@@ -49,7 +49,7 @@ export async function drawWeekendStory(input: StoryInput): Promise<Blob> {
   const { canvas, ctx } = await storyCanvas((bgFamily && POSTER_BG[bgFamily]) || DEFAULT_BG)
 
   // --- Header: who + the WeDance mark -----------------------------------------
-  // One event (an event page's "Bring friends", RAZ-1001) may be a Tuesday class: not "weekend".
+  // One party is "<NAME> IS GOING", not "WEEKEND" (a single night, or the old one-event link).
   const name = input.sharerName.toUpperCase()
   let y = masthead(ctx, input.parties.length === 1 ? `${name} IS GOING` : `${name}’S WEEKEND`)
 

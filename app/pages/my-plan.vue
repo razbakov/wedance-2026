@@ -887,13 +887,21 @@ watch(
 )
 onBeforeUnmount(() => clearTimeout(weekendTimer))
 
-// /my-plan#socials (an event page's "Bring friends", RAZ-974): the week loads
-// after the page, so scroll there once it's in.
-watch(weekSocialsLoaded, async (loaded) => {
-  if (!loaded || !import.meta.client || route.hash !== '#socials') return
-  await nextTick()
-  document.getElementById('socials')?.scrollIntoView({ behavior: 'smooth' })
-}, { immediate: true })
+// Old "Bring friends" landed on #socials (RAZ-974). "Tell your story" (RAZ-1010)
+// lands on the story itself: #share-week / #share-year. Scroll once the list is in.
+const PLAN_ANCHOR: Record<string, string> = {
+  '#socials': 'socials',
+  '#share-week': 'share-week',
+  '#share-year': 'share-year',
+}
+function scrollPlanAnchor() {
+  if (!import.meta.client) return
+  const id = PLAN_ANCHOR[route.hash]
+  if (!id) return
+  nextTick(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }))
+}
+watch(weekSocialsLoaded, (loaded) => { if (loaded) scrollPlanAnchor() }, { immediate: true })
+watch(yearStoryFestivals, () => { if (route.hash === '#share-year') scrollPlanAnchor() })
 
 const { removeEvent: removeWeekEvent, addEvent: addWeekEvent } = useWeekPlan()
 
@@ -1118,6 +1126,7 @@ const nightsAndClasses = (list: Social[]) => {
 // classes, each with the hangouts posted for it, then the other hangouts tonight; Week = the next
 // seven days; Month = the next 30 days plus Your courses; Year = Your festivals and Your goals.
 // Old anchors (#tonight, #socials, #courses, #festivals, #goals) open their tab.
+// #share-week and #share-year are "Tell your story" (RAZ-1010) and also scroll to the story.
 // -----------------------------------------------------------------------
 type Zoom = 'today' | 'week' | 'month' | 'year'
 const ZOOM_TABS: { id: Zoom; label: string }[] = [
@@ -1125,9 +1134,9 @@ const ZOOM_TABS: { id: Zoom; label: string }[] = [
 ]
 const ZOOM_HASH: Record<string, Zoom> = {
   '#today': 'today', '#tonight': 'today',
-  '#week': 'week', '#socials': 'week',
+  '#week': 'week', '#socials': 'week', '#share-week': 'week',
   '#month': 'month', '#courses': 'month',
-  '#year': 'year', '#festivals': 'year', '#goals': 'year',
+  '#year': 'year', '#festivals': 'year', '#goals': 'year', '#share-year': 'year',
 }
 const zoom = ref<Zoom>(ZOOM_HASH[route.hash] ?? 'today')
 watch(() => route.hash, (h) => { if (ZOOM_HASH[h]) zoom.value = ZOOM_HASH[h] })
@@ -1621,7 +1630,8 @@ function cardSummary(f: CatalogueEntry) {
           />
         </div>
 
-        <!-- The weekend story, ready to post (RAZ-895). -->
+        <!-- The weekend story, ready to post (RAZ-895). #share-week is "Tell your story" (RAZ-1010). -->
+        <span id="share-week" class="block scroll-mt-20" aria-hidden="true" />
         <WeekendStory
           v-if="weekendPlan && upcomingNights.length"
           :plan="weekendPlan"
@@ -2111,7 +2121,8 @@ function cardSummary(f: CatalogueEntry) {
           </div>
         </div>
 
-        <!-- The festival-year story, ready to post (RAZ-897 → here in RAZ-966). -->
+        <!-- The festival-year story, ready to post (RAZ-897 → here in RAZ-966). #share-year is "Tell your story" (RAZ-1010). -->
+        <span id="share-year" class="block scroll-mt-20" aria-hidden="true" />
         <YearStory
           v-if="yearStoryFestivals.length && yearShareLink"
           :festivals="yearStoryFestivals"

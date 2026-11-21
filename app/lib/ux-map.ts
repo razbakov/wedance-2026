@@ -75,7 +75,7 @@ const IT: [UxJourneyId, UxStageKey, string, string, UxStatus, string, string][] 
 ['C1','attend','"Your first class" guide','/cities/[city]?taster=1','partial','The taster list says no partner or experience is needed and to ask at the door. Nothing on what to wear or what happens in a class. An event\'s Overview can show "Good to know" when the organiser wrote it (#631).','#631'],
 ['C1','return','Goals','/my-plan','partial','The goals block exists, but it is a static compass and nothing nudges you toward it.','P227'],
 ['C1','return','Follow-up after first class','','partial','The morning after a class or party, everyone who signed up gets "How was it?" (#632). It asks for a review; it does not point a first-timer at next week\'s social at the same school.','#632'],
-['C1','spread','Bring a friend to a taster','event page','partial','The class page has Bring friends: one link, the story card (#638 #642). The taster list itself has no invite.','#638 #642'],
+['C1','spread','Bring a friend to a taster','event page','partial','A class has no invite: the story is nights. After booking a night, Tell your story opens My plan (#638). The taster list itself has no invite.','#638'],
 // C2 Student
 ['C2','discover','Artist directory + search','/artists','live','Search by name and style, filter by city.','P219 P221 P222'],
 ['C2','discover','City artists tab','/cities/[city]/artists','live','','RAZ-169'],
@@ -113,7 +113,7 @@ const IT: [UxJourneyId, UxStageKey, string, string, UxStatus, string, string][] 
 ['C4','attend','Partner matching','/my-plan','partial','Mutual yeses from the Meet deck and from festival waves show on My plan as Your dance friends, with a night you could both attend (#634). The other dancer gets one email (#636). There is no message thread, and the festival page does not present it as partner matching.','P229 P236 RAZ-124 #634 #636'],
 ['C4','return','Your year in dance','/my-year','live','A story of your past year (nights you were going to, style, busiest month, home floor, festivals, cities, friends) to post at New Year, ending on planning next year. Found in My plan; up front in December and January.','P233 P234 P235 P314 P315 P317 RAZ-966'],
 ['C4','return','Early-bird alerts','/my-plan','partial','A deadline shows only where a festival has one (none of the synced ones); nothing is ever sent.','P316 RAZ-899'],
-['C4','spread','Share plan / year','SharePlanModal','live','Shared plan view → sign-up.','P318'],
+['C4','spread','Share plan / year','/my-plan','live','After booking, Tell your story opens the week story or, for a later festival, the year story. Old shared-plan links still open.','P318 RAZ-1010'],
 ['C4','spread','Friend\'s link discount','','partial','Tracked promoter links exist; the friend-to-friend discount does not.','P319'],
 // C5 Artist
 ['C5','discover','Page made for them (v3 sync / Instagram)','/@handle','live','Most artists first meet WeDance as an unclaimed page someone else made.',''],
@@ -163,7 +163,7 @@ const IT: [UxJourneyId, UxStageKey, string, string, UxStatus, string, string][] 
 ['C8','attend','Settings, connected apps','/settings','live','',''],
 ['C8','return','Notifications of any kind','','partial','No in-app inbox or push. Email does go to dancers: review the morning after (#632), a mutual dance friend (#636), cancellation and "it\'s on again" (#569 #575 #578).','RAZ-14 RAZ-17 #632 #636 #569 #575 #578'],
 ['C8','return','What\'s new','/whats-new','live','',''],
-['C8','spread','Invite friends','','partial','Shared plans, the weekend and year stories, and Bring friends on an event (#638). No invite that is not tied to a plan or an event.','RAZ-15 #638'],]
+['C8','spread','Invite friends','','partial','Shared plans, the weekend and year stories. After booking a night, Tell your story on the event page (#638). No invite that is not tied to a plan or an event.','RAZ-15 #638'],]
 export const uxItems: UxItem[] = IT.map(([journey, stage, name, route, status, note, refs]) =>
   ({ journey, stage, name, route, status, note, refs: refs ? refs.split(' ') : [] }))
 

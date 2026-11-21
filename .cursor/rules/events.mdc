@@ -84,6 +84,10 @@ in Business → Events.
 link. It returns to the in-app page the dancer opened the event from — My plan, the city, a profile — and ignores
 `?tab=` (a tab change stays on this page). Opened directly, it goes to the event's city (`/cities/<slug>`), or
 `/cities` when the event has none.
+**Tell your story (RAZ-1010):** the booked card (and a pass, when the page has no poll) shows one button,
+"Tell your story", to My plan's week story or, for a later festival, the year story. Not before booking, not for a
+class, and not the old "Coming with friends?" link in Going together — that section is lifts, rooms and dinners.
+The share popup is gone. See `.claude/rules/my-plan.md`.
 
 ## The flyer's draft (RAZ-1033)
 
