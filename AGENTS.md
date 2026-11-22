@@ -43,7 +43,7 @@ and others read it directly). Agent context lives in the repo so cloud agents ge
   `ignoreCommand` → `scripts/vercel-ignore-build.sh`; `[preview]` in a commit message still forces a Vercel preview,
   which shares the production database). Every PR gets `https://pr-<n>.dev.wedance.vip`: `.github/workflows/preview.yml`
   builds `Dockerfile` on GitHub and runs it via Dokploy (`ops/hetzner/wedance-preview`) with **its own database**
-  `pr_<n>`, cloned from a nightly copy of production (sessions/tokens left out, every dancer's email, phone and
+  `pr_<n>`, cloned from a weekly copy of production (sessions/tokens left out, every dancer's email, phone and
   password scrubbed — sign up fresh; no emails sent). The branch's migrations run on that copy only. Closing the PR
   removes it. Not a merge gate. Box (Brievcase runs there too), TLS, commands: `ops/hetzner/README.md`.
 - **Pre-PR checklist (RAZ-1073):** before a pull request is ready for review, load
