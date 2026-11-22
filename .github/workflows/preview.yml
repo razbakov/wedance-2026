@@ -75,7 +75,7 @@ jobs:
           body="<!-- wedance-preview -->
           **Preview:** $URL
 
-          Commit \`${SHA:0:7}\` · its own copy of production's data (refreshed nightly; dancers' emails, phones and passwords scrubbed, so sign up with a new account) · emails are not sent."
+          Commit \`${SHA:0:7}\` · its own copy of production's data (refreshed weekly; dancers' emails, phones and passwords scrubbed, so sign up with a new account) · emails are not sent."
           id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate --jq '.[] | select(.body | startswith("<!-- wedance-preview -->")) | .id' | head -1)
           if [ -n "$id" ]; then
             gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -f body="$body" >/dev/null
