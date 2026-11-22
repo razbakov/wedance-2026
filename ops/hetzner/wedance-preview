@@ -4,12 +4,12 @@
   wedance-preview up <pr> <image>   create/update the preview of PR <pr> → https://pr-<pr>.dev.wedance.vip
   wedance-preview down <pr>         remove the preview and its database
   wedance-preview list              previews that exist now
-  wedance-preview seed              refresh the database copy previews start from (nightly cron)
+  wedance-preview seed              refresh the database copy previews start from (weekly cron)
   wedance-preview deploy-compose <composeId> [KEY=VALUE ...]
                                     set env vars on any Dokploy compose and redeploy it (Brievcase uses this)
 
 Each preview = one Dokploy compose `pr-<n>` (app + Neon-HTTP stand-in) in project `wedance-previews`,
-and its own database `pr_<n>` on the shared `wedance-preview-db`, cloned from `wedance_seed` — a nightly
+and its own database `pr_<n>` on the shared `wedance-preview-db`, cloned from `wedance_seed` — a weekly
 copy of production with sessions/tokens left out and every dancer's email, phone and password scrubbed.
 Nothing here ever writes to production. Config: /etc/wedance-preview/config.json (root:deploy, 0640).
 """
