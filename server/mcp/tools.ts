@@ -20,6 +20,7 @@ import { applySitePatch, sectionKinds, siteChanges, sitePatchInput, SitePatchErr
 import { TRPCError } from '@trpc/server'
 import type { DoorGuest } from '../../shared/utils/doorList'
 import { redactBugReport } from './bugReport'
+import { fitChatgptTools } from './budget'
 import { venueInfoInput, type VenueInfoInput } from '../utils/venueInfo'
 import type { ProfileSite } from '../../shared/types/profileSite'
 
@@ -1474,20 +1475,29 @@ export const TOOLS: ToolDef[] = [
 export const TOOL_BY_NAME = new Map(TOOLS.map(t => [t.name, t]))
 
 /** Who's calling, as far as tool listing cares. */
-export interface ListingCtx { scopes: readonly string[]; grantedProfileIds: readonly string[]; isAdmin: boolean; /** Omitted: signed in when they hold a scope or are an admin. */ signedIn?: boolean }
+export interface ListingCtx {
+  scopes: readonly string[]
+  grantedProfileIds: readonly string[]
+  isAdmin: boolean
+  /** Omitted: signed in when they hold a scope or are an admin. */
+  signedIn?: boolean
+  /** Connected app (`chatgpt`, `claude`, …). ChatGPT gets a shorter list (budget.ts). */
+  app?: string | null
+}
 
 /** The same listing buildMcpServer and tools/list use. */
-export function listingFrom(ctx: { scopes?: readonly string[] | null; grantedProfileIds?: readonly string[] | null; isAdmin?: boolean; oauthGrantId?: string | null }): ListingCtx {
-  return { scopes: ctx.scopes ?? [], grantedProfileIds: ctx.grantedProfileIds ?? [], isAdmin: !!ctx.isAdmin, signedIn: !!ctx.oauthGrantId }
+export function listingFrom(ctx: { scopes?: readonly string[] | null; grantedProfileIds?: readonly string[] | null; isAdmin?: boolean; oauthGrantId?: string | null }, app?: string | null): ListingCtx {
+  return { scopes: ctx.scopes ?? [], grantedProfileIds: ctx.grantedProfileIds ?? [], isAdmin: !!ctx.isAdmin, signedIn: !!ctx.oauthGrantId, app: app ?? null }
 }
 
 /** The tools this caller may see: every scope held; business tools need a granted profile (or admin). */
 export function visibleTools(c: ListingCtx): ToolDef[] {
   const signedIn = c.signedIn ?? (c.scopes.length > 0 || c.isAdmin)
-  return TOOLS.filter((tool) => {
+  const allowed = TOOLS.filter((tool) => {
     if (tool.anyAuth && !signedIn) return false
     if (!tool.scopes.every(s => s === 'admin' ? c.isAdmin : hasScope(c.scopes, s))) return false
     if (tool.business && !c.isAdmin && !c.grantedProfileIds.length) return false
     return true
   })
+  return c.app === 'chatgpt' ? fitChatgptTools(allowed) : allowed
 }
