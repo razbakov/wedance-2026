@@ -55,7 +55,9 @@ export function updateNotice(listed: ListedTools | null | undefined, current: re
   const removedTools = known ? [...had].filter(n => !now.includes(n)).sort() : []
   const what = newTools.length
     ? `New WeDance tools you can't see yet: ${newTools.join(', ')}.`
-    : known ? 'WeDance tools changed (descriptions or options).' : 'WeDance has new tools since this app loaded its list (e.g. editing the page’s own website: get_my_site / update_my_site).'
+    : removedTools.length && app === 'chatgpt'
+      ? 'ChatGPT only loads a shorter WeDance tool list. After a refresh it includes creating, editing and publishing your events.'
+      : known ? 'WeDance tools changed (descriptions or options).' : 'WeDance has new tools since this app loaded its list (e.g. editing the page’s own website: get_my_site / update_my_site).'
   const text = `WeDance update available: this app is using an older WeDance tool list (version ${listed.version}, now ${version}). ${what} `
     + `If the user's request needs something you can't do with your current tools, don't say it's impossible: tell the user WeDance has been updated and how to load the update. ${refreshSteps(app)}`
   return { version, listedVersion: listed.version, newTools, removedTools, text }

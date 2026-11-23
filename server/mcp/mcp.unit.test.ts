@@ -3,6 +3,8 @@ import { TRPCError } from '@trpc/server'
 import { quoteUntrusted, dataText } from './format'
 import { checkConfirmToken, mintConfirmToken } from './confirm'
 import { z } from 'zod'
+import { toJsonSchemaCompat } from '@modelcontextprotocol/sdk/server/zod-json-schema-compat.js'
+import { CHATGPT_SCHEMA_CHAR_BUDGET } from './budget'
 import { TOOLS, visibleTools, festivalProgram } from './tools'
 import { legacyAgendaOf } from '../../shared/utils/programme'
 import { appRouter } from '../trpc'
@@ -58,6 +60,49 @@ describe('dynamic tool list', () => {
       if (t.confirm) expect('confirm_token' in t.input, t.name).toBe(true)
     }
     expect(new Set(TOOLS.map(t => t.name)).size).toBe(TOOLS.length)
+  })
+})
+
+/** The JSON ChatGPT stores for one tool: name, title, description, input schema. */
+function chatgptDefinitionChars(tools: ReturnType<typeof visibleTools>): number {
+  return tools.reduce((n, t) => n + JSON.stringify({
+    name: t.name,
+    title: t.title,
+    description: t.description,
+    inputSchema: toJsonSchemaCompat(z.object(t.input), { strictUnions: true, pipeStrategy: 'input' }),
+    annotations: { title: t.title, ...t.annotations },
+    execution: { taskSupport: 'forbidden' },
+  }).length, 0)
+}
+
+describe('ChatGPT tool list (RAZ-1081)', () => {
+  const organizer = {
+    scopes: ['me:read', 'plan:write', 'social:write', 'business:read', 'business:write', 'business:publish'] as const,
+    grantedProfileIds: ['p1'],
+    isAdmin: false,
+  }
+  it('gives an organiser create, update and publish inside the schema budget', () => {
+    const full = visibleTools(organizer)
+    const chat = visibleTools({ ...organizer, app: 'chatgpt' })
+    expect(chatgptDefinitionChars(full)).toBeGreaterThan(CHATGPT_SCHEMA_CHAR_BUDGET)
+    expect(chatgptDefinitionChars(chat)).toBeLessThanOrEqual(CHATGPT_SCHEMA_CHAR_BUDGET)
+    // cl100k is about 3.7 characters per token here; 3.6 stays under ChatGPT's 16,000.
+    expect(chatgptDefinitionChars(chat) / 3.6).toBeLessThan(16_000)
+    expect(chat.map(t => t.name)).toEqual(expect.arrayContaining([
+      'create_event', 'update_event', 'publish_event',
+      'import_from_instagram', 'make_flyer', 'invite_artist',
+      'find_events', 'add_to_plan',
+    ]))
+    expect(full.map(t => t.name)).toEqual(expect.arrayContaining(chat.map(t => t.name)))
+  })
+  it('Claude still gets every tool', () => {
+    expect(names({ ...organizer, app: 'claude' })).toEqual(names(organizer))
+  })
+  it('a dancer on ChatGPT does not get event management', () => {
+    const dancer = { scopes: ['me:read', 'plan:write', 'social:write'] as const, grantedProfileIds: [], isAdmin: false, app: 'chatgpt' as const }
+    expect(names(dancer)).not.toContain('create_event')
+    expect(names(dancer)).toContain('my_plan')
+    expect(names(dancer)).toContain('find_events')
   })
 })
 
