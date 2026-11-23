@@ -65,7 +65,7 @@
     "@playwright/test": "^1.61.1",
     "@types/pg": "^8.23.1",
     "@types/qrcode": "^1.5.5",
-    "@vitest/coverage-v8": "^4.1.0",
+    "@vitest/coverage-v8": "^5.1.1",
     "drizzle-kit": "^0.31.10",
     "pg": "^8.23.1",
     "playwright-bdd": "^9.2.1",
