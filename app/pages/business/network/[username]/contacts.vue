@@ -92,7 +92,7 @@ const actOptions = (keys: readonly ActivityFilter[]) => railOptions(keys.map(key
 const eventAct = computed(() => actOptions(EVENT_ACTIVITY))
 const otherAct = computed(() => actOptions(OTHER_ACTIVITY))
 const moreFilters = ref(OTHER_ACTIVITY.some(a => f.activity.includes(a)))
-const cantEmailWhy = computed(() => [`${segs.value.blocked.not_opted_in} never asked for your emails`, segs.value.blocked.event_only ? `${segs.value.blocked.event_only} only for their event` : '', `${segs.value.blocked.unsubscribed} unsubscribed`, segs.value.blocked.not_a_contact ? `${segs.value.blocked.not_a_contact} not contacts (no email)` : ''].filter(Boolean).join(' · '))
+const cantEmailWhy = computed(() => [`${segs.value.blocked.not_opted_in} never asked for your emails`, segs.value.blocked.event_only ? `${segs.value.blocked.event_only} only for their event` : '', `${segs.value.blocked.unsubscribed} unsubscribed`, segs.value.blocked.bounced ? `${segs.value.blocked.bounced} bounced` : '', segs.value.blocked.not_a_contact ? `${segs.value.blocked.not_a_contact} not contacts (no email)` : ''].filter(Boolean).join(' · '))
 // The CSV and "Email N" only ever get contacts.
 const shownContacts = computed(() => onlyContacts(shown.value))
 const clear = () => Object.assign(f, emptyFilter())

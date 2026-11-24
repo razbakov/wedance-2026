@@ -107,12 +107,13 @@ export function contactChannel(source: ContactSource): string {
 
 export const channelLabel = (key: string) => CHANNEL_LABEL[key] ?? key
 
-export type EmailBlock = 'unsubscribed' | 'not_opted_in' | 'event_only' | 'not_a_contact'
+export type EmailBlock = 'unsubscribed' | 'bounced' | 'not_opted_in' | 'event_only' | 'not_a_contact'
 
-/** Why the page may not email this contact, or null when it may. */
-export function emailBlock(c: { status: string, source: ContactSource, isContact?: boolean }): EmailBlock | null {
+/** Why the page may not email this contact, or null when it may. A hard bounce (`bouncedAt`, set by Resend's webhook) blocks for good. */
+export function emailBlock(c: { status: string, source: ContactSource, isContact?: boolean, bouncedAt?: string | Date | null }): EmailBlock | null {
   if (c.isContact === false) return 'not_a_contact'
   if (c.status !== 'subscribed') return 'unsubscribed'
+  if (c.bouncedAt) return 'bounced'
   if (c.source?.opted_in) return null
   if (contactSourceKey(c.source) === 'signup') return 'event_only'
   if (!SELF_OPT_IN_SOURCES.includes(contactSourceKey(c.source))) return 'not_opted_in'
@@ -121,6 +122,7 @@ export function emailBlock(c: { status: string, source: ContactSource, isContact
 
 export const EMAIL_BLOCK_LABEL: Record<EmailBlock, string> = {
   unsubscribed: 'Unsubscribed',
+  bounced: 'Email address bounced',
   not_opted_in: 'Never asked for your emails',
   event_only: 'Only for their event',
   not_a_contact: 'Not a contact · no email',
@@ -264,6 +266,8 @@ export interface SegmentContact {
   createdAt: string | Date | null
   /** false = in the audience only (follows / came to the page's events), not a contact. */
   isContact?: boolean
+  /** A page email to this address hard-bounced. */
+  bouncedAt?: string | Date | null
   hasAccount: boolean
   activity: ContactActivity
 }
@@ -312,7 +316,7 @@ export interface ContactSegments {
 
 export function contactSegments(contacts: SegmentContact[], now = new Date()): ContactSegments {
   const bySource = new Map<ContactSourceKey, number>()
-  const blocked: Record<EmailBlock, number> = { unsubscribed: 0, not_opted_in: 0, event_only: 0, not_a_contact: 0 }
+  const blocked: Record<EmailBlock, number> = { unsubscribed: 0, bounced: 0, not_opted_in: 0, event_only: 0, not_a_contact: 0 }
   const byChannel = new Map<string, number>()
   const activity = Object.fromEntries(ACTIVITY_FILTERS.map(f => [f, 0])) as Record<ActivityFilter, number>
   let canEmail = 0

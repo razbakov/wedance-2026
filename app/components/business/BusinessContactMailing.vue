@@ -8,6 +8,7 @@
 import { Mail, Send, Eye, PencilLine, FlaskConical, Check, History } from 'lucide-vue-next'
 import { ContactMailingSchema } from '#shared/validation'
 import { FIRST_NAME_TOKEN, inviteTemplate, mailingRecipients, renderMailingHtml, type MailableContact, type MailingEventCard } from '#shared/utils/contactMailing'
+import { mailingStatsLine } from '#shared/utils/mailingTracking'
 
 const props = defineProps<{
   username: string
@@ -179,6 +180,7 @@ const sentWhen = (d: Date | string) => new Date(d).toLocaleString('en-GB', { day
           <li v-for="s in opts.sends" :key="s.id" class="py-2">
             <p class="font-bold">{{ s.subject }}</p>
             <p class="text-muted-foreground">{{ sentWhen(s.createdAt) }} · {{ s.sent }} of {{ s.recipients }} sent<template v-if="s.byName"> · by {{ s.byName }}</template><template v-if="s.segment"> · {{ s.segment }}</template></p>
+            <p v-if="s.stats" class="text-muted-foreground" data-testid="mailing-stats">{{ mailingStatsLine(s.stats) }}</p>
           </li>
         </ul>
       </details>

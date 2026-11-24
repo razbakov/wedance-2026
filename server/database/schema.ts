@@ -1669,6 +1669,8 @@ export const profileContacts = pgTable('profile_contacts', {
   source: jsonb('source').$type<Record<string, string>>().notNull().default({}),
   note: text('note'),
   status: text('status').notNull().default('subscribed').$type<'subscribed' | 'unsubscribed'>(),
+  // A page email to this address hard-bounced (migration 0080): never emailed again.
+  bouncedAt: timestamp('bounced_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (t) => [
@@ -1697,6 +1699,32 @@ export const contactMailings = pgTable('contact_mailings', {
   finishedAt: timestamp('finished_at'),
 }, (t) => [
   index('contact_mailings_profile_idx').on(t.profileId, t.createdAt),
+])
+
+// What happened to each email of a send (migration 0080): one row per recipient, updated by
+// Resend's webhook (server/api/webhooks/resend.post.ts) via `resendId`. Opens are approximate —
+// Apple Mail opens every email it receives; clicks and bounces are reliable.
+export const contactMailingRecipients = pgTable('contact_mailing_recipients', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  mailingId: uuid('mailing_id').notNull().references(() => contactMailings.id, { onDelete: 'cascade' }),
+  contactId: uuid('contact_id').references(() => profileContacts.id, { onDelete: 'set null' }),
+  email: text('email').notNull(),
+  resendId: text('resend_id'),
+  status: text('status').notNull().default('sent').$type<'sent' | 'failed' | 'delivered' | 'delayed' | 'bounced' | 'complained'>(),
+  deliveredAt: timestamp('delivered_at'),
+  bouncedAt: timestamp('bounced_at'),
+  bounceType: text('bounce_type'),
+  complainedAt: timestamp('complained_at'),
+  firstOpenedAt: timestamp('first_opened_at'),
+  opens: integer('opens').notNull().default(0),
+  firstClickedAt: timestamp('first_clicked_at'),
+  clicks: integer('clicks').notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex('contact_mailing_recipients_resend_uidx').on(t.resendId),
+  index('contact_mailing_recipients_mailing_idx').on(t.mailingId),
+  index('contact_mailing_recipients_contact_idx').on(t.contactId),
 ])
 
 // ---------------------------------------------------------------------------

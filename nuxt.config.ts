@@ -99,6 +99,8 @@ export default defineNuxtConfig({
     databaseUrl: process.env.DATABASE_URL || '',
     resendApiKey: process.env.RESEND_API_KEY || '',
     resendFromEmail: process.env.RESEND_FROM_EMAIL || 'WeDance <noreply@wedance.vip>',
+    // Signs Resend's webhook (delivered / opened / clicked / bounced for page emails, migration 0080).
+    resendWebhookSecret: process.env.RESEND_WEBHOOK_SECRET || '',
     // Canonical, user-facing base URL for links in emails (magic link / reset).
     // Precedence: explicit SITE_URL → production always uses the custom domain
     // (never VERCEL_URL, which is the per-deployment hostname and leaks ugly
