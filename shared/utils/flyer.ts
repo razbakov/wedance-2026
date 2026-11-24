@@ -351,12 +351,6 @@ export function edgeCut(read: ReadLine[]): string[] {
   return read.filter(({ box }) => box?.length === 4 && (box[0]! < EDGE || box[1]! < EDGE || box[2]! > 1000 - EDGE || box[3]! > 1000 - EDGE)).map(l => l.text)
 }
 
-/** The change asked for when lines touch the edge (the fix's notes: 500 characters at most). */
-export function edgeFixNote(cut: string[]) {
-  const which = cut.map(t => `"${clean(t)}"`).join(', ')
-  return `Move ${cut.length === 1 ? 'this line' : 'these lines'} in from the edge, fully inside the poster: ${which.length > 300 ? `${which.slice(0, 300)}…` : which}. Keep the top 4% and the bottom 6% free of text.`
-}
-
 /**
  * Does the text read off the poster contain every line, inside the edges?
  * Lines joined with "·" (or a title's "—") may be split across the poster,

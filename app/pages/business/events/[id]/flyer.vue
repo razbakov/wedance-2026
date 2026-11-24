@@ -14,7 +14,7 @@ import { sizedImage, IMG } from '#shared/utils/image'
  * real; every version is read back and checked.
  */
 import { Upload, Sparkles, Check, ArrowLeft, ArrowRight, Loader2, Wand2, Download, ImagePlus, X, PartyPopper, CalendarDays, Pencil, AlertTriangle, RotateCcw, Palette } from 'lucide-vue-next'
-import { DIRECTIONS, flyerChanges, edgeFixNote } from '#shared/utils/flyer'
+import { DIRECTIONS, flyerChanges } from '#shared/utils/flyer'
 import { FLYER_SITTING_STEPS, landOnSitting, resumeFlyer, type FlyerDraft, type FlyerStep } from '#shared/utils/flyerDraft'
 
 definePageMeta({ layout: 'business' })
@@ -362,15 +362,6 @@ async function repaint(fromId: string, back: 'result' | 'directions') {
   } finally {
     repainting.value = false
   }
-}
-
-// Lines the check found against the edge: one click asks for them to move in.
-async function pullInFromEdge() {
-  const cut = current.value?.check?.cut ?? []
-  if (!cut.length) return
-  chosenFixes.value = []
-  fixNote.value = edgeFixNote(cut)
-  await paintAgain()
 }
 
 async function paintAgain() {
@@ -915,10 +906,10 @@ const faces = computed(() => st.value?.pictured.length ?? 0)
                 <template v-if="current.check.cut?.length">
                   <p class="flex items-center gap-1.5 text-sm font-bold" :class="current.check.missing.length ? 'mt-3' : ''"><AlertTriangle class="size-4" aria-hidden="true" /> Text touches the edge</p>
                   <ul class="mt-1 grid gap-0.5 text-xs"><li v-for="m in current.check.cut" :key="m">✗ {{ m }}</li></ul>
-                  <p class="mt-2 text-xs text-muted-foreground">It may be cut off, and Instagram puts its buttons over the edges of a story.</p>
-                  <Button variant="cta" size="pill-sm" class="mt-3" @click="pullInFromEdge"><Wand2 /> Move it in from the edge</Button>
+                  <p class="mt-2 text-xs text-muted-foreground">It may be cut off, and Instagram puts its buttons over the edges of a story. A change to this picture keeps its layout, so paint a new one: it uses your event’s details as they are now.</p>
+                  <Button variant="cta" size="pill-sm" class="mt-3" :loading="repainting" @click="repaint(current.id, 'result')"><RotateCcw /> Paint a new one</Button>
                 </template>
-                <Button variant="outline-pill" size="pill-sm" class="mt-3" :loading="repainting" @click="repaint(current.id, 'result')"><RotateCcw /> Paint again</Button>
+                <Button v-if="!current.check.cut?.length" variant="outline-pill" size="pill-sm" class="mt-3" :loading="repainting" @click="repaint(current.id, 'result')"><RotateCcw /> Paint again</Button>
               </div>
               <div class="rounded-2xl border bg-card p-4">
                 <p class="text-sm font-bold">Want something different?</p>
