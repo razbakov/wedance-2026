@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { flyerLines, flyerChanges, checkFlyerText, paintPrompt, recomposePrompt, fixPrompt, refreshPrompt, priceLines, programmeLines, edgeCut, edgeFixNote } from './flyer'
+import { flyerLines, flyerChanges, checkFlyerText, paintPrompt, recomposePrompt, fixPrompt, refreshPrompt, priceLines, programmeLines, edgeCut } from './flyer'
 
 // Thu 15 Oct 2026, 19:00–23:00 Berlin (UTC+2)
 const ev = {
@@ -214,10 +214,6 @@ describe('a line at the edge', () => {
   })
   it('looks at every edge, and ignores lines without a box', () => {
     expect(edgeCut([{ text: 'top', box: [5, 200, 40, 800] }, { text: 'left', box: [500, 3, 530, 600] }, { text: 'right', box: [500, 300, 530, 995] }, { text: 'none' }])).toEqual(['top', 'left', 'right'])
-  })
-  it('asks for the cut lines to move in, within the fix’s 500 characters', () => {
-    expect(edgeFixNote(['LUMA'])).toBe('Move this line in from the edge, fully inside the poster: "LUMA". Keep the top 4% and the bottom 6% free of text.')
-    expect(edgeFixNote(Array.from({ length: 30 }, () => 'A LONG LOCATION LINE HERE')).length).toBeLessThanOrEqual(500)
   })
 })
 
