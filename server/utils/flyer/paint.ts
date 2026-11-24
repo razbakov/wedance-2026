@@ -11,7 +11,7 @@
 import cloudinary from 'cloudinary'
 import { eq, and, inArray, isNotNull, desc } from 'drizzle-orm'
 import { events, profiles, eventFlyers, eventPosts, brandLooks } from '../../database/schema'
-import { postLines, flyerChanges, paintPrompt, fixPrompt, refreshPrompt, recomposePrompt, checkFlyerText, programmeLines, type FlyerLine, type FlyerCheck } from '../../../shared/utils/flyer'
+import { postLines, flyerChanges, paintPrompt, fixPrompt, refreshPrompt, recomposePrompt, checkFlyerText, edgeCut, programmeLines, type FlyerLine, type FlyerCheck } from '../../../shared/utils/flyer'
 import type { PostKind } from '../../../shared/utils/posts'
 import { paintWithRetries, readText, fetchImage, IMAGE_MODEL, type InlineImage } from './gemini'
 import { fitFlyer } from './fit'
@@ -139,18 +139,39 @@ async function upload(img: InlineImage, folder: string) {
 
 /**
  * The style's reference flyer (image 1 of a painting): a flyer painted and
- * kept in that look, else one it was read from. Directions and fresh ideas
- * have none.
+ * kept in that look with no text on its edge, else one it was read from.
+ * Directions, fresh ideas and looks whose kept flyers are all cut have none.
  */
 async function styleReference(db: any, f: any): Promise<string | null> {
   const look = f.look as { references?: string[] }
   if (look?.references?.[0]) return look.references[0]
   if (!f.lookId) return null
-  const [kept] = await db.select({ url: eventFlyers.url }).from(eventFlyers)
-    .where(and(eq(eventFlyers.lookId, f.lookId), isNotNull(eventFlyers.keptAt), isNotNull(eventFlyers.url))).orderBy(desc(eventFlyers.keptAt)).limit(1)
-  if (kept?.url) return kept.url
+  // Gemini copies the reference's layout, cut lines included: a kept flyer
+  // with text on the edge made every next painting in the look cut too
+  // (La Timberia, 2026-11-24). Only a clean one is a reference.
+  const kept = await db.select({ id: eventFlyers.id, url: eventFlyers.url, check: eventFlyers.check }).from(eventFlyers)
+    .where(and(eq(eventFlyers.lookId, f.lookId), isNotNull(eventFlyers.keptAt), isNotNull(eventFlyers.url))).orderBy(desc(eventFlyers.keptAt)).limit(3)
+  for (const k of kept) if ((await edgesOf(db, k)).length === 0) return k.url
   const [l] = await db.select({ references: brandLooks.references }).from(brandLooks).where(eq(brandLooks.id, f.lookId))
   return (l?.references as { url: string }[] | undefined)?.[0]?.url ?? null
+}
+
+/**
+ * The lines at the edge of a kept flyer. Flyers checked before the edge check
+ * existed are read once now and the answer is stored with their check. A
+ * flyer that can't be read counts as not clean.
+ */
+async function edgesOf(db: any, k: { id: string; url: string; check: FlyerCheck | null }): Promise<string[]> {
+  if (Array.isArray(k.check?.cut)) return k.check!.cut!
+  const img = await fetchImage(k.url)
+  if (!img) return ['(unreadable)']
+  try {
+    const cut = edgeCut(await readText(img))
+    if (k.check) await db.update(eventFlyers).set({ check: { ...k.check, cut } }).where(eq(eventFlyers.id, k.id))
+    return cut
+  } catch {
+    return ['(unreadable)']
+  }
 }
 
 /** Paint one flyer row (status 'painting') and store the best round. Never throws. */
