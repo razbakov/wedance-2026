@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import sharp from 'sharp'
-import { asInline, requestOf, READ_TEXT_PROMPT } from './gemini'
+import { asInline, requestOf, READ_TEXT_PROMPT, readLines } from './gemini'
 
 describe('asInline', () => {
   it('reads the format off the bytes, not the content-type (v3 photos come as octet-stream)', async () => {
@@ -20,6 +20,19 @@ describe('READ_TEXT_PROMPT', () => {
   it('marks letters cut by the edge, even when the word is still guessable', () => {
     expect(READ_TEXT_PROMPT).toContain('cut by the edge')
     expect(READ_TEXT_PROMPT).toContain('even when you can still tell the word')
+    expect(READ_TEXT_PROMPT).toContain('box_2d')
+  })
+})
+
+describe('readLines', () => {
+  it('keeps each line with its box', () => {
+    expect(readLines('{"lines":[{"text":"LUMA","box_2d":[979,158,1000,895]}]}')).toEqual([{ text: 'LUMA', box: [979, 158, 1000, 895] }])
+  })
+  it('keeps a line without a usable box, unplaced, and reads the old plain shape', () => {
+    expect(readLines('{"lines":[{"text":"A","box_2d":[1,2]},"B"]}')).toEqual([{ text: 'A', box: null }, { text: 'B' }])
+  })
+  it('is empty for broken JSON', () => {
+    expect(readLines('nope')).toEqual([])
   })
 })
 
