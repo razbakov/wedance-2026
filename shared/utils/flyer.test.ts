@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { flyerLines, flyerChanges, checkFlyerText, paintPrompt, recomposePrompt, fixPrompt, refreshPrompt, priceLines, edgeCut, edgeFixNote } from './flyer'
+import { flyerLines, flyerChanges, checkFlyerText, paintPrompt, recomposePrompt, fixPrompt, refreshPrompt, priceLines, programmeLines, edgeCut, edgeFixNote } from './flyer'
 
 // Thu 15 Oct 2026, 19:00–23:00 Berlin (UTC+2)
 const ev = {
@@ -20,17 +20,28 @@ describe('flyerLines', () => {
     expect(flyerLines(ev).map(l => l.text)).toEqual([
       'LA CLAVE THURSDAY',
       'THURSDAY 15 OCTOBER',
-      '19:00 – 23:00',
       '19:00 Reparto workshop · Yunior',
-      '21:00 Party · DJ Hamza',
+      '21:00–23:00 Party · DJ Hamza',
       'DJ HAMZA · ALÖSHA',
       'TIMBA × BACHATA',
       'Workshops free · From 21:00 · 10€',
       'LUMA · NEUHAUSER STR. 47 · MÜNCHEN',
     ])
   })
-  it('leaves the agenda off when asked', () => {
-    expect(flyerLines({ ...ev, showAgenda: false }).some(l => l.label === 'agenda')).toBe(false)
+  it('leaves the agenda off when asked, and shows the time instead', () => {
+    const lines = flyerLines({ ...ev, showAgenda: false })
+    expect(lines.some(l => l.label === 'agenda')).toBe(false)
+    expect(lines.find(l => l.label === 'time')?.text).toBe('19:00 – 23:00')
+  })
+  it('has no time line when the programme shows: the programme gives the times', () => {
+    expect(flyerLines(ev).some(l => l.label === 'time')).toBe(false)
+  })
+  it('shows the time when there is no programme', () => {
+    expect(flyerLines({ ...ev, agenda: [] }).find(l => l.label === 'time')?.text).toBe('19:00 – 23:00')
+  })
+  it('ends the last item when the programme says, else when the night ends', () => {
+    const lines = flyerLines({ ...ev, agenda: [{ time: '19:00', what: 'Class', end: '20:00' }, { time: '21:00', what: 'Party', end: '00:00' }] })
+    expect(lines.filter(l => l.label === 'agenda').map(l => l.text)).toEqual(['19:00 Class', '21:00–00:00 Party'])
   })
   it('keeps price lines as typed, dropping blanks', () => {
     expect(priceLines(' Free \n\n10€ ')).toEqual(['Free', '10€'])
@@ -61,12 +72,30 @@ describe('flyerChanges', () => {
   it('is empty when nothing changed', () => {
     expect(flyerChanges({ lines: ['A'], pictured: [] }, { lines: ['A'], pictured: [] })).toEqual([])
   })
+  it('a flyer kept with the old time line still matches when the programme took its place', () => {
+    const was = ['T', 'THURSDAY 26 NOVEMBER', '19:00 – 00:00', '19:00 Class', '21:00 Party', 'LUMA']
+    const now = ['T', 'THURSDAY 26 NOVEMBER', '19:00 Class', '21:00–00:00 Party', 'LUMA']
+    expect(flyerChanges({ lines: was, pictured: [] }, { lines: now, pictured: [] })).toEqual([])
+  })
+  it('still shows a changed end time on a flyer kept with the old time line', () => {
+    const was = ['T', '19:00 – 00:00', '19:00 Class', '21:00 Party']
+    const now = ['T', '19:00 Class', '21:00–01:00 Party']
+    expect(flyerChanges({ lines: was, pictured: [] }, { lines: now, pictured: [] })).toEqual([
+      { was: '19:00 – 00:00', now: '21:00–01:00 Party' },
+      { was: '21:00 Party', now: null },
+    ])
+  })
+  it('still shows a changed start time on a flyer kept with the old time line', () => {
+    const was = ['T', '19:00 – 00:00', '19:00 Class', '21:00 Party']
+    const now = ['T', '20:00 Class', '21:00–00:00 Party']
+    expect(flyerChanges({ lines: was, pictured: [] }, { lines: now, pictured: [] }).length).toBeGreaterThan(0)
+  })
 })
 
 describe('checkFlyerText', () => {
   const lines = flyerLines(ev)
   it('passes when every line is on the poster, split or not', () => {
-    const seen = ['THURSDAY 15 OCTOBER', 'LA CLAVE THURSDAY', '19:00-23:00', '19:00 REPARTO WORKSHOP • YUNIOR', '21:00 PARTY · DJ HAMZA',
+    const seen = ['THURSDAY 15 OCTOBER', 'LA CLAVE THURSDAY', '19:00 REPARTO WORKSHOP • YUNIOR', '21:00 - 23:00 PARTY · DJ HAMZA',
       'DJ HAMZA', 'ALÖSHA', 'WORKSHOPS FREE · FROM 21:00 · 10€', 'LUMA', 'NEUHAUSER STR. 47', 'MÜNCHEN', 'CUBA']
     const c = checkFlyerText(lines, seen)
     expect(c.missing).toEqual([])
@@ -74,11 +103,16 @@ describe('checkFlyerText', () => {
     expect(c.extra).toEqual(['CUBA'])
   })
   it('names a misspelt line, umlauts included', () => {
-    const seen = ['THURSDAY 15 OCTOBER', 'LA CLAVE THURSDAY', '19:00 – 23:00', '19:00 Reparto workshop · Yunior', '21:00 Party · DJ Hamza',
+    const seen = ['THURSDAY 15 OCTOBER', 'LA CLAVE THURSDAY', '19:00 Reparto workshop · Yunior', '21:00–23:00 Party · DJ Hamza',
       'DJ HAMZA · ALÖSHA', 'Workshops free · From 21:00 · 10€', 'LUMA · NEUHAUSER STR. 47 · MÜNEHEN']
     const c = checkFlyerText(lines, seen)
     expect(c.ok).toBe(false)
     expect(c.missing).toEqual(['LUMA · NEUHAUSER STR. 47 · MÜNCHEN'])
+  })
+  it('finds a title with a dash painted on two lines (La Timberia, 2026-11-23)', () => {
+    const t = flyerLines({ ...ev, name: 'La Timberia — Reparto & Rueda' })
+    const seen = t.map(l => l.label === 'title' ? 'La Timberia' : l.text).concat('REPARTO & RUEDA')
+    expect(checkFlyerText(t, seen).missing).toEqual([])
   })
   it('doesn’t require the music line', () => {
     expect(checkFlyerText(lines, lines.filter(l => l.label !== 'music').map(l => l.text)).ok).toBe(true)
@@ -106,6 +140,19 @@ describe('text stays off the edges', () => {
     expect(p).not.toContain('at the very top')
     expect(p).toContain('the bottom 6% is only background')
     expect(p).not.toContain('bar')
+  })
+  it('with a programme, asks for no separate time box, even if the reference has one', () => {
+    expect(paintPrompt(lines, look, { styleRef: true })).toContain('no separate time, time box or time badge, even if the style reference has one')
+    expect(paintPrompt(flyerLines({ ...ev, agenda: [] }), look)).not.toContain('no separate time')
+  })
+  it('asks for the time small, never as a badge', () => {
+    const p = paintPrompt(flyerLines({ ...ev, agenda: [] }), look, { people: ['Yunior'] })
+    expect(p).toContain('as small as the date: "19:00 – 23:00". No box or badge')
+    expect(p).not.toContain('Big time badge')
+  })
+  it('keeps a saved look’s bottom bar off the edge', () => {
+    expect(paintPrompt(lines, { description: 'Cream paper, the location bar at the bottom.' })).toContain('never against the edge')
+    expect(paintPrompt(lines, look)).not.toContain('Wherever the style mentions a bar')
   })
   it('tells the painter to move text in where the style reference puts it on the edge', () => {
     expect(paintPrompt(lines, look, { styleRef: true })).toContain('Where it puts text against the edge, move that text inwards')
@@ -171,6 +218,13 @@ describe('a line at the edge', () => {
   it('asks for the cut lines to move in, within the fix’s 500 characters', () => {
     expect(edgeFixNote(['LUMA'])).toBe('Move this line in from the edge, fully inside the poster: "LUMA". Keep the top 4% and the bottom 6% free of text.')
     expect(edgeFixNote(Array.from({ length: 30 }, () => 'A LONG LOCATION LINE HERE')).length).toBeLessThanOrEqual(500)
+  })
+})
+
+describe('programmeLines', () => {
+  it('gives each item its end, from its length, past midnight too', () => {
+    expect(programmeLines([{ date: '2026-11-26', time: '21:00', title: 'Party', duration: 180 }, { date: '2026-11-26', time: '19:00', title: 'Class', duration: 60 }]))
+      .toEqual([{ time: '19:00', what: 'Class', end: '20:00' }, { time: '21:00', what: 'Party', end: '00:00' }])
   })
 })
 
