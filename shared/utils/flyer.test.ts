@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { flyerLines, flyerChanges, checkFlyerText, paintPrompt, recomposePrompt, fixPrompt, refreshPrompt, priceLines } from './flyer'
+import { flyerLines, flyerChanges, checkFlyerText, paintPrompt, recomposePrompt, fixPrompt, refreshPrompt, priceLines, edgeCut, edgeFixNote } from './flyer'
 
 // Thu 15 Oct 2026, 19:00–23:00 Berlin (UTC+2)
 const ev = {
@@ -89,7 +89,7 @@ describe('paintPrompt', () => {
   it('spells out every line and the people', () => {
     const p = paintPrompt(flyerLines(ev), { description: 'Red neon street.' }, { people: ['Yunior'] })
     expect(p).toContain('featuring the person from image 1 as the artist')
-    expect(p).toContain('Layout: the date and the title in the top 38%')
+    expect(p).toContain('Layout: the date and the title from 5% to 38% of the height')
     expect(p).toContain('"LUMA · NEUHAUSER STR. 47 · MÜNCHEN"')
     expect(p).toContain('"19:00 Reparto workshop · Yunior"')
   })
@@ -104,12 +104,16 @@ describe('text stays off the edges', () => {
     expect(p).toContain('all four edges')
     expect(p).not.toContain('the details in the bottom 15%')
     expect(p).not.toContain('at the very top')
-    expect(p).toContain('above the bottom margin')
+    expect(p).toContain('the bottom 6% is only background')
+    expect(p).not.toContain('bar')
+  })
+  it('tells the painter to move text in where the style reference puts it on the edge', () => {
+    expect(paintPrompt(lines, look, { styleRef: true })).toContain('Where it puts text against the edge, move that text inwards')
   })
   it('asks for the same margin when there is nobody to picture', () => {
     const p = paintPrompt(lines, look)
     expect(p).toContain('clear margin')
-    expect(p).toContain('bottom margin')
+    expect(p).toContain('the bottom 6% is only background')
   })
   it('keeps the margin when a poster is recomposed, fixed or refreshed', () => {
     for (const p of [recomposePrompt(lines), fixPrompt(lines, 'make the title bigger'), refreshPrompt(lines)]) {
@@ -143,6 +147,30 @@ describe('text cut by the edge', () => {
     const c = checkFlyerText(lines, seen)
     expect(c.ok).toBe(false)
     expect(c.missing).toEqual(['LUMA · NEUHAUSER STR. 47 · MÜNCHEN'])
+  })
+})
+
+describe('a line at the edge', () => {
+  // Boxes as Gemini read them off real flyers: the cut ones end at 996–1000.
+  const lines = flyerLines(ev)
+  const read = (venueBox: number[]) => lines.map(l => ({ text: l.text, box: l.label === 'venue' ? venueBox : [400, 100, 430, 900] }))
+  it('fails the check even when every letter reads', () => {
+    const c = checkFlyerText(lines, read([979, 158, 1000, 895]))
+    expect(c.missing).toEqual([])
+    expect(c.cut).toEqual(['LUMA · NEUHAUSER STR. 47 · MÜNCHEN'])
+    expect(c.ok).toBe(false)
+  })
+  it('passes a line with a margin below it', () => {
+    const c = checkFlyerText(lines, read([930, 160, 960, 880]))
+    expect(c.cut).toEqual([])
+    expect(c.ok).toBe(true)
+  })
+  it('looks at every edge, and ignores lines without a box', () => {
+    expect(edgeCut([{ text: 'top', box: [5, 200, 40, 800] }, { text: 'left', box: [500, 3, 530, 600] }, { text: 'right', box: [500, 300, 530, 995] }, { text: 'none' }])).toEqual(['top', 'left', 'right'])
+  })
+  it('asks for the cut lines to move in, within the fix’s 500 characters', () => {
+    expect(edgeFixNote(['LUMA'])).toBe('Move this line in from the edge, fully inside the poster: "LUMA". Keep the top 4% and the bottom 6% free of text.')
+    expect(edgeFixNote(Array.from({ length: 30 }, () => 'A LONG LOCATION LINE HERE')).length).toBeLessThanOrEqual(500)
   })
 })
 

@@ -5,6 +5,7 @@
 import sharp from 'sharp'
 import { logAiCall, aiLabel } from '../aiUsage'
 import { sizedImage, IMG } from '../../../shared/utils/image'
+import type { ReadLine } from '../../../shared/utils/flyer'
 
 const API = 'https://generativelanguage.googleapis.com/v1beta/models'
 export const IMAGE_MODEL = 'gemini-3.1-flash-image-preview'
@@ -108,10 +109,13 @@ export async function paintWithRetries(prompt: string, images: InlineImage[], as
  * in (it read "THURSDAY" off "TH[head]DAY") and the check passes a broken flyer.
  * A line only slightly cut still counts: the address bar in RAZ-1032 was readable.
  */
-export const READ_TEXT_PROMPT = 'You are proofreading a poster before it is printed. Transcribe only the letters you can actually see, exactly as printed: keep spelling, accents, umlauts, numbers and symbols, and do not correct anything. If any letters of a word are hidden — covered by a person, an object, cut by the edge, or unreadable — do not guess them: write each hidden letter as "_" (for example "TH___DAY"). A letter cut by the edge counts even when you can still tell the word. One entry per line of text.'
+export const READ_TEXT_PROMPT = 'You are proofreading a poster before it is printed. Transcribe only the letters you can actually see, exactly as printed: keep spelling, accents, umlauts, numbers and symbols, and do not correct anything. If any letters of a word are hidden — covered by a person, an object, cut by the edge, or unreadable — do not guess them: write each hidden letter as "_" (for example "TH___DAY"). A letter cut by the edge counts even when you can still tell the word. One entry per line of text. For each line also give "box_2d": its bounding box as [ymin, xmin, ymax, xmax], normalised to 0–1000, around every visible letter of the line.'
 
-/** Every line of text visible on the image, exactly as printed. */
-export async function readText(image: InlineImage): Promise<string[]> {
+/**
+ * Every line of text visible on the image, exactly as printed, with where it
+ * sits: a line cut by the edge still reads whole, so its box is what shows it.
+ */
+export async function readText(image: InlineImage): Promise<ReadLine[]> {
   const json = await call(TEXT_MODEL, {
     contents: [{ parts: [
       { text: READ_TEXT_PROMPT },
@@ -119,12 +123,25 @@ export async function readText(image: InlineImage): Promise<string[]> {
     ] }],
     generationConfig: {
       responseMimeType: 'application/json',
-      responseSchema: { type: 'OBJECT', properties: { lines: { type: 'ARRAY', items: { type: 'STRING' } } }, required: ['lines'] },
+      responseSchema: { type: 'OBJECT', properties: { lines: { type: 'ARRAY', items: { type: 'OBJECT', properties: { text: { type: 'STRING' }, box_2d: { type: 'ARRAY', items: { type: 'INTEGER' } } }, required: ['text', 'box_2d'] } } }, required: ['lines'] },
       temperature: 0,
     },
   }, 'read-back')
   const text = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}'
-  try { return JSON.parse(text).lines ?? [] } catch { return [] }
+  return readLines(text)
+}
+
+/** The reader's JSON as lines; a line without a usable box is kept, unplaced. */
+export function readLines(json: string): ReadLine[] {
+  let lines: unknown
+  try { lines = JSON.parse(json).lines } catch { return [] }
+  if (!Array.isArray(lines)) return []
+  return lines.flatMap((l: any) => {
+    if (typeof l === 'string') return [{ text: l }]
+    if (typeof l?.text !== 'string') return []
+    const box = Array.isArray(l.box_2d) && l.box_2d.length === 4 && l.box_2d.every((n: unknown) => typeof n === 'number') ? l.box_2d as number[] : null
+    return [{ text: l.text, box }]
+  })
 }
 
 /**

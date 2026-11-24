@@ -141,8 +141,8 @@ function textBlock(lines: FlyerLine[]) {
   const [entry] = by('entry'); const [venue] = by('venue')
   const [kicker] = by('kicker'); const [subtitle] = by('subtitle'); const details = by('detail')
   return [
-    kicker ? `Small label "${kicker}" near the top, below the top margin.` : null,
-    date ? `"${date}" ${kicker ? 'under it' : 'near the top, below the top margin'}.` : null,
+    kicker ? `Small label "${kicker}" near the top, starting at 5% of the height.` : null,
+    date ? `"${date}" ${kicker ? 'under it' : 'near the top, starting at 5% of the height'}.` : null,
     `Huge title "${title}".`,
     subtitle ? `Under the title, smaller: "${subtitle}".` : null,
     details.length ? `A short list, one line each: ${details.map(d => `"${d}"`).join(', ')}.` : null,
@@ -152,12 +152,13 @@ function textBlock(lines: FlyerLine[]) {
     time ? `Big time badge "${time}".` : null,
     agenda.length ? `A small programme list, one line each: ${agenda.map(a => `"${a}"`).join(', ')}.` : null,
     entry ? `Entry line "${entry}".` : null,
-    venue ? `Location bar with a pin, sitting above the bottom margin: "${venue}".` : null,
+    // Not a "bar": Gemini paints a bar as a footer flush with the edge, and the edge cuts it.
+    venue ? `Location line with a pin, at about 90% of the height, with plain background below it: "${venue}".` : null,
   ].filter(Boolean).join(' ')
 }
 
 // The reader marks covered or edge-cut letters; this keeps the painter from doing either.
-const CLEAR_TEXT = 'Keep every letter fully visible: no person, hand, hat or object may cover or cut off any part of the text. Leave a clear margin of background between every line and all four edges, so no letter touches or is cut by the edge.'
+const CLEAR_TEXT = 'Keep every letter fully visible: no person, hand, hat or object may cover or cut off any part of the text. Leave a clear margin of background between every line and all four edges, so no letter touches or is cut by the edge: no text in the top 4%, the bottom 6% or the outer 4% on each side.'
 
 /**
  * A full painting, the way the house process does it (~/Orgs/LaClave/assets/
@@ -183,13 +184,13 @@ export function paintPrompt(lines: FlyerLine[], look: FlyerLook, opts: { people?
   const hasPeople = people.length > 0 || !!opts.grid?.length
   return [
     `Tall vertical 9:16 Instagram story poster for a dance event${who}.`,
-    style ? `Image ${style} is the STYLE and LAYOUT reference: match its scene, colours, lettering and layout closely. Do not copy its words, people or dates.` : null,
+    style ? `Image ${style} is the STYLE and LAYOUT reference: match its scene, colours, lettering and layout closely. Do not copy its words, people or dates. Where it puts text against the edge, move that text inwards.` : null,
     people.length > 1 ? people.map((name, i) => `Image ${first + i}: ${name}.`).join(' ') : null,
     clean(look.description),
     palette,
     hasPeople
-      ? 'Layout: the date and the title in the top 38%, starting below the top margin; the artists from 40% to 82% of the height, below the title, never covering any text; the details above the bottom margin, ending by 96% of the height.'
-      : 'Layout: the date and the title in the top third, below the top margin; the details below, ending above the bottom margin, with room to breathe.',
+      ? 'Layout: the date and the title from 5% to 38% of the height; the artists from 40% to 78%, below the title, never covering any text; the details from 78% to 93%; the bottom 6% is only background, no text.'
+      : 'Layout: the date and the title from 5% to 33% of the height; the details below, ending by 93%, with room to breathe; the bottom 6% is only background, no text.',
     opts.inspiration ? 'The last image is a flyer the organizer likes: borrow its mood only. Do not copy its text, people or layout.' : null,
     opts.notes?.trim() ? `Also: ${clean(opts.notes)}` : null,
     `Exact text on the poster, spelled exactly, nothing else: ${textBlock(lines)}`,
@@ -273,7 +274,7 @@ export function styleIdeasPrompt(c: { name: string; styles: string[]; city?: str
  */
 export const DIRECTIONS: (FlyerLook & { hint: string })[] = [
   { name: 'Neon street', hint: 'Red neon Havana, gold title', description: 'Red-neon Havana street at night: crumbling colonial balconies, red and gold neon light streaks along the facades, red palm leaves framing the corners, a golden spotlight cone on the empty street. Tall condensed uppercase lettering: gold-gradient headline and date, red and gold genre words, white times. A red-glow rounded box for workshops or entry. Footer: a thin gold rule and a gold location pin with the place.' },
-  { name: 'Cuban vintage', hint: '1950s Havana poster, cream paper', description: 'Vintage 1950s Cuban propaganda and Havana cabaret poster: aged cream paper texture with fold creases, screen-print look, red, navy and mustard palette, halftone sun rays behind the headline, old Havana facades and a classic car silhouette at the edges, distressed ink. Red script headline with a gold outline, navy condensed sans for the info lines, a red ticket-style box with a gold border, the location bar at the bottom.' },
+  { name: 'Cuban vintage', hint: '1950s Havana poster, cream paper', description: 'Vintage 1950s Cuban propaganda and Havana cabaret poster: aged cream paper texture with fold creases, screen-print look, red, navy and mustard palette, halftone sun rays behind the headline, old Havana facades and a classic car silhouette at the edges, distressed ink. Red script headline with a gold outline, navy condensed sans for the info lines, a red ticket-style box with a gold border, the location line near the bottom.' },
   { name: 'Afro club', hint: 'Purple and gold, stage lights', description: 'Luxury Afro-fusion club poster: purple and magenta with gold, stage lasers and haze, a blurred dancing crowd, kente-cloth strips, gold geometric African-pattern borders, gold palm and monstera leaves, gold confetti. 3D metallic gold title, a gold ribbon subtitle, a colourful genre line, a round gold time medallion, white details.' },
   { name: 'Afro-tropical', hint: 'Bold street party, deep purple', description: 'Bold Afro-Caribbean street party poster on a deep purple background: vibrant orange, green, yellow and magenta, flat graphic African-print patterns and tropical leaves as borders, spiral sunburst shapes, a calm dark spotlight behind the people. Chunky playful display type with drop shadows: orange headline with a magenta shadow, yellow and green info lines, a patterned-border box for workshops or entry.' },
 ]
@@ -292,14 +293,40 @@ function norm(s: string) {
     .trim()
 }
 
-export type FlyerCheck = { ok: boolean; missing: string[]; extra: string[]; seen: string[] }
+/** `cut`: lines that touch the poster's edge (older checks don't have it). */
+export type FlyerCheck = { ok: boolean; missing: string[]; extra: string[]; seen: string[]; cut?: string[] }
+
+/** A line read off the poster; `box` = [ymin, xmin, ymax, xmax], 0–1000. */
+export type ReadLine = { text: string; box?: number[] | null }
 
 /**
- * Does the text read off the poster contain every line? Lines joined with "·"
- * may be split across the poster, so each part on its own also counts.
- * The music line is asked for but optional.
+ * How close to the edge a line may sit (of 1000). The reader reads letters
+ * the edge cuts as whole ("MÜNCHEN" with its bottom half gone, RAZ-1032 again
+ * on 2026-11-23), so where the line sits is the check. Measured on real
+ * flyers: cut lines end at 996–1000; a date painted tight but whole starts
+ * at 14.
  */
-export function checkFlyerText(lines: FlyerLine[], seenLines: string[]): FlyerCheck {
+export const EDGE = 10
+
+/** The lines (as read) that touch an edge. */
+export function edgeCut(read: ReadLine[]): string[] {
+  return read.filter(({ box }) => box?.length === 4 && (box[0]! < EDGE || box[1]! < EDGE || box[2]! > 1000 - EDGE || box[3]! > 1000 - EDGE)).map(l => l.text)
+}
+
+/** The change asked for when lines touch the edge (the fix's notes: 500 characters at most). */
+export function edgeFixNote(cut: string[]) {
+  const which = cut.map(t => `"${clean(t)}"`).join(', ')
+  return `Move ${cut.length === 1 ? 'this line' : 'these lines'} in from the edge, fully inside the poster: ${which.length > 300 ? `${which.slice(0, 300)}…` : which}. Keep the top 4% and the bottom 6% free of text.`
+}
+
+/**
+ * Does the text read off the poster contain every line, inside the edges?
+ * Lines joined with "·" may be split across the poster, so each part on its
+ * own also counts. The music line is asked for but optional.
+ */
+export function checkFlyerText(lines: FlyerLine[], read: (string | ReadLine)[]): FlyerCheck {
+  const readLines = read.map(l => typeof l === 'string' ? { text: l } : l)
+  const seenLines = readLines.map(l => l.text)
   const seen = norm(seenLines.join(' '))
   const present = (t: string) => seen.includes(norm(t)) || (/[·×]/.test(t) && t.split(/[·×]/).every(p => !p.trim() || seen.includes(norm(p))))
   const required = lines.filter(l => l.label !== 'music')
@@ -314,7 +341,8 @@ export function checkFlyerText(lines: FlyerLine[], seenLines: string[]): FlyerCh
   const counts = new Map<string, number>()
   for (const line of seenLines) counts.set(norm(line), (counts.get(norm(line)) ?? 0) + 1)
   for (const [n, c] of counts) if (c > 1 && wanted.includes(n)) extra.push(`${seenLines.find(l => norm(l) === n)} (twice)`)
-  return { ok: missing.length === 0, missing, extra, seen: seenLines }
+  const cut = edgeCut(readLines)
+  return { ok: missing.length === 0 && cut.length === 0, missing, extra, seen: seenLines, cut }
 }
 
 /**

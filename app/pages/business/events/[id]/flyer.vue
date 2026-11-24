@@ -14,7 +14,7 @@ import { sizedImage, IMG } from '#shared/utils/image'
  * real; every version is read back and checked.
  */
 import { Upload, Sparkles, Check, ArrowLeft, ArrowRight, Loader2, Wand2, Download, ImagePlus, X, PartyPopper, CalendarDays, Pencil, AlertTriangle, RotateCcw, Palette } from 'lucide-vue-next'
-import { DIRECTIONS, flyerChanges } from '#shared/utils/flyer'
+import { DIRECTIONS, flyerChanges, edgeFixNote } from '#shared/utils/flyer'
 import { FLYER_SITTING_STEPS, landOnSitting, resumeFlyer, type FlyerDraft, type FlyerStep } from '#shared/utils/flyerDraft'
 
 definePageMeta({ layout: 'business' })
@@ -362,6 +362,15 @@ async function repaint(fromId: string, back: 'result' | 'directions') {
   } finally {
     repainting.value = false
   }
+}
+
+// Lines the check found against the edge: one click asks for them to move in.
+async function pullInFromEdge() {
+  const cut = current.value?.check?.cut ?? []
+  if (!cut.length) return
+  chosenFixes.value = []
+  fixNote.value = edgeFixNote(cut)
+  await paintAgain()
 }
 
 async function paintAgain() {
@@ -821,7 +830,7 @@ const faces = computed(() => st.value?.pictured.length ?? 0)
               <img :src="sizedImage(d.url!, IMG.card)" :alt="d.lookName || 'Direction'" class="aspect-[9/16] w-full object-cover">
               <span class="flex items-center gap-1 p-2 text-sm font-bold"><Check v-if="picked.includes(d.id)" class="size-4 text-primary" aria-hidden="true" /> {{ d.lookName }}</span>
               <span v-if="d.status === 'checking'" class="flex items-center gap-1 px-2 pb-2 text-[11px] text-muted-foreground"><Loader2 class="size-3 animate-spin" aria-hidden="true" /> Checking the words…</span>
-              <span v-else-if="d.check && !d.check.ok" class="flex items-center gap-1 px-2 pb-2 text-[11px] text-wd-amber-800"><AlertTriangle class="size-3" aria-hidden="true" /> {{ d.check.missing.length }} {{ d.check.missing.length === 1 ? 'line' : 'lines' }} unreadable</span>
+              <span v-else-if="d.check && !d.check.ok" class="flex items-center gap-1 px-2 pb-2 text-[11px] text-wd-amber-800"><AlertTriangle class="size-3" aria-hidden="true" /> {{ d.check.missing.length ? `${d.check.missing.length} ${d.check.missing.length === 1 ? 'line' : 'lines'} unreadable` : 'Text at the edge' }}</span>
             </button>
             <div v-else-if="d.status === 'painting'" class="flex aspect-[9/16] flex-col items-center justify-center rounded-2xl border bg-muted p-3 text-center text-xs text-muted-foreground" role="status">
               <Loader2 class="size-5 animate-spin" aria-hidden="true" />
@@ -898,9 +907,17 @@ const faces = computed(() => st.value?.pictured.length ?? 0)
                 <p v-if="current.check.extra.length" class="mt-2 text-xs text-muted-foreground">Also on it: {{ current.check.extra.join(' · ') }}</p>
               </div>
               <div v-else class="rounded-2xl bg-warning/10 p-4">
-                <p class="flex items-center gap-1.5 text-sm font-bold"><AlertTriangle class="size-4" aria-hidden="true" /> We couldn’t read every line</p>
-                <ul class="mt-1 grid gap-0.5 text-xs"><li v-for="m in current.check?.missing ?? []" :key="m">✗ {{ m }}</li></ul>
-                <p class="mt-2 text-xs text-muted-foreground">Look at the flyer: it may be fine and just hard to read. If a word is really wrong or covered, paint it again (a new picture), or ask for a change below (e.g. “Bigger date”).</p>
+                <template v-if="current.check.missing.length">
+                  <p class="flex items-center gap-1.5 text-sm font-bold"><AlertTriangle class="size-4" aria-hidden="true" /> We couldn’t read every line</p>
+                  <ul class="mt-1 grid gap-0.5 text-xs"><li v-for="m in current.check.missing" :key="m">✗ {{ m }}</li></ul>
+                  <p class="mt-2 text-xs text-muted-foreground">Look at the flyer: it may be fine and just hard to read. If a word is really wrong or covered, paint it again (a new picture), or ask for a change below (e.g. “Bigger date”).</p>
+                </template>
+                <template v-if="current.check.cut?.length">
+                  <p class="flex items-center gap-1.5 text-sm font-bold" :class="current.check.missing.length ? 'mt-3' : ''"><AlertTriangle class="size-4" aria-hidden="true" /> Text touches the edge</p>
+                  <ul class="mt-1 grid gap-0.5 text-xs"><li v-for="m in current.check.cut" :key="m">✗ {{ m }}</li></ul>
+                  <p class="mt-2 text-xs text-muted-foreground">It may be cut off, and Instagram puts its buttons over the edges of a story.</p>
+                  <Button variant="cta" size="pill-sm" class="mt-3" @click="pullInFromEdge"><Wand2 /> Move it in from the edge</Button>
+                </template>
                 <Button variant="outline-pill" size="pill-sm" class="mt-3" :loading="repainting" @click="repaint(current.id, 'result')"><RotateCcw /> Paint again</Button>
               </div>
               <div class="rounded-2xl border bg-card p-4">

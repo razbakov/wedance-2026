@@ -1484,7 +1484,7 @@ export const eventFlyers = pgTable('event_flyers', {
   notes: text('notes'),
   prompt: text('prompt'),
   model: text('model'),
-  check: jsonb('check').$type<{ ok: boolean; missing: string[]; extra: string[]; seen: string[] }>(),
+  check: jsonb('check').$type<{ ok: boolean; missing: string[]; extra: string[]; seen: string[]; cut?: string[] }>(),
   error: text('error'),
   // The flyer the event uses. One per event; keeping another clears it.
   keptAt: timestamp('kept_at'),
