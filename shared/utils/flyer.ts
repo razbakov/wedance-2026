@@ -18,8 +18,7 @@ export type FlyerSource = {
   timezone?: string | null
   venueName?: string | null
   venueAddress?: string | null
-  /** `end`: when the item ends (HH:MM), known from the programme's durations. */
-  agenda?: { time: string; what: string; end?: string | null }[]
+  agenda?: { time: string; what: string }[]
   showAgenda?: boolean
   artists: { name: string }[]
   styles?: string[]
@@ -51,10 +50,6 @@ export function flyerLines(e: FlyerSource): FlyerLine[] {
   const lastDay = e.endDate ? eventLocalDate(e.endDate, tz) : d
   const multiDay = lastDay > d && (new Date(e.endDate!).getTime() - new Date(e.startDate).getTime()) > 24 * 3600_000
   const monthOf = (x: string) => new Date(`${x}T12:00:00Z`).toLocaleDateString('en-GB', { month: 'long', timeZone: 'UTC' })
-  // A programme on the poster already says when things happen: no separate
-  // time line then (it drew more attention than the night itself). The last
-  // item carries the end, so the poster still says until when.
-  const agenda = e.showAgenda !== false ? (e.agenda ?? []).filter(a => clean(a.what)) : []
   const out: FlyerLine[] = multiDay
     ? [
         { label: 'title', text: up(e.name) },
@@ -63,13 +58,11 @@ export function flyerLines(e: FlyerSource): FlyerLine[] {
     : [
         { label: 'title', text: up(e.name) },
         { label: 'date', text: up(`${eventLocalWeekday(e.startDate, tz)} ${Number(d.slice(8))} ${month}`) },
-        ...(agenda.length ? [] : [{ label: 'time' as const, text: end && end !== start ? `${start} – ${end}` : start }]),
+        { label: 'time', text: end && end !== start ? `${start} – ${end}` : start },
       ]
-  agenda.forEach((a, i) => {
-    const last = i === agenda.length - 1
-    const until = !multiDay && last ? (a.end ?? end) : null
-    out.push({ label: 'agenda', text: clean(`${until && until !== a.time ? `${a.time}–${until}` : a.time} ${a.what}`) })
-  })
+  if (e.showAgenda !== false) {
+    for (const a of e.agenda ?? []) if (clean(a.what)) out.push({ label: 'agenda', text: clean(`${a.time} ${a.what}`) })
+  }
   if (names.length) out.push({ label: 'line-up', text: up(names.join(' · ')) })
   if (e.styles?.length) out.push({ label: 'music', text: up(e.styles.join(' × ')) })
   const prices = [...(e.passes ?? []).slice(0, 3), ...priceLines(e.price)]
@@ -128,33 +121,10 @@ export function postLines(p: PostSource): FlyerLine[] {
   return base
 }
 
-const TIME_LINE = /^(\d{1,2}:\d{2})(?: – (\d{1,2}:\d{2}))?$/
-const RANGED = /^(\d{1,2}:\d{2})–(\d{1,2}:\d{2}) (.+)$/
-
-/**
- * A flyer kept before the programme replaced the time line ("19:00 – 00:00"
- * plus "21:00 Party") still says the same as the new lines ("21:00–00:00
- * Party"): read its lines the new way, so it isn't shown as out of date.
- */
-function asNowReads(was: string[], now: string[]) {
-  if (now.some(t => TIME_LINE.test(t))) return was
-  const ranged = now.map(t => RANGED.exec(t)).find(Boolean)
-  const firstNow = now.find(t => /^\d{1,2}:\d{2}[ –]/.test(t))
-  return was.flatMap((t) => {
-    const time = TIME_LINE.exec(t)
-    // The old time line: dropped when the programme now says the same start and end.
-    if (time) return firstNow?.startsWith(time[1]!) && (!time[2] || !ranged || ranged[2] === time[2]) ? [] : [t]
-    // The old last item, without its end: the same item now carries it.
-    if (ranged && t === `${ranged[1]} ${ranged[3]}` && (!was.some(x => TIME_LINE.exec(x)?.[2]) || was.some(x => TIME_LINE.exec(x)?.[2] === ranged[2]))) return [ranged[0]]
-    return [t]
-  })
-}
-
 /** What a kept flyer differs from the event now: old → new pairs, then photo changes. */
 export function flyerChanges(was: { lines: string[]; pictured: string[] }, now: { lines: string[]; pictured: string[] }) {
-  const wasLines = asNowReads(was.lines, now.lines)
-  const added = now.lines.filter(t => !wasLines.includes(t))
-  const removed = wasLines.filter(t => !now.lines.includes(t))
+  const added = now.lines.filter(t => !was.lines.includes(t))
+  const removed = was.lines.filter(t => !now.lines.includes(t))
   const out = Array.from({ length: Math.max(added.length, removed.length) }, (_, i) => ({ was: removed[i] ?? null, now: added[i] ?? null }))
   const newFaces = now.pictured.filter(p => !was.pictured.includes(p))
   const goneFaces = was.pictured.filter(p => !now.pictured.includes(p))
@@ -173,14 +143,13 @@ function textBlock(lines: FlyerLine[]) {
   return [
     kicker ? `Small label "${kicker}" near the top, starting at 5% of the height.` : null,
     date ? `"${date}" ${kicker ? 'under it' : 'near the top, starting at 5% of the height'}.` : null,
-    // Small on purpose: as a big badge it out-shouted the night itself.
-    time ? `Next to or under the date, as small as the date: "${time}". No box or badge around it.` : null,
     `Huge title "${title}".`,
     subtitle ? `Under the title, smaller: "${subtitle}".` : null,
     details.length ? `A short list, one line each: ${details.map(d => `"${d}"`).join(', ')}.` : null,
     // Worded so Gemini doesn't paint a literal "LINE-UP" label.
     names ? `Under the title, the artists' names "${names}".` : null,
     music ? `Genre line "${music}".` : null,
+    time ? `Big time badge "${time}".` : null,
     agenda.length ? `A small programme list, one line each: ${agenda.map(a => `"${a}"`).join(', ')}.` : null,
     entry ? `Entry line "${entry}".` : null,
     // Not a "bar": Gemini paints a bar as a footer flush with the edge, and the edge cuts it.
@@ -305,8 +274,8 @@ export function styleIdeasPrompt(c: { name: string; styles: string[]; city?: str
  */
 export const DIRECTIONS: (FlyerLook & { hint: string })[] = [
   { name: 'Neon street', hint: 'Red neon Havana, gold title', description: 'Red-neon Havana street at night: crumbling colonial balconies, red and gold neon light streaks along the facades, red palm leaves framing the corners, a golden spotlight cone on the empty street. Tall condensed uppercase lettering: gold-gradient headline and date, red and gold genre words, white times. A red-glow rounded box for workshops or entry. Footer: a thin gold rule and a gold location pin with the place.' },
-  { name: 'Cuban vintage', hint: '1950s Havana poster, cream paper', description: 'Vintage 1950s Cuban propaganda and Havana cabaret poster: aged cream paper texture with fold creases, screen-print look, red, navy and mustard palette, halftone sun rays behind the headline, old Havana facades and a classic car silhouette at the edges, distressed ink. Red script headline with a gold outline, navy condensed sans for the info lines, a red ticket-style box with a gold border for the entry, the location line near the bottom.' },
-  { name: 'Afro club', hint: 'Purple and gold, stage lights', description: 'Luxury Afro-fusion club poster: purple and magenta with gold, stage lasers and haze, a blurred dancing crowd, kente-cloth strips, gold geometric African-pattern borders, gold palm and monstera leaves, gold confetti. 3D metallic gold title, a gold ribbon subtitle, a colourful genre line, a round gold medallion for the entry, white details.' },
+  { name: 'Cuban vintage', hint: '1950s Havana poster, cream paper', description: 'Vintage 1950s Cuban propaganda and Havana cabaret poster: aged cream paper texture with fold creases, screen-print look, red, navy and mustard palette, halftone sun rays behind the headline, old Havana facades and a classic car silhouette at the edges, distressed ink. Red script headline with a gold outline, navy condensed sans for the info lines, a red ticket-style box with a gold border, the location line near the bottom.' },
+  { name: 'Afro club', hint: 'Purple and gold, stage lights', description: 'Luxury Afro-fusion club poster: purple and magenta with gold, stage lasers and haze, a blurred dancing crowd, kente-cloth strips, gold geometric African-pattern borders, gold palm and monstera leaves, gold confetti. 3D metallic gold title, a gold ribbon subtitle, a colourful genre line, a round gold time medallion, white details.' },
   { name: 'Afro-tropical', hint: 'Bold street party, deep purple', description: 'Bold Afro-Caribbean street party poster on a deep purple background: vibrant orange, green, yellow and magenta, flat graphic African-print patterns and tropical leaves as borders, spiral sunburst shapes, a calm dark spotlight behind the people. Chunky playful display type with drop shadows: orange headline with a magenta shadow, yellow and green info lines, a patterned-border box for workshops or entry.' },
 ]
 
@@ -352,14 +321,14 @@ export function edgeFixNote(cut: string[]) {
 
 /**
  * Does the text read off the poster contain every line, inside the edges?
- * Lines joined with "·" (or a title's "—") may be split across the poster,
- * so each part on its own also counts. The music line is asked for but optional.
+ * Lines joined with "·" may be split across the poster, so each part on its
+ * own also counts. The music line is asked for but optional.
  */
 export function checkFlyerText(lines: FlyerLine[], read: (string | ReadLine)[]): FlyerCheck {
   const readLines = read.map(l => typeof l === 'string' ? { text: l } : l)
   const seenLines = readLines.map(l => l.text)
   const seen = norm(seenLines.join(' '))
-  const present = (t: string) => seen.includes(norm(t)) || (/[·×—]/.test(t) && t.split(/[·×—]/).every(p => !p.trim() || seen.includes(norm(p))))
+  const present = (t: string) => seen.includes(norm(t)) || (/[·×]/.test(t) && t.split(/[·×]/).every(p => !p.trim() || seen.includes(norm(p))))
   const required = lines.filter(l => l.label !== 'music')
   const missing = required.filter(l => !present(l.text)).map(l => l.text)
   // Words Gemini added that aren't from the event (a neon "CUBA" sign): shown, not an error.
@@ -381,16 +350,9 @@ export function checkFlyerText(lines: FlyerLine[], read: (string | ReadLine)[]):
  * flyer and captions: "21:00 Rumba workshop". With several days, the weekday
  * comes first ("Sat 21:00 …"). Every event type plans its programme by day.
  */
-export function programmeLines(sessions: { date: string; time: string; title: string; duration?: number | null }[] | null | undefined): { time: string; what: string; end?: string | null }[] {
+export function programmeLines(sessions: { date: string; time: string; title: string }[] | null | undefined): { time: string; what: string }[] {
   const s = (sessions ?? []).filter(x => x.title?.trim()).slice().sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
   const multi = new Set(s.map(x => x.date)).size > 1
   const wd = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', timeZone: 'UTC' })
-  // When an item ends, from its length ("21:00" + 180 min → "00:00").
-  const endOf = (time: string, minutes?: number | null) => {
-    const m = /^(\d{1,2}):(\d{2})$/.exec(time)
-    if (!m || !minutes) return null
-    const t = (Number(m[1]) * 60 + Number(m[2]) + minutes) % 1440
-    return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`
-  }
-  return s.map(x => ({ time: multi ? `${wd(x.date)} ${x.time}` : x.time, what: x.title.trim(), end: endOf(x.time, x.duration) }))
+  return s.map(x => ({ time: multi ? `${wd(x.date)} ${x.time}` : x.time, what: x.title.trim() }))
 }
