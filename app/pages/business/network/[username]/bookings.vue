@@ -78,7 +78,7 @@ const closed = computed(() => (rows.value ?? []).filter(r => r.status === 'booke
       <section v-for="group in [{ title: 'Waiting for you', list: open }, { title: 'Done', list: closed }]" v-show="group.list.length" :key="group.title" class="mt-6">
         <h2 class="text-eyebrow font-bold uppercase tracking-[0.3em] text-secondary">{{ group.title }}</h2>
         <ul class="mt-3 grid gap-3">
-          <li v-for="r in group.list" :key="r.id" class="rounded-2xl border bg-card p-4" :class="r.status === 'declined' ? 'opacity-70' : ''">
+          <li v-for="r in group.list" :key="r.id" class="min-w-0 max-w-full rounded-2xl border bg-card p-4" :class="r.status === 'declined' ? 'opacity-70' : ''">
             <div class="flex flex-wrap items-baseline justify-between gap-2">
               <p class="font-bold">{{ r.what }} <span class="font-normal text-muted-foreground">· {{ r.name }}<template v-if="r.organization">, {{ r.organization }}</template></span></p>
               <span class="text-xs text-muted-foreground">{{ when(r.createdAt) }}</span>
@@ -90,8 +90,8 @@ const closed = computed(() => (rows.value ?? []).filter(r => r.status === 'booke
               <span v-if="r.budget" class="inline-flex items-center gap-1"><Wallet class="size-3.5" aria-hidden="true" /> {{ r.budget }}</span>
             </div>
             <p class="mt-3 whitespace-pre-line text-sm">{{ r.message }}</p>
-            <div class="mt-4 flex flex-wrap items-center gap-2">
-              <Button variant="outline-pill" size="pill-sm" as-child><a :href="reply(r)"><Mail /> Reply to {{ r.email }}</a></Button>
+            <div class="mt-4 flex min-w-0 max-w-full flex-wrap items-center gap-2">
+              <Button variant="outline-pill" size="pill-sm" as-child><a :href="reply(r)"><Mail /> Reply</a></Button>
               <Button v-if="r.phone" variant="outline-pill" size="pill-sm" as-child><a :href="`https://wa.me/${r.phone.replace(/[^\d+]/g, '').replace(/^00/, '+').replace(/^\+/, '')}`" target="_blank" rel="noopener"><Phone /> WhatsApp</a></Button>
               <Button v-if="r.phone" variant="ghost" size="sm" as-child><a :href="`tel:${r.phone.replace(/[^\d+]/g, '')}`">Call {{ r.phone }}</a></Button>
               <template v-if="r.status === 'new' || r.status === 'answered'">
@@ -102,7 +102,7 @@ const closed = computed(() => (rows.value ?? []).filter(r => r.status === 'booke
               </template>
               <template v-else-if="r.status === 'booked'">
                 <AdminStatus tone="success">Booked</AdminStatus>
-                <span class="text-xs text-muted-foreground">{{ r.eventId ? 'On a draft of their event, with you in the line-up.' : 'Saved. They don’t have a page on WeDance yet, so there’s no event to put you on.' }}</span>
+                <span class="min-w-0 text-xs text-muted-foreground">{{ r.eventId ? 'On a draft of their event, with you in the line-up.' : 'Saved. They don’t have a page on WeDance yet, so there’s no event to put you on.' }}</span>
               </template>
               <template v-else>
                 <AdminStatus tone="neutral">Declined</AdminStatus>
