@@ -31,7 +31,7 @@ export const SECTION_INFO: Record<SectionKind, { label: string; hint: string; fi
   video: { label: 'Video', hint: 'A YouTube video.', fields: ['eyebrow', 'title', 'titleAccent', 'body', 'video'] },
   person: { label: 'Person', hint: 'A teacher, DJ or host: photo, name and story.', fields: ['eyebrow', 'title', 'titleAccent', 'body', 'image', 'items'], items: { label: 'Facts', fields: ['title', 'body'] } },
   location: { label: 'Location', hint: 'Where to find you, with a map.', fields: ['eyebrow', 'title', 'titleAccent', 'body', 'address', 'mapUrl', 'items'], items: { label: 'Facts', fields: ['title'] } },
-  signup: { label: 'Sign-up form', hint: 'Name, email and phone. People who sign up land in your Contacts on WeDance.', fields: ['eyebrow', 'title', 'titleAccent', 'body'] },
+  signup: { label: 'Sign-up form', hint: 'Name, email and phone. Optional: a City field (city, with its own label) and a promo code (hide it with hidePromo). People who sign up land in your Contacts on WeDance.', fields: ['eyebrow', 'title', 'titleAccent', 'body'] },
   cta: { label: 'Call to action', hint: 'One message with a button (WhatsApp group, tickets, Instagram…).', fields: ['eyebrow', 'title', 'titleAccent', 'body', 'buttons'] },
 }
 
@@ -86,6 +86,16 @@ export type SiteSection = {
   buttons?: SiteButton[]
   items?: SiteItem[]
   callout?: SiteCallout
+  /**
+   * Sign-up forms (RAZ-1093): present, even as {}, asks for an optional city.
+   * The words they type are stored on the contact. `label` is the placeholder,
+   * per language; a missing language falls back to "City".
+   */
+  city?: { label?: L10n }
+  /** Sign-up forms: true hides the promo code field. Absent = shown, as before. */
+  hidePromo?: boolean
+  /** Sign-up forms: placeholder for the promo code, per language. */
+  promoLabel?: L10n
 }
 
 export type ProfileSite = {
@@ -157,6 +167,9 @@ export const siteSectionSchema = z.object({
   buttons: z.array(button).max(4).optional(),
   items: z.array(item).max(24).optional(),
   callout: z.object({ title: l10n, body: l10n, button: button.optional() }).optional(),
+  city: z.object({ label: l10n }).optional(),
+  hidePromo: z.boolean().optional(),
+  promoLabel: l10n,
 })
 const short = (n: number) => z.string().trim().max(n).optional()
 export const siteThemeSchema = z.object({
@@ -188,7 +201,7 @@ export const isPublished = (site: Pick<ProfileSite, 'published'>) => site.publis
 
 export type Resolved<T> = T extends L10n ? string : T extends (infer U)[] ? Resolved<U>[] : T extends object ? { [K in keyof T]: Resolved<T[K]> } : T
 
-const isL10n = (k: string) => ['navLabel', 'eyebrow', 'title', 'titleAccent', 'body', 'address', 'tag', 'label', 'subject', 'description'].includes(k)
+const isL10n = (k: string) => ['navLabel', 'eyebrow', 'title', 'titleAccent', 'body', 'address', 'tag', 'label', 'subject', 'description', 'promoLabel'].includes(k)
 
 /** Text in `locale`, else the site's first language, else any. */
 export function pick(t: L10n | undefined, locale: string, fallback: string): string {

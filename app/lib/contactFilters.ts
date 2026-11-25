@@ -13,6 +13,8 @@ export interface FilterableContact extends SegmentContact {
   name: string | null
   email: string
   phone: string | null
+  /** City they typed on a site sign-up (RAZ-1093). Not their WeDance account city. */
+  city?: string | null
   note: string | null
   sourceKey: ContactSourceKey
   emailBlock: string | null
@@ -24,6 +26,8 @@ export interface ContactFilter {
   sources: ContactSourceKey[]
   /** Empty = every channel (contactChannel: instagram, montuno.club, unknown…). */
   channels: string[]
+  /** Empty = every city. The city they typed on a site sign-up. */
+  cities: string[]
   email: 'any' | 'can' | 'cant'
   /** All of these must match. */
   activity: ActivityFilter[]
@@ -36,19 +40,21 @@ export interface ContactFilter {
   q: string
 }
 
-export const emptyFilter = (): ContactFilter => ({ sources: [], channels: [], email: 'any', activity: [], who: 'any', event: null, as: null, q: '' })
+export const emptyFilter = (): ContactFilter => ({ sources: [], channels: [], cities: [], email: 'any', activity: [], who: 'any', event: null, as: null, q: '' })
 
 export function isFiltered(f: ContactFilter): boolean {
-  return f.sources.length > 0 || f.channels.length > 0 || f.email !== 'any' || f.activity.length > 0 || f.who !== 'any' || !!f.event || f.q.trim() !== ''
+  return f.sources.length > 0 || f.channels.length > 0 || (f.cities?.length ?? 0) > 0 || f.email !== 'any' || f.activity.length > 0 || f.who !== 'any' || !!f.event || f.q.trim() !== ''
 }
 
 export function filterContacts<T extends FilterableContact>(list: T[], f: ContactFilter, now = new Date()): T[] {
   const needle = f.q.trim().toLowerCase()
+  const cities = f.cities ?? []
   return list.filter((c) => {
     if (f.who === 'contacts' && c.isContact === false) return false
     if (f.who === 'others' && c.isContact !== false) return false
     if (f.sources.length && !f.sources.includes(c.sourceKey)) return false
     if (f.channels.length && (c.isContact === false || !f.channels.includes(contactChannel(c.source)))) return false
+    if (cities.length && !cities.some(city => (c.city ?? '').toLowerCase() === city.toLowerCase())) return false
     if (f.email === 'can' && c.emailBlock) return false
     if (f.email === 'cant' && !c.emailBlock) return false
     if (!f.activity.every(a => matchesActivity(c, a, now))) return false
@@ -56,7 +62,7 @@ export function filterContacts<T extends FilterableContact>(list: T[], f: Contac
       const as = c.activity.events?.[f.event]
       if (!as || (f.as && as !== f.as)) return false
     }
-    if (needle && ![c.name, c.email, c.phone, c.note, c.account?.name, ...Object.values(c.source ?? {})].some(v => typeof v === 'string' && v.toLowerCase().includes(needle))) return false
+    if (needle && ![c.name, c.email, c.phone, c.city, c.note, c.account?.name, ...Object.values(c.source ?? {})].some(v => typeof v === 'string' && v.toLowerCase().includes(needle))) return false
     return true
   })
 }
@@ -74,6 +80,7 @@ export function describeFilter(f: ContactFilter, eventLabel?: string | null): st
     f.email === 'can' ? 'Can email' : f.email === 'cant' ? 'Can’t email' : '',
     ...f.sources.map(s => SOURCE_LABEL[s]),
     ...f.channels.map(ch => `via ${channelLabel(ch)}`),
+    ...(f.cities ?? []).map(city => `City ${city}`),
     ...f.activity.map(a => ACTIVITY_FILTER_LABEL[a]),
     f.q.trim() ? `search “${f.q.trim()}”` : '',
   ].filter(Boolean).join(' · ')
@@ -146,7 +153,7 @@ export interface CsvContact extends FilterableContact {
   sourceLabel: string
 }
 
-export const CSV_COLUMNS = ['name', 'email', 'phone', 'locale', 'status', 'can_email', 'created', 'came_from', 'source_detail', 'wedance_account', 'events_attended', 'going_next', 'follows', 'note'] as const
+export const CSV_COLUMNS = ['name', 'email', 'phone', 'city', 'locale', 'status', 'can_email', 'created', 'came_from', 'source_detail', 'wedance_account', 'events_attended', 'going_next', 'follows', 'note'] as const
 
 /**
  * The contacts as CSV (one header row, every value quoted). Only contacts: the audience
@@ -155,7 +162,7 @@ export const CSV_COLUMNS = ['name', 'email', 'phone', 'locale', 'status', 'can_e
 export function contactsCsv(list: CsvContact[]): string {
   const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
   const rows = list.filter(c => c.isContact !== false).map(c => [
-    c.name || c.account?.name, c.email, c.phone, c.locale, c.status,
+    c.name || c.account?.name, c.email, c.phone, c.city, c.locale, c.status,
     c.emailBlock ? `no: ${EMAIL_BLOCK_LABEL[c.emailBlock as EmailBlock] ?? c.emailBlock}` : 'yes',
     c.source?.subscribed_before ? `before ${c.source.subscribed_before.slice(0, 10)}` : (c.createdAt ? new Date(c.createdAt).toISOString() : ''), c.sourceLabel, sourceDetail(c.source as Record<string, string>),
     c.hasAccount ? 'yes' : 'no', c.activity.wentTo, c.activity.upcoming[0]?.startDate.slice(0, 10) ?? '', c.activity.follows ? 'yes' : 'no',

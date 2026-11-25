@@ -127,7 +127,7 @@ export const businessSiteRouter = router({
     const p = await requireMember(ctx, input.username)
     const [rows, act, pageEvents] = await Promise.all([
       ctx.db.select({
-        id: profileContacts.id, email: profileContacts.email, name: profileContacts.name, phone: profileContacts.phone,
+        id: profileContacts.id, email: profileContacts.email, name: profileContacts.name, phone: profileContacts.phone, city: profileContacts.city,
         locale: profileContacts.locale, source: profileContacts.source, note: profileContacts.note, status: profileContacts.status, bouncedAt: profileContacts.bouncedAt,
         createdAt: profileContacts.createdAt, dancerId: profileContacts.dancerId,
         accountName: dancers.name, accountPhoto: dancers.photo, accountUsername: dancers.username, accountCity: dancers.city,
@@ -144,7 +144,7 @@ export const businessSiteRouter = router({
     const contacts = rows.map((r: any) => {
       const sourceKey = contactSourceKey(r.source)
       return {
-        id: r.id, email: r.email, name: r.name, phone: r.phone, locale: r.locale, source: r.source as Record<string, string>,
+        id: r.id, email: r.email, name: r.name, phone: r.phone, city: (r.city as string | null) ?? null, locale: r.locale, source: r.source as Record<string, string>,
         note: r.note, status: r.status as 'subscribed' | 'unsubscribed', bouncedAt: (r.bouncedAt as Date | null) ?? null, createdAt: r.createdAt as Date | null,
         sourceKey, sourceLabel: sourceLabelFor(sourceKey, eventNames.get(r.source?.event)),
         emailBlock: emailBlock(r),
@@ -164,7 +164,7 @@ export const businessSiteRouter = router({
     const others: typeof contacts = otherPeople.map((d) => {
       const activity = activityFor(act.byDancer, d.id)
       return {
-        id: `dancer:${d.id}`, email: '', name: d.name ?? null, phone: null, locale: null, source: {} as Record<string, string>,
+        id: `dancer:${d.id}`, email: '', name: d.name ?? null, phone: null, city: null, locale: null, source: {} as Record<string, string>,
         note: null, status: 'subscribed' as const, bouncedAt: null, createdAt: activity.followedAt ? new Date(activity.followedAt) : null,
         sourceKey: 'wedance' as const, sourceLabel: SOURCE_LABEL.wedance,
         emailBlock: 'not_a_contact' as const,

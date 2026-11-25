@@ -40,4 +40,16 @@ describe('profile site (RAZ-412)', () => {
     expect(profileSiteSchema.safeParse({ ...site, sections: [{ id: 'x', kind: 'carousel' }] }).success).toBe(false)
     expect(profileSiteSchema.safeParse({ ...site, sections: [{ id: 'x', kind: 'text', anchor: 'Has Space' }] }).success).toBe(false)
   })
+
+  it('a sign-up can ask for a city, with its own label, and hide the promo code (RAZ-1093)', () => {
+    const withCity: ProfileSite = {
+      ...site,
+      sections: [{ id: 'join', kind: 'signup', city: { label: { en: 'Your city', de: 'Deine Stadt' } }, hidePromo: true, promoLabel: { en: 'Code' } }],
+    }
+    const parsed = profileSiteSchema.parse(withCity)
+    expect(parsed.sections[0]).toMatchObject({ city: { label: { en: 'Your city', de: 'Deine Stadt' } }, hidePromo: true, promoLabel: { en: 'Code' } })
+    const resolved = resolveSite(parsed, 'de')
+    expect(resolved.sections[0]).toMatchObject({ city: { label: 'Deine Stadt' }, hidePromo: true, promoLabel: 'Code' })
+    expect(resolveSite(parsed, 'en').sections[0]).toMatchObject({ city: { label: 'Your city' }, promoLabel: 'Code' })
+  })
 })

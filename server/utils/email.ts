@@ -376,7 +376,7 @@ export async function sendSiteSignupTeamEmail(params: {
   to: string
   name: string
   profileName: string
-  contact: { name: string; email: string; phone?: string | null; locale?: string | null }
+  contact: { name: string; email: string; phone?: string | null; city?: string | null; locale?: string | null }
   source: Record<string, string>
   link: string
 }) {
@@ -387,7 +387,7 @@ export async function sendSiteSignupTeamEmail(params: {
     return
   }
   const rows = [
-    ['Name', params.contact.name], ['Email', params.contact.email], ['Phone', params.contact.phone || ''], ['Language', params.contact.locale || ''],
+    ['Name', params.contact.name], ['Email', params.contact.email], ['Phone', params.contact.phone || ''], ['City', params.contact.city || ''], ['Language', params.contact.locale || ''],
     ...Object.entries(params.source).map(([k, v]) => [k, v]),
   ].filter(([, v]) => v).map(([k, v]) => `<tr><td style="padding: 4px 12px 4px 0; color: #888;">${escapeHtml(k!)}</td><td>${escapeHtml(v!)}</td></tr>`).join('')
   await getResend().emails.send({

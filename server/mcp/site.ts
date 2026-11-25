@@ -10,7 +10,7 @@ import { SECTION_INFO, SECTION_KINDS, newId, profileSiteSchema, siteSectionSchem
 import { SITE_FONTS, SITE_THEMES } from '../../shared/utils/siteThemes'
 
 /** Section fields that hold text per language ({ en: '…', de: '…' }). */
-const L10N_FIELDS = ['navLabel', 'eyebrow', 'title', 'titleAccent', 'body', 'address'] as const
+const L10N_FIELDS = ['navLabel', 'eyebrow', 'title', 'titleAccent', 'body', 'address', 'promoLabel'] as const
 
 const l10n = z.record(z.string().min(2).max(12), z.string().max(8000))
   .describe('Text per language, e.g. {"en": "…", "de": "…"}. Languages you leave out stay; "" removes one.')
@@ -35,6 +35,10 @@ export const sectionPatchSchema = z.object({
   buttons: s.buttons.describe('Replaces the whole list: send every button.'),
   items: s.items.describe('Cards / questions / facts. Replaces the whole list: send every item (keep their ids).'),
   callout: s.callout.describe('Replaces the callout.'),
+  city: z.object({ label: l10n.optional() }).nullable().optional()
+    .describe('Sign-up sections: turn on an optional City field. label is the placeholder per language (default “City”). null turns the field off.'),
+  hidePromo: s.hidePromo.describe('Sign-up sections: true hides the promo code field (it is shown when you leave this out).'),
+  promoLabel: l10n.optional().describe('Sign-up sections: placeholder for the promo code field, per language. "" removes one.'),
 })
 export type SectionPatch = z.infer<typeof sectionPatchSchema>
 
@@ -80,6 +84,14 @@ function mergeSection(cur: SiteSection, p: SectionPatch): SiteSection {
   if (kind) out.kind = kind
   for (const [k, v] of Object.entries(fields)) {
     if (v === undefined) continue
+    if (k === 'city') {
+      if (v === null) delete out.city
+      else {
+        const label = mergeL10n(cur.city?.label, (v as { label?: Record<string, string> }).label)
+        out.city = label ? { label } : {}
+      }
+      continue
+    }
     if ((L10N_FIELDS as readonly string[]).includes(k)) out[k] = mergeL10n(cur[k as keyof SiteSection] as L10n | undefined, v as Record<string, string>)
     else if (v === '' && ['image', 'video', 'mapUrl', 'anchor'].includes(k)) delete out[k]
     else out[k] = v

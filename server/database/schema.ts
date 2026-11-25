@@ -1664,6 +1664,11 @@ export const profileContacts = pgTable('profile_contacts', {
   email: text('email').notNull(),
   name: text('name'),
   phone: text('phone'),
+  // City they typed on a site sign-up (RAZ-1093). Free text: a fan can name a
+  // city WeDance has no page for. city_id is set only when that text matches
+  // exactly one row in cities.
+  city: text('city'),
+  cityId: uuid('city_id').references(() => cities.id, { onDelete: 'set null' }),
   locale: text('locale'),
   // Where they signed up: the site, the form, utm_* and referrer.
   source: jsonb('source').$type<Record<string, string>>().notNull().default({}),
@@ -1676,6 +1681,7 @@ export const profileContacts = pgTable('profile_contacts', {
 }, (t) => [
   uniqueIndex('profile_contacts_profile_email_uidx').on(t.profileId, sql`lower(${t.email})`),
   index('profile_contacts_profile_idx').on(t.profileId, t.createdAt),
+  index('profile_contacts_profile_city_idx').on(t.profileId, sql`lower(${t.city})`),
 ])
 
 // A page's emails to its contacts (migration 0072, RAZ-975): one row per send — who, when, which
