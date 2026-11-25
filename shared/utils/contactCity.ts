@@ -27,6 +27,21 @@ export function takeSignupCity(bodyCity: string | undefined, source: Record<stri
   return city
 }
 
+/**
+ * City for one sign-up. A real city field wins. Until the site kit shows that
+ * field, los.filinsclub's form still posts the city as a promo code: that
+ * value is the city, and it does not stay a promo code.
+ */
+export function cityFromSignup(username: string, bodyCity: string, source: Record<string, string>): { city: string, source: Record<string, string> } {
+  const next = { ...source }
+  let city = takeSignupCity(bodyCity, next)
+  if (!city && shouldMovePromoToCity({ username, promoCode: next.promo_code, city, source: next })) {
+    city = (next.promo_code ?? '').trim()
+    delete next.promo_code
+  }
+  return { city, source: next }
+}
+
 /** The one city `text` names, or null when it names none or more than one. */
 export function matchCity(text: string, cities: readonly CityRow[]): { id: string } | null {
   const q = key(text)

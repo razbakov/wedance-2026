@@ -5,7 +5,7 @@ import { dancers, profileContacts, profileMembers, profileSites, profiles } from
 import { profileByHandle, siteUrl } from '../../../utils/profileFeed'
 import { sendSiteSignupTeamEmail, sendSiteWelcomeEmail } from '../../../utils/email'
 import { pick, type ProfileSite } from '../../../../shared/types/profileSite'
-import { takeSignupCity } from '../../../../shared/utils/contactCity'
+import { cityFromSignup } from '../../../../shared/utils/contactCity'
 import { findContactCityId } from '../../../utils/contactCity'
 
 /**
@@ -51,8 +51,8 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 429, statusMessage: 'Thanks — we already have you.' })
   }
 
-  const source = Object.fromEntries(Object.entries(body.source).filter(([, v]) => v))
-  const city = takeSignupCity(body.city, source)
+  const posted = Object.fromEntries(Object.entries(body.source).filter(([, v]) => v))
+  const { city, source } = cityFromSignup(profile.username, body.city, posted)
   const cityId = city ? await findContactCityId(db, city) : null
   const [dancer] = await db.select({ id: dancers.id }).from(dancers).where(eq(sql`lower(${dancers.email})`, body.email)).limit(1)
   const [existing] = await db.select({ id: profileContacts.id }).from(profileContacts)

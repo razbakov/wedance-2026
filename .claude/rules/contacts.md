@@ -27,7 +27,8 @@ A site sign-up can also ask for an optional **city** (RAZ-1093): the signup sect
 `profile_contacts.city`, shown on the row, in the CSV column `city`, and as a **City**
 filter in the rail. A unique match against `cities` also sets `city_id`; a shared or
 unknown name stays free text. The los.filinsclub interest form's old promo-code cities
-were moved onto this column (migration 0081).
+were moved onto this column (migration 0081). Until the site kit shows the city
+field, a promo code on that page's website sign-up is stored as the city.
 Contacts names the event (`sourceLabelFor`: "Signed up for La Timberia"), marks an un-opted-in sign-up
 "Only for their event" (`emailBlock` → `event_only`, not "never asked"), and the rail's **Channel** counts and filters
 contacts by `contactChannel` (utm_source, else referrer host; ig / l.instagram.com → Instagram; "Not known" last). `rsvp.shareContact` (source `rsvp`, mailable) stays for MCP.

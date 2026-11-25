@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ProfileSite } from '../types/profileSite'
-import { enableInterestCityField, matchCity, shouldMovePromoToCity, takeSignupCity, type CityRow } from './contactCity'
+import { cityFromSignup, enableInterestCityField, matchCity, shouldMovePromoToCity, takeSignupCity, type CityRow } from './contactCity'
 
 const city = (over: Partial<CityRow> & Pick<CityRow, 'id' | 'name'>): CityRow => ({
   localName: null, slug: over.name.toLowerCase(), altNames: [], ...over,
@@ -16,6 +16,27 @@ describe('takeSignupCity', () => {
     const source = { city: '  Hamburg ' }
     expect(takeSignupCity('', source)).toBe('Hamburg')
     expect(source).toEqual({})
+  })
+})
+
+describe('cityFromSignup', () => {
+  it('keeps a real city field and a promo code apart', () => {
+    const source = { form: 'sites.wedance.vip', promo_code: 'SUMMER' }
+    expect(cityFromSignup('los.filinsclub', 'Berlin', source)).toEqual({
+      city: 'Berlin',
+      source: { form: 'sites.wedance.vip', promo_code: 'SUMMER' },
+    })
+  })
+  it('treats the los.filinsclub promo code as the city until the form field ships', () => {
+    const source = { form: 'sites.wedance.vip', page: '/los.filinsclub', promo_code: ' Munich ' }
+    expect(cityFromSignup('los.filinsclub', '', source)).toEqual({
+      city: 'Munich',
+      source: { form: 'sites.wedance.vip', page: '/los.filinsclub' },
+    })
+  })
+  it('does not take a promo code from another page', () => {
+    const source = { promo_code: 'SUMMER' }
+    expect(cityFromSignup('other', '', source)).toEqual({ city: '', source: { promo_code: 'SUMMER' } })
   })
 })
 
