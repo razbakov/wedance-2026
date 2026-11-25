@@ -92,7 +92,7 @@ export function inviteTemplate(event: { name: string, when: string }, profileNam
 }
 
 /** `isContact: false` = an audience member who isn't a contact (RAZ-963): never mailed. */
-export interface MailableContact { id: string, email: string, name: string | null, status: string, source: ContactSource, isContact?: boolean }
+export interface MailableContact { id: string, email: string, name: string | null, status: string, source: ContactSource, isContact?: boolean, bouncedAt?: string | Date | null }
 
 /** Who of `contacts` actually gets it: only contacts the page may email, each address once. */
 export function mailingRecipients<T extends MailableContact>(contacts: readonly T[]): T[] {

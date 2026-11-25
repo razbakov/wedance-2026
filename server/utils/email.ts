@@ -629,26 +629,31 @@ export async function sendOccasionAskEmail(params: {
  * A page's email to its contacts (RAZ-975): the same text to many people, each with their
  * own name and unsubscribe link, sent with Resend's batch API (100 per call). From the page's
  * name, replies go to the person who sent it. Returns how many went out; a failed batch is
- * counted, never retried here (the send log keeps the numbers).
+ * counted, never retried here (the send log keeps the numbers). `results` has one entry per
+ * message, in order: Resend's email id (what its webhook reports delivered / opened / clicked /
+ * bounced for), or null when that batch failed. `mailingId` tags each email so the webhook can
+ * tell page emails from WeDance's own.
  */
 export async function sendContactMailing(params: {
   profileName: string
   replyTo?: string | null
   subject: string
+  mailingId?: string
   messages: { to: string; subject?: string; html: string; text: string; unsubscribeUrl?: string | null }[]
-}): Promise<{ sent: number; failed: number }> {
+}): Promise<{ sent: number; failed: number; results: { resendId: string | null; ok: boolean }[] }> {
   const config = useRuntimeConfig()
   if (!config.resendApiKey) {
     for (const m of params.messages) console.log(`\n✉️  ${m.to}: ${m.subject ?? params.subject}\n${m.text}\n`)
-    return { sent: params.messages.length, failed: 0 }
+    return { sent: params.messages.length, failed: 0, results: params.messages.map(() => ({ resendId: null, ok: true })) }
   }
   const from = (config.resendFromEmail || 'WeDance <noreply@wedance.vip>').replace(/^[^<]*</, `${params.profileName.replace(/[<>"]/g, '')} <`)
   let sent = 0
   let failed = 0
+  const results: { resendId: string | null; ok: boolean }[] = []
   for (let i = 0; i < params.messages.length; i += 100) {
     const chunk = params.messages.slice(i, i + 100)
     try {
-      const { error } = await getResend().batch.send(chunk.map(m => ({
+      const { data, error } = await getResend().batch.send(chunk.map(m => ({
         from,
         to: m.to,
         subject: m.subject ?? params.subject,
@@ -656,14 +661,23 @@ export async function sendContactMailing(params: {
         text: m.text,
         ...(params.replyTo ? { replyTo: params.replyTo } : {}),
         ...(m.unsubscribeUrl ? { headers: { 'List-Unsubscribe': `<${m.unsubscribeUrl}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' } } : {}),
+        ...(params.mailingId ? { tags: [{ name: 'mailing', value: params.mailingId }] } : {}),
       })))
-      if (error) { console.error('[contact-mailing] batch failed', error); failed += chunk.length } else sent += chunk.length
+      if (error) {
+        console.error('[contact-mailing] batch failed', error)
+        failed += chunk.length
+        for (const _ of chunk) results.push({ resendId: null, ok: false })
+      } else {
+        sent += chunk.length
+        chunk.forEach((_, j) => results.push({ resendId: data?.data?.[j]?.id ?? null, ok: true }))
+      }
     } catch (e) {
       console.error('[contact-mailing] batch failed', e)
       failed += chunk.length
+      for (const _ of chunk) results.push({ resendId: null, ok: false })
     }
   }
-  return { sent, failed }
+  return { sent, failed, results }
 }
 
 /**

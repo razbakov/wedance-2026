@@ -25,7 +25,7 @@ export async function contactPageFor(db: any, ev: { hostProfileId?: string | nul
 }
 
 async function findRow(db: any, pageId: string, dancer: { id: string, email: string }) {
-  const [row] = await db.select({ id: profileContacts.id, dancerId: profileContacts.dancerId, phone: profileContacts.phone, status: profileContacts.status, source: profileContacts.source })
+  const [row] = await db.select({ id: profileContacts.id, dancerId: profileContacts.dancerId, phone: profileContacts.phone, status: profileContacts.status, source: profileContacts.source, bouncedAt: profileContacts.bouncedAt })
     .from(profileContacts)
     .where(and(eq(profileContacts.profileId, pageId), or(eq(profileContacts.dancerId, dancer.id), sql`lower(${profileContacts.email}) = lower(${dancer.email})`)))
     .limit(1)

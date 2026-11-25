@@ -128,7 +128,7 @@ export const businessSiteRouter = router({
     const [rows, act, pageEvents] = await Promise.all([
       ctx.db.select({
         id: profileContacts.id, email: profileContacts.email, name: profileContacts.name, phone: profileContacts.phone,
-        locale: profileContacts.locale, source: profileContacts.source, note: profileContacts.note, status: profileContacts.status,
+        locale: profileContacts.locale, source: profileContacts.source, note: profileContacts.note, status: profileContacts.status, bouncedAt: profileContacts.bouncedAt,
         createdAt: profileContacts.createdAt, dancerId: profileContacts.dancerId,
         accountName: dancers.name, accountPhoto: dancers.photo, accountUsername: dancers.username, accountCity: dancers.city,
       }).from(profileContacts).leftJoin(dancers, eq(dancers.id, profileContacts.dancerId))
@@ -145,7 +145,7 @@ export const businessSiteRouter = router({
       const sourceKey = contactSourceKey(r.source)
       return {
         id: r.id, email: r.email, name: r.name, phone: r.phone, locale: r.locale, source: r.source as Record<string, string>,
-        note: r.note, status: r.status as 'subscribed' | 'unsubscribed', createdAt: r.createdAt as Date | null,
+        note: r.note, status: r.status as 'subscribed' | 'unsubscribed', bouncedAt: (r.bouncedAt as Date | null) ?? null, createdAt: r.createdAt as Date | null,
         sourceKey, sourceLabel: sourceLabelFor(sourceKey, eventNames.get(r.source?.event)),
         emailBlock: emailBlock(r),
         isContact: true,
@@ -165,7 +165,7 @@ export const businessSiteRouter = router({
       const activity = activityFor(act.byDancer, d.id)
       return {
         id: `dancer:${d.id}`, email: '', name: d.name ?? null, phone: null, locale: null, source: {} as Record<string, string>,
-        note: null, status: 'subscribed' as const, createdAt: activity.followedAt ? new Date(activity.followedAt) : null,
+        note: null, status: 'subscribed' as const, bouncedAt: null, createdAt: activity.followedAt ? new Date(activity.followedAt) : null,
         sourceKey: 'wedance' as const, sourceLabel: SOURCE_LABEL.wedance,
         emailBlock: 'not_a_contact' as const,
         isContact: false,

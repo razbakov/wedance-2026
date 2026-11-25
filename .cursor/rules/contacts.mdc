@@ -44,3 +44,13 @@ page, refuses the same subject within 10 min). Resend batch (`sendContactMailing
 sender, `List-Unsubscribe` + one-click POST (`/api/contacts/unsubscribe`). Every send is logged in `contact_mailings`
 (0072: who, when, segment in words + filter, subject/body, event, contact ids, sent/failed), shown as "Sent before".
 
+
+## What happened after a send (migration 0080)
+
+Each send also writes one `contact_mailing_recipients` row per person (Resend's email id, tagged `mailing=<id>`).
+Resend's webhook `POST /api/webhooks/resend` (Svix signature, `RESEND_WEBHOOK_SECRET`; `resend.lib.ts`) fills in
+delivered / opened / clicked / bounced / marked as spam (`shared/utils/mailingTracking.ts`); WeDance's own emails have
+no row and are ignored. "Sent before" shows `mailingStatsLine` per send. A **hard** bounce sets
+`profile_contacts.bounced_at` → `emailBlock` `bounced` (never emailed again); a spam complaint unsubscribes. Opens are
+approximate (Apple Mail opens everything); clicks and bounces are reliable. Opens and clicks only arrive when open /
+click tracking is on for the sending domain in Resend.
