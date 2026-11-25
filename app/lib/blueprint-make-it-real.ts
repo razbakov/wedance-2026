@@ -9,13 +9,13 @@
  * (profile_owner_suggestions), artistInvites.claim / confirmEmail
  * (/confirm/<token>), business.merge (findLikelyDuplicates), the v3 / Instagram
  * fill rules (grant() sets profiles.claimed), rsvp.people / EventWhosComing,
- * /dance-card. Re-read against the code on 2026-11-18 (RAZ-1072): the steps
+ * /dance-card. Re-read against the code on 2026-11-25 (RAZ-1083): the steps
  * still match the claim, merge and faces code. Not run end to end with a test
  * owner yet. Shown at /docs/blueprints/make-it-real.
  */
 import type { Blueprint, BpGap, BpLaneDef, BpPhaseDef, BpStep } from './blueprint'
 
-export const REAL_BLUEPRINT_UPDATED = '2026-11-18'
+export const REAL_BLUEPRINT_UPDATED = '2026-11-25'
 
 export type RealLane = 'owner' | 'system' | 'dancer'
 export type RealPhase = 'appears' | 'find' | 'ask' | 'review' | 'run' | 'dupes' | 'faces' | 'trust'
@@ -78,7 +78,7 @@ export const realSteps: BpStep<RealLane, RealPhase>[] = [
   { id: 'lock', phase: 'run', lane: 'system', name: 'Stop overwriting it', status: 'live', marks: [], code: 'grant() sets profiles.claimed · v3ProfileSync · profileImport',
     note: 'Once anyone is on the team the page is claimed: the wedance.vip sync and the Instagram import never write it again (re-checked at write time).' },
   { id: 'edit', phase: 'run', lane: 'owner', name: 'Fix the page', status: 'live', marks: [], route: '/business/network/[handle]',
-    note: 'Name, photo, bio, links, handle (old handle redirects), team and roles, Instagram connection (#501), events.' },
+    note: 'Name, photo, bio, city, an artist’s service area (other cities they are listed in), links, handle (old handle redirects), team and roles, Instagram connection (#501), events.' },
   { id: 'show-person', phase: 'run', lane: 'owner', name: 'Show who runs it', status: 'partial', marks: [], route: '/settings', code: 'PersonDancerSide · public page (#474)', refs: ['#474'],
     note: 'Only for the one page a person sets as “Your public page”: /@handle then shows their dancer side. The team behind any other page stays invisible.' },
 
