@@ -616,7 +616,7 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'follow', title: 'Follow or unfollow a page', scopes: ['social:write'], annotations: IDEMPOTENT,
-    description: 'Follow (or unfollow) an artist, venue, organizer or promoter to see their events.',
+    description: 'Follow (or unfollow) an artist, venue, organizer or promoter to see their events. Following also lets the page email the user their news; unfollowing stops it.',
     input: { handle, follow: z.boolean().default(true).describe('false to unfollow.') },
     run: async (t, a) => {
       const id = await profileId(t, a.handle)
