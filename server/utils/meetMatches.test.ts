@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { mutualPairs, pickNight, type NightCandidate } from './meetMatches'
+import { eventEndsAt } from '../../shared/utils/eventTime'
+import { latestMet, mutualPairs, pickNight, ritualEventId, type NightCandidate } from './meetMatches'
 
 const ME = 'me'
 const d = (iso: string) => new Date(iso)
@@ -82,5 +83,60 @@ describe('pickNight', () => {
 
   it('no city and no plans → nothing', () => {
     expect(pickNight([ev('x', 16)], { ...base, myCitySlug: '' })).toBeNull()
+  })
+})
+
+describe('a night you already met at', () => {
+  const now = new Date('2026-11-25T11:00:00.000Z')
+  const ev = (id: string, start: string, end: string | null) => ({
+    id, name: id === 'past' ? 'La Timberia' : 'Next week',
+    startDate: new Date(start), endDate: end ? new Date(end) : null,
+    timezone: 'Europe/Berlin', venueName: 'La Timberia',
+  })
+
+  it('keeps the latest booked night that has ended, and ignores one still ahead', () => {
+    const met = latestMet([
+      { otherId: 'gila', eventId: 'older', bookedAt: new Date('2026-11-10T12:00:00Z') },
+      { otherId: 'gila', eventId: 'past', bookedAt: new Date('2026-11-18T12:00:00Z') },
+      { otherId: 'gila', eventId: 'soon', bookedAt: new Date('2026-11-24T12:00:00Z') },
+    ], [
+      ev('older', '2026-11-12T17:00:00Z', '2026-11-12T22:00:00Z'),
+      ev('past', '2026-11-19T17:00:00Z', '2026-11-19T22:00:00Z'),
+      ev('soon', '2026-11-26T17:00:00Z', '2026-11-26T22:00:00Z'),
+    ], now)
+    expect(met.get('gila')).toMatchObject({
+      eventId: 'past', name: 'La Timberia', venue: 'La Timberia',
+      startISO: '2026-11-19T17:00:00.000Z',
+    })
+    expect(met.get('gila')?.path).toMatch(/^\/events\//)
+    expect(eventEndsAt('2026-11-19T17:00:00Z', '2026-11-19T22:00:00Z', 'Europe/Berlin').getTime()).toBeLessThan(now.getTime())
+  })
+})
+
+describe('which night is the meetup', () => {
+  it('a night only I am going to is not the meetup, including after we already met', () => {
+    expect(ritualEventId({
+      booked: { eventId: 'past', ended: true },
+      suggested: { eventId: 'solo', youGoing: true, theyGoing: false },
+    })).toBe('past')
+    expect(ritualEventId({
+      booked: null,
+      suggested: { eventId: 'solo', youGoing: true, theyGoing: false },
+    })).toBeNull()
+  })
+
+  it('a night neither of us has yet, or one we are both going to, can still be booked', () => {
+    expect(ritualEventId({
+      booked: null,
+      suggested: { eventId: 'city', youGoing: false, theyGoing: false },
+    })).toBe('city')
+    expect(ritualEventId({
+      booked: null,
+      suggested: { eventId: 'both', youGoing: true, theyGoing: true },
+    })).toBe('both')
+    expect(ritualEventId({
+      booked: { eventId: 'soon', ended: false },
+      suggested: { eventId: 'other', youGoing: false, theyGoing: true },
+    })).toBe('soon')
   })
 })

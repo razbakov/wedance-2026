@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { asDanceRole, asStyleList, matchNotice, roleLabel, unactedNotices, type Notice } from './notices'
+import { asDanceRole, asStyleList, bellNightSource, matchNotice, roleLabel, unactedNotices, type Notice } from './notices'
 
 const anna = {
   dancerId: 'anna-id',
@@ -59,6 +59,21 @@ describe('profile fields on a match', () => {
     expect(asStyleList('["Salsa","Bachata"]')).toEqual(['Salsa', 'Bachata'])
     expect(asStyleList([], { Salsa: 'Beginner', Bachata: 'Intermediate' })).toEqual(['Salsa', 'Bachata'])
     expect(roleLabel('follow')).toBe('Follower')
+  })
+})
+
+describe('bellNightSource', () => {
+  it('drops a booked night once it is over, and does not offer a night only I am going', () => {
+    expect(bellNightSource({ booked: 'over', suggestion: 'me' })).toBe('none')
+    expect(bellNightSource({ booked: 'over', suggestion: 'both' })).toBe('suggestion')
+    expect(bellNightSource({ booked: 'over', suggestion: null })).toBe('none')
+  })
+
+  it('keeps a booked night that has not happened, and a city night nobody has planned', () => {
+    expect(bellNightSource({ booked: 'ahead', suggestion: 'me' })).toBe('booked')
+    expect(bellNightSource({ booked: null, suggestion: 'city' })).toBe('suggestion')
+    expect(bellNightSource({ booked: null, suggestion: 'them' })).toBe('suggestion')
+    expect(bellNightSource({ booked: null, suggestion: 'me' })).toBe('none')
   })
 })
 
