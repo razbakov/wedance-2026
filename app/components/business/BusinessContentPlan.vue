@@ -13,7 +13,7 @@ import { sizedImage, IMG } from '#shared/utils/image'
  */
 import { Sparkles, Wand2, Plus, X, Check, Clock, AlertTriangle, Loader2, CalendarDays, Image as ImageIcon, RefreshCw, Download, Instagram, ExternalLink } from 'lucide-vue-next'
 import type { PropType } from 'vue'
-import { POST_KINDS, type PostKind } from '#shared/utils/posts'
+import { planDrafted, POST_KINDS, type PostKind } from '#shared/utils/posts'
 import { LANGUAGES } from '#shared/utils/caption'
 
 const props = defineProps({
@@ -48,8 +48,8 @@ watch(posts, (p) => {
 onBeforeUnmount(() => clearInterval(timer))
 
 const live = computed(() => (posts.value ?? []).filter(p => p.status !== 'dropped'))
-// Only the event's flyer, no date yet: the plan hasn't been made.
-const empty = computed(() => live.value.length <= 1 && !live.value[0]?.dueOn)
+// Only the bare announcement, no date yet: the plan hasn't been made.
+const empty = computed(() => !planDrafted(live.value))
 const ready = computed(() => live.value.filter(p => p.flyer && !p.flyer.stale && !p.waitingFor).length)
 const next = computed(() => live.value.find(p => p.status === 'planned'))
 

@@ -28,12 +28,13 @@ export type PlanEvent = {
 export type PlannedPost = { kind: PostKind; subject?: string | null; dueOn: string; format: 'post' | 'story' }
 
 /**
- * The plan has been drafted when it is more than the bare announcement
- * (the row a flyer creates) or any live post already has a date.
+ * The plan has been drafted when a live post has a date, or one isn't the
+ * announcement. Two announcements with no date (the editor asking twice at
+ * once) are not a plan.
  */
-export function planDrafted(posts: { status?: string | null; dueOn?: string | null }[]): boolean {
+export function planDrafted(posts: { kind?: string | null; status?: string | null; dueOn?: string | null }[]): boolean {
   const live = posts.filter(p => p.status !== 'dropped')
-  return live.length > 1 || live.some(p => !!p.dueOn)
+  return live.some(p => !!p.dueOn || (!!p.kind && p.kind !== 'announcement'))
 }
 
 const addDays = (day: string, n: number) => new Date(new Date(`${day}T12:00:00Z`).getTime() + n * 86400_000).toISOString().slice(0, 10)

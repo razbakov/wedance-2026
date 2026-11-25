@@ -7,6 +7,7 @@
  *   <BusinessPlanTeaser :event-id="ev.id" @open="tab = 'plan'" />
  */
 import { Sparkles, ArrowRight } from 'lucide-vue-next'
+import { planDrafted } from '#shared/utils/posts'
 
 const props = defineProps({
   eventId: { type: String, required: true },
@@ -22,7 +23,7 @@ async function load() { try { posts.value = await $trpc.businessPosts.list.query
 onMounted(load)
 defineExpose({ reload: load })
 const live = computed(() => (posts.value ?? []).filter(p => p.status !== 'dropped'))
-const planned = computed(() => live.value.length > 1 || !!live.value[0]?.dueOn)
+const planned = computed(() => planDrafted(live.value))
 const ready = computed(() => live.value.filter(p => p.flyer && !p.flyer.stale).length)
 const next = computed(() => live.value.find(p => p.status === 'planned'))
 const fmtDay = (d: string | null) => d ? new Date(`${d}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }) : ''

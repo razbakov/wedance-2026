@@ -1433,7 +1433,11 @@ export const eventPosts = pgTable('event_posts', {
   // Work in progress on the flyer page (0078, RAZ-1033). The step, uploads and
   // the look that was read. Painted versions stay in event_flyers.
   flyerDraft: jsonb('flyer_draft').$type<import('../../shared/utils/flyerDraft').FlyerDraft | null>(),
-}, (t) => [index('event_posts_event_idx').on(t.eventId)])
+}, (t) => [
+  index('event_posts_event_idx').on(t.eventId),
+  // One announcement per event (0081). The editor's sidebar and content plan both create it.
+  uniqueIndex('event_posts_one_announcement').on(t.eventId).where(sql`${t.kind} = 'announcement'`),
+])
 
 // A page's Instagram professional account, connected through WeDance's Meta app
 // (migration 0063, #501 — Unified login, system-user token). One account per page.

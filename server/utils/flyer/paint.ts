@@ -31,12 +31,26 @@ export const MAX_GRID = 16
 
 type Post = { kind: PostKind; subject?: string | null } | null
 
-/** The event's announcement post (its main flyer): made when first needed. */
+/** The event's announcement post (its main flyer): made when first needed. One per event. */
 export async function announcementPost(db: any, eventId: string): Promise<string> {
-  const [p] = await db.select({ id: eventPosts.id }).from(eventPosts).where(and(eq(eventPosts.eventId, eventId), eq(eventPosts.kind, 'announcement'))).limit(1)
-  if (p) return p.id
-  const [n] = await db.insert(eventPosts).values({ eventId, kind: 'announcement', format: 'story' }).returning({ id: eventPosts.id })
-  return n!.id
+  const found = async () => {
+    const [p] = await db.select({ id: eventPosts.id }).from(eventPosts)
+      .where(and(eq(eventPosts.eventId, eventId), eq(eventPosts.kind, 'announcement')))
+      .orderBy(eventPosts.createdAt)
+      .limit(1)
+    return p?.id as string | undefined
+  }
+  const have = await found()
+  if (have) return have
+  try {
+    const [n] = await db.insert(eventPosts).values({ eventId, kind: 'announcement', format: 'story' }).returning({ id: eventPosts.id })
+    return n!.id
+  } catch (e) {
+    // The sidebar and the content plan both ask at once. The unique index keeps one.
+    const again = await found()
+    if (again) return again
+    throw e
+  }
 }
 
 // Who a post pictures: the artist post its artist; flyer, line-up and countdown

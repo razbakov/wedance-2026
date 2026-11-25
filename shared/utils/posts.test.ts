@@ -23,12 +23,20 @@ describe('proposePlan', () => {
 })
 
 describe('planDrafted', () => {
-  it('is drafted once there is more than the bare announcement, or any post has a date', () => {
+  it('is drafted once a post has a date or isn’t the announcement', () => {
     expect(planDrafted([])).toBe(false)
-    expect(planDrafted([{ status: 'planned', dueOn: null }])).toBe(false)
-    expect(planDrafted([{ status: 'dropped', dueOn: '2026-10-01' }])).toBe(false)
-    expect(planDrafted([{ status: 'planned', dueOn: '2026-10-01' }])).toBe(true)
-    expect(planDrafted([{ status: 'planned', dueOn: null }, { status: 'planned', dueOn: null }])).toBe(true)
+    expect(planDrafted([{ kind: 'announcement', status: 'planned', dueOn: null }])).toBe(false)
+    expect(planDrafted([{ kind: 'announcement', status: 'dropped', dueOn: '2026-10-01' }])).toBe(false)
+    expect(planDrafted([{ kind: 'announcement', status: 'planned', dueOn: '2026-10-01' }])).toBe(true)
+    // Opening the editor used to insert the announcement twice. That is not a plan.
+    expect(planDrafted([
+      { kind: 'announcement', status: 'planned', dueOn: null },
+      { kind: 'announcement', status: 'planned', dueOn: null },
+    ])).toBe(false)
+    expect(planDrafted([
+      { kind: 'announcement', status: 'planned', dueOn: null },
+      { kind: 'countdown', status: 'planned', dueOn: null },
+    ])).toBe(true)
   })
 })
 
