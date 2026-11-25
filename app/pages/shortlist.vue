@@ -136,19 +136,19 @@ async function remove(artist: Row) {
         </section>
 
         <template v-else-if="rows.length">
-          <div class="mt-8 flex items-center gap-2 overflow-x-auto" role="group" aria-label="Filter by occasion">
+          <div class="mt-8 flex flex-wrap items-center gap-2" role="group" aria-label="Filter by occasion">
             <button
               v-for="item in SHORTLIST_FILTERS"
               :key="item.id"
               type="button"
-              class="h-8 shrink-0 px-3 rounded-full text-xs font-bold font-sans"
+              class="h-8 px-3 rounded-full text-xs font-bold font-sans"
               :aria-pressed="filter === item.id"
               :class="filter === item.id ? 'bg-wd-brown-900 text-wd-cream' : 'bg-white text-foreground border border-input'"
               @click="filter = item.id"
             >
               {{ item.label }}
             </button>
-            <span class="ml-auto shrink-0 text-xs text-secondary font-hand" style="font-size:16px;" aria-live="polite">
+            <span class="ml-auto text-xs text-secondary font-hand" style="font-size:16px;" aria-live="polite">
               {{ filtered.length }} artist{{ filtered.length === 1 ? '' : 's' }}
             </span>
           </div>
