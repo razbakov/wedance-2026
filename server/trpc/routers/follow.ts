@@ -2,12 +2,14 @@ import { z } from 'zod'
 import { eq, and, sql, isNotNull } from 'drizzle-orm'
 import { router, publicProcedure, protectedProcedure } from '../trpc'
 import { follows, profiles, dancers } from '../../database/schema'
+import { recordFollowContact, stopFollowContact } from '../../utils/rsvpContact'
 
 export const followRouter = router({
   /**
    * Toggle follow on a profile (artist/organizer/venue). Idempotent:
    * if already following, unfollows; if not, follows.
    * Returns the new state: { following: boolean }.
+   * Following makes the dancer one of the page's contacts it may email; unfollowing stops that (RAZ-1092).
    */
   toggle: protectedProcedure
     .input(z.object({ profileId: z.string().uuid() }))
@@ -24,6 +26,7 @@ export const followRouter = router({
         await ctx.db
           .delete(follows)
           .where(eq(follows.id, existing.id))
+        await stopFollowContact(ctx.db, input.profileId, ctx.dancerId).catch(e => console.error('[follow] stopFollowContact failed', e))
         return { following: false }
       }
 
@@ -31,6 +34,7 @@ export const followRouter = router({
         .insert(follows)
         .values({ dancerId: ctx.dancerId, profileId: input.profileId })
         .onConflictDoNothing()
+      await recordFollowContact(ctx.db, input.profileId, ctx.dancerId).catch(e => console.error('[follow] recordFollowContact failed', e))
       return { following: true }
     }),
 

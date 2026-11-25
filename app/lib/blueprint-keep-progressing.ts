@@ -13,7 +13,7 @@
  */
 import type { Blueprint, BpGap, BpLaneDef, BpPhaseDef, BpStep } from './blueprint'
 
-export const KEEP_PROGRESSING_BLUEPRINT_UPDATED = '2026-11-20'
+export const KEEP_PROGRESSING_BLUEPRINT_UPDATED = '2026-11-25'
 
 export type KeepLane = 'student' | 'system' | 'school'
 export type KeepPhase = 'goal' | 'find' | 'enroll' | 'weekly' | 'practise' | 'private' | 'progress' | 'next'
@@ -51,8 +51,8 @@ export const keepSteps: BpStep<KeepLane, KeepPhase>[] = [
     note: 'Bio, styles, languages, socials and the schedule of their classes and events, then reviews. “Book <name>” and Follow sit under the photo.' },
   { id: 'reviews', phase: 'find', lane: 'student', name: 'Read / write reviews', status: 'partial', marks: [], route: '/@handle', code: 'ReviewsSection · review.create (MCP write_review)',
     note: '1–5 stars with text. Anyone signed in can review anyone: nothing checks they ever took a class with the teacher, so a review says little about teaching.' },
-  { id: 'follow', phase: 'find', lane: 'student', name: 'Follow the teacher', status: 'partial', marks: ['silent'], route: '/@handle', code: 'follow.toggle', refs: ['P220'],
-    note: 'On artist and promoter pages only (not venues or schools that are venues). Nothing comes of it: no feed, email or My plan item when they announce a new course or workshop.' },
+  { id: 'follow', phase: 'find', lane: 'student', name: 'Follow the teacher', status: 'partial', marks: [], route: '/@handle', code: 'follow.toggle · recordFollowContact', refs: ['P220'],
+    note: 'On artist and promoter pages only (not venues or schools that are venues). Following makes the dancer one of the page’s Contacts it may email (RAZ-1092; the button says so); unfollowing stops it. Still no feed or My plan item when they announce a new course or workshop.' },
   { id: 'school-listed', phase: 'find', lane: 'school', name: 'Classes are listed', status: 'live', marks: [], route: '/@handle', code: 'v3EventSync · businessEvents.create',
     note: 'Classes synced from wedance.vip or created in Business show on the page, the city page and the enroll picker. New followers show on Business → Home (last 7 days) — the page hears about the follower, not the other way round.' },
 
