@@ -39,6 +39,32 @@ export const SECTION_INFO: Record<SectionKind, { label: string; hint: string; fi
  * One event in a site's feed (`events` of GET /api/profiles/<username>/site and
  * /events). Mirrored by wedance-site-kit `WeDanceEvent`; keep both in step.
  */
+/**
+ * Which word a site's schedule table uses for the people column (RAZ-1094).
+ * `teacher` for a school, `artist` for an artist, band or orchestra,
+ * `with` for anything else (a venue, a promoter). Older feeds omit it;
+ * those were school sites and still mean `teacher`.
+ */
+export type SchedulePeople = 'teacher' | 'artist' | 'with'
+
+/**
+ * The `profile` object on GET /api/profiles/<username>/site.
+ * Mirrored by wedance-site-kit `WeDanceProfileRef`; add a field there too.
+ */
+export type SiteProfileRef = {
+  username: string
+  name: string
+  url: string
+  city?: string | null
+  photo?: string | null
+  socials?: { platform: string; url: string }[]
+  /** venue | artist | organizer | promoter. */
+  type?: string | null
+  roles?: string[]
+  /** People-column word for the schedule table. Omitted on older answers. */
+  schedulePeople?: SchedulePeople
+}
+
 export type SiteEvent = {
   id: string
   name: string

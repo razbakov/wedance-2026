@@ -7,6 +7,7 @@ import { resolveTheme } from '../../../../shared/utils/siteThemes'
 import { siteAccess } from '../../../utils/sitePreview'
 import { absoluteSiteAssets } from '../../../../shared/utils/siteAssets'
 import { sizedImage, IMG } from '../../../../shared/utils/image'
+import { schedulePeople } from '../../../../shared/utils/scheduleColumn'
 
 /**
  * A profile's website in one language (RAZ-412): its sections and words as
@@ -29,8 +30,10 @@ export default defineEventHandler(async (event) => {
 
   // The site's own files (/images/x.jpg) as full URLs on its domain, so a hosted copy shows them too.
   const site = absoluteSiteAssets(resolveSite(content, String(getQuery(event).lang || '')), content.domain)
-  // For the site's header and footer: city, photo, public social links.
-  const [extra] = await db.select({ city: profiles.city, photo: profiles.photo, socials: profiles.socials }).from(profiles).where(eq(profiles.id, profile.id))
+  // For the site's header and footer, and for the schedule's people column (RAZ-1094).
+  const [extra] = await db.select({
+    city: profiles.city, photo: profiles.photo, socials: profiles.socials, type: profiles.type, roles: profiles.roles,
+  }).from(profiles).where(eq(profiles.id, profile.id))
   const days = Math.max(35, ...site.sections.filter(s => s.kind === 'events').map(s => s.days ?? 35))
   setResponseHeaders(event, {
     'access-control-allow-origin': '*',
@@ -45,6 +48,11 @@ export default defineEventHandler(async (event) => {
       city: extra?.city ?? null,
       photo: sizedImage(extra?.photo, IMG.card) ?? null,
       socials: ((extra?.socials ?? []) as { platform: string; url: string }[]).filter(x => /^https?:\/\//i.test(x?.url ?? '')),
+      /** venue | artist | organizer | promoter. The schedule table picks its people column from this (RAZ-1094). */
+      type: extra?.type ?? null,
+      roles: extra?.roles ?? [],
+      /** teacher (a school), artist (an artist, band or orchestra), or with (anything else). */
+      schedulePeople: schedulePeople({ type: extra?.type, roles: extra?.roles }),
     },
     ...site,
     updatedAt: row.updatedAt,
