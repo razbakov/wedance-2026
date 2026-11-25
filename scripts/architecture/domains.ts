@@ -43,7 +43,7 @@ export const DOMAINS: Domain[] = [
     id: 'directory',
     title: 'Profiles & cities',
     summary: 'Venue / artist / organiser profiles under /@handle, canonical cities, follows and the per-city community-group directory.',
-    tables: ['profiles', 'profileMembers', 'profileClaims', 'profileMerges', 'profileAccessLog', 'profileSuggestions', 'profileOwnerSuggestions', 'profileInvites', 'follows', 'legacyFollows', 'profileAffiliations', 'handles', 'organizerSubscriptions', 'networkLinks', 'profileSites', 'profileSiteVersions', 'profileContacts', 'contactMailings', 'contactMailingRecipients', 'instagramConnections', 'instagramWebhookEvents', 'cities', 'communityGroups', 'communityGroupReports', 'cityPages', 'citySchedules', 'cityOccasionPosts', 'launchSteps', 'launchNames', 'launchEvidence'],
+    tables: ['profiles', 'profileMembers', 'profileClaims', 'profileMerges', 'profileAccessLog', 'profileSuggestions', 'profileOwnerSuggestions', 'profileInvites', 'follows', 'legacyFollows', 'artistShortlist', 'profileAffiliations', 'handles', 'organizerSubscriptions', 'networkLinks', 'profileSites', 'profileSiteVersions', 'profileContacts', 'contactMailings', 'contactMailingRecipients', 'instagramConnections', 'instagramWebhookEvents', 'cities', 'communityGroups', 'communityGroupReports', 'cityPages', 'citySchedules', 'cityOccasionPosts', 'launchSteps', 'launchNames', 'launchEvidence'],
   },
   {
     id: 'booking',

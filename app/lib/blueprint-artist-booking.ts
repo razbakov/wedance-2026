@@ -7,12 +7,12 @@
  * RAZ-964), line-up invites (artistInvites.*), /gigs (gigs.*), /artists,
  * /@handle, the MCP tools (invite_artist, respond_invite, find_lineup), the
  * Instagram import (#452) and claiming a page. Re-read against the code on
- * 2026-11-18 (RAZ-1072). Not run end to end yet. Shown at
+ * 2026-11-25 (RAZ-1085 shortlist; RAZ-1072 before that). Not run end to end yet. Shown at
  * /docs/blueprints/artist-booking.
  */
 import type { Blueprint, BpGap, BpLaneDef, BpPhaseDef, BpStep } from './blueprint'
 
-export const ARTIST_BLUEPRINT_UPDATED = '2026-11-18'
+export const ARTIST_BLUEPRINT_UPDATED = '2026-11-25'
 
 export type ArtistLane = 'artist' | 'system' | 'organizer'
 export type ArtistPhase = 'listed' | 'found' | 'asked' | 'answer' | 'lineup' | 'night' | 'after'
@@ -47,6 +47,8 @@ export const artistSteps: BpStep<ArtistLane, ArtistPhase>[] = [
     note: 'Every visible artist page, filtered by city, style and name in the browser; the city page’s “Who’s on the floor” has the same people. It shows no fee, no availability and no past line-ups, and nothing says whether the artist runs the page and will see a request.' },
   { id: 'profile', phase: 'found', lane: 'organizer', name: 'Look at /@handle', status: 'live', marks: [], route: '/@[handle]', code: 'entity.getByHandle · ReviewsSection',
     note: 'Bio, photos, videos and socials, the upcoming events they are in the line-up of, reviews, and a Book button that opens /@handle/book.' },
+  { id: 'shortlist', phase: 'found', lane: 'organizer', name: 'Shortlist artists to compare', status: 'live', marks: [], route: '/shortlist', code: 'shortlist.toggle · shortlist.save · shortlist.mine', refs: ['RAZ-1085'],
+    note: 'On an artist’s /@handle and on /artists, Shortlist saves them to a private board at /shortlist. The organiser tags a wedding, birthday, corporate event or other, and writes a note only they see. Follow stays the way to see the artist’s events: shortlisting does not follow them, and the artist is not told. The board lines the same facts up — photo, city, styles, the tag, the note, and Book — so two artists can be compared. It shows no fee and no availability, which the page does not have yet.' },
   { id: 'assistant', phase: 'found', lane: 'system', name: 'Found through an AI app', status: 'live', marks: [], code: 'MCP find_lineup → businessEvents.searchProfiles · list_artists',
     note: 'An organiser’s assistant searches pages by name or handle for a line-up, or lists a city’s artists. If nothing is found, add_profile_from_instagram makes the page.' },
   { id: 'offer', phase: 'found', lane: 'artist', name: 'Post an offer on /gigs', status: 'partial', marks: ['manual'], route: '/gigs', code: 'gigs.create (kind offer)',

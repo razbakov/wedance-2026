@@ -35,7 +35,7 @@ export interface UxItem {
 }
 export interface UxHandoff { route: string, name: string, status: UxStatus, why: string }
 
-export const UX_UPDATED = '2026-11-17'
+export const UX_UPDATED = '2026-11-25'
 
 export const uxStatusLabel: Record<UxStatus, string> = {
   live: 'Live, real data',
@@ -140,6 +140,7 @@ const IT: [UxJourneyId, UxStageKey, string, string, UxStatus, string, string][] 
 // C7 Organizer
 ['C7','discover','For organizers','/for-organizers','live','','P707 P708 P714'],
 ['C7','discover','AI app (ChatGPT / Claude via MCP)','/docs/mcp','live','A second front door: the AI sets up the whole event.','#393 #446'],
+['C7','evaluate','Artist shortlist','/shortlist','live','A private booking list on an artist page and on /artists, separate from Follow. Tag a wedding, birthday or corporate event, and a note only you see. The artist is not told.','RAZ-1085'],
 ['C7','evaluate','Pricing: first event free','/for-organizers','live','"Start with one event free and upgrade later."','P729 P734'],
 ['C7','evaluate','Network €199 / year','/for-organizers','partial','The page sells it by email ("Talk to us"), not checkout; no Pro €49 any more. Cross-event insights and an account manager aren\'t built.','P730 P731 P732 RAZ-899'],
 ['C7','commit','Create / claim my page','/business/new','live','Duplicate warnings, Instagram import.','#458 #452'],

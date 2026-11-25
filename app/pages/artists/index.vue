@@ -6,7 +6,7 @@ import { sizedImage, IMG } from '#shared/utils/image'
  * Each card links to the unified /@<handle> profile.
  */
 import { displayDanceStyle, sameDanceStyle, sortDanceStyles } from '#shared/dance-styles'
-import { ChevronDown, Heart, MapPin, Search } from 'lucide-vue-next'
+import { Bookmark, ChevronDown, Heart, MapPin, Search } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
 import { Field } from '~/components/ui/field'
 import { Input } from '~/components/ui/input'
@@ -32,6 +32,10 @@ const { isSignedIn } = useAuth()
 const artists = ref<Artist[]>([])
 const loading = ref(true)
 const followedUsernames = ref(new Set<string>())
+const shortlistedUsernames = ref(new Set<string>())
+const shortlistBusy = ref('')
+const shortlistError = ref('')
+const showShortlistSignIn = ref(false)
 
 onMounted(async () => {
   try {
@@ -45,8 +49,31 @@ onMounted(async () => {
       const usernames = await $trpc.follow.myFollows.query()
       followedUsernames.value = new Set(usernames)
     } catch {}
+    try {
+      const mine = await $trpc.shortlist.mine.query()
+      shortlistedUsernames.value = new Set(mine.map(a => a.username))
+    } catch {}
   }
 })
+
+async function toggleShortlist(artist: Artist) {
+  if (!isSignedIn.value) { showShortlistSignIn.value = true; return }
+  if (shortlistBusy.value) return
+  shortlistBusy.value = artist.username
+  shortlistError.value = ''
+  try {
+    const result = await $trpc.shortlist.toggle.mutate({ username: artist.username, surface: 'artists' })
+    const next = new Set(shortlistedUsernames.value)
+    if (result.shortlisted) next.add(artist.username)
+    else next.delete(artist.username)
+    shortlistedUsernames.value = next
+    useTrack().track(result.shortlisted ? 'shortlist_add' : 'shortlist_remove', { profile: artist.username, surface: 'artists' })
+  } catch {
+    shortlistError.value = "Couldn't update your shortlist — please try again."
+  } finally {
+    shortlistBusy.value = ''
+  }
+}
 
 const searchQuery = ref('')
 const selectedStyle = ref('')
@@ -84,7 +111,6 @@ const filtered = computed(() => {
 useTrackSearch('artists', () => ({ query: searchQuery.value, filters: { city: selectedCity.value, style: selectedStyle.value } }), () => filtered.value.length)
 
 const accents = [WD.red600, WD.cyan600, WD.green600, WD.purple500, WD.amber500, WD.pink500, WD.violet600]
-const NuxtLinkC = resolveComponent('NuxtLink')
 </script>
 
 <template>
@@ -156,10 +182,12 @@ const NuxtLinkC = resolveComponent('NuxtLink')
             <ChevronDown class="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none" :style="{ color: selectedStyle ? 'white' : WD.brown700 }" aria-hidden="true" />
           </Field>
 
+          <NuxtLink to="/shortlist" class="text-xs font-bold text-primary font-sans whitespace-nowrap">Your shortlist</NuxtLink>
           <span class="text-xs ml-auto whitespace-nowrap text-secondary font-hand" style="font-size:16px;" aria-live="polite">
             {{ filtered.length }} artist{{ filtered.length === 1 ? '' : 's' }}
           </span>
         </div>
+        <p v-if="shortlistError" role="alert" class="mt-2 text-xs font-bold text-destructive font-sans">{{ shortlistError }}</p>
       </div>
     </section>
 
@@ -186,14 +214,16 @@ const NuxtLinkC = resolveComponent('NuxtLink')
       </div>
 
       <div v-else class="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
-        <component
-          :is="NuxtLinkC"
+        <div
           v-for="(a, i) in filtered"
           :key="a.username"
-          :to="`/@${a.username}`"
           class="group relative aspect-square rounded-2xl overflow-hidden transition-all hover:-translate-y-1"
           :style="{ boxShadow: '0 2px 8px rgba(59,31,18,0.12)' }"
         >
+          <NuxtLink
+            :to="`/@${a.username}`"
+            class="absolute inset-0 z-0"
+          >
           <img
             v-if="a.photo"
             :src="sizedImage(a.photo, IMG.card)"
@@ -208,8 +238,8 @@ const NuxtLinkC = resolveComponent('NuxtLink')
             {{ initialOf(a.name) }}
           </div>
 
-          <!-- Following indicator -->
-          <div v-if="followedUsernames.has(a.username)" class="absolute top-2.5 right-2.5 z-10">
+          <!-- Following indicator. The bookmark sits in the corner, so the heart stays clear of it. -->
+          <div v-if="followedUsernames.has(a.username)" class="absolute top-2.5 right-12 z-10">
             <Heart class="w-4 h-4 text-white drop-shadow" style="fill:var(--wd-red-600); color:var(--wd-red-600);" />
           </div>
 
@@ -238,11 +268,24 @@ const NuxtLinkC = resolveComponent('NuxtLink')
               <span v-for="l in a.languages.slice(0, 3)" :key="l" class="text-[9px] font-bold tracking-wide px-1 py-px rounded text-white/90" style="background:rgba(255,255,255,0.2); backdrop-filter: blur(4px);">{{ langLabel[l] || l.toUpperCase() }}</span>
             </div>
           </div>
-        </component>
+          </NuxtLink>
+          <button
+            type="button"
+            class="absolute top-2.5 right-2.5 z-20 grid place-items-center w-8 h-8 rounded-full shadow"
+            :class="shortlistedUsernames.has(a.username) ? 'bg-primary text-primary-foreground' : 'bg-white/90 text-wd-red-800'"
+            :aria-pressed="shortlistedUsernames.has(a.username)"
+            :aria-label="shortlistedUsernames.has(a.username) ? `Remove ${a.name} from your shortlist` : `Shortlist ${a.name}`"
+            :disabled="shortlistBusy === a.username"
+            @click="toggleShortlist(a)"
+          >
+            <Bookmark class="w-4 h-4" :class="shortlistedUsernames.has(a.username) ? 'fill-current' : ''" aria-hidden="true" />
+          </button>
+        </div>
       </div>
     </section>
     </main>
 
     <SiteFooter />
+    <SignUpModal v-model:open="showShortlistSignIn" action="signin" />
   </div>
 </template>

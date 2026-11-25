@@ -1232,6 +1232,24 @@ export const follows = pgTable('follows', {
   check('follows_exactly_one_target', sql`num_nonnulls(${t.profileId}, ${t.targetDancerId}) = 1`),
 ])
 
+// ---------------------------------------------------------------------------
+// Artist shortlist (RAZ-1085). A signed-in dancer's private booking list.
+// Not a follow: nothing is written to `follows`, and the artist is not told.
+// ---------------------------------------------------------------------------
+export const artistShortlist = pgTable('artist_shortlist', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  dancerId: uuid('dancer_id').notNull().references(() => dancers.id, { onDelete: 'cascade' }),
+  profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
+  occasion: text('occasion').$type<'wedding' | 'birthday' | 'corporate' | 'other'>(),
+  note: text('note'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  unique('artist_shortlist_dancer_profile').on(t.dancerId, t.profileId),
+  check('artist_shortlist_occasion', sql`${t.occasion} is null or ${t.occasion} in ('wedding', 'birthday', 'corporate', 'other')`),
+  check('artist_shortlist_note_len', sql`${t.note} is null or char_length(${t.note}) <= 500`),
+])
+
 // Legacy follows from v4 that couldn't be resolved to a profile or dancer
 // during the Step 15 migration. Kept for provenance; no app code reads this.
 export const legacyFollows = pgTable('legacy_follows', {
