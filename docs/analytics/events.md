@@ -172,6 +172,8 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `server_gig_application_decided` | `gigs.decideApplication` | `gig_id`, `category`, `decision`, `hours_to_decide` |
 | `server_booking_decided` | `election.moderateBooking` (free spaces; commercial venues decide off-platform) | `booking_id`, `decision`, `hours_to_decide`, `redecided`, `free` |
 | `server_inquiry_replied` | `inquiries.setStatus` (first move out of `new`) | `inquiry_id`, `status` (answered / declined), `hours_to_reply`, `profile`, `profile_type`, `$groups` |
+| `server_booking_booked` | `inquiries.book` (web + MCP `book_inquiry`; first time the request becomes a booking, RAZ-1089) | `inquiry_id`, `has_event` (a draft was created on the asker’s page), `hours_to_reply`, `profile`, `profile_type`, `$groups` |
+| `server_booking_inquiry_reminded` | `/api/cron/booking-reminders` (daily; one email, three days after an unanswered request) — **anonymous** | `inquiry_id`, `profile`, `channel: cron` |
 | `server_flyer_generated` | `businessFlyers.make` / `directions` / `again` / `feed` / `fix` / `refresh` (each is an AI paint) | `event_id`, `mode`, `variant_count`, `saved_look`, `references`, `feelings`, `from_kept`, `$groups` |
 | `server_flyer_kept` | `businessFlyers.keep` | `event_id`, `mode`, `post_kind`, `new_look`, `$groups` |
 | `server_caption_written` | `businessFlyers.writeCaption`, `businessPosts.writeCaption` / `writeCaptions` | `event_id`, `language`, `scope` (event / post / plan), `count`, `failed`, `post_kind`, `$groups` |

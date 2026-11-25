@@ -3,7 +3,7 @@ import { eq, and, or, gte, lt, inArray, isNull, isNotNull, ne, desc, asc, sql } 
 import { TRPCError } from '@trpc/server'
 import { router, protectedProcedure, publicProcedure } from '../trpc'
 import { events, profiles, profileMembers, profileClaims, cities, profileSuggestions, bookingInquiries, planItems, attendances, festivals, festivalSignups, dancers, eventFlyers, eventRsvps, follows } from '../../database/schema'
-import { slugify, randomSuffix } from '../../utils/slug'
+import { waitingLong } from '../../../shared/utils/bookingAccept'
 import { resolveTimezone, seriesKey } from '../../utils/v3EventSync'
 import { zonedToUtc, eventLocalDate, eventLocalTime, eventLocalWeekday } from '../../../shared/utils/eventTime'
 import { requireMember, linksInstagram } from './business'
@@ -1104,7 +1104,28 @@ export const businessEventsRouter = router({
           .where(and(inArray(bookingInquiries.profileId, mine.map((p: any) => p.id)), eq(bookingInquiries.status, 'new')))
           .groupBy(profiles.username, profiles.name)
         for (const g of asks) {
-          needs.push({ kind: 'booking', tone: 'info', title: g.n === 1 ? `${g.first} wants to book ${g.name}` : `${g.n} people want to book ${g.name}`, detail: 'Answer them by email, then mark it answered.', to: `/business/network/${g.username}/bookings` })
+          needs.push({ kind: 'booking', tone: 'info', title: g.n === 1 ? `${g.first} wants to book ${g.name}` : `${g.n} people want to book ${g.name}`, detail: 'Say yes to book them, or decline.', to: `/business/network/${g.username}/bookings` })
+        }
+      }
+
+      // Requests this person sent that are still unanswered (RAZ-1089).
+      {
+        const pageIds = mine.map((p: any) => p.id)
+        const asPage = pageIds.length ? inArray(bookingInquiries.askerProfileId, pageIds) : sql`false`
+        const asDancer = !input?.profile
+          ? and(eq(bookingInquiries.requesterId, ctx.dancerId), isNull(bookingInquiries.askerProfileId))
+          : sql`false`
+        const waits = await ctx.db.select({
+          artist: profiles.username, artistName: profiles.name, what: bookingInquiries.what, createdAt: bookingInquiries.createdAt,
+        }).from(bookingInquiries).innerJoin(profiles, eq(profiles.id, bookingInquiries.profileId))
+          .where(and(eq(bookingInquiries.status, 'new'), or(asPage, asDancer)))
+          .orderBy(asc(bookingInquiries.createdAt)).limit(20)
+        for (const w of waits) {
+          const sent = new Date(w.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+          needs.push({
+            kind: 'booking-wait', tone: waitingLong(w.createdAt) ? 'warning' : 'info',
+            title: `Waiting on ${w.artistName}`, detail: `Sent ${sent} · ${w.what}`, to: `/@${w.artist}`,
+          })
         }
       }
 

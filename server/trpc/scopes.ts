@@ -171,6 +171,8 @@ export const PROCEDURE_SCOPES: Record<string, Scope | null> = {
   'businessEvents.uncancel': 'business:publish',
   'gigs.decideApplication': 'business:publish',
   'giveaway.decideProposal': 'business:publish',
+  // Yes emails the asker and, when they have a page, drafts their event.
+  'inquiries.book': 'business:publish',
 
   // admin — adminProcedure also requires ctx.isAdmin, which a token only
   // carries for an admin on an allowlisted app.

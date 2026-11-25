@@ -1615,14 +1615,21 @@ export const bookingInquiries = pgTable('booking_inquiries', {
   guests: integer('guests'),
   budget: text('budget'),
   message: text('message').notNull(),
-  status: text('status').notNull().default('new').$type<'new' | 'answered' | 'declined'>(),
+  status: text('status').notNull().default('new').$type<'new' | 'answered' | 'declined' | 'booked'>(),
   // How many of the team were emailed (0 = nobody runs the page: WeDance forwards it).
   notified: integer('notified').notNull().default(0),
+  // The page the asker sent it as, when they were signed in (RAZ-1089).
+  askerProfileId: uuid('asker_profile_id').references(() => profiles.id, { onDelete: 'set null' }),
+  // The draft event a yes created, when the asker has a page to host it.
+  eventId: uuid('event_id').references(() => events.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   answeredAt: timestamp('answered_at'),
+  // One reminder to whoever owes the answer, three days on (RAZ-1089).
+  remindedAt: timestamp('reminded_at'),
 }, (t) => [
   index('booking_inquiries_profile_idx').on(t.profileId, t.createdAt),
   index('booking_inquiries_email_idx').on(t.email, t.createdAt),
+  index('booking_inquiries_open_idx').on(t.status, t.createdAt),
 ])
 
 // A profile's own website, managed on WeDance (RAZ-412, migration 0045): the
