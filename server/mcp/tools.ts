@@ -10,6 +10,7 @@ import { LANGUAGES } from '../../shared/utils/caption'
 import type { FestivalSession } from '../../shared/types/festivalDetails'
 import { agendaToSessions, cleanSession, emptyEventDetails, inferDurations, newSessionId, sessionEnd, type AgendaLine, type DraftSession } from '../../shared/utils/programme'
 import { setupChecklist, setupNext } from './checklist'
+import { countsAsFestival } from '../../shared/utils/entryWord'
 import { dupeReasonText } from '../utils/profileDupes'
 import { parseInstagramLink } from '../../shared/utils/instagram'
 import { EVENT_ARTISTS_MAX } from '../../shared/utils/eventLimits'
@@ -143,8 +144,9 @@ async function editorView(t: ToolCtx, id: string) {
   const programme = readProgramme({ ...e, agenda, festival })
   const editor = url(t, `/business/events/${id}`)
   const { sessions: _s, ...details } = festival ?? {}
+  const festivalEvent = countsAsFestival(e)
   const missing = setupChecklist({ ...e, gaps }, programme, editor)
-  return { event: { ...e, programme, festival: festival ? details : null, editor }, missing }
+  return { event: { ...e, programme, festival: festival ? details : null, editor }, missing, festivalEvent }
 }
 
 // --- the programme ------------------------------------------------------------
@@ -273,7 +275,7 @@ const PATCH_FIELDS = {
   cover: z.string().url().nullable().optional().describe('Cover image URL.'),
   ticket_url: z.string().url().nullable().optional(),
   price: z.string().max(400).optional().describe('One price per line, e.g. "Workshops free\\nParty 10€".'),
-  programme: z.array(programmeItem).max(300).optional().describe('The programme, for every type: a party’s doors, class, show and DJ sets; a concert’s doors and sets; a festival’s workshops, shows and parties by day. Each item takes a type, a start time and optionally end_time or duration (else it runs until the next item, the last one until the event’s end_time). Replaces the whole programme (pass every item; [] clears it). Shown on the event page and, unless switched off in the editor, on the flyer.'),
+  programme: z.array(programmeItem).max(300).optional().describe('The programme, for every type: a party’s doors, class, show and DJ sets; a concert’s doors and sets; a festival’s workshops, shows and parties by day. Each item takes a type, a start time and optionally end_time or duration (else it runs until the next item, the last one until the event’s end_time). Replaces the whole programme (pass every item; [] clears it). Shown on the event page. A party can also put it on its flyer; a festival’s programme is posts in the content plan (plan_posts), not one flyer.'),
   agenda: z.array(z.object({ time: z.string().max(20), what: z.string().max(160) })).max(20).optional().describe('Old format, prefer programme. Lines like [{time:"19:00", what:"Beginner class"}] are turned into programme items.'),
 }
 type Patch = { [K in keyof typeof PATCH_FIELDS]?: any }
@@ -747,8 +749,8 @@ export const TOOLS: ToolDef[] = [
       const { profile: host, ...fields } = a
       const base = patchToInput(fields) as any
       const r: any = await t.caller.businessEvents.create({ ...base, ...programmeFields(null, fields, base), hostUsername: host, published: false } as any)
-      const { missing } = await editorView(t, r.id)
-      return { id: r.id, published: false, editor: url(t, `/business/events/${r.id}`), missing, next: setupNext(missing) }
+      const { missing, festivalEvent } = await editorView(t, r.id)
+      return { id: r.id, published: false, editor: url(t, `/business/events/${r.id}`), missing, next: setupNext(missing, festivalEvent) }
     },
   },
   {
@@ -766,8 +768,8 @@ export const TOOLS: ToolDef[] = [
     run: async (t, a) => {
       const { input } = await mergedEvent(t, a.event_id, a)
       await t.caller.businessEvents.update(input)
-      const { event, missing } = await editorView(t, a.event_id)
-      return { saved: true, id: a.event_id, published: !!event.published, missing, ...(event.published ? {} : { next: setupNext(missing) }) }
+      const { event, missing, festivalEvent } = await editorView(t, a.event_id)
+      return { saved: true, id: a.event_id, published: !!event.published, missing, ...(event.published ? {} : { next: setupNext(missing, festivalEvent) }) }
     },
   },
   {
@@ -849,7 +851,7 @@ export const TOOLS: ToolDef[] = [
         return { created: false, error: `That’s a link to the Instagram page @${link.handle}, not to a post. To import an event, ask the user for the link of the event’s post or reel. To add @${link.handle} as an artist or venue, use add_profile_from_instagram (or add_venue).` }
       }
       const r: any = await t.caller.eventImport.fromInstagram({ url: a.url, ...(a.profile ? { profile: a.profile } : {}) })
-      const { event, missing } = await editorView(t, r.id)
+      const { event, missing, festivalEvent } = await editorView(t, r.id)
       // Everything below came out of someone's caption: quoted, like user text (format.ts).
       const q = (v: string | null | undefined) => (v ? { untrusted_text: v } : null)
       return {
@@ -862,7 +864,7 @@ export const TOOLS: ToolDef[] = [
           organizers_in_post: r.organizers,
         },
         ...(r.warnings?.length ? { warnings: (r.warnings as string[]).map(q) } : {}),
-        missing, next: setupNext(missing),
+        missing, next: setupNext(missing, festivalEvent),
       }
     },
   },
@@ -979,7 +981,7 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'make_flyer', title: 'Paint a flyer', scopes: ['business:write'], business: true, annotations: WRITE,
-    description: 'Start painting a flyer for an event in a saved look (look_id from flyer_options) or a described one. Takes about a minute: poll flyer_status with the batch_id.',
+    description: 'Start painting a flyer for an event in a saved look (look_id from flyer_options) or a described one. Takes about a minute: poll flyer_status with the batch_id. A festival is not one flyer: plan_posts first, then pass that post’s post_id. The announcement is the launch (name and dates); the programme, line-up and passes are other posts.',
     input: {
       event_id: eventId, look_id: z.string().uuid().optional(),
       look_description: z.string().min(10).max(2000).optional().describe('Describe the look when there is no saved one: setting, palette, typography.'),
@@ -1029,7 +1031,7 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'plan_posts', title: 'Plan an event’s posts', scopes: ['business:write'], business: true, annotations: IDEMPOTENT,
-    description: 'Add WeDance’s suggested content plan for an event (announcement, line-up posts, reminders with dates), then return the plan.',
+    description: 'Add WeDance’s suggested content plan for an event (announcement, line-up posts, reminders with dates), then return the plan. This is how a festival is promoted: a series of posts, not one flyer that lists the programme.',
     input: { event_id: eventId },
     run: async (t, a) => {
       const r: any = await t.caller.businessPosts.propose({ eventId: a.event_id })

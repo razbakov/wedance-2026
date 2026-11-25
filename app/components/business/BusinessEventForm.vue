@@ -67,6 +67,8 @@ const props = defineProps({
    * (to take it offline) and for synced or archived events, which have no steps.
    */
   publishedBox: { type: Boolean, default: true },
+  /** Saved is_festival flag, when the type alone doesn't say so. */
+  markedFestival: { type: Boolean, default: false },
 })
 const emit = defineEmits<{ submit: [values: BusinessEventValues] }>()
 
@@ -84,7 +86,7 @@ watch(prices, v => (form.price = v.map(p => p.trim()).filter(Boolean).join('\n')
 // Venue not on WeDance → type its name and address instead.
 const venueManual = ref(!form.venueUsername && !!form.venueName)
 const multiDay = ref(!!form.endDate)
-const isMultiDayType = computed(() => entryNoun({ type: form.type }) === 'pass')
+const isMultiDayType = computed(() => props.markedFestival || entryNoun({ type: form.type }) === 'pass')
 // A festival sells passes; a party or class sells tickets (RAZ-1029).
 const soldAs = computed(() => entryWords(entryNoun({ type: form.type })))
 watch(isMultiDayType, (v) => { if (v) multiDay.value = true }, { immediate: true })
@@ -381,7 +383,7 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
       </div>
       <p v-if="!isOpen('lineup')" class="mt-1 text-sm" data-lineup-summary>{{ lineupSummary(form.artists, form.names) }}</p>
       <template v-else>
-        <p class="text-xs text-muted-foreground">DJs, teachers, performers. Everyone is named on the flyer. Pick the photo it uses, or “Name only”.</p>
+        <p class="text-xs text-muted-foreground">{{ isFestival ? 'DJs, teachers, performers. Each can have their own post in the content plan. Pick the photo it uses, or “Name only”.' : 'DJs, teachers, performers. Everyone is named on the flyer. Pick the photo it uses, or “Name only”.' }}</p>
         <FieldError id="ev-artists-error" :message="limitErrors.artists" />
         <BusinessLineupPicker
           v-model="form.artists"
@@ -416,7 +418,8 @@ const hostText = computed(() => props.hosts.find(h => h.username === form.hostUs
         <ul class="mt-1 grid gap-0.5"><li v-for="(a, i) in legacyAgenda" :key="i"><span class="font-bold tabular-nums">{{ a.time }}</span> {{ a.what }}</li></ul>
         <Button type="button" variant="outline-pill" size="pill-sm" class="mt-2" @click="agendaToProgramme"><ListOrdered /> Put it in the programme</Button>
       </div>
-      <label v-if="form.festival?.sessions?.length || legacyAgenda.length" class="mt-3 flex items-center gap-2 text-xs text-muted-foreground"><Checkbox v-model="form.showAgenda" /> Put the programme on the flyer</label>
+      <p v-if="isFestival && (form.festival?.sessions?.length || legacyAgenda.length)" class="mt-3 text-xs text-muted-foreground">The programme is posts in the content plan, not one flyer.</p>
+      <label v-else-if="form.festival?.sessions?.length || legacyAgenda.length" class="mt-3 flex items-center gap-2 text-xs text-muted-foreground"><Checkbox v-model="form.showAgenda" /> Put the programme on the flyer</label>
     </section>
 
     <!-- Entry and tickets -->

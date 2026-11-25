@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { eq, and, or, gte, lt, inArray, isNull, isNotNull, ne, desc, asc, sql } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { router, protectedProcedure, publicProcedure } from '../trpc'
-import { events, profiles, profileMembers, profileClaims, cities, profileSuggestions, bookingInquiries, planItems, attendances, festivals, festivalSignups, dancers, eventFlyers, eventRsvps, follows } from '../../database/schema'
+import { events, profiles, profileMembers, profileClaims, cities, profileSuggestions, bookingInquiries, planItems, attendances, festivals, festivalSignups, dancers, eventFlyers, eventPosts, eventRsvps, follows } from '../../database/schema'
 import { slugify, randomSuffix } from '../../utils/slug'
 import { resolveTimezone, seriesKey } from '../../utils/v3EventSync'
 import { zonedToUtc, eventLocalDate, eventLocalTime, eventLocalWeekday } from '../../../shared/utils/eventTime'
@@ -28,6 +28,8 @@ import { scheduleInstagramImport } from '../../utils/instagram/profileImport'
 import { cancelEvent, uncancelEvent, signupsOf, backOnRecipients, CANCEL_REASON_MAX } from '../../utils/eventCancel'
 import { siteUrl } from '../../utils/profileFeed'
 import { wantsFlyerReminder, PULSE_MIN, type PulseNumber } from '../../../shared/utils/businessHome'
+import { countsAsFestival } from '../../../shared/utils/entryWord'
+import { planDrafted } from '../../../shared/utils/posts'
 
 /**
  * Business mode — events a profile runs, and the /business home inbox.
@@ -557,6 +559,11 @@ export const businessEventsRouter = router({
         // The same list keyed, plus the flyer: what the MCP tools turn into next steps.
         gaps,
         flyer: await flyerSummary(ctx.db, ev.id),
+        isFestival: countsAsFestival(ev),
+        // A festival is promoted as this plan, not as one flyer (RAZ-986).
+        contentPlan: {
+          drafted: planDrafted(await ctx.db.select({ status: eventPosts.status, dueOn: eventPosts.dueOn }).from(eventPosts).where(eq(eventPosts.eventId, ev.id))),
+        },
       }
     }),
 

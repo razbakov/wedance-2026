@@ -8,7 +8,12 @@
  */
 import { Sparkles, ArrowRight } from 'lucide-vue-next'
 
-const props = defineProps({ eventId: { type: String, required: true } })
+const props = defineProps({
+  eventId: { type: String, required: true },
+  /** A festival is promoted as this plan, not as one flyer (RAZ-986). */
+  festival: { type: Boolean, default: false },
+  highlight: { type: Boolean, default: false },
+})
 const emit = defineEmits<{ open: [] }>()
 const { $trpc } = useNuxtApp()
 type Post = Awaited<ReturnType<typeof $trpc.businessPosts.list.query>>[number]
@@ -24,16 +29,16 @@ const fmtDay = (d: string | null) => d ? new Date(`${d}T12:00:00Z`).toLocaleDate
 </script>
 
 <template>
-  <button type="button" class="group w-full overflow-hidden rounded-2xl border-2 border-primary/30 bg-gradient-to-br from-primary/10 via-card to-secondary/10 p-4 text-left shadow-wd-card transition hover:border-primary/60 focus-visible:shadow-wd-focus" @click="emit('open')">
+  <button type="button" class="group w-full overflow-hidden rounded-2xl border-2 bg-gradient-to-br from-primary/10 via-card to-secondary/10 p-4 text-left shadow-wd-card transition hover:border-primary/60 focus-visible:shadow-wd-focus" :class="highlight ? 'border-primary/60' : 'border-primary/30'" @click="emit('open')">
     <p class="flex items-center gap-1.5 text-eyebrow font-bold uppercase tracking-[0.3em] text-primary"><Sparkles class="size-4" aria-hidden="true" /> Content plan</p>
     <template v-if="!planned">
-      <p class="mt-1 font-display text-lg font-bold leading-tight">Every post for this event, made for you</p>
-      <p class="mt-1 text-xs text-muted-foreground">The flyer, one post per artist, the line-up, countdown: painted in your look, every word checked.</p>
+      <p class="mt-1 font-display text-lg font-bold leading-tight">{{ festival ? 'A festival isn’t one flyer' : 'Every post for this event, made for you' }}</p>
+      <p class="mt-1 text-xs text-muted-foreground">{{ festival ? 'The announcement, one post per artist, the programme and the passes. The schedule doesn’t fit on a single poster.' : 'The flyer, one post per artist, the line-up, countdown: painted in your look, every word checked.' }}</p>
     </template>
     <template v-else>
       <p class="mt-1 font-display text-lg font-bold leading-tight">{{ ready }} of {{ live.length }} posts ready</p>
-      <p v-if="next" class="mt-1 text-xs text-muted-foreground">Next: {{ next.kind === 'artist' ? next.subjectName : next.kind === 'announcement' ? 'the flyer' : next.label.toLowerCase() }}{{ next.dueOn ? ` · ${fmtDay(next.dueOn)}` : '' }}</p>
+      <p v-if="next" class="mt-1 text-xs text-muted-foreground">Next: {{ next.kind === 'artist' ? next.subjectName : next.kind === 'announcement' ? (festival ? 'the announcement' : 'the flyer') : next.label.toLowerCase() }}{{ next.dueOn ? ` · ${fmtDay(next.dueOn)}` : '' }}</p>
     </template>
-    <span class="mt-3 inline-flex items-center gap-1 text-sm font-bold text-primary group-hover:underline">{{ planned ? 'Open the content plan' : 'Draft my content plan' }} <ArrowRight class="size-4" aria-hidden="true" /></span>
+    <span class="mt-3 inline-flex items-center gap-1 text-sm font-bold text-primary group-hover:underline">{{ planned ? 'Open the content plan' : (festival ? 'Draft the content plan' : 'Draft my content plan') }} <ArrowRight class="size-4" aria-hidden="true" /></span>
   </button>
 </template>

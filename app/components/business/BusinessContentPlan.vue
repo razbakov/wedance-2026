@@ -20,6 +20,8 @@ const props = defineProps({
   eventId: { type: String, required: true },
   /** Line-up handles → names, for "Add a post · artist". */
   lineup: { type: Array as PropType<{ username: string; name: string }[]>, default: () => [] },
+  /** A festival’s posts replace the single flyer (RAZ-986). */
+  festival: { type: Boolean, default: false },
 })
 const emit = defineEmits<{ go: [target: { postId: string; action: 'make' | 'open' | 'refresh'; batchId?: string }]; changed: [] }>()
 
@@ -122,7 +124,7 @@ function open(p: Post) {
   emit('go', { postId: p.id, action: p.flyer ? 'open' : 'make' })
 }
 
-const title = (p: Post) => p.kind === 'artist' ? (p.subjectName || p.subject || 'Artist') : p.kind === 'announcement' ? 'The flyer' : p.label
+const title = (p: Post) => p.kind === 'artist' ? (p.subjectName || p.subject || 'Artist') : p.kind === 'announcement' ? (props.festival ? 'Announcement' : 'The flyer') : p.label
 const fmtDay = (d: string | null) => d ? new Date(`${d}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }) : 'No date'
 type Tone = 'done' | 'ready' | 'warn' | 'wait' | 'busy' | 'plain'
 const state = (p: Post): { text: string; tone: Tone } => {
@@ -174,9 +176,11 @@ async function publish(p: Post, to: Dest) {
     <section v-else-if="posts && empty" class="overflow-hidden rounded-2xl border bg-card shadow-wd-card">
       <div class="bg-gradient-to-br from-primary/10 via-card to-secondary/10 p-6 sm:p-8">
         <p class="flex items-center gap-1.5 text-eyebrow font-bold uppercase tracking-[0.3em] text-primary"><Sparkles class="size-4" aria-hidden="true" /> Content plan</p>
-        <h2 class="mt-2 font-display text-3xl font-bold leading-tight">Every post for your event, made for you</h2>
+        <h2 class="mt-2 font-display text-3xl font-bold leading-tight">{{ festival ? 'A festival is a series of posts' : 'Every post for your event, made for you' }}</h2>
         <p class="mt-2 max-w-xl text-sm text-muted-foreground">
-          WeDance paints your whole campaign in your look: the flyer, one announcement per artist, the line-up poster, the programme, passes and a countdown. Every word on every poster is read back and checked, so names and dates are spelled right.
+          {{ festival
+            ? 'One flyer can’t carry the programme. WeDance drafts the announcement, one post per artist, the line-up, the schedule and the passes — each painted in your look, and only when you click it.'
+            : 'WeDance paints your whole campaign in your look: the flyer, one announcement per artist, the line-up poster, the programme, passes and a countdown. Every word on every poster is read back and checked, so names and dates are spelled right.' }}
         </p>
         <ul class="mt-4 grid gap-1.5 text-sm sm:grid-cols-2">
           <li class="flex items-start gap-2"><Check class="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" /> A plan with dates, from launch to the thank-you</li>
@@ -185,8 +189,8 @@ async function publish(p: Post, to: Dest) {
           <li class="flex items-start gap-2"><Check class="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" /> You decide each one: nothing is posted for you</li>
         </ul>
         <div class="mt-6 flex flex-wrap items-center gap-3">
-          <Button variant="cta" :loading="proposing" @click="propose"><Wand2 /> Draft my content plan</Button>
-          <Button v-if="live[0]" variant="ghost" @click="open(live[0])">{{ live[0].flyer ? 'Open the flyer' : 'Just the flyer for now' }}</Button>
+          <Button variant="cta" :loading="proposing" @click="propose"><Wand2 /> {{ festival ? 'Draft the content plan' : 'Draft my content plan' }}</Button>
+          <Button v-if="live[0] && !festival" variant="ghost" @click="open(live[0])">{{ live[0].flyer ? 'Open the flyer' : 'Just the flyer for now' }}</Button>
         </div>
         <p class="mt-2 text-xs text-muted-foreground">Drafting lists the posts with dates, from the line-up, passes and programme. Each one is painted only when you click it.</p>
       </div>

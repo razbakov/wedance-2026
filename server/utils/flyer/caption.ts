@@ -10,6 +10,7 @@ import { writeJson } from './gemini'
 import { withAi } from '../aiUsage'
 import { priceLines, programmeLines } from '../../../shared/utils/flyer'
 import { captionPrompt, composeCaption, instagramOf, type CaptionContext, type CaptionWords } from '../../../shared/utils/caption'
+import { countsAsFestival } from '../../../shared/utils/entryWord'
 import { programmePostItems, programmePostLine } from '../../../shared/utils/programme'
 import type { PostKind } from '../../../shared/utils/posts'
 
@@ -31,6 +32,7 @@ export async function captionContext(db: any, ev: any, post: { kind: PostKind; s
     endDate: ev.endDate,
     timezone: ev.timezone,
     agenda: sessions.length ? programmeLines(sessions) : (ev.agenda ?? []),
+    festival: countsAsFestival(ev),
     styles: ev.styles ?? [],
     prices: priceLines(ev.price),
     host: { name: host?.name ?? '', instagram: instagramOf(host?.socials) },

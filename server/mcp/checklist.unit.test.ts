@@ -86,6 +86,21 @@ describe('setupChecklist', () => {
     expect(items({ venueUsername: 'v', description: 'd', gaps: [], flyer: { ...noFlyer, kept: true } }, [{ title: 'Burlesque show' }, { title: 'Belly dance', with: ['leyla'] }])[0]!.detail).toBe('“Burlesque show”')
   })
 
+  it('a festival asks for the content plan, not one flyer that would list the programme', () => {
+    const fest = { ...bfest, type: 'Festival', isFestival: true }
+    const list = items(fest)
+    expect(list.map(i => i.item)).not.toContain('No flyer yet')
+    const plan = list.find(i => i.item === 'No content plan yet')
+    expect(plan).toMatchObject({ tool: 'plan_posts' })
+    expect(plan!.hint).toMatch(/not one flyer/)
+    expect(plan!.hint).toMatch(/plan_posts/)
+    const drafted = items({ ...fest, contentPlan: { drafted: true } })
+    expect(drafted.map(i => i.item)).not.toContain('No content plan yet')
+    expect(drafted.map(i => i.item)).not.toContain('No flyer yet')
+    expect(setupNext(list, true)).toMatch(/content plan/)
+    expect(setupNext(list, true)).not.toMatch(/and the flyer/)
+  })
+
   it('a flyer still painting points at flyer_status; a ready one becomes the cover hint', () => {
     expect(items({ ...bfest, flyer: { ...noFlyer, painting: 1 } }).find(i => /Flyer/.test(i.item))).toMatchObject({ item: 'Flyer is still painting', tool: 'flyer_status' })
     const withFlyer = items({ ...bfest, flyer: { ready: 1, painting: 0, kept: false, latestUrl: 'https://img/f.png' } })

@@ -16,6 +16,7 @@ import type { PostKind } from '../../../shared/utils/posts'
 import { paintWithRetries, readText, fetchImage, IMAGE_MODEL, type InlineImage } from './gemini'
 import { fitFlyer } from './fit'
 import { faceGrid } from './grid'
+import { countsAsFestival } from '../../../shared/utils/entryWord'
 import { programmePostItems, programmePostLine } from '../../../shared/utils/programme'
 import { withAi } from '../aiUsage'
 
@@ -77,8 +78,10 @@ export async function flyerSource(db: any, ev: any, post: Post = null) {
           .map(x => `${short(x.date)} ${x.time} ${x.title}`),
       }
     : null
+  const festival = countsAsFestival(ev)
   const lines = postLines({
     kind,
+    festival,
     artist,
     passes: ((ev.festival?.passes ?? []) as any[]).filter(x => x.name).map(x => `${x.name} · ${x.price} €`),
     programme: programmePostItems(sessions).slice(0, 6).map(x => programmePostLine(x, short(x.date), [x.artist, ...(x.with ?? [])].filter(Boolean).map(nameOf).join(' & '))),
@@ -95,7 +98,9 @@ export async function flyerSource(db: any, ev: any, post: Post = null) {
     styles: ev.styles ?? [],
     price: ev.price,
   })
-  const shown = PICTURES[kind] === 'all' ? people : PICTURES[kind] === 'subject' ? (subject ? [subject] : []) : []
+  // A festival launch pictures nobody: the line-up is its own post, not a grid of every teacher.
+  const roster = PICTURES[kind] === 'all' ? people : PICTURES[kind] === 'subject' ? (subject ? [subject] : []) : []
+  const shown = kind === 'announcement' && festival ? [] : roster
   const faces = shown.filter(p => p.photo)
   return { lines, people, pictured: faces.map(p => p.name), photos: faces.map(p => p.photo as string) }
 }

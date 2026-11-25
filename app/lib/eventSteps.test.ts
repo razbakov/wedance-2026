@@ -28,6 +28,16 @@ describe('eventSteps', () => {
     expect(eventSteps({ isFestival: true, type: 'Party' }).find(s => s.key === 'entry')?.hint).toContain('passes')
   })
 
+  it('a festival’s promotion step is the content plan, and a painted flyer does not finish it', () => {
+    const fest = { type: 'Festival', date: '2026-11-19', startTime: '20:00', gaps: [], flyer: { ready: 1, kept: true } }
+    const step = eventSteps(fest).find(s => s.key === 'flyer')!
+    expect(step.label).toBe('Content plan')
+    expect(step.hint).toMatch(/programme/)
+    expect(step.done).toBe(false)
+    expect(eventSteps({ ...fest, contentPlan: { drafted: true } }).find(s => s.key === 'flyer')!.done).toBe(true)
+    expect(eventSteps({ isFestival: true, type: 'Party', contentPlan: { drafted: true }, flyer: { ready: 0, kept: false } }).find(s => s.key === 'flyer')!.done).toBe(true)
+  })
+
   it('a flyer counts once one is ready; all done → the last step', () => {
     const steps = eventSteps({ date: '2026-11-19', startTime: '20:00', published: true, gaps: [], flyer: { ready: 1, kept: false } })
     expect(steps.every(s => s.done)).toBe(true)

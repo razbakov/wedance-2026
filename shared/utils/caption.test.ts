@@ -20,6 +20,19 @@ const ctx = {
 }
 
 describe('captionDetails', () => {
+  it('a festival announcement leaves the programme off: that is its own post', () => {
+    const lines = captionDetails({
+      ...ctx,
+      festival: true,
+      startDate: '2026-10-16T16:00:00Z',
+      endDate: '2026-10-18T22:00:00Z',
+      agenda: Array.from({ length: 8 }, (_, i) => ({ time: `Fri ${10 + i}:00`, what: `Workshop ${i}` })),
+    })
+    expect(lines.some(l => l.startsWith('🔸'))).toBe(false)
+    expect(lines.some(l => l.includes('Workshop 0'))).toBe(false)
+    expect(lines[0]).toMatch(/^📅 /)
+  })
+
   it('one fact per line: programme items and prices each on their own, venue with its address', () => {
     expect(captionDetails(ctx)).toEqual([
       '📅 Thursday 15 October',

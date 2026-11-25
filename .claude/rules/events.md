@@ -89,6 +89,10 @@ link. It returns to the in-app page the dancer opened the event from — My plan
 `?tab=` (a tab change stays on this page). Opened directly, it goes to the event's city (`/cities/<slug>`), or
 `/cities` when the event has none.
 
+## A festival is a content plan (RAZ-986)
+
+A festival, weekender or congress is not promoted with one flyer. The programme does not fit on a single poster, and the editor does not offer “Make the flyer” or list every workshop under “On the flyer”. The Flyer step is labelled “Content plan” and opens that tab (`BusinessPlanTeaser`, `BusinessContentPlan`). The announcement post is the launch only — name, dates, music, place (`postLines` when `festival`). Artists, the line-up, the programme and the passes are their own posts. Connected apps get “No content plan yet” → `plan_posts` instead of “No flyer yet” (`setupChecklist`). A party or class still has the single flyer.
+
 ## The flyer's draft (RAZ-1033)
 
 The flyer page (`/business/events/<id>/flyer`) remembers where the organiser was.

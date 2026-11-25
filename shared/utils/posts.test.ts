@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { proposePlan } from './posts'
+import { planDrafted, proposePlan } from './posts'
 import { postLines } from './flyer'
 
 describe('proposePlan', () => {
@@ -22,6 +22,16 @@ describe('proposePlan', () => {
   })
 })
 
+describe('planDrafted', () => {
+  it('is drafted once there is more than the bare announcement, or any post has a date', () => {
+    expect(planDrafted([])).toBe(false)
+    expect(planDrafted([{ status: 'planned', dueOn: null }])).toBe(false)
+    expect(planDrafted([{ status: 'dropped', dueOn: '2026-10-01' }])).toBe(false)
+    expect(planDrafted([{ status: 'planned', dueOn: '2026-10-01' }])).toBe(true)
+    expect(planDrafted([{ status: 'planned', dueOn: null }, { status: 'planned', dueOn: null }])).toBe(true)
+  })
+})
+
 describe('postLines', () => {
   const ev = { name: '¡Menéate Viena! 2026', startDate: '2026-11-26T17:00:00Z', endDate: '2026-11-29T22:00:00Z', timezone: 'Europe/Vienna', venueName: 'wolke19', venueAddress: 'Donau-City-Straße 11, Vienna', artists: [{ name: 'Barbara Jimenez' }, { name: 'Silvio Leroy' }], styles: ['Timba'] }
   it('an artist post leads with the artist', () => {
@@ -32,6 +42,19 @@ describe('postLines', () => {
   })
   it('the announcement is the event’s flyer', () => {
     expect(postLines({ ...ev, kind: 'announcement' })[0]).toEqual({ label: 'title', text: '¡MENÉATE VIENA! 2026' })
+  })
+  it('a festival announcement is the launch: name, dates, music and place — not the programme, the line-up or the passes', () => {
+    const agenda = Array.from({ length: 12 }, (_, i) => ({ time: `Fri ${18 + (i % 4)}:30`, what: `Workshop ${i}` }))
+    const l = postLines({
+      ...ev, kind: 'announcement', festival: true, agenda, showAgenda: true,
+      passes: ['Full Pass · 210 €'], price: 'Early bird −20%',
+    })
+    expect(l.map(x => x.label)).toEqual(['title', 'date', 'music', 'venue'])
+    expect(l.some(x => /Workshop|BARBARA|210/.test(x.text))).toBe(false)
+  })
+  it('a party announcement still carries its short programme', () => {
+    const l = postLines({ ...ev, kind: 'announcement', festival: false, agenda: [{ time: '19:00', what: 'Welcome class' }] })
+    expect(l.some(x => x.label === 'agenda' && x.text.includes('Welcome class'))).toBe(true)
   })
   it('passes list each pass', () => {
     const l = postLines({ ...ev, kind: 'passes', passes: ['Full Pass · 210 €', 'Party Pass · 96 €'] })
