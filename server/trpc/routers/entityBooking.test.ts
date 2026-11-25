@@ -51,6 +51,8 @@ class FakeDb {
     } }
   }
   transaction(fn: (tx: FakeDb) => Promise<void>) { return fn(this) }
+  // neon-http has no transaction(); the artist replace uses batch() instead.
+  async batch(queries: Promise<unknown>[]) { for (const q of queries) await q }
   private tableFor(t: any): Row[] {
     if (t === profiles) return this.profiles
     if (t === profileMembers) return this.profileMembers
@@ -545,6 +547,18 @@ describe('booking.setAvailability', () => {
 
 describe('booking artist availability', () => {
   const artist = { id: 'p1', username: 'los.filinsclub', type: 'artist', name: 'Los Filins', status: 'visible' }
+
+  it('saves when the driver refuses transactions, the way neon-http does', async () => {
+    const db = new FakeDb()
+    db.profiles.push({ ...artist })
+    db.transaction = () => { throw new Error('No transactions support in neon-http driver') }
+    const out = await caller(db, { dancerId: 'd1', isAdmin: true }).booking.setArtistAvailability({
+      username: 'los.filinsclub',
+      slots: [{ dayOfWeek: 1, startTime: '18:00', endTime: '23:00' }],
+    })
+    expect(out.ok).toBe(true)
+    expect(db.artistAvailability).toHaveLength(1)
+  })
 
   it('replaces an artist’s weekly windows and drops the old ones', async () => {
     const db = new FakeDb()

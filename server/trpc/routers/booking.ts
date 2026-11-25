@@ -340,17 +340,22 @@ export const bookingRouter = router({
       }
       await requireProfileRole(ctx, profile.id, 'moderator')
 
-      await ctx.db.transaction(async (tx) => {
-        await tx.delete(artistAvailability).where(eq(artistAvailability.profileId, profile.id))
-        if (input.slots.length) {
-          await tx.insert(artistAvailability).values(input.slots.map(s => ({
+      // neon-http (the app's driver, including PR previews) throws on
+      // transaction(). batch() is one HTTP transaction, same as account deletion.
+      const clear = ctx.db.delete(artistAvailability).where(eq(artistAvailability.profileId, profile.id))
+      if (!input.slots.length) {
+        await clear
+      } else {
+        await ctx.db.batch([
+          clear,
+          ctx.db.insert(artistAvailability).values(input.slots.map(s => ({
             profileId: profile.id,
             dayOfWeek: s.dayOfWeek,
             startTime: s.startTime,
             endTime: s.endTime,
-          })))
-        }
-      })
+          }))),
+        ] as any)
+      }
 
       trackServer(ctx, 'artist_availability_saved', { profile: profile.username, slots: input.slots.length })
       return { ok: true, published: input.slots.length > 0 }
