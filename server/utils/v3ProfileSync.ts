@@ -263,6 +263,7 @@ export function planProfiles(input: {
     const ours = row.sourceRef?.source === V3_SOURCE
     const empty = (v: any) => v == null || v === '' || (Array.isArray(v) && v.length === 0)
     const patch: Partial<ProfileFields> = {}
+    // artist_offer (song list, services, pricing) is typed on WeDance only — never copied from v3.
     for (const k of ['name', 'city', 'citySlug', 'photo', 'bio', 'styles', 'address', 'socials'] as const) {
       const next = (f as any)[k]
       if (empty(next)) continue

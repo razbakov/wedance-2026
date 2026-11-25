@@ -75,6 +75,34 @@ describe('entity.getByHandle', () => {
     expect(res?.spaces.map((s: any) => s.name)).toEqual(['A', 'B'])
   })
 
+  it('shows an artist’s song list, services and the price they wrote', async () => {
+    const db = new FakeDb()
+    db.profiles.push({
+      id: 'a1', username: 'los', type: 'artist', name: 'Los Filins', status: 'visible',
+      artistOffer: {
+        songs: [
+          { title: '  El cuarto de Tula  ', by: 'Los Van Van', url: 'javascript:alert(1)' },
+          { title: 'Candela', url: 'https://youtu.be/abc' },
+        ],
+        services: ['party', 'nope', 'live_show'],
+        pricing: '  From €1,200 for a wedding set  ',
+      },
+    })
+    const res = await caller(db).entity.getByHandle({ handle: 'los' })
+    expect(res?.profile.artistOffer).toEqual({
+      songs: [{ title: 'El cuarto de Tula', by: 'Los Van Van' }, { title: 'Candela', url: 'https://youtu.be/abc' }],
+      services: ['live_show', 'party'],
+      pricing: 'From €1,200 for a wedding set',
+    })
+  })
+
+  it('a venue page does not carry an artist offer', async () => {
+    const db = new FakeDb()
+    db.profiles.push({ id: 'v1', username: 'bar', type: 'venue', name: 'Bar', status: 'visible', artistOffer: { pricing: '€500' } })
+    const res = await caller(db).entity.getByHandle({ handle: 'bar' })
+    expect(res?.profile.artistOffer).toEqual({ songs: [], services: [], pricing: '' })
+  })
+
   it('returns null for an unknown handle', async () => {
     const db = new FakeDb()
     expect(await caller(db).entity.getByHandle({ handle: 'nope' })).toBeNull()

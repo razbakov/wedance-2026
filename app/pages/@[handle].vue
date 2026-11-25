@@ -14,6 +14,7 @@ import { sizedImage, IMG } from '#shared/utils/image'
  *   - 'commercial' → a rentable venue: bookable spaces with a request flow.
  */
 import { venueTypeLabel, amenityLabel } from '#shared/types/venueDetails'
+import { artistOfferIsEmpty, artistServiceLabel } from '#shared/types/artistOffer'
 import { eventLocalDate, eventLocalTime } from '#shared/utils/eventTime'
 import { bookingRequestSchema } from '#shared/validation'
 import { MapPin, Instagram, Youtube, Globe, Facebook, LayoutGrid, ArrowLeft, Check, Calendar, ScrollText, ShieldCheck, Trees, Plus, Heart, Send } from 'lucide-vue-next'
@@ -132,6 +133,7 @@ async function toggleFollow() {
 }
 
 const profile = computed(() => data.value?.profile ?? null)
+const artistOfferVisible = computed(() => profile.value?.type === 'artist' && !artistOfferIsEmpty(profile.value.artistOffer))
 
 // --- Photo gallery (Instagram-story-like) ---
 const galleryOpen = ref(false)
@@ -320,6 +322,34 @@ useHead(() => ({
               <NuxtLink v-else-if="!managed" :to="`/business/claim?profile=${profile.username}`" class="text-muted-foreground hover:text-foreground hover:underline">Is this you? Claim this page →</NuxtLink>
               <NuxtLink v-else :to="`/business/claim?profile=${profile.username}`" class="text-muted-foreground hover:text-foreground hover:underline">Work with them? Join the team →</NuxtLink>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Song list, services and the artist's own pricing (RAZ-1084). Hidden when they haven't stated any of it. -->
+      <section v-if="artistOfferVisible && profile.artistOffer" class="max-w-2xl mx-auto px-4 pb-6 font-sans">
+        <h2 class="text-2xl font-display text-foreground">What they offer</h2>
+        <div class="mt-3 rounded-2xl border bg-card p-5">
+          <div v-if="profile.artistOffer.services.length">
+            <h3 class="text-eyebrow font-bold uppercase tracking-wider text-secondary">Services</h3>
+            <ul class="mt-2 flex flex-wrap gap-1.5">
+              <li v-for="id in profile.artistOffer.services" :key="id" class="rounded-full bg-muted px-2.5 py-1 text-xs">{{ artistServiceLabel(id) }}</li>
+            </ul>
+          </div>
+          <div v-if="profile.artistOffer.pricing" :class="profile.artistOffer.services.length ? 'mt-4' : ''">
+            <h3 class="text-eyebrow font-bold uppercase tracking-wider text-secondary">Pricing</h3>
+            <p class="mt-1 whitespace-pre-line text-sm">{{ profile.artistOffer.pricing }}</p>
+          </div>
+          <div v-if="profile.artistOffer.songs.length" :class="profile.artistOffer.services.length || profile.artistOffer.pricing ? 'mt-4' : ''">
+            <h3 class="text-eyebrow font-bold uppercase tracking-wider text-secondary">Song list</h3>
+            <p class="mt-1 text-xs text-muted-foreground">For playlist inspiration.</p>
+            <ol class="mt-2 list-decimal space-y-1 pl-5 text-sm">
+              <li v-for="(song, i) in profile.artistOffer.songs" :key="i">
+                <a v-if="song.url" :href="song.url" target="_blank" rel="noopener noreferrer" class="font-bold text-primary underline">{{ song.title }}</a>
+                <span v-else class="font-bold">{{ song.title }}</span>
+                <span v-if="song.by" class="text-muted-foreground"> · {{ song.by }}</span>
+              </li>
+            </ol>
           </div>
         </div>
       </section>

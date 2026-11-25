@@ -17,6 +17,14 @@ describe('artist booking blueprint (J5)', () => {
     expect(bp.phases.filter(p => !bp.steps.some(s => s.phase === p.key))).toEqual([])
   })
 
+  it('shows a song list, services and the artist’s own pricing on the page', () => {
+    const profile = bp.steps.find(s => s.id === 'profile')!
+    expect(profile.note).toMatch(/song list/)
+    expect(profile.note).toMatch(/pricing note/)
+    expect(profile.note).toMatch(/no price is invented/)
+    expect(profile.status).toBe('live')
+  })
+
   it('is linked from job J5', () => {
     expect(jobs.find(j => j.id === 'J5')?.flows).toContainEqual(expect.objectContaining({ to: '/docs/blueprints/artist-booking' }))
   })

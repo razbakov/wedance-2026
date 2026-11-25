@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   bookingRequestSchema,
+  ArtistOfferSchema,
   BusinessCreateSchema,
   ChangePasswordSchema,
   CommunityGroupSchema,
@@ -211,6 +212,37 @@ describe('date-window schemas', () => {
     const result = validateForm(CommunityGroupSchema, group)
     expect(result.success && result.data.styles).toEqual(['Salsa', 'Bachata'])
     expect(errorOf(validateForm(CommunityGroupSchema, { ...group, citySlug: '' }))).toBe('Pick the city.')
+  })
+})
+
+describe('ArtistOfferSchema (RAZ-1084)', () => {
+  const blank = { services: [] as string[], pricing: '', songs: [] as { title: string; by: string; url: string }[] }
+
+  it('keeps a song list, the services and a price the artist wrote', () => {
+    const r = validateForm(ArtistOfferSchema, {
+      services: ['wedding', 'dj_set'],
+      pricing: '  On request  ',
+      songs: [{ title: ' Candela ', by: ' ', url: 'https://youtu.be/abc' }, { title: '', by: '', url: '' }],
+    })
+    expect(r.success && r.data).toMatchObject({
+      services: ['wedding', 'dj_set'],
+      pricing: 'On request',
+      songs: [{ title: 'Candela', by: '', url: 'https://youtu.be/abc' }, { title: '', by: '', url: undefined }],
+    })
+  })
+
+  it('asks for a title when a row has a link, and rejects a link that is not a web address', () => {
+    const missing = validateForm(ArtistOfferSchema, { ...blank, songs: [{ title: '', by: '', url: 'https://youtu.be/abc' }] })
+    expect(missing.success).toBe(false)
+    if (!missing.success) expect(missing.fieldErrors['songs.0.title']).toBe('Add the song title.')
+    const bad = validateForm(ArtistOfferSchema, { ...blank, songs: [{ title: 'Candela', by: '', url: 'javascript:alert(1)' }] })
+    expect(bad.success).toBe(false)
+    if (!bad.success) expect(bad.fieldErrors['songs.0.url']).toMatch(/https:\/\//)
+  })
+
+  it('a blank form is valid — an unstated price stays blank', () => {
+    const r = validateForm(ArtistOfferSchema, blank)
+    expect(r.success && r.data.pricing).toBe('')
   })
 })
 
