@@ -6,10 +6,12 @@ import { sizedImage, IMG } from '#shared/utils/image'
  * with a data-driven <title>, canonical URL, and BreadcrumbList + ItemList
  * JSON-LD so each city×role page is independently indexable.
  */
-import { ArrowLeft, MapPin } from 'lucide-vue-next'
+import { ArrowLeft, ChevronDown, MapPin, Search } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
 import { WD } from '~/lib/brand'
 import { readableOn } from '~/lib/contrast'
+import { displayDanceStyle, sortDanceStyles } from '#shared/dance-styles'
+import { ARTIST_EVENT_TYPES, ARTIST_EVENT_TYPE_LABELS, artistMatchesSearch, normalizeArtistEventType } from '#shared/utils/artistSearch'
 
 const props = defineProps<{ role: 'artists' | 'organisers' | 'venues' }>()
 
@@ -21,6 +23,36 @@ const people = computed(() => {
   const d = dir.value
   if (!d) return []
   return props.role === 'artists' ? d.artists : props.role === 'organisers' ? d.organizers : d.venues
+})
+
+function queryValue(key: string) {
+  const v = route.query[key]
+  return String(Array.isArray(v) ? v[0] ?? '' : v ?? '')
+}
+const selectedStyle = ref(props.role === 'artists' ? queryValue('style') : '')
+const selectedEvent = ref(props.role === 'artists' ? (normalizeArtistEventType(queryValue('event')) ?? '') : '')
+const styleOptions = computed(() => {
+  const styles = new Set<string>()
+  for (const person of people.value) for (const style of person.styles ?? []) styles.add(style)
+  return sortDanceStyles([...styles])
+})
+const filteredPeople = computed(() => {
+  if (props.role !== 'artists') return people.value
+  return people.value.filter(person => artistMatchesSearch(
+    { name: person.name ?? '', styles: person.styles, eventTypes: person.eventTypes },
+    { style: selectedStyle.value, eventType: selectedEvent.value },
+  ))
+})
+
+const router = useRouter()
+watch([selectedStyle, selectedEvent], () => {
+  if (props.role !== 'artists') return
+  const next: Record<string, string | string[]> = { ...route.query }
+  const set = (key: string, value: string) => { if (value) next[key] = value; else delete next[key] }
+  set('style', selectedStyle.value)
+  set('event', selectedEvent.value)
+  const same = ['style', 'event'].every(key => String(route.query[key] ?? '') === String(next[key] ?? ''))
+  if (!same) router.replace({ query: next })
 })
 
 const roleLabel = computed(() =>
@@ -66,8 +98,8 @@ const jsonld = computed(() => JSON.stringify([
     '@context': 'https://schema.org',
     '@type': 'ItemList',
     name: `${roleLabel.value} in ${cityName.value}`,
-    numberOfItems: people.value.length,
-    itemListElement: people.value.slice(0, 100).map((p, i) => ({
+    numberOfItems: filteredPeople.value.length,
+    itemListElement: filteredPeople.value.slice(0, 100).map((p, i) => ({
       '@type': 'ListItem',
       position: i + 1,
       name: p.name,
@@ -108,7 +140,7 @@ useHead(() => ({
         <em class="italic" :style="{ color: accent }">{{ cityName }}</em>
       </h1>
       <p class="mt-2 text-sm italic text-muted-foreground">
-        {{ people.length }} {{ heading.accentWord }} in {{ cityName }}.
+        {{ filteredPeople.length }} {{ heading.accentWord }} in {{ cityName }}.
         <NuxtLink :to="`/cities/${slug}`" class="not-italic font-bold underline underline-offset-2 font-sans" :style="{ color: readableOn(accent, WD.cream) }">
           ← Back to this week
         </NuxtLink>
@@ -116,9 +148,40 @@ useHead(() => ({
     </section>
 
     <section class="max-w-4xl mx-auto px-4 pb-16">
-      <div v-if="people.length" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+      <div v-if="role === 'artists' && people.length" class="mb-4 flex flex-wrap items-center gap-3">
+        <Field v-if="styleOptions.length" v-slot="{ id }" label="Filter by dance style" hide-label class="relative">
+          <select
+            :id="id"
+            v-model="selectedStyle"
+            class="h-9 pl-3 pr-8 rounded-full text-xs font-bold appearance-none cursor-pointer outline-none font-sans border"
+            :style="selectedStyle
+              ? { background: 'var(--wd-brown-900)', color: 'var(--wd-cream)', borderColor: 'var(--wd-brown-900)' }
+              : { background: 'white', color: 'var(--wd-brown-700)', borderColor: 'color-mix(in srgb, var(--wd-brown-900) 20%, transparent)' }"
+          >
+            <option value="">All styles</option>
+            <option v-for="style in styleOptions" :key="style" :value="style">{{ displayDanceStyle(style) }}</option>
+          </select>
+          <ChevronDown class="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none" :style="{ color: selectedStyle ? 'var(--wd-cream)' : 'var(--wd-brown-700)' }" aria-hidden="true" />
+        </Field>
+        <Field v-slot="{ id }" label="Filter by event type" hide-label class="relative">
+          <select
+            :id="id"
+            v-model="selectedEvent"
+            class="h-9 pl-3 pr-8 rounded-full text-xs font-bold appearance-none cursor-pointer outline-none font-sans border"
+            :style="selectedEvent
+              ? { background: 'var(--wd-brown-900)', color: 'var(--wd-cream)', borderColor: 'var(--wd-brown-900)' }
+              : { background: 'white', color: 'var(--wd-brown-700)', borderColor: 'color-mix(in srgb, var(--wd-brown-900) 20%, transparent)' }"
+          >
+            <option value="">All events</option>
+            <option v-for="type in ARTIST_EVENT_TYPES" :key="type" :value="type">{{ ARTIST_EVENT_TYPE_LABELS[type] }}</option>
+          </select>
+          <ChevronDown class="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none" :style="{ color: selectedEvent ? 'var(--wd-cream)' : 'var(--wd-brown-700)' }" aria-hidden="true" />
+        </Field>
+      </div>
+
+      <div v-if="filteredPeople.length" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
         <NuxtLink
-          v-for="p in people"
+          v-for="p in filteredPeople"
           :key="p.username || p.name || ''"
           :to="`/@${p.username}`"
           class="group relative aspect-square rounded-2xl overflow-hidden transition-all hover:-translate-y-1"
@@ -149,8 +212,18 @@ useHead(() => ({
             <div class="text-sm font-bold leading-tight truncate text-white">
               {{ p.name }}
             </div>
+            <p v-if="p.basedIn" class="text-[11px] mt-0.5 text-white/80 font-sans">Based in {{ p.basedIn }}</p>
           </div>
         </NuxtLink>
+      </div>
+
+      <div
+        v-else-if="people.length"
+        class="rounded-2xl border-2 border-dashed p-10 text-center border-input bg-white/50"
+      >
+        <Search class="w-6 h-6 mx-auto mb-2 text-secondary" aria-hidden="true" />
+        <p class="text-sm font-bold text-foreground">Nothing matches these filters.</p>
+        <Button type="button" variant="link" class="mt-2 h-auto p-0 text-xs font-bold underline" @click="selectedStyle = ''; selectedEvent = ''">Clear filters</Button>
       </div>
 
       <div
