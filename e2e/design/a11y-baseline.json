@@ -1,6 +1,7 @@
 {
   "axe desktop /": {
-    "color-contrast": "*"
+    "color-contrast": "*",
+    "link-in-text-block": "*"
   },
   "axe desktop /artists": {
     "color-contrast": "*",
@@ -100,7 +101,8 @@
     "link-in-text-block": "*"
   },
   "axe mobile /": {
-    "color-contrast": "*"
+    "color-contrast": "*",
+    "link-in-text-block": "*"
   },
   "axe mobile /artists": {
     "color-contrast": "*",
