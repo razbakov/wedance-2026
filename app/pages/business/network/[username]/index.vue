@@ -7,6 +7,8 @@ import { sizedImage, IMG } from '#shared/utils/image'
  */
 import { ExternalLink, Star, Trash2, Check, Users, Palette, Inbox, Globe, Contact, X, Rocket } from 'lucide-vue-next'
 import { parseInstagramHandle } from '#shared/utils/instagram'
+import { SERVICE_AREAS_MAX } from '#shared/utils/serviceAreas'
+import type { CityOption } from '#shared/utils/citySearch'
 import type { VenueDetailsValue } from '~/components/business/BusinessVenueDetails.vue'
 import { venueInfoToForm, venueInfoFromForm } from '#shared/types/venueInfo'
 import type { Room } from '~/components/business/BusinessVenueRooms.vue'
@@ -24,6 +26,8 @@ const error = ref<string | null>(null)
 
 const form = reactive({
   name: '', city: '', bio: '', styles: [] as string[],
+  // Other cities this artist plays in (RAZ-1083). Home city stays in `city`.
+  serviceAreas: [] as { slug: string; name: string }[],
   instagram: '', website: '', facebook: '',
   // Other Instagram accounts this business has had (#458): they help find this page, never shown.
   instagramAliases: [] as string[],
@@ -68,8 +72,10 @@ async function load(quiet = false) {
   try {
     const p = await $trpc.business.get.query({ username: username.value })
     loaded.value = p
+    homeSlug.value = p.citySlug ?? ''
     Object.assign(form, {
       name: p.name, city: p.city, bio: p.bio, styles: [...p.styles],
+      serviceAreas: (p.serviceAreas ?? []).map(a => ({ ...a })),
       instagram: socialOf(p, 'instagram'), website: socialOf(p, 'website'), facebook: socialOf(p, 'facebook'),
       instagramAliases: [...p.instagramAliases],
       photo: p.photo,
@@ -123,6 +129,41 @@ function removePhoto(url: string) {
   if (form.photo === url) form.photo = form.photos[0]?.url ?? null
 }
 
+const homeSlug = ref('')
+const areaDraft = ref('')
+const areaError = ref<string | undefined>()
+function onHomeCity(city: CityOption) {
+  homeSlug.value = city.slug
+  form.serviceAreas = form.serviceAreas.filter(a => a.slug !== city.slug && a.name.toLowerCase() !== city.name.toLowerCase())
+}
+function addServiceArea(city: CityOption) {
+  areaError.value = undefined
+  if (!city.slug) {
+    areaError.value = 'Pick a city from the list.'
+    return
+  }
+  const home = form.city.trim().toLowerCase()
+  if (city.slug === homeSlug.value || (home && city.name.toLowerCase() === home)) {
+    areaError.value = 'That’s already your home city.'
+    areaDraft.value = ''
+    return
+  }
+  if (form.serviceAreas.some(a => a.slug === city.slug)) {
+    areaError.value = 'That city is already in the service area.'
+    areaDraft.value = ''
+    return
+  }
+  if (form.serviceAreas.length >= SERVICE_AREAS_MAX) {
+    areaError.value = `Keep the service area to ${SERVICE_AREAS_MAX} cities.`
+    return
+  }
+  form.serviceAreas.push({ slug: city.slug, name: city.name })
+  areaDraft.value = ''
+}
+function removeServiceArea(slug: string) {
+  form.serviceAreas = form.serviceAreas.filter(a => a.slug !== slug)
+}
+
 const nameError = ref<string | undefined>()
 const saving = ref(false)
 const savedAt = ref<number | null>(null)
@@ -144,6 +185,7 @@ async function save() {
       type: profileType.value as any,
       name: form.name,
       city: form.city,
+      ...(profileType.value === 'artist' ? { serviceAreas: form.serviceAreas.map(a => a.name) } : {}),
       bio: form.bio,
       styles: form.styles,
       socials,
@@ -243,8 +285,21 @@ const photoHint = computed(() => loaded.value?.type === 'artist'
               <Input v-model="form.name" />
             </Field>
             <Field id="edit-city" label="City">
-              <CityCombobox v-model="form.city" placeholder="e.g. Munich" />
+              <CityCombobox v-model="form.city" placeholder="e.g. Munich" @select="onHomeCity" />
             </Field>
+            <div v-if="profileType === 'artist'" class="sm:col-span-2">
+              <p class="text-sm font-bold">Service area</p>
+              <p class="text-xs text-muted-foreground">Other cities you play in. You show up in each city’s artist list, as well as your home city.</p>
+              <ul v-if="form.serviceAreas.length" class="mt-2 flex flex-wrap gap-2">
+                <li v-for="area in form.serviceAreas" :key="area.slug" class="inline-flex items-center gap-1 rounded-full border py-1 pl-3 pr-1 text-sm">
+                  {{ area.name }}
+                  <Button type="button" size="icon-sm" variant="ghost" class="size-6" :aria-label="`Remove ${area.name}`" @click="removeServiceArea(area.slug)"><X /></Button>
+                </li>
+              </ul>
+              <Field id="edit-service-area" label="Add a city" :error="areaError" optional class="mt-2 max-w-sm">
+                <CityCombobox v-model="areaDraft" placeholder="e.g. Munich" @select="addServiceArea" />
+              </Field>
+            </div>
             <Field id="edit-bio" label="About" class="sm:col-span-2">
               <Textarea v-model="form.bio" placeholder="A few lines dancers will read on your page." />
             </Field>

@@ -7,12 +7,12 @@
  * RAZ-964), line-up invites (artistInvites.*), /gigs (gigs.*), /artists,
  * /@handle, the MCP tools (invite_artist, respond_invite, find_lineup), the
  * Instagram import (#452) and claiming a page. Re-read against the code on
- * 2026-11-18 (RAZ-1072). Not run end to end yet. Shown at
+ * 2026-11-25 (RAZ-1083 service area). Not run end to end yet. Shown at
  * /docs/blueprints/artist-booking.
  */
 import type { Blueprint, BpGap, BpLaneDef, BpPhaseDef, BpStep } from './blueprint'
 
-export const ARTIST_BLUEPRINT_UPDATED = '2026-11-18'
+export const ARTIST_BLUEPRINT_UPDATED = '2026-11-25'
 
 export type ArtistLane = 'artist' | 'system' | 'organizer'
 export type ArtistPhase = 'listed' | 'found' | 'asked' | 'answer' | 'lineup' | 'night' | 'after'
@@ -43,12 +43,12 @@ export const artistSteps: BpStep<ArtistLane, ArtistPhase>[] = [
     note: 'Business → the page → Bookings shows “Your booking link”, /@handle/book, a page of its own for an Instagram bio, a website or an email signature. The artist pastes it there themselves.' },
 
   // Be found
-  { id: 'directory', phase: 'found', lane: 'organizer', name: 'Browse /artists', status: 'partial', marks: [], route: '/artists', code: 'entity.listArtists',
-    note: 'Every visible artist page, filtered by city, style and name in the browser; the city page’s “Who’s on the floor” has the same people. It shows no fee, no availability and no past line-ups, and nothing says whether the artist runs the page and will see a request.' },
+  { id: 'directory', phase: 'found', lane: 'organizer', name: 'Browse /artists', status: 'partial', marks: [], route: '/artists', code: 'entity.listArtists · profiles.service_areas · /api/cities/[slug]',
+    note: 'Every visible artist page, filtered by city, style and name in the browser. An artist is listed in their home city and in each city of their service area (set on the profile editor, or update_business_profile / update_listed_profile): /artists, /cities/[city]/artists and list_artists. A traveler’s card says where they are based. The city page’s “Who’s on the floor” still shows only people with an event this week; “All artists” is the full list. It shows no fee, no availability and no past line-ups, and nothing says whether the artist runs the page and will see a request.' },
   { id: 'profile', phase: 'found', lane: 'organizer', name: 'Look at /@handle', status: 'live', marks: [], route: '/@[handle]', code: 'entity.getByHandle · ReviewsSection',
-    note: 'Bio, photos, videos and socials, the upcoming events they are in the line-up of, reviews, and a Book button that opens /@handle/book.' },
+    note: 'Bio, photos, videos and socials, the home city and the other cities they play in, the upcoming events they are in the line-up of, reviews, and a Book button that opens /@handle/book.' },
   { id: 'assistant', phase: 'found', lane: 'system', name: 'Found through an AI app', status: 'live', marks: [], code: 'MCP find_lineup → businessEvents.searchProfiles · list_artists',
-    note: 'An organiser’s assistant searches pages by name or handle for a line-up, or lists a city’s artists. If nothing is found, add_profile_from_instagram makes the page.' },
+    note: 'An organiser’s assistant searches pages by name or handle for a line-up, or lists a city’s artists. list_artists includes artists whose service area includes that city, not only those based there (basedIn is the home city). If nothing is found, add_profile_from_instagram makes the page.' },
   { id: 'offer', phase: 'found', lane: 'artist', name: 'Post an offer on /gigs', status: 'partial', marks: ['manual'], route: '/gigs', code: 'gigs.create (kind offer)',
     note: 'An artist can post what they offer (DJ sets, workshops, shows). An organiser answers it by email only, through a mailto: link. WeDance keeps no record, so the artist never sees who replied.' },
 

@@ -1,6 +1,8 @@
 import { and, eq } from 'drizzle-orm'
 import { useDb } from '../../utils/db'
 import { profiles } from '../../database/schema'
+import { canonicalCityName, profileInCity } from '../../utils/serviceAreas'
+import { cityDisplayName, peopleInCity } from '../../../shared/utils/serviceAreas'
 import cityImages from '../../data/city-images.json'
 
 type CityHero = { image: string; credit: string | null; license: string | null; licenseUrl: string | null; source: string; country?: string | null }
@@ -15,7 +17,7 @@ const heroes = cityImages as Record<string, CityHero>
  * page title reads e.g. "Salsa, Bachata & Kizomba in Munich …" — matching how
  * dancers actually search (by style), truthfully per city.
  */
-type Person = { username: string | null; name: string | null; photo: string | null; styles: string[] }
+type Person = { username: string | null; name: string | null; photo: string | null; styles: string[]; basedIn: string | null }
 export type CityDirectory = {
   city: string | null
   citySlug: string
@@ -38,13 +40,14 @@ export default defineEventHandler(async (event): Promise<CityDirectory> => {
       type: profiles.type,
       styles: profiles.styles,
       city: profiles.city,
+      citySlug: profiles.citySlug,
+      serviceAreas: profiles.serviceAreas,
     })
     .from(profiles)
-    .where(and(eq(profiles.citySlug, citySlug), eq(profiles.status, 'visible')))
+    .where(and(eq(profiles.status, 'visible'), profileInCity(citySlug)))
 
-  const city = rows.find(r => r.city)?.city ?? null
-  const pick = (t: string): Person[] =>
-    rows.filter(r => r.type === t).map(({ username, name, photo, styles }) => ({ username, name, photo, styles: styles ?? [] }))
+  const city = cityDisplayName(rows, citySlug, await canonicalCityName(db, citySlug))
+  const pick = (t: string): Person[] => peopleInCity(rows, citySlug, t)
 
   // Style frequency across every profile in the city → top 3, first-seen casing.
   const counts = new Map<string, { label: string; n: number }>()

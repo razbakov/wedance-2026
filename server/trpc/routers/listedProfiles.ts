@@ -9,6 +9,8 @@ import { mergeSocials, type Social } from '../../../shared/utils/socials'
 import type { GrantCtx } from '../../utils/profileAccess'
 import { venueInfoInput, mergeVenueInfo } from '../../utils/venueInfo'
 import { cleanVenueInfo } from '../../../shared/types/venueInfo'
+import { resolveServiceAreas } from '../../utils/serviceAreas'
+import { SERVICE_AREAS_MAX } from '../../../shared/utils/serviceAreas'
 
 /**
  * Completing a page nobody runs yet (#454): the venue an assistant added with
@@ -35,6 +37,8 @@ export const listedProfileFields = {
   photo: z.string().url().nullable(),
   // Venues only (RAZ-1012): nearest stop, parking, indoor shoes, cloakroom. Only the parts given change.
   venueInfo: venueInfoInput,
+  // Artists only (RAZ-1083): other cities they play in. Replaces the list. [] clears it.
+  serviceAreas: z.array(z.string().trim().min(1).max(120)).max(SERVICE_AREAS_MAX),
 }
 
 /** Is this an event the caller runs (through a page the app may act for)? SQL over `events`. */
@@ -91,7 +95,7 @@ export const listedProfilesRouter = router({
     .input(z.object(listedProfileFields).partial().extend({ username: z.string().min(1).transform(h => h.replace(/^@/, '')) }))
     .mutation(async ({ ctx, input }) => {
       const p = await requireListedEditor(ctx, input.username)
-      const { username: _u, city, socials, photo, address, venueInfo, ...plain } = input
+      const { username: _u, city, socials, photo, address, venueInfo, serviceAreas: serviceAreaNames, ...plain } = input
       const set: Record<string, unknown> = { ...plain }
       if (venueInfo) {
         if (p.type !== 'venue') throw new TRPCError({ code: 'BAD_REQUEST', message: `@${p.username} isn't a venue: only venues have getting-there hints.` })
@@ -102,6 +106,12 @@ export const listedProfilesRouter = router({
         const loc = await cityInfo(ctx.db, city || null)
         set.city = loc.city
         set.citySlug = loc.citySlug
+      }
+      if (serviceAreaNames !== undefined) {
+        if (p.type !== 'artist') throw new TRPCError({ code: 'BAD_REQUEST', message: `@${p.username} isn't an artist: only artists have a service area.` })
+        const homeName = city !== undefined ? (set.city as string | null) : p.city
+        const homeSlug = city !== undefined ? (set.citySlug as string | null) : p.citySlug
+        set.serviceAreas = await resolveServiceAreas(ctx.db, serviceAreaNames, { slugs: [homeSlug], name: homeName })
       }
       if (address !== undefined) set.address = address || null
       // Per platform: a given link replaces that platform's, an empty one removes it, the rest stay.
@@ -118,7 +128,7 @@ export const listedProfilesRouter = router({
       const [after] = await ctx.db.select({
         username: profiles.username, name: profiles.name, type: profiles.type, bio: profiles.bio, city: profiles.city,
         address: profiles.address, styles: profiles.styles, socials: profiles.socials, photo: profiles.photo,
-        venueInfo: profiles.venueInfo,
+        venueInfo: profiles.venueInfo, serviceAreas: profiles.serviceAreas,
       }).from(profiles).where(eq(profiles.id, p.id))
       return { saved: true, changed: Object.keys(set).filter(k => k !== 'citySlug'), profile: after }
     }),

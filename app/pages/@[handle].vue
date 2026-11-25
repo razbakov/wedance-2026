@@ -279,6 +279,12 @@ useHead(() => ({
               <div class="text-sm mt-0.5 text-secondary font-hand" style="font-size:18px;">@{{ profile.username }}</div>
               <div v-if="profile.address" class="flex items-start gap-1 mt-2 text-xs text-muted-foreground font-sans"><MapPin class="w-3 h-3 mt-0.5 shrink-0 text-secondary" /> <span>{{ profile.address }}<a v-if="directionsUrl" :href="directionsUrl" target="_blank" rel="noopener noreferrer" class="ml-1.5 font-bold underline text-primary">Map</a></span></div>
               <NuxtLink v-if="profile.citySlug && profile.city" :to="`/cities/${profile.citySlug}`" class="inline-block mt-1 text-xs font-bold hover:underline text-secondary font-sans">{{ profile.city }} →</NuxtLink>
+              <p v-if="profile.type === 'artist' && profile.serviceAreas?.length" class="mt-1 text-xs text-secondary font-sans">
+                Also in
+                <template v-for="(area, i) in profile.serviceAreas" :key="area.slug">
+                  <NuxtLink :to="`/cities/${area.slug}`" class="font-bold hover:underline">{{ area.name }}</NuxtLink><span v-if="i < profile.serviceAreas.length - 1">, </span>
+                </template>
+              </p>
             </div>
             <BioText v-if="profile.bio" :text="profile.bio" class="mt-5 text-sm leading-relaxed text-muted-foreground font-sans" />
             <DanceStyleChips :styles="profile.styles || []" class="mt-3 gap-1.5" />

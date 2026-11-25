@@ -149,6 +149,7 @@ useHead(() => ({
             <div class="text-sm font-bold leading-tight truncate text-white">
               {{ p.name }}
             </div>
+            <div v-if="p.basedIn" class="text-[11px] text-white/80 truncate font-sans">Based in {{ p.basedIn }}</div>
           </div>
         </NuxtLink>
       </div>

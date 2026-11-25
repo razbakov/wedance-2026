@@ -459,6 +459,9 @@ export const profiles = pgTable('profiles', {
   name: text('name').notNull(),
   city: text('city'),
   citySlug: text('city_slug'),
+  // Cities besides the home city where an artist is listed (RAZ-1083, migration 0081).
+  // [{ slug, name }] — slug is cities.slug. Empty for venues and organisers; only artists are queried by it.
+  serviceAreas: jsonb('service_areas').$type<import('../../shared/utils/serviceAreas').ServiceArea[]>().notNull().default([]),
   photo: text('photo'),
   bio: text('bio'),
   styles: json('styles').$type<string[]>().default([]),

@@ -6,6 +6,7 @@ import { sizedImage, IMG } from '#shared/utils/image'
  * Each card links to the unified /@<handle> profile.
  */
 import { displayDanceStyle, sameDanceStyle, sortDanceStyles } from '#shared/dance-styles'
+import { artistCityNames, matchesArtistCity } from '#shared/utils/serviceAreas'
 import { ChevronDown, Heart, MapPin, Search } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
 import { Field } from '~/components/ui/field'
@@ -23,7 +24,7 @@ useHead({
   ],
 })
 
-type Artist = { username: string; name: string; photo: string | null; city: string | null; styles: string[]; languages: string[]; bio: string | null }
+type Artist = { username: string; name: string; photo: string | null; city: string | null; styles: string[]; languages: string[]; bio: string | null; serviceAreas?: { slug: string; name: string }[] }
 
 const langLabel: Record<string, string> = { en: 'EN', es: 'ES', de: 'DE', fr: 'FR', pt: 'PT', it: 'IT', ru: 'RU', hu: 'HU', sl: 'SL' }
 
@@ -60,7 +61,7 @@ const allStyles = computed(() => {
 
 const allCities = computed(() => {
   const s = new Set<string>()
-  artists.value.forEach((a) => { if (a.city) s.add(a.city) })
+  artists.value.forEach((a) => { for (const name of artistCityNames(a.city, a.serviceAreas)) s.add(name) })
   return Array.from(s).sort()
 })
 
@@ -73,8 +74,7 @@ const filtered = computed(() => {
   return artists.value.filter((a) => {
     const matchesText = !q
       || a.name.toLowerCase().includes(q)
-    const matchesCity = !selectedCity.value
-      || (a.city && a.city.toLowerCase() === selectedCity.value.toLowerCase())
+    const matchesCity = matchesArtistCity(a.city, a.serviceAreas, selectedCity.value)
     const matchesStyle = !selectedStyle.value
       || (a.styles || []).some(s => sameDanceStyle(s, selectedStyle.value))
     return matchesText && matchesCity && matchesStyle
@@ -84,6 +84,11 @@ const filtered = computed(() => {
 useTrackSearch('artists', () => ({ query: searchQuery.value, filters: { city: selectedCity.value, style: selectedStyle.value } }), () => filtered.value.length)
 
 const accents = [WD.red600, WD.cyan600, WD.green600, WD.purple500, WD.amber500, WD.pink500, WD.violet600]
+function travelsToSelected(a: Artist) {
+  if (!selectedCity.value || !a.city) return false
+  if (a.city.toLowerCase() === selectedCity.value.toLowerCase()) return false
+  return matchesArtistCity(a.city, a.serviceAreas, selectedCity.value)
+}
 const NuxtLinkC = resolveComponent('NuxtLink')
 </script>
 
@@ -234,6 +239,7 @@ const NuxtLinkC = resolveComponent('NuxtLink')
             <p v-if="a.city" class="text-xs inline-flex items-center gap-1 mt-0.5 text-white/80 font-sans">
               <MapPin class="w-3 h-3" /> {{ a.city }}
             </p>
+            <p v-if="travelsToSelected(a)" class="text-[11px] text-white/80 font-sans">Travels here</p>
             <div v-if="a.languages?.length" class="flex gap-1 mt-1">
               <span v-for="l in a.languages.slice(0, 3)" :key="l" class="text-[9px] font-bold tracking-wide px-1 py-px rounded text-white/90" style="background:rgba(255,255,255,0.2); backdrop-filter: blur(4px);">{{ langLabel[l] || l.toUpperCase() }}</span>
             </div>

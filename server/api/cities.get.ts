@@ -1,6 +1,7 @@
-import { and, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { useDb } from '../utils/db'
 import { profiles } from '../database/schema'
+import { tallyCities } from '../../shared/utils/serviceAreas'
 import cityImages from '../data/city-images.json'
 
 /**
@@ -23,23 +24,20 @@ export type CityRow = {
 export default defineEventHandler(async (): Promise<CityRow[]> => {
   const db = useDb()
   const rows = await db
-    .select({ city: profiles.city, citySlug: profiles.citySlug, type: profiles.type })
+    .select({ city: profiles.city, citySlug: profiles.citySlug, type: profiles.type, serviceAreas: profiles.serviceAreas })
     .from(profiles)
-    .where(and(eq(profiles.status, 'visible')))
+    .where(eq(profiles.status, 'visible'))
 
-  const map = new Map<string, CityRow>()
-  for (const r of rows) {
-    if (!r.citySlug || !r.city) continue
-    const e = map.get(r.citySlug) ?? { city: r.city, citySlug: r.citySlug, venues: 0, artists: 0, organizers: 0, total: 0, image: null, credit: null, license: null, country: null, altNames: [] }
-    if (r.type === 'venue') e.venues++
-    else if (r.type === 'artist') e.artists++
-    else if (r.type === 'organizer') e.organizers++
-    e.total++
-    map.set(r.citySlug, e)
-  }
-  for (const e of map.values()) {
+  // An artist counts in the home city and in each city they travel to.
+  return tallyCities(rows).map((e): CityRow => {
     const h = heroes[e.citySlug]
-    if (h) { e.image = h.image; e.credit = h.credit; e.license = h.license; e.country = h.country ?? null; e.altNames = h.altNames ?? [] }
-  }
-  return [...map.values()].sort((a, b) => b.total - a.total)
+    return {
+      ...e,
+      image: h?.image ?? null,
+      credit: h?.credit ?? null,
+      license: h?.license ?? null,
+      country: h?.country ?? null,
+      altNames: h?.altNames ?? [],
+    }
+  })
 })

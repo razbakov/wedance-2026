@@ -1,8 +1,10 @@
 import { z } from 'zod'
-import { eq, and, sql, inArray } from 'drizzle-orm'
+import { eq, and, sql } from 'drizzle-orm'
 import { router, publicProcedure } from '../trpc'
 import { profiles, bookableSpaces, networkLinks } from '../../database/schema'
 import { personForPage } from '../../utils/personPage'
+import { canonicalCityName, profileInCity } from '../../utils/serviceAreas'
+import { cityDisplayName, cleanServiceAreas, peopleInCity, tallyCities } from '../../../shared/utils/serviceAreas'
 
 /**
  * Professional profiles (venue / artist / organizer) resolved by handle for the
@@ -29,7 +31,7 @@ export const entityRouter = router({
   // All artists (any city) — the /artists directory, from migrated real data.
   listArtists: publicProcedure
     .query(async ({ ctx }) => {
-      return ctx.db
+      const rows = await ctx.db
         .select({
           username: profiles.username,
           name: profiles.name,
@@ -38,9 +40,11 @@ export const entityRouter = router({
           styles: profiles.styles,
           languages: profiles.languages,
           bio: profiles.bio,
+          serviceAreas: profiles.serviceAreas,
         })
         .from(profiles)
         .where(and(eq(profiles.type, 'artist'), eq(profiles.status, 'visible')))
+      return rows.map(r => ({ ...r, serviceAreas: cleanServiceAreas(r.serviceAreas) }))
     }),
 
   // Distinct cities that have any migrated profile — the /cities directory.
@@ -52,20 +56,12 @@ export const entityRouter = router({
           city: profiles.city,
           citySlug: profiles.citySlug,
           type: profiles.type,
+          serviceAreas: profiles.serviceAreas,
         })
         .from(profiles)
         .where(and(eq(profiles.status, 'visible')))
-      const map = new Map<string, { city: string; citySlug: string; venues: number; artists: number; organizers: number; total: number }>()
-      for (const r of rows) {
-        if (!r.citySlug || !r.city) continue
-        const e = map.get(r.citySlug) ?? { city: r.city, citySlug: r.citySlug, venues: 0, artists: 0, organizers: 0, total: 0 }
-        if (r.type === 'venue') e.venues++
-        else if (r.type === 'artist') e.artists++
-        else if (r.type === 'organizer') e.organizers++
-        e.total++
-        map.set(r.citySlug, e)
-      }
-      return [...map.values()].sort((a, b) => b.total - a.total)
+      // An artist counts in the home city and in each city they travel to.
+      return tallyCities(rows)
     }),
 
   // Everything in one city — the real community directory for /cities/[slug].
@@ -81,11 +77,13 @@ export const entityRouter = router({
           type: profiles.type,
           styles: profiles.styles,
           city: profiles.city,
+          citySlug: profiles.citySlug,
+          serviceAreas: profiles.serviceAreas,
         })
         .from(profiles)
-        .where(and(eq(profiles.citySlug, input.citySlug), eq(profiles.status, 'visible')))
-      const city = rows.find(r => r.city)?.city ?? null
-      const pick = (t: string) => rows.filter(r => r.type === t).map(({ username, name, photo, styles }) => ({ username, name, photo, styles: styles ?? [] }))
+        .where(and(eq(profiles.status, 'visible'), profileInCity(input.citySlug)))
+      const city = cityDisplayName(rows, input.citySlug, await canonicalCityName(ctx.db, input.citySlug))
+      const pick = (t: string) => peopleInCity(rows, input.citySlug, t)
       return { city, citySlug: input.citySlug, venues: pick('venue'), artists: pick('artist'), organizers: pick('organizer'), promoters: pick('promoter') }
     }),
 
@@ -102,7 +100,7 @@ export const entityRouter = router({
         })
         .from(profiles)
         .where(and(
-          eq(profiles.citySlug, input.citySlug),
+          input.type === 'artist' ? profileInCity(input.citySlug) : eq(profiles.citySlug, input.citySlug),
           eq(profiles.type, input.type),
           eq(profiles.status, 'visible'),
         ))
@@ -163,6 +161,7 @@ export const entityRouter = router({
           moderatorSince: profiles.moderatorSince,
           socials: profiles.socials,
           claimed: profiles.claimed,
+          serviceAreas: profiles.serviceAreas,
         })
         .from(profiles)
         .where(and(eq(profiles.username, input.handle), eq(profiles.status, 'visible')))
@@ -215,6 +214,7 @@ export const entityRouter = router({
           moderatorSince: p.moderatorSince ?? null,
           socials: p.socials ?? [],
           claimed: p.claimed ?? false,
+          serviceAreas: cleanServiceAreas(p.serviceAreas),
         },
         spaces,
         person,
