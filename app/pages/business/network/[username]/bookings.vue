@@ -3,8 +3,10 @@
  * /business/network/<username>/bookings — people who asked to book this page
  * (inquiries.forProfile), newest first. Answer by email (opens a reply), then
  * mark it answered or declined. Also the booking link to put on your own site.
+ * Artists set the weekly times they are free for a private booking here.
  */
-import { Mail, Copy, Check, CalendarDays, MapPin, Users, Wallet, ExternalLink, Phone } from 'lucide-vue-next'
+import { Mail, Copy, Check, CalendarDays, MapPin, Users, Wallet, ExternalLink, Phone, Plus, Trash2 } from 'lucide-vue-next'
+import { WEEKDAYS } from '#shared/types/venueDetails'
 
 definePageMeta({ layout: 'business' })
 const route = useRoute()
@@ -38,6 +40,44 @@ const when = (d: string | Date) => new Date(d).toLocaleString('en-GB', { day: 'n
 const reply = (r: Row) => `mailto:${r.email}?subject=${encodeURIComponent(`Re: booking${r.what ? ` · ${r.what}` : ''}${r.eventDate ? ` · ${day(r.eventDate)}` : ''}`)}`
 const open = computed(() => (rows.value ?? []).filter(r => r.status === 'new'))
 const closed = computed(() => (rows.value ?? []).filter(r => r.status !== 'new'))
+
+// Artists publish weekly windows here. Venues set times on each room instead.
+type Window = { dayOfWeek: number; startTime: string; endTime: string }
+const isArtist = ref(false)
+const draft = ref<Window[]>([])
+const saving = ref(false)
+const saved = ref(false)
+const saveError = ref('')
+onMounted(async () => {
+  try {
+    const page = await $trpc.business.get.query({ username: username.value })
+    isArtist.value = page.type === 'artist'
+    if (!isArtist.value) return
+    const avail = await $trpc.booking.artistAvailability.query({ username: username.value })
+    draft.value = avail.slots.map(s => ({ ...s }))
+  } catch { /* the requests list already reports its own error */ }
+})
+function addWindow() {
+  saved.value = false
+  draft.value.push({ dayOfWeek: 6, startTime: '18:00', endTime: '23:00' })
+}
+async function saveAvailability() {
+  saveError.value = ''
+  saved.value = false
+  if (draft.value.some(s => !s.startTime || !s.endTime)) {
+    saveError.value = 'Each window needs a start and an end.'
+    return
+  }
+  saving.value = true
+  try {
+    const slots = draft.value.map(s => ({ dayOfWeek: s.dayOfWeek, startTime: s.startTime.slice(0, 5), endTime: s.endTime.slice(0, 5) }))
+    const result = await $trpc.booking.setArtistAvailability.mutate({ username: username.value, slots })
+    saved.value = true
+    useTrack().track('artist_availability_saved', { profile: username.value, slots: draft.value.length, published: result.published })
+  } catch (e: any) {
+    saveError.value = e?.message || 'Couldn’t save your times.'
+  } finally { saving.value = false }
+}
 </script>
 
 <template>
@@ -53,6 +93,31 @@ const closed = computed(() => (rows.value ?? []).filter(r => r.status !== 'new')
         <Button type="button" variant="pill" size="pill-sm" @click="copy"><component :is="copied ? Check : Copy" /> {{ copied ? 'Copied' : 'Copy' }}</Button>
         <Button variant="outline-pill" size="pill-sm" as-child><a :href="link" target="_blank" rel="noopener"><ExternalLink /> Try it</a></Button>
       </div>
+    </section>
+
+    <section v-if="isArtist" data-testid="artist-availability-editor" class="mt-6 rounded-2xl border bg-card p-5 shadow-wd-card">
+      <h2 class="text-eyebrow font-bold uppercase tracking-[0.3em] text-secondary">When you’re free</h2>
+      <p class="mt-1 text-sm text-muted-foreground">Weekly times you take a private event, a wedding or a corporate booking. Organisers see them on your page. Leave this empty and save to publish nothing.</p>
+      <ul class="mt-4 grid gap-2">
+        <li v-for="(slot, i) in draft" :key="i" class="flex flex-wrap items-center gap-2">
+          <label class="sr-only" :for="`avail-day-${i}`">Day</label>
+          <select :id="`avail-day-${i}`" v-model.number="slot.dayOfWeek" class="h-9 rounded-lg border bg-card px-2 text-sm" @change="saved = false">
+            <option v-for="(label, idx) in WEEKDAYS" :key="label" :value="idx + 1">{{ label }}</option>
+          </select>
+          <label class="sr-only" :for="`avail-start-${i}`">Start</label>
+          <input :id="`avail-start-${i}`" v-model="slot.startTime" type="time" class="h-9 rounded-lg border bg-card px-2 text-sm" @input="saved = false">
+          <span class="text-sm text-muted-foreground" aria-hidden="true">–</span>
+          <label class="sr-only" :for="`avail-end-${i}`">End</label>
+          <input :id="`avail-end-${i}`" v-model="slot.endTime" type="time" class="h-9 rounded-lg border bg-card px-2 text-sm" @input="saved = false">
+          <Button type="button" variant="ghost" size="sm" @click="draft.splice(i, 1); saved = false"><Trash2 aria-hidden="true" /> Remove</Button>
+        </li>
+      </ul>
+      <div class="mt-3 flex flex-wrap items-center gap-2">
+        <Button type="button" variant="outline-pill" size="pill-sm" @click="addWindow"><Plus aria-hidden="true" /> Add a time</Button>
+        <Button type="button" variant="pill" size="pill-sm" :disabled="saving" @click="saveAvailability">{{ saving ? 'Saving…' : 'Save' }}</Button>
+      </div>
+      <p v-if="saved" class="mt-3 text-sm text-wd-green-700" role="status">{{ draft.length ? 'Saved. Organisers can see this on your page.' : 'Saved. Nothing is published, so organisers won’t see times.' }}</p>
+      <p v-if="saveError" class="mt-3 text-sm text-destructive" role="alert">{{ saveError }}</p>
     </section>
 
     <AdminState v-if="error" kind="error" :message="error" />

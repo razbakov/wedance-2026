@@ -41,6 +41,7 @@ export const PROCEDURE_SCOPES: Record<string, Scope | null> = {
   'feedback.reportBug': null,
   'review.list': null,
   'booking.availabilityForProfile': null,
+  'booking.artistAvailability': null,
 
   // me:read — the dancer's own data.
   'auth.me': 'me:read',
@@ -145,6 +146,7 @@ export const PROCEDURE_SCOPES: Record<string, Scope | null> = {
   'inquiries.setStatus': 'business:write',
   'inquiries.addToEvent': 'business:write',
   'booking.setAvailability': 'business:write',
+  'booking.setArtistAvailability': 'business:write',
   // Publishing the dates needs business:publish too (checked inside).
   'businessEvents.createSeries': 'business:write',
   // A request the event's team decides on; nothing goes public by it.

@@ -713,6 +713,21 @@ export const availabilitySlots = pgTable('availability_slots', {
   index('availability_slots_space_idx').on(t.spaceId),
 ])
 
+// Weekly times an artist is free for a private event, wedding or corporate
+// booking (RAZ-1087). Separate from venue rooms (availability_slots). No rows
+// means unpublished — not “never free”.
+export const artistAvailability = pgTable('artist_availability', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
+  dayOfWeek: integer('day_of_week').notNull(), // 1=Monday … 7=Sunday (ISO-8601)
+  startTime: text('start_time').notNull(),     // 'HH:MM'
+  endTime: text('end_time').notNull(),         // 'HH:MM'
+  isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (t) => [
+  index('artist_availability_profile_idx').on(t.profileId),
+])
+
 // Festival submissions from the /organizers/create wizard. There is no live
 // self-serve publish yet — the wizard captures the full draft here for the
 // team to review and onboard, instead of pretending to go live. The whole

@@ -366,11 +366,19 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'get_profile', title: 'WeDance profile', scopes: [], annotations: READ,
-    description: 'A public WeDance page by handle: an artist, venue, organizer or promoter (bio, styles, city, socials, rooms), or a dancer.',
+    description: 'A public WeDance page by handle: an artist (including weekly free times, when published), venue, organizer or promoter (bio, styles, city, socials, rooms), or a dancer.',
     input: { handle },
     run: async (t, a) => {
       const p: any = await t.caller.entity.getByHandle({ handle: a.handle }).catch(() => null)
-      if (p) return { kind: 'profile', ...p, url: url(t, `/@${a.handle}`) }
+      if (p) {
+        const availability = p.profile?.type === 'artist'
+          ? await t.caller.booking.artistAvailability({ username: a.handle }).then((r: any) => ({
+              published: r.published,
+              slots: (r.slots as { dayOfWeek: number; startTime: string; endTime: string }[]).map(s => ({ day_of_week: s.dayOfWeek, start: s.startTime, end: s.endTime })),
+            })).catch(() => null)
+          : undefined
+        return { kind: 'profile', ...p, ...(availability ? { availability } : {}), url: url(t, `/@${a.handle}`) }
+      }
       const d: any = await t.caller.profile.getByUsername({ username: a.handle }).catch(() => null)
       if (d) return { kind: 'dancer', ...d, url: url(t, `/@${a.handle}`) }
       throw new Error(`Nobody on WeDance has the handle @${a.handle}.`)
@@ -1212,9 +1220,15 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'set_availability', title: 'Set a room’s weekly availability', scopes: ['business:write'], business: true, annotations: IDEMPOTENT,
-    description: 'Replace the weekly time slots when a venue room can be booked. Note: availability exists for venue rooms (list_spaces), not for artists.',
+    description: 'Replace the weekly time slots when a venue room can be booked (list_spaces for the room id). For an artist, use set_artist_availability.',
     input: { space_id: z.string().uuid(), slots: z.array(z.object({ day_of_week: z.number().int().min(1).max(7).describe('1 = Monday … 7 = Sunday'), start: hhmm, end: hhmm })).max(50) },
     run: (t, a) => t.caller.booking.setAvailability({ spaceId: a.space_id, slots: a.slots.map((s: any) => ({ dayOfWeek: s.day_of_week, startTime: s.start, endTime: s.end })) }),
+  },
+  {
+    name: 'set_artist_availability', title: 'Set when an artist is free', scopes: ['business:write'], business: true, annotations: IDEMPOTENT,
+    description: 'Replace the weekly times one of my artist pages is free for a private event, wedding or corporate booking. Organisers see these on the artist page and on get_profile. An empty list clears them (nothing published — not “never free”). 1 = Monday … 7 = Sunday. An end at or before the start crosses midnight.',
+    input: { profile, slots: z.array(z.object({ day_of_week: z.number().int().min(1).max(7).describe('1 = Monday … 7 = Sunday'), start: hhmm, end: hhmm })).max(21) },
+    run: (t, a) => t.caller.booking.setArtistAvailability({ username: a.profile, slots: a.slots.map((s: any) => ({ dayOfWeek: s.day_of_week, startTime: s.start, endTime: s.end })) }),
   },
   {
     name: 'my_invites', title: 'Invites and suggestions for my page', scopes: ['business:read'], business: true, annotations: READ,

@@ -2,7 +2,7 @@
  * Hermetic tests for the entity (pro profiles) + booking routers.
  */
 import { describe, it, expect, vi } from 'vitest'
-import { profiles, profileMembers, bookableSpaces, bookingRequests, availabilitySlots, dancers } from '../../database/schema'
+import { profiles, profileMembers, bookableSpaces, bookingRequests, availabilitySlots, artistAvailability, dancers } from '../../database/schema'
 
 type FilterFn = (row: Record<string, any>) => boolean
 
@@ -24,6 +24,7 @@ class FakeDb {
   bookableSpaces: Row[] = []
   bookingRequests: Row[] = []
   availabilitySlots: Row[] = []
+  artistAvailability: Row[] = []
   dancers: Row[] = []
   select(_c: any) { return { from: (t: any) => ({ where: (f: FilterFn) => Promise.resolve(this.tableFor(t).filter(f)) }) } }
   insert(t: any) {
@@ -56,6 +57,7 @@ class FakeDb {
     if (t === bookableSpaces) return this.bookableSpaces
     if (t === bookingRequests) return this.bookingRequests
     if (t === availabilitySlots) return this.availabilitySlots
+    if (t === artistAvailability) return this.artistAvailability
     if (t === dancers) return this.dancers
     throw new Error('unexpected table')
   }
@@ -538,5 +540,105 @@ describe('booking.setAvailability', () => {
       slots: [{ dayOfWeek: 1, startTime, endTime }],
     })
     expect(out.ok).toBe(true)
+  })
+})
+
+describe('booking artist availability', () => {
+  const artist = { id: 'p1', username: 'los.filinsclub', type: 'artist', name: 'Los Filins', status: 'visible' }
+
+  it('replaces an artist’s weekly windows and drops the old ones', async () => {
+    const db = new FakeDb()
+    db.profiles.push({ ...artist })
+    db.artistAvailability.push({ id: 'old', profileId: 'p1', dayOfWeek: 3, startTime: '10:00', endTime: '12:00', isActive: true })
+    const out = await caller(db, { dancerId: 'd1', isAdmin: true }).booking.setArtistAvailability({
+      username: '@los.filinsclub',
+      slots: [
+        { dayOfWeek: 1, startTime: '18:00', endTime: '23:00' },
+        { dayOfWeek: 6, startTime: '20:00', endTime: '02:00' },
+      ],
+    })
+    expect(out).toMatchObject({ ok: true, published: true })
+    expect(db.artistAvailability).toHaveLength(2)
+    expect(db.artistAvailability.find(s => s.dayOfWeek === 3)).toBeUndefined()
+  })
+
+  it('an empty list unpublishes times', async () => {
+    const db = new FakeDb()
+    db.profiles.push({ ...artist })
+    db.artistAvailability.push({ id: 'old', profileId: 'p1', dayOfWeek: 1, startTime: '18:00', endTime: '23:00', isActive: true })
+    const out = await caller(db, { dancerId: 'd1', isAdmin: true }).booking.setArtistAvailability({
+      username: 'los.filinsclub',
+      slots: [],
+    })
+    expect(out).toMatchObject({ ok: true, published: false })
+    expect(db.artistAvailability).toHaveLength(0)
+  })
+
+  it('rejects a dancer who does not run the page', async () => {
+    const db = new FakeDb()
+    db.profiles.push({ ...artist })
+    await expect(caller(db, { dancerId: 'd2' }).booking.setArtistAvailability({
+      username: 'los.filinsclub',
+      slots: [],
+    })).rejects.toMatchObject({ code: 'FORBIDDEN' })
+  })
+
+  it('lets an editor publish times', async () => {
+    const db = new FakeDb()
+    db.profiles.push({ ...artist })
+    db.profileMembers.push({ profileId: 'p1', dancerId: 'd1', role: 'editor' })
+    const out = await caller(db, { dancerId: 'd1' }).booking.setArtistAvailability({
+      username: 'los.filinsclub',
+      slots: [{ dayOfWeek: 5, startTime: '19:00', endTime: '23:00' }],
+    })
+    expect(out.ok).toBe(true)
+  })
+
+  it('refuses venue rooms — those stay on setAvailability', async () => {
+    const db = new FakeDb()
+    db.profiles.push({ id: 'p1', username: 'pina', type: 'venue', name: 'Pina', status: 'visible' })
+    await expect(caller(db, { dancerId: 'd1', isAdmin: true }).booking.setArtistAvailability({
+      username: 'pina',
+      slots: [{ dayOfWeek: 1, startTime: '18:00', endTime: '23:00' }],
+    })).rejects.toMatchObject({ code: 'BAD_REQUEST' })
+  })
+
+  it('shows published windows to anyone, Monday first', async () => {
+    const db = new FakeDb()
+    db.profiles.push({ ...artist })
+    db.artistAvailability.push(
+      { id: 'sat', profileId: 'p1', dayOfWeek: 6, startTime: '14:00', endTime: '18:00', isActive: true },
+      { id: 'mon', profileId: 'p1', dayOfWeek: 1, startTime: '18:00', endTime: '23:00', isActive: true },
+      { id: 'off', profileId: 'p1', dayOfWeek: 2, startTime: '10:00', endTime: '12:00', isActive: false },
+    )
+    const out = await caller(db).booking.artistAvailability({ username: 'los.filinsclub' })
+    expect(out).toEqual({
+      published: true,
+      slots: [
+        { dayOfWeek: 1, startTime: '18:00', endTime: '23:00' },
+        { dayOfWeek: 6, startTime: '14:00', endTime: '18:00' },
+      ],
+    })
+  })
+
+  it('reports nothing published when the artist has no windows', async () => {
+    const db = new FakeDb()
+    db.profiles.push({ ...artist })
+    expect(await caller(db).booking.artistAvailability({ username: 'los.filinsclub' })).toEqual({ published: false, slots: [] })
+  })
+
+  it('hides an unpublished page from someone who does not run it', async () => {
+    const db = new FakeDb()
+    db.profiles.push({ ...artist, status: 'hidden' })
+    db.artistAvailability.push({ id: 'mon', profileId: 'p1', dayOfWeek: 1, startTime: '18:00', endTime: '23:00', isActive: true })
+    await expect(caller(db).booking.artistAvailability({ username: 'los.filinsclub' })).rejects.toMatchObject({ code: 'NOT_FOUND' })
+    const seen = await caller(db, { dancerId: 'd1', isAdmin: true }).booking.artistAvailability({ username: 'los.filinsclub' })
+    expect(seen.published).toBe(true)
+  })
+
+  it('returns no windows for a venue', async () => {
+    const db = new FakeDb()
+    db.profiles.push({ id: 'p1', username: 'pina', type: 'venue', name: 'Pina', status: 'visible' })
+    expect(await caller(db).booking.artistAvailability({ username: 'pina' })).toEqual({ published: false, slots: [] })
   })
 })

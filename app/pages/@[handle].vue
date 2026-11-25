@@ -32,6 +32,7 @@ const pending = ref(true)
 const data = ref<Awaited<ReturnType<typeof $trpc.entity.getByHandle.query>> | null>(null)
 const schedule = ref<any[]>([])
 const availability = ref<any[]>([])
+const artistSlots = ref<{ dayOfWeek: number; startTime: string; endTime: string }[]>([])
 // Dated public events (wedance.vip mirror) this profile hosts / runs / plays at.
 const syncedEvents = ref<any[]>([])
 const isStub = ref(false)
@@ -47,17 +48,21 @@ async function resolve() {
     if (pro) {
       data.value = pro
       pending.value = false
-      const [sched, avail, synced] = await Promise.all([
+      const [sched, avail, synced, artistAvail] = await Promise.all([
         $trpc.booking.scheduleForProfile.query({ profileId: pro.profile.id }).catch(() => []),
         $trpc.booking.availabilityForProfile.query({ profileId: pro.profile.id }).catch(() => []),
         $trpc.events.byProfile.query({
           username: pro.profile.username,
           ...(pro.profile.type === 'artist' ? { name: pro.profile.name } : {}),
         }).catch(() => []),
+        pro.profile.type === 'artist'
+          ? $trpc.booking.artistAvailability.query({ username: pro.profile.username }).catch(() => null)
+          : Promise.resolve(null),
       ])
       schedule.value = sched as any[]
       availability.value = avail as any[]
       syncedEvents.value = synced as any[]
+      artistSlots.value = artistAvail?.slots ?? []
       const access = await $trpc.business.canManage.query({ username: pro.profile.username }).catch(() => ({ canManage: false, managed: true }))
       canManage.value = access.canManage
       managed.value = access.managed
@@ -357,6 +362,10 @@ useHead(() => ({
         <div class="flex items-center gap-2 mb-2"><LayoutGrid class="w-5 h-5 text-primary" /><h2 class="text-2xl font-display text-foreground">The floor plan</h2></div>
         <img :src="floorPlan" alt="Floor plan of the dance areas" class="w-full rounded-2xl border" style="border-color:color-mix(in srgb, var(--wd-brown-900) 10.2%, transparent);">
       </section>
+
+      <div v-if="profile.type === 'artist' && artistSlots.length" class="max-w-2xl mx-auto px-4 pb-6">
+        <ArtistAvailability :slots="artistSlots" />
+      </div>
 
       <!-- Scheduled events (first) -->
       <section class="max-w-2xl mx-auto px-4 pb-6 font-sans">

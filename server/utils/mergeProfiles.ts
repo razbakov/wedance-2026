@@ -261,6 +261,7 @@ export const PROFILE_REFS: { table: string; col: string; same?: string; notSelf?
   { table: 'profile_affiliations', col: 'artist_profile_id', same: 'x.organizer_profile_id = t.organizer_profile_id', notSelf: 'organizer_profile_id' },
   { table: 'profile_affiliations', col: 'organizer_profile_id', same: 'x.artist_profile_id = t.artist_profile_id', notSelf: 'artist_profile_id' },
   { table: 'bookable_spaces', col: 'profile_id' },
+  { table: 'artist_availability', col: 'profile_id' },
   { table: 'booking_requests', col: 'profile_id' },
   { table: 'booking_requests', col: 'organizer_id' },
   { table: 'booking_inquiries', col: 'profile_id' },

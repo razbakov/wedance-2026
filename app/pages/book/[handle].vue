@@ -32,6 +32,7 @@ const addErr = ref('')
 const handle = computed(() => String(route.params.handle))
 const profile = ref<any>(null)
 const spaces = ref<any[]>([])
+const artistSlots = ref<{ dayOfWeek: number; startTime: string; endTime: string }[]>([])
 const pending = ref(true)
 
 onMounted(async () => {
@@ -39,6 +40,10 @@ onMounted(async () => {
     const pro = await $trpc.entity.getByHandle.query({ handle: handle.value })
     if (pro) {
       profile.value = pro.profile; spaces.value = pro.spaces ?? []
+      if (pro.profile.type === 'artist') {
+        const avail = await $trpc.booking.artistAvailability.query({ username: pro.profile.username }).catch(() => null)
+        artistSlots.value = avail?.slots ?? []
+      }
       await loadMe()
     }
     else {
@@ -107,6 +112,8 @@ useHead(() => ({
           <button type="button" class="font-bold text-primary underline" @click="showSignIn = true">Sign in</button>
           to send it as your school or event{{ profile.type === 'artist' ? `, or add ${firstName} to one of your events` : '' }}.
         </p>
+
+        <ArtistAvailability v-if="artistSlots.length" :slots="artistSlots" class="mt-6" />
 
         <div class="mt-6 rounded-2xl border bg-card p-5 sm:p-6 shadow-wd-card">
           <BookingInquiryForm :profile="profile" :me="me" />
