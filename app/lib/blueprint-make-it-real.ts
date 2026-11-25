@@ -15,7 +15,7 @@
  */
 import type { Blueprint, BpGap, BpLaneDef, BpPhaseDef, BpStep } from './blueprint'
 
-export const REAL_BLUEPRINT_UPDATED = '2026-11-18'
+export const REAL_BLUEPRINT_UPDATED = '2026-11-25'
 
 export type RealLane = 'owner' | 'system' | 'dancer'
 export type RealPhase = 'appears' | 'find' | 'ask' | 'review' | 'run' | 'dupes' | 'faces' | 'trust'
@@ -96,7 +96,7 @@ export const realSteps: BpStep<RealLane, RealPhase>[] = [
   { id: 'dance-card', phase: 'faces', lane: 'dancer', name: 'Add my face', status: 'live', marks: [], route: '/dance-card', code: 'dance_card_saved', refs: ['RAZ-1005'],
     note: 'After signing up to a night, “Add a photo” leads to the dance card: Lead / Follow, levels, photo, name, city — saved to the profile others see.' },
   { id: 'faces-page', phase: 'faces', lane: 'system', name: 'Faces on the page', status: 'missing', marks: [],
-    note: '/@handle shows a follower count for artists and promoters, but no faces of regulars, followers or who is going to its next night. The real people are only on each event page.' },
+    note: '/@handle shows a follower count on artist, promoter, organizer and venue pages, but no faces of regulars, followers or who is going to its next night. The real people are only on each event page.' },
 
   // Dancers trust it
   { id: 'run-badge', phase: 'trust', lane: 'dancer', name: 'Tell run from listed', status: 'missing', marks: ['silent'], route: '/@handle',

@@ -100,7 +100,7 @@ function trackProfileView(p: { username: string; type: string; city?: string | n
 // outbound_click (website, Instagram, map, booking links) is about this profile.
 useTrackContext(() => data.value?.profile && { object_type: data.value.profile.type, object_id: data.value.profile.username, city: data.value.profile.city || null })
 
-// --- Follow artist ---
+// --- Follow this page (artist, organizer, venue, promoter) ---
 const following = ref(false)
 const followBusy = ref(false)
 const followerCount = ref(0)
@@ -192,6 +192,12 @@ const directionsUrl = computed(() => {
 
 const typeLabel: Record<string, string> = { venue: 'Venue', artist: 'Artist', organizer: 'Organizer', promoter: 'Promoter' }
 const isPromoter = computed(() => profile.value?.type === 'promoter')
+// Dancer handles leave this layout. Every page that stays can be followed,
+// and that follow is a contact the page may email (RAZ-1092, RAZ-1100).
+const showFollow = computed(() => {
+  const type = profile.value?.type
+  return type === 'artist' || type === 'organizer' || type === 'venue' || type === 'promoter'
+})
 const socialIcon: Record<string, any> = { instagram: Instagram, youtube: Youtube, facebook: Facebook, website: Globe }
 const langLabel: Record<string, string> = { en: 'English', es: 'Spanish', de: 'German', fr: 'French', pt: 'Portuguese', it: 'Italian', ru: 'Russian', hu: 'Hungarian', sl: 'Slovenian' }
 const initials = computed(() => initialsOf(profile.value?.name))
@@ -289,12 +295,12 @@ useHead(() => ({
             <div v-if="profile.socials?.length" class="mt-4 flex items-center gap-2">
               <a v-for="s in profile.socials" :key="s.platform" :href="s.url" target="_blank" rel="noopener" class="inline-flex items-center justify-center w-9 h-9 rounded-full text-primary" style="background:color-mix(in srgb, var(--wd-red-600) 7.8%, transparent);" :aria-label="s.platform"><component :is="socialIcon[s.platform] || Globe" class="w-4 h-4" /></a>
             </div>
-            <div v-if="canBook || profile.type === 'artist' || isPromoter" class="mt-4 flex flex-wrap items-center gap-3">
+            <div v-if="canBook || showFollow" class="mt-4 flex flex-wrap items-center gap-3">
               <Button v-if="canBook && !isPromoter" variant="cta" size="pill-sm" as-child>
                 <NuxtLink :to="`/@${profile.username}/book`"><Send class="w-3.5 h-3.5" aria-hidden="true" /> Book {{ bookName }}</NuxtLink>
               </Button>
               <Button
-                v-if="profile.type === 'artist' || isPromoter"
+                v-if="showFollow"
                 :variant="following ? 'pill' : 'soft'"
                 size="pill-sm"
                 :disabled="followBusy"
@@ -304,10 +310,10 @@ useHead(() => ({
                 <Heart class="w-3.5 h-3.5" :class="following ? 'fill-white' : ''" aria-hidden="true" />
                 {{ following ? 'Following' : 'Follow' }}
               </Button>
-              <span v-if="(profile.type === 'artist' || isPromoter) && followerCount" class="text-xs text-muted-foreground font-sans">
+              <span v-if="showFollow && followerCount" class="text-xs text-muted-foreground font-sans">
                 {{ followerCount }} follower{{ followerCount === 1 ? '' : 's' }}
               </span>
-              <span v-if="profile.type === 'artist' || isPromoter" data-testid="follow-email-note" class="w-full text-xs text-muted-foreground font-sans">
+              <span v-if="showFollow" data-testid="follow-email-note" class="w-full text-xs text-muted-foreground font-sans">
                 {{ following ? `${profile.name || profile.username} can email you their news. Unfollow to stop.` : `Following lets ${profile.name || profile.username} email you their news.` }}
               </span>
               <span v-if="followError" role="alert" class="w-full text-xs font-bold text-destructive font-sans">{{ followError }}</span>
