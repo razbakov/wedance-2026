@@ -27,7 +27,7 @@ contacts by `contactChannel` (utm_source, else referrer host; ig / l.instagram.c
 
 **Following (RAZ-1092):** a click on Follow (`follow.toggle`: `@handle` page, promoter artist overlay, MCP `follow`) makes
 the dancer a contact with source `follow` — name and email, **mailable**; the button says "Following lets <page> email
-you its news". `recordFollowContact` / `stopFollowContact` (`server/utils/rsvpContact.ts`): an existing contact the page
+you their news". `recordFollowContact` / `stopFollowContact` (`server/utils/rsvpContact.ts`): an existing contact the page
 couldn't email gains `source.opted_in = 'follow'`; one that unsubscribed itself stays unsubscribed. Unfollowing
 unsubscribes only what following opted in (`source.unfollowed_at`), and following again resubscribes it. The follow an
 RSVP "next" adds by itself (`rsvp.ts` `syncPlan`) does **not** make a contact; follows made before RAZ-1092 weren't backfilled.

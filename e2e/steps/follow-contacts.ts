@@ -63,7 +63,7 @@ When('I open the artist page', async ({ page, c3 }) => {
 })
 
 Then('I am told that following lets the artist email me', async ({ page, c3 }) => {
-  await expect(page.getByTestId('follow-email-note')).toHaveText(`Following lets ${c3.data.artistName} email you its news.`)
+  await expect(page.getByTestId('follow-email-note')).toHaveText(`Following lets ${c3.data.artistName} email you their news.`)
 })
 
 When('I tap Follow', async ({ page }) => {
