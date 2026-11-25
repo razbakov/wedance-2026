@@ -22,45 +22,45 @@ const caller = (dancerId: string) => appRouter.createCaller({ db, dancerId, isAd
 
 describe.skipIf(!DATABASE_URL)('booking yes (RAZ-1089)', () => {
   beforeAll(async () => {
-    for (const key of ['artist', 'asker']) {
+    for (const key of ['band', 'asker']) {
       const [d] = await db.insert(schema.dancers).values({ email: `${key}-${RUN}@test.wedance.local`, name: `${key} ${RUN}` }).returning({ id: schema.dancers.id })
       ids[key] = d.id
     }
     const [org] = await db.insert(schema.profiles).values({ username: `host-${RUN}`, name: `Host ${RUN}`, type: 'organizer', claimed: true, city: 'Munich' }).returning({ id: schema.profiles.id })
     const [artist] = await db.insert(schema.profiles).values({ username: `band-${RUN}`, name: `Band ${RUN}`, type: 'artist', claimed: true, styles: ['Salsa'] }).returning({ id: schema.profiles.id })
     ids.org = org.id
-    ids.artist = artist.id
+    ids.page = artist.id
     await db.insert(schema.profileMembers).values([
       { profileId: ids.org, dancerId: ids.asker, role: 'owner' },
-      { profileId: ids.artist, dancerId: ids.artist, role: 'owner' },
+      { profileId: ids.page, dancerId: ids.band, role: 'owner' },
     ])
     const [ask] = await db.insert(schema.bookingInquiries).values({
-      profileId: ids.artist, requesterId: ids.asker, askerProfileId: ids.org,
+      profileId: ids.page, requesterId: ids.asker, askerProfileId: ids.org,
       name: 'Ada', email: `ada-${RUN}@test.wedance.local`, organization: `Host ${RUN}`,
       what: 'Show', eventDate: '2026-12-01', city: 'Munich', guests: 80, budget: '€800',
       message: 'We would like the band for our party.',
     }).returning({ id: schema.bookingInquiries.id })
     ids.ask = ask.id
     const [loose] = await db.insert(schema.bookingInquiries).values({
-      profileId: ids.artist, name: 'No Page', email: `loose-${RUN}@test.wedance.local`,
+      profileId: ids.page, name: 'No Page', email: `loose-${RUN}@test.wedance.local`,
       what: 'Private event', message: 'A small party at home, please.',
     }).returning({ id: schema.bookingInquiries.id })
     ids.loose = loose.id
     const [no] = await db.insert(schema.bookingInquiries).values({
-      profileId: ids.artist, name: 'No', email: `no-${RUN}@test.wedance.local`,
+      profileId: ids.page, name: 'No', email: `no-${RUN}@test.wedance.local`,
       what: 'Show', message: 'Another night, if you can.', status: 'declined',
     }).returning({ id: schema.bookingInquiries.id })
     ids.no = no.id
     const old = new Date(Date.now() - 4 * 24 * 3600_000)
     const [wait] = await db.insert(schema.bookingInquiries).values({
-      profileId: ids.artist, name: 'Waiting', email: `wait-${RUN}@test.wedance.local`,
+      profileId: ids.page, name: 'Waiting', email: `wait-${RUN}@test.wedance.local`,
       what: 'DJ set', message: 'Friday if you are free that week.', createdAt: old,
     }).returning({ id: schema.bookingInquiries.id })
     ids.wait = wait.id
   })
 
   afterAll(async () => {
-    if (!db || !ids.artist) return
+    if (!db || !ids.page) return
     const inquiries = [ids.ask, ids.loose, ids.no, ids.wait].filter(Boolean)
     const evs = await db.select({ id: schema.events.id }).from(schema.events).where(eq(schema.events.hostProfileId, ids.org))
     if (evs.length) {
@@ -68,13 +68,13 @@ describe.skipIf(!DATABASE_URL)('booking yes (RAZ-1089)', () => {
       await db.delete(schema.events).where(inArray(schema.events.id, evs.map((e: { id: string }) => e.id)))
     }
     await db.delete(schema.bookingInquiries).where(inArray(schema.bookingInquiries.id, inquiries))
-    await db.delete(schema.profileMembers).where(inArray(schema.profileMembers.profileId, [ids.org, ids.artist]))
-    await db.delete(schema.profiles).where(inArray(schema.profiles.id, [ids.org, ids.artist]))
-    await db.delete(schema.dancers).where(inArray(schema.dancers.id, [ids.artist, ids.asker]))
+    await db.delete(schema.profileMembers).where(inArray(schema.profileMembers.profileId, [ids.org, ids.page]))
+    await db.delete(schema.profiles).where(inArray(schema.profiles.id, [ids.org, ids.page]))
+    await db.delete(schema.dancers).where(inArray(schema.dancers.id, [ids.band, ids.asker]))
   })
 
   it('turns a yes into a draft on the asker’s page, with the artist confirmed and the budget as the offer', async () => {
-    const res = await caller(ids.artist).inquiries.book({ username: `band-${RUN}`, id: ids.ask })
+    const res = await caller(ids.band).inquiries.book({ username: `band-${RUN}`, id: ids.ask })
     expect(res.emailed).toBe(true)
     expect(res.created).toBe(true)
     const [ev] = await db.select().from(schema.events).where(eq(schema.events.id, res.eventId))
@@ -83,10 +83,10 @@ describe.skipIf(!DATABASE_URL)('booking yes (RAZ-1089)', () => {
       artists: [`band-${RUN}`], source: 'booking-inquiry',
     })
     expect(ev.name).toBe(`Show · Band ${RUN}`)
-    const [inv] = await db.select().from(schema.profileInvites).where(and(eq(schema.profileInvites.eventId, ev.id), eq(schema.profileInvites.profileId, ids.artist)))
+    const [inv] = await db.select().from(schema.profileInvites).where(and(eq(schema.profileInvites.eventId, ev.id), eq(schema.profileInvites.profileId, ids.page)))
     expect(inv.status).toBe('confirmed')
     expect((inv.request as { offer?: string }).offer).toBe('€800')
-    const again = await caller(ids.artist).inquiries.book({ username: `band-${RUN}`, id: ids.ask })
+    const again = await caller(ids.band).inquiries.book({ username: `band-${RUN}`, id: ids.ask })
     expect(again.eventId).toBe(res.eventId)
     expect(again.created).toBe(false)
     const rows = await db.select({ id: schema.events.id }).from(schema.events).where(eq(schema.events.hostProfileId, ids.org))
@@ -94,10 +94,10 @@ describe.skipIf(!DATABASE_URL)('booking yes (RAZ-1089)', () => {
   })
 
   it('saves a yes when the asker has no page, and refuses a decline', async () => {
-    const res = await caller(ids.artist).inquiries.book({ username: `band-${RUN}`, id: ids.loose })
+    const res = await caller(ids.band).inquiries.book({ username: `band-${RUN}`, id: ids.loose })
     expect(res.eventId).toBeNull()
     expect(res.emailed).toBe(true)
-    await expect(caller(ids.artist).inquiries.book({ username: `band-${RUN}`, id: ids.no })).rejects.toBeInstanceOf(TRPCError)
+    await expect(caller(ids.band).inquiries.book({ username: `band-${RUN}`, id: ids.no })).rejects.toBeInstanceOf(TRPCError)
   })
 
   it('reminds an unanswered request once, after three days', async () => {
