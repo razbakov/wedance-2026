@@ -274,11 +274,10 @@ Then(
 )
 
 Then('I see at least {int} bookable space(s)', async ({ page }, min: number) => {
-  // Bookable spaces are listed on the venue profile page
-  // Wait for the page to load and look for space-related content
-  const body = await page.textContent('main', { timeout: 10_000 })
-  // The page should show spaces or a booking calendar
-  expect(body).toBeTruthy()
+  // The profile's <main> is in the DOM while the venue is still loading, and
+  // that shell has no text. Wait until the named spaces are actually there.
+  const spaces = page.getByText(/^Space \d+$/)
+  await expect(spaces.nth(min - 1)).toBeVisible({ timeout: 10_000 })
 })
 
 Then('I see the booking form', async ({ page }) => {

@@ -49,9 +49,10 @@ Given('an artist page run by its owner', async ({ c3 }) => {
   await sql(`INSERT INTO profile_members (profile_id, dancer_id, role) VALUES ($1, $2, 'owner')`, [p!.id, owner])
   Object.assign(c3.data, { handle, artistName: `DJ Follow ${c3.run}` })
   c3.cleanup.push(async () => {
+    await sql(`DELETE FROM follows WHERE dancer_id = ANY($1::uuid[]) OR profile_id = $2`, [[owner, fan], p!.id])
+    await sql(`DELETE FROM profile_members WHERE profile_id = $1`, [p!.id])
     await sql(`DELETE FROM profiles WHERE id = $1`, [p!.id])
     await sql(`DELETE FROM sessions WHERE dancer_id = ANY($1::uuid[])`, [[owner, fan]])
-    await sql(`DELETE FROM follows WHERE dancer_id = ANY($1::uuid[])`, [[owner, fan]])
     await sql(`DELETE FROM dancers WHERE id = ANY($1::uuid[])`, [[owner, fan]])
   })
 })
@@ -86,5 +87,6 @@ Then('the fan is listed with their email as {string}', async ({ page, c3 }, sour
 })
 
 Then('the page can email {int} contact(s)', async ({ page }, n: number) => {
-  await expect(page.getByText(/can be emailed/).first()).toContainText(`${n} can be emailed`)
+  // The page intro also says "can be emailed". The count is "N can be emailed".
+  await expect(page.getByText(`${n} can be emailed`)).toBeVisible()
 })
