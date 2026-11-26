@@ -1,8 +1,8 @@
 <script setup lang="ts">
 /**
  * /business/network/<username>/bookings — people who asked to book this page
- * (inquiries.forProfile), newest first. Answer by email (opens a reply), then
- * mark it answered or declined. Also the booking link to put on your own site.
+ * (inquiries.forProfile), newest first. “Yes, book it” saves the booking on
+ * WeDance and emails them. Reply by email is still there when you need to talk.
  */
 import { Mail, Copy, Check, CalendarDays, MapPin, Users, Wallet, ExternalLink, Phone } from 'lucide-vue-next'
 
@@ -28,6 +28,21 @@ async function copy() {
   try { await navigator.clipboard.writeText(link.value); copied.value = true; setTimeout(() => (copied.value = false), 2000) } catch {}
 }
 
+const notice = ref<string | null>(null)
+const acting = ref<string | null>(null)
+async function book(r: Row) {
+  notice.value = null
+  acting.value = r.id
+  try {
+    const res = await $trpc.inquiries.book.mutate({ username: username.value, id: r.id })
+    r.status = 'booked'
+    r.eventId = res.eventId
+    r.answeredAt = new Date()
+    if (!res.emailed) notice.value = `Booked ${r.name}, but the email didn’t go out. Reply to them from here.`
+  } catch (e: any) {
+    notice.value = e?.message || 'Couldn’t book it.'
+  } finally { acting.value = null }
+}
 async function setStatus(r: Row, status: 'new' | 'answered' | 'declined') {
   const before = r.status
   r.status = status
@@ -36,13 +51,13 @@ async function setStatus(r: Row, status: 'new' | 'answered' | 'declined') {
 const day = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
 const when = (d: string | Date) => new Date(d).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 const reply = (r: Row) => `mailto:${r.email}?subject=${encodeURIComponent(`Re: booking${r.what ? ` · ${r.what}` : ''}${r.eventDate ? ` · ${day(r.eventDate)}` : ''}`)}`
-const open = computed(() => (rows.value ?? []).filter(r => r.status === 'new'))
-const closed = computed(() => (rows.value ?? []).filter(r => r.status !== 'new'))
+const open = computed(() => (rows.value ?? []).filter(r => r.status === 'new' || r.status === 'answered'))
+const closed = computed(() => (rows.value ?? []).filter(r => r.status === 'booked' || r.status === 'declined'))
 </script>
 
 <template>
   <div>
-    <AdminPageHeader eyebrow="Business" title="Bookings" :description="`People who asked to book @${username}.`" :back="{ to: `/business/network/${username}`, label: 'Profile' }" />
+    <AdminPageHeader eyebrow="Business" title="Bookings" :description="`People who asked to book @${username}. Say yes to keep it on WeDance.`" :back="{ to: `/business/network/${username}`, label: 'Profile' }" />
 
     <!-- The booking link -->
     <section class="mt-6 rounded-2xl border bg-card p-5 shadow-wd-card">
@@ -55,6 +70,7 @@ const closed = computed(() => (rows.value ?? []).filter(r => r.status !== 'new')
       </div>
     </section>
 
+    <p v-if="notice" class="mt-4 text-sm text-destructive" role="alert">{{ notice }}</p>
     <AdminState v-if="error" kind="error" :message="error" />
     <AdminState v-else-if="!rows" kind="loading" />
     <template v-else>
@@ -62,7 +78,7 @@ const closed = computed(() => (rows.value ?? []).filter(r => r.status !== 'new')
       <section v-for="group in [{ title: 'Waiting for you', list: open }, { title: 'Done', list: closed }]" v-show="group.list.length" :key="group.title" class="mt-6">
         <h2 class="text-eyebrow font-bold uppercase tracking-[0.3em] text-secondary">{{ group.title }}</h2>
         <ul class="mt-3 grid gap-3">
-          <li v-for="r in group.list" :key="r.id" class="rounded-2xl border bg-card p-4" :class="r.status !== 'new' ? 'opacity-70' : ''">
+          <li v-for="r in group.list" :key="r.id" class="min-w-0 max-w-full rounded-2xl border bg-card p-4" :class="r.status === 'declined' ? 'opacity-70' : ''">
             <div class="flex flex-wrap items-baseline justify-between gap-2">
               <p class="font-bold">{{ r.what }} <span class="font-normal text-muted-foreground">· {{ r.name }}<template v-if="r.organization">, {{ r.organization }}</template></span></p>
               <span class="text-xs text-muted-foreground">{{ when(r.createdAt) }}</span>
@@ -74,16 +90,22 @@ const closed = computed(() => (rows.value ?? []).filter(r => r.status !== 'new')
               <span v-if="r.budget" class="inline-flex items-center gap-1"><Wallet class="size-3.5" aria-hidden="true" /> {{ r.budget }}</span>
             </div>
             <p class="mt-3 whitespace-pre-line text-sm">{{ r.message }}</p>
-            <div class="mt-4 flex flex-wrap items-center gap-2">
-              <Button variant="pill" size="pill-sm" as-child><a :href="reply(r)"><Mail /> Reply to {{ r.email }}</a></Button>
+            <div class="mt-4 flex min-w-0 max-w-full flex-wrap items-center gap-2">
+              <Button variant="outline-pill" size="pill-sm" as-child><a :href="reply(r)"><Mail /> Reply</a></Button>
               <Button v-if="r.phone" variant="outline-pill" size="pill-sm" as-child><a :href="`https://wa.me/${r.phone.replace(/[^\d+]/g, '').replace(/^00/, '+').replace(/^\+/, '')}`" target="_blank" rel="noopener"><Phone /> WhatsApp</a></Button>
               <Button v-if="r.phone" variant="ghost" size="sm" as-child><a :href="`tel:${r.phone.replace(/[^\d+]/g, '')}`">Call {{ r.phone }}</a></Button>
-              <template v-if="r.status === 'new'">
-                <Button type="button" variant="outline-pill" size="pill-sm" @click="setStatus(r, 'answered')"><Check /> Answered</Button>
-                <Button type="button" variant="ghost" size="sm" @click="setStatus(r, 'declined')">Decline</Button>
+              <template v-if="r.status === 'new' || r.status === 'answered'">
+                <Button type="button" variant="pill" size="pill-sm" :loading="acting === r.id" @click="book(r)"><Check /> Yes, book it</Button>
+                <Button v-if="r.status === 'new'" type="button" variant="ghost" size="sm" @click="setStatus(r, 'declined')">Decline</Button>
+                <Button v-if="r.status === 'new'" type="button" variant="ghost" size="sm" @click="setStatus(r, 'answered')">I replied by email</Button>
+                <Button v-else type="button" variant="ghost" size="sm" @click="setStatus(r, 'new')">Move back</Button>
+              </template>
+              <template v-else-if="r.status === 'booked'">
+                <AdminStatus tone="success">Booked</AdminStatus>
+                <span class="min-w-0 text-xs text-muted-foreground">{{ r.eventId ? 'On a draft of their event, with you in the line-up.' : 'Saved. They don’t have a page on WeDance yet, so there’s no event to put you on.' }}</span>
               </template>
               <template v-else>
-                <AdminStatus :tone="r.status === 'answered' ? 'success' : 'neutral'">{{ r.status === 'answered' ? 'Answered' : 'Declined' }}</AdminStatus>
+                <AdminStatus tone="neutral">Declined</AdminStatus>
                 <Button type="button" variant="ghost" size="sm" @click="setStatus(r, 'new')">Move back</Button>
               </template>
             </div>

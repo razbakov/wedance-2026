@@ -10,7 +10,8 @@ import { eventIdForFestival, recordLinkAction } from '../../utils/trackedLinks'
 import { planCounts } from '../../utils/planCounts'
 import { festivalEventsWhere, toFestivalRow } from '../../utils/festivalListing'
 import { MEET_MATCHES_SINCE, meetMatches } from '../../utils/meetMatches'
-import { asDanceRole, matchNotice, nightCardWhen, type DanceRole } from '../../../shared/utils/notices'
+import { asDanceRole, bellNightSource, matchNotice, nightCardWhen, type BellSuggestion, type DanceRole } from '../../../shared/utils/notices'
+import { eventEndsAt } from '../../../shared/utils/eventTime'
 import { repairPreviewDemoDancers } from '../../utils/previewDemoDancers'
 import { afterYes } from '../../utils/meetMatchNotify'
 import { meetEmpty } from '../../utils/meetEmpty'
@@ -112,6 +113,21 @@ export const planRouter = router({
         .insert(planItems)
         .values(values)
         .onConflictDoNothing()
+
+      // "Invite them" on a night already in the plan: the row exists, so the
+      // insert is a no-op. Merge `with` onto it so that match sees you're going.
+      if (input.metadata?.with) {
+        const [row] = await ctx.db.select({ id: planItems.id, metadata: planItems.metadata }).from(planItems).where(and(
+          eq(planItems.dancerId, ctx.dancerId),
+          eq(planItems.itemType, input.itemType),
+          eq(planItems.itemId, input.itemId),
+        )).limit(1)
+        if (row && row.metadata?.with !== input.metadata.with) {
+          await ctx.db.update(planItems).set({
+            metadata: { ...(row.metadata ?? {}), with: input.metadata.with },
+          }).where(eq(planItems.id, row.id))
+        }
+      }
 
       // Came through a promoter's tracked link for this event: credit the plan add.
       if (ctx.viaCode && (input.itemType === 'event' || input.itemType === 'festival')) {
@@ -617,33 +633,34 @@ export const planRouter = router({
    */
   notices: protectedProcedure.query(async ({ ctx }) => {
     await repairPreviewDemoDancers(ctx.db)
+    const now = new Date()
     const matches = await meetMatches(ctx.db, ctx.dancerId, { since: MEET_MATCHES_SINCE })
     // The night they booked, not whatever night the match would suggest next.
-    // A later booking of the same friend replaces an earlier one.
-    const bookedEventByOther = new Map<string, string>()
+    // A later booking of the same friend replaces an earlier one. Once that
+    // night is over it drops off the bell.
+    const latestBooked = new Map<string, { eventId: string, at: number }>()
     try {
       const rows: Array<{ otherId: string, eventId: string, bookedAt: Date | null }> = await ctx.db
         .select({ otherId: meetRituals.otherId, eventId: meetRituals.eventId, bookedAt: meetRituals.bookedAt })
         .from(meetRituals)
         .where(eq(meetRituals.dancerId, ctx.dancerId))
-      const latest = new Map<string, { eventId: string, at: number }>()
       for (const r of rows) {
         if (!r.bookedAt) continue
         const at = new Date(r.bookedAt).getTime()
-        const cur = latest.get(r.otherId)
-        if (!cur || at >= cur.at) latest.set(r.otherId, { eventId: r.eventId, at })
+        const cur = latestBooked.get(r.otherId)
+        if (!cur || at >= cur.at) latestBooked.set(r.otherId, { eventId: r.eventId, at })
       }
-      for (const [other, v] of latest) bookedEventByOther.set(other, v.eventId)
     } catch { /* rituals table not migrated yet */ }
     const otherIds = matches.map(m => m.dancerId)
     const eventIds = [...new Set([
-      ...bookedEventByOther.values(),
+      ...[...latestBooked.values()].map(v => v.eventId),
       ...matches.map(m => m.night?.eventId).filter((id): id is string => !!id),
     ])]
     const roleOf = new Map<string, DanceRole | null>()
     const coverOf = new Map<string, string | null>()
     const goingOf = new Map<string, number>()
     const bookedNights = new Map<string, { name: string, path: string, whenLabel: string, venue: string }>()
+    const eventEnds = new Map<string, Date>()
     try {
       if (otherIds.length) {
         const rows = await ctx.db.select({ id: dancers.id, role: dancers.role }).from(dancers).where(inArray(dancers.id, otherIds))
@@ -656,7 +673,7 @@ export const planRouter = router({
         const [evs, counts] = await Promise.all([
           ctx.db.select({
             id: events.id, name: events.name, cover: events.cover,
-            startDate: events.startDate, timezone: events.timezone, venueName: events.venueName,
+            startDate: events.startDate, endDate: events.endDate, timezone: events.timezone, venueName: events.venueName,
           }).from(events).where(inArray(events.id, eventIds)),
           ctx.db.select({ itemId: planItems.itemId, n: sql<number>`count(*)::int` }).from(planItems)
             .where(and(eq(planItems.itemType, 'event'), inArray(planItems.itemId, eventIds)))
@@ -665,6 +682,8 @@ export const planRouter = router({
         for (const e of evs) {
           coverOf.set(e.id, e.cover || null)
           if (!e.startDate) continue
+          const zone = e.timezone || 'Europe/Berlin'
+          eventEnds.set(e.id, eventEndsAt(e.startDate, e.endDate, zone))
           bookedNights.set(e.id, {
             name: e.name || 'the night',
             path: eventPath({ id: e.id, name: e.name }),
@@ -676,13 +695,24 @@ export const planRouter = router({
       }
     } catch { /* cover and count are extras; the match still shows */ }
 
+    const suggestionOf = (night: { youGoing: boolean, theyGoing: boolean } | null | undefined): BellSuggestion => {
+      if (!night) return null
+      if (night.youGoing && night.theyGoing) return 'both'
+      if (night.theyGoing) return 'them'
+      if (night.youGoing) return 'me'
+      return 'city'
+    }
+
     return {
       notices: matches.map(m => {
-        const bookedId = bookedEventByOther.get(m.dancerId)
-        const bookedNight = bookedId ? bookedNights.get(bookedId) : undefined
+        const bookedId = latestBooked.get(m.dancerId)?.eventId
+        const ends = bookedId ? eventEnds.get(bookedId) : undefined
+        const bookedState = !bookedId || !ends ? null : ends.getTime() <= now.getTime() ? 'over' : 'ahead'
+        const source = bellNightSource({ booked: bookedState, suggestion: suggestionOf(m.night) })
+        const bookedNight = source === 'booked' && bookedId ? bookedNights.get(bookedId) : undefined
         const night = bookedNight
           ? { ...bookedNight, cover: coverOf.get(bookedId!) ?? null, going: goingOf.get(bookedId!) ?? 0 }
-          : m.night
+          : source === 'suggestion' && m.night
             ? {
                 name: m.night.name,
                 path: m.night.path,
@@ -700,7 +730,7 @@ export const planRouter = router({
           role: roleOf.get(m.dancerId) ?? m.role ?? null,
           styles: m.styles,
           matchedAt: m.matchedAt,
-          booked: bookedEventByOther.has(m.dancerId),
+          booked: source === 'booked',
           night,
         })
       }),

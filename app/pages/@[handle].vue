@@ -314,6 +314,9 @@ useHead(() => ({
               <span v-if="(profile.type === 'artist' || isPromoter) && followerCount" class="text-xs text-muted-foreground font-sans">
                 {{ followerCount }} follower{{ followerCount === 1 ? '' : 's' }}
               </span>
+              <span v-if="profile.type === 'artist' || isPromoter" data-testid="follow-email-note" class="w-full text-xs text-muted-foreground font-sans">
+                {{ following ? `${profile.name || profile.username} can email you their news. Unfollow to stop.` : `Following lets ${profile.name || profile.username} email you their news.` }}
+              </span>
               <span v-if="followError" role="alert" class="w-full text-xs font-bold text-destructive font-sans">{{ followError }}</span>
             </div>
             <div v-if="profile.moderatorName" class="mt-4 flex items-center gap-1.5 text-xs text-secondary font-sans">
