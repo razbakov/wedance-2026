@@ -16,6 +16,7 @@ import type { PostKind } from '../../../shared/utils/posts'
 import { paintWithRetries, readText, fetchImage, IMAGE_MODEL, type InlineImage } from './gemini'
 import { fitFlyer } from './fit'
 import { faceGrid } from './grid'
+import { countsAsFestival } from '../../../shared/utils/entryWord'
 import { programmePostItems, programmePostLine } from '../../../shared/utils/programme'
 import { withAi } from '../aiUsage'
 
@@ -30,12 +31,26 @@ export const MAX_GRID = 16
 
 type Post = { kind: PostKind; subject?: string | null } | null
 
-/** The event's announcement post (its main flyer): made when first needed. */
+/** The event's announcement post (its main flyer): made when first needed. One per event. */
 export async function announcementPost(db: any, eventId: string): Promise<string> {
-  const [p] = await db.select({ id: eventPosts.id }).from(eventPosts).where(and(eq(eventPosts.eventId, eventId), eq(eventPosts.kind, 'announcement'))).limit(1)
-  if (p) return p.id
-  const [n] = await db.insert(eventPosts).values({ eventId, kind: 'announcement', format: 'story' }).returning({ id: eventPosts.id })
-  return n!.id
+  const found = async () => {
+    const [p] = await db.select({ id: eventPosts.id }).from(eventPosts)
+      .where(and(eq(eventPosts.eventId, eventId), eq(eventPosts.kind, 'announcement')))
+      .orderBy(eventPosts.createdAt)
+      .limit(1)
+    return p?.id as string | undefined
+  }
+  const have = await found()
+  if (have) return have
+  try {
+    const [n] = await db.insert(eventPosts).values({ eventId, kind: 'announcement', format: 'story' }).returning({ id: eventPosts.id })
+    return n!.id
+  } catch (e) {
+    // The sidebar and the content plan both ask at once. The unique index keeps one.
+    const again = await found()
+    if (again) return again
+    throw e
+  }
 }
 
 // Who a post pictures: the artist post its artist; flyer, line-up and countdown
@@ -77,8 +92,10 @@ export async function flyerSource(db: any, ev: any, post: Post = null) {
           .map(x => `${short(x.date)} ${x.time} ${x.title}`),
       }
     : null
+  const festival = countsAsFestival(ev)
   const lines = postLines({
     kind,
+    festival,
     artist,
     passes: ((ev.festival?.passes ?? []) as any[]).filter(x => x.name).map(x => `${x.name} · ${x.price} €`),
     programme: programmePostItems(sessions).slice(0, 6).map(x => programmePostLine(x, short(x.date), [x.artist, ...(x.with ?? [])].filter(Boolean).map(nameOf).join(' & '))),
@@ -95,7 +112,9 @@ export async function flyerSource(db: any, ev: any, post: Post = null) {
     styles: ev.styles ?? [],
     price: ev.price,
   })
-  const shown = PICTURES[kind] === 'all' ? people : PICTURES[kind] === 'subject' ? (subject ? [subject] : []) : []
+  // A festival launch pictures nobody: the line-up is its own post, not a grid of every teacher.
+  const roster = PICTURES[kind] === 'all' ? people : PICTURES[kind] === 'subject' ? (subject ? [subject] : []) : []
+  const shown = kind === 'announcement' && festival ? [] : roster
   const faces = shown.filter(p => p.photo)
   return { lines, people, pictured: faces.map(p => p.name), photos: faces.map(p => p.photo as string) }
 }

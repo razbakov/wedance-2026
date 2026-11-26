@@ -1,7 +1,8 @@
 <script setup lang="ts">
 /**
  * /business/events/<id> — two tabs. Details: edit the event, see what it still
- * needs, its flyer (the panel beside the cards), repeat it weekly, cancel it
+ * needs, its flyer or — for a festival — the content plan (the panel beside the
+ * cards), repeat it weekly, cancel it
  * (stays listed as "Cancelled", everyone who signed up is emailed), archive it.
  * Content plan (?tab=plan): every post it's promoted with, each made with the
  * flyer pipeline. Both stay mounted, so switching keeps unsaved edits.
@@ -19,6 +20,7 @@ import { readableSaveError, type SaveError } from '~/lib/eventSaveError'
 import { eventLocalDate } from '#shared/utils/eventTime'
 import { eventPath } from '#shared/utils/eventSlug'
 import { eventSteps, firstOpenStep, pastEventHints, STEP_CARD, type EventStepKey } from '~/lib/eventSteps'
+import { countsAsFestival } from '#shared/utils/entryWord'
 
 definePageMeta({ layout: 'business' })
 
@@ -67,8 +69,14 @@ onMounted(async () => {
 const steps = computed(() => ev.value ? eventSteps(ev.value) : [])
 const step = ref<EventStepKey | null>(null)
 let guided = false
+const festival = computed(() => !!ev.value && countsAsFestival(ev.value))
 function goStep(k: EventStepKey) {
   step.value = k
+  // A festival isn't one flyer: that step opens the content plan (RAZ-986).
+  if (k === 'flyer' && festival.value) {
+    tab.value = 'plan'
+    return
+  }
   tab.value = 'details'
   const card = STEP_CARD[k]
   if (card) formRef.value?.focus(card)
@@ -335,12 +343,18 @@ async function archive(series = false) {
       </div>
       <p v-if="ev.synced" class="mt-4 rounded-2xl bg-secondary/10 p-4 text-sm" role="status">
         <span class="font-bold">This event comes from wedance.vip.</span>
-        <span class="text-muted-foreground"> Check the details and save: it shows as “Checked” to dancers, the daily sync stops overwriting it{{ ev.host ? `, and it moves to ${ev.host.name}’s events` : '' }}. Then you can make its flyer.</span>
+        <span class="text-muted-foreground"> Check the details and save: it shows as “Checked” to dancers, the daily sync stops overwriting it{{ ev.host ? `, and it moves to ${ev.host.name}’s events` : '' }}. {{ festival ? 'Then draft its content plan.' : 'Then you can make its flyer.' }}</span>
       </p>
 
       <p v-if="route.query.flyer && !route.query.created" class="mt-4 rounded-2xl bg-secondary/10 p-4 text-sm" role="status">
-        <span class="font-bold">Check the details, then make the flyer.</span>
-        <span class="text-muted-foreground"> What’s here goes on it word for word. The panel shows exactly which words.</span>
+        <template v-if="festival">
+          <span class="font-bold">Check the details, then draft the content plan.</span>
+          <span class="text-muted-foreground"> A festival is a series of posts. The programme doesn’t go on one flyer.</span>
+        </template>
+        <template v-else>
+          <span class="font-bold">Check the details, then make the flyer.</span>
+          <span class="text-muted-foreground"> What’s here goes on it word for word. The panel shows exactly which words.</span>
+        </template>
       </p>
 
       <BusinessEventSteps v-if="!ev.synced && !ev.archived" v-model="step" :steps="steps" class="mt-4" @go="goStep">
@@ -371,13 +385,14 @@ async function archive(series = false) {
           :saving="saving"
           :save-error="saveError"
           :published-box="!!(ev.published || ev.synced || ev.archived)"
+          :marked-festival="festival"
           submit-label="Save changes"
           @submit="save"
         />
         <div v-if="!ev.synced" class="order-first grid content-start gap-4 lg:order-none">
-          <BusinessPlanTeaser ref="teaserRef" :event-id="ev.id" @open="tab = 'plan'" />
-          <div id="ev-step-flyer" class="scroll-mt-20"><BusinessFlyerPanel ref="panelRef" :event-id="ev.id" :highlight="!!route.query.flyer || step === 'flyer'" @go="onFlyer" /></div>
-          <BusinessCaption ref="captionRef" :event-id="ev.id" />
+          <BusinessPlanTeaser ref="teaserRef" :event-id="ev.id" :festival="festival" :highlight="festival && (!!route.query.flyer || step === 'flyer')" @open="tab = 'plan'" />
+          <div v-if="!festival" id="ev-step-flyer" class="scroll-mt-20"><BusinessFlyerPanel ref="panelRef" :event-id="ev.id" :highlight="!!route.query.flyer || step === 'flyer'" @go="onFlyer" /></div>
+          <BusinessCaption v-if="!festival" ref="captionRef" :event-id="ev.id" />
         </div>
       </div>
 
@@ -421,7 +436,7 @@ async function archive(series = false) {
       </div>
 
       <div v-if="!ev.synced" v-show="tab === 'plan'" class="mt-4">
-        <BusinessContentPlan ref="planRef" :event-id="ev.id" :lineup="lineup" @go="onPost" @changed="teaserRef?.reload()" />
+        <BusinessContentPlan ref="planRef" :event-id="ev.id" :lineup="lineup" :festival="festival" @go="onPost" @changed="teaserRef?.reload()" />
       </div>
     </template>
   </div>

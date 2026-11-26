@@ -10,7 +10,7 @@
  */
 import type { Blueprint, BpGap, BpLaneDef, BpPhaseDef, BpStep } from './blueprint'
 
-export const BLUEPRINT_UPDATED = '2026-11-21'
+export const BLUEPRINT_UPDATED = '2026-11-25'
 
 export type BpLane = 'organizer' | 'system' | 'venue' | 'artist' | 'dancers'
 export type BpPhase = 'page' | 'draft' | 'venue' | 'lineup' | 'flyer' | 'promote' | 'publish' | 'night'
@@ -85,7 +85,7 @@ export const bpSteps: BpStep<BpLane, BpPhase>[] = [
 
   // Flyer
   { id: 'paint', phase: 'flyer', lane: 'organizer', name: 'Pick a look, paint', status: 'live', marks: [], route: '/business/events/[id]/flyer', code: 'businessFlyers.make / directions · MCP make_flyer',
-    note: 'Saved brand looks or new directions; can be started before the venue or artists said yes.' },
+    note: 'Saved brand looks or new directions; can be started before the venue or artists said yes. A festival does not get this one flyer: the editor step opens the content plan, and the announcement post is only the launch — name, dates, music and place. The programme is not listed on it (RAZ-986).' },
   { id: 'painting', phase: 'flyer', lane: 'system', name: 'Paint variants', status: 'live', marks: ['wait'], code: 'server/utils/flyer/paint.ts',
     note: 'Gemini paints from the line-up photos, venue, date and prices, with every line inset from the edges. The read-back of the finished poster flags a line cut by an edge. Takes a while; the page picks a running batch up after a reload.' },
   { id: 'keep', phase: 'flyer', lane: 'organizer', name: 'Keep one', status: 'live', marks: [], code: 'businessFlyers.keep',
@@ -94,8 +94,8 @@ export const bpSteps: BpStep<BpLane, BpPhase>[] = [
     note: 'Compares the kept flyer with today’s details and shows “Out of date” with a one-click refresh, but only in the flyer panel. A posted flyer with a declined artist on it isn’t flagged anywhere else.' },
 
   // Promote
-  { id: 'plan', phase: 'promote', lane: 'organizer', name: 'Content plan + captions', status: 'live', marks: [], code: 'businessPosts.propose · writeCaptions',
-    note: 'Proposed posts for the run-up, captions in one or two languages, tagging the venue and artists’ Instagram.' },
+  { id: 'plan', phase: 'promote', lane: 'organizer', name: 'Content plan + captions', status: 'live', marks: [], code: 'businessPosts.propose · writeCaptions · setupChecklist',
+    note: 'Proposed posts for the run-up, captions in one or two languages, tagging the venue and artists’ Instagram. For a festival this replaces the single flyer: the details side has no “Make the flyer”, and an assistant is asked for plan_posts rather than one poster of the whole programme (RAZ-986).' },
   { id: 'ig', phase: 'promote', lane: 'organizer', name: 'Post to Instagram', status: 'partial', marks: [], code: 'instagram.publishPost', refs: ['#501'],
     note: 'Feed or story in one click once the page’s Instagram is connected. The Meta app is in dev mode: only people with a role on it can connect.' },
   { id: 'kit', phase: 'promote', lane: 'system', name: 'Promo kit for the line-up', status: 'partial', marks: ['manual'], code: 'referral.promoKit · MCP promo_kit', refs: ['RAZ-929'],

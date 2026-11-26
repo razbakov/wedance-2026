@@ -1,4 +1,5 @@
 import type { EventGap } from '../../shared/utils/eventChecklist'
+import { countsAsFestival } from '../../shared/utils/entryWord'
 import { hasArtist } from '../../shared/utils/programme'
 
 /**
@@ -17,6 +18,10 @@ export interface ChecklistEvent {
   venueUsername?: string | null
   venueName?: string | null
   description?: string | null
+  type?: string | null
+  isFestival?: boolean | null
+  /** Drafted when the content plan is more than the bare announcement. Festivals are asked for this instead of one flyer. */
+  contentPlan?: { drafted: boolean } | null
   gaps?: EventGap[]
   flyer?: { ready: number; painting: number; kept: boolean; latestUrl?: string | null } | null
 }
@@ -51,8 +56,15 @@ export function setupChecklist(e: ChecklistEvent, programme: ChecklistSession[],
       hint: 'Put the handle of who teaches, plays or performs on each such item; doors or breaks can stay empty. Pass the whole programme, keeping item ids.',
     })
   }
+  const festival = countsAsFestival(e)
   const f = e.flyer
-  if (f && !f.kept && !f.ready) {
+  if (festival && !e.contentPlan?.drafted) {
+    out.push({
+      item: 'No content plan yet',
+      tool: 'plan_posts',
+      hint: 'A festival is a series of posts — announcement, one per artist, the programme, passes — not one flyer listing every workshop. plan_posts drafts them. Paint a post with make_flyer and its post_id only when that picture is wanted.',
+    })
+  } else if (!festival && f && !f.kept && !f.ready) {
     out.push(f.painting
       ? { item: 'Flyer is still painting', tool: 'flyer_status', hint: 'Poll flyer_status with the batch_id every 20–30 s, then show the flyer to the user.' }
       : { item: 'No flyer yet', tool: 'flyer_options → make_flyer → flyer_status', hint: 'Fill venue and line-up first (the flyer uses them), then paint one and show it to the user.' })
@@ -64,7 +76,11 @@ export function setupChecklist(e: ChecklistEvent, programme: ChecklistSession[],
     out.push({
       item: 'No cover image',
       tool: 'update_event cover',
-      hint: f?.latestUrl ? `Use the flyer as cover: ${f.latestUrl}` : 'Use the flyer image once it’s ready, or an image URL from the user.',
+      hint: f?.latestUrl
+        ? `Use the flyer as cover: ${f.latestUrl}`
+        : festival
+          ? 'Use an image URL from the user, or a picture from the content plan once a post is painted.'
+          : 'Use the flyer image once it’s ready, or an image URL from the user.',
     })
   }
   if (!(e.description ?? '').trim()) {
@@ -78,8 +94,9 @@ export function setupChecklist(e: ChecklistEvent, programme: ChecklistSession[],
 }
 
 /** The line a write returns after the checklist. */
-export function setupNext(missing: SetupItem[]): string {
+export function setupNext(missing: SetupItem[], festival = false): string {
+  const show = festival || missing.some(m => m.item === 'No content plan yet') ? 'the content plan' : 'the flyer'
   return missing.length
-    ? `It is a draft. Work through "missing" in order without waiting to be asked, then show the user the event (get_my_event) and the flyer. Call publish_event only when the user says so.`
-    : 'It is a draft with everything in place. Show it to the user (get_my_event, the flyer) and call publish_event only when they say so.'
+    ? `It is a draft. Work through "missing" in order without waiting to be asked, then show the user the event (get_my_event) and ${show}. Call publish_event only when the user says so.`
+    : `It is a draft with everything in place. Show it to the user (get_my_event, ${show}) and call publish_event only when they say so.`
 }

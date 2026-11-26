@@ -40,6 +40,8 @@ export type CaptionContext = {
   endDate?: string | Date | null
   timezone?: string | null
   agenda: { time: string; what: string }[]
+  /** A festival announcement does not list the programme: that is its own post. */
+  festival?: boolean
   styles: string[]
   /** One price per line, as typed. */
   prices: string[]
@@ -123,7 +125,7 @@ export function captionDetails(c: CaptionContext, lang: Lang = 'en'): string[] {
   return [
     date,
     clock,
-    ...c.agenda.filter(a => a.what.trim()).map(a => `🔸 ${[a.time.trim(), a.what.trim()].filter(Boolean).join(' ')}`),
+    ...(c.festival ? [] : c.agenda.filter(a => a.what.trim()).map(a => `🔸 ${[a.time.trim(), a.what.trim()].filter(Boolean).join(' ')}`)),
     c.styles.length ? `🎶 ${c.styles.join(' × ')}` : null,
     c.artists.length ? `🎧 ${c.artists.map(a => withTag(a.name, a.instagram)).join(' · ')}` : null,
     ...c.prices.map(p => `🎟 ${p}`),

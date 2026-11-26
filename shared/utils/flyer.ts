@@ -80,6 +80,8 @@ export function flyerLines(e: FlyerSource): FlyerLine[] {
 
 /** A content-plan post's words (shared/utils/posts.ts): its own lines, from the event's. */
 export type PostSource = FlyerSource & {
+  /** A festival's announcement is the launch only. The programme, line-up and passes are their own posts. */
+  festival?: boolean
   kind: import('./posts').PostKind
   /** Artist post: who it's about, and what they do at the event. */
   artist?: { name: string; styles?: string[]; sessions?: string[] } | null
@@ -92,7 +94,11 @@ export type PostSource = FlyerSource & {
 /** The lines of a post. The announcement is the event's flyer; the others reuse its date and venue lines. */
 export function postLines(p: PostSource): FlyerLine[] {
   const base = flyerLines(p)
-  if (p.kind === 'announcement') return base
+  if (p.kind === 'announcement') {
+    if (!p.festival) return base
+    // A festival launch: name, dates, music, place. The whole programme does not fit on one poster.
+    return base.filter(l => l.label === 'title' || l.label === 'date' || l.label === 'music' || l.label === 'venue')
+  }
   const pick = (...labels: FlyerLine['label'][]) => base.filter(l => labels.includes(l.label))
   const title = up(p.name)
   const when = pick('date', 'time')
