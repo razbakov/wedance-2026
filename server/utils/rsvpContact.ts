@@ -25,7 +25,7 @@ export async function contactPageFor(db: any, ev: { hostProfileId?: string | nul
 }
 
 async function findRow(db: any, pageId: string, dancer: { id: string, email: string }) {
-  const [row] = await db.select({ id: profileContacts.id, dancerId: profileContacts.dancerId, phone: profileContacts.phone, status: profileContacts.status, source: profileContacts.source })
+  const [row] = await db.select({ id: profileContacts.id, dancerId: profileContacts.dancerId, phone: profileContacts.phone, status: profileContacts.status, source: profileContacts.source, bouncedAt: profileContacts.bouncedAt })
     .from(profileContacts)
     .where(and(eq(profileContacts.profileId, pageId), or(eq(profileContacts.dancerId, dancer.id), sql`lower(${profileContacts.email}) = lower(${dancer.email})`)))
     .limit(1)
@@ -102,4 +102,44 @@ export async function setContactShared(db: any, page: ContactPage, dancerId: str
     source: { from: 'rsvp', event: opts.eventId },
   })
   return { created: true }
+}
+
+/**
+ * A click on Follow (RAZ-1092): the page gets the dancer as a contact it may email — the button says so.
+ * New contact: source `follow`. An existing one the page couldn't email yet gains `source.opted_in = 'follow'`;
+ * one that unfollowing had unsubscribed is subscribed again. A contact that unsubscribed from the page's
+ * emails itself stays unsubscribed. Only `follow.toggle` calls this — never the follow an RSVP adds by itself.
+ */
+export async function recordFollowContact(db: any, pageId: string, dancerId: string): Promise<{ created: boolean }> {
+  const d = await dancerOf(db, dancerId)
+  if (!d?.email) return { created: false }
+  const row = await findRow(db, pageId, d)
+  const now = new Date()
+  if (!row) {
+    await db.insert(profileContacts).values({ profileId: pageId, dancerId: d.id, email: d.email, name: d.name || null, source: { from: 'follow' } })
+    return { created: true }
+  }
+  const source = { ...(row.source ?? {}) } as Record<string, string>
+  const resubscribe = row.status !== 'subscribed' && !!source.unfollowed_at
+  if (row.status !== 'subscribed' && !resubscribe) {
+    if (!row.dancerId) await db.update(profileContacts).set({ dancerId: d.id, updatedAt: now }).where(eq(profileContacts.id, row.id))
+    return { created: false }
+  }
+  delete source.unfollowed_at
+  const blocked = emailBlock({ status: 'subscribed', source, bouncedAt: row.bouncedAt })
+  if (blocked === 'not_opted_in' || blocked === 'event_only') Object.assign(source, { opted_in: 'follow', opted_in_at: now.toISOString() })
+  await db.update(profileContacts).set({ dancerId: row.dancerId ?? d.id, status: 'subscribed', source, updatedAt: now }).where(eq(profileContacts.id, row.id))
+  return { created: false }
+}
+
+/** Unfollowing: a contact that following made mailable stops getting the page's emails. Other opt-ins stay. */
+export async function stopFollowContact(db: any, pageId: string, dancerId: string): Promise<void> {
+  const d = await dancerOf(db, dancerId)
+  if (!d?.email) return
+  const row = await findRow(db, pageId, d)
+  if (!row || row.status !== 'subscribed') return
+  const source = { ...(row.source ?? {}) } as Record<string, string>
+  const byFollow = source.opted_in ? source.opted_in === 'follow' : source.from === 'follow'
+  if (!byFollow) return
+  await db.update(profileContacts).set({ status: 'unsubscribed', source: { ...source, unfollowed_at: new Date().toISOString() }, updatedAt: new Date() }).where(eq(profileContacts.id, row.id))
 }

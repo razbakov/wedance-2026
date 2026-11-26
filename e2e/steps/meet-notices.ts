@@ -44,17 +44,93 @@ Given('{string} and {string} have matched over a shared night', async ({ c3 }, a
      VALUES ($1, 'Party', $2, $3, $4, '["Salsa"]'::json, 'Stachus', $5, $6, true, false, false, $7) RETURNING id`,
     [`Notice Night ${c3.run}`, city, slug, TZ, start.toISOString(), new Date(start.getTime() + 4 * 3600_000).toISOString(), photo],
   )
+  // $1 is both dancer_id (uuid) and the other row's target_id (text). An uncast
+  // parameter is text, and Postgres will not assign text to uuid.
   await sql(
     `INSERT INTO discover_swipes (dancer_id, target_kind, target_id, decision) VALUES
-       ($1, 'dancer', $2, 'yes'), ($2, 'dancer', $1, 'yes')`,
+       ($1::uuid, 'dancer', $2, 'yes'), ($2::uuid, 'dancer', $1, 'yes')`,
     ids,
   )
   c3.cleanup.push(async () => {
+    // Booking the night writes a plan item and an attendance; those do not cascade.
+    await sql(`DELETE FROM plan_items WHERE dancer_id = ANY($1::uuid[])`, [ids])
+    await sql(`DELETE FROM attendances WHERE dancer_id = ANY($1::uuid[])`, [ids])
     await sql(`DELETE FROM discover_swipes WHERE dancer_id = ANY($1::uuid[])`, [ids])
     await sql(`DELETE FROM sessions WHERE dancer_id = ANY($1::uuid[])`, [ids])
     await sql(`DELETE FROM events WHERE id = $1`, [ev!.id])
     await sql(`DELETE FROM dancers WHERE id = ANY($1::uuid[])`, [ids])
   })
+})
+
+Given('{string} met {string} at a night that is over, and only Alex is going next week', async ({ c3 }, a: string, b: string) => {
+  const city = `Metville ${c3.run}`
+  const slug = citySlug(city)
+  const photo = `${baseUrl()}/alosha-dj.jpg`
+  const ids: string[] = []
+  for (const who of [a, b]) {
+    const [row] = await sql<{ id: string }>(
+      `INSERT INTO dancers (name, email, username, city, profile_public, photo, onboarded_at, dance_styles, role)
+       VALUES ($1, $2, $3, $4, true, $5, NOW(), '["Salsa"]'::json, 'both') RETURNING id`,
+      [`${who} ${c3.run}`, `${who.toLowerCase()}-met-${c3.run}@test.wedance.vip`, `met-${who.toLowerCase()}-${c3.run}`, city, photo],
+    )
+    c3.ids[`dancer:${who}`] = row!.id
+    ids.push(row!.id)
+  }
+  const pastStart = zonedToUtc(eventLocalDate(new Date(Date.now() - 6 * DAY), TZ), '18:00', TZ)
+  const nextStart = zonedToUtc(eventLocalDate(new Date(Date.now() + 7 * DAY), TZ), '18:00', TZ)
+  const [past] = await sql<{ id: string }>(
+    `INSERT INTO events (name, type, city, city_slug, timezone, styles, venue_name, start_date, end_date, published, archived, is_festival)
+     VALUES ($1, 'Party', $2, $3, $4, '["Salsa"]'::json, 'La Timberia', $5, $6, true, false, false) RETURNING id`,
+    [`Past Timberia ${c3.run}`, city, slug, TZ, pastStart.toISOString(), new Date(pastStart.getTime() + 4 * 3600_000).toISOString()],
+  )
+  const [next] = await sql<{ id: string }>(
+    `INSERT INTO events (name, type, city, city_slug, timezone, styles, venue_name, start_date, end_date, published, archived, is_festival)
+     VALUES ($1, 'Party', $2, $3, $4, '["Salsa"]'::json, 'La Timberia', $5, $6, true, false, false) RETURNING id`,
+    [`Next Timberia ${c3.run}`, city, slug, TZ, nextStart.toISOString(), new Date(nextStart.getTime() + 4 * 3600_000).toISOString()],
+  )
+  await sql(
+    `INSERT INTO discover_swipes (dancer_id, target_kind, target_id, decision) VALUES
+       ($1::uuid, 'dancer', $2, 'yes'), ($2::uuid, 'dancer', $1, 'yes')`,
+    ids,
+  )
+  await sql(
+    `INSERT INTO meet_rituals (dancer_id, other_id, event_id, booked_at) VALUES
+       ($1, $2, $3, NOW() - interval '7 days'), ($2, $1, $3, NOW() - interval '7 days')`,
+    [ids[0], ids[1], past!.id],
+  )
+  await sql(
+    `INSERT INTO plan_items (dancer_id, item_type, item_id, share_going) VALUES ($1, 'event', $2, false)`,
+    [ids[0], next!.id],
+  )
+  c3.cleanup.push(async () => {
+    await sql(`DELETE FROM meet_rituals WHERE dancer_id = ANY($1::uuid[])`, [ids])
+    await sql(`DELETE FROM plan_items WHERE dancer_id = ANY($1::uuid[])`, [ids])
+    await sql(`DELETE FROM discover_swipes WHERE dancer_id = ANY($1::uuid[])`, [ids])
+    await sql(`DELETE FROM sessions WHERE dancer_id = ANY($1::uuid[])`, [ids])
+    await sql(`DELETE FROM events WHERE id = ANY($1::uuid[])`, [[past!.id, next!.id]])
+    await sql(`DELETE FROM dancers WHERE id = ANY($1::uuid[])`, [ids])
+  })
+})
+
+When('I open My plan', async ({ page }) => {
+  await page.goto('/my-plan')
+  await expect(page.getByTestId('meet-matches')).toBeVisible()
+})
+
+Then('{string} shows as someone I already met, and next week is an invite', async ({ page }, who: string) => {
+  const card = page.getByTestId('meet-match').filter({ hasText: who })
+  await expect(card.getByTestId('meet-match-met')).toContainText(/You met at/)
+  await expect(card.getByTestId('meet-match-met')).toContainText(/Past Timberia/)
+  await expect(card.getByTestId('meet-match-ritual')).toHaveCount(0)
+  await expect(card.getByTestId('meet-match-invite')).toHaveText(new RegExp(`Invite ${who}`))
+  await expect(card).toContainText(/\w{3} \d{1,2} \w{3} · \d{2}:\d{2}/)
+})
+
+Then('the bell no longer offers the booked night with {string}', async ({ page }, who: string) => {
+  const row = page.getByTestId('notice-history-item').filter({ hasText: who })
+  await expect(row).toBeVisible()
+  await expect(row).not.toContainText('See when and where')
+  await expect(row).not.toContainText('Past Timberia')
 })
 
 When('I open the home page', async ({ page }) => {

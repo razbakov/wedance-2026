@@ -5,6 +5,7 @@
   "buildCommand": "bun scripts/db-migrate.ts --deploy && nuxt build",
   "crons": [
     { "path": "/api/cron/review-asks", "schedule": "0 9 * * *" },
-    { "path": "/api/cron/ritual-followup", "schedule": "15 9 * * *" }
+    { "path": "/api/cron/ritual-followup", "schedule": "15 9 * * *" },
+    { "path": "/api/cron/booking-reminders", "schedule": "30 9 * * *" }
   ]
 }

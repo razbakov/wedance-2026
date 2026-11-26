@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { and, desc, eq, gte, inArray, isNull, sql } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { router, protectedProcedure } from '../trpc'
-import { contactMailings, dancers, events, profileContacts, profileMembers } from '../../database/schema'
+import { contactMailingRecipients, contactMailings, dancers, events, profileContacts, profileMembers } from '../../database/schema'
 import { requireMember } from './business'
 import { profileGroup, trackServer } from '../../utils/posthog'
 import { siteUrl } from '../../utils/profileFeed'
@@ -10,6 +10,7 @@ import { sendContactMailing } from '../../utils/email'
 import { eventPath } from '../../../shared/utils/eventSlug'
 import { formatEventWhen } from '../../../shared/utils/eventTime'
 import { IMG, sizedImage } from '../../../shared/utils/image'
+import { mailingStats, type MailingStats } from '../../../shared/utils/mailingTracking'
 import {
   MAILING_BODY_MAX, MAILING_MAX_RECIPIENTS, MAILING_SUBJECT_MAX,
   mailingRecipients, personalise, renderMailingHtml, renderMailingText, type MailingContent, type MailingEventCard,
@@ -94,11 +95,21 @@ export const contactMailingRouter = router({
         .where(eq(contactMailings.profileId, p.id)).orderBy(desc(contactMailings.createdAt)).limit(10),
       senderEmail(ctx),
     ])
+    // What happened after each send (migration 0080): delivered / opened / clicked / bounced per recipient.
+    const ids = sends.map((x: any) => x.id as string)
+    const tracked = ids.length
+      ? await ctx.db.select({
+          mailingId: contactMailingRecipients.mailingId, status: contactMailingRecipients.status, deliveredAt: contactMailingRecipients.deliveredAt,
+          firstOpenedAt: contactMailingRecipients.firstOpenedAt, firstClickedAt: contactMailingRecipients.firstClickedAt,
+        }).from(contactMailingRecipients).where(inArray(contactMailingRecipients.mailingId, ids))
+      : []
+    const byMailing = new Map<string, any[]>()
+    for (const t of tracked as any[]) byMailing.set(t.mailingId, [...(byMailing.get(t.mailingId) ?? []), t])
     return {
       profile: { username: p.username, name: p.name as string },
       pageUrl: `${siteUrl()}/@${p.username}`,
       events: evs.map((e: any) => ({ id: e.id as string, name: (e.name || 'Event') as string, when: formatEventWhen(e.startDate, e.endDate, e.timezone ?? undefined) })),
-      sends: sends as { id: string, subject: string, segment: string, recipients: number, sent: number, failed: number, status: string, createdAt: Date, byName: string | null }[],
+      sends: (sends as any[]).map(x => ({ ...x, stats: byMailing.has(x.id) ? mailingStats(byMailing.get(x.id)!) : null })) as { id: string, subject: string, segment: string, recipients: number, sent: number, failed: number, status: string, createdAt: Date, byName: string | null, stats: MailingStats | null }[],
       /** Tests go here; replies to the real email too. */
       myEmail: me.email,
     }
@@ -139,10 +150,10 @@ export const contactMailingRouter = router({
     }))
     .mutation(async ({ ctx, input }) => {
       const p = await requireSender(ctx, input.username)
-      const rows = await ctx.db.select({ id: profileContacts.id, email: profileContacts.email, name: profileContacts.name, status: profileContacts.status, source: profileContacts.source })
+      const rows = await ctx.db.select({ id: profileContacts.id, email: profileContacts.email, name: profileContacts.name, status: profileContacts.status, source: profileContacts.source, bouncedAt: profileContacts.bouncedAt })
         .from(profileContacts).where(and(eq(profileContacts.profileId, p.id), inArray(profileContacts.id, input.contactIds)))
       const to = mailingRecipients(rows as any[])
-      if (!to.length) throw new TRPCError({ code: 'BAD_REQUEST', message: 'None of these contacts can be emailed: they never signed up for your emails, or unsubscribed.' })
+      if (!to.length) throw new TRPCError({ code: 'BAD_REQUEST', message: 'None of these contacts can be emailed: they never signed up for your emails, unsubscribed, or their address bounced.' })
 
       const [recent] = await ctx.db.select({ id: contactMailings.id }).from(contactMailings)
         .where(and(eq(contactMailings.profileId, p.id), eq(contactMailings.subject, input.subject), gte(contactMailings.createdAt, new Date(Date.now() - DUPLICATE_WINDOW_MS))))
@@ -159,7 +170,7 @@ export const contactMailingRouter = router({
 
       const c: MailingContent = { profileName: p.name, subject: input.subject, body: input.body, event: ev?.card, pageUrl: `${siteUrl()}/@${p.username}` }
       const r = await sendContactMailing({
-        profileName: p.name, replyTo: me.email, subject: input.subject,
+        profileName: p.name, replyTo: me.email, subject: input.subject, mailingId: log.id,
         messages: to.map((x) => {
           const who = { name: x.name, unsubscribeUrl: unsubscribeUrl(x.id) }
           return { to: x.email, subject: personalise(input.subject, x.name), html: renderMailingHtml(c, who), text: renderMailingText(c, who), unsubscribeUrl: who.unsubscribeUrl }
@@ -168,6 +179,15 @@ export const contactMailingRouter = router({
       await ctx.db.update(contactMailings)
         .set({ sent: r.sent, failed: r.failed, status: r.sent ? 'sent' : 'failed', finishedAt: new Date() })
         .where(eq(contactMailings.id, log.id))
+      // One row per recipient; Resend's webhook fills in delivered / opened / clicked / bounced by `resendId`.
+      // Tracking must never fail a send that already went out.
+      try {
+        const recipientRows = to.map((x, i) => ({
+          mailingId: log.id, contactId: x.id, email: x.email,
+          resendId: r.results[i]?.resendId ?? null, status: (r.results[i]?.ok === false ? 'failed' : 'sent') as 'failed' | 'sent',
+        }))
+        for (let i = 0; i < recipientRows.length; i += 500) await ctx.db.insert(contactMailingRecipients).values(recipientRows.slice(i, i + 500))
+      } catch (e) { console.error('[contact-mailing] recipients not logged', e) }
       trackServer(ctx, 'contacts_emailed', {
         recipients: to.length, sent: r.sent, failed: r.failed, skipped: input.contactIds.length - to.length,
         has_event: !!ev, filtered: !!input.segment, profile: p.username, profile_type: p.type, ...profileGroup(p.username),

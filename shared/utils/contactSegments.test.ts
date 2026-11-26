@@ -24,6 +24,9 @@ describe('emailBlock', () => {
     expect(emailBlock({ status: 'subscribed', source: { form: 'montuno.club' } })).toBeNull()
     expect(emailBlock({ status: 'subscribed', source: { from: 'hubspot', hubspot_origin: 'form' } })).toBeNull()
     expect(emailBlock({ status: 'subscribed', source: { from: 'hubspot', hubspot_origin: 'import' } })).toBe('not_opted_in')
+    // A hard bounce blocks even an opted-in contact; unsubscribed still wins.
+    expect(emailBlock({ status: 'subscribed', source: { form: 'montuno.club' }, bouncedAt: new Date() })).toBe('bounced')
+    expect(emailBlock({ status: 'unsubscribed', source: { form: 'montuno.club' }, bouncedAt: new Date() })).toBe('unsubscribed')
     expect(emailBlock({ status: 'subscribed', source: { from: 'wedance-v3' } })).toBe('not_opted_in')
     expect(emailBlock({ status: 'unsubscribed', source: { form: 'montuno.club' } })).toBe('unsubscribed')
   })
@@ -92,7 +95,7 @@ describe('contactSegments', () => {
     ])
     expect(s.canEmail).toBe(1)
     expect(s.cantEmail).toBe(4)
-    expect(s.blocked).toEqual({ unsubscribed: 1, not_opted_in: 3, event_only: 0, not_a_contact: 0 })
+    expect(s.blocked).toEqual({ unsubscribed: 1, bounced: 0, not_opted_in: 3, event_only: 0, not_a_contact: 0 })
     expect(s.activity.account).toBe(3)
     expect(s.activity.follows).toBe(1)
     expect(s.contacts).toBe(5)
@@ -213,5 +216,13 @@ describe('where a contact came from (RAZ-1074)', () => {
       { key: 'google', label: 'Google', count: 1 },
       { key: 'unknown', label: 'Not known', count: 2 },
     ])
+  })
+})
+
+describe('Follow (RAZ-1092)', () => {
+  it('a follower is a contact the page may email, until they unfollow', () => {
+    expect(contactSourceKey({ from: 'follow' })).toBe('follow')
+    expect(emailBlock({ status: 'subscribed', source: { from: 'follow' } })).toBeNull()
+    expect(emailBlock({ status: 'unsubscribed', source: { from: 'follow', unfollowed_at: '2026-11-25T12:00:00Z' } })).toBe('unsubscribed')
   })
 })

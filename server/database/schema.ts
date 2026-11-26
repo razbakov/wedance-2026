@@ -462,6 +462,10 @@ export const profiles = pgTable('profiles', {
   photo: text('photo'),
   bio: text('bio'),
   styles: json('styles').$type<string[]>().default([]),
+  // Private occasions an artist plays (0081, RAZ-1086): wedding, birthday, corporate.
+  eventTypes: jsonb('event_types').$type<import('../../shared/utils/artistSearch').ArtistEventType[]>().notNull().default([]),
+  // Cities an artist travels to, besides `city` (0081). [{ city, citySlug }].
+  serviceAreas: jsonb('service_areas').$type<import('../../shared/utils/artistSearch').ArtistServiceArea[]>().notNull().default([]),
   // Spoken languages (ISO 639-1 codes, e.g. ['en', 'es', 'de']).
   languages: json('languages').$type<string[]>().default([]),
   address: text('address'),
@@ -1484,7 +1488,7 @@ export const eventFlyers = pgTable('event_flyers', {
   notes: text('notes'),
   prompt: text('prompt'),
   model: text('model'),
-  check: jsonb('check').$type<{ ok: boolean; missing: string[]; extra: string[]; seen: string[] }>(),
+  check: jsonb('check').$type<{ ok: boolean; missing: string[]; extra: string[]; seen: string[]; cut?: string[] }>(),
   error: text('error'),
   // The flyer the event uses. One per event; keeping another clears it.
   keptAt: timestamp('kept_at'),
@@ -1615,14 +1619,21 @@ export const bookingInquiries = pgTable('booking_inquiries', {
   guests: integer('guests'),
   budget: text('budget'),
   message: text('message').notNull(),
-  status: text('status').notNull().default('new').$type<'new' | 'answered' | 'declined'>(),
+  status: text('status').notNull().default('new').$type<'new' | 'answered' | 'declined' | 'booked'>(),
   // How many of the team were emailed (0 = nobody runs the page: WeDance forwards it).
   notified: integer('notified').notNull().default(0),
+  // The page the asker sent it as, when they were signed in (RAZ-1089).
+  askerProfileId: uuid('asker_profile_id').references(() => profiles.id, { onDelete: 'set null' }),
+  // The draft event a yes created, when the asker has a page to host it.
+  eventId: uuid('event_id').references(() => events.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   answeredAt: timestamp('answered_at'),
+  // One reminder to whoever owes the answer, three days on (RAZ-1089).
+  remindedAt: timestamp('reminded_at'),
 }, (t) => [
   index('booking_inquiries_profile_idx').on(t.profileId, t.createdAt),
   index('booking_inquiries_email_idx').on(t.email, t.createdAt),
+  index('booking_inquiries_open_idx').on(t.status, t.createdAt),
 ])
 
 // A profile's own website, managed on WeDance (RAZ-412, migration 0045): the
@@ -1664,16 +1675,24 @@ export const profileContacts = pgTable('profile_contacts', {
   email: text('email').notNull(),
   name: text('name'),
   phone: text('phone'),
+  // City they typed on a site sign-up (RAZ-1093). Free text: a fan can name a
+  // city WeDance has no page for. city_id is set only when that text matches
+  // exactly one row in cities.
+  city: text('city'),
+  cityId: uuid('city_id').references(() => cities.id, { onDelete: 'set null' }),
   locale: text('locale'),
   // Where they signed up: the site, the form, utm_* and referrer.
   source: jsonb('source').$type<Record<string, string>>().notNull().default({}),
   note: text('note'),
   status: text('status').notNull().default('subscribed').$type<'subscribed' | 'unsubscribed'>(),
+  // A page email to this address hard-bounced (migration 0080): never emailed again.
+  bouncedAt: timestamp('bounced_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (t) => [
   uniqueIndex('profile_contacts_profile_email_uidx').on(t.profileId, sql`lower(${t.email})`),
   index('profile_contacts_profile_idx').on(t.profileId, t.createdAt),
+  index('profile_contacts_profile_city_idx').on(t.profileId, sql`lower(${t.city})`),
 ])
 
 // A page's emails to its contacts (migration 0072, RAZ-975): one row per send — who, when, which
@@ -1697,6 +1716,32 @@ export const contactMailings = pgTable('contact_mailings', {
   finishedAt: timestamp('finished_at'),
 }, (t) => [
   index('contact_mailings_profile_idx').on(t.profileId, t.createdAt),
+])
+
+// What happened to each email of a send (migration 0080): one row per recipient, updated by
+// Resend's webhook (server/api/webhooks/resend.post.ts) via `resendId`. Opens are approximate —
+// Apple Mail opens every email it receives; clicks and bounces are reliable.
+export const contactMailingRecipients = pgTable('contact_mailing_recipients', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  mailingId: uuid('mailing_id').notNull().references(() => contactMailings.id, { onDelete: 'cascade' }),
+  contactId: uuid('contact_id').references(() => profileContacts.id, { onDelete: 'set null' }),
+  email: text('email').notNull(),
+  resendId: text('resend_id'),
+  status: text('status').notNull().default('sent').$type<'sent' | 'failed' | 'delivered' | 'delayed' | 'bounced' | 'complained'>(),
+  deliveredAt: timestamp('delivered_at'),
+  bouncedAt: timestamp('bounced_at'),
+  bounceType: text('bounce_type'),
+  complainedAt: timestamp('complained_at'),
+  firstOpenedAt: timestamp('first_opened_at'),
+  opens: integer('opens').notNull().default(0),
+  firstClickedAt: timestamp('first_clicked_at'),
+  clicks: integer('clicks').notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex('contact_mailing_recipients_resend_uidx').on(t.resendId),
+  index('contact_mailing_recipients_mailing_idx').on(t.mailingId),
+  index('contact_mailing_recipients_contact_idx').on(t.contactId),
 ])
 
 // ---------------------------------------------------------------------------

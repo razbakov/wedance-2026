@@ -18,7 +18,8 @@ export type FlyerSource = {
   timezone?: string | null
   venueName?: string | null
   venueAddress?: string | null
-  agenda?: { time: string; what: string }[]
+  /** `end`: when the item ends (HH:MM), known from the programme's durations. */
+  agenda?: { time: string; what: string; end?: string | null }[]
   showAgenda?: boolean
   artists: { name: string }[]
   styles?: string[]
@@ -50,6 +51,10 @@ export function flyerLines(e: FlyerSource): FlyerLine[] {
   const lastDay = e.endDate ? eventLocalDate(e.endDate, tz) : d
   const multiDay = lastDay > d && (new Date(e.endDate!).getTime() - new Date(e.startDate).getTime()) > 24 * 3600_000
   const monthOf = (x: string) => new Date(`${x}T12:00:00Z`).toLocaleDateString('en-GB', { month: 'long', timeZone: 'UTC' })
+  // A programme on the poster already says when things happen: no separate
+  // time line then (it drew more attention than the night itself). The last
+  // item carries the end, so the poster still says until when.
+  const agenda = e.showAgenda !== false ? (e.agenda ?? []).filter(a => clean(a.what)) : []
   const out: FlyerLine[] = multiDay
     ? [
         { label: 'title', text: up(e.name) },
@@ -58,11 +63,13 @@ export function flyerLines(e: FlyerSource): FlyerLine[] {
     : [
         { label: 'title', text: up(e.name) },
         { label: 'date', text: up(`${eventLocalWeekday(e.startDate, tz)} ${Number(d.slice(8))} ${month}`) },
-        { label: 'time', text: end && end !== start ? `${start} – ${end}` : start },
+        ...(agenda.length ? [] : [{ label: 'time' as const, text: end && end !== start ? `${start} – ${end}` : start }]),
       ]
-  if (e.showAgenda !== false) {
-    for (const a of e.agenda ?? []) if (clean(a.what)) out.push({ label: 'agenda', text: clean(`${a.time} ${a.what}`) })
-  }
+  agenda.forEach((a, i) => {
+    const last = i === agenda.length - 1
+    const until = !multiDay && last ? (a.end ?? end) : null
+    out.push({ label: 'agenda', text: clean(`${until && until !== a.time ? `${a.time}–${until}` : a.time} ${a.what}`) })
+  })
   if (names.length) out.push({ label: 'line-up', text: up(names.join(' · ')) })
   if (e.styles?.length) out.push({ label: 'music', text: up(e.styles.join(' × ')) })
   const prices = [...(e.passes ?? []).slice(0, 3), ...priceLines(e.price)]
@@ -121,10 +128,33 @@ export function postLines(p: PostSource): FlyerLine[] {
   return base
 }
 
+const TIME_LINE = /^(\d{1,2}:\d{2})(?: – (\d{1,2}:\d{2}))?$/
+const RANGED = /^(\d{1,2}:\d{2})–(\d{1,2}:\d{2}) (.+)$/
+
+/**
+ * A flyer kept before the programme replaced the time line ("19:00 – 00:00"
+ * plus "21:00 Party") still says the same as the new lines ("21:00–00:00
+ * Party"): read its lines the new way, so it isn't shown as out of date.
+ */
+function asNowReads(was: string[], now: string[]) {
+  if (now.some(t => TIME_LINE.test(t))) return was
+  const ranged = now.map(t => RANGED.exec(t)).find(Boolean)
+  const firstNow = now.find(t => /^\d{1,2}:\d{2}[ –]/.test(t))
+  return was.flatMap((t) => {
+    const time = TIME_LINE.exec(t)
+    // The old time line: dropped when the programme now says the same start and end.
+    if (time) return firstNow?.startsWith(time[1]!) && (!time[2] || !ranged || ranged[2] === time[2]) ? [] : [t]
+    // The old last item, without its end: the same item now carries it.
+    if (ranged && t === `${ranged[1]} ${ranged[3]}` && (!was.some(x => TIME_LINE.exec(x)?.[2]) || was.some(x => TIME_LINE.exec(x)?.[2] === ranged[2]))) return [ranged[0]]
+    return [t]
+  })
+}
+
 /** What a kept flyer differs from the event now: old → new pairs, then photo changes. */
 export function flyerChanges(was: { lines: string[]; pictured: string[] }, now: { lines: string[]; pictured: string[] }) {
-  const added = now.lines.filter(t => !was.lines.includes(t))
-  const removed = was.lines.filter(t => !now.lines.includes(t))
+  const wasLines = asNowReads(was.lines, now.lines)
+  const added = now.lines.filter(t => !wasLines.includes(t))
+  const removed = wasLines.filter(t => !now.lines.includes(t))
   const out = Array.from({ length: Math.max(added.length, removed.length) }, (_, i) => ({ was: removed[i] ?? null, now: added[i] ?? null }))
   const newFaces = now.pictured.filter(p => !was.pictured.includes(p))
   const goneFaces = was.pictured.filter(p => !now.pictured.includes(p))
@@ -141,23 +171,27 @@ function textBlock(lines: FlyerLine[]) {
   const [entry] = by('entry'); const [venue] = by('venue')
   const [kicker] = by('kicker'); const [subtitle] = by('subtitle'); const details = by('detail')
   return [
-    kicker ? `Small label "${kicker}" near the top, below the top margin.` : null,
-    date ? `"${date}" ${kicker ? 'under it' : 'near the top, below the top margin'}.` : null,
+    kicker ? `Small label "${kicker}" near the top, starting at 5% of the height.` : null,
+    date ? `"${date}" ${kicker ? 'under it' : 'near the top, starting at 5% of the height'}.` : null,
+    // Small on purpose: as a big badge it out-shouted the night itself.
+    time ? `Next to or under the date, as small as the date: "${time}". No box or badge around it.` : null,
     `Huge title "${title}".`,
     subtitle ? `Under the title, smaller: "${subtitle}".` : null,
     details.length ? `A short list, one line each: ${details.map(d => `"${d}"`).join(', ')}.` : null,
     // Worded so Gemini doesn't paint a literal "LINE-UP" label.
     names ? `Under the title, the artists' names "${names}".` : null,
     music ? `Genre line "${music}".` : null,
-    time ? `Big time badge "${time}".` : null,
     agenda.length ? `A small programme list, one line each: ${agenda.map(a => `"${a}"`).join(', ')}.` : null,
+    // The style reference (a kept flyer) still has the old big time box, and Gemini copies it.
+    agenda.length && !time ? 'The times appear only in the programme list: no separate time, time box or time badge, even if the style reference has one.' : null,
     entry ? `Entry line "${entry}".` : null,
-    venue ? `Location bar with a pin, sitting above the bottom margin: "${venue}".` : null,
+    // Not a "bar": Gemini paints a bar as a footer flush with the edge, and the edge cuts it.
+    venue ? `Location line with a pin, at about 90% of the height, with plain background below it: "${venue}".` : null,
   ].filter(Boolean).join(' ')
 }
 
 // The reader marks covered or edge-cut letters; this keeps the painter from doing either.
-const CLEAR_TEXT = 'Keep every letter fully visible: no person, hand, hat or object may cover or cut off any part of the text. Leave a clear margin of background between every line and all four edges, so no letter touches or is cut by the edge.'
+const CLEAR_TEXT = 'Keep every letter fully visible: no person, hand, hat or object may cover or cut off any part of the text. Leave a clear margin of background between every line and all four edges, so no letter touches or is cut by the edge: no text in the top 4%, the bottom 6% or the outer 4% on each side.'
 
 /**
  * A full painting, the way the house process does it (~/Orgs/LaClave/assets/
@@ -183,13 +217,18 @@ export function paintPrompt(lines: FlyerLine[], look: FlyerLook, opts: { people?
   const hasPeople = people.length > 0 || !!opts.grid?.length
   return [
     `Tall vertical 9:16 Instagram story poster for a dance event${who}.`,
-    style ? `Image ${style} is the STYLE and LAYOUT reference: match its scene, colours, lettering and layout closely. Do not copy its words, people or dates.` : null,
+    style ? `Image ${style} is the STYLE and LAYOUT reference: match its scene, colours, lettering and layout closely. Do not copy its words, people or dates. Where it puts text against the edge, move that text inwards.` : null,
     people.length > 1 ? people.map((name, i) => `Image ${first + i}: ${name}.`).join(' ') : null,
     clean(look.description),
+    // Saved looks say "the location bar at the bottom" (La Timberia, 2026-11-24):
+    // Gemini then paints it flush with the edge, whatever the layout says.
+    look.description && /\b(bar|footer|strip)\b/i.test(look.description)
+      ? 'Wherever the style mentions a bar, footer or strip at the bottom: it sits inside the poster with background below it, never against the edge.'
+      : null,
     palette,
     hasPeople
-      ? 'Layout: the date and the title in the top 38%, starting below the top margin; the artists from 40% to 82% of the height, below the title, never covering any text; the details above the bottom margin, ending by 96% of the height.'
-      : 'Layout: the date and the title in the top third, below the top margin; the details below, ending above the bottom margin, with room to breathe.',
+      ? 'Layout: the date and the title from 5% to 38% of the height; the artists from 40% to 78%, below the title, never covering any text; the details from 78% to 93%; the bottom 6% is only background, no text.'
+      : 'Layout: the date and the title from 5% to 33% of the height; the details below, ending by 93%, with room to breathe; the bottom 6% is only background, no text.',
     opts.inspiration ? 'The last image is a flyer the organizer likes: borrow its mood only. Do not copy its text, people or layout.' : null,
     opts.notes?.trim() ? `Also: ${clean(opts.notes)}` : null,
     `Exact text on the poster, spelled exactly, nothing else: ${textBlock(lines)}`,
@@ -273,8 +312,8 @@ export function styleIdeasPrompt(c: { name: string; styles: string[]; city?: str
  */
 export const DIRECTIONS: (FlyerLook & { hint: string })[] = [
   { name: 'Neon street', hint: 'Red neon Havana, gold title', description: 'Red-neon Havana street at night: crumbling colonial balconies, red and gold neon light streaks along the facades, red palm leaves framing the corners, a golden spotlight cone on the empty street. Tall condensed uppercase lettering: gold-gradient headline and date, red and gold genre words, white times. A red-glow rounded box for workshops or entry. Footer: a thin gold rule and a gold location pin with the place.' },
-  { name: 'Cuban vintage', hint: '1950s Havana poster, cream paper', description: 'Vintage 1950s Cuban propaganda and Havana cabaret poster: aged cream paper texture with fold creases, screen-print look, red, navy and mustard palette, halftone sun rays behind the headline, old Havana facades and a classic car silhouette at the edges, distressed ink. Red script headline with a gold outline, navy condensed sans for the info lines, a red ticket-style box with a gold border, the location bar at the bottom.' },
-  { name: 'Afro club', hint: 'Purple and gold, stage lights', description: 'Luxury Afro-fusion club poster: purple and magenta with gold, stage lasers and haze, a blurred dancing crowd, kente-cloth strips, gold geometric African-pattern borders, gold palm and monstera leaves, gold confetti. 3D metallic gold title, a gold ribbon subtitle, a colourful genre line, a round gold time medallion, white details.' },
+  { name: 'Cuban vintage', hint: '1950s Havana poster, cream paper', description: 'Vintage 1950s Cuban propaganda and Havana cabaret poster: aged cream paper texture with fold creases, screen-print look, red, navy and mustard palette, halftone sun rays behind the headline, old Havana facades and a classic car silhouette at the edges, distressed ink. Red script headline with a gold outline, navy condensed sans for the info lines, a red ticket-style box with a gold border for the entry, the location line near the bottom.' },
+  { name: 'Afro club', hint: 'Purple and gold, stage lights', description: 'Luxury Afro-fusion club poster: purple and magenta with gold, stage lasers and haze, a blurred dancing crowd, kente-cloth strips, gold geometric African-pattern borders, gold palm and monstera leaves, gold confetti. 3D metallic gold title, a gold ribbon subtitle, a colourful genre line, a round gold medallion for the entry, white details.' },
   { name: 'Afro-tropical', hint: 'Bold street party, deep purple', description: 'Bold Afro-Caribbean street party poster on a deep purple background: vibrant orange, green, yellow and magenta, flat graphic African-print patterns and tropical leaves as borders, spiral sunburst shapes, a calm dark spotlight behind the people. Chunky playful display type with drop shadows: orange headline with a magenta shadow, yellow and green info lines, a patterned-border box for workshops or entry.' },
 ]
 
@@ -292,16 +331,36 @@ function norm(s: string) {
     .trim()
 }
 
-export type FlyerCheck = { ok: boolean; missing: string[]; extra: string[]; seen: string[] }
+/** `cut`: lines that touch the poster's edge (older checks don't have it). */
+export type FlyerCheck = { ok: boolean; missing: string[]; extra: string[]; seen: string[]; cut?: string[] }
+
+/** A line read off the poster; `box` = [ymin, xmin, ymax, xmax], 0–1000. */
+export type ReadLine = { text: string; box?: number[] | null }
 
 /**
- * Does the text read off the poster contain every line? Lines joined with "·"
- * may be split across the poster, so each part on its own also counts.
- * The music line is asked for but optional.
+ * How close to the edge a line may sit (of 1000). The reader reads letters
+ * the edge cuts as whole ("MÜNCHEN" with its bottom half gone, RAZ-1032 again
+ * on 2026-11-23), so where the line sits is the check. Measured on real
+ * flyers: cut lines end at 996–1000; a date painted tight but whole starts
+ * at 14.
  */
-export function checkFlyerText(lines: FlyerLine[], seenLines: string[]): FlyerCheck {
+export const EDGE = 10
+
+/** The lines (as read) that touch an edge. */
+export function edgeCut(read: ReadLine[]): string[] {
+  return read.filter(({ box }) => box?.length === 4 && (box[0]! < EDGE || box[1]! < EDGE || box[2]! > 1000 - EDGE || box[3]! > 1000 - EDGE)).map(l => l.text)
+}
+
+/**
+ * Does the text read off the poster contain every line, inside the edges?
+ * Lines joined with "·" (or a title's "—") may be split across the poster,
+ * so each part on its own also counts. The music line is asked for but optional.
+ */
+export function checkFlyerText(lines: FlyerLine[], read: (string | ReadLine)[]): FlyerCheck {
+  const readLines = read.map(l => typeof l === 'string' ? { text: l } : l)
+  const seenLines = readLines.map(l => l.text)
   const seen = norm(seenLines.join(' '))
-  const present = (t: string) => seen.includes(norm(t)) || (/[·×]/.test(t) && t.split(/[·×]/).every(p => !p.trim() || seen.includes(norm(p))))
+  const present = (t: string) => seen.includes(norm(t)) || (/[·×—]/.test(t) && t.split(/[·×—]/).every(p => !p.trim() || seen.includes(norm(p))))
   const required = lines.filter(l => l.label !== 'music')
   const missing = required.filter(l => !present(l.text)).map(l => l.text)
   // Words Gemini added that aren't from the event (a neon "CUBA" sign): shown, not an error.
@@ -314,7 +373,8 @@ export function checkFlyerText(lines: FlyerLine[], seenLines: string[]): FlyerCh
   const counts = new Map<string, number>()
   for (const line of seenLines) counts.set(norm(line), (counts.get(norm(line)) ?? 0) + 1)
   for (const [n, c] of counts) if (c > 1 && wanted.includes(n)) extra.push(`${seenLines.find(l => norm(l) === n)} (twice)`)
-  return { ok: missing.length === 0, missing, extra, seen: seenLines }
+  const cut = edgeCut(readLines)
+  return { ok: missing.length === 0 && cut.length === 0, missing, extra, seen: seenLines, cut }
 }
 
 /**
@@ -322,9 +382,16 @@ export function checkFlyerText(lines: FlyerLine[], seenLines: string[]): FlyerCh
  * flyer and captions: "21:00 Rumba workshop". With several days, the weekday
  * comes first ("Sat 21:00 …"). Every event type plans its programme by day.
  */
-export function programmeLines(sessions: { date: string; time: string; title: string }[] | null | undefined): { time: string; what: string }[] {
+export function programmeLines(sessions: { date: string; time: string; title: string; duration?: number | null }[] | null | undefined): { time: string; what: string; end?: string | null }[] {
   const s = (sessions ?? []).filter(x => x.title?.trim()).slice().sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
   const multi = new Set(s.map(x => x.date)).size > 1
   const wd = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', timeZone: 'UTC' })
-  return s.map(x => ({ time: multi ? `${wd(x.date)} ${x.time}` : x.time, what: x.title.trim() }))
+  // When an item ends, from its length ("21:00" + 180 min → "00:00").
+  const endOf = (time: string, minutes?: number | null) => {
+    const m = /^(\d{1,2}):(\d{2})$/.exec(time)
+    if (!m || !minutes) return null
+    const t = (Number(m[1]) * 60 + Number(m[2]) + minutes) % 1440
+    return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`
+  }
+  return s.map(x => ({ time: multi ? `${wd(x.date)} ${x.time}` : x.time, what: x.title.trim(), end: endOf(x.time, x.duration) }))
 }

@@ -75,7 +75,9 @@ const download = (url: string) => url.replace('/upload/', '/upload/fl_attachment
           <img :src="sizedImage(st.kept!.url!, IMG.card)" alt="The event’s flyer" class="mx-auto mt-3 w-40 rounded-xl border" :class="status === 'stale' ? 'opacity-60' : ''">
           <p v-if="st.kept!.lookName" class="mt-1.5 text-center text-xs text-muted-foreground">{{ st.kept!.lookName }} look</p>
           <p v-if="status === 'fresh' && st.kept!.check && !st.kept!.check.ok" class="mt-2 rounded-xl bg-warning/10 p-2 text-xs">
-            We couldn’t read: {{ st.kept!.check.missing.join(' · ') }}. Check the flyer before posting.
+            <template v-if="st.kept!.check.missing.length">We couldn’t read: {{ st.kept!.check.missing.join(' · ') }}.</template>
+            <template v-if="st.kept!.check.cut?.length">At the edge: {{ st.kept!.check.cut.join(' · ') }}.</template>
+            Check the flyer before posting.
           </p>
           <div v-if="status === 'stale'" class="mt-3 rounded-xl bg-warning/10 p-3 text-xs">
             <p class="flex items-center gap-1.5 font-bold"><AlertTriangle class="size-3.5" aria-hidden="true" /> You changed the details since</p>

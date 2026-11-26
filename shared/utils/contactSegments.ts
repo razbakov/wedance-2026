@@ -18,6 +18,10 @@
  * themselves: a new contact gets source `rsvp`, an existing one keeps its source
  * and gains `source.opted_in` (both mailable).
  *
+ * Following the page (RAZ-1092): a click on Follow (never the follow an RSVP adds by itself) makes the dancer
+ * a contact with source `follow` — name and email, mailable, since the button says the page can email them.
+ * Unfollowing unsubscribes a contact that following made mailable; following again resubscribes it.
+ *
  * The audience (RAZ-963): the same list also holds people connected to the page
  * who are NOT contacts — they follow it, or went / are going to its events. They
  * have a WeDance account but gave the page no email: source `wedance`, email
@@ -25,13 +29,14 @@
  * them (only name, photo, handle, city — what "Who's coming" already shows).
  */
 
-export const CONTACT_SOURCES = ['website', 'rsvp', 'signup', 'hubspot_form', 'hubspot_import', 'hubspot_manual', 'wedance_v3', 'other', 'wedance'] as const
+export const CONTACT_SOURCES = ['website', 'rsvp', 'signup', 'follow', 'hubspot_form', 'hubspot_import', 'hubspot_manual', 'wedance_v3', 'other', 'wedance'] as const
 export type ContactSourceKey = typeof CONTACT_SOURCES[number]
 
 export const SOURCE_LABEL: Record<ContactSourceKey, string> = {
   website: 'Your website',
   rsvp: 'Shared at an event',
   signup: 'Signed up for an event',
+  follow: 'Followed your page',
   hubspot_form: 'HubSpot form',
   hubspot_import: 'HubSpot imported list',
   hubspot_manual: 'HubSpot by hand',
@@ -41,7 +46,7 @@ export const SOURCE_LABEL: Record<ContactSourceKey, string> = {
 }
 
 /** Sources where the person signed up for this page's emails themselves. Provisional — see the header. */
-export const SELF_OPT_IN_SOURCES: readonly ContactSourceKey[] = ['website', 'rsvp', 'hubspot_form']
+export const SELF_OPT_IN_SOURCES: readonly ContactSourceKey[] = ['website', 'rsvp', 'follow', 'hubspot_form']
 
 export type ContactSource = Record<string, string> | null | undefined
 
@@ -63,6 +68,7 @@ export function contactSourceKey(source: ContactSource): ContactSourceKey {
   }
   if (s.from === 'wedance-v3') return 'wedance_v3'
   if (s.from === 'rsvp') return 'rsvp'
+  if (s.from === 'follow') return 'follow'
   // Signed up for one of the page's events (RAZ-995): name, email and phone for THAT event, not for emails —
   // mailable only once they tick "tell me about next ones" (then `opted_in`).
   if (s.from === 'signup') return 'signup'
@@ -107,12 +113,13 @@ export function contactChannel(source: ContactSource): string {
 
 export const channelLabel = (key: string) => CHANNEL_LABEL[key] ?? key
 
-export type EmailBlock = 'unsubscribed' | 'not_opted_in' | 'event_only' | 'not_a_contact'
+export type EmailBlock = 'unsubscribed' | 'bounced' | 'not_opted_in' | 'event_only' | 'not_a_contact'
 
-/** Why the page may not email this contact, or null when it may. */
-export function emailBlock(c: { status: string, source: ContactSource, isContact?: boolean }): EmailBlock | null {
+/** Why the page may not email this contact, or null when it may. A hard bounce (`bouncedAt`, set by Resend's webhook) blocks for good. */
+export function emailBlock(c: { status: string, source: ContactSource, isContact?: boolean, bouncedAt?: string | Date | null }): EmailBlock | null {
   if (c.isContact === false) return 'not_a_contact'
   if (c.status !== 'subscribed') return 'unsubscribed'
+  if (c.bouncedAt) return 'bounced'
   if (c.source?.opted_in) return null
   if (contactSourceKey(c.source) === 'signup') return 'event_only'
   if (!SELF_OPT_IN_SOURCES.includes(contactSourceKey(c.source))) return 'not_opted_in'
@@ -121,6 +128,7 @@ export function emailBlock(c: { status: string, source: ContactSource, isContact
 
 export const EMAIL_BLOCK_LABEL: Record<EmailBlock, string> = {
   unsubscribed: 'Unsubscribed',
+  bounced: 'Email address bounced',
   not_opted_in: 'Never asked for your emails',
   event_only: 'Only for their event',
   not_a_contact: 'Not a contact · no email',
@@ -264,6 +272,8 @@ export interface SegmentContact {
   createdAt: string | Date | null
   /** false = in the audience only (follows / came to the page's events), not a contact. */
   isContact?: boolean
+  /** A page email to this address hard-bounced. */
+  bouncedAt?: string | Date | null
   hasAccount: boolean
   activity: ContactActivity
 }
@@ -312,7 +322,7 @@ export interface ContactSegments {
 
 export function contactSegments(contacts: SegmentContact[], now = new Date()): ContactSegments {
   const bySource = new Map<ContactSourceKey, number>()
-  const blocked: Record<EmailBlock, number> = { unsubscribed: 0, not_opted_in: 0, event_only: 0, not_a_contact: 0 }
+  const blocked: Record<EmailBlock, number> = { unsubscribed: 0, bounced: 0, not_opted_in: 0, event_only: 0, not_a_contact: 0 }
   const byChannel = new Map<string, number>()
   const activity = Object.fromEntries(ACTIVITY_FILTERS.map(f => [f, 0])) as Record<ActivityFilter, number>
   let canEmail = 0

@@ -20,8 +20,10 @@ import { applySitePatch, sectionKinds, siteChanges, sitePatchInput, SitePatchErr
 import { TRPCError } from '@trpc/server'
 import type { DoorGuest } from '../../shared/utils/doorList'
 import { redactBugReport } from './bugReport'
+import { fitChatgptTools } from './budget'
 import { venueInfoInput, type VenueInfoInput } from '../utils/venueInfo'
 import type { ProfileSite } from '../../shared/types/profileSite'
+import { artistMatchesSearch } from '../../shared/utils/artistSearch'
 
 /** A site patch from tool args; a bad patch is the caller's error, not a crash. */
 function sitePatchOrError(site: ProfileSite, a: SitePatch): ProfileSite {
@@ -386,11 +388,18 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'list_artists', title: 'Artists in a city', scopes: [], annotations: READ,
-    description: 'Dance teachers, performers and DJs listed in a city, with their styles and handles.',
-    input: { city },
+    description: 'Dance teachers, performers and DJs who play in a city: based there, or they travel there. Optional filters: style, and event_type (wedding, birthday, corporate).',
+    input: {
+      city,
+      style: z.string().trim().max(40).optional().describe('Dance style, e.g. "Salsa".'),
+      event_type: z.enum(['wedding', 'birthday', 'corporate']).optional().describe('wedding, birthday or corporate.'),
+    },
     run: async (t, a) => {
       const d: any = await t.caller.entity.cityDirectory({ citySlug: citySlug(a.city) })
-      return { city: d.city, artists: d.artists, organizers: d.organizers }
+      const artists = (d.artists ?? []).filter((artist: any) => artistMatchesSearch(artist, {
+        style: a.style, eventType: a.event_type, serviceArea: a.city,
+      }))
+      return { city: d.city, artists, organizers: d.organizers }
     },
   },
   {
@@ -615,7 +624,7 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'follow', title: 'Follow or unfollow a page', scopes: ['social:write'], annotations: IDEMPOTENT,
-    description: 'Follow (or unfollow) an artist, venue, organizer or promoter to see their events.',
+    description: 'Follow (or unfollow) an artist, venue, organizer or promoter to see their events. Following also lets the page email the user their news; unfollowing stops it.',
     input: { handle, follow: z.boolean().default(true).describe('false to unfollow.') },
     run: async (t, a) => {
       const id = await profileId(t, a.handle)
@@ -916,7 +925,7 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'update_listed_profile', title: 'Complete a page I added', scopes: ['business:write'], business: true, annotations: IDEMPOTENT,
-    description: 'Fill in or fix an UNCLAIMED page (venue, artist, organizer) that the user added (add_venue, add_profile_from_instagram) or that is the venue, organizer or an artist of one of their events: name, bio, city, address, socials, styles, photo, and for a venue its venue_info (nearest stop, parking, indoor shoes, cloakroom). Use it right after adding a page with gaps, e.g. a venue missing its address. Only the fields you pass change. No reconnect needed. Pages the user runs: update_business_profile; claimed pages someone else runs are refused (their owner edits them).',
+    description: 'Fill in or fix an UNCLAIMED page (venue, artist, organizer) that the user added (add_venue, add_profile_from_instagram) or that is the venue, organizer or an artist of one of their events: name, bio, city, address, socials, styles, photo, for an artist the event types they play and cities they travel to, and for a venue its venue_info (nearest stop, parking, indoor shoes, cloakroom). Use it right after adding a page with gaps, e.g. a venue missing its address. Only the fields you pass change. No reconnect needed. Pages the user runs: update_business_profile; claimed pages someone else runs are refused (their owner edits them).',
     input: {
       handle,
       name: z.string().trim().min(1).max(120).optional(),
@@ -930,11 +939,18 @@ export const TOOLS: ToolDef[] = [
       })).max(10).optional().describe('Links by platform; platforms you leave out stay as they are.'),
       photo: z.string().url().nullable().optional().describe('Direct link to a photo (copied to WeDance, so expiring Instagram links are fine); null removes it.'),
       venue_info: venueInfo,
+      event_types: z.array(z.enum(['wedding', 'birthday', 'corporate'])).max(3).optional().describe('Artists only. Replaces the list. wedding, birthday, corporate.'),
+      service_areas: z.array(z.string().trim().min(1).max(120)).max(20).optional().describe('Artists only. Cities they travel to, besides their home city, e.g. ["Munich"]. Replaces the list.'),
     },
     run: async (t, a) => {
-      const { handle: username, venue_info, ...fields } = a
+      const { handle: username, venue_info, event_types, service_areas, ...fields } = a
       const info = toVenueInfo(venue_info)
-      const r: any = await t.caller.listedProfiles.update({ username, ...fields, ...(info ? { venueInfo: info } : {}) })
+      const r: any = await t.caller.listedProfiles.update({
+        username, ...fields,
+        ...(info ? { venueInfo: info } : {}),
+        ...(event_types ? { eventTypes: event_types } : {}),
+        ...(service_areas ? { serviceAreas: service_areas.map((city: string) => ({ city })) } : {}),
+      })
       return { ...r, url: url(t, `/@${username}`) }
     },
   },
@@ -1043,9 +1059,24 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'mark_inquiry', title: 'Mark a booking request', scopes: ['business:write'], business: true, annotations: IDEMPOTENT,
-    description: 'Record that a booking request was answered or declined (the answer itself goes by email to the person).',
+    description: 'Record that a booking request was answered by email, or declined. This does not email them and does not create a booking. A yes that should stay on WeDance is book_inquiry.',
     input: { profile, inquiry_id: z.string().uuid(), status: z.enum(['new', 'answered', 'declined']) },
     run: (t, a) => t.caller.inquiries.setStatus({ username: a.profile, id: a.inquiry_id, status: a.status }),
+  },
+  {
+    name: 'book_inquiry', title: 'Say yes to a booking request', scopes: ['business:publish'], business: true, annotations: OUTWARD, confirm: true,
+    description: 'Say yes to a booking request. Emails the asker, and when they have a page on WeDance, creates a draft event on that page with you confirmed in the line-up and their budget as the offer. Preview → confirm. Saying yes again returns the same event.',
+    input: { profile, inquiry_id: z.string().uuid(), confirm_token: confirmToken },
+    preview: async (t, a) => {
+      const rows: any[] = await t.caller.inquiries.forProfile({ username: a.profile })
+      const r = rows.find(x => x.id === a.inquiry_id)
+      if (!r) throw new Error('No such booking request on this page.')
+      return {
+        asker: r.name, what: r.what, date: r.eventDate || null, city: r.city || null, budget: r.budget || null,
+        already: r.status, effect: 'They get an email that you said yes. If they have a page, a draft event is created with you in the line-up.',
+      }
+    },
+    run: (t, a) => t.caller.inquiries.book({ username: a.profile, id: a.inquiry_id }),
   },
   {
     name: 'team', title: 'Team of a page', scopes: ['business:read'], business: true, annotations: READ,
@@ -1091,7 +1122,7 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'update_business_profile', title: 'Edit a business page', scopes: ['business:publish'], business: true, annotations: OUTWARD, confirm: true,
-    description: 'Change one of my public pages (artist, venue, organizer, promoter): name, bio, city, styles, photo, address, a venue’s venue_info (nearest stop, parking, indoor shoes, cloakroom), socials (links shown on the WeDance page: website, Instagram, Facebook…), and for a promoter page the influencer flag. Changing what is ON the page’s own website (when WeDance runs it, see my_profiles website) is update_my_site. Preview → confirm. Only pages the user runs (my_profiles); an unclaimed page they added or have on their events: update_listed_profile.',
+    description: 'Change one of my public pages (artist, venue, organizer, promoter): name, bio, city, styles, photo, address, a venue’s venue_info (nearest stop, parking, indoor shoes, cloakroom), an artist’s event types (wedding, birthday, corporate) and cities they travel to, socials (links shown on the WeDance page: website, Instagram, Facebook…), and for a promoter page the influencer flag. Changing what is ON the page’s own website (when WeDance runs it, see my_profiles website) is update_my_site. Preview → confirm. Only pages the user runs (my_profiles); an unclaimed page they added or have on their events: update_listed_profile.',
     input: {
       profile, name: z.string().trim().min(1).max(120).optional(), bio: z.string().max(4000).optional(), city: z.string().max(120).optional(),
       styles: z.array(z.string().trim().min(1).max(40)).max(20).optional(), photo: z.string().url().nullable().optional(), address: z.string().max(300).optional(),
@@ -1101,6 +1132,8 @@ export const TOOLS: ToolDef[] = [
       })).max(10).optional().describe('Links by platform; platforms you leave out stay as they are.'),
       influencer: z.boolean().optional().describe('Promoter pages only: true = this promoter is an influencer (their deliverable is content; promo_kit is made for them).'),
       venue_info: venueInfo,
+      event_types: z.array(z.enum(['wedding', 'birthday', 'corporate'])).max(3).optional().describe('Artists only. Replaces the list. wedding, birthday, corporate.'),
+      service_areas: z.array(z.string().trim().min(1).max(120)).max(20).optional().describe('Artists only. Cities they travel to, besides their home city, e.g. ["Munich"]. Replaces the list.'),
       confirm_token: confirmToken,
     },
     preview: async (t, a) => {
@@ -1109,14 +1142,22 @@ export const TOOLS: ToolDef[] = [
       const changes: Record<string, unknown> = Object.fromEntries(fields.map(k => [k, { from: cur[k], to: a[k] }]))
       if (a.socials) changes.socials = { from: cur.socials ?? [], to: mergeSocials(cur.socials, a.socials) }
       if (a.venue_info) changes.venue_info = { from: cur.venueInfo ?? {}, to: a.venue_info }
+      if (a.event_types) changes.event_types = { from: cur.eventTypes ?? [], to: a.event_types }
+      if (a.service_areas) changes.service_areas = { from: (cur.serviceAreas ?? []).map((s: { city: string }) => s.city), to: a.service_areas }
       return { page: cur.name, changes }
     },
     run: async (t, a) => {
-      const { profile: username, confirm_token: _c, socials, venue_info, ...fields } = a
+      const { profile: username, confirm_token: _c, socials, venue_info, event_types, service_areas, ...fields } = a
       const info = toVenueInfo(venue_info)
       // business.update replaces the whole list; merge per platform so a website edit keeps the Instagram.
       const merged = socials ? mergeSocials(((await t.caller.business.get({ username })) as any).socials, socials) : undefined
-      return t.caller.business.update({ username, ...fields, ...(merged ? { socials: merged } : {}), ...(info ? { venueInfo: info } : {}) })
+      return t.caller.business.update({
+        username, ...fields,
+        ...(merged ? { socials: merged } : {}),
+        ...(info ? { venueInfo: info } : {}),
+        ...(event_types ? { eventTypes: event_types } : {}),
+        ...(service_areas ? { serviceAreas: service_areas.map((city: string) => ({ city })) } : {}),
+      })
     },
   },
   {
@@ -1140,7 +1181,7 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'update_my_site', title: 'Edit my website', scopes: ['business:publish'], business: true, annotations: OUTWARD, confirm: true,
-    description: 'Change the page’s own website that WeDance runs (see get_my_site), hosted at sites.wedance.vip/<handle>: texts, images, buttons, sections (add, change, hide, remove, reorder), languages, SEO, welcome email, own domain, the look (style, accent colour, font, logo, favicon), the legal details for its Impressum, and publishing (published: true / false). Only what you pass changes: sections by id, texts per language (other languages stay). A new site starts as a draft; a published site shows changes right away. Every save is kept as a version (site_history, restore_site_version to undo). Preview → confirm.',
+    description: 'Change the page’s own website that WeDance runs (see get_my_site), hosted at sites.wedance.vip/<handle>: texts, images, buttons, sections (add, change, hide, remove, reorder), languages, SEO, welcome email, own domain, the look (style, accent colour, font, logo, favicon), the legal details for its Impressum, and publishing (published: true / false). A sign-up section can ask for an optional city (city: { label }, per language; the city is stored on the contact) and hide its promo code (hidePromo: true). Only what you pass changes: sections by id, texts per language (other languages stay). A new site starts as a draft; a published site shows changes right away. Every save is kept as a version (site_history, restore_site_version to undo). Preview → confirm.',
     input: { profile, ...sitePatchInput, confirm_token: confirmToken },
     preview: async (t, a) => {
       const r: any = await t.caller.businessSite.get({ username: a.profile })
@@ -1474,20 +1515,29 @@ export const TOOLS: ToolDef[] = [
 export const TOOL_BY_NAME = new Map(TOOLS.map(t => [t.name, t]))
 
 /** Who's calling, as far as tool listing cares. */
-export interface ListingCtx { scopes: readonly string[]; grantedProfileIds: readonly string[]; isAdmin: boolean; /** Omitted: signed in when they hold a scope or are an admin. */ signedIn?: boolean }
+export interface ListingCtx {
+  scopes: readonly string[]
+  grantedProfileIds: readonly string[]
+  isAdmin: boolean
+  /** Omitted: signed in when they hold a scope or are an admin. */
+  signedIn?: boolean
+  /** Connected app (`chatgpt`, `claude`, …). ChatGPT gets a shorter list (budget.ts). */
+  app?: string | null
+}
 
 /** The same listing buildMcpServer and tools/list use. */
-export function listingFrom(ctx: { scopes?: readonly string[] | null; grantedProfileIds?: readonly string[] | null; isAdmin?: boolean; oauthGrantId?: string | null }): ListingCtx {
-  return { scopes: ctx.scopes ?? [], grantedProfileIds: ctx.grantedProfileIds ?? [], isAdmin: !!ctx.isAdmin, signedIn: !!ctx.oauthGrantId }
+export function listingFrom(ctx: { scopes?: readonly string[] | null; grantedProfileIds?: readonly string[] | null; isAdmin?: boolean; oauthGrantId?: string | null }, app?: string | null): ListingCtx {
+  return { scopes: ctx.scopes ?? [], grantedProfileIds: ctx.grantedProfileIds ?? [], isAdmin: !!ctx.isAdmin, signedIn: !!ctx.oauthGrantId, app: app ?? null }
 }
 
 /** The tools this caller may see: every scope held; business tools need a granted profile (or admin). */
 export function visibleTools(c: ListingCtx): ToolDef[] {
   const signedIn = c.signedIn ?? (c.scopes.length > 0 || c.isAdmin)
-  return TOOLS.filter((tool) => {
+  const allowed = TOOLS.filter((tool) => {
     if (tool.anyAuth && !signedIn) return false
     if (!tool.scopes.every(s => s === 'admin' ? c.isAdmin : hasScope(c.scopes, s))) return false
     if (tool.business && !c.isAdmin && !c.grantedProfileIds.length) return false
     return true
   })
+  return c.app === 'chatgpt' ? fitChatgptTools(allowed) : allowed
 }

@@ -82,6 +82,7 @@ const ACT_ICON: Record<ActivityFilter, any> = { account: Users, follows: Heart, 
 const SHORT: Record<ActivityFilter, string> = { account: 'On WeDance', follows: 'Follow you', came: 'Came or coming', going: 'Going next', regular: 'Regulars', lapsed: 'Haven’t come in 3 months', new: 'New this month' }
 const toggleSource = (k: ContactSourceKey) => { f.sources = toggle(f.sources, k) }
 const toggleChannel = (k: string) => { f.channels = toggle(f.channels, k) }
+const toggleCity = (k: string) => { f.cities = toggle(f.cities, k) }
 const toggleAct = (a: ActivityFilter) => { f.activity = toggle(f.activity, a) }
 const setEmail = (e: ContactFilter['email']) => { f.email = f.email === e ? 'any' : e }
 // The rail, kept short: top sources up front, the rest behind "more"; event activity together;
@@ -92,13 +93,27 @@ const actOptions = (keys: readonly ActivityFilter[]) => railOptions(keys.map(key
 const eventAct = computed(() => actOptions(EVENT_ACTIVITY))
 const otherAct = computed(() => actOptions(OTHER_ACTIVITY))
 const moreFilters = ref(OTHER_ACTIVITY.some(a => f.activity.includes(a)))
-const cantEmailWhy = computed(() => [`${segs.value.blocked.not_opted_in} never asked for your emails`, segs.value.blocked.event_only ? `${segs.value.blocked.event_only} only for their event` : '', `${segs.value.blocked.unsubscribed} unsubscribed`, segs.value.blocked.not_a_contact ? `${segs.value.blocked.not_a_contact} not contacts (no email)` : ''].filter(Boolean).join(' · '))
+const cantEmailWhy = computed(() => [`${segs.value.blocked.not_opted_in} never asked for your emails`, segs.value.blocked.event_only ? `${segs.value.blocked.event_only} only for their event` : '', `${segs.value.blocked.unsubscribed} unsubscribed`, segs.value.blocked.bounced ? `${segs.value.blocked.bounced} bounced` : '', segs.value.blocked.not_a_contact ? `${segs.value.blocked.not_a_contact} not contacts (no email)` : ''].filter(Boolean).join(' · '))
 // The CSV and "Email N" only ever get contacts.
 const shownContacts = computed(() => onlyContacts(shown.value))
 const clear = () => Object.assign(f, emptyFilter())
-const filterCount = computed(() => f.sources.length + f.channels.length + f.activity.length + (f.email !== 'any' ? 1 : 0) + (f.who !== 'any' ? 1 : 0) + (f.event ? 1 : 0))
+const filterCount = computed(() => f.sources.length + f.channels.length + f.cities.length + f.activity.length + (f.email !== 'any' ? 1 : 0) + (f.who !== 'any' ? 1 : 0) + (f.event ? 1 : 0))
+// Cities typed on a site sign-up, most common first. The account city of someone who isn't a contact is not this.
+const cityOptions = computed(() => {
+  const counts = new Map<string, number>()
+  for (const r of all.value) {
+    const city = r.isContact ? r.city?.trim() : ''
+    if (!city) continue
+    counts.set(city, (counts.get(city) ?? 0) + 1)
+  }
+  return [...counts.entries()].map(([key, count]) => ({ key, count })).sort((a, b) => b.count - a.count || a.key.localeCompare(b.key))
+})
+const cityRail = computed(() => {
+  const rail = railOptions(cityOptions.value, f.cities, 6)
+  return [...rail.shown, ...rail.more]
+})
 
-const detail = (r: Row) => [r.locale?.toUpperCase(), sourceDetail(r.source), r.source?.promo_code ? `code ${r.source.promo_code}` : ''].filter(Boolean).join(' · ')
+const detail = (r: Row) => [r.city, r.locale?.toUpperCase(), sourceDetail(r.source), r.source?.promo_code ? `code ${r.source.promo_code}` : ''].filter(Boolean).join(' · ')
 
 const editing = ref<string | null>(null)
 const note = ref('')
@@ -213,6 +228,12 @@ function csv() {
             </button>
             <p class="mt-1 px-2 text-xs text-muted-foreground">The link or site that brought them. Tag the links you share (utm_source) to see more here.</p>
           </section>
+          <section v-if="cityRail.length" data-contacts-cities>
+            <h2 class="mb-1 text-eyebrow font-black uppercase tracking-widest text-muted-foreground">City</h2>
+            <button v-for="c in cityRail" :key="c.key" type="button" class="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1 text-left hover:bg-accent" :class="f.cities.includes(c.key) ? 'bg-primary/8 font-bold text-wd-red-800' : ''" :aria-pressed="f.cities.includes(c.key)" data-contacts-city @click="toggleCity(c.key)">
+              <span class="truncate">{{ c.key }}</span><span class="tabular-nums">{{ c.count }}</span>
+            </button>
+          </section>
           <section v-if="otherAct.length" data-contacts-more>
             <button type="button" class="flex w-full items-center justify-between mb-1 text-eyebrow font-black uppercase tracking-widest text-muted-foreground hover:text-foreground" :aria-expanded="moreFilters" @click="moreFilters = !moreFilters">
               <span>More filters</span><ChevronDown class="size-3.5 transition-transform" :class="moreFilters ? 'rotate-180' : ''" aria-hidden="true" />
@@ -230,12 +251,12 @@ function csv() {
           <div class="mb-3 flex items-center gap-2">
             <div class="relative flex-1">
               <Search class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-              <Input v-model="f.q" placeholder="Search name, email, note, source…" class="pl-9" aria-label="Search people" />
+              <Input v-model="f.q" placeholder="Search name, email, city, note, source…" class="pl-9" aria-label="Search people" />
             </div>
             <span class="text-sm text-muted-foreground tabular-nums" aria-live="polite">{{ shown.length }}</span>
           </div>
           <ul class="divide-y rounded-2xl border bg-card shadow-wd-card">
-            <li v-for="r in visible" :key="r.id" class="grid grid-cols-[1fr_auto] gap-2 p-4">
+            <li v-for="r in visible" :key="r.id" class="grid grid-cols-[1fr_auto] gap-2 p-4" :data-contact-city="r.isContact && r.city ? r.city : undefined">
               <div class="min-w-0">
                 <ContactsPersonRow :contact="r" :detail="detail(r)" :hide-note="editing === r.id" />
                 <div v-if="editing === r.id" class="mt-2 grid gap-2 sm:pl-13">

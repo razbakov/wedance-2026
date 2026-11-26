@@ -29,6 +29,16 @@ Feature: A match tells both dancers, in the app
     And the notification bell shows 1
 
   @write
+  Scenario: A night we already met at is not a meetup with a night only I planned
+    Given the test environment is safe to write
+    And "Alex" met "Sam" at a night that is over, and only Alex is going next week
+    When I am signed in as "Alex"
+    And I open My plan
+    Then "Sam" shows as someone I already met, and next week is an invite
+    When I open the notification bell
+    Then the bell no longer offers the booked night with "Sam"
+
+  @write
   Scenario: After booking, the meeting stays reachable and the reveal has no name
     Given the test environment is safe to write
     And "Anna" and "Ben" have matched over a shared night

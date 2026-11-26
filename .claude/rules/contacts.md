@@ -22,10 +22,24 @@ events" adds `source.opted_in`. Where they came from (RAZ-1074, `shared/utils/ca
 referrer, caught by `app/plugins/08.came-from.client.ts` (sessionStorage), sent as `signUp.cameFrom`, kept on a guest's
 `event_rsvps.came_from` through the magic link, and merged into a **new** contact's `source` (first touch stays);
 Contacts shows it via `sourceDetail`.
+A site sign-up can also ask for an optional **city** (RAZ-1093): the signup section's `city`
+(with its own label; `hidePromo` hides the promo code). The words they type are
+`profile_contacts.city`, shown on the row, in the CSV column `city`, and as a **City**
+filter in the rail. A unique match against `cities` also sets `city_id`; a shared or
+unknown name stays free text. The los.filinsclub interest form's old promo-code cities
+were moved onto this column (migration 0081). Until the site kit shows the city
+field, a promo code on that page's website sign-up is stored as the city.
 Contacts names the event (`sourceLabelFor`: "Signed up for La Timberia"), marks an un-opted-in sign-up
 "Only for their event" (`emailBlock` → `event_only`, not "never asked"), and the rail's **Channel** counts and filters
 contacts by `contactChannel` (utm_source, else referrer host; ig / l.instagram.com → Instagram; "Not known" last). `rsvp.shareContact` (source `rsvp`, mailable) stays for MCP.
 
+
+**Following (RAZ-1092):** a click on Follow (`follow.toggle`: `@handle` page, promoter artist overlay, MCP `follow`) makes
+the dancer a contact with source `follow` — name and email, **mailable**; the button says "Following lets <page> email
+you their news". `recordFollowContact` / `stopFollowContact` (`server/utils/rsvpContact.ts`): an existing contact the page
+couldn't email gains `source.opted_in = 'follow'`; one that unsubscribed itself stays unsubscribed. Unfollowing
+unsubscribes only what following opted in (`source.unfollowed_at`), and following again resubscribes it. The follow an
+RSVP "next" adds by itself (`rsvp.ts` `syncPlan`) does **not** make a contact; follows made before RAZ-1092 weren't backfilled.
 
 **One audience (RAZ-963):** Contacts also lists everyone else connected to the page — followers and accounts that went /
 are going to its events (`audienceOnly` in `shared/utils/contactSegments.ts`) — once each, as `isContact: false` rows
@@ -46,3 +60,13 @@ page, refuses the same subject within 10 min). Resend batch (`sendContactMailing
 sender, `List-Unsubscribe` + one-click POST (`/api/contacts/unsubscribe`). Every send is logged in `contact_mailings`
 (0072: who, when, segment in words + filter, subject/body, event, contact ids, sent/failed), shown as "Sent before".
 
+
+## What happened after a send (migration 0080)
+
+Each send also writes one `contact_mailing_recipients` row per person (Resend's email id, tagged `mailing=<id>`).
+Resend's webhook `POST /api/webhooks/resend` (Svix signature, `RESEND_WEBHOOK_SECRET`; `resend.lib.ts`) fills in
+delivered / opened / clicked / bounced / marked as spam (`shared/utils/mailingTracking.ts`); WeDance's own emails have
+no row and are ignored. "Sent before" shows `mailingStatsLine` per send. A **hard** bounce sets
+`profile_contacts.bounced_at` → `emailBlock` `bounced` (never emailed again); a spam complaint unsubscribes. Opens are
+approximate (Apple Mail opens everything); clicks and bounces are reliable. Opens and clicks only arrive when open /
+click tracking is on for the sending domain in Resend.

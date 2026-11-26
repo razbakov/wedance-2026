@@ -20,7 +20,7 @@ At most `max_previews` (5) at once; a new PR removes the oldest preview. Each pr
 
 ## Data
 
-`wedance_seed` = a copy of production, refreshed nightly at 03:30 UTC by `/etc/cron.d/wedance-preview`
+`wedance_seed` = a copy of production, refreshed weekly (Sunday 03:30 UTC) by `/etc/cron.d/wedance-preview`
 (`wedance-preview seed`, read-only `pg_dump` — the production URL is in `/etc/wedance-preview/prod.url`,
 root only). Left out: sessions, OAuth codes/tokens, Instagram tokens and webhooks. Every dancer's email,
 phone and password is scrubbed, so nobody can sign in as a real person — sign up with a new account

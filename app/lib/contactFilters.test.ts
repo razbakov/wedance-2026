@@ -65,6 +65,28 @@ describe('search over source details', () => {
   })
 })
 
+describe('city on a contact (RAZ-1093)', () => {
+  const l = [
+    c({ name: 'Ana', city: 'Munich' }),
+    c({ name: 'Bo', city: 'Berlin' }),
+    c({ name: 'Cat' }),
+  ]
+  it('filters to the cities picked, and search finds a city', () => {
+    expect(names(filterContacts(l, { ...emptyFilter(), cities: ['Munich'] }, NOW))).toEqual(['Ana'])
+    expect(names(filterContacts(l, { ...emptyFilter(), cities: ['Munich', 'Berlin'] }, NOW))).toEqual(['Ana', 'Bo'])
+    expect(names(filterContacts(l, { ...emptyFilter(), q: 'berl' }, NOW))).toEqual(['Bo'])
+    expect(isFiltered({ ...emptyFilter(), cities: ['Munich'] })).toBe(true)
+    expect(describeFilter({ ...emptyFilter(), cities: ['Munich'] })).toBe('City Munich')
+  })
+  it('the CSV has its own city column, not the promo code', () => {
+    const csv = contactsCsv([{ ...l[0]!, locale: 'en', sourceLabel: 'Your website' }])
+    expect(csv.split('\n')[0]).toBe(CSV_COLUMNS.join(','))
+    expect(CSV_COLUMNS).toContain('city')
+    expect(csv).toContain('"Munich"')
+    expect(csv).not.toContain('promo')
+  })
+})
+
 describe('contactsCsv', () => {
   it('one header and one quoted row per contact, with can-email and WeDance activity', () => {
     const csv = contactsCsv([

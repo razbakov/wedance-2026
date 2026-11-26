@@ -38,6 +38,15 @@ describe('updateNotice', () => {
     expect(n.text).toContain('Apps & Connectors → WeDance → Refresh')
     expect(n.text).toContain("don't say it's impossible")
   })
+  it('a shorter ChatGPT list tells the user to refresh so event actions load', () => {
+    const compact = current.filter(t => !['update_my_site', 'get_my_site'].includes(t.name))
+    const n = updateNotice(listedTools(current), compact, 'chatgpt')!
+    expect(n.removedTools).toEqual(['get_my_site', 'update_my_site'])
+    expect(n.newTools).toEqual([])
+    expect(n.text).toContain('shorter')
+    expect(n.text).toContain('creating, editing and publishing')
+    expect(n.text).toContain('Refresh')
+  })
   it('a changed description is an update too, with no new tools', () => {
     const listed = { ...listedTools(current), version: 'aaaaaaaaaaaa' }
     const n = updateNotice(listed, current, 'claude')!
@@ -79,7 +88,9 @@ describe('callTool adds the notice to a result from an old list', () => {
     expect(r.content[1]!.text).toContain('<wedance-data>')
   })
   it('no notice for an up-to-date app', async () => {
-    const r = await callTool(TOOL_BY_NAME.get('me')!, {}, t(listedTools(current)))
+    // ChatGPT is up to date when it was served the shorter list it can load.
+    const chat = visibleTools({ ...all, app: 'chatgpt' })
+    const r = await callTool(TOOL_BY_NAME.get('me')!, {}, t(listedTools(chat)))
     expect(r.content).toHaveLength(1)
   })
 })

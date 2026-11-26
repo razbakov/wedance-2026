@@ -4,15 +4,15 @@
  * who acts — the artist, WeDance, and the organiser who books them. Venues
  * aren't drawn: they book artists the same way organisers do. Hand-maintained
  * from the code (procedures named in `code`): /@handle/book (inquiries.*,
- * RAZ-964), line-up invites (artistInvites.*), /gigs (gigs.*), /artists,
- * /@handle, the MCP tools (invite_artist, respond_invite, find_lineup), the
+ * RAZ-964, a yes stays on WeDance — RAZ-1089), line-up invites (artistInvites.*), /gigs (gigs.*), /artists,
+ * /@handle, the MCP tools (invite_artist, respond_invite, find_lineup, book_inquiry), the
  * Instagram import (#452) and claiming a page. Re-read against the code on
- * 2026-11-18 (RAZ-1072). Not run end to end yet. Shown at
+ * 2026-11-25 (RAZ-1072, RAZ-1089). Not run end to end yet. Shown at
  * /docs/blueprints/artist-booking.
  */
 import type { Blueprint, BpGap, BpLaneDef, BpPhaseDef, BpStep } from './blueprint'
 
-export const ARTIST_BLUEPRINT_UPDATED = '2026-11-18'
+export const ARTIST_BLUEPRINT_UPDATED = '2026-11-25'
 
 export type ArtistLane = 'artist' | 'system' | 'organizer'
 export type ArtistPhase = 'listed' | 'found' | 'asked' | 'answer' | 'lineup' | 'night' | 'after'
@@ -44,11 +44,11 @@ export const artistSteps: BpStep<ArtistLane, ArtistPhase>[] = [
 
   // Be found
   { id: 'directory', phase: 'found', lane: 'organizer', name: 'Browse /artists', status: 'partial', marks: [], route: '/artists', code: 'entity.listArtists',
-    note: 'Every visible artist page, filtered by city, style and name in the browser; the city page’s “Who’s on the floor” has the same people. It shows no fee, no availability and no past line-ups, and nothing says whether the artist runs the page and will see a request.' },
+    note: 'Every visible artist page, filtered by name, dance style, event type (wedding, birthday, corporate) and service area. A city includes artists based there and artists who list it as a place they travel to; the city artists page filters that list by style and event type. It shows no fee, no availability and no past line-ups, and nothing says whether the artist runs the page and will see a request.' },
   { id: 'profile', phase: 'found', lane: 'organizer', name: 'Look at /@handle', status: 'live', marks: [], route: '/@[handle]', code: 'entity.getByHandle · ReviewsSection',
     note: 'Bio, photos, videos and socials, the upcoming events they are in the line-up of, reviews, and a Book button that opens /@handle/book.' },
   { id: 'assistant', phase: 'found', lane: 'system', name: 'Found through an AI app', status: 'live', marks: [], code: 'MCP find_lineup → businessEvents.searchProfiles · list_artists',
-    note: 'An organiser’s assistant searches pages by name or handle for a line-up, or lists a city’s artists. If nothing is found, add_profile_from_instagram makes the page.' },
+    note: 'An organiser’s assistant searches pages by name or handle for a line-up, or lists a city’s artists, optionally by dance style and event type (wedding, birthday, corporate). The city includes artists who travel there. If nothing is found, add_profile_from_instagram makes the page.' },
   { id: 'offer', phase: 'found', lane: 'artist', name: 'Post an offer on /gigs', status: 'partial', marks: ['manual'], route: '/gigs', code: 'gigs.create (kind offer)',
     note: 'An artist can post what they offer (DJ sets, workshops, shows). An organiser answers it by email only, through a mailto: link. WeDance keeps no record, so the artist never sees who replied.' },
 
@@ -65,8 +65,8 @@ export const artistSteps: BpStep<ArtistLane, ArtistPhase>[] = [
     note: 'An open role (“DJ for our Friday social”) with a contact email and a deadline. Artists apply on the page.' },
 
   // Answer
-  { id: 'inquiry-reply', phase: 'answer', lane: 'artist', name: 'Answer a request', status: 'partial', marks: ['manual', 'silent'], route: '/business/network/[username]/bookings', code: 'inquiries.setStatus · MCP inquiries / mark_inquiry',
-    note: '“Answer them by email, then mark it answered.” The conversation happens in email. Marking it answered or declined is a note to the team only: the asker isn’t told, and nothing links the request to an event.' },
+  { id: 'inquiry-reply', phase: 'answer', lane: 'artist', name: 'Answer a request', status: 'partial', marks: ['manual'], route: '/business/network/[username]/bookings', code: 'inquiries.book · inquiries.setStatus · MCP book_inquiry / mark_inquiry',
+    note: '“Yes, book it” emails the asker and, when they have a page, drafts their event with this artist confirmed and the budget as the offer (RAZ-1089). “I replied by email” and Decline are still marks for the team: a decline doesn’t email the asker.' },
   { id: 'invite-answer', phase: 'answer', lane: 'artist', name: 'Confirm or decline the invite', status: 'live', marks: ['wait'], route: '/confirm/[token]', code: 'artistInvites.get · artistInvites.respond · MCP respond_invite', refs: ['#515', '#520', '#521'],
     note: 'The event, who else is on it, their slot, the offer or their own fee and needs, the name and photo for this flyer, and whether posts may tag them. A team sees it as “Is X in?” under Needs you. Signed out, they leave an email and get their answer in writing.' },
   { id: 'take-over', phase: 'answer', lane: 'artist', name: 'Take over the page', status: 'live', marks: [], code: 'artistInvites.claim · artistInvites.confirmEmail · MCP claim_profile', refs: ['#521'],
@@ -75,12 +75,12 @@ export const artistSteps: BpStep<ArtistLane, ArtistPhase>[] = [
     note: 'A message, optionally as their artist page. The poster is emailed with a link to the page. One application per gig; closed or past-deadline gigs refuse it.' },
   { id: 'answer-back', phase: 'answer', lane: 'organizer', name: 'Hear the answer', status: 'live', marks: [], code: 'sendInviteAnsweredEmail · BusinessLineupPicker · gigs.decideApplication → sendGigDecisionEmail', refs: ['#521'],
     note: 'An invite answer arrives by email and as a chip in the line-up (in, can’t make it, terms, email confirmed). Gig posters accept or decline on /gigs?mine=1, and the artist is emailed either way.' },
-  { id: 'nudge', phase: 'answer', lane: 'system', name: 'Chase the silence', status: 'missing', marks: ['wait'],
-    note: 'Unanswered invites, requests and gig applications have no deadline and no reminder. A request sent to hello@wedance.vip has no status the asker can see.' },
+  { id: 'nudge', phase: 'answer', lane: 'system', name: 'Chase the silence', status: 'partial', marks: ['wait'], code: '/api/cron/booking-reminders · businessEvents.inbox',
+    note: 'A booking request still unanswered after three days is reminded once, to the same people who got it, and the asker’s Business inbox lists what they’re waiting on and when it was sent (RAZ-1089). Invites and gig applications still have no deadline and no reminder. A request sent to hello@wedance.vip has no status the asker can see unless they have a page.' },
 
   // On the line-up
-  { id: 'deal-to-lineup', phase: 'lineup', lane: 'system', name: 'A yes becomes a booking', status: 'gap', marks: ['manual'],
-    note: 'A request answered by email or an accepted gig application doesn’t create an invite or put the artist in a line-up. The organiser adds them again by hand in the event editor, then sends the invite link.' },
+  { id: 'deal-to-lineup', phase: 'lineup', lane: 'system', name: 'A yes becomes a booking', status: 'partial', marks: ['manual'], code: 'inquiries.book → events draft + profileInvites confirmed',
+    note: '“Yes, book it” puts the artist on a draft of the asker’s event, confirmed, with the budget as the offer, when the asker has a page (RAZ-1089). With no page the yes is saved and emailed, and there is no line-up. An accepted gig application still doesn’t create an invite: the organiser adds them by hand.' },
   { id: 'schedule', phase: 'lineup', lane: 'system', name: 'On their page and the event', status: 'live', marks: [], route: '/@[handle]', code: 'events.artists · MCP profile_schedule',
     note: 'Being in events.artists puts the event on the artist’s /@handle schedule, and the artist in the event page’s Lineup and the city page. This already happens before they confirm.' },
   { id: 'flyer', phase: 'lineup', lane: 'system', name: 'Their name on the flyer', status: 'live', marks: [], code: 'events.flyerOptions (names, photos)',
@@ -113,16 +113,16 @@ export const artistGaps: BpGap[] = [
     fix: 'Treat a request to an unrun page like an invite: give the artist a personal link that shows the request and lets them answer and take over the page, and show it to the asker to send. Alert admins about every request forwarded to hello@ and every new claim. Send the asker a copy that says who it reached.',
     steps: ['synced', 'own-page', 'inquiry', 'inquiry-route'] },
   { title: 'The deal leaves WeDance',
-    why: 'A request is answered in email and “marked answered” for nobody. An accepted gig application tells the artist, but neither one becomes a line-up invite, so the organiser rebuilds the booking in the event editor.',
-    fix: 'In Bookings, give each request a “Yes, book it” that creates the line-up invite on the asker’s event (or a draft) with the budget as the offer, and emails the asker. An accepted gig application does the same.',
+    why: '“Yes, book it” now emails the asker and, when they have a page, drafts their event with the artist confirmed. An accepted gig application still doesn’t, and “I replied by email” is still only a mark, so those bookings are rebuilt by hand.',
+    fix: 'An accepted gig application creates the same line-up invite, with the gig’s terms as the offer, and emails the artist’s page.',
     steps: ['inquiry-reply', 'deal-to-lineup', 'apply', 'answer-back', 'offer'] },
   { title: 'Added, but not asked',
     why: '“Add to an event’s line-up” on /@handle/book and the line-up picker put the artist on a public event and their page’s schedule without asking. The invite is a separate link the organiser must remember to send, and for most artists sends by hand.',
     fix: 'Make inquiries.addToEvent create the invite the way invite_artist does: email it when the page has a team, otherwise show the link and message right there on /book. In the line-up, mark artists who haven’t been asked yet.',
     steps: ['add-to-lineup', 'invite', 'schedule', 'booking-link'] },
   { title: 'Silence is never chased',
-    why: 'Invites, requests and gig applications have no deadline and no reminder, so an organiser planning a line-up waits without knowing whether a link even arrived.',
-    fix: 'A reminder after three days to whoever owes the answer (the artist’s team, or the poster of a role), and a “waiting on” list in the organiser’s Business inbox with the date each one was sent.',
+    why: 'A booking request is reminded once after three days, and the asker sees it under Waiting on. Invites and gig applications still have no deadline and no reminder, so an organiser planning a line-up waits without knowing whether a link even arrived.',
+    fix: 'The same three-day reminder for an unanswered invite and a gig application, to whoever owes the answer.',
     steps: ['nudge', 'invite-answer', 'inquiry-reply', 'apply'] },
   { title: 'The line-up hears nothing after yes',
     why: 'Once an artist confirms, nothing reaches them: not that the event is live, not a new date or venue, not a cancellation. A declined artist stays on the public event.',
