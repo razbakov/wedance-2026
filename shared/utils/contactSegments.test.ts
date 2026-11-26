@@ -218,3 +218,11 @@ describe('where a contact came from (RAZ-1074)', () => {
     ])
   })
 })
+
+describe('Follow (RAZ-1092)', () => {
+  it('a follower is a contact the page may email, until they unfollow', () => {
+    expect(contactSourceKey({ from: 'follow' })).toBe('follow')
+    expect(emailBlock({ status: 'subscribed', source: { from: 'follow' } })).toBeNull()
+    expect(emailBlock({ status: 'unsubscribed', source: { from: 'follow', unfollowed_at: '2026-11-25T12:00:00Z' } })).toBe('unsubscribed')
+  })
+})

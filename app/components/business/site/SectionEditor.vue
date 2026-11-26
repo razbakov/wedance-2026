@@ -45,6 +45,16 @@ const showCallout = ref(false)
 const calloutOn = computed(() => showCallout.value || !!(sec.value.callout?.title || sec.value.callout?.body || sec.value.callout?.button?.url))
 
 const setDays = (v: unknown) => { sec.value.days = Math.min(180, Math.max(1, Number(v) || 35)) }
+function setCity(on: boolean) {
+  if (on) sec.value.city = sec.value.city ?? {}
+  else sec.value.city = undefined
+}
+function setPromo(on: boolean) {
+  sec.value.hidePromo = on ? undefined : true
+}
+function setCityLabel(label: L10n | undefined) {
+  sec.value.city = label ? { label } : {}
+}
 const setAnchor = (v: unknown) => { sec.value.anchor = String(v ?? '').toLowerCase().replace(/[^a-z0-9-]/g, '') || undefined }
 const advanced = ref(false)
 const confirmRemove = ref(false)
@@ -90,6 +100,22 @@ const confirmRemove = ref(false)
         <Field v-if="has('days')" label="How far ahead" hint="Days of upcoming events to list. The events themselves come from your events on WeDance.">
           <Input :model-value="String(sec.days ?? 35)" type="number" min="1" max="180" class="w-28" @update:model-value="setDays($event)" />
         </Field>
+      </section>
+
+      <!-- Sign-up fields: city and promo code are optional (RAZ-1093) -->
+      <section v-if="sec.kind === 'signup'" class="grid gap-3" aria-labelledby="sec-form">
+        <h3 id="sec-form" class="text-eyebrow font-bold uppercase tracking-[0.3em] text-secondary">Form</h3>
+        <p class="text-sm text-muted-foreground">Name, email and phone are always asked. A city they type is saved on the contact.</p>
+        <label class="flex items-center gap-2 text-sm font-bold">
+          <input type="checkbox" class="size-4" :checked="!!sec.city" data-signup-city-toggle @change="setCity(($event.target as HTMLInputElement).checked)">
+          Ask for their city
+        </label>
+        <BusinessSiteText v-if="sec.city" :model-value="sec.city.label" label="City field label" hint="What the field says. Empty uses “City”." :lang="lang" :main="main" @update:model-value="setCityLabel" />
+        <label class="flex items-center gap-2 text-sm font-bold">
+          <input type="checkbox" class="size-4" :checked="!sec.hidePromo" data-signup-promo-toggle @change="setPromo(($event.target as HTMLInputElement).checked)">
+          Ask for a promo code
+        </label>
+        <BusinessSiteText v-if="!sec.hidePromo" v-model="sec.promoLabel" label="Promo code label" hint="Empty uses “Promo code (optional)”." :lang="lang" :main="main" />
       </section>
 
       <!-- Photo, video, map -->

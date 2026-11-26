@@ -133,6 +133,62 @@ describe.skipIf(!DATABASE_URL)('plan.meetMatches', () => {
     await caller(ids.me).plan.remove({ itemType: 'event', itemId: ids.party })
   })
 
+  it('met last week at a booked night, only I am going next week', async () => {
+    const now = Date.now()
+    await addDancer('metMe')
+    await addDancer('metThem')
+    const [past] = await db.insert(schema.events).values({
+      name: `La Timberia past ${RUN}`, type: 'Party', citySlug: CITY_SLUG, city: CITY, timezone: 'Europe/Berlin',
+      venueName: 'La Timberia', styles: ['Salsa'], published: true, archived: false,
+      startDate: new Date(now - 6 * DAY), endDate: new Date(now - 6 * DAY + 4 * 3600_000),
+    }).returning({ id: schema.events.id })
+    const [next] = await db.insert(schema.events).values({
+      name: `La Timberia next ${RUN}`, type: 'Party', citySlug: CITY_SLUG, city: CITY, timezone: 'Europe/Berlin',
+      venueName: 'La Timberia', styles: ['Salsa'], published: true, archived: false,
+      startDate: new Date(now + 7 * DAY), endDate: new Date(now + 7 * DAY + 4 * 3600_000),
+    }).returning({ id: schema.events.id })
+    const pair = [ids.metMe!, ids.metThem!]
+    try {
+      await db.insert(schema.discoverSwipes).values([
+        { dancerId: ids.metMe, targetKind: 'dancer', targetId: ids.metThem, decision: 'yes' },
+        { dancerId: ids.metThem, targetKind: 'dancer', targetId: ids.metMe, decision: 'yes' },
+      ])
+      await db.insert(schema.meetRituals).values([
+        { dancerId: ids.metMe, otherId: ids.metThem, eventId: past.id, bookedAt: new Date(now - 7 * DAY) },
+        { dancerId: ids.metThem, otherId: ids.metMe, eventId: past.id, bookedAt: new Date(now - 7 * DAY) },
+      ])
+      await db.insert(schema.planItems).values({ dancerId: ids.metMe, itemType: 'event', itemId: next.id, shareGoing: false })
+
+      const mine = (await caller(ids.metMe!).plan.meetMatches()).matches.find(m => m.dancerId === ids.metThem)
+      expect(mine?.met).toMatchObject({ eventId: past.id, name: `La Timberia past ${RUN}`, venue: 'La Timberia' })
+      expect(mine?.night).toMatchObject({ eventId: next.id, youGoing: true, theyGoing: false, meetup: false, invited: false })
+
+      const notice = (await caller(ids.metMe!).plan.notices()).notices.find(n => n.id === `match:${ids.metThem}`)
+      expect(notice?.booked).toBe(false)
+      expect(notice?.body ?? '').not.toContain(`La Timberia past ${RUN}`)
+      expect(notice?.event).toBeNull()
+
+      const ritual = await caller(ids.metMe!).ritual.get({ otherId: ids.metThem! })
+      expect(ritual.night?.eventId).toBe(past.id)
+      expect(ritual.night?.ended).toBe(true)
+      expect(ritual.night?.eventId).not.toBe(next.id)
+
+      await caller(ids.metMe!).plan.add({ itemType: 'event', itemId: next.id, metadata: { with: ids.metThem! } })
+      const invited = (await caller(ids.metMe!).plan.meetMatches()).matches.find(m => m.dancerId === ids.metThem)
+      expect(invited?.night).toMatchObject({ eventId: next.id, invited: true, meetup: false })
+      const theirs = (await caller(ids.metThem!).plan.meetMatches()).matches.find(m => m.dancerId === ids.metMe)
+      expect(theirs?.night).toMatchObject({ eventId: next.id, theyGoing: true })
+    } finally {
+      await db.delete(schema.meetRituals).where(inArray(schema.meetRituals.dancerId, pair))
+      await db.delete(schema.planItems).where(inArray(schema.planItems.dancerId, pair))
+      await db.delete(schema.discoverSwipes).where(inArray(schema.discoverSwipes.dancerId, pair))
+      await db.delete(schema.events).where(inArray(schema.events.id, [past.id, next.id]))
+      await db.delete(schema.dancers).where(inArray(schema.dancers.id, pair))
+      delete ids.metMe
+      delete ids.metThem
+    }
+  })
+
   it('leaves out yeses made before the deck said "we tell you both"', async () => {
     const before = new Date(MEET_MATCHES_SINCE.getTime() - DAY)
     await addDancer('early')
