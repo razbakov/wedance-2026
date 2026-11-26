@@ -363,10 +363,75 @@ export async function sendBookingInquiryEmail(params: {
       ${lines ? `<ul style="color: #555; padding-left: 18px;">${lines}</ul>` : ''}
       <p style="white-space: pre-line; border-left: 3px solid #ddd; padding-left: 12px; color: #333;">${escapeHtml(params.message)}</p>
       <p>Reply to this email to answer ${escapeHtml(params.from.name)} directly (${escapeHtml(params.from.email)})${params.from.phone ? `, or call or WhatsApp them: <a href="https://wa.me/${escapeHtml(params.from.phone.replace(/[^\d+]/g, '').replace(/^00/, '+').replace(/^\+/, ''))}">${escapeHtml(params.from.phone)}</a>` : ''}.</p>
+      <p>Or open it on WeDance and tap “Yes, book it”. That saves the booking, emails them, and puts you on a draft of their event when they have a page.</p>
       <a href="${params.link}" style="display: inline-block; background: #000; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">Open on WeDance</a>
       <p style="color: #888; font-size: 13px; margin-top: 20px;">${params.forward
         ? `Nobody runs ${escapeHtml(params.profileName)} on WeDance yet: pass this on to them.`
         : `You get this because you run ${escapeHtml(params.profileName)} on WeDance. It’s also under “Needs you” on your Business home.`}</p>
+    </div>`,
+  })
+}
+
+/** The artist said yes: the asker hears it on WeDance, with the draft when there is one. */
+export async function sendBookingYesEmail(params: {
+  to: string
+  name: string
+  artistName: string
+  what: string
+  lines: string[]
+  link: string
+  hasEvent: boolean
+}) {
+  const config = useRuntimeConfig()
+  const subject = `${params.artistName} said yes`
+  if (!config.resendApiKey) {
+    console.log(`\n✉️  ${params.to}: ${subject} → ${params.link}\n`)
+    return
+  }
+  const lines = params.lines.map(l => `<li>${escapeHtml(l)}</li>`).join('')
+  const next = params.hasEvent
+    ? `It’s saved on WeDance as a draft event, with ${escapeHtml(params.artistName)} in the line-up and your budget as the offer. Open it, check the details, and publish when you’re ready.`
+    : `It’s saved on WeDance. Sign in with this email, then open Business to put them on an event.`
+  await getResend().emails.send({
+    from: config.resendFromEmail || 'WeDance <noreply@wedance.vip>',
+    to: params.to,
+    subject,
+    html: `<div style="font-family: sans-serif; max-width: 460px; margin: 0 auto; padding: 20px;">
+      <h2 style="color: #333;">Hey ${escapeHtml(params.name)}!</h2>
+      <p><strong>${escapeHtml(params.artistName)}</strong> said yes to <strong>${escapeHtml(params.what)}</strong>.</p>
+      ${lines ? `<ul style="color: #555; padding-left: 18px;">${lines}</ul>` : ''}
+      <p>${next}</p>
+      <a href="${params.link}" style="display: inline-block; background: #000; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">${params.hasEvent ? 'Open the draft' : 'Open WeDance'}</a>
+    </div>`,
+  })
+}
+
+/** One nudge, three days on, to whoever still owes an answer. */
+export async function sendBookingReminderEmail(params: {
+  to: string
+  name: string
+  askerName: string
+  profileName: string
+  what: string
+  sentOn: string
+  link: string
+}) {
+  const config = useRuntimeConfig()
+  const subject = `Still waiting: ${params.askerName} wants to book ${params.profileName}`
+  if (!config.resendApiKey) {
+    console.log(`\n✉️  ${params.to}: ${subject} → ${params.link}\n`)
+    return
+  }
+  await getResend().emails.send({
+    from: config.resendFromEmail || 'WeDance <noreply@wedance.vip>',
+    to: params.to,
+    subject,
+    html: `<div style="font-family: sans-serif; max-width: 460px; margin: 0 auto; padding: 20px;">
+      <h2 style="color: #333;">Hey ${escapeHtml(params.name)}!</h2>
+      <p><strong>${escapeHtml(params.askerName)}</strong> asked to book <strong>${escapeHtml(params.profileName)}</strong> for ${escapeHtml(params.what)}${params.sentOn ? ` on ${escapeHtml(params.sentOn)}` : ''}. It’s still unanswered.</p>
+      <p>Say yes on WeDance to save the booking and email them, or decline.</p>
+      <a href="${params.link}" style="display: inline-block; background: #000; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">Open the request</a>
+      <p style="color: #888; font-size: 13px; margin-top: 20px;">You get this once, three days after the request.</p>
     </div>`,
   })
 }

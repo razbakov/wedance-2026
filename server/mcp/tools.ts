@@ -1044,9 +1044,24 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'mark_inquiry', title: 'Mark a booking request', scopes: ['business:write'], business: true, annotations: IDEMPOTENT,
-    description: 'Record that a booking request was answered or declined (the answer itself goes by email to the person).',
+    description: 'Record that a booking request was answered by email, or declined. This does not email them and does not create a booking. A yes that should stay on WeDance is book_inquiry.',
     input: { profile, inquiry_id: z.string().uuid(), status: z.enum(['new', 'answered', 'declined']) },
     run: (t, a) => t.caller.inquiries.setStatus({ username: a.profile, id: a.inquiry_id, status: a.status }),
+  },
+  {
+    name: 'book_inquiry', title: 'Say yes to a booking request', scopes: ['business:publish'], business: true, annotations: OUTWARD, confirm: true,
+    description: 'Say yes to a booking request. Emails the asker, and when they have a page on WeDance, creates a draft event on that page with you confirmed in the line-up and their budget as the offer. Preview → confirm. Saying yes again returns the same event.',
+    input: { profile, inquiry_id: z.string().uuid(), confirm_token: confirmToken },
+    preview: async (t, a) => {
+      const rows: any[] = await t.caller.inquiries.forProfile({ username: a.profile })
+      const r = rows.find(x => x.id === a.inquiry_id)
+      if (!r) throw new Error('No such booking request on this page.')
+      return {
+        asker: r.name, what: r.what, date: r.eventDate || null, city: r.city || null, budget: r.budget || null,
+        already: r.status, effect: 'They get an email that you said yes. If they have a page, a draft event is created with you in the line-up.',
+      }
+    },
+    run: (t, a) => t.caller.inquiries.book({ username: a.profile, id: a.inquiry_id }),
   },
   {
     name: 'team', title: 'Team of a page', scopes: ['business:read'], business: true, annotations: READ,
