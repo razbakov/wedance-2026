@@ -10,8 +10,8 @@
 import { and, desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm'
 import { attendances, dancers, events, follows, meetRituals, planItems } from '../database/schema'
 import { eventPath } from '../../shared/utils/eventSlug'
-import { eventEndsAt, eventLocalTime, eventLocalWeekday } from '../../shared/utils/eventTime'
-import { MEET_MATCHES_SINCE, meetMatches } from './meetMatches'
+import { eventEndsAt, eventLocalTime, eventLocalWeekday, eventPhase } from '../../shared/utils/eventTime'
+import { MEET_MATCHES_SINCE, meetMatches, ritualEventId } from './meetMatches'
 import { matchEmailsOffUrl } from './meetMatchNotify'
 import { sendRitualFollowupEmail } from './email'
 import { nightCardWhen } from '../../shared/utils/notices'
@@ -61,6 +61,8 @@ export interface RitualNight {
   startTime: string
   /** "Fri, Nov 20 · 20:00" — the event card's date and time. */
   whenLabel: string
+  /** The night is over. The page says you met; it is not the next meetup. */
+  ended: boolean
 }
 
 export interface RitualState {
@@ -122,8 +124,16 @@ export async function loadRitual(db: Db, dancerId: string, otherId: string, now 
     .from(meetRituals)
     .where(and(eq(meetRituals.dancerId, dancerId), eq(meetRituals.otherId, otherId), isNotNull(meetRituals.bookedAt)))
     .orderBy(desc(meetRituals.bookedAt))
-  // Once booked, the meetup stays on that event — including the morning after, when it is no longer "the next night".
-  const eventId = bookedRows[0]?.eventId ?? match.night?.eventId ?? null
+  // A booking stays on that event, including the morning after. A night only one
+  // of you planned does not become the meetup when nothing was booked together.
+  // `ended` is not read here — the loaded night's own phase says whether it is over.
+  const booked = bookedRows[0]?.eventId ? { eventId: bookedRows[0].eventId, ended: false } : null
+  const eventId = ritualEventId({
+    booked,
+    suggested: match.night
+      ? { eventId: match.night.eventId, youGoing: match.night.youGoing, theyGoing: match.night.theyGoing }
+      : null,
+  })
 
   let night: RitualNight | null = null
   let row: any = null
@@ -168,6 +178,7 @@ export async function loadRitual(db: Db, dancerId: string, otherId: string, now 
         starts: `${eventLocalWeekday(start, zone)} ${eventLocalTime(start, zone)}`,
         startTime: eventLocalTime(start, zone),
         whenLabel: nightCardWhen(start.toISOString(), zone),
+        ended: eventPhase(start, end, zone, now) === 'past',
       }
     }
   }

@@ -43,6 +43,7 @@ const FIELD_NAMES: Record<string, string> = {
   title: 'title', titleAccent: 'title highlight', eyebrow: 'small heading', body: 'text', navLabel: 'menu label', anchor: 'anchor',
   image: 'image', video: 'video', address: 'address', mapUrl: 'map', days: 'days ahead', buttons: 'buttons', items: 'items',
   callout: 'callout', hidden: 'visibility', kind: 'kind', description: 'description', subject: 'subject',
+  city: 'city field', hidePromo: 'promo code', promoLabel: 'promo code label',
 }
 const SITE_FIELDS: Record<string, string> = { domain: 'own domain', locales: 'languages', seo: 'search & sharing', welcome: 'welcome email', theme: 'look', legal: 'legal details' }
 const THEME_FIELDS: Record<string, string> = { preset: 'style', accent: 'accent colour', font: 'font', logo: 'logo', favicon: 'favicon' }

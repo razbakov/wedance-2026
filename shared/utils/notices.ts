@@ -173,6 +173,23 @@ export function matchNotice(input: MatchNoticeInput): Notice {
   }
 }
 
+export type BellBooking = 'ahead' | 'over' | null
+export type BellSuggestion = 'both' | 'them' | 'me' | 'city' | null
+
+/**
+ * Which night the bell names. A booked night that is over is dropped.
+ * A night only I'm going to is an invite on the card, not a meetup here.
+ * A city night, or one they're going to, can still be the thing to book.
+ */
+export function bellNightSource(input: {
+  booked: BellBooking
+  suggestion: BellSuggestion
+}): 'booked' | 'suggestion' | 'none' {
+  if (input.booked === 'ahead') return 'booked'
+  if (input.suggestion && input.suggestion !== 'me') return 'suggestion'
+  return 'none'
+}
+
 /** Notices they have not opened yet. Dismissing a toast does not count. */
 export function unactedNotices(notices: readonly Notice[], actedIds: readonly string[]): Notice[] {
   const acted = new Set(actedIds)

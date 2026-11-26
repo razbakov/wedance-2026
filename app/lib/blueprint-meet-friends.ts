@@ -7,13 +7,13 @@
  * dance?" waves (festival_waves; the festival-page deck itself is gone),
  * meetMatches, the "said yes too" email (RAZ-985, My plan → Your dance friends),
  * and the in-app match card, toast and bell (RAZ-1071). Re-read against the
- * code on 2026-11-20 (RAZ-1072), including the Skip and Yes hover lines (RAZ-1022).
+ * code on 2026-11-25 (RAZ-1098), including the Skip and Yes hover lines (RAZ-1022).
  * Not run end to end with two test dancers yet.
  * Shown at /docs/blueprints/meet-friends.
  */
 import type { Blueprint, BpGap, BpLaneDef, BpPhaseDef, BpStep } from './blueprint'
 
-export const MEET_BLUEPRINT_UPDATED = '2026-11-20'
+export const MEET_BLUEPRINT_UPDATED = '2026-11-25'
 
 export type MeetLane = 'me' | 'system' | 'other'
 export type MeetPhase = 'join' | 'findable' | 'browse' | 'yes' | 'match' | 'floor' | 'after'
@@ -80,8 +80,8 @@ export const meetSteps: BpStep<MeetLane, MeetPhase>[] = [
     note: 'The dancer who just said yes sees “It’s a match” at once. The other gets one “<name> said yes too” email (once per pair, at most one a day, off in Settings → Emails; skipped with no photo, a private profile, or no address). The next time they open WeDance they also get the same card on /meet, one small toast at the bottom right (once per match on that browser), and a row under the header bell. The bell badge is the only count, and it clears once they open the meetup. The card and the bell row stay, including after they book. No push.' },
 
   // Meet on the floor
-  { id: 'night', phase: 'floor', lane: 'system', name: 'Suggest a night', status: 'live', marks: [], route: '/my-plan', code: 'meetMatches MatchNight · MeetMatches.vue',
-    note: 'Picks both going › they’re going › you’re going › a social in your city that suits both. “I’m going too” adds it and tells that match; “Next time” skips it and shows the next one.' },
+  { id: 'night', phase: 'floor', lane: 'system', name: 'Suggest a night', status: 'live', marks: [], route: '/my-plan', code: 'meetMatches MatchNight · MeetMatches.vue · relativeNightWhen', refs: ['RAZ-1098'],
+    note: 'Picks both going › they’re going › you’re going › a social in your city that suits both. A night only you are going to is an invite (“Invite <name>”), not a meetup: “How you’ll meet” is only there when you are both going and the night has not started. Dates read “Tonight · 18:00”, “Tomorrow · Thu 26 Nov · 18:00”, or “Thu 3 Dec · 18:00”. “I’m going too” adds it and tells that match; “Next time” skips it and shows the next one.' },
   { id: 'contact', phase: 'floor', lane: 'me', name: 'Reach them', status: 'missing', marks: ['manual'],
     note: 'No message and no contact swap. The meetup (RAZ-1071) is how you meet on the night; their /u profile, if they have a handle, is the only way to reach them before it.' },
   { id: 'same-night', phase: 'floor', lane: 'other', name: 'Go the same night', status: 'live', marks: [], route: '/events/[id]', code: 'EventWhosComing · rsvp.people', refs: ['#608'],
@@ -90,8 +90,8 @@ export const meetSteps: BpStep<MeetLane, MeetPhase>[] = [
     note: 'Where you’ll meet explains the clock (the night’s start, then 23:15 once the floor is going, near the DJ booth), shows the event’s picture and how many are going, and three first-person ticks (I can leave, I’m in a public spot, I’m 18+). The next step is a sentence, not a button: open the screen and turn the phone. The screen is the shared color, shape and number, with no name. Couldn’t meet, including Report someone, is on that screen. The morning-after email is not a link in the app.' },
 
   // After
-  { id: 'remember', phase: 'after', lane: 'me', name: 'Keep the friend', status: 'missing', marks: [],
-    note: 'No friends list, no “follow” between dancers outside a shared festival plan, nothing that says you met.' },
+  { id: 'remember', phase: 'after', lane: 'me', name: 'Keep the friend', status: 'partial', marks: [],
+    note: 'The dance-friends card says “You met at <night> · Thu 19 Nov” for the latest booked night that has ended. There is still no list of dancers you’ve met, and no follow from that card.' },
   { id: 'again', phase: 'after', lane: 'system', name: 'Bring you together again', status: 'missing', marks: ['silent'],
     note: 'Nothing tells you a friend is going to a night or festival; their plan reaches you only if they share a link.' },
 ]
@@ -114,7 +114,7 @@ export const meetGaps: BpGap[] = [
     fix: 'On a match, one short “see you there” the other dancer is told about before the night. No chat needed for that first step.',
     steps: ['contact'] },
   { title: 'Friends are forgotten',
-    why: 'After the night nothing remembers that you met, so the next festival starts from an empty deck.',
+    why: 'The dance-friends card names the last night you booked together once it is over. There is still no list of people you have met, and the next festival does not start from them.',
     fix: 'Matches you danced with become friends: their going-to shows in your plan, and they come first on the festival pages you share.',
     steps: ['dance', 'remember', 'again'] },
 ]
