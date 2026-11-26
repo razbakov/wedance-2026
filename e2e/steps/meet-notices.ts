@@ -44,12 +44,17 @@ Given('{string} and {string} have matched over a shared night', async ({ c3 }, a
      VALUES ($1, 'Party', $2, $3, $4, '["Salsa"]'::json, 'Stachus', $5, $6, true, false, false, $7) RETURNING id`,
     [`Notice Night ${c3.run}`, city, slug, TZ, start.toISOString(), new Date(start.getTime() + 4 * 3600_000).toISOString(), photo],
   )
+  // $1 is both dancer_id (uuid) and the other row's target_id (text). An uncast
+  // parameter is text, and Postgres will not assign text to uuid.
   await sql(
     `INSERT INTO discover_swipes (dancer_id, target_kind, target_id, decision) VALUES
-       ($1, 'dancer', $2, 'yes'), ($2, 'dancer', $1, 'yes')`,
+       ($1::uuid, 'dancer', $2, 'yes'), ($2::uuid, 'dancer', $1, 'yes')`,
     ids,
   )
   c3.cleanup.push(async () => {
+    // Booking the night writes a plan item and an attendance; those do not cascade.
+    await sql(`DELETE FROM plan_items WHERE dancer_id = ANY($1::uuid[])`, [ids])
+    await sql(`DELETE FROM attendances WHERE dancer_id = ANY($1::uuid[])`, [ids])
     await sql(`DELETE FROM discover_swipes WHERE dancer_id = ANY($1::uuid[])`, [ids])
     await sql(`DELETE FROM sessions WHERE dancer_id = ANY($1::uuid[])`, [ids])
     await sql(`DELETE FROM events WHERE id = $1`, [ev!.id])
@@ -85,7 +90,7 @@ Given('{string} met {string} at a night that is over, and only Alex is going nex
   )
   await sql(
     `INSERT INTO discover_swipes (dancer_id, target_kind, target_id, decision) VALUES
-       ($1, 'dancer', $2, 'yes'), ($2, 'dancer', $1, 'yes')`,
+       ($1::uuid, 'dancer', $2, 'yes'), ($2::uuid, 'dancer', $1, 'yes')`,
     ids,
   )
   await sql(
