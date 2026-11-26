@@ -5,6 +5,8 @@ import { dancers, profileContacts, profileMembers, profileSites, profiles } from
 import { profileByHandle, siteUrl } from '../../../utils/profileFeed'
 import { sendSiteSignupTeamEmail, sendSiteWelcomeEmail } from '../../../utils/email'
 import { pick, type ProfileSite } from '../../../../shared/types/profileSite'
+import { cityFromSignup } from '../../../../shared/utils/contactCity'
+import { findContactCityId } from '../../../utils/contactCity'
 
 /**
  * Sign-ups from a profile's own website (RAZ-412): the site's form posts here
@@ -19,6 +21,8 @@ const input = z.object({
   name: z.string().trim().min(1, 'Please add your name.').max(120),
   email: z.string().trim().toLowerCase().email('Please check your email address.').max(200),
   phone: z.string().trim().max(40).optional().default(''),
+  // Optional city (RAZ-1093). Stored on the contact, not in source.
+  city: z.string().trim().max(120).optional().default(''),
   locale: z.string().max(12).optional(),
   // Where they came from: form, page, utm_*, referrer, promo_code…
   source: z.record(z.string().max(40), z.string().max(500)).optional().default({}),
@@ -47,7 +51,9 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 429, statusMessage: 'Thanks — we already have you.' })
   }
 
-  const source = Object.fromEntries(Object.entries(body.source).filter(([, v]) => v))
+  const posted = Object.fromEntries(Object.entries(body.source).filter(([, v]) => v))
+  const { city, source } = cityFromSignup(profile.username, body.city, posted)
+  const cityId = city ? await findContactCityId(db, city) : null
   const [dancer] = await db.select({ id: dancers.id }).from(dancers).where(eq(sql`lower(${dancers.email})`, body.email)).limit(1)
   const [existing] = await db.select({ id: profileContacts.id }).from(profileContacts)
     .where(and(eq(profileContacts.profileId, profile.id), eq(sql`lower(${profileContacts.email})`, body.email)))
@@ -56,13 +62,14 @@ export default defineEventHandler(async (event) => {
   if (existing) {
     id = existing.id
     await db.update(profileContacts).set({
-      name: body.name, ...(body.phone ? { phone: body.phone } : {}), locale: body.locale ?? null,
+      name: body.name, ...(body.phone ? { phone: body.phone } : {}), ...(city ? { city, cityId } : {}),
+      locale: body.locale ?? null,
       status: 'subscribed', updatedAt: now, ...(dancer ? { dancerId: dancer.id } : {}),
     }).where(eq(profileContacts.id, id))
   } else {
     const [row] = await db.insert(profileContacts).values({
       profileId: profile.id, dancerId: dancer?.id ?? null, email: body.email, name: body.name,
-      phone: body.phone || null, locale: body.locale ?? null, source,
+      phone: body.phone || null, city: city || null, cityId, locale: body.locale ?? null, source,
     }).returning({ id: profileContacts.id })
     id = row!.id
   }
@@ -79,7 +86,7 @@ export default defineEventHandler(async (event) => {
     try {
       await sendSiteSignupTeamEmail({
         to: m.email, name: m.name ?? profile.name, profileName: profile.name,
-        contact: { name: body.name, email: body.email, phone: body.phone, locale: body.locale },
+        contact: { name: body.name, email: body.email, phone: body.phone, city: city || null, locale: body.locale },
         source, link: `${siteUrl()}/business/network/${profile.username}/contacts`,
       })
     } catch (e) { console.error('[contacts] team email failed', e) }
