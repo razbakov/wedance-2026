@@ -11,6 +11,8 @@
  * next 14 days. Order: both going › they're going › I'm going › a social in my
  * city whose styles suit both. "They're going" only counts when they share that
  * they're going (plan_items.share_going), the same opt-in as "Who's going".
+ * `night.meetup` is only both going. A night only I'm going to is an invite
+ * (`invited`, metadata.with). `met` is the latest booked ritual whose night is over.
  *
  * "Next time" on a match's night (something came up) is a Skip on that event
  * in discover_swipes: it is never suggested again, the next one is. "I'm going
@@ -23,9 +25,10 @@
  * friends", MeetMatches.vue); counted from MEET_MATCHES_SINCE (the day the deck
  * started saying "if they say yes too, we tell you both").
  */
-import { and, asc, eq, gte, inArray, lt, sql } from 'drizzle-orm'
-import { dancers, discoverSwipes, events, festivals, festivalWaves, planItems } from '../database/schema'
+import { and, asc, eq, gte, inArray, isNotNull, lt, sql } from 'drizzle-orm'
+import { dancers, discoverSwipes, events, festivals, festivalWaves, meetRituals, planItems } from '../database/schema'
 import { asDanceRole, asStyleList, type DanceRole } from '../../shared/utils/notices'
+import { eventEndsAt } from '../../shared/utils/eventTime'
 import { eventPath } from '../../shared/utils/eventSlug'
 import { NON_SOCIAL_TYPES, citySlugFor, claimableFestivals, stylesMatch } from './myPlanFeeds'
 
@@ -51,6 +54,23 @@ export type MatchNight = {
   /** Who already has it in their plan. */
   youGoing: boolean
   theyGoing: boolean
+  /** Saved from this match (`metadata.with`), so they see that you're going. */
+  invited: boolean
+  /**
+   * Both of you are going and the night has not started. The only case for
+   * "How you'll meet" and /meet/ritual on the dance-friends card.
+   */
+  meetup: boolean
+}
+
+/** A booked night that has ended — "You met at …". */
+export type MetNight = {
+  eventId: string
+  name: string
+  path: string
+  startISO: string
+  timezone: string | null
+  venue: string
 }
 
 export type MeetMatch = {
@@ -69,6 +89,8 @@ export type MeetMatch = {
   /** Festivals where they waved at each other. */
   festivals: { slug: string; name: string }[]
   night: MatchNight | null
+  /** Latest booked ritual whose event has ended. Null until you've met. */
+  met: MetNight | null
 }
 
 /** One yes: from → to, when, and (for waves) the festival. */
@@ -152,6 +174,8 @@ export function pickNight(
   }
   if (!best) return null
   const ev = best.ev
+  const youGoing = ctx.mine.has(ev.id)
+  const theyGoing = ctx.theirs.has(ev.id)
   return {
     eventId: ev.id,
     name: ev.name,
@@ -159,9 +183,67 @@ export function pickNight(
     startISO: ev.startDate.toISOString(),
     timezone: ev.timezone,
     venue: ev.venueName ?? '',
-    youGoing: ctx.mine.has(ev.id),
-    theyGoing: ctx.theirs.has(ev.id),
+    youGoing,
+    theyGoing,
+    invited: false,
+    meetup: youGoing && theyGoing,
   }
+}
+
+export type RitualBooking = { otherId: string; eventId: string; bookedAt: Date | null }
+export type RitualEventFacts = {
+  id: string
+  name: string | null
+  startDate: Date | null
+  endDate: Date | null
+  timezone: string | null
+  venueName: string | null
+}
+
+/**
+ * The latest booked ritual per dance friend whose night is over.
+ * A later booking replaces an earlier one. A night that hasn't ended is not "you met".
+ */
+export function latestMet(rows: RitualBooking[], facts: RitualEventFacts[], now: Date): Map<string, MetNight> {
+  const byId = new Map(facts.map(e => [e.id, e]))
+  const best = new Map<string, { at: number; met: MetNight }>()
+  for (const r of rows) {
+    if (!r.bookedAt) continue
+    const ev = byId.get(r.eventId)
+    if (!ev?.startDate) continue
+    const zone = ev.timezone || 'Europe/Berlin'
+    if (eventEndsAt(ev.startDate, ev.endDate, zone).getTime() > now.getTime()) continue
+    const at = new Date(r.bookedAt).getTime()
+    const cur = best.get(r.otherId)
+    if (cur && at < cur.at) continue
+    best.set(r.otherId, {
+      at,
+      met: {
+        eventId: ev.id,
+        name: ev.name ?? '',
+        path: eventPath(ev),
+        startISO: new Date(ev.startDate).toISOString(),
+        timezone: ev.timezone,
+        venue: ev.venueName ?? '',
+      },
+    })
+  }
+  return new Map([...best].map(([id, v]) => [id, v.met]))
+}
+
+/**
+ * The night /meet/ritual is about. A booking wins, including the morning after
+ * it ended — a later night only one of you planned does not replace it.
+ * With no booking, a night only I'm going to is not a meetup.
+ */
+export function ritualEventId(opts: {
+  booked: { eventId: string; ended: boolean } | null
+  suggested: { eventId: string; youGoing: boolean; theyGoing: boolean } | null
+}): string | null {
+  if (opts.booked) return opts.booked.eventId
+  const suggested = opts.suggested
+  if (!suggested || (suggested.youGoing && !suggested.theyGoing)) return null
+  return suggested.eventId
 }
 
 /**
@@ -255,10 +337,15 @@ export async function meetMatches(db: Db, dancerId: string, opts: { now?: Date; 
     .where(and(eq(planItems.itemType, 'event'), inArray(planItems.dancerId, [dancerId, ...shown.map(p => p.other)])))
   const mine = new Set<string>()
   const theirs = new Map<string, Set<string>>()
+  /** Event ids I saved for this match, so they can see I'm going. */
+  const invited = new Map<string, Set<string>>()
   for (const r of planRows) {
     if (!UUID_RE.test(r.itemId)) continue
-    if (r.dancerId === dancerId) mine.add(r.itemId)
-    else if (r.shareGoing || r.metadata?.with === dancerId) theirs.set(r.dancerId, (theirs.get(r.dancerId) ?? new Set()).add(r.itemId))
+    if (r.dancerId === dancerId) {
+      mine.add(r.itemId)
+      const withId = r.metadata?.with
+      if (withId) invited.set(withId, (invited.get(withId) ?? new Set()).add(r.itemId))
+    } else if (r.shareGoing || r.metadata?.with === dancerId) theirs.set(r.dancerId, (theirs.get(r.dancerId) ?? new Set()).add(r.itemId))
   }
   // Nights I said "Next time" to (an event Skip) — never suggested again.
   const skipped = new Set<string>((await db
@@ -289,9 +376,35 @@ export async function meetMatches(db: Db, dancerId: string, opts: { now?: Date; 
   }
   const list = [...candidates.values()]
 
+  let metByOther = new Map<string, MetNight>()
+  try {
+    const ritualRows: RitualBooking[] = await db
+      .select({ otherId: meetRituals.otherId, eventId: meetRituals.eventId, bookedAt: meetRituals.bookedAt })
+      .from(meetRituals)
+      .where(and(
+        eq(meetRituals.dancerId, dancerId),
+        inArray(meetRituals.otherId, shown.map(p => p.other)),
+        isNotNull(meetRituals.bookedAt),
+      ))
+    const metIds = [...new Set(ritualRows.map(r => r.eventId))]
+    const metEvents = metIds.length
+      ? await db.select({
+        id: events.id, name: events.name, startDate: events.startDate, endDate: events.endDate,
+        timezone: events.timezone, venueName: events.venueName,
+      }).from(events).where(inArray(events.id, metIds))
+      : []
+    metByOther = latestMet(ritualRows, metEvents.map((e: RitualEventFacts) => ({
+      ...e,
+      startDate: e.startDate ? new Date(e.startDate) : null,
+      endDate: e.endDate ? new Date(e.endDate) : null,
+    })), now)
+  } catch { /* rituals table not migrated yet — the next night still shows */ }
+
   return shown.map((p) => {
     const d = byId.get(p.other)
     const theirStyles = asStyleList(d.danceStyles, d.danceLevels)
+    const night = pickNight(list, { myCitySlug, myStyles, theirStyles, mine, theirs: theirs.get(p.other) ?? new Set() })
+    if (night) night.invited = invited.get(p.other)?.has(night.eventId) ?? false
     return {
       dancerId: d.id,
       name: d.name ?? '',
@@ -304,7 +417,8 @@ export async function meetMatches(db: Db, dancerId: string, opts: { now?: Date; 
       matchedAt: p.matchedAt.toISOString(),
       deck: p.deck,
       festivals: p.festivalSlugs.map(slug => ({ slug, name: festNames.get(slug) ?? slug })),
-      night: pickNight(list, { myCitySlug, myStyles, theirStyles, mine, theirs: theirs.get(p.other) ?? new Set() }),
+      night,
+      met: metByOther.get(p.other) ?? null,
     }
   })
 }

@@ -7,13 +7,13 @@
  * /artists and /@handle (follow.*, review.*), /@handle/book and MCP
  * request_private_class (inquiries.*), course series
  * (businessEvents.createSeries, MCP recurring_series), sign-ups (rsvp.signUp)
- * and the school's Contacts. Re-read against the code on 2026-11-20
- * (RAZ-1072). Not run end to end with a test student and school yet.
+ * and the school's Contacts. Re-read against the code on 2026-11-25
+ * (RAZ-1089: a yes on a private-class request emails the student). Not run end to end with a test student and school yet.
  * Shown at /docs/blueprints/keep-progressing.
  */
 import type { Blueprint, BpGap, BpLaneDef, BpPhaseDef, BpStep } from './blueprint'
 
-export const KEEP_PROGRESSING_BLUEPRINT_UPDATED = '2026-11-20'
+export const KEEP_PROGRESSING_BLUEPRINT_UPDATED = '2026-11-25'
 
 export type KeepLane = 'student' | 'system' | 'school'
 export type KeepPhase = 'goal' | 'find' | 'enroll' | 'weekly' | 'practise' | 'private' | 'progress' | 'next'
@@ -51,8 +51,8 @@ export const keepSteps: BpStep<KeepLane, KeepPhase>[] = [
     note: 'Bio, styles, languages, socials and the schedule of their classes and events, then reviews. “Book <name>” and Follow sit under the photo.' },
   { id: 'reviews', phase: 'find', lane: 'student', name: 'Read / write reviews', status: 'partial', marks: [], route: '/@handle', code: 'ReviewsSection · review.create (MCP write_review)',
     note: '1–5 stars with text. Anyone signed in can review anyone: nothing checks they ever took a class with the teacher, so a review says little about teaching.' },
-  { id: 'follow', phase: 'find', lane: 'student', name: 'Follow the teacher', status: 'partial', marks: ['silent'], route: '/@handle', code: 'follow.toggle', refs: ['P220'],
-    note: 'On artist and promoter pages only (not venues or schools that are venues). Nothing comes of it: no feed, email or My plan item when they announce a new course or workshop.' },
+  { id: 'follow', phase: 'find', lane: 'student', name: 'Follow the teacher', status: 'partial', marks: [], route: '/@handle', code: 'follow.toggle · recordFollowContact', refs: ['P220'],
+    note: 'On artist and promoter pages only (not venues or schools that are venues). Following makes the dancer one of the page’s Contacts it may email (RAZ-1092; the button says so); unfollowing stops it. Still no feed or My plan item when they announce a new course or workshop.' },
   { id: 'school-listed', phase: 'find', lane: 'school', name: 'Classes are listed', status: 'live', marks: [], route: '/@handle', code: 'v3EventSync · businessEvents.create',
     note: 'Classes synced from wedance.vip or created in Business show on the page, the city page and the enroll picker. New followers show on Business → Home (last 7 days) — the page hears about the follower, not the other way round.' },
 
@@ -89,10 +89,10 @@ export const keepSteps: BpStep<KeepLane, KeepPhase>[] = [
   // Private class / workshop
   { id: 'book', phase: 'private', lane: 'student', name: 'Ask for a private class', status: 'live', marks: [], route: '/@handle/book', code: 'BookingInquiryForm → inquiries.send (MCP request_private_class)',
     note: '“Book <name>” → “Workshop or class”, date, message. Works signed out; also from ChatGPT or Claude with the account email.' },
-  { id: 'inbox', phase: 'private', lane: 'school', name: 'Get and answer the request', status: 'partial', marks: ['manual'], route: '/business/network/[username]/bookings', code: 'sendBookingInquiryEmail · inquiries.setStatus',
-    note: 'The team is emailed with Reply-To = the student and sees it under Bookings. The answer is written in email; “answered / declined” is a mark for the team only.' },
-  { id: 'answer', phase: 'private', lane: 'student', name: 'Hear back', status: 'missing', marks: ['wait', 'silent'],
-    note: 'After sending, the student only has their inbox: no copy on My plan, no status, no reminder to the teacher. Agreeing a time and paying happen outside WeDance.' },
+  { id: 'inbox', phase: 'private', lane: 'school', name: 'Get and answer the request', status: 'partial', marks: ['manual'], route: '/business/network/[username]/bookings', code: 'sendBookingInquiryEmail · inquiries.book · inquiries.setStatus',
+    note: 'The team is emailed and sees it under Bookings. “Yes, book it” saves the booking and emails the student, and when the student has a page puts the teacher on a draft event (RAZ-1089). “I replied by email” is still only a mark, and a decline doesn’t email the student.' },
+  { id: 'answer', phase: 'private', lane: 'student', name: 'Hear back', status: 'partial', marks: ['wait'],
+    note: 'A yes emails the student. There is still no list of requests on My plan, a decline doesn’t email them, and agreeing a time and paying happen outside WeDance. The teacher is reminded once, three days after an unanswered request.' },
   { id: 'workshop', phase: 'private', lane: 'student', name: 'Plan festival workshops', status: 'live', marks: [], route: '/events/[id]', code: 'FestivalView (workshop_plan_add)', refs: ['P228'],
     note: 'Pick workshops from a festival’s schedule into your plan, with partner status. Only for festivals with a schedule; a city school’s one-off workshop is just another event.' },
 
@@ -129,8 +129,8 @@ export const keepGaps: BpGap[] = [
     fix: 'Count checked-in classes on the goal (“9 timba classes since September”), and let the teacher mark “ready for the next level”.',
     steps: ['go-class', 'school-attend', 'goal-slider', 'level', 'year', 'teacher-feedback'] },
   { title: 'A private-class request vanishes',
-    why: 'The request is an email to the team. The student never sees it again on WeDance, and the team’s “answered” mark doesn’t reach them, so a missed email is a lost lesson.',
-    fix: 'List sent requests on My plan with their status; email the student when the team marks it answered or declined, and nudge the team after 48 h with no answer.',
+    why: 'A yes emails the student, but a decline doesn’t, and the request never appears on My plan. A missed email is still a lost lesson.',
+    fix: 'List sent requests on My plan with their status, and email the student when the team declines.',
     steps: ['book', 'inbox', 'answer'] },
   { title: 'No path to the next level',
     why: 'A series has no level and no “next course”. When it ends the card disappears, and the school re-gathers its students by hand from Contacts — reaching only those who opted in.',

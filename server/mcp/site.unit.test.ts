@@ -49,6 +49,20 @@ describe('applySitePatch', () => {
     expect(applySitePatch(site(), { sections: [{ id: 'hero', image: '' }] }).sections[0]).not.toHaveProperty('image')
   })
 
+  it('turns on an optional City field with its label, and can hide the promo code (RAZ-1093)', () => {
+    const base = site()
+    base.sections.push({ id: 'join', kind: 'signup', title: { en: 'Join' }, promoLabel: { en: 'Code', de: 'Code' } })
+    const on = applySitePatch(base, { sections: [{ id: 'join', city: { label: { en: 'Your city' } }, hidePromo: true }] })
+    expect(on.sections.find(s => s.id === 'join')).toMatchObject({
+      city: { label: { en: 'Your city' } }, hidePromo: true, promoLabel: { en: 'Code', de: 'Code' }, title: { en: 'Join' },
+    })
+    const off = applySitePatch(on, { sections: [{ id: 'join', city: null, promoLabel: { de: '' } }] })
+    const join = off.sections.find(s => s.id === 'join')!
+    expect(join.city).toBeUndefined()
+    expect(join.promoLabel).toEqual({ en: 'Code' })
+    expect(join.hidePromo).toBe(true)
+  })
+
   it('site-wide fields: domain gets https, SEO merges per language, welcome email', () => {
     const next = applySitePatch(site(), { domain: 'salsaschool.example.org', seo: { description: { en: 'Salsa in Munich' } }, welcome: { subject: { en: 'Welcome!' } } })
     expect(next.domain).toBe('https://salsaschool.example.org')
