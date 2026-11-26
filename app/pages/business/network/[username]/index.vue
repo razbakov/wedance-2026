@@ -7,6 +7,8 @@ import { sizedImage, IMG } from '#shared/utils/image'
  */
 import { ExternalLink, Star, Trash2, Check, Users, Palette, Inbox, Globe, Contact, X, Rocket } from 'lucide-vue-next'
 import { parseInstagramHandle } from '#shared/utils/instagram'
+import { ARTIST_EVENT_TYPES, ARTIST_EVENT_TYPE_LABELS, type ArtistEventType } from '#shared/utils/artistSearch'
+import { citySlug } from '#shared/utils/citySearch'
 import type { VenueDetailsValue } from '~/components/business/BusinessVenueDetails.vue'
 import { venueInfoToForm, venueInfoFromForm } from '#shared/types/venueInfo'
 import { artistOfferToForm, type ArtistOfferForm } from '#shared/types/artistOffer'
@@ -32,6 +34,9 @@ const form = reactive({
   photos: [] as { url: string }[],
   // Promoter pages: this promoter is an influencer (their deliverable is content).
   influencer: false,
+  // Artists: private events they play, and cities they travel to (RAZ-1086).
+  eventTypes: [] as ArtistEventType[],
+  serviceAreas: [] as { city: string; citySlug: string }[],
 })
 // Venues: their details and rooms.
 const venue = reactive<VenueDetailsValue>({ address: '', venueType: '', floorType: '', capacity: null, amenities: [], openingHours: [], floorPlan: null, contact: {}, info: venueInfoToForm(null) })
@@ -79,6 +84,8 @@ async function load(quiet = false) {
       // Older profiles only have the single photo — show it in the gallery.
       photos: p.photos.length ? [...p.photos] : (p.photo ? [{ url: p.photo }] : []),
       influencer: p.influencer,
+      eventTypes: [...p.eventTypes],
+      serviceAreas: p.serviceAreas.map(area => ({ ...area })),
     })
     Object.assign(offer, artistOfferToForm(p.artistOffer))
     offer.songs = artistOfferToForm(p.artistOffer).songs
@@ -123,6 +130,25 @@ function makeMainInstagram(h: string) {
   form.instagram = `https://instagram.com/${h}`
 }
 
+const newArea = ref('')
+const areaError = ref<string | undefined>()
+function toggleEventType(type: ArtistEventType, on: boolean) {
+  form.eventTypes = on ? [...form.eventTypes, type] : form.eventTypes.filter(t => t !== type)
+}
+function addServiceArea() {
+  const city = newArea.value.trim()
+  areaError.value = city ? undefined : 'Choose a city.'
+  if (!city) return
+  const slug = citySlug(city)
+  if (!slug) { areaError.value = 'Choose a city.'; return }
+  if (slug === citySlug(form.city)) { areaError.value = 'That’s already the city on this page.'; return }
+  if (!form.serviceAreas.some(area => area.citySlug === slug)) form.serviceAreas.push({ city, citySlug: slug })
+  newArea.value = ''
+}
+function removeServiceArea(slug: string) {
+  form.serviceAreas = form.serviceAreas.filter(area => area.citySlug !== slug)
+}
+
 function removePhoto(url: string) {
   form.photos = form.photos.filter(p => p.url !== url)
   if (form.photo === url) form.photo = form.photos[0]?.url ?? null
@@ -158,6 +184,7 @@ async function save() {
       photo: form.photo,
       photos: form.photos,
       ...(profileType.value === 'promoter' ? { influencer: form.influencer } : {}),
+      ...(profileType.value === 'artist' ? { eventTypes: form.eventTypes, serviceAreas: form.serviceAreas } : {}),
       ...(profileType.value === 'artist' && offerResult?.success ? {
         artistOffer: {
           services: offerResult.data!.services,
@@ -269,6 +296,32 @@ const photoHint = computed(() => loaded.value?.type === 'artist'
             <Field label="Dance styles" class="sm:col-span-2">
               <DanceStylePicker v-model="form.styles" />
             </Field>
+            <div v-if="profileType === 'artist'" class="sm:col-span-2 grid gap-4">
+              <div>
+                <p class="text-sm font-bold">Event types <span class="font-normal text-muted-foreground">(optional)</span></p>
+                <p class="text-xs text-muted-foreground">So organizers can find you for a wedding, birthday or corporate event.</p>
+                <div class="mt-1 flex flex-wrap gap-x-4">
+                  <Checkbox
+                    v-for="type in ARTIST_EVENT_TYPES"
+                    :key="type"
+                    :model-value="form.eventTypes.includes(type)"
+                    @update:model-value="on => toggleEventType(type, !!on)"
+                  >{{ ARTIST_EVENT_TYPE_LABELS[type] }}</Checkbox>
+                </div>
+              </div>
+              <Field id="edit-service-area" label="Cities you travel to" optional :error="areaError" hint="Besides the city above. Organizers there will find you, including when they filter by that area.">
+                <ul v-if="form.serviceAreas.length" class="mb-2 flex flex-wrap gap-2">
+                  <li v-for="area in form.serviceAreas" :key="area.citySlug" class="inline-flex items-center gap-1 rounded-full border py-1 pl-3 pr-1 text-sm">
+                    {{ area.city }}
+                    <Button type="button" size="icon-sm" variant="ghost" class="size-6" :aria-label="`Remove ${area.city}`" @click="removeServiceArea(area.citySlug)"><X /></Button>
+                  </li>
+                </ul>
+                <div class="flex flex-wrap items-start gap-2">
+                  <CityCombobox v-model="newArea" placeholder="e.g. Munich" class="min-w-[12rem] flex-1 max-w-sm" />
+                  <Button type="button" variant="outline-pill" size="pill-sm" :disabled="!newArea.trim()" @click="addServiceArea">Add</Button>
+                </div>
+              </Field>
+            </div>
             <div v-if="profileType === 'promoter'" class="sm:col-span-2">
               <Checkbox v-model="form.influencer" class="items-start">
                 <span class="font-bold">I’m an influencer</span>

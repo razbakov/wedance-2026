@@ -38,6 +38,7 @@
 import { sql } from 'drizzle-orm'
 import { parseInstagramHandle } from '../../shared/utils/instagram'
 import { fillArtistOffer } from '../../shared/types/artistOffer'
+import { cleanEventTypes, cleanServiceAreas } from '../../shared/utils/artistSearch'
 
 export type DupRow = {
   id: string
@@ -224,8 +225,8 @@ export function renameInEvent(ev: { artists: string[] | null; coOrganizers?: { u
 
 const FILL = ['photo', 'bio', 'city', 'city_slug', 'address', 'lat', 'lng', 'map_url', 'venue_type', 'floor_type', 'capacity', 'floor_plan'] as const
 // The kept profile's columns a merge may change — snapshotted so an undo puts them back.
-const SNAPSHOT = [...FILL, 'socials', 'photos', 'styles', 'amenities', 'contact', 'venue_info', 'instagram_aliases', 'artist_offer'] as const
-const JSON_COLS: Record<string, 'json' | 'jsonb'> = { socials: 'json', styles: 'json', photos: 'jsonb', amenities: 'jsonb', contact: 'jsonb', venue_info: 'jsonb', instagram_aliases: 'jsonb', artist_offer: 'jsonb' }
+const SNAPSHOT = [...FILL, 'socials', 'photos', 'styles', 'amenities', 'contact', 'venue_info', 'instagram_aliases', 'artist_offer', 'event_types', 'service_areas'] as const
+const JSON_COLS: Record<string, 'json' | 'jsonb'> = { socials: 'json', styles: 'json', photos: 'jsonb', amenities: 'jsonb', contact: 'jsonb', venue_info: 'jsonb', instagram_aliases: 'jsonb', artist_offer: 'jsonb', event_types: 'jsonb', service_areas: 'jsonb' }
 
 /**
  * Every column that points at a profile by id. `same` = the other columns of a
@@ -388,6 +389,9 @@ export async function mergeProfile(db: any, from: { id: string; username: string
   const photos = [...(a.photos ?? [])]
   for (const p of (b.photos ?? []) as any[]) if (!photos.some((x: any) => x.url === p.url)) photos.push(p)
   const styles = (a.styles ?? []).length ? a.styles : (b.styles ?? [])
+  // Event types and travel cities (RAZ-1086): keep both, drop a travel city that is the kept page's home city.
+  const eventTypes = cleanEventTypes([...(a.event_types ?? []), ...(b.event_types ?? [])])
+  const serviceAreas = cleanServiceAreas([...(a.service_areas ?? []), ...(b.service_areas ?? [])], a.city)
   const amenities = (a.amenities ?? []).length ? a.amenities : (b.amenities ?? [])
   const contact = { ...(b.contact ?? {}), ...(a.contact ?? {}) }
   // The venue's hints (RAZ-1012): the kept page's own win, the copy fills what it hasn't said.
@@ -399,7 +403,8 @@ export async function mergeProfile(db: any, from: { id: string; username: string
   const aliases = [...new Set([...instagramHandles(a), ...instagramHandles(b)])].filter(h => !mainIg.includes(h))
   await q(sql`update profiles set socials = ${JSON.stringify(socials)}::json, photos = ${JSON.stringify(photos)}::jsonb, styles = ${JSON.stringify(styles)}::json,
     amenities = ${JSON.stringify(amenities)}::jsonb, contact = ${JSON.stringify(contact)}::jsonb, venue_info = ${JSON.stringify(venueInfo)}::jsonb, instagram_aliases = ${JSON.stringify(aliases)}::jsonb,
-    artist_offer = ${JSON.stringify(artistOffer)}::jsonb where id = ${to.id}`)
+    artist_offer = ${JSON.stringify(artistOffer)}::jsonb,
+    event_types = ${JSON.stringify(eventTypes)}::jsonb, service_areas = ${JSON.stringify(serviceAreas)}::jsonb where id = ${to.id}`)
   // Hide the copy, pointing at the one that stays.
   await q(sql`update profiles set status = 'hidden', source_ref = coalesce(source_ref, '{}'::jsonb) || ${JSON.stringify({ mergedInto: to.username, mergedAt: new Date().toISOString() })}::jsonb where id = ${from.id}`)
   return { touched, filled: fill, mergeId }
