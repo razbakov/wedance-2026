@@ -25,7 +25,7 @@ const CHATGPT_FIRST = [
   'create_event', 'update_event', 'publish_event',
   'import_from_instagram', 'my_profiles', 'my_events', 'get_my_event', 'inbox', 'create_my_page',
   'add_venue', 'find_lineup', 'add_profile_from_instagram', 'suggest_venues', 'update_listed_profile',
-  'duplicate_event', 'archive_event', 'cancel_event', 'invite_artist',
+  'duplicate_event', 'archive_event', 'cancel_event', 'invite_artist', 'book_inquiry',
   'flyer_options', 'make_flyer', 'flyer_status', 'flyer_variants', 'fix_flyer', 'write_captions', 'plan_posts',
   'find_events', 'get_event', 'find_festivals', 'get_festival', 'get_profile', 'list_venues', 'list_artists', 'whos_going',
   'me', 'my_plan', 'add_to_plan', 'remove_from_plan', 'my_tickets', 'buy_ticket', 'report_bug',

@@ -69,7 +69,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `notice_opened` | Match toast, the header bell history, or the Meet match card (RAZ-1071). Opening it is the click through to the meetup. | `kind` (match), `via` (toast / bell / meet) |
 | `plan_zoom_opened` | My plan's Today / Week / Month / Year tabs (RAZ-1006): a tab clicked | `tab` (today / week / month / year), `from` |
 | `meet_friends_opened` | `MeetFriendsEntry` on My plan (the card leading to `/meet`, RAZ-989) · `EventMeetPrompt` under "You're in" after signing up to a night (RAZ-981) | `surface` (my_plan / my_plan_empty / `<event surface>_signup`), `people` (dancers waiting in the deck; null = not loaded) |
-| `meet_match_answered` | `MeetMatches` ("Your dance friends" on My plan, RAZ-985): a match's night → "I’m going too" / "I’m going" (added to the plan with `metadata.with` = the match) or "Next time" (an event Skip) | `answer` (going / next_time), `they_going`, `source` (deck / festival), `event_id` |
+| `meet_match_answered` | `MeetMatches` ("Your dance friends" on My plan, RAZ-985): a match's night → "I’m going too" / "I’m going" (added to the plan with `metadata.with` = the match), "Invite <name>" on a night only you planned (same `metadata.with`, RAZ-1098), or "Next time" (an event Skip) | `answer` (going / invite / next_time), `they_going`, `source` (deck / festival), `event_id` |
 | `ritual_booked` | `/meet/ritual` "Book my spot" on a real match (RAZ-1071) | `event_id` |
 | `ritual_revealed` | `/meet/ritual` "Turn your phone" — the symbol is shown to the other person | `event_id` |
 | `ritual_reported` | `/meet/ritual` "Couldn't meet?" saved | `problem` (couldnt_find / no_show / left / unsafe / report_person / other), `event_id` |
@@ -174,6 +174,8 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `server_gig_application_decided` | `gigs.decideApplication` | `gig_id`, `category`, `decision`, `hours_to_decide` |
 | `server_booking_decided` | `election.moderateBooking` (free spaces; commercial venues decide off-platform) | `booking_id`, `decision`, `hours_to_decide`, `redecided`, `free` |
 | `server_inquiry_replied` | `inquiries.setStatus` (first move out of `new`) | `inquiry_id`, `status` (answered / declined), `hours_to_reply`, `profile`, `profile_type`, `$groups` |
+| `server_booking_booked` | `inquiries.book` (web + MCP `book_inquiry`; first time the request becomes a booking, RAZ-1089) | `inquiry_id`, `has_event` (a draft was created on the asker’s page), `hours_to_reply`, `profile`, `profile_type`, `$groups` |
+| `server_booking_inquiry_reminded` | `/api/cron/booking-reminders` (daily; one email, three days after an unanswered request) — **anonymous** | `inquiry_id`, `profile`, `channel: cron` |
 | `server_flyer_generated` | `businessFlyers.make` / `directions` / `again` / `feed` / `fix` / `refresh` (each is an AI paint) | `event_id`, `mode`, `variant_count`, `saved_look`, `references`, `feelings`, `from_kept`, `$groups` |
 | `server_flyer_kept` | `businessFlyers.keep` | `event_id`, `mode`, `post_kind`, `new_look`, `$groups` |
 | `server_caption_written` | `businessFlyers.writeCaption`, `businessPosts.writeCaption` / `writeCaptions` | `event_id`, `language`, `scope` (event / post / plan), `count`, `failed`, `post_kind`, `$groups` |
