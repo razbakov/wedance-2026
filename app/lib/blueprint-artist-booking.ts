@@ -7,7 +7,7 @@
  * RAZ-964, a yes stays on WeDance — RAZ-1089), line-up invites (artistInvites.*), /gigs (gigs.*), /artists,
  * /@handle, the MCP tools (invite_artist, respond_invite, find_lineup, book_inquiry), the
  * Instagram import (#452) and claiming a page. Re-read against the code on
- * 2026-11-25 (RAZ-1072, RAZ-1089). Not run end to end yet. Shown at
+ * 2026-11-25 (RAZ-1072, RAZ-1084, RAZ-1089). Not run end to end yet. Shown at
  * /docs/blueprints/artist-booking.
  */
 import type { Blueprint, BpGap, BpLaneDef, BpPhaseDef, BpStep } from './blueprint'
@@ -45,8 +45,8 @@ export const artistSteps: BpStep<ArtistLane, ArtistPhase>[] = [
   // Be found
   { id: 'directory', phase: 'found', lane: 'organizer', name: 'Browse /artists', status: 'partial', marks: [], route: '/artists', code: 'entity.listArtists',
     note: 'Every visible artist page, filtered by name, dance style, event type (wedding, birthday, corporate) and service area. A city includes artists based there and artists who list it as a place they travel to; the city artists page filters that list by style and event type. It shows no fee, no availability and no past line-ups, and nothing says whether the artist runs the page and will see a request.' },
-  { id: 'profile', phase: 'found', lane: 'organizer', name: 'Look at /@handle', status: 'live', marks: [], route: '/@[handle]', code: 'entity.getByHandle · ReviewsSection',
-    note: 'Bio, photos, videos and socials, the upcoming events they are in the line-up of, reviews, and a Book button that opens /@handle/book.' },
+  { id: 'profile', phase: 'found', lane: 'organizer', name: 'Look at /@handle', status: 'live', marks: [], route: '/@[handle]', code: 'entity.getByHandle · shared/types/artistOffer.ts · ReviewsSection', refs: ['RAZ-1084'],
+    note: 'Bio, photos, videos and socials, and for an artist the private events they play and the cities they travel to when those are set, a song list for playlist inspiration, the services they offer (live show, animation, DJ set, wedding set, party set) and a pricing note in their own words — nothing is shown, and no price is invented, when they left that part blank. Upcoming events they are in the line-up of, reviews, and a Book button that opens /@handle/book.' },
   { id: 'assistant', phase: 'found', lane: 'system', name: 'Found through an AI app', status: 'live', marks: [], code: 'MCP find_lineup → businessEvents.searchProfiles · list_artists',
     note: 'An organiser’s assistant searches pages by name or handle for a line-up, or lists a city’s artists, optionally by dance style and event type (wedding, birthday, corporate). The city includes artists who travel there. If nothing is found, add_profile_from_instagram makes the page.' },
   { id: 'offer', phase: 'found', lane: 'artist', name: 'Post an offer on /gigs', status: 'partial', marks: ['manual'], route: '/gigs', code: 'gigs.create (kind offer)',

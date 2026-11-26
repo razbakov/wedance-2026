@@ -22,6 +22,8 @@ import type { DoorGuest } from '../../shared/utils/doorList'
 import { redactBugReport } from './bugReport'
 import { fitChatgptTools } from './budget'
 import { venueInfoInput, type VenueInfoInput } from '../utils/venueInfo'
+import { artistOfferInput } from '../utils/artistOffer'
+import { mergeArtistOffer } from '../../shared/types/artistOffer'
 import type { ProfileSite } from '../../shared/types/profileSite'
 import { artistMatchesSearch } from '../../shared/utils/artistSearch'
 
@@ -91,6 +93,18 @@ const venueInfo = z.object({
   indoor_shoes_only: venueInfoInput.shape.indoorShoesOnly,
   cloakroom: venueInfoInput.shape.cloakroom,
 }).optional().describe('Venues only: what’s true about the venue for every event there, shown in the event’s venue row. Only the parts you pass change; null clears a part. E.g. { transit: { line: "S2", color: "#76B82A", stop: "Dachau Bahnhof", detail: "20 min walk or 5 min by bus" }, parking: { text: "Garage next door", detail: "Entrance by the Audi dealership" }, indoor_shoes_only: true, cloakroom: "no" }.')
+// An artist's song list, services and public pricing (RAZ-1084). Same shape as the page editor.
+const artistOffer = z.object({
+  songs: artistOfferInput.shape.songs,
+  services: artistOfferInput.shape.services,
+  pricing: artistOfferInput.shape.pricing,
+}).optional().describe('Artists only. Song list, services (live_show, animation, dj_set, wedding, party) and a pricing note in the artist’s own words. Only the parts you pass change. Empty pricing clears it — do not invent a number.')
+const toArtistOffer = (v: z.infer<typeof artistOffer>) => v && {
+  ...(v.songs !== undefined ? { songs: v.songs } : {}),
+  ...(v.services !== undefined ? { services: v.services } : {}),
+  ...(v.pricing !== undefined ? { pricing: v.pricing } : {}),
+}
+
 const toVenueInfo = (v: z.infer<typeof venueInfo>): VenueInfoInput | undefined => v && {
   ...(v.transit !== undefined ? { transit: v.transit } : {}),
   ...(v.parking !== undefined ? { parking: v.parking } : {}),
@@ -367,7 +381,7 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'get_profile', title: 'WeDance profile', scopes: [], annotations: READ,
-    description: 'A public WeDance page by handle: an artist, venue, organizer or promoter (bio, styles, city, socials, rooms), or a dancer.',
+    description: 'A public WeDance page by handle: an artist, venue, organizer or promoter (bio, styles, city, socials, rooms; an artist’s song list, services and their own pricing note in profile.artistOffer, plus the event types they play and cities they travel to), or a dancer.',
     input: { handle },
     run: async (t, a) => {
       const p: any = await t.caller.entity.getByHandle({ handle: a.handle }).catch(() => null)
@@ -925,7 +939,7 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'update_listed_profile', title: 'Complete a page I added', scopes: ['business:write'], business: true, annotations: IDEMPOTENT,
-    description: 'Fill in or fix an UNCLAIMED page (venue, artist, organizer) that the user added (add_venue, add_profile_from_instagram) or that is the venue, organizer or an artist of one of their events: name, bio, city, address, socials, styles, photo, for an artist the event types they play and cities they travel to, and for a venue its venue_info (nearest stop, parking, indoor shoes, cloakroom). Use it right after adding a page with gaps, e.g. a venue missing its address. Only the fields you pass change. No reconnect needed. Pages the user runs: update_business_profile; claimed pages someone else runs are refused (their owner edits them).',
+    description: 'Fill in or fix an UNCLAIMED page (venue, artist, organizer) that the user added (add_venue, add_profile_from_instagram) or that is the venue, organizer or an artist of one of their events: name, bio, city, address, socials, styles, photo, for an artist the event types they play, cities they travel to, and their offer (song list, services, pricing in their own words — do not invent a number), and for a venue its venue_info (nearest stop, parking, indoor shoes, cloakroom). Use it right after adding a page with gaps, e.g. a venue missing its address. Only the fields you pass change. No reconnect needed. Pages the user runs: update_business_profile; claimed pages someone else runs are refused (their owner edits them).',
     input: {
       handle,
       name: z.string().trim().min(1).max(120).optional(),
@@ -939,15 +953,18 @@ export const TOOLS: ToolDef[] = [
       })).max(10).optional().describe('Links by platform; platforms you leave out stay as they are.'),
       photo: z.string().url().nullable().optional().describe('Direct link to a photo (copied to WeDance, so expiring Instagram links are fine); null removes it.'),
       venue_info: venueInfo,
+      offer: artistOffer,
       event_types: z.array(z.enum(['wedding', 'birthday', 'corporate'])).max(3).optional().describe('Artists only. Replaces the list. wedding, birthday, corporate.'),
       service_areas: z.array(z.string().trim().min(1).max(120)).max(20).optional().describe('Artists only. Cities they travel to, besides their home city, e.g. ["Munich"]. Replaces the list.'),
     },
     run: async (t, a) => {
-      const { handle: username, venue_info, event_types, service_areas, ...fields } = a
+      const { handle: username, venue_info, offer, event_types, service_areas, ...fields } = a
       const info = toVenueInfo(venue_info)
+      const songs = toArtistOffer(offer)
       const r: any = await t.caller.listedProfiles.update({
         username, ...fields,
         ...(info ? { venueInfo: info } : {}),
+        ...(songs ? { artistOffer: songs } : {}),
         ...(event_types ? { eventTypes: event_types } : {}),
         ...(service_areas ? { serviceAreas: service_areas.map((city: string) => ({ city })) } : {}),
       })
@@ -1122,7 +1139,7 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'update_business_profile', title: 'Edit a business page', scopes: ['business:publish'], business: true, annotations: OUTWARD, confirm: true,
-    description: 'Change one of my public pages (artist, venue, organizer, promoter): name, bio, city, styles, photo, address, a venue’s venue_info (nearest stop, parking, indoor shoes, cloakroom), an artist’s event types (wedding, birthday, corporate) and cities they travel to, socials (links shown on the WeDance page: website, Instagram, Facebook…), and for a promoter page the influencer flag. Changing what is ON the page’s own website (when WeDance runs it, see my_profiles website) is update_my_site. Preview → confirm. Only pages the user runs (my_profiles); an unclaimed page they added or have on their events: update_listed_profile.',
+    description: 'Change one of my public pages (artist, venue, organizer, promoter): name, bio, city, styles, photo, address, a venue’s venue_info (nearest stop, parking, indoor shoes, cloakroom), an artist’s event types (wedding, birthday, corporate), cities they travel to, and offer (song list, services, and pricing in their own words — do not invent a number), socials (links shown on the WeDance page: website, Instagram, Facebook…), and for a promoter page the influencer flag. Changing what is ON the page’s own website (when WeDance runs it, see my_profiles website) is update_my_site. Preview → confirm. Only pages the user runs (my_profiles); an unclaimed page they added or have on their events: update_listed_profile.',
     input: {
       profile, name: z.string().trim().min(1).max(120).optional(), bio: z.string().max(4000).optional(), city: z.string().max(120).optional(),
       styles: z.array(z.string().trim().min(1).max(40)).max(20).optional(), photo: z.string().url().nullable().optional(), address: z.string().max(300).optional(),
@@ -1132,29 +1149,35 @@ export const TOOLS: ToolDef[] = [
       })).max(10).optional().describe('Links by platform; platforms you leave out stay as they are.'),
       influencer: z.boolean().optional().describe('Promoter pages only: true = this promoter is an influencer (their deliverable is content; promo_kit is made for them).'),
       venue_info: venueInfo,
+      offer: artistOffer,
       event_types: z.array(z.enum(['wedding', 'birthday', 'corporate'])).max(3).optional().describe('Artists only. Replaces the list. wedding, birthday, corporate.'),
       service_areas: z.array(z.string().trim().min(1).max(120)).max(20).optional().describe('Artists only. Cities they travel to, besides their home city, e.g. ["Munich"]. Replaces the list.'),
       confirm_token: confirmToken,
     },
     preview: async (t, a) => {
       const cur: any = await t.caller.business.get({ username: a.profile })
+      if (a.offer && cur.type !== 'artist') throw new Error('Only artist pages have a song list, services and pricing.')
       const fields = ['name', 'bio', 'city', 'styles', 'photo', 'address', 'influencer'].filter(k => a[k] !== undefined)
       const changes: Record<string, unknown> = Object.fromEntries(fields.map(k => [k, { from: cur[k], to: a[k] }]))
       if (a.socials) changes.socials = { from: cur.socials ?? [], to: mergeSocials(cur.socials, a.socials) }
       if (a.venue_info) changes.venue_info = { from: cur.venueInfo ?? {}, to: a.venue_info }
+      const songs = toArtistOffer(a.offer)
+      if (songs) changes.offer = { from: cur.artistOffer, to: mergeArtistOffer(cur.artistOffer, songs) }
       if (a.event_types) changes.event_types = { from: cur.eventTypes ?? [], to: a.event_types }
       if (a.service_areas) changes.service_areas = { from: (cur.serviceAreas ?? []).map((s: { city: string }) => s.city), to: a.service_areas }
       return { page: cur.name, changes }
     },
     run: async (t, a) => {
-      const { profile: username, confirm_token: _c, socials, venue_info, event_types, service_areas, ...fields } = a
+      const { profile: username, confirm_token: _c, socials, venue_info, offer, event_types, service_areas, ...fields } = a
       const info = toVenueInfo(venue_info)
+      const songs = toArtistOffer(offer)
       // business.update replaces the whole list; merge per platform so a website edit keeps the Instagram.
       const merged = socials ? mergeSocials(((await t.caller.business.get({ username })) as any).socials, socials) : undefined
       return t.caller.business.update({
         username, ...fields,
         ...(merged ? { socials: merged } : {}),
         ...(info ? { venueInfo: info } : {}),
+        ...(songs ? { artistOffer: songs } : {}),
         ...(event_types ? { eventTypes: event_types } : {}),
         ...(service_areas ? { serviceAreas: service_areas.map((city: string) => ({ city })) } : {}),
       })

@@ -509,6 +509,9 @@ export const profiles = pgTable('profiles', {
   photos: jsonb('photos').$type<{ url: string }[]>().notNull().default([]),
   // Video links (YouTube embed URLs) on the artist's page (migration 0033).
   videos: jsonb('videos').$type<{ url: string }[]>().notNull().default([]),
+  // Song list, services and the artist's own public pricing (0081, shared/types/artistOffer.ts).
+  // Typed on WeDance only — the v3 sync never writes it. Empty pricing means not stated.
+  artistOffer: jsonb('artist_offer').$type<import('../../shared/types/artistOffer').ArtistOffer>().notNull().default({ songs: [], services: [], pricing: '' }),
   claimed: boolean('claimed').default(false),
   status: text('status').notNull().default('visible').$type<'visible' | 'hidden'>(),
   // Step 14 (ADR-004): profile roles — teacher, dj, performer, mc, band,

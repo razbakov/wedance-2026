@@ -9,6 +9,8 @@ import { mergeSocials, type Social } from '../../../shared/utils/socials'
 import type { GrantCtx } from '../../utils/profileAccess'
 import { venueInfoInput, mergeVenueInfo } from '../../utils/venueInfo'
 import { cleanVenueInfo } from '../../../shared/types/venueInfo'
+import { artistOfferInput } from '../../utils/artistOffer'
+import { saveArtistOffer } from '../../../shared/types/artistOffer'
 import { artistDiscoveryFields, artistDiscoveryShape } from '../../utils/artistAreas'
 
 /**
@@ -36,6 +38,8 @@ export const listedProfileFields = {
   photo: z.string().url().nullable(),
   // Venues only (RAZ-1012): nearest stop, parking, indoor shoes, cloakroom. Only the parts given change.
   venueInfo: venueInfoInput,
+  // Artists only (RAZ-1084): song list, services, pricing in their own words. Only the parts given change.
+  artistOffer: artistOfferInput,
   // Artists only (RAZ-1086).
   eventTypes: artistDiscoveryShape.eventTypes,
   serviceAreas: artistDiscoveryShape.serviceAreas,
@@ -95,11 +99,19 @@ export const listedProfilesRouter = router({
     .input(z.object(listedProfileFields).partial().extend({ username: z.string().min(1).transform(h => h.replace(/^@/, '')) }))
     .mutation(async ({ ctx, input }) => {
       const p = await requireListedEditor(ctx, input.username)
-      const { username: _u, city, socials, photo, address, venueInfo, eventTypes, serviceAreas, ...plain } = input
+      const { username: _u, city, socials, photo, address, venueInfo, artistOffer, eventTypes, serviceAreas, ...plain } = input
       const set: Record<string, unknown> = { ...plain }
       if (venueInfo) {
         if (p.type !== 'venue') throw new TRPCError({ code: 'BAD_REQUEST', message: `@${p.username} isn't a venue: only venues have getting-there hints.` })
         set.venueInfo = cleanVenueInfo(mergeVenueInfo(p.venueInfo, venueInfo))
+      }
+      if (artistOffer) {
+        try {
+          set.artistOffer = saveArtistOffer(p.type, p.artistOffer, artistOffer)
+        } catch (e) {
+          if (e instanceof Error && /artist pages/.test(e.message)) throw new TRPCError({ code: 'BAD_REQUEST', message: e.message })
+          throw e
+        }
       }
       // Same city resolution as addVenue: canonical name + slug from `cities`.
       if (city !== undefined) {
@@ -124,7 +136,8 @@ export const listedProfilesRouter = router({
       const [after] = await ctx.db.select({
         username: profiles.username, name: profiles.name, type: profiles.type, bio: profiles.bio, city: profiles.city,
         address: profiles.address, styles: profiles.styles, socials: profiles.socials, photo: profiles.photo,
-        venueInfo: profiles.venueInfo, eventTypes: profiles.eventTypes, serviceAreas: profiles.serviceAreas,
+        venueInfo: profiles.venueInfo, artistOffer: profiles.artistOffer,
+        eventTypes: profiles.eventTypes, serviceAreas: profiles.serviceAreas,
       }).from(profiles).where(eq(profiles.id, p.id))
       return { saved: true, changed: Object.keys(set).filter(k => k !== 'citySlug'), profile: after }
     }),

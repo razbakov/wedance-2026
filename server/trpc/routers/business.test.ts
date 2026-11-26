@@ -54,6 +54,30 @@ describe.skipIf(!DATABASE_URL)('business router', () => {
     expect(p.bio).toBe('Teaches Timba')
     expect(p.photo).toBe('https://example.com/a.jpg')
 
+    await caller(owner).business.update({
+      username,
+      artistOffer: {
+        songs: [{ title: 'Candela', url: 'https://youtu.be/abc' }],
+        services: ['party', 'live_show'],
+        pricing: '  On request  ',
+      },
+    })
+    const offer = (await caller(owner).business.get({ username })).artistOffer
+    expect(offer).toEqual({
+      songs: [{ title: 'Candela', url: 'https://youtu.be/abc' }],
+      services: ['live_show', 'party'],
+      pricing: 'On request',
+    })
+    expect((await caller(null).entity.getByHandle({ handle: username }))?.profile.artistOffer).toEqual(offer)
+    await caller(owner).business.update({ username, artistOffer: { pricing: '' } })
+    const cleared = (await caller(owner).business.get({ username })).artistOffer
+    expect(cleared.pricing).toBe('')
+    expect(cleared.songs).toEqual(offer.songs)
+
+    const { username: hall } = await caller(owner).business.create({ type: 'venue', name: `${tag} Hall` })
+    createdProfiles.push(hall)
+    await expect(caller(owner).business.update({ username: hall, artistOffer: { pricing: '€500' } })).rejects.toThrow(/artist pages/)
+
     await expect(caller(other).business.update({ username, bio: 'hijack' })).rejects.toThrow('You don’t manage this profile.')
     await expect(caller(other).business.get({ username })).rejects.toThrow('You don’t manage this profile.')
     expect((await caller(other).business.canManage({ username })).canManage).toBe(false)

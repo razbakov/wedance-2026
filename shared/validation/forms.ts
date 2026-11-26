@@ -9,6 +9,7 @@ import { parseInstagramLink } from '../utils/instagram'
 import { DANCE_LEVELS } from '../utils/styleLevelMix'
 import { MAILING_BODY_MAX, MAILING_SUBJECT_MAX } from '../utils/contactMailing'
 import { EVENT_ARTISTS_MAX, PASS_DESCRIPTION_MAX, PRACTICAL_INFO_LINE_MAX, PRACTICAL_INFO_MAX } from '../utils/eventLimits'
+import { ARTIST_OFFER_LIMITS, ARTIST_SERVICE_IDS } from '../types/artistOffer'
 import {
   DANCE_ROLES,
   commaList,
@@ -416,6 +417,31 @@ export const GiveawaySchema = v.pipe(
     ['endsAt'],
   ),
 )
+
+// ── Business (business.update artistOffer, RAZ-1084) ────────────────────────
+
+const ArtistSongSchema = v.pipe(
+  v.object({
+    title: v.pipe(v.string(), v.trim(), v.maxLength(ARTIST_OFFER_LIMITS.title, 'Keep the song title under 120 characters.')),
+    by: v.pipe(v.string(), v.trim(), v.maxLength(ARTIST_OFFER_LIMITS.by, 'Keep that under 80 characters.')),
+    url: optionalWebUrl('Paste a full link, starting with https://'),
+  }),
+  v.forward(
+    v.partialCheck(
+      [['title'], ['by'], ['url']],
+      (input) => !(input.by || input.url) || !!input.title,
+      'Add the song title.',
+    ),
+    ['title'],
+  ),
+)
+
+/** Song list, services and a pricing note the artist writes. A blank price stays blank. */
+export const ArtistOfferSchema = v.object({
+  services: v.pipe(v.array(v.picklist(ARTIST_SERVICE_IDS)), v.maxLength(ARTIST_SERVICE_IDS.length)),
+  pricing: v.pipe(v.string(), v.trim(), v.maxLength(ARTIST_OFFER_LIMITS.pricing, 'Keep the pricing note under 400 characters.')),
+  songs: v.pipe(v.array(ArtistSongSchema), v.maxLength(ARTIST_OFFER_LIMITS.songs, 'A song list can hold 40 songs.')),
+})
 
 // ── Business (business.create) ───────────────────────────────────────────────
 

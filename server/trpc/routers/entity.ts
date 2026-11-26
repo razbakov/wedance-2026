@@ -3,6 +3,7 @@ import { eq, and, or, sql, inArray } from 'drizzle-orm'
 import { router, publicProcedure } from '../trpc'
 import { profiles, bookableSpaces, networkLinks } from '../../database/schema'
 import { personForPage } from '../../utils/personPage'
+import { cleanArtistOffer, EMPTY_ARTIST_OFFER } from '../../../shared/types/artistOffer'
 import { artistTravelsToCity } from '../../utils/artistAreas'
 
 /**
@@ -188,6 +189,7 @@ export const entityRouter = router({
           moderatorSince: profiles.moderatorSince,
           socials: profiles.socials,
           claimed: profiles.claimed,
+          artistOffer: profiles.artistOffer,
         })
         .from(profiles)
         .where(and(eq(profiles.username, input.handle), eq(profiles.status, 'visible')))
@@ -242,6 +244,8 @@ export const entityRouter = router({
           moderatorSince: p.moderatorSince ?? null,
           socials: p.socials ?? [],
           claimed: p.claimed ?? false,
+          // Artists only. Empty pricing is "not stated" — never a number we made up.
+          artistOffer: p.type === 'artist' ? cleanArtistOffer(p.artistOffer) : EMPTY_ARTIST_OFFER,
         },
         spaces,
         person,

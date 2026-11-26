@@ -11,6 +11,7 @@ import { ARTIST_EVENT_TYPES, ARTIST_EVENT_TYPE_LABELS, type ArtistEventType } fr
 import { citySlug } from '#shared/utils/citySearch'
 import type { VenueDetailsValue } from '~/components/business/BusinessVenueDetails.vue'
 import { venueInfoToForm, venueInfoFromForm } from '#shared/types/venueInfo'
+import { artistOfferToForm, type ArtistOfferForm } from '#shared/types/artistOffer'
 import type { Room } from '~/components/business/BusinessVenueRooms.vue'
 
 definePageMeta({ layout: 'business' })
@@ -40,11 +41,13 @@ const form = reactive({
 // Venues: their details and rooms.
 const venue = reactive<VenueDetailsValue>({ address: '', venueType: '', floorType: '', capacity: null, amenities: [], openingHours: [], floorPlan: null, contact: {}, info: venueInfoToForm(null) })
 const rooms = ref<Room[]>([])
+const offer = reactive<ArtistOfferForm>({ services: [], pricing: '', songs: [] })
+const offerForm = ref<{ validate: () => { success: boolean; data?: { services: ArtistOfferForm['services']; pricing: string; songs: { title: string; by: string; url?: string }[] } } } | null>(null)
 const keptRooms = ref<string[]>([])
 const newPhoto = ref('')
 // Last loaded/saved state — drives the honest Saved / Unsaved label.
 const snapshot = ref('')
-const state = () => JSON.stringify([form, venue, rooms.value])
+const state = () => JSON.stringify([form, venue, rooms.value, offer])
 const dirty = computed(() => !!snapshot.value && state() !== snapshot.value)
 
 const SOCIALS = ['instagram', 'website', 'facebook'] as const
@@ -84,6 +87,8 @@ async function load(quiet = false) {
       eventTypes: [...p.eventTypes],
       serviceAreas: p.serviceAreas.map(area => ({ ...area })),
     })
+    Object.assign(offer, artistOfferToForm(p.artistOffer))
+    offer.songs = artistOfferToForm(p.artistOffer).songs
     Object.assign(venue, {
       address: p.address, venueType: p.venueType, floorType: p.floorType, capacity: p.capacity,
       amenities: [...p.amenities], openingHours: p.openingHours.map(h => ({ ...h })), floorPlan: p.floorPlan, contact: { ...p.contact },
@@ -155,6 +160,8 @@ const savedAt = ref<number | null>(null)
 async function save() {
   nameError.value = form.name.trim() ? undefined : 'The name can’t be empty.'
   if (nameError.value) return
+  const offerResult = profileType.value === 'artist' ? offerForm.value?.validate() : undefined
+  if (offerResult && !offerResult.success) return
   saving.value = true
   error.value = null
   try {
@@ -178,6 +185,17 @@ async function save() {
       photos: form.photos,
       ...(profileType.value === 'promoter' ? { influencer: form.influencer } : {}),
       ...(profileType.value === 'artist' ? { eventTypes: form.eventTypes, serviceAreas: form.serviceAreas } : {}),
+      ...(profileType.value === 'artist' && offerResult?.success ? {
+        artistOffer: {
+          services: offerResult.data!.services,
+          pricing: offerResult.data!.pricing,
+          songs: offerResult.data!.songs.filter(s => s.title).map(s => ({
+            title: s.title,
+            ...(s.by ? { by: s.by } : {}),
+            ...(s.url ? { url: s.url } : {}),
+          })),
+        },
+      } : {}),
       ...(p.type === 'venue' ? {
         address: venue.address, floorType: venue.floorType, venueType: venue.venueType,
         capacity: venue.capacity || null, amenities: venue.amenities, openingHours: venue.openingHours.filter(h => h.hours.trim()),
@@ -362,6 +380,8 @@ const photoHint = computed(() => loaded.value?.type === 'artist'
             </div>
           </div>
         </section>
+
+        <BusinessArtistOffer v-if="profileType === 'artist'" ref="offerForm" v-model="offer" class="mt-4" />
 
         <template v-if="loaded.type === 'venue'">
           <BusinessVenueDetails v-model="venue" class="mt-4" />
