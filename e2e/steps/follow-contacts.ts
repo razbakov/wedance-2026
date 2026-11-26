@@ -55,6 +55,7 @@ async function seedPage(c3: C3World, type: PageType) {
   c3.cleanup.push(async () => {
     // follows.profile_id has no ON DELETE CASCADE, so it goes before the page.
     await sql(`DELETE FROM follows WHERE profile_id = $1 OR dancer_id = ANY($2::uuid[])`, [p!.id, [owner, fan]])
+    await sql(`DELETE FROM profile_members WHERE profile_id = $1`, [p!.id])
     await sql(`DELETE FROM profiles WHERE id = $1`, [p!.id])
     await sql(`DELETE FROM sessions WHERE dancer_id = ANY($1::uuid[])`, [[owner, fan]])
     await sql(`DELETE FROM dancers WHERE id = ANY($1::uuid[])`, [[owner, fan]])
@@ -108,6 +109,6 @@ Then('the fan is listed with their email as {string}', async ({ page, c3 }, sour
 })
 
 Then('the page can email {int} contact(s)', async ({ page }, n: number) => {
-  // The intro also says "can be emailed". The count is the stats line: "N can be emailed".
+  // The page intro also says "can be emailed". The count is the stats line: "N can be emailed".
   await expect(page.getByText(`${n} can be emailed`, { exact: false })).toBeVisible()
 })
