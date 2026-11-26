@@ -38,7 +38,7 @@ type Artist = {
   languages: string[]
   bio: string | null
   eventTypes: string[]
-  serviceAreas: { city: string; citySlug: string }[]
+  serviceAreas: { city?: string; citySlug?: string; slug?: string; name?: string }[]
 }
 
 const langLabel: Record<string, string> = { en: 'EN', es: 'ES', de: 'DE', fr: 'FR', pt: 'PT', it: 'IT', ru: 'RU', hu: 'HU', sl: 'SL' }

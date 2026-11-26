@@ -25,7 +25,7 @@ export type ArtistSearchRecord = {
   citySlug?: string | null
   styles?: readonly string[] | null
   eventTypes?: readonly string[] | null
-  serviceAreas?: readonly { city?: string | null; citySlug?: string | null }[] | null
+  serviceAreas?: readonly { city?: string | null; citySlug?: string | null; name?: string | null; slug?: string | null }[] | null
 }
 
 export type ArtistSearchFilters = {
@@ -68,7 +68,7 @@ export function artistServesArea(artist: ArtistSearchRecord, area: string): bool
   const wantName = normalizeCity(area)
   if (!wantSlug && !wantName) return true
   if (samePlace(artist.city, artist.citySlug, wantName, wantSlug)) return true
-  return (artist.serviceAreas ?? []).some(a => samePlace(a.city, a.citySlug, wantName, wantSlug))
+  return (artist.serviceAreas ?? []).some(a => samePlace(a.city || a.name, a.citySlug || a.slug, wantName, wantSlug))
 }
 
 /** True when the area is somewhere they travel to, not the city on their page. */
@@ -106,7 +106,7 @@ export function artistAreaChoices(artists: readonly ArtistSearchRecord[]): strin
   }
   for (const artist of artists) {
     add(artist.city)
-    for (const area of artist.serviceAreas ?? []) add(area.city)
+    for (const area of artist.serviceAreas ?? []) add(area.city || area.name)
   }
   return [...bySlug.values()].sort((a, b) => a.localeCompare(b))
 }
@@ -116,15 +116,15 @@ export function artistAreaChoices(artists: readonly ArtistSearchRecord[]): strin
  * rows are dropped. The slug is a fallback until a city lookup replaces it.
  */
 export function cleanServiceAreas(
-  areas: readonly { city?: string | null; citySlug?: string | null }[],
+  areas: readonly { city?: string | null; citySlug?: string | null; name?: string | null; slug?: string | null }[],
   homeCity: string | null | undefined,
 ): ArtistServiceArea[] {
   const home = homeCity ? citySlug(homeCity) : ''
   const out: ArtistServiceArea[] = []
   const seen = new Set<string>()
   for (const area of areas) {
-    const city = (area.city ?? '').trim()
-    const slug = citySlug((area.citySlug || city).trim())
+    const city = (area.city || area.name || '').trim()
+    const slug = citySlug((area.citySlug || area.slug || city).trim())
     if (!city || !slug || slug === home || seen.has(slug)) continue
     seen.add(slug)
     out.push({ city, citySlug: slug })

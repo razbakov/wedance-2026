@@ -63,6 +63,13 @@ describe('artistMatchesSearch', () => {
     expect(artistMatchesSearch(los, { eventType: 'party' })).toBe(false)
   })
 
+  it('matches a travel city stored as slug and name', () => {
+    const traveler = { ...los, serviceAreas: [{ slug: 'munich', name: 'Munich' }] }
+    expect(artistMatchesSearch(traveler, { serviceArea: 'Munich' })).toBe(true)
+    expect(artistTravelsTo(traveler, 'Munich')).toBe(true)
+    expect(artistAreaChoices([traveler])).toEqual(['Barcelona', 'Munich'])
+  })
+
   it('matches a service area by home city or a city the artist travels to', () => {
     expect(artistMatchesSearch(claudio, { serviceArea: 'Munich' })).toBe(true)
     expect(artistMatchesSearch(claudio, { serviceArea: 'munich' })).toBe(true)
@@ -103,6 +110,10 @@ describe('cleanEventTypes', () => {
 })
 
 describe('cleanServiceAreas', () => {
+  it('reads slug and name', () => {
+    expect(cleanServiceAreas([{ slug: 'munich', name: 'Munich' }], null)).toEqual([{ city: 'Munich', citySlug: 'munich' }])
+  })
+
   it('drops blanks, the home city and duplicate cities', () => {
     expect(cleanServiceAreas([
       { city: ' Munich ' },

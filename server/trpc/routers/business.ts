@@ -18,6 +18,7 @@ import { pageUsage, deleteBlocker, deleteProfile } from '../../utils/deleteProfi
 import { findLikelyDuplicates, linksInstagramSql, notMerged } from '../../utils/profileDupes'
 import { scheduleInstagramImport } from '../../utils/instagram/profileImport'
 import { artistDiscoveryFields, artistDiscoveryShape } from '../../utils/artistAreas'
+import { cleanServiceAreas, withoutHomeCity } from '../../../shared/utils/serviceAreas'
 
 /**
  * Business mode — artists, venues and organizers managing their own profile.
@@ -473,9 +474,10 @@ export const businessRouter = router({
         name: p.name,
         bio: p.bio ?? '',
         city: p.city ?? '',
+        citySlug: p.citySlug ?? '',
+        serviceAreas: cleanServiceAreas(p.serviceAreas),
         styles: p.styles ?? [],
         eventTypes: p.eventTypes ?? [],
-        serviceAreas: p.serviceAreas ?? [],
         photo: p.photo ?? null,
         photos: p.photos ?? [],
         socials: p.socials ?? [],
@@ -549,7 +551,7 @@ export const businessRouter = router({
       influencer: z.boolean().optional(),
       // Other Instagram accounts of this business (#458); the main one is in socials.
       instagramAliases: z.array(z.string().trim().min(1).max(300)).max(10).optional(),
-      // Artists only (RAZ-1086): private events they play, and cities they travel to.
+      // Artists only: private events they play, and other cities they play in. Replaces each list. [] clears it.
       eventTypes: artistDiscoveryShape.eventTypes.optional(),
       serviceAreas: artistDiscoveryShape.serviceAreas.optional(),
     }))
@@ -577,8 +579,17 @@ export const businessRouter = router({
         set.city = fields.city || null
         set.citySlug = await citySlugFor(ctx.db, fields.city || null)
       }
-      const homeCity = fields.city !== undefined ? (fields.city || null) : (p.city ?? null)
-      Object.assign(set, await artistDiscoveryFields(ctx.db, fields.type ?? p.type, homeCity, { eventTypes, serviceAreas }))
+      const nextType = fields.type ?? p.type
+      const homeName = fields.city !== undefined ? (fields.city || null) : (p.city ?? null)
+      const homeSlugs = [fields.city !== undefined ? (set.citySlug as string | null) : p.citySlug]
+      if (eventTypes !== undefined || serviceAreas !== undefined) {
+        Object.assign(set, await artistDiscoveryFields(ctx.db, nextType, homeName, { eventTypes, serviceAreas }))
+      } else if (nextType !== 'artist') {
+        if (cleanServiceAreas(p.serviceAreas).length) set.serviceAreas = []
+        if ((p.eventTypes ?? []).length) set.eventTypes = []
+      } else if (fields.city !== undefined) {
+        set.serviceAreas = withoutHomeCity(cleanServiceAreas(p.serviceAreas), homeSlugs, homeName)
+      }
       // The hero must be one of the gallery photos (or empty).
       if (fields.photos && fields.photo === undefined && p.photo && !fields.photos.some(ph => ph.url === p.photo)) {
         set.photo = fields.photos[0]?.url ?? null

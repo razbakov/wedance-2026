@@ -7,8 +7,9 @@ import { sizedImage, IMG } from '#shared/utils/image'
  */
 import { ExternalLink, Star, Trash2, Check, Users, Palette, Inbox, Globe, Contact, X, Rocket } from 'lucide-vue-next'
 import { parseInstagramHandle } from '#shared/utils/instagram'
+import { SERVICE_AREAS_MAX } from '#shared/utils/serviceAreas'
 import { ARTIST_EVENT_TYPES, ARTIST_EVENT_TYPE_LABELS, type ArtistEventType } from '#shared/utils/artistSearch'
-import { citySlug } from '#shared/utils/citySearch'
+import type { CityOption } from '#shared/utils/citySearch'
 import type { VenueDetailsValue } from '~/components/business/BusinessVenueDetails.vue'
 import { venueInfoToForm, venueInfoFromForm } from '#shared/types/venueInfo'
 import type { Room } from '~/components/business/BusinessVenueRooms.vue'
@@ -26,6 +27,8 @@ const error = ref<string | null>(null)
 
 const form = reactive({
   name: '', city: '', bio: '', styles: [] as string[],
+  // Other cities this artist plays in (RAZ-1083). Home city stays in `city`.
+  serviceAreas: [] as { slug: string; name: string }[],
   instagram: '', website: '', facebook: '',
   // Other Instagram accounts this business has had (#458): they help find this page, never shown.
   instagramAliases: [] as string[],
@@ -33,9 +36,8 @@ const form = reactive({
   photos: [] as { url: string }[],
   // Promoter pages: this promoter is an influencer (their deliverable is content).
   influencer: false,
-  // Artists: private events they play, and cities they travel to (RAZ-1086).
+  // Private events this artist plays (RAZ-1086): wedding, birthday, corporate.
   eventTypes: [] as ArtistEventType[],
-  serviceAreas: [] as { city: string; citySlug: string }[],
 })
 // Venues: their details and rooms.
 const venue = reactive<VenueDetailsValue>({ address: '', venueType: '', floorType: '', capacity: null, amenities: [], openingHours: [], floorPlan: null, contact: {}, info: venueInfoToForm(null) })
@@ -73,16 +75,17 @@ async function load(quiet = false) {
   try {
     const p = await $trpc.business.get.query({ username: username.value })
     loaded.value = p
+    homeSlug.value = p.citySlug ?? ''
     Object.assign(form, {
       name: p.name, city: p.city, bio: p.bio, styles: [...p.styles],
+      serviceAreas: (p.serviceAreas ?? []).map(a => ({ slug: a.slug, name: a.name })),
       instagram: socialOf(p, 'instagram'), website: socialOf(p, 'website'), facebook: socialOf(p, 'facebook'),
       instagramAliases: [...p.instagramAliases],
       photo: p.photo,
       // Older profiles only have the single photo — show it in the gallery.
       photos: p.photos.length ? [...p.photos] : (p.photo ? [{ url: p.photo }] : []),
       influencer: p.influencer,
-      eventTypes: [...p.eventTypes],
-      serviceAreas: p.serviceAreas.map(area => ({ ...area })),
+      eventTypes: [...(p.eventTypes ?? [])],
     })
     Object.assign(venue, {
       address: p.address, venueType: p.venueType, floorType: p.floorType, capacity: p.capacity,
@@ -125,28 +128,48 @@ function makeMainInstagram(h: string) {
   form.instagram = `https://instagram.com/${h}`
 }
 
-const newArea = ref('')
-const areaError = ref<string | undefined>()
 function toggleEventType(type: ArtistEventType, on: boolean) {
   form.eventTypes = on ? [...form.eventTypes, type] : form.eventTypes.filter(t => t !== type)
-}
-function addServiceArea() {
-  const city = newArea.value.trim()
-  areaError.value = city ? undefined : 'Choose a city.'
-  if (!city) return
-  const slug = citySlug(city)
-  if (!slug) { areaError.value = 'Choose a city.'; return }
-  if (slug === citySlug(form.city)) { areaError.value = 'That’s already the city on this page.'; return }
-  if (!form.serviceAreas.some(area => area.citySlug === slug)) form.serviceAreas.push({ city, citySlug: slug })
-  newArea.value = ''
-}
-function removeServiceArea(slug: string) {
-  form.serviceAreas = form.serviceAreas.filter(area => area.citySlug !== slug)
 }
 
 function removePhoto(url: string) {
   form.photos = form.photos.filter(p => p.url !== url)
   if (form.photo === url) form.photo = form.photos[0]?.url ?? null
+}
+
+const homeSlug = ref('')
+const areaDraft = ref('')
+const areaError = ref<string | undefined>()
+function onHomeCity(city: CityOption) {
+  homeSlug.value = city.slug
+  form.serviceAreas = form.serviceAreas.filter(a => a.slug !== city.slug && a.name.toLowerCase() !== city.name.toLowerCase())
+}
+function addServiceArea(city: CityOption) {
+  areaError.value = undefined
+  if (!city.slug) {
+    areaError.value = 'Pick a city from the list.'
+    return
+  }
+  const home = form.city.trim().toLowerCase()
+  if (city.slug === homeSlug.value || (home && city.name.toLowerCase() === home)) {
+    areaError.value = 'That’s already your home city.'
+    areaDraft.value = ''
+    return
+  }
+  if (form.serviceAreas.some(a => a.slug === city.slug)) {
+    areaError.value = 'That city is already in the service area.'
+    areaDraft.value = ''
+    return
+  }
+  if (form.serviceAreas.length >= SERVICE_AREAS_MAX) {
+    areaError.value = `Keep the service area to ${SERVICE_AREAS_MAX} cities.`
+    return
+  }
+  form.serviceAreas.push({ slug: city.slug, name: city.name })
+  areaDraft.value = ''
+}
+function removeServiceArea(slug: string) {
+  form.serviceAreas = form.serviceAreas.filter(a => a.slug !== slug)
 }
 
 const nameError = ref<string | undefined>()
@@ -177,7 +200,7 @@ async function save() {
       photo: form.photo,
       photos: form.photos,
       ...(profileType.value === 'promoter' ? { influencer: form.influencer } : {}),
-      ...(profileType.value === 'artist' ? { eventTypes: form.eventTypes, serviceAreas: form.serviceAreas } : {}),
+      ...(profileType.value === 'artist' ? { eventTypes: form.eventTypes, serviceAreas: form.serviceAreas.map(a => a.name) } : {}),
       ...(p.type === 'venue' ? {
         address: venue.address, floorType: venue.floorType, venueType: venue.venueType,
         capacity: venue.capacity || null, amenities: venue.amenities, openingHours: venue.openingHours.filter(h => h.hours.trim()),
@@ -270,39 +293,38 @@ const photoHint = computed(() => loaded.value?.type === 'artist'
               <Input v-model="form.name" />
             </Field>
             <Field id="edit-city" label="City">
-              <CityCombobox v-model="form.city" placeholder="e.g. Munich" />
+              <CityCombobox v-model="form.city" placeholder="e.g. Munich" @select="onHomeCity" />
             </Field>
+            <div v-if="profileType === 'artist'" class="sm:col-span-2">
+              <p class="text-sm font-bold">Service area</p>
+              <p class="text-xs text-muted-foreground">Other cities you play in. You show up in each city’s artist list, as well as your home city.</p>
+              <ul v-if="form.serviceAreas.length" class="mt-2 flex flex-wrap gap-2">
+                <li v-for="area in form.serviceAreas" :key="area.slug" class="inline-flex items-center gap-1 rounded-full border py-1 pl-3 pr-1 text-sm">
+                  {{ area.name }}
+                  <Button type="button" size="icon-sm" variant="ghost" class="size-6" :aria-label="`Remove ${area.name}`" @click="removeServiceArea(area.slug)"><X /></Button>
+                </li>
+              </ul>
+              <Field id="edit-service-area" label="Add a city" :error="areaError" optional class="mt-2 max-w-sm">
+                <CityCombobox v-model="areaDraft" placeholder="e.g. Munich" @select="addServiceArea" />
+              </Field>
+            </div>
             <Field id="edit-bio" label="About" class="sm:col-span-2">
               <Textarea v-model="form.bio" placeholder="A few lines dancers will read on your page." />
             </Field>
             <Field label="Dance styles" class="sm:col-span-2">
               <DanceStylePicker v-model="form.styles" />
             </Field>
-            <div v-if="profileType === 'artist'" class="sm:col-span-2 grid gap-4">
-              <div>
-                <p class="text-sm font-bold">Event types <span class="font-normal text-muted-foreground">(optional)</span></p>
-                <p class="text-xs text-muted-foreground">So organizers can find you for a wedding, birthday or corporate event.</p>
-                <div class="mt-1 flex flex-wrap gap-x-4">
-                  <Checkbox
-                    v-for="type in ARTIST_EVENT_TYPES"
-                    :key="type"
-                    :model-value="form.eventTypes.includes(type)"
-                    @update:model-value="on => toggleEventType(type, !!on)"
-                  >{{ ARTIST_EVENT_TYPE_LABELS[type] }}</Checkbox>
-                </div>
+            <div v-if="profileType === 'artist'" class="sm:col-span-2">
+              <p class="text-sm font-bold">Event types <span class="font-normal text-muted-foreground">(optional)</span></p>
+              <p class="text-xs text-muted-foreground">So organizers can find you for a wedding, birthday or corporate event.</p>
+              <div class="mt-1 flex flex-wrap gap-x-4">
+                <Checkbox
+                  v-for="type in ARTIST_EVENT_TYPES"
+                  :key="type"
+                  :model-value="form.eventTypes.includes(type)"
+                  @update:model-value="on => toggleEventType(type, !!on)"
+                >{{ ARTIST_EVENT_TYPE_LABELS[type] }}</Checkbox>
               </div>
-              <Field id="edit-service-area" label="Cities you travel to" optional :error="areaError" hint="Besides the city above. Organizers there will find you, including when they filter by that area.">
-                <ul v-if="form.serviceAreas.length" class="mb-2 flex flex-wrap gap-2">
-                  <li v-for="area in form.serviceAreas" :key="area.citySlug" class="inline-flex items-center gap-1 rounded-full border py-1 pl-3 pr-1 text-sm">
-                    {{ area.city }}
-                    <Button type="button" size="icon-sm" variant="ghost" class="size-6" :aria-label="`Remove ${area.city}`" @click="removeServiceArea(area.citySlug)"><X /></Button>
-                  </li>
-                </ul>
-                <div class="flex flex-wrap items-start gap-2">
-                  <CityCombobox v-model="newArea" placeholder="e.g. Munich" class="min-w-[12rem] flex-1 max-w-sm" />
-                  <Button type="button" variant="outline-pill" size="pill-sm" :disabled="!newArea.trim()" @click="addServiceArea">Add</Button>
-                </div>
-              </Field>
             </div>
             <div v-if="profileType === 'promoter'" class="sm:col-span-2">
               <Checkbox v-model="form.influencer" class="items-start">

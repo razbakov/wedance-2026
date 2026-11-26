@@ -1,6 +1,6 @@
 ---
 description: "Duplicate profiles (#458)"
-globs: **/mergeProfiles*.ts,**/profileDupes*.ts,**/handles*.ts,**/handleRegistry*.ts,**/handle*.ts,**/deleteProfile*.ts,server/trpc/routers/business.ts,**/BusinessDuplicates.vue,**/BusinessHandle.vue,**/BusinessDeletePage.vue,scripts/merge-duplicate-profiles.ts,scripts/*handles*.ts
+globs: **/mergeProfiles*.ts,**/profileDupes*.ts,**/handles*.ts,**/handleRegistry*.ts,**/handle*.ts,**/deleteProfile*.ts,server/trpc/routers/business.ts,**/BusinessDuplicates.vue,**/BusinessHandle.vue,**/BusinessDeletePage.vue,scripts/merge-duplicate-profiles.ts,scripts/*handles*.ts,shared/utils/serviceAreas.ts,server/utils/serviceAreas.ts
 alwaysApply: false
 ---
 <!-- Generated from .claude/rules/profiles.md by scripts/ci/agent-context.ts. Edit the source, not this file. -->
@@ -26,3 +26,12 @@ alwaysApply: false
   `business.create` / `business.renameHandle` (zod) and the forms (valibot `optionalHandle` / `requiredHandle`).
   `handleFromInstagram` keeps the Instagram handle as is. Rename (Business → page → Handle, owners) keeps the old
   handle in `source_ref.oldHandles` (→ `entity.movedTo` redirect) and moves handle refs via `moveHandleRefs`.
+
+## Service area (RAZ-1083)
+
+An artist page keeps one home city (`city` / `city_slug`) and a list of other cities they play in:
+`profiles.service_areas` (`{ slug, name }[]`, migration 0081, `shared/utils/serviceAreas.ts`). They are listed in
+the home city and in each of those cities: `/cities/[city]/artists`, `entity.cityDirectory`, MCP `list_artists`,
+and the `/artists` city filter. Venues and organisers are not. The home city is not stored again in the list.
+Set it on Business → the page (artists only), or with `service_areas` on `update_business_profile` /
+`update_listed_profile`. A merge unions both lists and drops the kept page’s home city (`unionServiceAreas`).

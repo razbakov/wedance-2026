@@ -36,7 +36,7 @@ export const listedProfileFields = {
   photo: z.string().url().nullable(),
   // Venues only (RAZ-1012): nearest stop, parking, indoor shoes, cloakroom. Only the parts given change.
   venueInfo: venueInfoInput,
-  // Artists only (RAZ-1086).
+  // Artists only (RAZ-1083, RAZ-1086). Replaces each list. [] clears it.
   eventTypes: artistDiscoveryShape.eventTypes,
   serviceAreas: artistDiscoveryShape.serviceAreas,
 }

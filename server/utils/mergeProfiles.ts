@@ -37,7 +37,8 @@
  */
 import { sql } from 'drizzle-orm'
 import { parseInstagramHandle } from '../../shared/utils/instagram'
-import { cleanEventTypes, cleanServiceAreas } from '../../shared/utils/artistSearch'
+import { unionServiceAreas, withoutHomeCity } from '../../shared/utils/serviceAreas'
+import { cleanEventTypes } from '../../shared/utils/artistSearch'
 
 export type DupRow = {
   id: string
@@ -388,9 +389,8 @@ export async function mergeProfile(db: any, from: { id: string; username: string
   const photos = [...(a.photos ?? [])]
   for (const p of (b.photos ?? []) as any[]) if (!photos.some((x: any) => x.url === p.url)) photos.push(p)
   const styles = (a.styles ?? []).length ? a.styles : (b.styles ?? [])
-  // Event types and travel cities (RAZ-1086): keep both, drop a travel city that is the kept page's home city.
+  // Event types (RAZ-1086) and service areas (RAZ-1083): keep both, drop the kept page's home city.
   const eventTypes = cleanEventTypes([...(a.event_types ?? []), ...(b.event_types ?? [])])
-  const serviceAreas = cleanServiceAreas([...(a.service_areas ?? []), ...(b.service_areas ?? [])], a.city)
   const amenities = (a.amenities ?? []).length ? a.amenities : (b.amenities ?? [])
   const contact = { ...(b.contact ?? {}), ...(a.contact ?? {}) }
   // The venue's hints (RAZ-1012): the kept page's own win, the copy fills what it hasn't said.
@@ -398,6 +398,10 @@ export async function mergeProfile(db: any, from: { id: string; username: string
   // The copy's Instagram accounts become aliases of the one that stays (its main one stays main).
   const mainIg = instagramHandles({ socials })
   const aliases = [...new Set([...instagramHandles(a), ...instagramHandles(b)])].filter(h => !mainIg.includes(h))
+  // Both cities, minus the home city of the page that stays (by slug or by the same name).
+  const homeSlug = (fill.includes('city_slug') ? b.city_slug : a.city_slug) as string | null
+  const homeName = (fill.includes('city') ? b.city : a.city) as string | null
+  const serviceAreas = withoutHomeCity(unionServiceAreas(a.service_areas, b.service_areas, homeSlug), [homeSlug], homeName)
   await q(sql`update profiles set socials = ${JSON.stringify(socials)}::json, photos = ${JSON.stringify(photos)}::jsonb, styles = ${JSON.stringify(styles)}::json,
     amenities = ${JSON.stringify(amenities)}::jsonb, contact = ${JSON.stringify(contact)}::jsonb, venue_info = ${JSON.stringify(venueInfo)}::jsonb, instagram_aliases = ${JSON.stringify(aliases)}::jsonb,
     event_types = ${JSON.stringify(eventTypes)}::jsonb, service_areas = ${JSON.stringify(serviceAreas)}::jsonb where id = ${to.id}`)
