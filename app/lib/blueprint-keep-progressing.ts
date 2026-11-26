@@ -9,6 +9,7 @@
  * (businessEvents.createSeries, MCP recurring_series), sign-ups (rsvp.signUp)
  * and the school's Contacts. Re-read against the code on 2026-11-25
  * (RAZ-1072; RAZ-1083 service area; RAZ-1086 event types; RAZ-1089: a yes on a private-class request emails the student).
+ * Follow on organizer and venue pages re-read 2026-11-25 (RAZ-1100).
  * Not run end to end with a test student and school yet.
  * Shown at /docs/blueprints/keep-progressing.
  */
@@ -53,7 +54,7 @@ export const keepSteps: BpStep<KeepLane, KeepPhase>[] = [
   { id: 'reviews', phase: 'find', lane: 'student', name: 'Read / write reviews', status: 'partial', marks: [], route: '/@handle', code: 'ReviewsSection · review.create (MCP write_review)',
     note: '1–5 stars with text. Anyone signed in can review anyone: nothing checks they ever took a class with the teacher, so a review says little about teaching.' },
   { id: 'follow', phase: 'find', lane: 'student', name: 'Follow the teacher', status: 'partial', marks: [], route: '/@handle', code: 'follow.toggle · recordFollowContact', refs: ['P220'],
-    note: 'On artist and promoter pages only (not venues or schools that are venues). Following makes the dancer one of the page’s Contacts it may email (RAZ-1092; the button says so); unfollowing stops it. Still no feed or My plan item when they announce a new course or workshop.' },
+    note: 'Follow is on every page: artist, promoter, organizer and venue (RAZ-1100). Following makes the dancer one of the page’s Contacts it may email (RAZ-1092; the button says so); unfollowing stops it. Still no feed or My plan item when they announce a new course or workshop.' },
   { id: 'school-listed', phase: 'find', lane: 'school', name: 'Classes are listed', status: 'live', marks: [], route: '/@handle', code: 'v3EventSync · businessEvents.create',
     note: 'Classes synced from wedance.vip or created in Business show on the page, the city page and the enroll picker. New followers show on Business → Home (last 7 days) — the page hears about the follower, not the other way round.' },
 

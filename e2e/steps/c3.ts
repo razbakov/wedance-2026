@@ -143,6 +143,26 @@ async function ensureDancer(c3: C3World, who: string) {
   return c3.ids[`dancer:${who}`] ?? addDancer(c3, who, DANCER_PHOTO())
 }
 
+/** A host page with an owner, so the event takes a sign-up (RAZ-1007). */
+async function makeBookable(c3: C3World, eventId: string) {
+  const handle = `c3-host-${c3.run}`
+  const name = `C3 Host ${c3.run}`
+  await sql(
+    `INSERT INTO profiles (username, type, name, city, city_slug, status) VALUES ($1, 'organizer', $2, 'Munich', 'munich', 'visible')`,
+    [handle, name],
+  )
+  const host = await addDancer(c3, 'Host', null)
+  await sql(
+    `INSERT INTO profile_members (profile_id, dancer_id, role) SELECT id, $2, 'owner' FROM profiles WHERE username = $1`,
+    [handle, host],
+  )
+  await sql(`UPDATE events SET organizer_username = $2, organizer_name = $3 WHERE id = $1`, [eventId, handle, name])
+  c3.cleanup.push(async () => {
+    await sql(`DELETE FROM profile_members WHERE profile_id IN (SELECT id FROM profiles WHERE username = $1)`, [handle])
+    await sql(`DELETE FROM profiles WHERE username = $1`, [handle])
+  })
+}
+
 async function signInAs(page: Page, c3: C3World, who: string) {
   const id = await ensureDancer(c3, who)
   const token = `c3-${c3.run}-${randomUUID()}`
@@ -184,6 +204,9 @@ Given('an ordinary event with no attendees', async ({ c3 }) => {
   c3.data.event = `C3 Ordinary Night ${c3.run}`
   trackEventsCleanup(c3)
   await insertEvent(c3, 'event', fixtureStart(), { name: c3.data.event })
+  // A night with nobody on its page is not bookable (RAZ-1007): "Book my spot"
+  // explains that instead of opening the steps. This one is run by a page with a team.
+  await makeBookable(c3, c3.ids.event!)
 })
 
 Given('the browser clock is the day before them', async ({ page, c3 }) => {

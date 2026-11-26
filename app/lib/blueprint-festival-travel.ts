@@ -7,13 +7,15 @@
  * (listFestivals), the festival page (FestivalView: + My plan, workshops,
  * passes, rides, roommates, dinners, hangouts, sharing), My plan's Year
  * tab, festivalSignup.*, the Stripe and TicketTailor webhooks,
- * /charanga/claim, and the MCP tools. Re-read against the code on 2026-11-20
- * (RAZ-1072). Not run end to end with a test dancer and a real checkout yet.
+ * /charanga/claim, and the MCP tools. Re-read against the code on 2026-11-26
+ * (RAZ-1072). An external ticket link is “Get tickets” beside the sign-up
+ * (RAZ-1102); buying it still never comes back. Not run end to end with a
+ * test dancer and a real checkout yet.
  * Shown at /docs/blueprints/festival-travel.
  */
 import type { Blueprint, BpGap, BpLaneDef, BpPhaseDef, BpStep } from './blueprint'
 
-export const TRAVEL_BLUEPRINT_UPDATED = '2026-11-20'
+export const TRAVEL_BLUEPRINT_UPDATED = '2026-11-26'
 
 export type TravelLane = 'me' | 'system' | 'organiser' | 'friends' | 'provider'
 export type TravelPhase = 'find' | 'year' | 'workshops' | 'tickets' | 'travel' | 'share' | 'festival' | 'after'
@@ -77,8 +79,8 @@ export const travelSteps: BpStep<TravelLane, TravelPhase>[] = [
     note: 'Waits up to five seconds for the webhook, then “You have a pass” and a success screen; a late webhook still lands, the page just doesn’t know yet.' },
   { id: 'payout', phase: 'tickets', lane: 'organiser', name: 'Hear about the sale', status: 'missing', marks: ['silent', 'manual'],
     note: 'The money lands in WeDance’s own Stripe account (no Connect) and the organiser gets no email and no sales list for the festival — paying them out is by hand.' },
-  { id: 'own-shop', phase: 'tickets', lane: 'provider', name: 'The festival’s own shop', status: 'gap', marks: ['silent'], code: 'FestivalHero ticketUrl',
-    note: 'Most festivals (all mirrored ones) have no passes here, only “Get tickets” to their own site. What you buy there never comes back: the plan still says “Not bought” until you tick it.' },
+  { id: 'own-shop', phase: 'tickets', lane: 'provider', name: 'The festival’s own shop', status: 'gap', marks: ['silent'], code: 'FestivalView “Get tickets” (festival.ticketUrl)',
+    note: 'Most festivals (all mirrored ones) have no passes here, only “Get tickets” beside the sign-up, linking to their own site. What you buy there never comes back: the plan still says “Not bought” until you tick it.' },
   { id: 'tickettailor', phase: 'tickets', lane: 'provider', name: 'TicketTailor webhook', status: 'partial', marks: [], code: '/api/webhooks/tickettailor · TICKETTAILOR_FESTIVAL_MAP',
     note: 'An order makes a verified row, matched to a dancer by email or left as a stub. The event map is in code and has one festival (Charanga Habanera Munich).' },
   { id: 'claim', phase: 'tickets', lane: 'me', name: 'Claim a TicketTailor ticket', status: 'partial', marks: ['manual', 'wait'], route: '/charanga/claim', code: 'claim.claimMyTicketHolderRows',
