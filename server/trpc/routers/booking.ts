@@ -3,7 +3,7 @@ import { eq, and, inArray } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import { TRPCError } from '@trpc/server'
 import { router, publicProcedure, protectedProcedure } from '../trpc'
-import { bookableSpaces, bookingRequests, profiles, availabilitySlots, dancers } from '../../database/schema'
+import { bookableSpaces, bookingRequests, profiles, availabilitySlots, artistAvailability, dancers } from '../../database/schema'
 import { requireProfileRole } from '../../utils/profileAccess'
 import { trackServer } from '../../utils/posthog'
 
@@ -297,4 +297,86 @@ export const bookingRouter = router({
 
       return { ok: true }
     }),
+
+  // Weekly windows an artist publishes for private events, weddings and
+  // corporate bookings. Anyone can read a visible artist page. No rows means
+  // unpublished (not “never free”). Venue rooms stay on availabilityForProfile.
+  artistAvailability: publicProcedure
+    .input(z.object({ username: z.string().min(1).max(200) }))
+    .query(async ({ ctx, input }) => {
+      const handle = input.username.trim().replace(/^@/, '')
+      const [profile] = await ctx.db
+        .select({ id: profiles.id, type: profiles.type, status: profiles.status })
+        .from(profiles)
+        .where(eq(profiles.username, handle))
+      if (!profile) throw new TRPCError({ code: 'NOT_FOUND', message: 'Profile not found.' })
+      if (profile.type !== 'artist') return { published: false, slots: [] as ArtistWindow[] }
+      if (profile.status !== 'visible' && !ctx.isAdmin) {
+        if (!ctx.dancerId) throw new TRPCError({ code: 'NOT_FOUND', message: 'Profile not found.' })
+        await requireProfileRole(ctx, profile.id, 'moderator')
+      }
+      return windowsFor(ctx.db, profile.id)
+    }),
+
+  // Replace every window. Only the artist’s team (or an admin). Empty clears them.
+  setArtistAvailability: protectedProcedure
+    .input(z.object({
+      username: z.string().min(1).max(200),
+      slots: z.array(z.object({
+        dayOfWeek: z.number().int().min(1).max(7),
+        startTime: timeString,
+        endTime: timeString,
+      })).max(21),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const handle = input.username.trim().replace(/^@/, '')
+      const [profile] = await ctx.db
+        .select({ id: profiles.id, type: profiles.type, username: profiles.username })
+        .from(profiles)
+        .where(eq(profiles.username, handle))
+      if (!profile) throw new TRPCError({ code: 'NOT_FOUND', message: 'Profile not found.' })
+      if (profile.type !== 'artist') {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'This is for an artist. A venue’s rooms use set availability on each room.' })
+      }
+      await requireProfileRole(ctx, profile.id, 'moderator')
+
+      // neon-http (the app's driver, including PR previews) throws on
+      // transaction(). batch() is one HTTP transaction, same as account deletion.
+      const clear = ctx.db.delete(artistAvailability).where(eq(artistAvailability.profileId, profile.id))
+      if (!input.slots.length) {
+        await clear
+      } else {
+        await ctx.db.batch([
+          clear,
+          ctx.db.insert(artistAvailability).values(input.slots.map(s => ({
+            profileId: profile.id,
+            dayOfWeek: s.dayOfWeek,
+            startTime: s.startTime,
+            endTime: s.endTime,
+          }))),
+        ] as any)
+      }
+
+      trackServer(ctx, 'artist_availability_saved', { profile: profile.username, slots: input.slots.length })
+      return { ok: true, published: input.slots.length > 0 }
+    }),
 })
+
+type ArtistWindow = { dayOfWeek: number; startTime: string; endTime: string }
+
+async function windowsFor(db: any, profileId: string) {
+  const rows = await db
+    .select({
+      dayOfWeek: artistAvailability.dayOfWeek,
+      startTime: artistAvailability.startTime,
+      endTime: artistAvailability.endTime,
+      isActive: artistAvailability.isActive,
+    })
+    .from(artistAvailability)
+    .where(eq(artistAvailability.profileId, profileId))
+  const slots = (rows as { dayOfWeek: number; startTime: string; endTime: string; isActive: boolean }[])
+    .filter(s => s.isActive !== false)
+    .map(({ dayOfWeek, startTime, endTime }) => ({ dayOfWeek, startTime, endTime }))
+    .sort((a, b) => a.dayOfWeek - b.dayOfWeek || a.startTime.localeCompare(b.startTime))
+  return { published: slots.length > 0, slots }
+}

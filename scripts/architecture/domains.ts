@@ -48,8 +48,8 @@ export const DOMAINS: Domain[] = [
   {
     id: 'booking',
     title: 'Venue booking & governance',
-    summary: 'Bookable spaces, availability and booking requests, plus moderator elections and guideline versions for free community spaces.',
-    tables: ['bookableSpaces', 'availabilitySlots', 'bookingRequests', 'bookingInquiries', 'moderatorElections', 'electionCandidates', 'electionVotes', 'electionVoteHistory', 'guidelineVersions', 'inboundRequests', 'deliveries'],
+    summary: 'Bookable spaces, venue and artist availability, and booking requests, plus moderator elections and guideline versions for free community spaces.',
+    tables: ['bookableSpaces', 'availabilitySlots', 'artistAvailability', 'bookingRequests', 'bookingInquiries', 'moderatorElections', 'electionCandidates', 'electionVotes', 'electionVoteHistory', 'guidelineVersions', 'inboundRequests', 'deliveries'],
   },
   {
     id: 'engagement',

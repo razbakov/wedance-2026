@@ -111,6 +111,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `invite_email_confirmed` | `useAuth.confirmInviteEmail` ("That's me" in the answer email → `/confirm/<token>?that=`) | `owner`, `new_account` |
 | `tickets_claimed` | `charanga/claim.vue` | `count`, `festivals` |
 | `booking_inquiry_sent` · `booking_join_offered` · `booking_request_submitted` | `BookingInquiryForm`, `PromoterProfile`, `/@handle`, `book/[handle]` | `profile`, … |
+| `artist_availability_saved` | Business → Bookings, “When you’re free” (RAZ-1087) | `profile` (handle), `slots` (how many windows), `published` |
 | `booking_added_to_event` | `book/[handle]` "Add <artist> to an event's line-up" picker under the request form (RAZ-964: same styles, one row per series, ≤5) | `profile`, `series` (the row was a series' next date), `rows` (events the picker showed) |
 | `event_inquiry_submitted` | `for-events.vue` | `event_type`, `city` |
 | `gig_posted` · `gig_cta_click` | `gigs/index.vue` | `kind`, `category` · `action`, `gig_id` |
@@ -149,6 +150,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `server_event_imported` | `eventImport.fromInstagram` (web + MCP `import_from_instagram`; the draft itself also fires `server_event_created`) | `event_id`, `source` (instagram), `kind` (post / reel), `lineup`, `organizers`, `has_venue_page`, `has_cover`, `has_ticket`, `sessions`, `$groups` |
 | `server_event_published` | `create`/`createSeries` with `published`, `update` draft→live, `publishSeries` | `event_id`, `is_festival`, `series_id`, `dates` |
 | `server_booking_request_submitted` | `booking.request` (was server_booking_requested until 2026-10-20) | `booking_id`, `signed_in` |
+| `server_artist_availability_saved` | `booking.setArtistAvailability` (web + MCP `set_artist_availability`) | `profile` (handle), `slots` (how many windows) |
 | `server_booking_inquiry_sent` | `inquiries.send` (was server_inquiry_sent until 2026-10-20) | `inquiry_id`, `profile`, `delivered`, `signed_in` |
 | `server_event_inquiry_submitted` | `feedback.inquiry` | `event_type`, `city` |
 | `server_festival_draft_submitted` | `festival.submitDraft` (server only) | `submission_id`, `festival`, `signed_in` |
