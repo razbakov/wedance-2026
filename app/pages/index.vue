@@ -8,10 +8,15 @@
  */
 definePageMeta({ layout: false })
 
+// One title and one canonical for every audience tab. `?tab=` is a view of `/`,
+// not a second page (RAZ-1095).
+const origin = useRequestURL().origin
 useSeoMeta({
   title: 'WeDance — Ask where to dance. Meet dancers. Plan your nights.',
   description: 'Find salsa, bachata, kizomba and more near you — ask in ChatGPT, meet dancers going where you go, and keep every party, course and festival on one plan.',
+  ogUrl: `${origin}/`,
 })
+useHead({ link: [{ rel: 'canonical', href: `${origin}/` }] })
 
 const { isSignedIn } = useAuth()
 // Signed in → My plan (client-side: the session is only known after hydration).

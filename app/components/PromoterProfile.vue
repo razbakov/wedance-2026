@@ -221,7 +221,8 @@ const initials = (name: string) => initialsOf(name, 2, '')
               <Heart class="w-4 h-4" :class="artistFollowing ? 'fill-current' : ''" /> {{ artistFollowing ? 'Following' : 'Follow' }}
             </button>
           </div>
-          <p v-if="artistFollowing" class="mt-2 text-xs text-wd-green-700 font-sans">We'll tell you when {{ openArtist.name.split(' ')[0] }} plays near you.</p>
+          <p v-if="artistFollowing" class="mt-2 text-xs text-wd-green-700 font-sans">We'll tell you when {{ openArtist.name.split(' ')[0] }} plays near you. {{ openArtist.name.split(' ')[0] }} can email you too; unfollow to stop.</p>
+          <p v-else class="mt-2 text-xs text-muted-foreground font-sans">Following lets {{ openArtist.name.split(' ')[0] }} email you their news.</p>
           <h3 class="mt-6 font-display text-lg">Upcoming</h3>
           <ul v-if="artistEvents.length" class="mt-2 divide-y divide-border font-sans">
             <li v-for="e in artistEvents" :key="e.id" class="py-3 flex items-center gap-3">

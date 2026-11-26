@@ -6,6 +6,8 @@ import { profiles, profileMembers, dancers, bookingInquiries, events } from '../
 import { inquirySchema } from '../../../shared/utils/bookingInquiry'
 import { pickLineupEvents } from '../../../shared/utils/lineupPicker'
 import { sendBookingInquiryEmail } from '../../utils/email'
+import { inquiryRecipients } from '../../utils/bookingRecipients'
+import { bookInquiry } from '../../utils/bookingBook'
 import { requireMember } from './business'
 import { requireEventManager } from './businessEvents'
 import { hoursBetween, profileGroup, trackServer } from '../../utils/posthog'
@@ -23,7 +25,6 @@ import { hoursBetween, profileGroup, trackServer } from '../../utils/posthog'
  */
 
 const DAY = 24 * 3600_000
-const FORWARD_TO = 'hello@wedance.vip'
 
 export const inquiriesRouter = router({
   // For a signed-in asker: their name and email, the pages they run (to send
@@ -70,11 +71,11 @@ export const inquiriesRouter = router({
       .from(profiles).where(eq(profiles.username, input.handle))
     if (!p) throw new TRPCError({ code: 'NOT_FOUND', message: 'That page isn’t on WeDance.' })
     // Sent as a page the asker runs: its name, and a link to it in the email.
-    let as: { name: string; username: string } | null = null
+    let as: { id: string; name: string; username: string } | null = null
     if (input.asProfile) {
       if (!ctx.dancerId) throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Sign in to send it as your page.' })
       const m = await requireMember({ ...ctx, dancerId: ctx.dancerId }, input.asProfile)
-      as = { name: m.name, username: m.username }
+      as = { id: m.id, name: m.name, username: m.username }
     }
 
     const since = new Date(Date.now() - DAY)
@@ -85,14 +86,10 @@ export const inquiriesRouter = router({
       throw new TRPCError({ code: 'TOO_MANY_REQUESTS', message: 'You’ve sent a few already today. They’ll get back to you.' })
     }
 
-    const team = await ctx.db.select({ email: dancers.email, name: dancers.name }).from(profileMembers)
-      .innerJoin(dancers, eq(dancers.id, profileMembers.dancerId)).where(eq(profileMembers.profileId, p.id))
-    const own = (p.contact as { email?: string } | null)?.email?.trim()
-    const to = team.length ? team : own ? [{ email: own, name: p.name }] : [{ email: FORWARD_TO, name: 'WeDance' }]
-    const forward = !team.length && !own
+    const { to, forward } = await inquiryRecipients(ctx.db, p)
 
     const [row] = await ctx.db.insert(bookingInquiries).values({
-      profileId: p.id, requesterId: ctx.dancerId ?? null,
+      profileId: p.id, requesterId: ctx.dancerId ?? null, askerProfileId: as?.id ?? null,
       name: input.name, email: input.email, phone: input.phone || null, organization: as?.name || input.organization || null,
       what: input.what, eventDate: input.eventDate || null, city: input.city || null,
       guests: input.guests ?? null, budget: input.budget || null, message: input.message,
@@ -128,6 +125,7 @@ export const inquiriesRouter = router({
       const p = await requireMember(ctx, input.username)
       const [before] = await ctx.db.select({ status: bookingInquiries.status, createdAt: bookingInquiries.createdAt }).from(bookingInquiries)
         .where(and(eq(bookingInquiries.id, input.id), eq(bookingInquiries.profileId, p.id)))
+      if (before?.status === 'booked') throw new TRPCError({ code: 'BAD_REQUEST', message: 'This request is already booked.' })
       await ctx.db.update(bookingInquiries).set({ status: input.status, answeredAt: input.status === 'new' ? null : new Date() })
         .where(and(eq(bookingInquiries.id, input.id), eq(bookingInquiries.profileId, p.id)))
       // C6: the organiser handled an inquiry — first time out of 'new' only.
@@ -135,5 +133,30 @@ export const inquiriesRouter = router({
         trackServer(ctx, 'inquiry_replied', { inquiry_id: input.id, status: input.status, hours_to_reply: hoursBetween(before.createdAt), profile: p.username, profile_type: p.type, ...profileGroup(p.username) })
       }
       return { ok: true }
+    }),
+
+  // Yes: the request becomes a booking. Emails the asker, and when they have
+  // a page, drafts an event there with this artist confirmed and the budget as the offer.
+  book: protectedProcedure
+    .input(z.object({ username: z.string().min(1), id: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const p = await requireMember(ctx, input.username)
+      const [me] = await ctx.db.select({ email: dancers.email }).from(dancers).where(eq(dancers.id, ctx.dancerId))
+      const site = (useRuntimeConfig().siteUrl || 'https://2026.wedance.vip').replace(/\/$/, '')
+      const result = await bookInquiry(ctx.db, {
+        artist: { id: p.id, username: p.username, name: p.name, type: p.type, styles: (p.styles ?? []) as string[] },
+        inquiryId: input.id,
+        dancerId: ctx.dancerId,
+        dancerEmail: me?.email ?? null,
+        siteUrl: site,
+      })
+      if (result.bookedNow) {
+        const [row] = await ctx.db.select({ createdAt: bookingInquiries.createdAt }).from(bookingInquiries).where(eq(bookingInquiries.id, input.id))
+        trackServer(ctx, 'booking_booked', {
+          inquiry_id: input.id, profile: p.username, has_event: !!result.eventId,
+          hours_to_reply: hoursBetween(row?.createdAt), profile_type: p.type, ...profileGroup(p.username),
+        })
+      }
+      return { ok: true, eventId: result.eventId, created: result.created, emailed: result.emailed }
     }),
 })

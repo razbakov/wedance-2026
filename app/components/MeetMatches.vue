@@ -5,18 +5,25 @@
  * festival page — newest first. Each match leads with one night out you could both
  * go to: "I'm going too" (adds it to your plan, and tells this match you're going)
  * or "Next time" (something came up: that night is skipped, the next one shows).
+ * A night only you are going to is an invite, not a meetup. "How you'll meet"
+ * is only there when you are both going and the night has not started.
+ * A booked night that has ended shows as "You met at …".
  * Festival matches without a night fall back to "See you at <festival>".
  * Renders nothing until there is a match.
  */
 import { CalendarDays, Check, Heart, MapPin, Ticket, Users } from 'lucide-vue-next'
 import { sizedImage, IMG } from '#shared/utils/image'
-import { eventLocalTime, eventLocalWeekday } from '#shared/utils/eventTime'
+import { metDayLabel, relativeNightWhen } from '#shared/utils/nightWhen'
 import { festivalPath } from '#shared/utils/eventSlug'
 
-type Night = { eventId: string; name: string; path: string; startISO: string; timezone: string | null; venue: string; youGoing: boolean; theyGoing: boolean }
+type Night = {
+  eventId: string; name: string; path: string; startISO: string; timezone: string | null; venue: string
+  youGoing: boolean; theyGoing: boolean; invited: boolean; meetup: boolean
+}
+type Met = { eventId: string; name: string; path: string; startISO: string; timezone: string | null; venue: string }
 type Match = {
   dancerId: string; name: string; photo: string | null; username: string | null; city: string; styles: string[]
-  matchedAt: string; deck: boolean; festivals: { slug: string; name: string }[]; night: Night | null
+  matchedAt: string; deck: boolean; festivals: { slug: string; name: string }[]; night: Night | null; met: Met | null
 }
 
 const emit = defineEmits<{ planned: [eventId: string] }>()
@@ -29,6 +36,8 @@ const route = useRoute()
 const matches = ref<Match[]>([])
 /** Nights added from a card this visit — shown as going before the reload. */
 const going = ref(new Set<string>())
+/** Invites sent this visit, before the reload. */
+const told = ref(new Set<string>())
 /** The last "Next time", for Undo. */
 const skipped = ref<{ night: Night; name: string } | null>(null)
 
@@ -51,19 +60,35 @@ onMounted(async () => {
 const NEW_DAYS = 7
 const isNew = (m: Match) => Date.now() - new Date(m.matchedAt).getTime() < NEW_DAYS * 86400_000
 const first = (name: string) => name.split(' ')[0] || name
-const when = (n: Night) => `${eventLocalWeekday(n.startISO, n.timezone ?? undefined)} ${eventLocalTime(n.startISO, n.timezone ?? undefined)}`
+const when = (n: Night) => relativeNightWhen(n.startISO, n.timezone)
 const where = (m: Match) => [m.deck ? 'Meet new friends' : '', ...m.festivals.map(f => f.name)].filter(Boolean).join(' · ')
 const ago = (iso: string) => {
   const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400_000)
   return days <= 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`
 }
 const youGoing = (n: Night) => n.youGoing || going.value.has(n.eventId)
+const toldThem = (m: Match) => !!m.night?.invited || told.value.has(m.dancerId)
 function nightLine(m: Match) {
   const n = m.night!
   if (youGoing(n) && n.theyGoing) return 'You’re both going'
   if (n.theyGoing) return `${first(m.name)} is going`
-  if (youGoing(n)) return going.value.has(n.eventId) ? `You’re going — ${first(m.name)} sees it` : 'You’re going'
+  if (youGoing(n)) {
+    if (toldThem(m)) return `You’re going — ${first(m.name)} can see it`
+    return going.value.has(n.eventId) ? `You’re going — ${first(m.name)} sees it` : 'You’re going'
+  }
   return 'You could both go'
+}
+
+function invite(m: Match) {
+  const n = m.night!
+  told.value = new Set([...told.value, m.dancerId])
+  track('meet_match_answered', { answer: 'invite', they_going: n.theyGoing, source: m.deck ? 'deck' : 'festival', event_id: n.eventId })
+  $trpc.plan.add
+    .mutate({ itemType: 'event', itemId: n.eventId, metadata: { with: m.dancerId } })
+    .catch((err) => {
+      console.warn('[meet-matches] invite failed:', err)
+      const s = new Set(told.value); s.delete(m.dancerId); told.value = s
+    })
 }
 
 function goToo(m: Match) {
@@ -139,9 +164,14 @@ async function undoNextTime() {
           </div>
         </div>
 
-        <!-- The one next step: a night out you could both go to. -->
-        <div class="mt-3 rounded-xl bg-muted/60 p-3 sm:flex sm:items-center sm:gap-3">
-          <template v-if="m.night">
+        <!-- The one next step: a night out you could both go to. A night you already met at sits above it. -->
+        <div class="mt-3 rounded-xl bg-muted/60 p-3">
+          <p v-if="m.met" class="text-sm text-foreground" :class="m.night || m.festivals.length ? 'mb-2' : ''" data-testid="meet-match-met">
+            You met at
+            <NuxtLink :to="m.met.path" class="font-semibold hover:underline">{{ m.met.name }}</NuxtLink>
+            · {{ metDayLabel(m.met.startISO, m.met.timezone) }}
+          </p>
+          <div v-if="m.night" class="sm:flex sm:items-center sm:gap-3">
             <div class="min-w-0 flex-1">
               <p class="text-xs font-bold text-wd-green-700">{{ nightLine(m) }}</p>
               <NuxtLink :to="m.night.path" class="block truncate font-semibold text-foreground hover:underline">
@@ -150,7 +180,16 @@ async function undoNextTime() {
               <p v-if="m.night.venue" class="truncate text-xs text-muted-foreground">
                 <MapPin class="inline size-3 -mt-0.5" aria-hidden="true" /> {{ m.night.venue }}
               </p>
-              <NuxtLink :to="`/meet/ritual?with=${m.dancerId}`" class="mt-1 inline-block text-xs font-bold text-primary hover:underline" data-testid="meet-match-ritual">How you’ll meet</NuxtLink>
+              <NuxtLink v-if="m.night.meetup" :to="`/meet/ritual?with=${m.dancerId}`" class="mt-1 inline-block text-xs font-bold text-primary hover:underline" data-testid="meet-match-ritual">How you’ll meet</NuxtLink>
+              <button
+                v-else-if="m.night.youGoing && !toldThem(m)"
+                type="button"
+                class="mt-1 text-xs font-bold text-primary hover:underline"
+                data-testid="meet-match-invite"
+                @click="invite(m)"
+              >
+                Invite {{ first(m.name) }}
+              </button>
             </div>
             <div v-if="!m.night.youGoing" class="mt-2 flex shrink-0 items-center gap-3 sm:mt-0">
               <span
@@ -179,14 +218,14 @@ async function undoNextTime() {
                 </button>
               </template>
             </div>
-          </template>
-          <template v-else-if="m.festivals.length">
+          </div>
+          <div v-else-if="m.festivals.length" class="sm:flex sm:items-center sm:gap-3">
             <p class="flex-1 text-sm">
               <Ticket class="inline size-4 -mt-0.5" aria-hidden="true" /> See you at <span class="font-semibold">{{ m.festivals[0]!.name }}</span> — plan a dance there.
             </p>
             <NuxtLink :to="`${festivalPath(m.festivals[0]!.slug)}#discover`" class="mt-2 inline-block shrink-0 text-sm font-bold text-primary hover:underline sm:mt-0">Open festival</NuxtLink>
-          </template>
-          <p v-else class="text-sm text-muted-foreground">No night out in the next two weeks yet.</p>
+          </div>
+          <p v-else-if="!m.met" class="text-sm text-muted-foreground">No night out in the next two weeks yet.</p>
         </div>
       </li>
     </ul>
