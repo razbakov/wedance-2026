@@ -8,6 +8,7 @@ import { inviteUrlError } from '../utils/communityGroups'
 import { parseInstagramLink } from '../utils/instagram'
 import { DANCE_LEVELS } from '../utils/styleLevelMix'
 import { MAILING_BODY_MAX, MAILING_SUBJECT_MAX } from '../utils/contactMailing'
+import { SHORTLIST_NOTE_MAX, SHORTLIST_OCCASIONS } from '../utils/artistShortlist'
 import { EVENT_ARTISTS_MAX, PASS_DESCRIPTION_MAX, PRACTICAL_INFO_LINE_MAX, PRACTICAL_INFO_MAX } from '../utils/eventLimits'
 import {
   DANCE_ROLES,
@@ -267,6 +268,18 @@ export const NominationSchema = v.object({
     v.maxLength(8000, 'Keep your guidelines under 8,000 characters.'),
   ),
   statement: optionalText(600, 'Keep your statement under 600 characters.'),
+})
+
+// ── Artist shortlist (shortlist.save, RAZ-1085) ─────────────────────────────
+
+/** Tag and private note on the shortlist board. A blank tag or note clears it. */
+export const shortlistDetailsSchema = v.object({
+  occasion: v.union([v.picklist(SHORTLIST_OCCASIONS), v.literal('')]),
+  note: v.pipe(
+    v.string(),
+    v.trim(),
+    v.maxLength(SHORTLIST_NOTE_MAX, `Keep the note under ${SHORTLIST_NOTE_MAX} characters.`),
+  ),
 })
 
 // ── Bookings & gigs (booking.request / gigs.create) ──────────────────────────

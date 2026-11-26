@@ -78,6 +78,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 | `meet_empty_shared` | `MeetEmptyNext` (an empty /meet deck, RAZ-1002): "Ask" an organiser for their next night, "Send" a venue's page, "Invite a friend" | `what` (organiser / venue / friend), `stage` (nights / organisers / venues / nothing / no-city), `method` (native / copy / none) |
 | `goal_added` | `useGoals.addGoal` | `style` |
 | `follow` / `unfollow` | `/@handle`, `PromoterProfile` (profiles); `FestivalView` shared plan (dancer) | `target`, `profile`, `profile_type`, `surface` |
+| `shortlist_add` / `shortlist_remove` | `/@handle`, `/artists`, `/shortlist` (RAZ-1085: a private booking list, not Follow) | `profile`, `surface` (profile_page / artists / shortlist) |
 | `whos_going_profile_opened` | `GoingSection` face tap | `item_type`, `item_id` |
 | `going_visibility_changed` | `GoingSection` share toggle · festival Overview "Show me" / "Hide me" (RAZ-1008, `surface: festival_overview`) | `share`, `item_type`, `item_id` |
 | `wave_sent` / `wave_retracted` | `GoingSection`, `DiscoverDancers`, `EventWhosComing` pairing (sent only) | `festival`, `surface` |
@@ -140,6 +141,7 @@ mix the two in one count. Server events also carry `$lib: 'wedance-server'` and 
 
 | Event | Procedure | Props |
 |---|---|---|
+| `server_shortlist_add` / `server_shortlist_remove` | `shortlist.toggle` (web only; not a follow, the artist is not told) | `profile`, `surface` |
 | `server_signup_completed` | `auth.register`, `auth.verifyMagicLink` (account created by this flow, see note), `artistInvites.confirmEmail` (method `invite_email`) | `method`, `has_city`, `via_link` |
 | `server_login_completed` | `auth.login`, `auth.verifyMagicLink` | `method` |
 | `server_onboarding_completed` | `auth.completeOnboarding` | `intent` |

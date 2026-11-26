@@ -17,6 +17,14 @@ describe('artist booking blueprint (J5)', () => {
     expect(bp.phases.filter(p => !bp.steps.some(s => s.phase === p.key))).toEqual([])
   })
 
+  it('shortlists artists apart from Follow (RAZ-1085)', () => {
+    const step = bp.steps.find(s => s.id === 'shortlist')!
+    expect(step.status).toBe('live')
+    expect(step.route).toBe('/shortlist')
+    expect(step.note).toMatch(/does not follow/)
+    expect(step.note).toMatch(/not told/)
+  })
+
   it('is linked from job J5', () => {
     expect(jobs.find(j => j.id === 'J5')?.flows).toContainEqual(expect.objectContaining({ to: '/docs/blueprints/artist-booking' }))
   })

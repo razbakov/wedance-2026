@@ -27,6 +27,7 @@ import { rideShareRouter } from './routers/rideShare'
 import { referralRouter } from './routers/referral'
 import { roommateRouter } from './routers/roommate'
 import { followRouter } from './routers/follow'
+import { shortlistRouter } from './routers/shortlist'
 import { businessRouter } from './routers/business'
 import { businessEventsRouter } from './routers/businessEvents'
 import { businessFlyersRouter } from './routers/businessFlyers'
@@ -79,6 +80,7 @@ export const appRouter = router({
   referral: referralRouter,
   rideShare: rideShareRouter,
   follow: followRouter,
+  shortlist: shortlistRouter,
   business: businessRouter,
   businessEvents: businessEventsRouter,
   eventImport: eventImportRouter,

@@ -242,6 +242,8 @@ export const PROFILE_REFS: { table: string; col: string; same?: string; notSelf?
   // One Instagram account per page (#501): moves only when the kept page has none.
   { table: 'instagram_connections', col: 'profile_id', same: 'true' },
   { table: 'follows', col: 'profile_id', same: 'x.dancer_id = t.dancer_id' },
+  // A private booking shortlist (RAZ-1085). One row per dancer: the copy's row stays if they already shortlisted the kept page.
+  { table: 'artist_shortlist', col: 'profile_id', same: 'x.dancer_id = t.dancer_id' },
   { table: 'profile_members', col: 'profile_id', same: 'x.dancer_id = t.dancer_id' },
   { table: 'profile_claims', col: 'profile_id', same: 'x.dancer_id = t.dancer_id' },
   { table: 'profile_owner_suggestions', col: 'profile_id', same: 'x.dancer_id = t.dancer_id', idCol: 'dancer_id' },

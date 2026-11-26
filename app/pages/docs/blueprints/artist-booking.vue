@@ -23,7 +23,8 @@ useSeoMeta({
     <DocsBlueprint :bp="artistBookingBlueprint">
       <template #about="{ updated }">
         Gaps are where markers cluster. Click a step for its code, or a gap below to light up its steps.
-        Built from the code on {{ updated }} (<NuxtLink to="/artists" class="underline">/artists</NuxtLink>, an artist’s
+        Built from the code on {{ updated }} (<NuxtLink to="/artists" class="underline">/artists</NuxtLink>,
+        <NuxtLink to="/shortlist" class="underline">/shortlist</NuxtLink>, an artist’s
         /@handle/book, the line-up invite, <NuxtLink to="/gigs" class="underline">/gigs</NuxtLink> and the MCP tools);
         not yet run end to end with a test artist and organiser. The line-up steps overlap the
         <NuxtLink to="/docs/blueprints/event-setup" class="underline">event setup blueprint</NuxtLink>, seen from the

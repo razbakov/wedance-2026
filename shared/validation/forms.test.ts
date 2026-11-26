@@ -18,6 +18,7 @@ import {
   ResetPasswordSchema,
   RidePostSchema,
   VideoSubmissionSchema,
+  shortlistDetailsSchema,
   validateForm,
 } from './index'
 import { EVENT_ARTISTS_MAX, PASS_DESCRIPTION_MAX, PRACTICAL_INFO_LINE_MAX } from '../utils/eventLimits'
@@ -243,6 +244,23 @@ describe('RenameHandleSchema', () => {
     expect(errorOf(validateForm(RenameHandleSchema, { handle: ' ' }))).toBe('Pick a handle.')
     const r = validateForm(RenameHandleSchema, { handle: 'Salsa_Munich' })
     expect(r.success && r.data.handle).toBe('salsa_munich')
+  })
+})
+
+describe('shortlistDetailsSchema (RAZ-1085)', () => {
+  it('keeps a wedding tag and a trimmed note', () => {
+    const result = validateForm(shortlistDetailsSchema, { occasion: 'wedding', note: '  Ask about travel  ' })
+    expect(result).toEqual({ success: true, data: { occasion: 'wedding', note: 'Ask about travel' } })
+  })
+
+  it('allows clearing the tag and the note', () => {
+    const result = validateForm(shortlistDetailsSchema, { occasion: '', note: '   ' })
+    expect(result.success && result.data).toEqual({ occasion: '', note: '' })
+  })
+
+  it('rejects an unknown tag and a note over 500 characters', () => {
+    expect(errorOf(validateForm(shortlistDetailsSchema, { occasion: 'festival', note: 'ok' }))).toBeTruthy()
+    expect(errorOf(validateForm(shortlistDetailsSchema, { occasion: 'birthday', note: 'a'.repeat(501) }))).toMatch(/500/)
   })
 })
 

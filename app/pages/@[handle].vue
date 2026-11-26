@@ -16,7 +16,7 @@ import { sizedImage, IMG } from '#shared/utils/image'
 import { venueTypeLabel, amenityLabel } from '#shared/types/venueDetails'
 import { eventLocalDate, eventLocalTime } from '#shared/utils/eventTime'
 import { bookingRequestSchema } from '#shared/validation'
-import { MapPin, Instagram, Youtube, Globe, Facebook, LayoutGrid, ArrowLeft, Check, Calendar, ScrollText, ShieldCheck, Trees, Plus, Heart, Send } from 'lucide-vue-next'
+import { MapPin, Instagram, Youtube, Globe, Facebook, LayoutGrid, ArrowLeft, Check, Calendar, ScrollText, ShieldCheck, Trees, Plus, Heart, Bookmark, Send } from 'lucide-vue-next'
 import { eventPath } from '#shared/utils/eventSlug'
 import { initialsOf } from '#shared/utils/initials'
 import { artistEventTypeLabel } from '#shared/utils/artistSearch'
@@ -130,6 +130,37 @@ async function toggleFollow() {
     console.error('follow.toggle failed', e)
     followError.value = "Couldn't update — please try again."
   } finally { followBusy.value = false }
+}
+
+// Shortlist is a private booking list (RAZ-1085). It does not follow the artist.
+const shortlisted = ref(false)
+const shortlistBusy = ref(false)
+const shortlistError = ref('')
+const showShortlistSignIn = ref(false)
+
+watch([() => data.value?.profile, isSignedIn], async ([p, signedIn]) => {
+  shortlisted.value = false
+  if (!p || p.type !== 'artist' || !signedIn) return
+  try {
+    const mine = await $trpc.shortlist.mine.query()
+    shortlisted.value = mine.some(row => row.username === p.username)
+  } catch {}
+}, { immediate: true })
+
+async function toggleShortlist() {
+  const p = data.value?.profile
+  if (!p || p.type !== 'artist' || shortlistBusy.value) return
+  if (!isSignedIn.value) { showShortlistSignIn.value = true; return }
+  shortlistBusy.value = true
+  shortlistError.value = ''
+  try {
+    const result = await $trpc.shortlist.toggle.mutate({ username: p.username, surface: 'profile_page' })
+    shortlisted.value = result.shortlisted
+    useTrack().track(result.shortlisted ? 'shortlist_add' : 'shortlist_remove', { profile: p.username, surface: 'profile_page' })
+  } catch (e) {
+    console.error('shortlist.toggle failed', e)
+    shortlistError.value = "Couldn't update your shortlist — please try again."
+  } finally { shortlistBusy.value = false }
 }
 
 const profile = computed(() => data.value?.profile ?? null)
@@ -317,6 +348,18 @@ useHead(() => ({
                 <Heart class="w-3.5 h-3.5" :class="following ? 'fill-white' : ''" aria-hidden="true" />
                 {{ following ? 'Following' : 'Follow' }}
               </Button>
+              <Button
+                v-if="profile.type === 'artist'"
+                :variant="shortlisted ? 'pill' : 'soft'"
+                size="pill-sm"
+                :disabled="shortlistBusy"
+                :aria-pressed="shortlisted"
+                @click="toggleShortlist"
+              >
+                <Bookmark class="w-3.5 h-3.5" :class="shortlisted ? 'fill-white' : ''" aria-hidden="true" />
+                {{ shortlisted ? 'Shortlisted' : 'Shortlist' }}
+              </Button>
+              <NuxtLink v-if="profile.type === 'artist'" to="/shortlist" class="text-xs font-bold text-primary font-sans">Your shortlist</NuxtLink>
               <span v-if="showFollow && followerCount" class="text-xs text-muted-foreground font-sans">
                 {{ followerCount }} follower{{ followerCount === 1 ? '' : 's' }}
               </span>
@@ -324,7 +367,11 @@ useHead(() => ({
                 {{ following ? `${profile.name || profile.username} can email you their news. Unfollow to stop.` : `Following lets ${profile.name || profile.username} email you their news.` }}
               </span>
               <span v-if="followError" role="alert" class="w-full text-xs font-bold text-destructive font-sans">{{ followError }}</span>
+              <span v-if="shortlistError" role="alert" class="w-full text-xs font-bold text-destructive font-sans">{{ shortlistError }}</span>
             </div>
+            <p v-if="profile.type === 'artist'" class="mt-2 text-xs text-muted-foreground font-sans">
+              Shortlist is your private booking list. Follow is for their events.
+            </p>
             <div v-if="profile.moderatorName" class="mt-4 flex items-center gap-1.5 text-xs text-secondary font-sans">
               <ShieldCheck class="w-3.5 h-3.5" /> Moderated by the {{ profile.moderatorName }}<span v-if="profile.moderatorSince"> · since {{ profile.moderatorSince }}</span>
             </div>
@@ -489,5 +536,6 @@ useHead(() => ({
         </template>
       </div>
     </div>
+    <SignUpModal v-model:open="showShortlistSignIn" action="signin" />
   </div>
 </template>

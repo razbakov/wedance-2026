@@ -71,7 +71,7 @@ const tabs = computed(() => props.mode === 'dance'
     ])
 
 const meActive = computed(() => appearsSignedIn.value && (meOpen.value
-  || (props.mode === 'dance' && (under('/settings') || (!!displayUsername.value && under(`/u/${displayUsername.value}`))))
+  || (props.mode === 'dance' && (under('/settings') || under('/shortlist') || (!!displayUsername.value && under(`/u/${displayUsername.value}`))))
   // On Admin the sheet holds most sections: light the tab when one of them is open.
   || (props.mode === 'admin' && sectionLinks.value.some(l => l.active))))
 

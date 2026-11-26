@@ -28,7 +28,7 @@ export const KNOWN_SEGMENTS = new Set([
   'about', 'admin', 'artists', 'auth', 'battle', 'book', 'booking-terms', 'business', 'charanga', 'cities', 'confirm', 'dance-card', 'docs',
   'elections', 'events', 'festivals', 'find-your-dance', 'for-events', 'for-organizers', 'for-sponsors', 'for-venues',
   'gigs', 'imprint', 'meet', 'my-plan', 'my-year', 'oauth', 'onboarding', 'open', 'organizers', 'press', 'privacy-policy',
-  'settings', 'sketches', 'terms', 'u', 'venues', 'w', 'whats-new',
+  'settings', 'shortlist', 'sketches', 'terms', 'u', 'venues', 'w', 'whats-new',
   // server routes + framework
   'api', 'mcp', '_nuxt', '__nuxt', '__nuxt_error', '_vercel', '.well-known',
   // public/ folders
