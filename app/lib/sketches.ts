@@ -40,6 +40,18 @@ const pr = (n: number): SketchLink => ({ label: `PR #${n}`, url: `https://github
 
 export const SKETCHES: Sketch[] = [
   {
+    slug: 'tell-your-story',
+    title: 'Tell your story after booking',
+    what: 'After Book my spot, one button opens My plan’s week story (a night this week) or the year story (a festival later). Before booking, Going together is only a lift, a room or a dinner. A class has no button. Toggles: before booking / this week / festival later / a class, desktop / mobile.',
+    why: '“Coming with friends? Share your plan” sat in Going together and opened a popup. It asked before anyone had booked, in the section for lifts and rooms, and almost nobody would use it.',
+    requestedBy: 'Alösha',
+    builtBy: 'Agent (Cursor)',
+    created: '2026-11-21',
+    status: 'shipped',
+    decision: 'After the spot is booked: “Tell your story” goes to My plan → Week, or Year for a later festival. Not before booking, not for a class, no popup.',
+    ticket: linear('RAZ-1010', 'improve-share-plan-flow-after-booking'),
+  },
+  {
     slug: 'event-review',
     title: 'Event reviews: where the rating shows, who gets asked',
     what: 'The event’s rating as stars under the picture; tapping them opens a Reviews tab next to Overview (the reviews leave the bottom of the page). And what changes after the night: people who went get "How was it?" in place of the Book button and a one-tap email the morning after; people who did not go get the next date. After 4–5★, a tip to the organiser, with a quiet "support WeDance". Toggles: before / after (went, did not go, reviewed), reviews / none, desktop / mobile.',

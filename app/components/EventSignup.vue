@@ -352,6 +352,15 @@ defineExpose({ start })
             <Button type="button" variant="link" size="sm" class="h-auto p-0" @click="confirmCancel = false">Keep my spot</Button>
           </div>
         </div>
+        <!-- RAZ-1010: tell people you know, once you're in. Meet stays the card under this. -->
+        <TellYourStory
+          v-if="!confirmCancel"
+          :type="eventType"
+          :is-festival="isFestival"
+          :start-date="startDate"
+          :timezone="timezone"
+          surface="signup"
+        />
       </div>
       <!-- RAZ-1007: the night you booked (the page fills it). -->
       <slot name="booked" :pass="saved?.pass ?? null" />

@@ -1,6 +1,6 @@
 ---
 description: "Dancer side: my plan, weekend share, dance friends, year in dance"
-globs: app/pages/my-plan.vue,app/pages/my-year.vue,app/pages/dance-card.vue,app/pages/meet/**,app/components/RitualSymbol.vue,shared/utils/ritual.ts,server/utils/ritual.ts,server/trpc/routers/ritual.ts,server/api/cron/ritual-followup.get.ts,app/pages/w/**,server/trpc/routers/plan*.ts,server/trpc/routers/weekend*.ts,server/trpc/routers/wave*.ts,server/api/match-emails/**,**/MyPlan*,**/myPlanFeeds*,**/weekendStory*,**/WeekendStory*,**/weekendShare*,**/storyLines*,**/storyCanvas*,**/meetMatch*,**/MeetMatch*,**/MeetFriends*,**/yearReview*,**/YearReview*,**/YearStory*,**/SharedYearPlan*,**/SharePlanModal*,**/SettingsEmails*
+globs: app/pages/my-plan.vue,app/pages/my-year.vue,app/pages/dance-card.vue,app/pages/meet/**,app/components/RitualSymbol.vue,shared/utils/ritual.ts,server/utils/ritual.ts,server/trpc/routers/ritual.ts,server/api/cron/ritual-followup.get.ts,app/pages/w/**,server/trpc/routers/plan*.ts,server/trpc/routers/weekend*.ts,server/trpc/routers/wave*.ts,server/api/match-emails/**,**/MyPlan*,**/myPlanFeeds*,**/weekendStory*,**/WeekendStory*,**/weekendShare*,**/storyLines*,**/storyCanvas*,**/meetMatch*,**/MeetMatch*,**/MeetFriends*,**/yearReview*,**/YearReview*,**/YearStory*,**/SharedYearPlan*,**/TellYourStory*,**/shareInvite*,**/SettingsEmails*
 alwaysApply: false
 ---
 <!-- Generated from .claude/rules/my-plan.md by scripts/ci/agent-context.ts. Edit the source, not this file. -->
@@ -22,10 +22,13 @@ bookings go to has no team), "I'm in" still puts the night on the friend's plan 
 nothing on the event's sign-up list. The sharer gets `sendWeekendJoinEmail` per new join. Entry points: My plan → "Your week" shows the story in place (nights only — classes stay off it) (`app/components/WeekendStory.vue`, shared with `/w/<code>`; the link is made when the list loads and again when its parties change — RAZ-895), MCP `share_my_weekend`
 (returns `storyUrl` = the link + `?story=1`, which shows the story maker to whoever opens it).
 Code: `server/trpc/routers/weekend.ts`, `shared/utils/weekendShare.ts`, `app/pages/w/[code].vue`.
-**One event (RAZ-1001):** an event page's "Bring friends" (`SharePlanModal`) shows the same `WeekendStory` card for
-that event alone (`weekend.share({ eventIds: [id], surface: 'event' })`; the picture says "<NAME> IS GOING", not
-"WEEKEND"). Signed out, or an event the share refuses (past, not an `events` row), gets the plain link instead; a picked
-workshop plan stays a separate `?invite=` link under the story.
+**After booking (RAZ-1010):** the event page does not open a share popup. Once a dancer is booked and signed in,
+"Tell your story" (`TellYourStory`, `storyAfterBooking` in `app/lib/shareInvite.ts`) opens My plan: `#share-week`
+when the night is today or the next six days (the story already on the Week tab), `#share-year` for a festival
+later or one that has already started. A class, course, practica or workshop gets no button — the week story is
+nights only — and nothing is offered before they book, or while they are still confirming the email. Going together
+stays lifts, rooms and dinners. `weekend.share` `surface: 'event'` remains for a one-event link; the page no longer
+calls it. An old `?invite=` workshop-plan link still opens.
 No auto-posting: Instagram's publishing API is Business/Creator-only and the Meta app is in dev mode.
 
 
