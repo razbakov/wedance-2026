@@ -73,12 +73,16 @@ Given('an organizer has sent a booking request to an artist page', async ({ c3 }
     await sql(`DELETE FROM booking_inquiries WHERE id = $1`, [ask!.id])
     await sql(`DELETE FROM profile_members WHERE profile_id = ANY($1::uuid[])`, [[artist!.id, host!.id]])
     await sql(`DELETE FROM profiles WHERE id = ANY($1::uuid[])`, [[artist!.id, host!.id]])
+    await sql(`DELETE FROM sessions WHERE dancer_id = ANY($1::uuid[])`, [[artistUser!.id, hostUser!.id]])
     await sql(`DELETE FROM dancers WHERE id = ANY($1::uuid[])`, [[artistUser!.id, hostUser!.id]])
   })
 })
 
 Given('I am signed in as the booked artist', async ({ page, c3 }) => {
   await page.goto('/')
+  // The header button is in the first HTML. Wait until the click handler is
+  // attached, or the click lands on the shell and the dialog never opens.
+  await page.waitForLoadState('networkidle')
   await page.locator('header').getByRole('button', { name: 'Sign in' }).click()
   await expect(page.locator('[role="dialog"]')).toBeVisible()
   await page.getByLabel('Email').fill(c3.data.email)

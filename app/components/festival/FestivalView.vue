@@ -14,6 +14,7 @@ import { Button } from '~/components/ui/button'
 import type { EventFactsData } from '~/components/EventFacts.vue'
 import { artistPlaces, artistLanguages } from '~/data/artists'
 import { WD } from '~/lib/brand'
+import { ticketProvider } from '~/lib/outbound'
 import { accentText } from '~/lib/accent'
 
 // Status chip text on its own 9 % tint — darkened where the hue is too light for 4.5:1.
@@ -1273,6 +1274,7 @@ useHead({
     <!-- V3 header — same as /, /festivals, /organizers -->
     <SiteHeader />
 
+    <main>
     <div v-if="editTo" class="border-b bg-secondary/[8%] border-border">
       <div class="max-w-3xl mx-auto px-4 py-2 flex flex-wrap items-center gap-3 text-sm font-sans">
         <span class="text-muted-foreground">You manage this {{ kind }}.</span>
@@ -1415,8 +1417,15 @@ useHead({
                 />
               </template>
               <!-- Planning isn't signing up (RAZ-1003): "+ My plan" keeps it to decide later.
-                   Once you're in, the sign-up shows "On My plan" as a status instead. -->
+                   Once you're in, the sign-up shows "On My plan" as a status instead.
+                   An external ticket link stays beside both (RAZ-687): the sign-up slot
+                   replaces FestivalHero's default "Get tickets" button. -->
               <template #beside>
+                <Button v-if="festival.ticketUrl" as-child variant="outline-pill" class="px-5">
+                  <a :href="festival.ticketUrl" target="_blank" rel="noopener noreferrer" data-outbound-kind="ticket" @click="useTrack().track('ticket_cta_click', { entity: planAsEvent ? 'event' : 'festival', slug: festival.slug, festival: festival.slug, provider: ticketProvider(festival.ticketUrl) })">
+                    <Ticket aria-hidden="true" /> Get tickets
+                  </a>
+                </Button>
                 <Button type="button" :variant="inPlan ? 'pill' : 'outline-pill'" class="px-5 font-sans" :aria-pressed="inPlan" data-hero-my-plan @click="onPick">
                   <component :is="inPlan ? Check : Plus" aria-hidden="true" /> My plan
                 </Button>
@@ -2162,6 +2171,7 @@ useHead({
       :event-id="data.eventId"
     />
 
+    </main>
 
     <SiteFooter />
   </div>
