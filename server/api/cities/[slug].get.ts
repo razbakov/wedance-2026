@@ -1,6 +1,8 @@
-import { and, eq } from 'drizzle-orm'
+import { and, eq, or } from 'drizzle-orm'
 import { useDb } from '../../utils/db'
 import { profiles } from '../../database/schema'
+import { artistTravelsToCity } from '../../utils/artistAreas'
+import { citySlug as toCitySlug } from '../../../shared/utils/citySearch'
 import cityImages from '../../data/city-images.json'
 
 type CityHero = { image: string; credit: string | null; license: string | null; licenseUrl: string | null; source: string; country?: string | null }
@@ -15,7 +17,16 @@ const heroes = cityImages as Record<string, CityHero>
  * page title reads e.g. "Salsa, Bachata & Kizomba in Munich …" — matching how
  * dancers actually search (by style), truthfully per city.
  */
-type Person = { username: string | null; name: string | null; photo: string | null; styles: string[] }
+type Person = {
+  username: string | null
+  name: string | null
+  photo: string | null
+  styles: string[]
+  eventTypes?: string[]
+  serviceAreas?: { city: string; citySlug: string }[]
+  /** Home city, when this artist travels here and lives somewhere else. */
+  basedIn?: string | null
+}
 export type CityDirectory = {
   city: string | null
   citySlug: string
@@ -38,13 +49,34 @@ export default defineEventHandler(async (event): Promise<CityDirectory> => {
       type: profiles.type,
       styles: profiles.styles,
       city: profiles.city,
+      citySlug: profiles.citySlug,
+      eventTypes: profiles.eventTypes,
+      serviceAreas: profiles.serviceAreas,
     })
     .from(profiles)
-    .where(and(eq(profiles.citySlug, citySlug), eq(profiles.status, 'visible')))
+    .where(and(
+      eq(profiles.status, 'visible'),
+      or(
+        eq(profiles.citySlug, citySlug),
+        and(eq(profiles.type, 'artist'), artistTravelsToCity(citySlug)),
+      ),
+    ))
 
-  const city = rows.find(r => r.city)?.city ?? null
+  // A traveling artist's home city must not become the name of this city.
+  const city = rows.find(r => r.citySlug === citySlug && r.city)?.city ?? null
+  const basedIn = (r: (typeof rows)[number]) => {
+    if (r.type !== 'artist' || !r.city) return null
+    const home = r.citySlug || toCitySlug(r.city)
+    return home && home !== citySlug ? r.city : null
+  }
   const pick = (t: string): Person[] =>
-    rows.filter(r => r.type === t).map(({ username, name, photo, styles }) => ({ username, name, photo, styles: styles ?? [] }))
+    rows.filter(r => r.type === t).map(r => ({
+      username: r.username,
+      name: r.name,
+      photo: r.photo,
+      styles: r.styles ?? [],
+      ...(t === 'artist' ? { eventTypes: r.eventTypes ?? [], serviceAreas: r.serviceAreas ?? [], basedIn: basedIn(r) } : {}),
+    }))
 
   // Style frequency across every profile in the city → top 3, first-seen casing.
   const counts = new Map<string, { label: string; n: number }>()
