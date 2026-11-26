@@ -30,6 +30,10 @@ describe('cleanServiceAreas', () => {
     ])).toEqual([munich, berlin])
   })
 
+  it('reads a city stored as city and citySlug', () => {
+    expect(cleanServiceAreas([{ city: 'Munich', citySlug: 'munich' }])).toEqual([munich])
+  })
+
   it('stops at the cap', () => {
     const many = Array.from({ length: SERVICE_AREAS_MAX + 5 }, (_, i) => ({ slug: `city-${i}`, name: `City ${i}` }))
     expect(cleanServiceAreas(many)).toHaveLength(SERVICE_AREAS_MAX)

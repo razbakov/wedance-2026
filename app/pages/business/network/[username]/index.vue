@@ -8,6 +8,7 @@ import { sizedImage, IMG } from '#shared/utils/image'
 import { ExternalLink, Star, Trash2, Check, Users, Palette, Inbox, Globe, Contact, X, Rocket } from 'lucide-vue-next'
 import { parseInstagramHandle } from '#shared/utils/instagram'
 import { SERVICE_AREAS_MAX } from '#shared/utils/serviceAreas'
+import { ARTIST_EVENT_TYPES, ARTIST_EVENT_TYPE_LABELS, type ArtistEventType } from '#shared/utils/artistSearch'
 import type { CityOption } from '#shared/utils/citySearch'
 import type { VenueDetailsValue } from '~/components/business/BusinessVenueDetails.vue'
 import { venueInfoToForm, venueInfoFromForm } from '#shared/types/venueInfo'
@@ -35,6 +36,8 @@ const form = reactive({
   photos: [] as { url: string }[],
   // Promoter pages: this promoter is an influencer (their deliverable is content).
   influencer: false,
+  // Private events this artist plays (RAZ-1086): wedding, birthday, corporate.
+  eventTypes: [] as ArtistEventType[],
 })
 // Venues: their details and rooms.
 const venue = reactive<VenueDetailsValue>({ address: '', venueType: '', floorType: '', capacity: null, amenities: [], openingHours: [], floorPlan: null, contact: {}, info: venueInfoToForm(null) })
@@ -75,13 +78,14 @@ async function load(quiet = false) {
     homeSlug.value = p.citySlug ?? ''
     Object.assign(form, {
       name: p.name, city: p.city, bio: p.bio, styles: [...p.styles],
-      serviceAreas: (p.serviceAreas ?? []).map(a => ({ ...a })),
+      serviceAreas: (p.serviceAreas ?? []).map(a => ({ slug: a.slug, name: a.name })),
       instagram: socialOf(p, 'instagram'), website: socialOf(p, 'website'), facebook: socialOf(p, 'facebook'),
       instagramAliases: [...p.instagramAliases],
       photo: p.photo,
       // Older profiles only have the single photo — show it in the gallery.
       photos: p.photos.length ? [...p.photos] : (p.photo ? [{ url: p.photo }] : []),
       influencer: p.influencer,
+      eventTypes: [...(p.eventTypes ?? [])],
     })
     Object.assign(venue, {
       address: p.address, venueType: p.venueType, floorType: p.floorType, capacity: p.capacity,
@@ -122,6 +126,10 @@ function makeMainInstagram(h: string) {
   const main = parseInstagramHandle(form.instagram)
   form.instagramAliases = [...form.instagramAliases.filter(a => a !== h), ...(main ? [main] : [])]
   form.instagram = `https://instagram.com/${h}`
+}
+
+function toggleEventType(type: ArtistEventType, on: boolean) {
+  form.eventTypes = on ? [...form.eventTypes, type] : form.eventTypes.filter(t => t !== type)
 }
 
 function removePhoto(url: string) {
@@ -185,7 +193,6 @@ async function save() {
       type: profileType.value as any,
       name: form.name,
       city: form.city,
-      ...(profileType.value === 'artist' ? { serviceAreas: form.serviceAreas.map(a => a.name) } : {}),
       bio: form.bio,
       styles: form.styles,
       socials,
@@ -193,6 +200,7 @@ async function save() {
       photo: form.photo,
       photos: form.photos,
       ...(profileType.value === 'promoter' ? { influencer: form.influencer } : {}),
+      ...(profileType.value === 'artist' ? { eventTypes: form.eventTypes, serviceAreas: form.serviceAreas.map(a => a.name) } : {}),
       ...(p.type === 'venue' ? {
         address: venue.address, floorType: venue.floorType, venueType: venue.venueType,
         capacity: venue.capacity || null, amenities: venue.amenities, openingHours: venue.openingHours.filter(h => h.hours.trim()),
@@ -306,6 +314,18 @@ const photoHint = computed(() => loaded.value?.type === 'artist'
             <Field label="Dance styles" class="sm:col-span-2">
               <DanceStylePicker v-model="form.styles" />
             </Field>
+            <div v-if="profileType === 'artist'" class="sm:col-span-2">
+              <p class="text-sm font-bold">Event types <span class="font-normal text-muted-foreground">(optional)</span></p>
+              <p class="text-xs text-muted-foreground">So organizers can find you for a wedding, birthday or corporate event.</p>
+              <div class="mt-1 flex flex-wrap gap-x-4">
+                <Checkbox
+                  v-for="type in ARTIST_EVENT_TYPES"
+                  :key="type"
+                  :model-value="form.eventTypes.includes(type)"
+                  @update:model-value="on => toggleEventType(type, !!on)"
+                >{{ ARTIST_EVENT_TYPE_LABELS[type] }}</Checkbox>
+              </div>
+            </div>
             <div v-if="profileType === 'promoter'" class="sm:col-span-2">
               <Checkbox v-model="form.influencer" class="items-start">
                 <span class="font-bold">I’m an influencer</span>

@@ -4,7 +4,7 @@ import { router, publicProcedure } from '../trpc'
 import { profiles, bookableSpaces, networkLinks } from '../../database/schema'
 import { personForPage } from '../../utils/personPage'
 import { canonicalCityName, profileInCity } from '../../utils/serviceAreas'
-import { cityDisplayName, cleanServiceAreas, peopleInCity, tallyCities } from '../../../shared/utils/serviceAreas'
+import { cityDisplayName, cleanServiceAreas, listedInCity, peopleInCity, tallyCities } from '../../../shared/utils/serviceAreas'
 
 /**
  * Professional profiles (venue / artist / organizer) resolved by handle for the
@@ -37,14 +37,20 @@ export const entityRouter = router({
           name: profiles.name,
           photo: profiles.photo,
           city: profiles.city,
+          citySlug: profiles.citySlug,
           styles: profiles.styles,
           languages: profiles.languages,
           bio: profiles.bio,
+          eventTypes: profiles.eventTypes,
           serviceAreas: profiles.serviceAreas,
         })
         .from(profiles)
         .where(and(eq(profiles.type, 'artist'), eq(profiles.status, 'visible')))
-      return rows.map(r => ({ ...r, serviceAreas: cleanServiceAreas(r.serviceAreas) }))
+      return rows.map(r => ({
+        ...r,
+        eventTypes: r.eventTypes ?? [],
+        serviceAreas: cleanServiceAreas(r.serviceAreas),
+      }))
     }),
 
   // Distinct cities that have any migrated profile — the /cities directory.
@@ -78,13 +84,25 @@ export const entityRouter = router({
           styles: profiles.styles,
           city: profiles.city,
           citySlug: profiles.citySlug,
+          eventTypes: profiles.eventTypes,
           serviceAreas: profiles.serviceAreas,
         })
         .from(profiles)
         .where(and(eq(profiles.status, 'visible'), profileInCity(input.citySlug)))
       const city = cityDisplayName(rows, input.citySlug, await canonicalCityName(ctx.db, input.citySlug))
       const pick = (t: string) => peopleInCity(rows, input.citySlug, t)
-      return { city, citySlug: input.citySlug, venues: pick('venue'), artists: pick('artist'), organizers: pick('organizer'), promoters: pick('promoter') }
+      const artists = rows.filter(r => r.type === 'artist' && listedInCity(r, input.citySlug)).map(r => ({
+        username: r.username,
+        name: r.name,
+        photo: r.photo,
+        styles: r.styles ?? [],
+        city: r.city ?? null,
+        citySlug: r.citySlug ?? null,
+        eventTypes: r.eventTypes ?? [],
+        serviceAreas: r.serviceAreas ?? [],
+        basedIn: r.citySlug !== input.citySlug ? (r.city ?? null) : null,
+      }))
+      return { city, citySlug: input.citySlug, venues: pick('venue'), artists, organizers: pick('organizer'), promoters: pick('promoter') }
     }),
 
   // Bookable venues in a city — surfaced on the city page.
@@ -144,6 +162,7 @@ export const entityRouter = router({
           photos: profiles.photos,
           bio: profiles.bio,
           styles: profiles.styles,
+          eventTypes: profiles.eventTypes,
           languages: profiles.languages,
           address: profiles.address,
           floorType: profiles.floorType,
@@ -198,6 +217,7 @@ export const entityRouter = router({
           photos: (p.photos ?? []) as { url: string }[],
           bio: p.bio ?? null,
           styles: p.styles ?? [],
+          eventTypes: p.eventTypes ?? [],
           languages: p.languages ?? [],
           address: p.address ?? null,
           floorType: p.floorType ?? null,

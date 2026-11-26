@@ -37,7 +37,8 @@
  */
 import { sql } from 'drizzle-orm'
 import { parseInstagramHandle } from '../../shared/utils/instagram'
-import { unionServiceAreas } from '../../shared/utils/serviceAreas'
+import { unionServiceAreas, withoutHomeCity } from '../../shared/utils/serviceAreas'
+import { cleanEventTypes } from '../../shared/utils/artistSearch'
 
 export type DupRow = {
   id: string
@@ -224,8 +225,8 @@ export function renameInEvent(ev: { artists: string[] | null; coOrganizers?: { u
 
 const FILL = ['photo', 'bio', 'city', 'city_slug', 'address', 'lat', 'lng', 'map_url', 'venue_type', 'floor_type', 'capacity', 'floor_plan'] as const
 // The kept profile's columns a merge may change — snapshotted so an undo puts them back.
-const SNAPSHOT = [...FILL, 'socials', 'photos', 'styles', 'amenities', 'contact', 'venue_info', 'instagram_aliases', 'service_areas'] as const
-const JSON_COLS: Record<string, 'json' | 'jsonb'> = { socials: 'json', styles: 'json', photos: 'jsonb', amenities: 'jsonb', contact: 'jsonb', venue_info: 'jsonb', instagram_aliases: 'jsonb', service_areas: 'jsonb' }
+const SNAPSHOT = [...FILL, 'socials', 'photos', 'styles', 'amenities', 'contact', 'venue_info', 'instagram_aliases', 'event_types', 'service_areas'] as const
+const JSON_COLS: Record<string, 'json' | 'jsonb'> = { socials: 'json', styles: 'json', photos: 'jsonb', amenities: 'jsonb', contact: 'jsonb', venue_info: 'jsonb', instagram_aliases: 'jsonb', event_types: 'jsonb', service_areas: 'jsonb' }
 
 /**
  * Every column that points at a profile by id. `same` = the other columns of a
@@ -388,6 +389,8 @@ export async function mergeProfile(db: any, from: { id: string; username: string
   const photos = [...(a.photos ?? [])]
   for (const p of (b.photos ?? []) as any[]) if (!photos.some((x: any) => x.url === p.url)) photos.push(p)
   const styles = (a.styles ?? []).length ? a.styles : (b.styles ?? [])
+  // Event types (RAZ-1086) and service areas (RAZ-1083): keep both, drop the kept page's home city.
+  const eventTypes = cleanEventTypes([...(a.event_types ?? []), ...(b.event_types ?? [])])
   const amenities = (a.amenities ?? []).length ? a.amenities : (b.amenities ?? [])
   const contact = { ...(b.contact ?? {}), ...(a.contact ?? {}) }
   // The venue's hints (RAZ-1012): the kept page's own win, the copy fills what it hasn't said.
@@ -395,12 +398,13 @@ export async function mergeProfile(db: any, from: { id: string; username: string
   // The copy's Instagram accounts become aliases of the one that stays (its main one stays main).
   const mainIg = instagramHandles({ socials })
   const aliases = [...new Set([...instagramHandles(a), ...instagramHandles(b)])].filter(h => !mainIg.includes(h))
-  // Service area (RAZ-1083): both cities, minus the home city of the page that stays.
+  // Both cities, minus the home city of the page that stays (by slug or by the same name).
   const homeSlug = (fill.includes('city_slug') ? b.city_slug : a.city_slug) as string | null
-  const serviceAreas = unionServiceAreas(a.service_areas, b.service_areas, homeSlug)
+  const homeName = (fill.includes('city') ? b.city : a.city) as string | null
+  const serviceAreas = withoutHomeCity(unionServiceAreas(a.service_areas, b.service_areas, homeSlug), [homeSlug], homeName)
   await q(sql`update profiles set socials = ${JSON.stringify(socials)}::json, photos = ${JSON.stringify(photos)}::jsonb, styles = ${JSON.stringify(styles)}::json,
     amenities = ${JSON.stringify(amenities)}::jsonb, contact = ${JSON.stringify(contact)}::jsonb, venue_info = ${JSON.stringify(venueInfo)}::jsonb, instagram_aliases = ${JSON.stringify(aliases)}::jsonb,
-    service_areas = ${JSON.stringify(serviceAreas)}::jsonb where id = ${to.id}`)
+    event_types = ${JSON.stringify(eventTypes)}::jsonb, service_areas = ${JSON.stringify(serviceAreas)}::jsonb where id = ${to.id}`)
   // Hide the copy, pointing at the one that stays.
   await q(sql`update profiles set status = 'hidden', source_ref = coalesce(source_ref, '{}'::jsonb) || ${JSON.stringify({ mergedInto: to.username, mergedAt: new Date().toISOString() })}::jsonb where id = ${from.id}`)
   return { touched, filled: fill, mergeId }

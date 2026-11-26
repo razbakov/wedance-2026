@@ -20,8 +20,10 @@ export function cleanServiceAreas(raw: unknown): ServiceArea[] {
   const seen = new Set<string>()
   for (const item of raw) {
     if (!item || typeof item !== 'object') continue
-    const slug = String((item as { slug?: unknown }).slug ?? '').trim().toLowerCase()
-    const name = String((item as { name?: unknown }).name ?? '').trim().replace(/\s+/g, ' ')
+    // RAZ-1083 stores { slug, name }. RAZ-1086 stores { city, citySlug }. Either is a city.
+    const rec = item as { slug?: unknown; name?: unknown; city?: unknown; citySlug?: unknown }
+    const slug = String(rec.slug ?? rec.citySlug ?? '').trim().toLowerCase()
+    const name = String(rec.name ?? rec.city ?? '').trim().replace(/\s+/g, ' ')
     if (!slug || !name || name.length > 120 || !SLUG.test(slug) || seen.has(slug)) continue
     seen.add(slug)
     out.push({ slug, name })

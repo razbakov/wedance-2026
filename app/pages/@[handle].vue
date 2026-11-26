@@ -19,6 +19,7 @@ import { bookingRequestSchema } from '#shared/validation'
 import { MapPin, Instagram, Youtube, Globe, Facebook, LayoutGrid, ArrowLeft, Check, Calendar, ScrollText, ShieldCheck, Trees, Plus, Heart, Send } from 'lucide-vue-next'
 import { eventPath } from '#shared/utils/eventSlug'
 import { initialsOf } from '#shared/utils/initials'
+import { artistEventTypeLabel } from '#shared/utils/artistSearch'
 
 definePageMeta({ layout: false })
 
@@ -288,6 +289,9 @@ useHead(() => ({
             </div>
             <BioText v-if="profile.bio" :text="profile.bio" class="mt-5 text-sm leading-relaxed text-muted-foreground font-sans" />
             <DanceStyleChips :styles="profile.styles || []" class="mt-3 gap-1.5" />
+            <p v-if="profile.type === 'artist' && profile.eventTypes?.length" class="mt-3 text-sm text-muted-foreground font-sans">
+              {{ profile.eventTypes.map(t => artistEventTypeLabel(t)).join(' · ') }}
+            </p>
             <div v-if="profile.languages?.length" class="mt-2 flex flex-wrap items-center gap-1.5">
               <span class="text-eyebrow uppercase tracking-wider text-secondary font-sans">Speaks</span>
               <span v-for="lang in profile.languages" :key="lang" class="text-eyebrow font-bold tracking-wide px-1.5 py-0.5 rounded font-sans bg-wd-cyan-600/8 text-wd-cyan-700">{{ langLabel[lang] || lang.toUpperCase() }}</span>

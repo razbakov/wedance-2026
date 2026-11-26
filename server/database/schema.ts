@@ -459,12 +459,14 @@ export const profiles = pgTable('profiles', {
   name: text('name').notNull(),
   city: text('city'),
   citySlug: text('city_slug'),
-  // Cities besides the home city where an artist is listed (RAZ-1083, migration 0081).
-  // [{ slug, name }] — slug is cities.slug. Empty for venues and organisers; only artists are queried by it.
-  serviceAreas: jsonb('service_areas').$type<import('../../shared/utils/serviceAreas').ServiceArea[]>().notNull().default([]),
+  // Cities besides the home city where an artist is listed (RAZ-1083 and RAZ-1086, migration 0081).
+  // Stored as { city, citySlug } or { slug, name }. Empty for venues and organisers; only artists are queried by it.
+  serviceAreas: jsonb('service_areas').$type<Array<{ slug?: string; name?: string; city?: string; citySlug?: string }>>().notNull().default([]),
   photo: text('photo'),
   bio: text('bio'),
   styles: json('styles').$type<string[]>().default([]),
+  // Private occasions an artist plays (0081, RAZ-1086): wedding, birthday, corporate.
+  eventTypes: jsonb('event_types').$type<import('../../shared/utils/artistSearch').ArtistEventType[]>().notNull().default([]),
   // Spoken languages (ISO 639-1 codes, e.g. ['en', 'es', 'de']).
   languages: json('languages').$type<string[]>().default([]),
   address: text('address'),

@@ -17,8 +17,8 @@ import { mergeProfile, moveHandleRefs, undoMerge } from '../../utils/mergeProfil
 import { pageUsage, deleteBlocker, deleteProfile } from '../../utils/deleteProfile'
 import { findLikelyDuplicates, linksInstagramSql, notMerged } from '../../utils/profileDupes'
 import { scheduleInstagramImport } from '../../utils/instagram/profileImport'
-import { resolveServiceAreas } from '../../utils/serviceAreas'
-import { cleanServiceAreas, SERVICE_AREAS_MAX, withoutHomeCity } from '../../../shared/utils/serviceAreas'
+import { artistDiscoveryFields, artistDiscoveryShape } from '../../utils/artistAreas'
+import { cleanServiceAreas, withoutHomeCity } from '../../../shared/utils/serviceAreas'
 
 /**
  * Business mode — artists, venues and organizers managing their own profile.
@@ -477,6 +477,7 @@ export const businessRouter = router({
         citySlug: p.citySlug ?? '',
         serviceAreas: cleanServiceAreas(p.serviceAreas),
         styles: p.styles ?? [],
+        eventTypes: p.eventTypes ?? [],
         photo: p.photo ?? null,
         photos: p.photos ?? [],
         socials: p.socials ?? [],
@@ -550,12 +551,13 @@ export const businessRouter = router({
       influencer: z.boolean().optional(),
       // Other Instagram accounts of this business (#458); the main one is in socials.
       instagramAliases: z.array(z.string().trim().min(1).max(300)).max(10).optional(),
-      // Artists only: other cities they play in. Replaces the list. [] clears it.
-      serviceAreas: z.array(z.string().trim().min(1).max(120)).max(SERVICE_AREAS_MAX).optional(),
+      // Artists only: private events they play, and other cities they play in. Replaces each list. [] clears it.
+      eventTypes: artistDiscoveryShape.eventTypes.optional(),
+      serviceAreas: artistDiscoveryShape.serviceAreas.optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const p = await requireMember(ctx, input.username)
-      const { username: _u, influencer, instagramAliases, venueInfo, serviceAreas: serviceAreaNames, ...fields } = input
+      const { username: _u, influencer, instagramAliases, venueInfo, eventTypes, serviceAreas, ...fields } = input
       const set: Record<string, unknown> = { ...fields }
       if (venueInfo) {
         if (p.type !== 'venue') throw new TRPCError({ code: 'BAD_REQUEST', message: 'Only venue pages have getting-there hints.' })
@@ -578,13 +580,13 @@ export const businessRouter = router({
         set.citySlug = await citySlugFor(ctx.db, fields.city || null)
       }
       const nextType = fields.type ?? p.type
-      const homeName = fields.city !== undefined ? (fields.city || null) : p.city
+      const homeName = fields.city !== undefined ? (fields.city || null) : (p.city ?? null)
       const homeSlugs = [fields.city !== undefined ? (set.citySlug as string | null) : p.citySlug]
-      if (serviceAreaNames !== undefined) {
-        if (nextType !== 'artist') throw new TRPCError({ code: 'BAD_REQUEST', message: 'Only artist pages have a service area.' })
-        set.serviceAreas = await resolveServiceAreas(ctx.db, serviceAreaNames, { slugs: homeSlugs, name: homeName })
+      if (eventTypes !== undefined || serviceAreas !== undefined) {
+        Object.assign(set, await artistDiscoveryFields(ctx.db, nextType, homeName, { eventTypes, serviceAreas }))
       } else if (nextType !== 'artist') {
         if (cleanServiceAreas(p.serviceAreas).length) set.serviceAreas = []
+        if ((p.eventTypes ?? []).length) set.eventTypes = []
       } else if (fields.city !== undefined) {
         set.serviceAreas = withoutHomeCity(cleanServiceAreas(p.serviceAreas), homeSlugs, homeName)
       }
