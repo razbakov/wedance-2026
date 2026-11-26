@@ -266,6 +266,7 @@ export const PROFILE_REFS: { table: string; col: string; same?: string; notSelf?
   { table: 'booking_requests', col: 'profile_id' },
   { table: 'booking_requests', col: 'organizer_id' },
   { table: 'booking_inquiries', col: 'profile_id' },
+  { table: 'booking_inquiries', col: 'asker_profile_id' },
   { table: 'inbound_requests', col: 'profile_id' },
   { table: 'brand_looks', col: 'profile_id' },
   { table: 'guideline_versions', col: 'profile_id' },

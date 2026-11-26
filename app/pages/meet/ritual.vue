@@ -12,6 +12,7 @@
  */
 import { ArrowLeft, Calendar, MapPin, Ticket, Users } from 'lucide-vue-next'
 import { sizedImage, IMG } from '#shared/utils/image'
+import { metDayLabel } from '#shared/utils/nightWhen'
 import { nightCopy, ritualFollowup, type RitualProblem } from '#shared/utils/ritual'
 
 definePageMeta({ layout: false })
@@ -32,6 +33,9 @@ interface Night {
   starts: string
   startTime: string
   whenLabel: string
+  startISO: string
+  timezone: string | null
+  ended: boolean
 }
 interface RitualData {
   you: { firstName: string }
@@ -46,7 +50,8 @@ interface MatchRow {
   name: string
   photo: string | null
   city: string
-  night: { name: string, venue: string } | null
+  night: { name: string, venue: string, meetup?: boolean } | null
+  met: { name: string } | null
 }
 
 const route = useRoute()
@@ -85,7 +90,7 @@ const facts = computed(() => ({
 const t = computed(() => nightCopy(facts.value))
 const email = computed(() => ritualFollowup(facts.value, 'https://2026.wedance.vip/meet/ritual', 'https://2026.wedance.vip/api/match-emails/off'))
 
-type Step = 'loading' | 'signed-out' | 'none' | 'pick' | 'not-match' | 'match' | 'instructions' | 'reveal' | 'help' | 'morning'
+type Step = 'loading' | 'signed-out' | 'none' | 'pick' | 'not-match' | 'match' | 'met' | 'instructions' | 'reveal' | 'help' | 'morning'
 const step = computed<Step>(() => {
   if (authLoading.value) return 'loading'
   if (!isSignedIn.value) return 'signed-out'
@@ -93,8 +98,9 @@ const step = computed<Step>(() => {
   if (!otherId.value) return matches.value.length ? 'pick' : 'none'
   if (notMatch.value || !data.value) return notMatch.value ? 'not-match' : 'loading'
   if (route.query.morning === '1' && data.value.state.booked) return 'morning'
-  if (route.query.help === '1' && data.value.state.booked) return 'help'
-  if (showing.value) return 'reveal'
+  if (route.query.help === '1' && data.value.state.booked && !data.value.night?.ended) return 'help'
+  if (showing.value && !data.value.night?.ended) return 'reveal'
+  if (data.value.night?.ended && data.value.state.booked) return 'met'
   if (backToMatch.value || !data.value.state.booked || !data.value.night) return 'match'
   return 'instructions'
 })
@@ -338,7 +344,7 @@ async function follow() {
                 <img v-if="m.photo" :src="sizedImage(m.photo, IMG.avatar)" alt="" class="size-12 rounded-full object-cover">
                 <span class="min-w-0">
                   <span class="block truncate font-bold">{{ m.name }}</span>
-                  <span class="block truncate text-xs text-muted-foreground">{{ m.night ? `${m.night.name}${m.night.venue ? ` · ${m.night.venue}` : ''}` : m.city }}</span>
+                  <span class="block truncate text-xs text-muted-foreground">{{ m.night?.meetup ? `${m.night.name}${m.night.venue ? ` · ${m.night.venue}` : ''}` : (m.met ? `You met at ${m.met.name}` : m.city) }}</span>
                 </span>
               </NuxtLink>
             </li>
@@ -390,6 +396,19 @@ async function follow() {
               </a>
             </p>
             <p v-if="error" class="mt-2 text-center text-sm text-destructive" role="alert">{{ error }}</p>
+          </div>
+        </section>
+
+        <!-- A booked night that is over. Not the next meetup. -->
+        <section v-else-if="step === 'met' && data?.night" class="flex flex-1 flex-col" data-testid="ritual-met">
+          <h1 id="ritual-title" tabindex="-1" class="font-display text-4xl leading-tight outline-none">You met</h1>
+          <p class="mt-3 text-sm text-muted-foreground">
+            You met at {{ data.night.name }} · {{ metDayLabel(data.night.startISO, data.night.timezone) }}
+          </p>
+          <div class="mt-auto pt-8">
+            <Button as-child variant="cta" size="lg" class="w-full">
+              <NuxtLink to="/my-plan#dance-friends">Back to your dance friends</NuxtLink>
+            </Button>
           </div>
         </section>
 

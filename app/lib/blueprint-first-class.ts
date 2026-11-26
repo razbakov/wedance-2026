@@ -7,12 +7,12 @@
  * /cities/[city] "Your first class" (shared/utils/taster.ts), /events/[id]
  * EventSignup → rsvp.signUp (RAZ-995), auth.requestMagicLink, recordSignupContact
  * (server/utils/rsvpContact.ts), contactMailing (RAZ-975), My plan courses.
- * Re-read against the code on 2026-11-18 (RAZ-1072). Not run end to end yet.
+ * Re-read against the code on 2026-11-25 (RAZ-1095). Not run end to end yet.
  * Shown at /docs/blueprints/first-class.
  */
 import type { Blueprint, BpGap, BpLaneDef, BpPhaseDef, BpStep } from './blueprint'
 
-export const FIRST_CLASS_BLUEPRINT_UPDATED = '2026-11-18'
+export const FIRST_CLASS_BLUEPRINT_UPDATED = '2026-11-25'
 
 export type FirstClassLane = 'newcomer' | 'system' | 'school'
 export type FirstClassPhase = 'curious' | 'style' | 'find' | 'signup' | 'before' | 'back'
@@ -35,7 +35,7 @@ export const firstClassPhases: BpPhaseDef<FirstClassPhase>[] = [
 export const firstClassSteps: BpStep<FirstClassLane, FirstClassPhase>[] = [
   // Curious
   { id: 'arrive', phase: 'curious', lane: 'newcomer', name: 'Land on WeDance', status: 'partial', marks: [], route: '/',
-    note: 'The homepage is the My plan landing (ChatGPT, Meet new friends, My plan); it says nothing to someone who has never danced. “Find your dance” is a header / Explore link, and the /about page still has the beginner CTA. City pages from search are the other way in.' },
+    note: 'The homepage opens on Everyone: the My plan landing (Tell your story, ChatGPT, Meet new friends). Artists, Organizers and Venues are tabs on the same page. It still says nothing to someone who has never danced. “Find your dance” is a header / Explore link, and the /about page still has the beginner CTA. City pages from search are the other way in.' },
   { id: 'onboard', phase: 'curious', lane: 'system', name: 'Onboarding: “Learn a dance”', status: 'partial', marks: [], route: '/onboarding', code: 'auth.completeOnboarding',
     note: 'Only after signing up, which a newcomer rarely does first. “Learn a dance” collects nothing — no city, no style — and sends you to /find-your-dance, where you pick a city again.' },
 
