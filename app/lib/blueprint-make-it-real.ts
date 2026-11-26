@@ -9,7 +9,7 @@
  * (profile_owner_suggestions), artistInvites.claim / confirmEmail
  * (/confirm/<token>), business.merge (findLikelyDuplicates), the v3 / Instagram
  * fill rules (grant() sets profiles.claimed), rsvp.people / EventWhosComing,
- * /dance-card. Re-read against the code on 2026-11-18 (RAZ-1072): the steps
+ * /dance-card. Re-read against the code on 2026-11-25 (RAZ-1072): the steps
  * still match the claim, merge and faces code. Not run end to end with a test
  * owner yet. Shown at /docs/blueprints/make-it-real.
  */
@@ -46,7 +46,7 @@ export const realSteps: BpStep<RealLane, RealPhase>[] = [
   { id: 'suggest', phase: 'appears', lane: 'system', name: 'Guess the owner', status: 'partial', marks: ['silent'], code: 'profile_owner_suggestions (0058) · scripts/import-page-owner-suggestions.ts',
     note: 'From wedance.vip’s own edit rule: the page is their account (v3-own), they are on its team (v3-team), or they created it (v3-creator, only if they created ≤5 pages). Stored, but only admins ever see it.' },
   { id: 'listed', phase: 'appears', lane: 'dancer', name: 'See a listed page', status: 'partial', marks: [], route: '/@handle',
-    note: 'Looks like any other page: photo, bio, schedule. The only hint that nobody runs it is the small “Is this you? Claim this page →” at the bottom of the card.' },
+    note: 'Looks like any other page: photo, bio, schedule. An artist page also shows the private events they play and the cities they travel to, when those are set. The only hint that nobody runs it is the small “Is this you? Claim this page →” at the bottom of the card.' },
 
   // Owner finds it
   { id: 'nobody-tells', phase: 'find', lane: 'system', name: 'Tell the owner', status: 'missing', marks: ['silent'],
@@ -78,7 +78,7 @@ export const realSteps: BpStep<RealLane, RealPhase>[] = [
   { id: 'lock', phase: 'run', lane: 'system', name: 'Stop overwriting it', status: 'live', marks: [], code: 'grant() sets profiles.claimed · v3ProfileSync · profileImport',
     note: 'Once anyone is on the team the page is claimed: the wedance.vip sync and the Instagram import never write it again (re-checked at write time).' },
   { id: 'edit', phase: 'run', lane: 'owner', name: 'Fix the page', status: 'live', marks: [], route: '/business/network/[handle]',
-    note: 'Name, photo, bio, links, handle (old handle redirects), team and roles, Instagram connection (#501), events.' },
+    note: 'Name, photo, bio, links, handle (old handle redirects), team and roles, Instagram connection (#501), events. An artist page also saves the private events they play (wedding, birthday, corporate) and the cities they travel to.' },
   { id: 'show-person', phase: 'run', lane: 'owner', name: 'Show who runs it', status: 'partial', marks: [], route: '/settings', code: 'PersonDancerSide · public page (#474)', refs: ['#474'],
     note: 'Only for the one page a person sets as “Your public page”: /@handle then shows their dancer side. The team behind any other page stays invisible.' },
 

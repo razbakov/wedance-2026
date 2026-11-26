@@ -462,6 +462,10 @@ export const profiles = pgTable('profiles', {
   photo: text('photo'),
   bio: text('bio'),
   styles: json('styles').$type<string[]>().default([]),
+  // Private occasions an artist plays (0081, RAZ-1086): wedding, birthday, corporate.
+  eventTypes: jsonb('event_types').$type<import('../../shared/utils/artistSearch').ArtistEventType[]>().notNull().default([]),
+  // Cities an artist travels to, besides `city` (0081). [{ city, citySlug }].
+  serviceAreas: jsonb('service_areas').$type<import('../../shared/utils/artistSearch').ArtistServiceArea[]>().notNull().default([]),
   // Spoken languages (ISO 639-1 codes, e.g. ['en', 'es', 'de']).
   languages: json('languages').$type<string[]>().default([]),
   address: text('address'),

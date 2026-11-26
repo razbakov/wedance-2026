@@ -17,6 +17,7 @@ import { mergeProfile, moveHandleRefs, undoMerge } from '../../utils/mergeProfil
 import { pageUsage, deleteBlocker, deleteProfile } from '../../utils/deleteProfile'
 import { findLikelyDuplicates, linksInstagramSql, notMerged } from '../../utils/profileDupes'
 import { scheduleInstagramImport } from '../../utils/instagram/profileImport'
+import { artistDiscoveryFields, artistDiscoveryShape } from '../../utils/artistAreas'
 
 /**
  * Business mode — artists, venues and organizers managing their own profile.
@@ -473,6 +474,8 @@ export const businessRouter = router({
         bio: p.bio ?? '',
         city: p.city ?? '',
         styles: p.styles ?? [],
+        eventTypes: p.eventTypes ?? [],
+        serviceAreas: p.serviceAreas ?? [],
         photo: p.photo ?? null,
         photos: p.photos ?? [],
         socials: p.socials ?? [],
@@ -546,10 +549,13 @@ export const businessRouter = router({
       influencer: z.boolean().optional(),
       // Other Instagram accounts of this business (#458); the main one is in socials.
       instagramAliases: z.array(z.string().trim().min(1).max(300)).max(10).optional(),
+      // Artists only (RAZ-1086): private events they play, and cities they travel to.
+      eventTypes: artistDiscoveryShape.eventTypes.optional(),
+      serviceAreas: artistDiscoveryShape.serviceAreas.optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const p = await requireMember(ctx, input.username)
-      const { username: _u, influencer, instagramAliases, venueInfo, ...fields } = input
+      const { username: _u, influencer, instagramAliases, venueInfo, eventTypes, serviceAreas, ...fields } = input
       const set: Record<string, unknown> = { ...fields }
       if (venueInfo) {
         if (p.type !== 'venue') throw new TRPCError({ code: 'BAD_REQUEST', message: 'Only venue pages have getting-there hints.' })
@@ -571,6 +577,8 @@ export const businessRouter = router({
         set.city = fields.city || null
         set.citySlug = await citySlugFor(ctx.db, fields.city || null)
       }
+      const homeCity = fields.city !== undefined ? (fields.city || null) : (p.city ?? null)
+      Object.assign(set, await artistDiscoveryFields(ctx.db, fields.type ?? p.type, homeCity, { eventTypes, serviceAreas }))
       // The hero must be one of the gallery photos (or empty).
       if (fields.photos && fields.photo === undefined && p.photo && !fields.photos.some(ph => ph.url === p.photo)) {
         set.photo = fields.photos[0]?.url ?? null
