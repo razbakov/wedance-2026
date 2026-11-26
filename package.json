@@ -43,7 +43,7 @@
     "drizzle-orm": "^0.45.1",
     "firebase-scrypt": "^2.2.0",
     "lucide-vue-next": "^0.577.0",
-    "nuxt": "^4.4.2",
+    "nuxt": "^4.6.4",
     "posthog-js": "^1.400.1",
     "qrcode": "^1.5.4",
     "radix-vue": "^1.9.17",
