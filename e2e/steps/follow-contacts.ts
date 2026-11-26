@@ -1,5 +1,5 @@
 /**
- * Steps for e2e/features/follow-contacts.feature (RAZ-1092): Follow → Contacts.
+ * Steps for e2e/features/follow-contacts.feature (RAZ-1092, RAZ-1100): Follow → Contacts.
  * Synthetic rows in the local test database, removed by the `c3` fixture's cleanups.
  */
 import { expect, type Page } from '@playwright/test'
@@ -38,34 +38,49 @@ async function signInAs(page: Page, c3: C3World, who: 'owner' | 'fan') {
   ])
 }
 
-Given('an artist page run by its owner', async ({ c3 }) => {
+const PAGE_TYPES = ['artist', 'organizer', 'venue'] as const
+type PageType = (typeof PAGE_TYPES)[number]
+
+async function seedPage(c3: C3World, type: PageType) {
   const owner = await dancer(c3, 'owner')
   const fan = await dancer(c3, 'fan')
-  const handle = `follow-artist-${c3.run}`
+  const handle = `follow-${type}-${c3.run}`
+  const pageName = `${type === 'artist' ? 'DJ' : type === 'venue' ? 'Hall' : 'Club'} Follow ${c3.run}`
   const [p] = await sql<{ id: string }>(
-    `INSERT INTO profiles (username, type, name, city) VALUES ($1, 'artist', $2, 'Munich') RETURNING id`,
-    [handle, `DJ Follow ${c3.run}`],
+    `INSERT INTO profiles (username, type, name, city) VALUES ($1, $2, $3, 'Munich') RETURNING id`,
+    [handle, type, pageName],
   )
   await sql(`INSERT INTO profile_members (profile_id, dancer_id, role) VALUES ($1, $2, 'owner')`, [p!.id, owner])
-  Object.assign(c3.data, { handle, artistName: `DJ Follow ${c3.run}` })
+  Object.assign(c3.data, { handle, pageName, artistName: pageName })
   c3.cleanup.push(async () => {
-    await sql(`DELETE FROM follows WHERE dancer_id = ANY($1::uuid[]) OR profile_id = $2`, [[owner, fan], p!.id])
+    // follows.profile_id has no ON DELETE CASCADE, so it goes before the page.
+    await sql(`DELETE FROM follows WHERE profile_id = $1 OR dancer_id = ANY($2::uuid[])`, [p!.id, [owner, fan]])
     await sql(`DELETE FROM profile_members WHERE profile_id = $1`, [p!.id])
     await sql(`DELETE FROM profiles WHERE id = $1`, [p!.id])
     await sql(`DELETE FROM sessions WHERE dancer_id = ANY($1::uuid[])`, [[owner, fan]])
     await sql(`DELETE FROM dancers WHERE id = ANY($1::uuid[])`, [[owner, fan]])
   })
-})
+}
+
+Given('an artist page run by its owner', async ({ c3 }) => { await seedPage(c3, 'artist') })
+Given('an organizer page run by its owner', async ({ c3 }) => { await seedPage(c3, 'organizer') })
+Given('a venue page run by its owner', async ({ c3 }) => { await seedPage(c3, 'venue') })
 
 Given('I am signed in as the fan', async ({ page, c3 }) => { await signInAs(page, c3, 'fan') })
 
-When('I open the artist page', async ({ page, c3 }) => {
+async function openThePage({ page, c3 }: { page: Page; c3: C3World }) {
   await page.goto(`${baseUrl()}/@${c3.data.handle}`)
-})
+}
 
-Then('I am told that following lets the artist email me', async ({ page, c3 }) => {
-  await expect(page.getByTestId('follow-email-note')).toHaveText(`Following lets ${c3.data.artistName} email you their news.`)
-})
+When('I open the artist page', openThePage)
+When('I open the page', openThePage)
+
+async function toldAboutEmail({ page, c3 }: { page: Page; c3: C3World }) {
+  await expect(page.getByTestId('follow-email-note')).toHaveText(`Following lets ${c3.data.pageName} email you their news.`)
+}
+
+Then('I am told that following lets the artist email me', toldAboutEmail)
+Then('I am told that following lets the page email me', toldAboutEmail)
 
 When('I tap Follow', async ({ page }) => {
   await page.getByRole('button', { name: 'Follow', exact: true }).click()
@@ -75,9 +90,16 @@ Then('the button says {string}', async ({ page }, label: string) => {
   await expect(page.getByRole('button', { name: label, exact: true })).toBeVisible()
 })
 
-When('the owner opens the artist\'s Contacts', async ({ page, c3 }) => {
+async function ownerOpensContacts({ page, c3 }: { page: Page; c3: C3World }) {
   await signInAs(page, c3, 'owner')
   await page.goto(`${baseUrl()}/business/network/${c3.data.handle}/contacts`)
+}
+
+When('the owner opens the artist\'s Contacts', ownerOpensContacts)
+When('the owner opens the page\'s Contacts', ownerOpensContacts)
+
+Then('the page shows {int} follower(s)', async ({ page }, n: number) => {
+  await expect(page.getByText(n === 1 ? '1 follower' : `${n} followers`)).toBeVisible()
 })
 
 Then('the fan is listed with their email as {string}', async ({ page, c3 }, source: string) => {
@@ -87,6 +109,6 @@ Then('the fan is listed with their email as {string}', async ({ page, c3 }, sour
 })
 
 Then('the page can email {int} contact(s)', async ({ page }, n: number) => {
-  // The page intro also says "can be emailed". The count is "N can be emailed".
-  await expect(page.getByText(`${n} can be emailed`)).toBeVisible()
+  // The page intro also says "can be emailed". The count is the stats line: "N can be emailed".
+  await expect(page.getByText(`${n} can be emailed`, { exact: false })).toBeVisible()
 })
