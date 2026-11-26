@@ -77,7 +77,7 @@ const IT: [UxJourneyId, UxStageKey, string, string, UxStatus, string, string][] 
 ['C1','return','Follow-up after first class','','partial','The morning after a class or party, everyone who signed up gets "How was it?" (#632). It asks for a review; it does not point a first-timer at next week\'s social at the same school.','#632'],
 ['C1','spread','Bring a friend to a taster','event page','partial','The class page has Bring friends: one link, the story card (#638 #642). The taster list itself has no invite.','#638 #642'],
 // C2 Student
-['C2','discover','Artist directory + search','/artists','live','Search by name and style, filter by city.','P219 P221 P222'],
+['C2','discover','Artist directory + search','/artists','live','Search by name and style, filter by service area (including artists who travel) and event type.','P219 P221 P222'],
 ['C2','discover','City artists tab','/cities/[city]/artists','live','','RAZ-169'],
 ['C2','evaluate','Teacher profile','/@handle','live','Bio, styles, schedule of their classes and events, reviews.','P501'],
 ['C2','evaluate','Reviews','/@handle','live','ReviewsSection on profiles.',''],

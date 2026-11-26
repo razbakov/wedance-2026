@@ -44,13 +44,13 @@ export const artistSteps: BpStep<ArtistLane, ArtistPhase>[] = [
 
   // Be found
   { id: 'directory', phase: 'found', lane: 'organizer', name: 'Browse /artists', status: 'partial', marks: [], route: '/artists', code: 'entity.listArtists',
-    note: 'Every visible artist page, filtered by city, style and name in the browser; the city page’s “Who’s on the floor” has the same people. It shows no fee, no availability and no past line-ups, and nothing says whether the artist runs the page and will see a request.' },
+    note: 'Every visible artist page, filtered by name, dance style, event type (wedding, birthday, corporate) and service area. A city includes artists based there and artists who list it as a place they travel to; the city artists page filters that list by style and event type. It shows no fee, no availability and no past line-ups, and nothing says whether the artist runs the page and will see a request.' },
   { id: 'profile', phase: 'found', lane: 'organizer', name: 'Look at /@handle', status: 'live', marks: [], route: '/@[handle]', code: 'entity.getByHandle · ReviewsSection',
     note: 'Bio, photos, videos and socials, the upcoming events they are in the line-up of, reviews, and a Book button that opens /@handle/book.' },
   { id: 'shortlist', phase: 'found', lane: 'organizer', name: 'Shortlist artists to compare', status: 'live', marks: [], route: '/shortlist', code: 'shortlist.toggle · shortlist.save · shortlist.mine', refs: ['RAZ-1085'],
     note: 'On an artist’s /@handle and on /artists, Shortlist saves them to a private board at /shortlist. The organiser tags a wedding, birthday, corporate event or other, and writes a note only they see. Follow stays the way to see the artist’s events: shortlisting does not follow them, and the artist is not told. The board lines the same facts up — photo, city, styles, the tag, the note, and Book — so two artists can be compared. It shows no fee and no availability, which the page does not have yet.' },
   { id: 'assistant', phase: 'found', lane: 'system', name: 'Found through an AI app', status: 'live', marks: [], code: 'MCP find_lineup → businessEvents.searchProfiles · list_artists',
-    note: 'An organiser’s assistant searches pages by name or handle for a line-up, or lists a city’s artists. If nothing is found, add_profile_from_instagram makes the page.' },
+    note: 'An organiser’s assistant searches pages by name or handle for a line-up, or lists a city’s artists, optionally by dance style and event type (wedding, birthday, corporate). The city includes artists who travel there. If nothing is found, add_profile_from_instagram makes the page.' },
   { id: 'offer', phase: 'found', lane: 'artist', name: 'Post an offer on /gigs', status: 'partial', marks: ['manual'], route: '/gigs', code: 'gigs.create (kind offer)',
     note: 'An artist can post what they offer (DJ sets, workshops, shows). An organiser answers it by email only, through a mailto: link. WeDance keeps no record, so the artist never sees who replied.' },
 

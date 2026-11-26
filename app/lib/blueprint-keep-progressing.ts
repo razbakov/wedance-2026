@@ -8,7 +8,8 @@
  * request_private_class (inquiries.*), course series
  * (businessEvents.createSeries, MCP recurring_series), sign-ups (rsvp.signUp)
  * and the school's Contacts. Re-read against the code on 2026-11-25
- * (RAZ-1089: a yes on a private-class request emails the student). Not run end to end with a test student and school yet.
+ * (RAZ-1072; RAZ-1089: a yes on a private-class request emails the student).
+ * Not run end to end with a test student and school yet.
  * Shown at /docs/blueprints/keep-progressing.
  */
 import type { Blueprint, BpGap, BpLaneDef, BpPhaseDef, BpStep } from './blueprint'
@@ -46,7 +47,7 @@ export const keepSteps: BpStep<KeepLane, KeepPhase>[] = [
 
   // Find a teacher
   { id: 'artists', phase: 'find', lane: 'student', name: 'Browse /artists', status: 'live', marks: [], route: '/artists', code: 'entity.listArtists', refs: ['P219', 'P221', 'P222'],
-    note: 'Search by name, filter by city and style. Teachers sit next to DJs and performers: no “teaches” filter, no level, nothing that says who runs a weekly class near you.' },
+    note: 'Search by name, dance style, event type (wedding, birthday, corporate) and service area — a city includes artists who travel there. Teachers sit next to DJs and performers: no “teaches” filter, no level, nothing that says who runs a weekly class near you.' },
   { id: 'teacher-page', phase: 'find', lane: 'student', name: 'Teacher page', status: 'live', marks: [], route: '/@handle', code: 'entity.getByHandle · EventSchedule', refs: ['P501'],
     note: 'Bio, styles, languages, socials and the schedule of their classes and events, then reviews. “Book <name>” and Follow sit under the photo.' },
   { id: 'reviews', phase: 'find', lane: 'student', name: 'Read / write reviews', status: 'partial', marks: [], route: '/@handle', code: 'ReviewsSection · review.create (MCP write_review)',

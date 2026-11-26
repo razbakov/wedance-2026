@@ -5,7 +5,12 @@ import { sizedImage, IMG } from '#shared/utils/image'
  * (entity.listArtists). The tRPC client is client-only, so we fetch on mount.
  * Each card links to the unified /@<handle> profile.
  */
-import { displayDanceStyle, sameDanceStyle, sortDanceStyles } from '#shared/dance-styles'
+import { displayDanceStyle, sortDanceStyles } from '#shared/dance-styles'
+import {
+  ARTIST_EVENT_TYPES, ARTIST_EVENT_TYPE_LABELS, artistAreaChoices,
+  artistMatchesSearch, artistTravelsTo, normalizeArtistEventType,
+} from '#shared/utils/artistSearch'
+import { citySlug } from '#shared/utils/citySearch'
 import { Bookmark, ChevronDown, Heart, MapPin, Search } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
 import { Field } from '~/components/ui/field'
@@ -23,7 +28,18 @@ useHead({
   ],
 })
 
-type Artist = { username: string; name: string; photo: string | null; city: string | null; styles: string[]; languages: string[]; bio: string | null }
+type Artist = {
+  username: string
+  name: string
+  photo: string | null
+  city: string | null
+  citySlug: string | null
+  styles: string[]
+  languages: string[]
+  bio: string | null
+  eventTypes: string[]
+  serviceAreas: { city: string; citySlug: string }[]
+}
 
 const langLabel: Record<string, string> = { en: 'EN', es: 'ES', de: 'DE', fr: 'FR', pt: 'PT', it: 'IT', ru: 'RU', hu: 'HU', sl: 'SL' }
 
@@ -75,8 +91,17 @@ async function toggleShortlist(artist: Artist) {
   }
 }
 
-const searchQuery = ref('')
-const selectedStyle = ref('')
+const route = useRoute()
+const router = useRouter()
+function queryValue(key: string) {
+  const v = route.query[key]
+  return String(Array.isArray(v) ? v[0] ?? '' : v ?? '')
+}
+
+const searchQuery = ref(queryValue('q'))
+const selectedStyle = ref(queryValue('style'))
+const selectedEvent = ref(normalizeArtistEventType(queryValue('event')) ?? '')
+const selectedCity = ref(queryValue('city') || queryValue('area'))
 
 const allStyles = computed(() => {
   const s = new Set<string>()
@@ -85,30 +110,48 @@ const allStyles = computed(() => {
   return sortDanceStyles(Array.from(s))
 })
 
-const allCities = computed(() => {
-  const s = new Set<string>()
-  artists.value.forEach((a) => { if (a.city) s.add(a.city) })
-  return Array.from(s).sort()
+const allAreas = computed(() => artistAreaChoices(artists.value))
+
+watch(allAreas, (areas) => {
+  if (!selectedCity.value) return
+  const want = citySlug(selectedCity.value)
+  const hit = areas.find(area => citySlug(area) === want || area.toLowerCase() === selectedCity.value.toLowerCase())
+  if (hit && hit !== selectedCity.value) selectedCity.value = hit
 })
 
-const route = useRoute()
-const cityParam = (Array.isArray(route.query.city) ? route.query.city[0] : route.query.city) || ''
-const selectedCity = ref(String(cityParam))
+const filtered = computed(() => artists.value.filter(a => artistMatchesSearch(a, {
+  query: searchQuery.value,
+  style: selectedStyle.value,
+  eventType: selectedEvent.value,
+  serviceArea: selectedCity.value,
+})))
 
-const filtered = computed(() => {
-  const q = searchQuery.value.trim().toLowerCase()
-  return artists.value.filter((a) => {
-    const matchesText = !q
-      || a.name.toLowerCase().includes(q)
-    const matchesCity = !selectedCity.value
-      || (a.city && a.city.toLowerCase() === selectedCity.value.toLowerCase())
-    const matchesStyle = !selectedStyle.value
-      || (a.styles || []).some(s => sameDanceStyle(s, selectedStyle.value))
-    return matchesText && matchesCity && matchesStyle
-  })
+const eventPhrase: Record<string, string> = { wedding: 'weddings', birthday: 'birthdays', corporate: 'corporate events' }
+const filtersSet = computed(() => [searchQuery.value.trim(), selectedCity.value, selectedStyle.value, selectedEvent.value].filter(Boolean).length)
+
+function clearFilters() {
+  searchQuery.value = ''
+  selectedCity.value = ''
+  selectedStyle.value = ''
+  selectedEvent.value = ''
+}
+
+watch([searchQuery, selectedStyle, selectedEvent, selectedCity], () => {
+  const next: Record<string, string | string[]> = { ...route.query }
+  const set = (key: string, value: string) => {
+    if (value) next[key] = value
+    else delete next[key]
+  }
+  set('q', searchQuery.value.trim())
+  set('city', selectedCity.value)
+  delete next.area
+  set('style', selectedStyle.value)
+  set('event', selectedEvent.value)
+  const same = ['q', 'city', 'style', 'event', 'area'].every(key => String(route.query[key] ?? '') === String(next[key] ?? ''))
+  if (!same) router.replace({ query: next })
 })
 
-useTrackSearch('artists', () => ({ query: searchQuery.value, filters: { city: selectedCity.value, style: selectedStyle.value } }), () => filtered.value.length)
+useTrackSearch('artists', () => ({ query: searchQuery.value, filters: { city: selectedCity.value, style: selectedStyle.value, event: selectedEvent.value } }), () => filtered.value.length)
 
 const accents = [WD.red600, WD.cyan600, WD.green600, WD.purple500, WD.amber500, WD.pink500, WD.violet600]
 </script>
@@ -125,7 +168,7 @@ const accents = [WD.red600, WD.cyan600, WD.green600, WD.purple500, WD.amber500, 
         Who moves <em class="italic text-primary">the floor.</em>
       </h1>
       <p class="mt-3 text-base leading-relaxed max-w-xl mx-auto text-muted-foreground">
-        Teachers, DJs, and performers — follow them across festivals and cities.
+        Teachers, DJs, and performers — for classes, weddings, birthdays and corporate events.
       </p>
     </section>
 
@@ -144,7 +187,7 @@ const accents = [WD.red600, WD.cyan600, WD.green600, WD.purple500, WD.amber500, 
           </Field>
 
           <!-- Native selects styled as filter pills (filled when active) — Field supplies the label. -->
-          <Field v-if="allCities.length" v-slot="{ id }" label="Filter by city" hide-label class="relative">
+          <Field v-if="allAreas.length" v-slot="{ id }" label="Filter by service area" hide-label class="relative">
             <select
               :id="id"
               v-model="selectedCity"
@@ -154,9 +197,9 @@ const accents = [WD.red600, WD.cyan600, WD.green600, WD.purple500, WD.amber500, 
                 : { background: 'white', color: 'var(--wd-brown-700)', border: '1px solid color-mix(in srgb, var(--wd-brown-900) 20%, transparent)' }"
             >
               <option value="">
-                All cities
+                All areas
               </option>
-              <option v-for="city in allCities" :key="city" :value="city">
+              <option v-for="city in allAreas" :key="city" :value="city">
                 {{ city }}
               </option>
             </select>
@@ -182,6 +225,25 @@ const accents = [WD.red600, WD.cyan600, WD.green600, WD.purple500, WD.amber500, 
             <ChevronDown class="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none" :style="{ color: selectedStyle ? 'white' : WD.brown700 }" aria-hidden="true" />
           </Field>
 
+          <Field v-slot="{ id }" label="Filter by event type" hide-label class="relative">
+            <select
+              :id="id"
+              v-model="selectedEvent"
+              class="h-9 pl-3 pr-8 rounded-full text-xs font-bold appearance-none cursor-pointer outline-none font-sans"
+              :style="selectedEvent
+                ? { background: 'var(--wd-brown-900)', color: 'var(--wd-cream)' }
+                : { background: 'white', color: 'var(--wd-brown-700)', border: '1px solid color-mix(in srgb, var(--wd-brown-900) 20%, transparent)' }"
+            >
+              <option value="">
+                All events
+              </option>
+              <option v-for="type in ARTIST_EVENT_TYPES" :key="type" :value="type">
+                {{ ARTIST_EVENT_TYPE_LABELS[type] }}
+              </option>
+            </select>
+            <ChevronDown class="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none" :style="{ color: selectedEvent ? WD.cream : WD.brown700 }" aria-hidden="true" />
+          </Field>
+
           <NuxtLink to="/shortlist" class="text-xs font-bold text-primary font-sans whitespace-nowrap">Your shortlist</NuxtLink>
           <span class="text-xs ml-auto whitespace-nowrap text-secondary font-hand" style="font-size:16px;" aria-live="polite">
             {{ filtered.length }} artist{{ filtered.length === 1 ? '' : 's' }}
@@ -203,12 +265,15 @@ const accents = [WD.red600, WD.cyan600, WD.green600, WD.purple500, WD.amber500, 
       >
         <Search class="w-8 h-8 mx-auto mb-3 text-secondary" />
         <p class="text-sm text-muted-foreground font-sans">
-          <template v-if="selectedCity && searchQuery">No artists in {{ selectedCity }} match "{{ searchQuery }}"</template>
-          <template v-else-if="selectedCity">No artists listed in {{ selectedCity }} yet</template>
+          <template v-if="filtersSet > 1">Nothing matches these filters.</template>
+          <template v-else-if="selectedCity && searchQuery">No artists in {{ selectedCity }} match "{{ searchQuery }}"</template>
+          <template v-else-if="selectedCity">No artists play in {{ selectedCity }} yet</template>
           <template v-else-if="searchQuery">Nothing matches "{{ searchQuery }}"</template>
+          <template v-else-if="selectedStyle">No artists dance {{ displayDanceStyle(selectedStyle) }} yet</template>
+          <template v-else-if="selectedEvent">No artists list {{ eventPhrase[selectedEvent] }} yet</template>
           <template v-else>No artists yet.</template>
         </p>
-        <Button v-if="searchQuery || selectedCity || selectedStyle" type="button" variant="link" class="mt-2 h-auto p-0 text-xs font-bold underline font-sans" @click="searchQuery = ''; selectedCity = ''; selectedStyle = ''">
+        <Button v-if="filtersSet" type="button" variant="link" class="mt-2 h-auto p-0 text-xs font-bold underline font-sans" @click="clearFilters">
           Clear filters
         </Button>
       </div>
@@ -263,6 +328,9 @@ const accents = [WD.red600, WD.cyan600, WD.green600, WD.purple500, WD.amber500, 
             </h2>
             <p v-if="a.city" class="text-xs inline-flex items-center gap-1 mt-0.5 text-white/80 font-sans">
               <MapPin class="w-3 h-3" /> {{ a.city }}
+            </p>
+            <p v-if="artistTravelsTo(a, selectedCity)" class="text-[11px] mt-0.5 text-white/90 font-sans">
+              Travels here
             </p>
             <div v-if="a.languages?.length" class="flex gap-1 mt-1">
               <span v-for="l in a.languages.slice(0, 3)" :key="l" class="text-[9px] font-bold tracking-wide px-1 py-px rounded text-white/90" style="background:rgba(255,255,255,0.2); backdrop-filter: blur(4px);">{{ langLabel[l] || l.toUpperCase() }}</span>
