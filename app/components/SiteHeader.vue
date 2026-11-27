@@ -34,7 +34,7 @@ const onPlan = computed(() => under('/my-plan') || under('/my-year'))
 
 <template>
   <header class="border-b border-border">
-    <div class="max-w-6xl mx-auto px-4 h-14 sm:h-16 flex items-center gap-6">
+    <div class="relative max-w-6xl mx-auto px-4 h-14 sm:h-16 flex items-center gap-6">
       <Brand class="shrink-0" />
 
       <!-- Desktop: public sections -->

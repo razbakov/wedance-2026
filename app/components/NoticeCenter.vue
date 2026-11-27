@@ -41,7 +41,10 @@ function open(id: string, via: 'toast' | 'bell') {
 </script>
 
 <template>
-  <div v-if="mounted && isSignedIn" ref="root" class="relative">
+  <!-- Static on phones so the panel anchors to the header bar (SiteHeader's
+       relative row) and spans the screen; the bell isn't the rightmost icon
+       there, so a bell-anchored panel ran off the left edge. -->
+  <div v-if="mounted && isSignedIn" ref="root" class="sm:relative">
     <button
       type="button"
       class="relative inline-flex size-10 items-center justify-center rounded-full text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -61,7 +64,7 @@ function open(id: string, via: 'toast' | 'bell') {
 
     <div
       v-if="bellOpen"
-      class="absolute right-0 z-50 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-2xl border bg-card p-2 shadow-wd-card"
+      class="absolute inset-x-4 top-full z-50 mt-1 rounded-2xl sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-80 border bg-card p-2 shadow-wd-card"
       style="border-color: color-mix(in srgb, var(--wd-brown-900) 13.3%, transparent);"
       role="dialog"
       aria-label="Notifications"
